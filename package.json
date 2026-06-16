@@ -1,0 +1,41 @@
+{
+  "name": "kanji-srs",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "npm@11.10.1",
+  "engines": {
+    "node": ">=20.11.0",
+    "npm": ">=10.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c cyan,green \"npm run dev --workspace @kanji-srs/api\" \"npm run dev --workspace @kanji-srs/web\"",
+    "build": "npm run build --workspaces --if-present",
+    "db:generate": "npm run prisma:generate --workspace @kanji-srs/db",
+    "db:migrate": "npm run prisma:migrate:dev --workspace @kanji-srs/db",
+    "db:seed": "npm run prisma:seed --workspace @kanji-srs/db",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml,css}\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "@next/eslint-plugin-next": "^15.3.4",
+    "@types/node": "^22.15.32",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "concurrently": "^9.2.1",
+    "eslint": "^9.29.0",
+    "eslint-config-prettier": "^10.1.5",
+    "prettier": "^3.5.3",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.34.1",
+    "vitest": "^3.2.4"
+  }
+}

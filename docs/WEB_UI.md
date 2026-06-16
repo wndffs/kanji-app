@@ -1,0 +1,44 @@
+# Web UI plan
+
+## Pages
+
+- `/`: landing or redirect to dashboard.
+- `/login`, `/register`.
+- `/dashboard`.
+- `/lessons` and `/lessons/session/[id]`.
+- `/reviews` and `/reviews/session/[id]`.
+- `/items/[id]`.
+- `/kanji/[character]`.
+- `/search`.
+- `/decks` and `/decks/new/text`.
+- `/settings`.
+- `/admin`.
+
+## MVP review UX
+
+- Prompt area.
+- Item type badge.
+- Input box with autofocus.
+- Submit with Enter.
+- Feedback panel.
+- Continue with Enter.
+- Show accepted answer after wrong answer.
+- Add private synonym/meaning from feedback panel.
+- Preserve keyboard flow.
+
+## Lesson UX
+
+- Explain the item.
+- Show relationships.
+- Show reading/meaning.
+- Show mnemonic/hint.
+- Quick check.
+- Add to SRS.
+
+## Mobile requirements
+
+- Single-column layout.
+- Large tap targets.
+- Sticky answer input in reviews.
+- Avoid hover-only UI.
+- Keep text readable for Japanese and Russian.

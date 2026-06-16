@@ -1,0 +1,714 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LicenseScope {
+  OPEN_DATA
+  PROJECT_AUTHORED
+  USER_PRIVATE
+}
+
+enum ImportRunStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum ImportedRecordType {
+  KANJIDIC2_CHARACTER
+  JMDICT_ENTRY
+  KANJIVG_CHARACTER
+  TATOEBA_SENTENCE
+  PROJECT_AUTHORED
+}
+
+enum ContentSourceKind {
+  IMPORTED
+  PROJECT_AUTHORED
+  USER_PRIVATE
+}
+
+enum KanjiReadingType {
+  ONYOMI
+  KUNYOMI
+  NANORI
+  OTHER
+}
+
+enum LearningItemKind {
+  COMPONENT
+  KANJI
+  WORD
+  SENTENCE
+}
+
+enum LearningTargetType {
+  COMPONENT
+  KANJI
+  WORD
+  SENTENCE
+}
+
+enum ContentStatus {
+  DRAFT
+  NEEDS_REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CardType {
+  LESSON
+  REVIEW
+}
+
+enum PromptType {
+  MEANING
+  READING
+  RECALL
+  CLOZE
+  RECOGNITION
+}
+
+enum AnswerType {
+  MEANING
+  READING
+}
+
+enum AnswerKind {
+  MEANING
+  READING
+}
+
+enum MnemonicType {
+  MEANING
+  READING
+  STORY
+}
+
+enum HintType {
+  MEANING
+  READING
+  USAGE
+}
+
+enum DependencyType {
+  COMPONENT_OF
+  PREREQUISITE
+  UNLOCKS
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum UserOverrideType {
+  ACCEPTED_MEANING
+  ACCEPTED_READING
+  BLOCKED_PERSONAL
+  NOTE
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum CourseType {
+  STRUCTURED
+  GOAL
+  DEMO
+}
+
+enum DeckType {
+  TEXT_MINING
+  CUSTOM
+}
+
+enum DeckStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum ReviewSessionMode {
+  REVIEW
+  LESSON_QUIZ
+  EXTRA_PRACTICE
+}
+
+enum ReviewResult {
+  CORRECT
+  WRONG
+  TYPO
+  REVEAL
+  MANUAL_IGNORE
+  RESURRECT
+}
+
+model License {
+  id                  String       @id @default(uuid()) @db.Uuid
+  name                String       @unique
+  spdxLikeId          String?
+  scope               LicenseScope @default(OPEN_DATA)
+  url                 String?
+  requiresAttribution Boolean      @default(false)
+  requiresShareAlike  Boolean      @default(false)
+  notes               String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  dataSources         DataSource[]
+  sentences           Sentence[]
+}
+
+model DataSource {
+  id              String      @id @default(uuid()) @db.Uuid
+  name            String      @unique
+  homepageUrl     String?
+  downloadUrl     String?
+  licenseId       String      @db.Uuid
+  attributionText String
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  license         License     @relation(fields: [licenseId], references: [id], onDelete: Restrict)
+  importRuns      ImportRun[]
+  sentences       Sentence[]
+
+  @@index([licenseId])
+}
+
+model ImportRun {
+  id             String           @id @default(uuid()) @db.Uuid
+  dataSourceId   String           @db.Uuid
+  sourceVersion  String?
+  sourceFileName String
+  checksumSha256 String
+  startedAt      DateTime         @default(now())
+  finishedAt     DateTime?
+  status         ImportRunStatus  @default(PENDING)
+  statsJson      Json?
+  errorText      String?
+  dataSource     DataSource       @relation(fields: [dataSourceId], references: [id], onDelete: Restrict)
+  records        ImportedRecord[]
+
+  @@unique([dataSourceId, checksumSha256])
+  @@index([dataSourceId, startedAt])
+  @@index([status])
+}
+
+model ImportedRecord {
+  id             String             @id @default(uuid()) @db.Uuid
+  importRunId    String             @db.Uuid
+  sourceRecordId String
+  recordType     ImportedRecordType
+  rawJson        Json
+  createdAt      DateTime           @default(now())
+  importRun      ImportRun          @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+
+  @@unique([importRunId, recordType, sourceRecordId])
+  @@index([sourceRecordId])
+  @@index([recordType])
+}
+
+model Component {
+  id            String            @id @default(uuid()) @db.Uuid
+  symbol        String            @unique
+  displayNameRu String
+  meaningRu     String
+  sourceKind    ContentSourceKind @default(PROJECT_AUTHORED)
+  notes         String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  kanjiLinks    KanjiComponent[]
+
+  @@index([displayNameRu])
+  @@index([meaningRu])
+}
+
+model Kanji {
+  id               String           @id @default(uuid()) @db.Uuid
+  character        String           @unique
+  strokeCount      Int?
+  grade            Int?
+  jlptLevel        Int?
+  frequencyRank    Int?
+  kanjidicSourceId String?          @unique
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  readings         KanjiReading[]
+  meanings         KanjiMeaning[]
+  components       KanjiComponent[]
+
+  @@index([jlptLevel])
+  @@index([frequencyRank])
+  @@index([kanjidicSourceId])
+}
+
+model KanjiReading {
+  id          String           @id @default(uuid()) @db.Uuid
+  kanjiId     String           @db.Uuid
+  reading     String
+  readingType KanjiReadingType
+  priority    Int              @default(0)
+  kanji       Kanji            @relation(fields: [kanjiId], references: [id], onDelete: Cascade)
+
+  @@unique([kanjiId, reading, readingType])
+  @@index([reading])
+  @@index([readingType])
+}
+
+model KanjiMeaning {
+  id         String            @id @default(uuid()) @db.Uuid
+  kanjiId    String            @db.Uuid
+  locale     String
+  meaning    String
+  isPrimary  Boolean           @default(false)
+  sourceKind ContentSourceKind @default(IMPORTED)
+  kanji      Kanji             @relation(fields: [kanjiId], references: [id], onDelete: Cascade)
+
+  @@unique([kanjiId, locale, meaning])
+  @@index([locale, meaning])
+  @@index([sourceKind])
+}
+
+model KanjiComponent {
+  id          String            @id @default(uuid()) @db.Uuid
+  kanjiId     String            @db.Uuid
+  componentId String            @db.Uuid
+  position    String?
+  sourceKind  ContentSourceKind @default(PROJECT_AUTHORED)
+  confidence  Float?
+  kanji       Kanji             @relation(fields: [kanjiId], references: [id], onDelete: Cascade)
+  component   Component         @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  @@unique([kanjiId, componentId, position])
+  @@index([componentId])
+  @@index([sourceKind])
+}
+
+model Word {
+  id             String      @id @default(uuid()) @db.Uuid
+  expression     String
+  reading        String
+  commonnessRank Int?
+  jlptLevel      Int?
+  jmdictEntryId  String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  senses         WordSense[]
+
+  @@unique([expression, reading])
+  @@index([expression])
+  @@index([reading])
+  @@index([jmdictEntryId])
+  @@index([jlptLevel])
+  @@index([commonnessRank])
+}
+
+model WordSense {
+  id           String            @id @default(uuid()) @db.Uuid
+  wordId       String            @db.Uuid
+  locale       String
+  meaning      String
+  partOfSpeech String
+  register     String?
+  tags         String[]          @default([])
+  sourceKind   ContentSourceKind @default(IMPORTED)
+  word         Word              @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@unique([wordId, locale, meaning, partOfSpeech])
+  @@index([wordId, locale])
+  @@index([locale, meaning])
+  @@index([partOfSpeech])
+  @@index([sourceKind])
+}
+
+model Sentence {
+  id            String      @id @default(uuid()) @db.Uuid
+  japaneseText  String
+  readingText   String?
+  translationRu String?
+  translationEn String?
+  difficulty    Int?
+  sourceId      String?
+  dataSourceId  String?     @db.Uuid
+  licenseId     String      @db.Uuid
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  dataSource    DataSource? @relation(fields: [dataSourceId], references: [id], onDelete: SetNull)
+  license       License     @relation(fields: [licenseId], references: [id], onDelete: Restrict)
+
+  @@unique([dataSourceId, sourceId])
+  @@index([japaneseText])
+  @@index([translationRu])
+  @@index([sourceId])
+  @@index([licenseId])
+}
+
+model LearningItem {
+  id               String             @id @default(uuid()) @db.Uuid
+  kind             LearningItemKind
+  targetType       LearningTargetType
+  targetId         String             @db.Uuid
+  title            String
+  levelHint        Int?
+  status           ContentStatus      @default(DRAFT)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  cards            LearningCard[]
+  mnemonics        Mnemonic[]
+  hints            Hint[]
+  dependencies     Dependency[]       @relation("LearningItemDependencies")
+  prerequisiteFor  Dependency[]       @relation("LearningItemPrerequisites")
+  courseLevelItems CourseLevelItem[]
+  deckItems        DeckItem[]
+  userMnemonics    UserMnemonic[]
+
+  @@unique([targetType, targetId])
+  @@index([kind, status])
+  @@index([levelHint])
+}
+
+model LearningCard {
+  id             String             @id @default(uuid()) @db.Uuid
+  learningItemId String             @db.Uuid
+  cardType       CardType
+  promptType     PromptType
+  answerType     AnswerType
+  locale         String
+  sortOrder      Int                @default(0)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  learningItem   LearningItem       @relation(fields: [learningItemId], references: [id], onDelete: Cascade)
+  answers        LearningAnswer[]
+  blockedAnswers BlockedAnswer[]
+  userOverrides  UserItemOverride[]
+  srsStates      UserSrsState[]
+  reviewAnswers  ReviewAnswer[]
+
+  @@unique([learningItemId, promptType, answerType, locale])
+  @@index([locale])
+  @@index([promptType, answerType])
+}
+
+model LearningAnswer {
+  id             String       @id @default(uuid()) @db.Uuid
+  learningCardId String       @db.Uuid
+  text           String
+  normalizedText String
+  answerKind     AnswerKind
+  locale         String
+  isPrimary      Boolean      @default(false)
+  learningCard   LearningCard @relation(fields: [learningCardId], references: [id], onDelete: Cascade)
+
+  @@unique([learningCardId, normalizedText, answerKind, locale])
+  @@index([normalizedText, locale])
+  @@index([answerKind])
+}
+
+model BlockedAnswer {
+  id             String       @id @default(uuid()) @db.Uuid
+  learningCardId String       @db.Uuid
+  text           String
+  normalizedText String
+  reason         String?
+  learningCard   LearningCard @relation(fields: [learningCardId], references: [id], onDelete: Cascade)
+
+  @@unique([learningCardId, normalizedText])
+  @@index([normalizedText])
+}
+
+model Mnemonic {
+  id             String            @id @default(uuid()) @db.Uuid
+  learningItemId String            @db.Uuid
+  locale         String
+  mnemonicType   MnemonicType
+  body           String
+  sourceKind     ContentSourceKind @default(PROJECT_AUTHORED)
+  version        Int               @default(1)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  learningItem   LearningItem      @relation(fields: [learningItemId], references: [id], onDelete: Cascade)
+
+  @@unique([learningItemId, locale, mnemonicType, version])
+  @@index([locale])
+}
+
+model Hint {
+  id             String            @id @default(uuid()) @db.Uuid
+  learningItemId String            @db.Uuid
+  locale         String
+  hintType       HintType
+  body           String
+  sourceKind     ContentSourceKind @default(PROJECT_AUTHORED)
+  version        Int               @default(1)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  learningItem   LearningItem      @relation(fields: [learningItemId], references: [id], onDelete: Cascade)
+
+  @@unique([learningItemId, locale, hintType, version])
+  @@index([locale])
+}
+
+model Dependency {
+  id                 String         @id @default(uuid()) @db.Uuid
+  learningItemId     String         @db.Uuid
+  prerequisiteItemId String         @db.Uuid
+  dependencyType     DependencyType
+  requiredStage      Int?
+  learningItem       LearningItem   @relation("LearningItemDependencies", fields: [learningItemId], references: [id], onDelete: Cascade)
+  prerequisiteItem   LearningItem   @relation("LearningItemPrerequisites", fields: [prerequisiteItemId], references: [id], onDelete: Cascade)
+
+  @@unique([learningItemId, prerequisiteItemId, dependencyType])
+  @@index([prerequisiteItemId])
+  @@index([dependencyType])
+}
+
+model User {
+  id             String             @id @default(uuid()) @db.Uuid
+  email          String             @unique
+  passwordHash   String
+  displayName    String?
+  role           UserRole           @default(USER)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  settings       UserSettings?
+  itemOverrides  UserItemOverride[]
+  mnemonics      UserMnemonic[]
+  enrollments    UserEnrollment[]
+  decks          Deck[]
+  srsStates      UserSrsState[]
+  reviewSessions ReviewSession[]
+
+  @@index([role])
+}
+
+model UserSettings {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @unique @db.Uuid
+  locale           String   @default("ru-RU")
+  timezone         String   @default("Europe/Moscow")
+  dailyLessonLimit Int      @default(10)
+  reviewBudget     Int      @default(100)
+  strictMode       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([locale])
+}
+
+model UserItemOverride {
+  id             String           @id @default(uuid()) @db.Uuid
+  userId         String           @db.Uuid
+  learningCardId String           @db.Uuid
+  overrideType   UserOverrideType
+  text           String
+  normalizedText String
+  note           String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  learningCard   LearningCard     @relation(fields: [learningCardId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, learningCardId, overrideType, normalizedText])
+  @@index([learningCardId])
+  @@index([normalizedText])
+}
+
+model UserMnemonic {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @db.Uuid
+  learningItemId String       @db.Uuid
+  mnemonicType   MnemonicType
+  body           String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  learningItem   LearningItem @relation(fields: [learningItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, learningItemId, mnemonicType])
+  @@index([learningItemId])
+}
+
+model UserEnrollment {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  courseId  String           @db.Uuid
+  status    EnrollmentStatus @default(ACTIVE)
+  startedAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([courseId])
+  @@index([status])
+}
+
+model Course {
+  id            String           @id @default(uuid()) @db.Uuid
+  slug          String           @unique
+  titleRu       String
+  descriptionRu String?
+  targetLevel   String?
+  courseType    CourseType       @default(STRUCTURED)
+  status        ContentStatus    @default(DRAFT)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  levels        CourseLevel[]
+  enrollments   UserEnrollment[]
+
+  @@index([status])
+  @@index([targetLevel])
+}
+
+model CourseLevel {
+  id            String            @id @default(uuid()) @db.Uuid
+  courseId      String            @db.Uuid
+  levelNumber   Int
+  titleRu       String
+  descriptionRu String?
+  course        Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  items         CourseLevelItem[]
+
+  @@unique([courseId, levelNumber])
+  @@index([courseId])
+}
+
+model CourseLevelItem {
+  id               String       @id @default(uuid()) @db.Uuid
+  courseLevelId    String       @db.Uuid
+  learningItemId   String       @db.Uuid
+  sortOrder        Int
+  unlockPolicyJson Json?
+  courseLevel      CourseLevel  @relation(fields: [courseLevelId], references: [id], onDelete: Cascade)
+  learningItem     LearningItem @relation(fields: [learningItemId], references: [id], onDelete: Cascade)
+
+  @@unique([courseLevelId, learningItemId])
+  @@unique([courseLevelId, sortOrder])
+  @@index([learningItemId])
+}
+
+model Deck {
+  id          String     @id @default(uuid()) @db.Uuid
+  ownerUserId String     @db.Uuid
+  title       String
+  deckType    DeckType
+  sourceText  String?
+  status      DeckStatus @default(DRAFT)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  owner       User       @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  items       DeckItem[]
+
+  @@index([ownerUserId, status])
+  @@index([deckType])
+}
+
+model DeckItem {
+  id             String       @id @default(uuid()) @db.Uuid
+  deckId         String       @db.Uuid
+  learningItemId String       @db.Uuid
+  sortOrder      Int
+  reasonJson     Json?
+  deck           Deck         @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  learningItem   LearningItem @relation(fields: [learningItemId], references: [id], onDelete: Cascade)
+
+  @@unique([deckId, learningItemId])
+  @@unique([deckId, sortOrder])
+  @@index([learningItemId])
+}
+
+model SrsSystem {
+  id         String         @id @default(uuid()) @db.Uuid
+  slug       String         @unique
+  title      String
+  configJson Json?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  stages     SrsStage[]
+  states     UserSrsState[]
+}
+
+model SrsStage {
+  id              String    @id @default(uuid()) @db.Uuid
+  srsSystemId     String    @db.Uuid
+  stageIndex      Int
+  name            String
+  intervalMinutes Int?
+  isBurned        Boolean   @default(false)
+  srsSystem       SrsSystem @relation(fields: [srsSystemId], references: [id], onDelete: Cascade)
+
+  @@unique([srsSystemId, stageIndex])
+  @@index([isBurned])
+}
+
+model UserSrsState {
+  id             String         @id @default(uuid()) @db.Uuid
+  userId         String         @db.Uuid
+  learningCardId String         @db.Uuid
+  srsSystemId    String         @db.Uuid
+  stageIndex     Int
+  availableAt    DateTime?
+  burnedAt       DateTime?
+  resurrectedAt  DateTime?
+  wrongCount     Int            @default(0)
+  correctStreak  Int            @default(0)
+  lastReviewedAt DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  learningCard   LearningCard   @relation(fields: [learningCardId], references: [id], onDelete: Cascade)
+  srsSystem      SrsSystem      @relation(fields: [srsSystemId], references: [id], onDelete: Restrict)
+  reviewAnswers  ReviewAnswer[]
+
+  @@unique([userId, learningCardId])
+  @@index([userId, availableAt])
+  @@index([learningCardId])
+  @@index([srsSystemId, stageIndex])
+  @@index([burnedAt])
+}
+
+model ReviewSession {
+  id         String            @id @default(uuid()) @db.Uuid
+  userId     String            @db.Uuid
+  startedAt  DateTime          @default(now())
+  finishedAt DateTime?
+  mode       ReviewSessionMode @default(REVIEW)
+  statsJson  Json?
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers    ReviewAnswer[]
+
+  @@index([userId, startedAt])
+  @@index([mode])
+}
+
+model ReviewAnswer {
+  id                 String        @id @default(uuid()) @db.Uuid
+  reviewSessionId    String        @db.Uuid
+  userSrsStateId     String        @db.Uuid
+  learningCardId     String        @db.Uuid
+  answerText         String
+  normalizedAnswer   String
+  result             ReviewResult
+  previousStageIndex Int?
+  nextStageIndex     Int?
+  answeredAt         DateTime      @default(now())
+  detailsJson        Json?
+  reviewSession      ReviewSession @relation(fields: [reviewSessionId], references: [id], onDelete: Cascade)
+  userSrsState       UserSrsState  @relation(fields: [userSrsStateId], references: [id], onDelete: Cascade)
+  learningCard       LearningCard  @relation(fields: [learningCardId], references: [id], onDelete: Restrict)
+
+  @@index([reviewSessionId])
+  @@index([userSrsStateId])
+  @@index([learningCardId])
+  @@index([result])
+  @@index([answeredAt])
+}
