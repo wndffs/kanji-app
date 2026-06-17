@@ -1,8 +1,19 @@
-import { Module } from "@nestjs/common";
+import { Module, type MiddlewareConsumer, type NestModule } from "@nestjs/common";
 
-import { HealthController } from "./health.controller";
+import { AuthModule } from "./auth/auth.module";
+import { AppConfigModule } from "./config/app-config.module";
+import { DatabaseModule } from "./database/database.module";
+import { HealthModule } from "./health/health.module";
+import { ApiLogger } from "./logging/api-logger.service";
+import { RequestLoggerMiddleware } from "./logging/request-logger.middleware";
+import { UsersModule } from "./users/users.module";
 
 @Module({
-  controllers: [HealthController],
+  imports: [AppConfigModule, DatabaseModule, HealthModule, AuthModule, UsersModule],
+  providers: [ApiLogger],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestLoggerMiddleware).forRoutes("*");
+  }
+}
