@@ -81,6 +81,44 @@ async function main(): Promise<void> {
     },
   });
 
+  await prisma.importedRecord.upsert({
+    where: {
+      importRunId_recordType_sourceRecordId: {
+        importRunId: importRun.id,
+        recordType: "PROJECT_AUTHORED",
+        sourceRecordId: "bootstrap:kanji:one",
+      },
+    },
+    update: {
+      rawJson: { kind: "kanji", meaningEn: "one" },
+    },
+    create: {
+      importRunId: importRun.id,
+      recordType: "PROJECT_AUTHORED",
+      sourceRecordId: "bootstrap:kanji:one",
+      rawJson: { kind: "kanji", meaningEn: "one" },
+    },
+  });
+
+  await prisma.importedRecord.upsert({
+    where: {
+      importRunId_recordType_sourceRecordId: {
+        importRunId: importRun.id,
+        recordType: "PROJECT_AUTHORED",
+        sourceRecordId: "bootstrap:word:one",
+      },
+    },
+    update: {
+      rawJson: { kind: "word", meaningEn: "one" },
+    },
+    create: {
+      importRunId: importRun.id,
+      recordType: "PROJECT_AUTHORED",
+      sourceRecordId: "bootstrap:word:one",
+      rawJson: { kind: "word", meaningEn: "one" },
+    },
+  });
+
   const component = await prisma.component.upsert({
     where: { symbol: "一" },
     update: {
@@ -188,6 +226,27 @@ async function main(): Promise<void> {
     },
   });
 
+  await prisma.kanjiMeaning.upsert({
+    where: {
+      kanjiId_locale_meaning: {
+        kanjiId: kanji.id,
+        locale: "en-US",
+        meaning: "one",
+      },
+    },
+    update: {
+      isPrimary: true,
+      sourceKind: "PROJECT_AUTHORED",
+    },
+    create: {
+      kanjiId: kanji.id,
+      locale: "en-US",
+      meaning: "one",
+      isPrimary: true,
+      sourceKind: "PROJECT_AUTHORED",
+    },
+  });
+
   const word = await prisma.word.upsert({
     where: {
       expression_reading: {
@@ -213,6 +272,13 @@ async function main(): Promise<void> {
         wordId: word.id,
         locale: "ru-RU",
         meaning: "один",
+        partOfSpeech: "number",
+        sourceKind: "PROJECT_AUTHORED",
+      },
+      {
+        wordId: word.id,
+        locale: "en-US",
+        meaning: "one",
         partOfSpeech: "number",
         sourceKind: "PROJECT_AUTHORED",
       },
@@ -324,8 +390,11 @@ async function main(): Promise<void> {
 
   await upsertAnswer(componentMeaningCard.id, "один", "один", "MEANING", true);
   await upsertAnswer(kanjiMeaningCard.id, "один", "один", "MEANING", true);
+  await upsertAnswer(componentMeaningCard.id, "one", "one", "MEANING", true, "en-US");
+  await upsertAnswer(kanjiMeaningCard.id, "one", "one", "MEANING", true, "en-US");
   await upsertAnswer(kanjiReadingCard.id, "いち", "いち", "READING", true);
   await upsertAnswer(wordMeaningCard.id, "один", "один", "MEANING", true);
+  await upsertAnswer(wordMeaningCard.id, "one", "one", "MEANING", true, "en-US");
 
   await prisma.blockedAnswer.upsert({
     where: {
@@ -529,6 +598,7 @@ async function upsertAnswer(
   normalizedText: string,
   answerKind: "MEANING" | "READING",
   isPrimary: boolean,
+  locale = "ru-RU",
 ): Promise<void> {
   await prisma.learningAnswer.upsert({
     where: {
@@ -536,7 +606,7 @@ async function upsertAnswer(
         learningCardId,
         normalizedText,
         answerKind,
-        locale: "ru-RU",
+        locale,
       },
     },
     update: {
@@ -548,7 +618,7 @@ async function upsertAnswer(
       text,
       normalizedText,
       answerKind,
-      locale: "ru-RU",
+      locale,
       isPrimary,
     },
   });

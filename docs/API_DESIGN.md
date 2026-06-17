@@ -69,6 +69,16 @@ User settings include `locale`, `translationDisplayMode` (`ru`, `en`, or
 - `GET /words/:id`
 - `GET /search?q=`
 
+Item detail responses return learning item summaries, cards, accepted and
+blocked answers, hints, mnemonics, dependency summaries, source attribution
+summaries, and current-user private overrides when the request includes a valid
+bearer token. Normal learner responses expose attribution metadata only; raw
+import records stay out of public item/search responses.
+
+Search supports kanji characters, Japanese expressions, readings, and
+Russian/English meanings. Search responses are paginated with `page` and
+`limit`.
+
 ### User overrides
 
 - `GET /cards/:cardId/overrides`

@@ -119,6 +119,18 @@ export type ItemDetails = ItemSummary & {
   readonly hints: BilingualTextDto;
   readonly exampleSentences: readonly SentenceDto[];
   readonly attributions: readonly SourceAttributionDto[];
+  readonly userOverrides: readonly UserOverrideDto[];
+};
+
+export type SearchResponseDto = {
+  readonly query: string;
+  readonly items: readonly ItemSummary[];
+  readonly pagination: {
+    readonly page: number;
+    readonly limit: number;
+    readonly total: number;
+    readonly hasNextPage: boolean;
+  };
 };
 
 export type SentenceDto = {

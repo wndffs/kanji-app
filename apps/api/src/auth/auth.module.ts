@@ -4,6 +4,7 @@ import { AdminGuard } from "./admin.guard";
 import { AuthController } from "./auth.controller";
 import { AuthGuard } from "./auth.guard";
 import { AuthService } from "./auth.service";
+import { OptionalAuthGuard } from "./optional-auth.guard";
 import { PasswordService } from "./password.service";
 import { TokenService } from "./token.service";
 import { PrismaUsersRepository, UsersRepository } from "./users.repository";
@@ -15,12 +16,13 @@ import { PrismaUsersRepository, UsersRepository } from "./users.repository";
     PasswordService,
     TokenService,
     AuthGuard,
+    OptionalAuthGuard,
     AdminGuard,
     {
       provide: UsersRepository,
       useClass: PrismaUsersRepository,
     },
   ],
-  exports: [AuthService, AuthGuard, AdminGuard, UsersRepository],
+  exports: [AuthService, AuthGuard, OptionalAuthGuard, AdminGuard, UsersRepository],
 })
 export class AuthModule {}

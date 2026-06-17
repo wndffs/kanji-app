@@ -1,0 +1,310 @@
+import { describe, expect, it } from "vitest";
+
+import { type CurrentUserDto } from "../src/auth/auth.types";
+import { ItemsRepository } from "../src/items/items.repository";
+import { ItemsService } from "../src/items/items.service";
+import { type ItemLookupOptions, type ItemRecord, localizedText } from "../src/items/items.types";
+
+describe("ItemsService", () => {
+  it("searches by kanji character", async () => {
+    const service = createService();
+
+    await expect(service.search({ q: "一" }, null)).resolves.toMatchObject({
+      items: [
+        {
+          id: "item-kanji-one",
+          itemType: "kanji",
+          japanese: "一",
+        },
+      ],
+      pagination: {
+        total: 1,
+        hasNextPage: false,
+      },
+    });
+  });
+
+  it("searches by Japanese word expression", async () => {
+    const service = createService();
+
+    await expect(service.search({ q: "学校" }, null)).resolves.toMatchObject({
+      items: [
+        {
+          id: "item-word-school",
+          itemType: "word",
+          japanese: "学校",
+        },
+      ],
+    });
+  });
+
+  it("searches by reading", async () => {
+    const service = createService();
+
+    await expect(service.search({ q: "がっこう" }, null)).resolves.toMatchObject({
+      items: [
+        {
+          id: "item-word-school",
+          reading: "がっこう",
+        },
+      ],
+    });
+  });
+
+  it("searches by Russian and English meanings", async () => {
+    const service = createService();
+
+    await expect(service.search({ q: "школа" }, null)).resolves.toMatchObject({
+      items: [
+        {
+          id: "item-word-school",
+          translations: {
+            primaryRu: "школа",
+            primaryEn: "school",
+          },
+        },
+      ],
+    });
+    await expect(service.search({ q: "school" }, null)).resolves.toMatchObject({
+      items: [
+        {
+          id: "item-word-school",
+        },
+      ],
+    });
+  });
+
+  it("paginates search results", async () => {
+    const service = createService();
+
+    await expect(service.search({ q: "o", page: "2", limit: "1" }, null)).resolves.toMatchObject({
+      items: [
+        {
+          id: "item-word-school",
+        },
+      ],
+      pagination: {
+        page: 2,
+        limit: 1,
+        total: 2,
+        hasNextPage: false,
+      },
+    });
+  });
+
+  it("includes user overrides only for their owner", async () => {
+    const service = createService();
+
+    await expect(
+      service.getItemDetails("item-kanji-one", createUser("owner")),
+    ).resolves.toMatchObject({
+      id: "item-kanji-one",
+      userOverrides: [
+        {
+          id: "override-owner",
+          text: "single stroke",
+        },
+      ],
+    });
+    await expect(
+      service.getItemDetails("item-kanji-one", createUser("other")),
+    ).resolves.toMatchObject({
+      id: "item-kanji-one",
+      userOverrides: [
+        {
+          id: "override-other",
+          text: "line",
+        },
+      ],
+    });
+    await expect(service.getItemDetails("item-kanji-one", null)).resolves.toMatchObject({
+      id: "item-kanji-one",
+      userOverrides: [],
+    });
+  });
+});
+
+class InMemoryItemsRepository extends ItemsRepository {
+  constructor(private readonly items: readonly ItemRecord[]) {
+    super();
+  }
+
+  async findItemById(id: string, options: ItemLookupOptions): Promise<ItemRecord | null> {
+    const item = this.items.find((candidate) => candidate.id === id);
+
+    return item === undefined ? null : filterForUser(item, options.userId);
+  }
+
+  async findKanjiItemByCharacter(
+    character: string,
+    options: ItemLookupOptions,
+  ): Promise<ItemRecord | null> {
+    const item = this.items.find(
+      (candidate) => candidate.itemType === "kanji" && candidate.target.japanese === character,
+    );
+
+    return item === undefined ? null : filterForUser(item, options.userId);
+  }
+
+  async searchItems(query: string, options: ItemLookupOptions): Promise<readonly ItemRecord[]> {
+    const normalizedQuery = query.toLowerCase();
+
+    return this.items
+      .filter((item) => matchesItem(item, normalizedQuery))
+      .map((item) => filterForUser(item, options.userId));
+  }
+}
+
+function createService(): ItemsService {
+  return new ItemsService(new InMemoryItemsRepository(createItems()));
+}
+
+function createItems(): readonly ItemRecord[] {
+  const now = new Date("2026-06-17T09:00:00.000Z");
+
+  return [
+    {
+      id: "item-kanji-one",
+      itemType: "kanji",
+      title: "Kanji one",
+      level: 1,
+      status: "PUBLISHED",
+      target: {
+        japanese: "一",
+        reading: "いち",
+        jlptLevel: "N5",
+        translations: {
+          ru: [localizedText("ru-RU", "один", { isPrimary: true })],
+          en: [localizedText("en-US", "one", { isPrimary: true })],
+        },
+        sourceRecordIds: ["fixture:kanji:one"],
+        attributions: [],
+      },
+      cards: [
+        {
+          id: "card-kanji-one-meaning",
+          cardType: "review",
+          promptType: "meaning",
+          answerType: "meaning",
+          sortOrder: 1,
+          answers: [
+            {
+              ...localizedText("ru-RU", "один", { isPrimary: true }),
+              normalizedText: "один",
+              answerKind: "meaning",
+            },
+            {
+              ...localizedText("en-US", "one", { isPrimary: true }),
+              normalizedText: "one",
+              answerKind: "meaning",
+            },
+          ],
+          blockedAnswers: [],
+          userOverrides: [
+            {
+              id: "override-owner",
+              userId: "owner",
+              learningCardId: "card-kanji-one-meaning",
+              overrideType: "accepted-meaning",
+              text: "single stroke",
+              normalizedText: "single stroke",
+              createdAt: now,
+              updatedAt: now,
+            },
+            {
+              id: "override-other",
+              userId: "other",
+              learningCardId: "card-kanji-one-meaning",
+              overrideType: "accepted-meaning",
+              text: "line",
+              normalizedText: "line",
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+        },
+      ],
+      mnemonics: [],
+      hints: [],
+      relations: [],
+      attributions: [
+        {
+          sourceName: "Fixture source",
+          licenseName: "LicenseRef-Project-Authored",
+          attributionText: "Project-authored fixture.",
+          sourceUrl: "https://example.local/source",
+        },
+      ],
+      userOverrides: [],
+    },
+    {
+      id: "item-word-school",
+      itemType: "word",
+      title: "Word school",
+      level: 1,
+      status: "PUBLISHED",
+      target: {
+        japanese: "学校",
+        reading: "がっこう",
+        jlptLevel: "N5",
+        translations: {
+          ru: [localizedText("ru-RU", "школа", { isPrimary: true })],
+          en: [localizedText("en-US", "school", { isPrimary: true })],
+        },
+        sourceRecordIds: ["fixture:word:school"],
+        attributions: [],
+      },
+      cards: [],
+      mnemonics: [],
+      hints: [],
+      relations: [],
+      attributions: [],
+      userOverrides: [],
+    },
+  ];
+}
+
+function matchesItem(item: ItemRecord, normalizedQuery: string): boolean {
+  const searchableValues = [
+    item.target.japanese,
+    item.target.reading,
+    ...item.target.translations.ru.map((text) => text.text),
+    ...item.target.translations.en.map((text) => text.text),
+    ...item.cards.flatMap((card) => card.answers.map((answer) => answer.text)),
+  ].filter((value): value is string => value !== null);
+
+  return searchableValues.some((value) => value.toLowerCase().includes(normalizedQuery));
+}
+
+function filterForUser(item: ItemRecord, userId: string | undefined): ItemRecord {
+  const cards = item.cards.map((card) => ({
+    ...card,
+    userOverrides:
+      userId === undefined
+        ? []
+        : card.userOverrides.filter((override) => override.userId === userId),
+  }));
+
+  return {
+    ...item,
+    cards,
+    userOverrides: cards.flatMap((card) => card.userOverrides),
+  };
+}
+
+function createUser(id: string): CurrentUserDto {
+  return {
+    id,
+    email: `${id}@example.test`,
+    displayName: id,
+    role: "USER",
+    settings: {
+      locale: "ru-RU",
+      translationDisplayMode: "ru-en",
+      timezone: "Europe/Moscow",
+      dailyLessonLimit: 10,
+      reviewBudget: 100,
+      strictMode: false,
+    },
+  };
+}
