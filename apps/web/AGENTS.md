@@ -5,6 +5,7 @@ This app is the user-facing responsive web client.
 ## Responsibilities
 
 - Russian UI by default.
+- Learning cards must support translation display modes: Russian, English, or Russian plus English.
 - Dashboard, lessons, reviews, item pages, dictionary/search, deck builder, settings, and admin screens.
 - Mobile-first responsive layout.
 - Keyboard-first review flow.

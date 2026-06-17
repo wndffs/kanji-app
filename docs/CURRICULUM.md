@@ -39,7 +39,7 @@ Implementation should not require all N2 content at MVP. Design schema and UI fo
 
 1. Explain item.
 2. Show components/relations.
-3. Show meanings/readings.
+3. Show readings and meanings in Russian, English, or Russian plus English according to user settings.
 4. Show mnemonic/hint.
 5. Mini-quiz.
 6. Add cards to SRS.

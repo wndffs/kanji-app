@@ -2,16 +2,16 @@
 
 ## Goal
 
-Build a personal Russian-localized Japanese kanji/vocabulary SRS web application with WaniKani-like learning structure but independent data and original pedagogy.
+Build a personal Russian-first Japanese kanji/vocabulary SRS web application with WaniKani-like learning structure but independent data and original pedagogy.
 
 ## User decisions
 
 - Project type: personal project.
 - Learning model: hybrid; structured levels plus dynamic decks/text mining.
-- Target audience: Russian-speaking beginners and continuing learners, aiming to support learning up to about JLPT N2.
+- Target audience: Russian-speaking beginners and continuing learners, aiming to support learning up to about JLPT N2, with English learning translations stored alongside Russian.
 - WaniKani import: not needed initially.
 - Community content: no public community mnemonics in MVP.
-- Personal overrides: user can save custom accepted answers/meanings/notes/mnemonics for private use.
+- Personal overrides: user can save custom accepted answers/meanings/notes/mnemonics for private use in Russian and/or English.
 - Stack: TypeScript monorepo, Next.js web app, NestJS API, PostgreSQL/Prisma.
 - Mobile: responsive web app; no native mobile app in MVP.
 
@@ -26,7 +26,8 @@ Target MVP content:
 - 300-500 kanji.
 - 1,500-2,000 vocabulary words.
 - A small set of curated example sentences.
-- Russian UI and Russian curated meanings.
+- Russian UI by default, with learning-card translation display modes: Russian, English, or Russian plus English.
+- Curated meanings, hints, explanations, and mnemonics should exist in Russian and English when published.
 - SRS reviews and lessons.
 - Personal custom accepted answers.
 - Admin curation tools.

@@ -13,7 +13,7 @@ Use for Japanese dictionary entries, readings, senses, kanji metadata, and prior
 Implementation requirements:
 
 - Track source file name, source URL, downloaded date, checksum, and license.
-- Keep raw source fields separate from curated Russian learning content.
+- Keep raw source fields separate from curated Russian and English learning content.
 - Do not pretend raw dictionary glosses are final lesson copy.
 
 ### KanjiVG

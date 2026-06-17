@@ -27,11 +27,12 @@
 ### Dashboard
 
 - `GET /dashboard`
-  - due reviews count
-  - available lessons count
-  - current course/level
-  - review forecast
-  - recent activity
+- due reviews count
+- available lessons count
+- current course/level
+- review forecast
+- recent activity
+- translation display mode: `ru`, `en`, or `ru-en`
 
 ### Lessons
 
@@ -79,4 +80,5 @@
 
 - Keep endpoints stable and typed.
 - Use DTO schemas shared with web where possible.
+- Return card translations in Russian, English, or both according to user settings/requested display mode.
 - Never expose password hashes, raw secrets, or internal import errors to ordinary users.

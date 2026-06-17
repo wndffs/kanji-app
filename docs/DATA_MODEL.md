@@ -9,7 +9,7 @@
 
 ## Linguistic graph
 
-- `Component`: id, symbol, displayNameRu, meaningRu, sourceKind, notes.
+- `Component`: id, symbol, displayNameRu, displayNameEn, meaningRu, meaningEn, sourceKind, notes.
 - `Kanji`: id, character, strokeCount, grade, jlptLevel, frequencyRank, kanjidicSourceId.
 - `KanjiReading`: id, kanjiId, reading, readingType, priority.
 - `KanjiMeaning`: id, kanjiId, locale, meaning, isPrimary, sourceKind.
@@ -21,7 +21,7 @@
 ## Pedagogical layer
 
 - `LearningItem`: id, kind, targetType, targetId, title, levelHint, status.
-- `LearningCard`: id, learningItemId, cardType, promptType, answerType, locale, sortOrder.
+- `LearningCard`: id, learningItemId, cardType, promptType, answerType, locale/displayMode, sortOrder. Cards should be able to present Russian only, English only, or both translation sets.
 - `LearningAnswer`: id, learningCardId, text, normalizedText, answerKind, locale, isPrimary.
 - `BlockedAnswer`: id, learningCardId, text, normalizedText, reason.
 - `Mnemonic`: id, learningItemId, locale, mnemonicType, body, sourceKind, version.
@@ -31,7 +31,7 @@
 ## User layer
 
 - `User`: id, email, passwordHash, displayName, role, createdAt.
-- `UserSettings`: id, userId, locale, timezone, dailyLessonLimit, reviewBudget, strictMode.
+- `UserSettings`: id, userId, locale, translationDisplayMode, timezone, dailyLessonLimit, reviewBudget, strictMode.
 - `UserItemOverride`: id, userId, learningCardId, overrideType, text, normalizedText, note, createdAt, updatedAt.
 - `UserMnemonic`: id, userId, learningItemId, mnemonicType, body, createdAt, updatedAt.
 - `UserEnrollment`: id, userId, courseId, status, startedAt.

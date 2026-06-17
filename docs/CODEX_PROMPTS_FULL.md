@@ -96,7 +96,7 @@ Validation:
 Summarize the public API.
 ```
 
-## 03. Japanese/Russian normalization and answer validation
+## 03. Japanese/Russian/English normalization and answer validation
 
 ```text
 Read AGENTS.md and packages/japanese/AGENTS.md before editing.
@@ -115,12 +115,14 @@ Requirements:
 - Support accepted answers, blocked answers, and user private accepted answers.
 - Blocked answers must override fuzzy acceptance.
 - Russian normalization should handle case, whitespace, punctuation, ё/е, and comma/semicolon-separated answer lists.
+- English meaning normalization should support case, whitespace, punctuation, comma/semicolon-separated answer lists, accepted answers, blocked answers, and conservative typo tolerance.
 - Typo tolerance must be conservative and configurable.
 
 Tests:
 - hiragana vs katakana readings
 - whitespace normalization
 - Russian case normalization
+- English case normalization
 - ё/е normalization
 - accepted synonym
 - user private accepted answer
@@ -145,6 +147,7 @@ Create packages/shared with DTOs and API contract types.
 
 Requirements:
 - Define shared types for ItemSummary, ItemDetails, LearningCardDto, ReviewQueueItem, ReviewAnswerRequest, ReviewAnswerResponse, LessonQueueItem, DashboardDto, UserOverrideDto, DeckDto.
+- Include Russian/English translation fields and a translation display mode contract: `ru`, `en`, or `ru-en`.
 - Add runtime validation using the chosen validation library only if already installed or clearly justified.
 - Keep DTOs serializable and frontend-safe.
 - Avoid leaking internal Prisma models directly to web.
@@ -194,7 +197,7 @@ Requirements:
 - Password hashing with a safe library.
 - JWT or session strategy; document the choice.
 - User role: USER, ADMIN.
-- UserSettings with locale, timezone, daily lesson limit, review budget, strict mode.
+- UserSettings with locale, translation display mode (`ru`, `en`, `ru-en`), timezone, daily lesson limit, review budget, strict mode.
 - Protect API endpoints that require auth.
 - Protect admin endpoints by role.
 - Add seed/dev user only in development seed.
@@ -223,7 +226,7 @@ Implement item detail and search APIs.
 Requirements:
 - GET /items/:id returns LearningItem details with cards, answers, hints, mnemonics, dependencies, source attribution summary, and user-specific overrides if authenticated.
 - GET /kanji/:character returns kanji details.
-- GET /search?q= supports kanji character, Japanese expression, reading, and Russian meaning search.
+- GET /search?q= supports kanji character, Japanese expression, reading, and Russian/English meaning search.
 - Keep raw source records out of normal user responses unless admin.
 - Add pagination for search.
 
@@ -231,7 +234,7 @@ Tests:
 - search by kanji
 - search by Japanese word
 - search by reading
-- search by Russian meaning
+- search by Russian/English meaning
 - item details include user overrides only for the owner
 
 Validation:
@@ -247,7 +250,7 @@ Read AGENTS.md, packages/japanese/AGENTS.md, docs/API_DESIGN.md, and apps/api/AG
 Implement private user overrides for accepted answers and mnemonics.
 
 Requirements:
-- User can add private accepted meaning/reading for a learning card.
+- User can add private accepted meaning/reading for a learning card in Russian and/or English.
 - User can remove private accepted answers.
 - User can save private mnemonic/note for a learning item.
 - Overrides affect only that user.
@@ -357,7 +360,7 @@ Read AGENTS.md, docs/WEB_UI.md, apps/web/AGENTS.md, and packages/shared before e
 Build the Next.js web foundation.
 
 Requirements:
-- App shell with Russian UI.
+- App shell with Russian UI and learning translation display mode setting (`ru`, `en`, `ru-en`).
 - Responsive layout.
 - API client wrapper.
 - Auth pages or dev auth integration depending on current API state.
@@ -414,7 +417,7 @@ Implement the lesson flow UI.
 Requirements:
 - Fetch lesson queue.
 - Start a lesson session.
-- Show item explanation, readings/meanings, components/relations, mnemonic/hint.
+- Show item explanation, readings/meanings, components/relations, mnemonic/hint in the selected translation display mode.
 - Include mini-quiz before marking item learned.
 - Complete lesson creates SRS state through API.
 - Show progress within session.
@@ -435,7 +438,7 @@ Implement item detail pages.
 
 Requirements:
 - Show kanji/word/component/sentence details.
-- Show readings, meanings, example sentences, dependencies, related vocabulary/kanji.
+- Show readings, meanings, example sentences, dependencies, related vocabulary/kanji in the selected translation display mode.
 - Show stroke order placeholder if KanjiVG data is not implemented yet.
 - Show source attribution summary.
 - Show global accepted answers and blocked-answer warnings only in a learner-friendly way.
@@ -458,7 +461,7 @@ Implement minimal admin content curation screens.
 Requirements:
 - Admin-only routes.
 - List learning items needing review.
-- Edit Russian meanings, accepted answers, blocked answers, hints, and mnemonics.
+- Edit Russian and English meanings, accepted answers, blocked answers, hints, and mnemonics.
 - View source attribution and import run info.
 - Publish/unpublish learning items.
 - Keep audit timestamps.
@@ -503,7 +506,7 @@ Requirements:
 - Normalize into Word and WordSense import DTOs.
 - Keep raw source data traceable.
 - Add local-file import command.
-- Do not treat raw glosses as final Russian learning content.
+- Do not treat raw glosses as final Russian or English learning content.
 
 Tests:
 - parser handles one-kanji word, kana-only word, multiple senses, and multiple readings.
@@ -562,7 +565,7 @@ Implement a course seed generator for a small handcrafted starter course.
 Requirements:
 - Create 3-5 demo levels from legally safe, project-authored content.
 - Include components, kanji, vocabulary, learning cards, accepted answers, blocked answers, and dependencies.
-- Use original Russian meanings/mnemonics/hints.
+- Use original Russian and English meanings/mnemonics/hints.
 - Do not copy WaniKani order or wording.
 - Seed enough data for full lesson/review UI testing.
 
@@ -604,7 +607,7 @@ Read AGENTS.md and docs/WEB_UI.md before editing.
 Implement search/dictionary UI.
 
 Requirements:
-- Search by kanji, Japanese word, reading, and Russian meaning.
+- Search by kanji, Japanese word, reading, and Russian/English meaning.
 - Show result type, primary meaning, reading, level/JLPT hints, and known/SRS state if authenticated.
 - Click result opens item page.
 - Mobile-friendly search.
@@ -612,7 +615,7 @@ Requirements:
 
 Tests:
 - Playwright search by kanji.
-- Playwright search by Russian meaning.
+- Playwright search by Russian/English meaning.
 ```
 
 ## 24. Review forecast and workload controls
@@ -775,7 +778,7 @@ Focus areas:
 - keyboard navigation
 - loading/error/empty states
 - Japanese text readability
-- Russian copy clarity
+- Russian UI copy clarity and Russian/English learning-content consistency
 - review session speed
 - not visually cloning WaniKani
 
@@ -795,7 +798,7 @@ Requirements:
 - Course bands Foundation, N5, N4, N3, N2.
 - Admin filters by band, JLPT level, status, missing accepted answers, missing mnemonics.
 - Import-derived candidates can be promoted into curated learning items.
-- Add quality gates: no published card without accepted answer, locale, source attribution, and dependency validation.
+- Add quality gates: no published card without accepted answer, Russian/English locale coverage, source attribution, and dependency validation.
 - Add CLI/admin report for content completeness by band.
 
 Tests:

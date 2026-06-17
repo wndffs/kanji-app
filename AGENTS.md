@@ -2,14 +2,14 @@
 
 ## Project identity
 
-We are building a personal Russian-localized Japanese kanji/vocabulary SRS web application inspired by the product patterns of WaniKani, jpdb, Kanshudo, Kanji Koohii, Renshuu, and Bunpro, but with independent data, independent wording, independent level order, and independent UI.
+We are building a personal Russian-first Japanese kanji/vocabulary SRS web application inspired by the product patterns of WaniKani, jpdb, Kanshudo, Kanji Koohii, Renshuu, and Bunpro, but with independent data, independent wording, independent level order, and independent UI.
 
-The app is for Russian-speaking learners from complete beginner through approximately JLPT N2. It must support two learning modes:
+The app is for Russian-speaking learners from complete beginner through approximately JLPT N2, with English learning translations stored alongside Russian content. It must support two learning modes:
 
 1. A structured level-based course: components -> kanji -> vocabulary -> sentences.
 2. Dynamic decks/text mining: the user can paste Japanese text and the app creates a learning path from unknown words, kanji, and prerequisites.
 
-This is a personal project, not a public marketplace. Do not build community-published mnemonics or public user-generated content in the MVP. The user may save private custom meanings, synonyms, notes, and mnemonics that are accepted as correct only for that user.
+This is a personal project, not a public marketplace. Do not build community-published mnemonics or public user-generated content in the MVP. The user may save private custom meanings, synonyms, notes, and mnemonics in Russian and/or English that are accepted as correct only for that user.
 
 ## Legal and data boundaries
 
@@ -22,7 +22,7 @@ Use legally reusable data sources only. Track every source in the database with 
 - JMdict / KANJIDIC2 / related EDRDG data for dictionary and kanji metadata.
 - KanjiVG for stroke order and component graphics.
 - Tatoeba for example sentences where license and attribution requirements are satisfied.
-- Project-authored Russian educational content for meanings, explanations, hints, and mnemonics.
+- Project-authored Russian and English educational content for meanings, explanations, hints, and mnemonics.
 
 Raw imported data and curated pedagogical content are different layers. Keep them separate.
 
@@ -36,7 +36,7 @@ Recommended structure:
 - `apps/api`: NestJS API service.
 - `packages/db`: Prisma schema, migrations, database client, seed helpers.
 - `packages/srs`: SRS scheduling engine, deterministic and thoroughly tested.
-- `packages/japanese`: Japanese/Russian normalization, answer validation, token helpers.
+- `packages/japanese`: Japanese/Russian/English normalization, answer validation, token helpers.
 - `packages/content-importers`: import pipelines for open data sources.
 - `packages/shared`: shared types, DTOs, constants.
 - `packages/ui`: reusable UI components if needed.
@@ -61,7 +61,7 @@ Avoid adding new production dependencies unless they solve a clear problem. When
 - A user’s SRS state belongs to a specific `LearningCard`, not directly to raw dictionary rows.
 - User custom accepted answers are private, user-scoped, and never become global content automatically.
 - Dictionary data may contain many meanings; a course card should expose a curated subset suitable for learning.
-- Russian meanings, hints, mnemonics, and explanations are first-class content, not afterthought translations.
+- Russian and English meanings, hints, mnemonics, and explanations are first-class content. Cards should be able to show Russian only, English only, or Russian plus English depending on user settings.
 - Every imported row must be traceable to a source and import run.
 - The app must work without any WaniKani import.
 
@@ -94,7 +94,7 @@ Reading validation:
 - Support multiple accepted readings.
 - Provide meaningful feedback for wrong reading vs wrong meaning.
 
-Russian meaning validation:
+Russian and English meaning validation:
 
 - Normalize case, whitespace, punctuation, `ё/е`, and common separators.
 - Compare against global accepted answers plus user private accepted answers.
@@ -107,7 +107,7 @@ Russian meaning validation:
 - Mobile-first responsive layout.
 - Keyboard-first review flow on desktop.
 - No WaniKani visual clone. Use original layout, naming, colors, and copy.
-- UI language defaults to Russian.
+- UI language defaults to Russian, but learning-card translations must support display modes: Russian, English, or Russian plus English.
 - Japanese text must use readable fonts and proper line height.
 - Reviews should be fast: prompt -> answer -> feedback -> continue.
 - Lessons should explain component/kanji/word relationships clearly.
@@ -119,7 +119,7 @@ Run relevant tests before finishing a task. Add tests for every behavior change.
 Minimum test coverage expectations:
 
 - `packages/srs`: unit tests for all stage transitions, wrong-answer penalties, burned/resurrected behavior, and edge cases.
-- `packages/japanese`: unit tests for kana normalization, Russian normalization, accepted answers, blocked answers, and typo tolerance.
+- `packages/japanese`: unit tests for kana normalization, Russian/English normalization, accepted answers, blocked answers, and typo tolerance.
 - `packages/content-importers`: parser tests against small fixtures only; do not rely on external network in tests.
 - `apps/api`: service/controller tests for review, lesson, deck, and item endpoints.
 - `apps/web`: Playwright smoke tests for dashboard, lesson session, review session, item page, and custom answer saving.

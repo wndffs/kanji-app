@@ -30,7 +30,7 @@
 
 - Explain the item.
 - Show relationships.
-- Show reading/meaning.
+- Show reading/meaning with translation display modes: Russian, English, or Russian plus English.
 - Show mnemonic/hint.
 - Quick check.
 - Add to SRS.
@@ -41,4 +41,4 @@
 - Large tap targets.
 - Sticky answer input in reviews.
 - Avoid hover-only UI.
-- Keep text readable for Japanese and Russian.
+- Keep text readable for Japanese, Russian, and English.

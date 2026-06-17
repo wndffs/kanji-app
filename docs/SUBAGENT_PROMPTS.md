@@ -32,7 +32,7 @@ Review the importer changes. Spawn licensing_auditor, db_reviewer, and test_engi
 ## UI review
 
 ```text
-Review the web UI changes. Spawn frontend_reviewer and test_engineer. Wait for both. Do not edit files. Focus on mobile layout, keyboard flow, accessibility, loading/error states, Russian copy, and Playwright coverage.
+Review the web UI changes. Spawn frontend_reviewer and test_engineer. Wait for both. Do not edit files. Focus on mobile layout, keyboard flow, accessibility, loading/error states, Russian copy, Russian/English learning-content display modes, and Playwright coverage.
 ```
 
 ## Security review before deployment

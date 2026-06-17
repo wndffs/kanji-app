@@ -4,7 +4,7 @@
 
 1. Data/source layer: raw imports, licenses, attribution, checksums, import runs.
 2. Linguistic graph layer: components, kanji, words, senses, sentences, relations.
-3. Pedagogical content layer: curated Russian meanings, mnemonics, hints, accepted/blocked answers.
+3. Pedagogical content layer: curated Russian and English meanings, mnemonics, hints, accepted/blocked answers.
 4. Curriculum layer: structured levels, goal courses, dynamic text decks.
 5. SRS layer: card scheduling, review history, forecast, leech detection.
 6. Application API layer: auth, user progress, lessons, reviews, search, admin.
@@ -17,7 +17,7 @@ The application is not a dictionary with SRS bolted on. It is a learning graph:
 
 component -> kanji -> vocabulary -> sentence -> course/deck -> user progress
 
-Raw dictionary records are not directly reviewed. Curated `LearningCard` records define what a learner sees and how the answer is checked.
+Raw dictionary records are not directly reviewed. Curated `LearningCard` records define what a learner sees and how the answer is checked. Cards must support Russian-only, English-only, and Russian-plus-English translation display modes.
 
 ## Recommended apps and packages
 

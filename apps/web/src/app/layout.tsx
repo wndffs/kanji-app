@@ -7,7 +7,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: APP_NAME,
-  description: "Personal Russian-localized Japanese kanji and vocabulary SRS.",
+  description:
+    "Personal Russian-first Japanese kanji and vocabulary SRS with Russian and English learning translations.",
 };
 
 type RootLayoutProps = {

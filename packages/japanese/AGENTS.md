@@ -1,11 +1,11 @@
 # packages/japanese/AGENTS.md
 
-This package owns Japanese and Russian normalization, lightweight linguistic helpers, and answer validation.
+This package owns Japanese, Russian, and English normalization, lightweight linguistic helpers, and answer validation.
 
 ## Requirements
 
 - Framework-agnostic TypeScript.
-- Extensive unit tests with Japanese and Russian examples.
+- Extensive unit tests with Japanese, Russian, and English examples.
 - Conservative fuzzy matching.
 - Explicit blocked-answer handling.
 
