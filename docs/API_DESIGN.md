@@ -24,6 +24,20 @@
 - `POST /auth/logout`
 - `GET /auth/me`
 
+Local auth uses stateless `Authorization: Bearer` session tokens signed with
+`AUTH_TOKEN_SECRET` via HMAC-SHA256. This keeps the MVP API simple while
+avoiding server-side session storage; logout is client-side token discard until
+token revocation storage is introduced. Passwords are hashed with Node
+`crypto.scrypt`; password hashes are never returned from API responses.
+
+`User.role` is either `USER` or `ADMIN`. Authenticated endpoints require a valid
+bearer token, and admin endpoints require `ADMIN`. Development demo users belong
+only in the development seed path. The local seed account is
+`demo@example.local` / `dev-password` and is skipped when `NODE_ENV=production`.
+
+User settings include `locale`, `translationDisplayMode` (`ru`, `en`, or
+`ru-en`), `timezone`, `dailyLessonLimit`, `reviewBudget`, and `strictMode`.
+
 ### Dashboard
 
 - `GET /dashboard`

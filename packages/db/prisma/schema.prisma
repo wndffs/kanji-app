@@ -491,18 +491,20 @@ model User {
 }
 
 model UserSettings {
-  id               String   @id @default(uuid()) @db.Uuid
-  userId           String   @unique @db.Uuid
-  locale           String   @default("ru-RU")
-  timezone         String   @default("Europe/Moscow")
-  dailyLessonLimit Int      @default(10)
-  reviewBudget     Int      @default(100)
-  strictMode       Boolean  @default(false)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                     String   @id @default(uuid()) @db.Uuid
+  userId                 String   @unique @db.Uuid
+  locale                 String   @default("ru-RU")
+  translationDisplayMode String   @default("ru")
+  timezone               String   @default("Europe/Moscow")
+  dailyLessonLimit       Int      @default(10)
+  reviewBudget           Int      @default(100)
+  strictMode             Boolean  @default(false)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([locale])
+  @@index([translationDisplayMode])
 }
 
 model UserItemOverride {

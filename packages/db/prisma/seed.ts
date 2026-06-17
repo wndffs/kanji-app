@@ -5,6 +5,8 @@ const prisma = new PrismaClient();
 const PROJECT_LICENSE_NAME = "Project-authored bootstrap content";
 const PROJECT_SOURCE_NAME = "Kanji SRS bootstrap seed";
 const BOOTSTRAP_CHECKSUM = "0000000000000000000000000000000000000000000000000000000000000001";
+const DEV_USER_PASSWORD_HASH =
+  "scrypt$v1$16384$8$1$a2Fuamktc3JzLWRldi1zZWVk$7_47H9cFgH7KJnffLc52GZ_JS1mgMrNNyDHoCeB9SEWoqIwQFxqMjei-5KN4qg2z9cRym1_PTySo7lRgCA9crg";
 
 async function main(): Promise<void> {
   const license = await prisma.license.upsert({
@@ -436,50 +438,59 @@ async function main(): Promise<void> {
     });
   }
 
-  const demoUser = await prisma.user.upsert({
-    where: { email: "demo@example.local" },
-    update: {
-      displayName: "Демо",
-      role: "USER",
-    },
-    create: {
-      email: "demo@example.local",
-      passwordHash: "dev-only-placeholder-hash",
-      displayName: "Демо",
-      role: "USER",
-    },
-  });
+  if (shouldSeedDevelopmentUser()) {
+    const demoUser = await prisma.user.upsert({
+      where: { email: "demo@example.local" },
+      update: {
+        displayName: "Demo",
+        role: "USER",
+        passwordHash: DEV_USER_PASSWORD_HASH,
+      },
+      create: {
+        email: "demo@example.local",
+        passwordHash: DEV_USER_PASSWORD_HASH,
+        displayName: "Demo",
+        role: "USER",
+      },
+    });
 
-  await prisma.userSettings.upsert({
-    where: { userId: demoUser.id },
-    update: {
-      locale: "ru-RU",
-      timezone: "Europe/Moscow",
-    },
-    create: {
-      userId: demoUser.id,
-      locale: "ru-RU",
-      timezone: "Europe/Moscow",
-      dailyLessonLimit: 10,
-      reviewBudget: 100,
-      strictMode: false,
-    },
-  });
+    await prisma.userSettings.upsert({
+      where: { userId: demoUser.id },
+      update: {
+        locale: "ru-RU",
+        translationDisplayMode: "ru",
+        timezone: "Europe/Moscow",
+      },
+      create: {
+        userId: demoUser.id,
+        locale: "ru-RU",
+        translationDisplayMode: "ru",
+        timezone: "Europe/Moscow",
+        dailyLessonLimit: 10,
+        reviewBudget: 100,
+        strictMode: false,
+      },
+    });
 
-  await prisma.userEnrollment.upsert({
-    where: {
-      userId_courseId: {
+    await prisma.userEnrollment.upsert({
+      where: {
+        userId_courseId: {
+          userId: demoUser.id,
+          courseId: course.id,
+        },
+      },
+      update: { status: "ACTIVE" },
+      create: {
         userId: demoUser.id,
         courseId: course.id,
+        status: "ACTIVE",
       },
-    },
-    update: { status: "ACTIVE" },
-    create: {
-      userId: demoUser.id,
-      courseId: course.id,
-      status: "ACTIVE",
-    },
-  });
+    });
+  }
+}
+
+function shouldSeedDevelopmentUser(): boolean {
+  return process.env.NODE_ENV !== "production";
 }
 
 async function upsertCard(

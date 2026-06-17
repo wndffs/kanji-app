@@ -61,4 +61,9 @@ describe("Prisma schema", () => {
     expect(schema).toContain("@@unique([userId, learningCardId])");
     expect(schema).toContain("@@index([userId, availableAt])");
   });
+
+  it("stores the user's translation display mode", () => {
+    expect(schema).toContain('translationDisplayMode String   @default("ru")');
+    expect(schema).toContain("@@index([translationDisplayMode])");
+  });
 });

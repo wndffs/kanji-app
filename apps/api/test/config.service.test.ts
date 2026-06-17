@@ -8,7 +8,9 @@ describe("buildConfigSnapshot", () => {
       environment: "development",
       port: 3001,
       webOrigin: "http://localhost:3000",
-      authMode: "dev",
+      authMode: "local",
+      authTokenSecret: "dev-only-change-me",
+      authSessionTtlMinutes: 43200,
       redisUrl: null,
       devUser: {
         email: "demo@example.local",
@@ -28,6 +30,8 @@ describe("buildConfigSnapshot", () => {
         DATABASE_URL: "postgresql://user:pass@localhost:5432/app",
         REDIS_URL: "redis://localhost:6379",
         AUTH_MODE: "local",
+        AUTH_TOKEN_SECRET: "test-secret",
+        AUTH_SESSION_TTL_MINUTES: "60",
         DEV_USER_EMAIL: "learner@example.test",
         DEV_USER_ROLE: "ADMIN",
         DEV_TRANSLATION_DISPLAY_MODE: "ru-en",
@@ -39,6 +43,8 @@ describe("buildConfigSnapshot", () => {
       databaseUrl: "postgresql://user:pass@localhost:5432/app",
       redisUrl: "redis://localhost:6379",
       authMode: "local",
+      authTokenSecret: "test-secret",
+      authSessionTtlMinutes: 60,
       devUser: {
         email: "learner@example.test",
         role: "ADMIN",
@@ -53,14 +59,13 @@ describe("buildConfigSnapshot", () => {
     );
   });
 
-  it("rejects dev auth in production", () => {
-    expect(() =>
-      buildConfigSnapshot({
-        NODE_ENV: "production",
-        DATABASE_URL: "postgresql://user:pass@localhost:5432/app",
-      }),
-    ).toThrow("AUTH_MODE=dev is not allowed in production.");
+  it("rejects invalid session ttl", () => {
+    expect(() => buildConfigSnapshot({ AUTH_SESSION_TTL_MINUTES: "0" })).toThrow(
+      "AUTH_SESSION_TTL_MINUTES must be a positive integer.",
+    );
+  });
 
+  it("rejects dev auth in production", () => {
     expect(() =>
       buildConfigSnapshot({
         NODE_ENV: "production",
@@ -68,5 +73,15 @@ describe("buildConfigSnapshot", () => {
         DATABASE_URL: "postgresql://user:pass@localhost:5432/app",
       }),
     ).toThrow("AUTH_MODE=dev is not allowed in production.");
+  });
+
+  it("requires a production token secret", () => {
+    expect(() =>
+      buildConfigSnapshot({
+        NODE_ENV: "production",
+        AUTH_MODE: "local",
+        DATABASE_URL: "postgresql://user:pass@localhost:5432/app",
+      }),
+    ).toThrow("AUTH_TOKEN_SECRET must be configured in production.");
   });
 });
