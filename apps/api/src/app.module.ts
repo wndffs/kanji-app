@@ -6,6 +6,7 @@ import { AppConfigModule } from "./config/app-config.module";
 import { DatabaseModule } from "./database/database.module";
 import { HealthModule } from "./health/health.module";
 import { ItemsModule } from "./items/items.module";
+import { LessonsModule } from "./lessons/lessons.module";
 import { ApiLogger } from "./logging/api-logger.service";
 import { RequestLoggerMiddleware } from "./logging/request-logger.middleware";
 import { OverridesModule } from "./overrides/overrides.module";
@@ -21,6 +22,7 @@ import { UsersModule } from "./users/users.module";
     UsersModule,
     AdminModule,
     ItemsModule,
+    LessonsModule,
     OverridesModule,
     ReviewsModule,
   ],

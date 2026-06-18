@@ -55,6 +55,14 @@ User settings include `locale`, `translationDisplayMode` (`ru`, `en`, or
 - `POST /lessons/:sessionId/complete-item`
 - `POST /lessons/:sessionId/finish`
 
+`GET /lessons/queue` returns new learning items for the authenticated user's
+active course enrollment. Availability uses the first incomplete course level,
+item dependency thresholds, and the user's `dailyLessonLimit`. Completing a
+lesson item creates initial `UserSrsState` rows for that item's cards using the
+configured default SRS system. Lesson sessions are stored as `ReviewSession`
+records with `LESSON_QUIZ` mode until a dedicated lesson-session table is
+introduced.
+
 ### Reviews
 
 - `GET /reviews/queue`

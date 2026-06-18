@@ -205,6 +205,34 @@ export type LessonQueueItem = {
   readonly unlockedBy: readonly ItemSummary[];
 };
 
+export type LessonQueueResponse = {
+  readonly items: readonly LessonQueueItem[];
+};
+
+export type LessonSessionDto = {
+  readonly id: string;
+  readonly startedAt: string;
+  readonly finishedAt: string | null;
+  readonly mode: "lesson";
+};
+
+export type StartLessonSessionResponse = {
+  readonly session: LessonSessionDto;
+};
+
+export type CompleteLessonItemResponse = {
+  readonly itemId: string;
+  readonly createdSrsStateCount: number;
+  readonly cards: readonly {
+    readonly cardId: string;
+    readonly srs: SrsStateSummaryDto;
+  }[];
+};
+
+export type FinishLessonSessionResponse = {
+  readonly session: LessonSessionDto;
+};
+
 export type ReviewForecastBucketDto = {
   readonly bucketKey: string;
   readonly localDate: string;
