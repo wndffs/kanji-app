@@ -112,6 +112,31 @@ export type LearningCardDto = {
   readonly sortOrder: number;
 };
 
+export type ReviewQueueCardDto = {
+  readonly id: string;
+  readonly learningItemId: string;
+  readonly itemType: ItemKind;
+  readonly cardType: LearningCardType;
+  readonly promptType: CardPromptType;
+  readonly answerType: CardAnswerType;
+  readonly prompt: {
+    readonly japanese: string;
+    readonly reading: string | null;
+    readonly clozeText?: string | null;
+  };
+  readonly sortOrder: number;
+};
+
+export type ReviewQueueItemSummary = {
+  readonly id: string;
+  readonly itemType: ItemKind;
+  readonly slug: string;
+  readonly japanese: string;
+  readonly reading: string | null;
+  readonly level: number | null;
+  readonly jlptLevel: string | null;
+};
+
 export type ItemDetails = ItemSummary & {
   readonly cards: readonly LearningCardDto[];
   readonly relations: readonly ItemRelationDto[];
@@ -144,8 +169,8 @@ export type SentenceDto = {
 };
 
 export type ReviewQueueItem = {
-  readonly card: LearningCardDto;
-  readonly item: ItemSummary;
+  readonly card: ReviewQueueCardDto;
+  readonly item: ReviewQueueItemSummary;
   readonly dueAt: string;
   readonly srs: SrsStateSummaryDto;
 };

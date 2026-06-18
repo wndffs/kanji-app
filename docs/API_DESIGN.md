@@ -62,6 +62,19 @@ User settings include `locale`, `translationDisplayMode` (`ru`, `en`, or
 - `POST /reviews/:sessionId/answer`
 - `POST /reviews/:sessionId/finish`
 
+`GET /reviews/queue` returns due, non-burned `LearningCard` prompts for the
+authenticated user and respects the user's `reviewBudget`. Queue cards expose
+the Japanese prompt, reading where appropriate, item kind, due time, and SRS
+summary, but they do not include accepted answers, blocked answers, or meaning
+translations that would reveal the answer before submission.
+
+`POST /reviews/:sessionId/answer` validates the submitted answer with global
+answers plus the current user's private accepted answers, records a
+`ReviewAnswer`, updates `UserSrsState` through `packages/srs`, and returns
+feedback with the result, correct answers, blocked-answer reason if relevant,
+and previous/next SRS summaries. Answers can be submitted only to the current
+user's active review session.
+
 ### Items
 
 - `GET /items/:id`

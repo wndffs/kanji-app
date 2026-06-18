@@ -9,6 +9,7 @@ import { ItemsModule } from "./items/items.module";
 import { ApiLogger } from "./logging/api-logger.service";
 import { RequestLoggerMiddleware } from "./logging/request-logger.middleware";
 import { OverridesModule } from "./overrides/overrides.module";
+import { ReviewsModule } from "./reviews/reviews.module";
 import { UsersModule } from "./users/users.module";
 
 @Module({
@@ -21,6 +22,7 @@ import { UsersModule } from "./users/users.module";
     AdminModule,
     ItemsModule,
     OverridesModule,
+    ReviewsModule,
   ],
   providers: [ApiLogger],
 })
