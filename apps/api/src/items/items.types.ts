@@ -34,8 +34,10 @@ export type ItemUserOverrideRecord = {
   readonly userId: string;
   readonly learningCardId: string;
   readonly overrideType: "accepted-meaning" | "accepted-reading" | "blocked-personal" | "note";
+  readonly locale: ContentLocale;
   readonly text: string;
   readonly normalizedText: string;
+  readonly note: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 };

@@ -512,6 +512,7 @@ model UserItemOverride {
   userId         String           @db.Uuid
   learningCardId String           @db.Uuid
   overrideType   UserOverrideType
+  locale         String           @default("ru-RU")
   text           String
   normalizedText String
   note           String?
@@ -520,8 +521,9 @@ model UserItemOverride {
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   learningCard   LearningCard     @relation(fields: [learningCardId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, learningCardId, overrideType, normalizedText])
+  @@unique([userId, learningCardId, overrideType, locale, normalizedText], map: "UserItemOverride_user_card_type_locale_text_key")
   @@index([learningCardId])
+  @@index([locale])
   @@index([normalizedText])
 }
 
@@ -529,6 +531,7 @@ model UserMnemonic {
   id             String       @id @default(uuid()) @db.Uuid
   userId         String       @db.Uuid
   learningItemId String       @db.Uuid
+  locale         String       @default("ru-RU")
   mnemonicType   MnemonicType
   body           String
   createdAt      DateTime     @default(now())
@@ -536,7 +539,8 @@ model UserMnemonic {
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   learningItem   LearningItem @relation(fields: [learningItemId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, learningItemId, mnemonicType])
+  @@unique([userId, learningItemId, locale, mnemonicType], map: "UserMnemonic_user_item_locale_type_key")
+  @@index([locale])
   @@index([learningItemId])
 }
 

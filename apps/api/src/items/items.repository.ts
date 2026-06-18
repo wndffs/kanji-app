@@ -33,6 +33,7 @@ type LearningItemRow = {
   readonly status: string;
   readonly cards?: readonly LearningCardRow[];
   readonly mnemonics?: readonly TextRow[];
+  readonly userMnemonics?: readonly UserMnemonicTextRow[];
   readonly hints?: readonly TextRow[];
   readonly dependencies?: readonly DependencyRow[];
 };
@@ -70,6 +71,12 @@ type TextRow = {
   readonly sourceKind: string;
 };
 
+type UserMnemonicTextRow = {
+  readonly locale: string;
+  readonly body: string;
+  readonly mnemonicType: string;
+};
+
 type DependencyRow = {
   readonly dependencyType: string;
   readonly prerequisiteItem: LearningItemRow;
@@ -80,8 +87,10 @@ type UserOverrideRow = {
   readonly userId: string;
   readonly learningCardId: string;
   readonly overrideType: string;
+  readonly locale: string;
   readonly text: string;
   readonly normalizedText: string;
+  readonly note: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 };
@@ -226,6 +235,13 @@ export class PrismaItemsRepository extends ItemsRepository {
           },
         },
         mnemonics: { orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }, { version: "desc" }] },
+        userMnemonics:
+          options.userId === undefined
+            ? false
+            : {
+                where: { userId: options.userId },
+                orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }],
+              },
         hints: { orderBy: [{ locale: "asc" }, { hintType: "asc" }, { version: "desc" }] },
         dependencies: {
           include: {
@@ -380,7 +396,10 @@ export class PrismaItemsRepository extends ItemsRepository {
       status: item.status,
       target,
       cards,
-      mnemonics: (item.mnemonics ?? []).map(toTextRecord),
+      mnemonics: [
+        ...(item.mnemonics ?? []).map(toTextRecord),
+        ...(item.userMnemonics ?? []).map(toUserMnemonicTextRecord),
+      ],
       hints: (item.hints ?? []).map(toTextRecord),
       relations,
       attributions,
@@ -652,10 +671,21 @@ function toUserOverrideRecord(override: UserOverrideRow): ItemUserOverrideRecord
     userId: override.userId,
     learningCardId: override.learningCardId,
     overrideType: toOverrideType(override.overrideType),
+    locale: toContentLocale(override.locale),
     text: override.text,
     normalizedText: override.normalizedText,
+    note: override.note,
     createdAt: override.createdAt,
     updatedAt: override.updatedAt,
+  };
+}
+
+function toUserMnemonicTextRecord(text: UserMnemonicTextRow): ItemTextRecord {
+  return {
+    locale: toContentLocale(text.locale),
+    text: text.body,
+    type: text.mnemonicType,
+    sourceKind: "user",
   };
 }
 

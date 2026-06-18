@@ -216,6 +216,17 @@ export type UserOverrideDto = {
   readonly locale: ContentLocale;
   readonly text: string;
   readonly normalizedText: string;
+  readonly note: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+};
+
+export type UserMnemonicDto = {
+  readonly id: string;
+  readonly learningItemId: string;
+  readonly locale: ContentLocale;
+  readonly mnemonicType: "meaning" | "reading" | "story";
+  readonly body: string;
   readonly createdAt: string;
   readonly updatedAt: string;
 };

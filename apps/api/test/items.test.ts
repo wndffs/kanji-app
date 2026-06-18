@@ -103,6 +103,7 @@ describe("ItemsService", () => {
         {
           id: "override-owner",
           text: "single stroke",
+          note: "Personal wording from my notes.",
         },
       ],
     });
@@ -120,6 +121,35 @@ describe("ItemsService", () => {
     await expect(service.getItemDetails("item-kanji-one", null)).resolves.toMatchObject({
       id: "item-kanji-one",
       userOverrides: [],
+    });
+  });
+
+  it("includes private mnemonics only for their owner", async () => {
+    const service = createService();
+
+    await expect(
+      service.getItemDetails("item-kanji-one", createUser("owner")),
+    ).resolves.toMatchObject({
+      mnemonics: {
+        en: [
+          {
+            text: "Imagine one clean stroke.",
+            sourceKind: "user",
+          },
+        ],
+      },
+    });
+    await expect(
+      service.getItemDetails("item-kanji-one", createUser("other")),
+    ).resolves.toMatchObject({
+      mnemonics: {
+        en: [],
+      },
+    });
+    await expect(service.getItemDetails("item-kanji-one", null)).resolves.toMatchObject({
+      mnemonics: {
+        en: [],
+      },
     });
   });
 });
@@ -206,8 +236,10 @@ function createItems(): readonly ItemRecord[] {
               userId: "owner",
               learningCardId: "card-kanji-one-meaning",
               overrideType: "accepted-meaning",
+              locale: "en-US",
               text: "single stroke",
               normalizedText: "single stroke",
+              note: "Personal wording from my notes.",
               createdAt: now,
               updatedAt: now,
             },
@@ -216,8 +248,10 @@ function createItems(): readonly ItemRecord[] {
               userId: "other",
               learningCardId: "card-kanji-one-meaning",
               overrideType: "accepted-meaning",
+              locale: "en-US",
               text: "line",
               normalizedText: "line",
+              note: null,
               createdAt: now,
               updatedAt: now,
             },
@@ -288,6 +322,18 @@ function filterForUser(item: ItemRecord, userId: string | undefined): ItemRecord
   return {
     ...item,
     cards,
+    mnemonics:
+      userId === "owner"
+        ? [
+            ...item.mnemonics,
+            {
+              locale: "en-US",
+              text: "Imagine one clean stroke.",
+              type: "STORY",
+              sourceKind: "user",
+            },
+          ]
+        : item.mnemonics,
     userOverrides: cards.flatMap((card) => card.userOverrides),
   };
 }

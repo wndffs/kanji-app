@@ -8,6 +8,7 @@ import { HealthModule } from "./health/health.module";
 import { ItemsModule } from "./items/items.module";
 import { ApiLogger } from "./logging/api-logger.service";
 import { RequestLoggerMiddleware } from "./logging/request-logger.middleware";
+import { OverridesModule } from "./overrides/overrides.module";
 import { UsersModule } from "./users/users.module";
 
 @Module({
@@ -19,6 +20,7 @@ import { UsersModule } from "./users/users.module";
     UsersModule,
     AdminModule,
     ItemsModule,
+    OverridesModule,
   ],
   providers: [ApiLogger],
 })

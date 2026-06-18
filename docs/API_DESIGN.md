@@ -84,6 +84,20 @@ Russian/English meanings. Search responses are paginated with `page` and
 - `GET /cards/:cardId/overrides`
 - `POST /cards/:cardId/overrides`
 - `DELETE /cards/:cardId/overrides/:overrideId`
+- `PUT /items/:itemId/private-mnemonic`
+
+Card overrides are private to the authenticated user. `POST
+/cards/:cardId/overrides` stores a private accepted meaning or reading with
+`answerKind`, `text`, optional `locale` (`ru-RU` or `en-US`), and optional
+`note`. Override responses include the saved `note` and audit timestamps. Private
+accepted answers participate in answer validation only for the owner. Global
+blocked answers are checked first; if a submitted answer matches a global
+blocked answer, it is rejected even when the same text exists as an exact private
+accepted answer.
+
+`PUT /items/:itemId/private-mnemonic` stores a private item mnemonic or note in
+`body` with optional `mnemonicType` (`meaning`, `reading`, `story`) and optional
+`locale`. Private mnemonics are returned from item detail only to their owner.
 
 ### Decks
 

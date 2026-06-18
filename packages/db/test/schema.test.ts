@@ -66,4 +66,14 @@ describe("Prisma schema", () => {
     expect(schema).toContain('translationDisplayMode String   @default("ru")');
     expect(schema).toContain("@@index([translationDisplayMode])");
   });
+
+  it("stores locales for private overrides and mnemonics", () => {
+    expect(schema).toContain('locale         String           @default("ru-RU")');
+    expect(schema).toContain(
+      '@@unique([userId, learningCardId, overrideType, locale, normalizedText], map: "UserItemOverride_user_card_type_locale_text_key")',
+    );
+    expect(schema).toContain(
+      '@@unique([userId, learningItemId, locale, mnemonicType], map: "UserMnemonic_user_item_locale_type_key")',
+    );
+  });
 });

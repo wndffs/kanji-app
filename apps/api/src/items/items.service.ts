@@ -210,9 +210,10 @@ function toUserOverrideDto(override: ItemRecord["userOverrides"][number]): UserO
     id: override.id,
     learningCardId: override.learningCardId,
     kind: toUserOverrideKind(override.overrideType),
-    locale: override.overrideType === "accepted-reading" ? "ru-RU" : "ru-RU",
+    locale: override.locale,
     text: override.text,
     normalizedText: override.normalizedText,
+    note: override.note,
     createdAt: override.createdAt.toISOString(),
     updatedAt: override.updatedAt.toISOString(),
   };

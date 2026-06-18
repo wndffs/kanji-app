@@ -1,6 +1,7 @@
 export const JAPANESE_PACKAGE_NAME = "@kanji-srs/japanese";
 
 export type AnswerKind = "meaning" | "reading";
+export type MeaningLocale = "ru-RU" | "en-US";
 
 export type AnswerMatchSource = "global" | "user";
 
@@ -116,6 +117,20 @@ export function normalizeRussianMeaning(input: string): string {
     .replace(RUSSIAN_PUNCTUATION_PATTERN, " ")
     .trim()
     .replace(WHITESPACE_PATTERN, " ");
+}
+
+export function normalizeEnglishMeaning(input: string): string {
+  return input
+    .normalize("NFKC")
+    .toLocaleLowerCase("en-US")
+    .replace(RUSSIAN_LIST_SEPARATOR_PATTERN, " ")
+    .replace(RUSSIAN_PUNCTUATION_PATTERN, " ")
+    .trim()
+    .replace(WHITESPACE_PATTERN, " ");
+}
+
+export function normalizeMeaning(input: string, locale: MeaningLocale = "ru-RU"): string {
+  return locale === "en-US" ? normalizeEnglishMeaning(input) : normalizeRussianMeaning(input);
 }
 
 export function splitRussianMeaningList(input: string): string[] {

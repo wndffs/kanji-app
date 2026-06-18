@@ -7,8 +7,10 @@ import {
   isMeaningAccepted,
   isReadingAccepted,
   katakanaToHiragana,
+  normalizeEnglishMeaning,
   normalizeJapaneseReading,
   normalizeKana,
+  normalizeMeaning,
   normalizeRussianMeaning,
   splitRussianMeaningList,
   validateAnswer,
@@ -141,6 +143,46 @@ describe("Russian meaning normalization", () => {
       accepted: false,
       result: "blocked",
       matchedAnswer: "электричетво",
+    });
+  });
+});
+
+describe("English meaning normalization", () => {
+  it("normalizes case, punctuation, and whitespace", () => {
+    expect(normalizeEnglishMeaning("  Big... HOUSE!! ")).toBe("big house");
+    expect(normalizeMeaning("SCHOOL", "en-US")).toBe("school");
+  });
+
+  it("accepts English user private meanings", () => {
+    const result = validateAnswer({
+      answerKind: "meaning",
+      answer: "single stroke",
+      acceptedAnswers: ["one"],
+      userAcceptedAnswers: ["single stroke"],
+    });
+
+    expect(result).toMatchObject({
+      accepted: true,
+      result: "correct",
+      matchedAnswer: "single stroke",
+      matchSource: "user",
+      reason: "user-exact-match",
+    });
+  });
+
+  it("rejects global blocked answers before exact private answers", () => {
+    const result = validateAnswer({
+      answerKind: "meaning",
+      answer: "line",
+      acceptedAnswers: ["one"],
+      userAcceptedAnswers: ["line"],
+      blockedAnswers: ["line"],
+    });
+
+    expect(result).toMatchObject({
+      accepted: false,
+      result: "blocked",
+      matchedAnswer: "line",
     });
   });
 });
