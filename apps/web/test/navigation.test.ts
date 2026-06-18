@@ -4,6 +4,6 @@ import { primaryNavigation } from "../src/lib/navigation";
 
 describe("primaryNavigation", () => {
   it("starts with the dashboard route", () => {
-    expect(primaryNavigation[0]).toEqual({ href: "/", label: "Панель" });
+    expect(primaryNavigation[0]).toEqual({ href: "/dashboard", label: "Панель" });
   });
 });

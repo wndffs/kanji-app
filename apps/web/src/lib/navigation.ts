@@ -4,7 +4,7 @@ export type NavigationItem = {
 };
 
 export const primaryNavigation = [
-  { href: "/", label: "Панель" },
+  { href: "/dashboard", label: "Панель" },
   { href: "/lessons", label: "Уроки" },
   { href: "/reviews", label: "Повторения" },
   { href: "/search", label: "Поиск" },

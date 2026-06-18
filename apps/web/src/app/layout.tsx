@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { APP_NAME } from "@kanji-srs/shared";
 
+import { AppShell } from "../components/AppShell";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,7 +19,9 @@ type RootLayoutProps = {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="ru">
-      <body>{children}</body>
+      <body>
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }
