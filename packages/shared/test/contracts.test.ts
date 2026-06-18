@@ -91,9 +91,21 @@ describe("shared DTO contracts", () => {
         dueReviews: 3,
         availableLessons: 4,
         burnedCards: 1,
+        leechCandidates: 0,
       },
       currentCourse: null,
       reviewForecast: [],
+      recentReviewStats: {
+        since: "2026-06-11T09:00:00.000Z",
+        total: 0,
+        correct: 0,
+        wrong: 0,
+        typo: 0,
+        reveal: 0,
+        manualIgnore: 0,
+        resurrect: 0,
+        accuracy: null,
+      },
       recentItems: [],
     };
 

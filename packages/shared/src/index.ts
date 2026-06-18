@@ -240,6 +240,27 @@ export type ReviewForecastBucketDto = {
   readonly dueCount: number;
 };
 
+export type DashboardLevelProgressDto = {
+  readonly level: number;
+  readonly completedItems: number;
+  readonly totalItems: number;
+  readonly completedCards: number;
+  readonly totalCards: number;
+  readonly percent: number;
+};
+
+export type DashboardRecentReviewStatsDto = {
+  readonly since: string;
+  readonly total: number;
+  readonly correct: number;
+  readonly wrong: number;
+  readonly typo: number;
+  readonly reveal: number;
+  readonly manualIgnore: number;
+  readonly resurrect: number;
+  readonly accuracy: number | null;
+};
+
 export type DashboardDto = {
   readonly user: {
     readonly id: string;
@@ -252,13 +273,16 @@ export type DashboardDto = {
     readonly dueReviews: number;
     readonly availableLessons: number;
     readonly burnedCards: number;
+    readonly leechCandidates: number;
   };
   readonly currentCourse: {
     readonly id: string;
     readonly title: string;
     readonly currentLevel: number;
+    readonly levelProgress: DashboardLevelProgressDto;
   } | null;
   readonly reviewForecast: readonly ReviewForecastBucketDto[];
+  readonly recentReviewStats: DashboardRecentReviewStatsDto;
   readonly recentItems: readonly ItemSummary[];
 };
 

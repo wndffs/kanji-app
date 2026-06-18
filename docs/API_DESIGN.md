@@ -43,10 +43,18 @@ User settings include `locale`, `translationDisplayMode` (`ru`, `en`, or
 - `GET /dashboard`
 - due reviews count
 - available lessons count
-- current course/level
-- review forecast
-- recent activity
+- burned card and leech candidate counts
+- current course/level plus current-level completion progress
+- timezone-aware review forecast buckets
+- recent review stats
 - translation display mode: `ru`, `en`, or `ru-en`
+
+`GET /dashboard` returns a compact authenticated-user overview for the first
+screen. Review counts come from `UserSrsState`, available lesson count reuses
+the lesson-queue availability logic, course progress is based on started card
+states inside the active enrollment, forecast buckets use the user's timezone,
+and recent review stats aggregate review-session answers from the last seven
+days.
 
 ### Lessons
 

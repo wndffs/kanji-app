@@ -3,6 +3,7 @@ import { Module, type MiddlewareConsumer, type NestModule } from "@nestjs/common
 import { AdminModule } from "./admin/admin.module";
 import { AuthModule } from "./auth/auth.module";
 import { AppConfigModule } from "./config/app-config.module";
+import { DashboardModule } from "./dashboard/dashboard.module";
 import { DatabaseModule } from "./database/database.module";
 import { HealthModule } from "./health/health.module";
 import { ItemsModule } from "./items/items.module";
@@ -22,6 +23,7 @@ import { UsersModule } from "./users/users.module";
     UsersModule,
     AdminModule,
     ItemsModule,
+    DashboardModule,
     LessonsModule,
     OverridesModule,
     ReviewsModule,
