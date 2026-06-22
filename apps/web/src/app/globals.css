@@ -662,6 +662,232 @@ select:focus-visible {
   gap: 18px;
 }
 
+.lesson-preview-grid,
+.lesson-study-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.lesson-preview-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.lesson-preview-card {
+  min-height: 136px;
+  display: grid;
+  align-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.lesson-preview-card div {
+  display: grid;
+  gap: 6px;
+}
+
+.lesson-preview-card strong {
+  font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Sans", sans-serif;
+  font-size: 34px;
+  line-height: 1.08;
+}
+
+.lesson-preview-card p {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.lesson-heading,
+.lesson-session-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+}
+
+.lesson-session {
+  display: grid;
+  gap: 18px;
+}
+
+.lesson-session-header h1 {
+  margin: 4px 0 0;
+  font-size: 32px;
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+
+.lesson-hero {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.42fr);
+  align-items: center;
+}
+
+.lesson-hero-main {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.lesson-hero-main p:last-child {
+  margin: 0;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.lesson-facts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.lesson-facts div {
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.lesson-facts dt {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.lesson-facts dd {
+  margin: 4px 0 0;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.lesson-study-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.lesson-study-grid .panel p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.lesson-wide-panel {
+  grid-column: 1 / -1;
+}
+
+.lesson-text-list,
+.lesson-relation-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lesson-text-list li,
+.lesson-relation-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  border-bottom: 1px solid var(--surface-border);
+  padding-bottom: 8px;
+}
+
+.lesson-text-list li:last-child,
+.lesson-relation-list li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.lesson-text-list span,
+.lesson-relation-list span {
+  font-weight: 850;
+}
+
+.lesson-text-list small,
+.lesson-relation-list small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.lesson-action-bar {
+  display: flex;
+  justify-content: flex-end;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.lesson-quiz {
+  gap: 18px;
+}
+
+.lesson-quiz-prompt {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.lesson-quiz-prompt p {
+  margin: 0;
+}
+
+.lesson-quiz-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.lesson-quiz-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.lesson-quiz-form input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 0 12px;
+}
+
+.lesson-quiz-result {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--surface-border);
+  padding-top: 16px;
+}
+
+.lesson-quiz-result h2 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.lesson-quiz-result .primary-action {
+  justify-self: start;
+}
+
+.lesson-summary {
+  gap: 18px;
+}
+
 @keyframes shimmer {
   from {
     background-position: 200% 0;
@@ -685,6 +911,9 @@ select:focus-visible {
 
   .dashboard-layout,
   .dashboard-heading,
+  .lesson-heading,
+  .lesson-session-header,
+  .lesson-hero,
   .review-heading,
   .review-session-header,
   .feedback-header {
@@ -700,6 +929,9 @@ select:focus-visible {
   }
 
   .feedback-grid,
+  .lesson-preview-grid,
+  .lesson-study-grid,
+  .lesson-quiz-form,
   .private-answer-form {
     grid-template-columns: 1fr;
   }
@@ -742,10 +974,20 @@ select:focus-visible {
 
   .metric-grid,
   .stats-list,
+  .lesson-preview-grid,
   .review-loading-grid,
   .review-queue-grid,
   .review-answer-bar {
     grid-template-columns: 1fr;
+  }
+
+  .lesson-action-bar {
+    justify-content: stretch;
+  }
+
+  .lesson-action-bar .primary-action,
+  .lesson-quiz-result .primary-action {
+    width: 100%;
   }
 
   .review-session {

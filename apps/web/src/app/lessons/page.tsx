@@ -1,11 +1,5 @@
-import { SectionPage } from "../../components/SectionPage";
+import { LessonsClient } from "./LessonsClient";
 
 export default function LessonsPage() {
-  return (
-    <SectionPage title="Уроки" status="Очередь пуста.">
-      <div className="notice-panel">
-        <p>Новые карточки появятся после синхронизации курса.</p>
-      </div>
-    </SectionPage>
-  );
+  return <LessonsClient />;
 }

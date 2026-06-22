@@ -3,9 +3,13 @@ import {
   type CardAnswerType,
   type ContentLocale,
   type DashboardDto,
+  type CompleteLessonItemResponse,
+  type FinishLessonSessionResponse,
+  type LessonQueueResponse,
   type ReviewAnswerRequest,
   type ReviewAnswerResponse,
   type ReviewQueueItem,
+  type StartLessonSessionResponse,
   type TranslationDisplayMode,
   type UserOverrideDto,
 } from "@kanji-srs/shared";
@@ -128,6 +132,45 @@ export function register(input: {
 
 export function getDashboard(token: string): Promise<DashboardDto> {
   return apiRequest<DashboardDto>("/dashboard", { token });
+}
+
+export function getLessonQueue(token: string): Promise<LessonQueueResponse> {
+  return apiRequest<LessonQueueResponse>("/lessons/queue", { token });
+}
+
+export function startLessonSession(token: string): Promise<StartLessonSessionResponse> {
+  return apiRequest<StartLessonSessionResponse>("/lessons/start", {
+    method: "POST",
+    token,
+  });
+}
+
+export function completeLessonItem(
+  token: string,
+  sessionId: string,
+  itemId: string,
+): Promise<CompleteLessonItemResponse> {
+  return apiRequest<CompleteLessonItemResponse>(
+    `/lessons/${encodeURIComponent(sessionId)}/complete-item`,
+    {
+      method: "POST",
+      token,
+      body: { itemId },
+    },
+  );
+}
+
+export function finishLessonSession(
+  token: string,
+  sessionId: string,
+): Promise<FinishLessonSessionResponse> {
+  return apiRequest<FinishLessonSessionResponse>(
+    `/lessons/${encodeURIComponent(sessionId)}/finish`,
+    {
+      method: "POST",
+      token,
+    },
+  );
 }
 
 export function getReviewQueue(token: string): Promise<ReviewQueueResponse> {
