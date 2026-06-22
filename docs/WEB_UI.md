@@ -42,3 +42,8 @@
 - Sticky answer input in reviews.
 - Avoid hover-only UI.
 - Keep text readable for Japanese, Russian, and English.
+
+## Web testing
+
+- `@playwright/test` is a dev-only dependency for browser smoke tests. It is Apache-2.0 licensed.
+- The dashboard smoke test starts the Next.js web app, loads `/dashboard`, and checks the Russian app shell on desktop and mobile profiles.

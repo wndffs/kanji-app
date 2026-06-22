@@ -4,6 +4,8 @@ coverage/
 .next/
 .turbo/
 .cache/
+playwright-report/
+test-results/
 *.tsbuildinfo
 
 .env

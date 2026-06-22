@@ -7,7 +7,8 @@
     "build": "next build",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "test:smoke": "node scripts/run-playwright-smoke.mjs"
   },
   "dependencies": {
     "@kanji-srs/shared": "0.0.0",
@@ -15,5 +16,8 @@
     "next": "^15.3.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.0"
   }
 }
