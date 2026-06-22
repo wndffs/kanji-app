@@ -116,6 +116,24 @@ describe("OverridesService", () => {
       },
     });
   });
+
+  it("deletes a private item mnemonic for the owner", async () => {
+    const { service, repository } = createHarness();
+
+    await service.savePrivateMnemonic("item-kanji-one", createUser("owner"), {
+      locale: "ru-RU",
+      mnemonicType: "story",
+      body: "Моя заметка.",
+    });
+
+    await expect(
+      service.deletePrivateMnemonic("item-kanji-one", createUser("owner"), {
+        locale: "ru-RU",
+        mnemonicType: "story",
+      }),
+    ).resolves.toEqual({ deleted: true });
+    expect(repository.listMnemonicBodies("owner", "item-kanji-one")).toEqual([]);
+  });
 });
 
 class InMemoryOverridesRepository extends OverridesRepository {
@@ -211,11 +229,36 @@ class InMemoryOverridesRepository extends OverridesRepository {
 
     return mnemonic;
   }
+
+  async deletePrivateMnemonic(
+    userId: string,
+    learningItemId: string,
+    locale: UpsertPrivateMnemonicInput["locale"],
+    mnemonicType: UpsertPrivateMnemonicInput["mnemonicType"],
+  ): Promise<boolean> {
+    const key = [userId, learningItemId, locale, mnemonicType].join(":");
+
+    return this.mnemonics.delete(key);
+  }
+
+  listMnemonicBodies(userId: string, learningItemId: string): readonly string[] {
+    return [...this.mnemonics.values()]
+      .filter(
+        (mnemonic) => mnemonic.userId === userId && mnemonic.learningItemId === learningItemId,
+      )
+      .map((mnemonic) => mnemonic.body);
+  }
 }
 
-function createHarness(): { readonly service: OverridesService } {
+function createHarness(): {
+  readonly service: OverridesService;
+  readonly repository: InMemoryOverridesRepository;
+} {
+  const repository = new InMemoryOverridesRepository();
+
   return {
-    service: new OverridesService(new InMemoryOverridesRepository()),
+    service: new OverridesService(repository),
+    repository,
   };
 }
 

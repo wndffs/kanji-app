@@ -24,6 +24,12 @@ export abstract class OverridesRepository {
     overrideId: string,
   ): Promise<boolean>;
   abstract upsertPrivateMnemonic(input: UpsertPrivateMnemonicInput): Promise<UserMnemonicRecord>;
+  abstract deletePrivateMnemonic(
+    userId: string,
+    learningItemId: string,
+    locale: UpsertPrivateMnemonicInput["locale"],
+    mnemonicType: UpsertPrivateMnemonicInput["mnemonicType"],
+  ): Promise<boolean>;
 }
 
 type UserItemOverrideRow = {
@@ -163,6 +169,24 @@ export class PrismaOverridesRepository extends OverridesRepository {
     });
 
     return toUserMnemonicRecord(mnemonic as UserMnemonicRow);
+  }
+
+  async deletePrivateMnemonic(
+    userId: string,
+    learningItemId: string,
+    locale: UpsertPrivateMnemonicInput["locale"],
+    mnemonicType: UpsertPrivateMnemonicInput["mnemonicType"],
+  ): Promise<boolean> {
+    const result = await this.prisma.db.userMnemonic.deleteMany({
+      where: {
+        userId,
+        learningItemId,
+        locale,
+        mnemonicType: toPrismaMnemonicType(mnemonicType),
+      },
+    });
+
+    return result.count > 0;
   }
 }
 

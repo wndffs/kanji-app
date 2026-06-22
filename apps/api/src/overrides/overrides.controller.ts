@@ -41,4 +41,13 @@ export class OverridesController {
   ) {
     return this.overridesService.savePrivateMnemonic(itemId, currentUser, body);
   }
+
+  @Delete("items/:itemId/private-mnemonic")
+  deletePrivateMnemonic(
+    @Param("itemId") itemId: string,
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Body() body: unknown,
+  ) {
+    return this.overridesService.deletePrivateMnemonic(itemId, currentUser, body);
+  }
 }

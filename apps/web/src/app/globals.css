@@ -46,14 +46,16 @@ a {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+textarea:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
@@ -888,6 +890,181 @@ select:focus-visible {
   gap: 18px;
 }
 
+.item-page {
+  display: grid;
+  gap: 18px;
+}
+
+.item-hero {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.42fr);
+  align-items: center;
+}
+
+.item-hero-main {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.item-hero-main h1 {
+  margin: 0;
+}
+
+.item-hero-main p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 850;
+  line-height: 1.4;
+}
+
+.item-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.42fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.item-main,
+.item-side {
+  display: grid;
+  gap: 16px;
+}
+
+.card-answer-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.card-answer-grid article {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.card-answer-grid h3,
+.content-block h3 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.blocked-hint {
+  margin: 0;
+  color: var(--warning);
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.example-list,
+.source-list,
+.private-override-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.example-list li,
+.source-list li,
+.private-override-list li {
+  display: grid;
+  gap: 6px;
+  border-bottom: 1px solid var(--surface-border);
+  padding-bottom: 10px;
+}
+
+.example-list li:last-child,
+.source-list li:last-child,
+.private-override-list li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.example-list span,
+.source-list strong,
+.private-override-list strong {
+  font-weight: 850;
+}
+
+.example-list small,
+.source-list span,
+.private-override-list span,
+.private-override-list small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.example-list p,
+.source-list p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.content-block {
+  display: grid;
+  gap: 8px;
+}
+
+.content-block + .content-block {
+  border-top: 1px solid var(--surface-border);
+  padding-top: 12px;
+}
+
+.stroke-placeholder {
+  justify-items: start;
+}
+
+.stroke-placeholder div {
+  width: 100%;
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--surface-border);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Sans", sans-serif;
+  font-size: 88px;
+  font-weight: 800;
+}
+
+.private-item-form {
+  display: grid;
+  gap: 10px;
+}
+
+.private-item-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.private-item-form input,
+.private-item-form select,
+.private-item-form textarea {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 10px 12px;
+}
+
+.private-item-form textarea {
+  min-height: 132px;
+  resize: vertical;
+}
+
 @keyframes shimmer {
   from {
     background-position: 200% 0;
@@ -911,6 +1088,8 @@ select:focus-visible {
 
   .dashboard-layout,
   .dashboard-heading,
+  .item-hero,
+  .item-layout,
   .lesson-heading,
   .lesson-session-header,
   .lesson-hero,

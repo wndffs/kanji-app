@@ -9,6 +9,8 @@ import {
   type AcceptedAnswerKind,
   type AddAcceptedAnswerRequest,
   type CardAnswerValidationResult,
+  type DeletePrivateMnemonicRequest,
+  type DeletePrivateMnemonicResponse,
   type DeleteOverrideResponse,
   type ListOverridesResponse,
   type PrivateMnemonicType,
@@ -104,6 +106,26 @@ export class OverridesService {
     };
   }
 
+  async deletePrivateMnemonic(
+    learningItemId: string,
+    user: CurrentUserDto,
+    body: unknown,
+  ): Promise<DeletePrivateMnemonicResponse> {
+    const request = parseDeletePrivateMnemonicRequest(body);
+    const deleted = await this.overridesRepository.deletePrivateMnemonic(
+      user.id,
+      learningItemId,
+      request.locale,
+      request.mnemonicType,
+    );
+
+    if (!deleted) {
+      throw new NotFoundException("Private mnemonic not found.");
+    }
+
+    return { deleted: true };
+  }
+
   async validateAnswerForUser(input: ValidateCardAnswerInput): Promise<CardAnswerValidationResult> {
     const card = await this.overridesRepository.findCardForValidation(input.cardId);
 
@@ -152,6 +174,15 @@ function parseSavePrivateMnemonicRequest(body: unknown): Required<SavePrivateMne
 
   return {
     body: parseRequiredString(record.body, "body", MAX_PRIVATE_MNEMONIC_LENGTH),
+    locale: parseContentLocale(record.locale),
+    mnemonicType: parseMnemonicType(record.mnemonicType),
+  };
+}
+
+function parseDeletePrivateMnemonicRequest(body: unknown): Required<DeletePrivateMnemonicRequest> {
+  const record = parseRecord(body, "Request body");
+
+  return {
     locale: parseContentLocale(record.locale),
     mnemonicType: parseMnemonicType(record.mnemonicType),
   };

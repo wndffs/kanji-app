@@ -5,12 +5,14 @@ import {
   type DashboardDto,
   type CompleteLessonItemResponse,
   type FinishLessonSessionResponse,
+  type ItemDetails,
   type LessonQueueResponse,
   type ReviewAnswerRequest,
   type ReviewAnswerResponse,
   type ReviewQueueItem,
   type StartLessonSessionResponse,
   type TranslationDisplayMode,
+  type UserMnemonicDto,
   type UserOverrideDto,
 } from "@kanji-srs/shared";
 
@@ -66,8 +68,22 @@ export type AddPrivateAcceptedAnswerInput = {
   readonly note?: string | null;
 };
 
+export type SavePrivateMnemonicInput = {
+  readonly body: string;
+  readonly locale: ContentLocale;
+  readonly mnemonicType: "meaning" | "reading" | "story";
+};
+
+export type SavePrivateMnemonicResponse = {
+  readonly mnemonic: UserMnemonicDto;
+};
+
+export type DeleteResponse = {
+  readonly deleted: boolean;
+};
+
 export type ApiRequestOptions = {
-  readonly method?: "GET" | "POST" | "PATCH" | "DELETE";
+  readonly method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   readonly token?: string | null;
   readonly body?: unknown;
   readonly fetchImpl?: typeof fetch;
@@ -132,6 +148,14 @@ export function register(input: {
 
 export function getDashboard(token: string): Promise<DashboardDto> {
   return apiRequest<DashboardDto>("/dashboard", { token });
+}
+
+export function getItemDetails(id: string, token?: string | null): Promise<ItemDetails> {
+  return apiRequest<ItemDetails>(`/items/${encodeURIComponent(id)}`, { token });
+}
+
+export function getKanjiDetails(character: string, token?: string | null): Promise<ItemDetails> {
+  return apiRequest<ItemDetails>(`/kanji/${encodeURIComponent(character)}`, { token });
 }
 
 export function getLessonQueue(token: string): Promise<LessonQueueResponse> {
@@ -216,6 +240,47 @@ export function addPrivateAcceptedAnswer(
 ): Promise<UserOverrideDto> {
   return apiRequest<UserOverrideDto>(`/cards/${encodeURIComponent(cardId)}/overrides`, {
     method: "POST",
+    token,
+    body: input,
+  });
+}
+
+export function deletePrivateAcceptedAnswer(
+  token: string,
+  cardId: string,
+  overrideId: string,
+): Promise<DeleteResponse> {
+  return apiRequest<DeleteResponse>(
+    `/cards/${encodeURIComponent(cardId)}/overrides/${encodeURIComponent(overrideId)}`,
+    {
+      method: "DELETE",
+      token,
+    },
+  );
+}
+
+export function savePrivateMnemonic(
+  token: string,
+  itemId: string,
+  input: SavePrivateMnemonicInput,
+): Promise<SavePrivateMnemonicResponse> {
+  return apiRequest<SavePrivateMnemonicResponse>(
+    `/items/${encodeURIComponent(itemId)}/private-mnemonic`,
+    {
+      method: "PUT",
+      token,
+      body: input,
+    },
+  );
+}
+
+export function deletePrivateMnemonic(
+  token: string,
+  itemId: string,
+  input: Omit<SavePrivateMnemonicInput, "body">,
+): Promise<DeleteResponse> {
+  return apiRequest<DeleteResponse>(`/items/${encodeURIComponent(itemId)}/private-mnemonic`, {
+    method: "DELETE",
     token,
     body: input,
   });

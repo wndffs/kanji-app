@@ -20,6 +20,11 @@ export type SavePrivateMnemonicRequest = {
   readonly mnemonicType?: PrivateMnemonicType;
 };
 
+export type DeletePrivateMnemonicRequest = {
+  readonly locale?: ContentLocale;
+  readonly mnemonicType?: PrivateMnemonicType;
+};
+
 export type ValidateCardAnswerInput = {
   readonly userId: string;
   readonly cardId: string;
@@ -88,4 +93,8 @@ export type DeleteOverrideResponse = {
 
 export type SavePrivateMnemonicResponse = {
   readonly mnemonic: UserMnemonicDto;
+};
+
+export type DeletePrivateMnemonicResponse = {
+  readonly deleted: boolean;
 };
