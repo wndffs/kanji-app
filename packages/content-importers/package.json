@@ -10,6 +10,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "import:jmdict": "tsx src/cli/import-jmdict.ts",
     "import:kanjidic2": "tsx src/cli/import-kanjidic2.ts",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",

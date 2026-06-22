@@ -1,4 +1,11 @@
-import { createHash } from "node:crypto";
+import { calculateSha256 } from "./checksum";
+import {
+  extractAttributedElements,
+  extractElements,
+  extractOptionalElement,
+  extractOptionalText,
+  extractRequiredText,
+} from "./xml";
 
 export type KanjiDic2ReadingType = "ONYOMI" | "KUNYOMI" | "NANORI" | "OTHER";
 
@@ -147,10 +154,6 @@ export function parseKanjiDic2Xml(xml: string): KanjiDic2ParseResult {
     },
     characters: characterBlocks.map(parseCharacterBlock),
   };
-}
-
-export function calculateSha256(content: string): string {
-  return createHash("sha256").update(content).digest("hex");
 }
 
 export async function importKanjiDic2Xml(
@@ -394,68 +397,6 @@ function extractCodepoint(block: string): string | null {
   return ucs?.text ?? null;
 }
 
-function extractElements(xml: string, tagName: string): string[] {
-  const pattern = new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)</${tagName}>`, "gu");
-  const matches: string[] = [];
-  let match: RegExpExecArray | null;
-
-  while ((match = pattern.exec(xml)) !== null) {
-    matches.push(match[1] ?? "");
-  }
-
-  return matches;
-}
-
-function extractOptionalElement(xml: string, tagName: string): string | null {
-  return extractElements(xml, tagName)[0] ?? null;
-}
-
-function extractRequiredText(xml: string, tagName: string): string {
-  const text = extractOptionalText(xml, tagName);
-
-  if (text === null) {
-    throw new Error(`KANJIDIC2 XML is missing <${tagName}>.`);
-  }
-
-  return text;
-}
-
-function extractOptionalText(xml: string, tagName: string): string | null {
-  const element = extractOptionalElement(xml, tagName);
-
-  return element === null ? null : decodeXml(element.trim());
-}
-
-function extractAttributedElements(
-  xml: string,
-  tagName: string,
-): readonly { readonly attributes: Record<string, string>; readonly text: string }[] {
-  const pattern = new RegExp(`<${tagName}\\b([^>]*)>([\\s\\S]*?)</${tagName}>`, "gu");
-  const matches: { attributes: Record<string, string>; text: string }[] = [];
-  let match: RegExpExecArray | null;
-
-  while ((match = pattern.exec(xml)) !== null) {
-    matches.push({
-      attributes: parseAttributes(match[1] ?? ""),
-      text: decodeXml((match[2] ?? "").trim()),
-    });
-  }
-
-  return matches;
-}
-
-function parseAttributes(input: string): Record<string, string> {
-  const attributes: Record<string, string> = {};
-  const pattern = /([\w:-]+)="([^"]*)"/gu;
-  let match: RegExpExecArray | null;
-
-  while ((match = pattern.exec(input)) !== null) {
-    attributes[match[1] ?? ""] = decodeXml(match[2] ?? "");
-  }
-
-  return attributes;
-}
-
 function parseOptionalInteger(value: string | null): number | null {
   if (value === null || value === "") {
     return null;
@@ -481,13 +422,4 @@ function toReadingType(sourceType: string): KanjiDic2ReadingType {
     default:
       return "OTHER";
   }
-}
-
-function decodeXml(value: string): string {
-  return value
-    .replace(/&lt;/gu, "<")
-    .replace(/&gt;/gu, ">")
-    .replace(/&quot;/gu, '"')
-    .replace(/&apos;/gu, "'")
-    .replace(/&amp;/gu, "&");
 }

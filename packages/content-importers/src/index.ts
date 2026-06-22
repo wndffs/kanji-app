@@ -9,4 +9,6 @@ export const supportedSourceFamilies: SupportedSourceFamily[] = [
   "Tatoeba",
 ];
 
+export * from "./checksum";
+export * from "./jmdict";
 export * from "./kanjidic2";
