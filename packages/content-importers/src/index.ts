@@ -13,3 +13,4 @@ export * from "./checksum";
 export * from "./jmdict";
 export * from "./kanjidic2";
 export * from "./kanjivg";
+export * from "./tatoeba";
