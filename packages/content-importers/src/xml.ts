@@ -45,7 +45,7 @@ export function extractAttributedElements(
 
   while ((match = pattern.exec(xml)) !== null) {
     matches.push({
-      attributes: parseAttributes(match[1] ?? ""),
+      attributes: parseXmlAttributes(match[1] ?? ""),
       text: decodeXml((match[2] ?? "").trim()),
     });
   }
@@ -53,7 +53,35 @@ export function extractAttributedElements(
   return matches;
 }
 
-function parseAttributes(input: string): Record<string, string> {
+export function extractSelfClosingElements(
+  xml: string,
+  tagName: string,
+): readonly XmlElementWithAttributes[] {
+  const pattern = new RegExp(`<${tagName}\\b([^>]*)/>`, "gu");
+  const matches: XmlElementWithAttributes[] = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(xml)) !== null) {
+    matches.push({
+      attributes: parseXmlAttributes(match[1] ?? ""),
+      text: "",
+    });
+  }
+
+  return matches;
+}
+
+export function extractOpeningTagAttributes(
+  xml: string,
+  tagName: string,
+): Record<string, string> | null {
+  const pattern = new RegExp(`<${tagName}\\b([^>]*)>`, "u");
+  const match = pattern.exec(xml);
+
+  return match === null ? null : parseXmlAttributes(match[1] ?? "");
+}
+
+export function parseXmlAttributes(input: string): Record<string, string> {
   const attributes: Record<string, string> = {};
   const pattern = /([\w:-]+)="([^"]*)"/gu;
   let match: RegExpExecArray | null;

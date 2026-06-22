@@ -8,6 +8,7 @@ import {
   type ItemLookupOptions,
   type ItemRecord,
   type ItemRelationRecord,
+  type ItemStrokeGraphicRecord,
   type ItemTargetRecord,
   type ItemTextRecord,
   type ItemUserOverrideRecord,
@@ -120,6 +121,11 @@ type KanjiRow = {
     readonly isPrimary: boolean;
     readonly sourceKind: string;
   }[];
+  readonly strokeGraphic: {
+    readonly sourceRecordId: string;
+    readonly viewBox: string;
+    readonly strokesJson: unknown;
+  } | null;
 };
 
 type WordRow = {
@@ -475,6 +481,7 @@ export class PrismaItemsRepository extends ItemsRepository {
         en: [],
       },
       sourceRecordIds: [],
+      strokeGraphic: null,
       attributions: [],
     };
   }
@@ -485,12 +492,15 @@ export class PrismaItemsRepository extends ItemsRepository {
       include: {
         readings: { orderBy: [{ priority: "desc" }, { reading: "asc" }] },
         meanings: { orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }] },
+        strokeGraphic: true,
       },
     })) as KanjiRow | null;
 
     if (kanji === null) {
       throw new Error(`Missing kanji target ${id}.`);
     }
+
+    const strokeGraphic = toStrokeGraphic(kanji.strokeGraphic);
 
     return {
       japanese: kanji.character,
@@ -504,7 +514,11 @@ export class PrismaItemsRepository extends ItemsRepository {
           }),
         ),
       ),
-      sourceRecordIds: kanji.kanjidicSourceId === null ? [] : [kanji.kanjidicSourceId],
+      sourceRecordIds: uniqueSourceRecordIds(
+        kanji.kanjidicSourceId,
+        strokeGraphic?.sourceRecordId ?? null,
+      ),
+      strokeGraphic,
       attributions: [],
     };
   }
@@ -534,6 +548,7 @@ export class PrismaItemsRepository extends ItemsRepository {
         ),
       ),
       sourceRecordIds: word.jmdictEntryId === null ? [] : [word.jmdictEntryId],
+      strokeGraphic: null,
       attributions: [],
     };
   }
@@ -566,6 +581,7 @@ export class PrismaItemsRepository extends ItemsRepository {
             : [localizedText("en-US", sentence.translationEn, { isPrimary: true })],
       },
       sourceRecordIds: sentence.sourceId === null ? [] : [sentence.sourceId],
+      strokeGraphic: null,
       attributions:
         sentence.dataSource === null
           ? [
@@ -767,4 +783,48 @@ function groupLocalizedTexts(
 
 function formatJlptLevel(value: number | null): string | null {
   return value === null ? null : `N${value}`;
+}
+
+function uniqueSourceRecordIds(...sourceRecordIds: readonly (string | null)[]): readonly string[] {
+  return [...new Set(sourceRecordIds.filter((id): id is string => id !== null))];
+}
+
+function toStrokeGraphic(strokeGraphic: KanjiRow["strokeGraphic"]): ItemStrokeGraphicRecord | null {
+  if (strokeGraphic === null) {
+    return null;
+  }
+
+  if (!Array.isArray(strokeGraphic.strokesJson)) {
+    throw new Error(`KanjiVG stroke graphic ${strokeGraphic.sourceRecordId} has invalid strokes.`);
+  }
+
+  return {
+    sourceRecordId: strokeGraphic.sourceRecordId,
+    viewBox: strokeGraphic.viewBox,
+    strokes: strokeGraphic.strokesJson.map((stroke, index) => toStrokePath(stroke, index)),
+  };
+}
+
+function toStrokePath(stroke: unknown, index: number): ItemStrokeGraphicRecord["strokes"][number] {
+  if (typeof stroke !== "object" || stroke === null) {
+    throw new Error(`KanjiVG stroke ${index + 1} is not an object.`);
+  }
+
+  const record = stroke as {
+    readonly id?: unknown;
+    readonly order?: unknown;
+    readonly path?: unknown;
+    readonly type?: unknown;
+  };
+
+  if (typeof record.id !== "string" || typeof record.path !== "string") {
+    throw new Error(`KanjiVG stroke ${index + 1} is missing id or path.`);
+  }
+
+  return {
+    id: record.id,
+    order: typeof record.order === "number" ? record.order : index + 1,
+    path: record.path,
+    type: typeof record.type === "string" ? record.type : null,
+  };
 }

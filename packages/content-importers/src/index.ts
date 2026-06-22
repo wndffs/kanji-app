@@ -12,3 +12,4 @@ export const supportedSourceFamilies: SupportedSourceFamily[] = [
 export * from "./checksum";
 export * from "./jmdict";
 export * from "./kanjidic2";
+export * from "./kanjivg";

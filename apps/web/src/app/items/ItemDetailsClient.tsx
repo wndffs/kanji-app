@@ -439,10 +439,11 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
           {item.itemType === "kanji" ? (
             <section className="panel stroke-placeholder">
               <h2>Порядок черт</h2>
-              <div aria-hidden="true">{item.japanese}</div>
-              <p className="muted">
-                KanjiVG-графика пока не подключена. Здесь будет порядок черт после импорта.
-              </p>
+              {item.strokeGraphic === null ? (
+                <StrokePlaceholder character={item.japanese} />
+              ) : (
+                <KanjiStrokeGraphic character={item.japanese} graphic={item.strokeGraphic} />
+              )}
             </section>
           ) : null}
 
@@ -795,6 +796,56 @@ function RelationsList({
         </li>
       ))}
     </ul>
+  );
+}
+
+function KanjiStrokeGraphic({
+  character,
+  graphic,
+}: {
+  readonly character: string;
+  readonly graphic: NonNullable<ItemDetails["strokeGraphic"]>;
+}) {
+  return (
+    <div className="stroke-graphic" data-testid="kanji-stroke-graphic">
+      <svg
+        aria-label={`Порядок черт для ${character}`}
+        className="stroke-svg-frame"
+        role="img"
+        viewBox={graphic.viewBox}
+      >
+        {graphic.strokes.map((stroke) => (
+          <path
+            d={stroke.path}
+            data-order={stroke.order}
+            key={stroke.id}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ))}
+      </svg>
+      <ol className="stroke-order-list" aria-label="Список черт">
+        {graphic.strokes.map((stroke) => (
+          <li key={stroke.id}>
+            <span>{stroke.order}</span>
+            <strong>{stroke.type ?? "черта"}</strong>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function StrokePlaceholder({ character }: { readonly character: string }) {
+  return (
+    <>
+      <div className="stroke-fallback" aria-hidden="true">
+        {character}
+      </div>
+      <p className="muted">
+        KanjiVG-графика пока не подключена. Здесь будет порядок черт после импорта.
+      </p>
+    </>
   );
 }
 

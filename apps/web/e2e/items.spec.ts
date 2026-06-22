@@ -23,7 +23,10 @@ test.describe("item details", () => {
     await expect(page.getByRole("heading", { name: "Значения" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Глобальные ответы" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Порядок черт" })).toBeVisible();
+    await expect(page.getByTestId("kanji-stroke-graphic")).toBeVisible();
+    await expect(page.getByTestId("kanji-stroke-graphic").locator("path")).toHaveCount(1);
     await expect(page.getByText("KANJIDIC2")).toBeVisible();
+    await expect(page.getByText("KanjiVG", { exact: true })).toBeVisible();
   });
 
   test("adds a private synonym", async ({ page }) => {
@@ -185,6 +188,18 @@ function buildItemDetails(
     level: 1,
     jlptLevel: "N5",
     srs: null,
+    strokeGraphic: {
+      sourceRecordId: "kanjivg:04e00",
+      viewBox: "0 0 109 109",
+      strokes: [
+        {
+          id: "kvg:04e00-s1",
+          order: 1,
+          path: "M18,54 C34,52 72,52 91,54",
+          type: "㇐",
+        },
+      ],
+    },
     cards: [
       {
         id: "card-kanji-one-meaning",
@@ -313,6 +328,12 @@ function buildItemDetails(
         licenseName: "CC BY-SA 4.0",
         attributionText: "EDRDG kanji metadata.",
         sourceUrl: "https://www.edrdg.org/wiki/index.php/KANJIDIC_Project",
+      },
+      {
+        sourceName: "KanjiVG",
+        licenseName: "LicenseRef-KanjiVG",
+        attributionText: "Stroke order data is derived from KanjiVG.",
+        sourceUrl: "https://kanjivg.tagaini.net/",
       },
     ],
     userOverrides: privateOverrides,

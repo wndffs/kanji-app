@@ -2,9 +2,12 @@ import {
   type BilingualTextDto,
   type ContentLocale,
   type ItemKind,
+  type KanjiStrokeGraphicDto,
   type LocalizedTextDto,
   type SourceAttributionDto,
 } from "@kanji-srs/shared";
+
+export type ItemStrokeGraphicRecord = KanjiStrokeGraphicDto;
 
 export type ItemTargetRecord = {
   readonly japanese: string;
@@ -12,6 +15,7 @@ export type ItemTargetRecord = {
   readonly jlptLevel: string | null;
   readonly translations: BilingualTextDto;
   readonly sourceRecordIds: readonly string[];
+  readonly strokeGraphic: ItemStrokeGraphicRecord | null;
   readonly attributions: readonly SourceAttributionDto[];
 };
 

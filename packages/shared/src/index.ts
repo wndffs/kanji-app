@@ -96,6 +96,19 @@ export type ItemRelationDto = {
   readonly relationType: "component" | "kanji" | "word" | "dependency" | "example";
 };
 
+export type KanjiStrokePathDto = {
+  readonly id: string;
+  readonly order: number;
+  readonly path: string;
+  readonly type: string | null;
+};
+
+export type KanjiStrokeGraphicDto = {
+  readonly sourceRecordId: string;
+  readonly viewBox: string;
+  readonly strokes: readonly KanjiStrokePathDto[];
+};
+
 export type LearningCardDto = {
   readonly id: string;
   readonly learningItemId: string;
@@ -148,6 +161,7 @@ export type ItemDetails = ItemSummary & {
   readonly exampleSentences: readonly SentenceDto[];
   readonly attributions: readonly SourceAttributionDto[];
   readonly userOverrides: readonly UserOverrideDto[];
+  readonly strokeGraphic: KanjiStrokeGraphicDto | null;
 };
 
 export type SearchResponseDto = {

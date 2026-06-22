@@ -233,22 +233,36 @@ model Component {
 }
 
 model Kanji {
-  id               String           @id @default(uuid()) @db.Uuid
-  character        String           @unique
+  id               String              @id @default(uuid()) @db.Uuid
+  character        String              @unique
   strokeCount      Int?
   grade            Int?
   jlptLevel        Int?
   frequencyRank    Int?
-  kanjidicSourceId String?          @unique
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  kanjidicSourceId String?             @unique
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
   readings         KanjiReading[]
   meanings         KanjiMeaning[]
   components       KanjiComponent[]
+  strokeGraphic    KanjiStrokeGraphic?
 
   @@index([jlptLevel])
   @@index([frequencyRank])
   @@index([kanjidicSourceId])
+}
+
+model KanjiStrokeGraphic {
+  id             String   @id @default(uuid()) @db.Uuid
+  kanjiId        String   @unique @db.Uuid
+  sourceRecordId String   @unique
+  viewBox        String
+  strokesJson    Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  kanji          Kanji    @relation(fields: [kanjiId], references: [id], onDelete: Cascade)
+
+  @@index([sourceRecordId])
 }
 
 model KanjiReading {

@@ -152,6 +152,26 @@ describe("ItemsService", () => {
       },
     });
   });
+
+  it("includes kanji stroke data on item details", async () => {
+    const service = createService();
+
+    await expect(service.getItemDetails("item-kanji-one", null)).resolves.toMatchObject({
+      id: "item-kanji-one",
+      strokeGraphic: {
+        sourceRecordId: "kanjivg:04e00",
+        viewBox: "0 0 109 109",
+        strokes: [
+          {
+            id: "kvg:04e00-s1",
+            order: 1,
+            path: "M18,54 C34,52 72,52 91,54",
+            type: "㇐",
+          },
+        ],
+      },
+    });
+  });
 });
 
 class InMemoryItemsRepository extends ItemsRepository {
@@ -208,6 +228,18 @@ function createItems(): readonly ItemRecord[] {
           en: [localizedText("en-US", "one", { isPrimary: true })],
         },
         sourceRecordIds: ["fixture:kanji:one"],
+        strokeGraphic: {
+          sourceRecordId: "kanjivg:04e00",
+          viewBox: "0 0 109 109",
+          strokes: [
+            {
+              id: "kvg:04e00-s1",
+              order: 1,
+              path: "M18,54 C34,52 72,52 91,54",
+              type: "㇐",
+            },
+          ],
+        },
         attributions: [],
       },
       cards: [
@@ -286,6 +318,7 @@ function createItems(): readonly ItemRecord[] {
           en: [localizedText("en-US", "school", { isPrimary: true })],
         },
         sourceRecordIds: ["fixture:word:school"],
+        strokeGraphic: null,
         attributions: [],
       },
       cards: [],

@@ -16,6 +16,7 @@ describe("Prisma schema", () => {
       "ImportedRecord",
       "Component",
       "Kanji",
+      "KanjiStrokeGraphic",
       "KanjiReading",
       "KanjiMeaning",
       "KanjiComponent",
@@ -55,6 +56,13 @@ describe("Prisma schema", () => {
     expect(schema).toContain("@@unique([dataSourceId, checksumSha256])");
     expect(schema).toContain("@@unique([importRunId, recordType, sourceRecordId])");
     expect(schema).toContain("@@index([sourceRecordId])");
+  });
+
+  it("stores KanjiVG stroke graphics linked to kanji", () => {
+    expect(schema).toContain("model KanjiStrokeGraphic ");
+    expect(schema).toContain("strokeGraphic    KanjiStrokeGraphic?");
+    expect(schema).toContain("sourceRecordId String   @unique");
+    expect(schema).toContain("strokesJson    Json");
   });
 
   it("indexes due SRS state by user and availability", () => {

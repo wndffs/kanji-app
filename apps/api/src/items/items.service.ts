@@ -155,6 +155,7 @@ function toItemDetails(item: ItemRecord, displayMode: TranslationDisplayMode): I
     exampleSentences: [],
     attributions: item.attributions,
     userOverrides: item.userOverrides.map(toUserOverrideDto),
+    strokeGraphic: item.target.strokeGraphic,
   };
 }
 
