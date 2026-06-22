@@ -8,3 +8,5 @@ export const supportedSourceFamilies: SupportedSourceFamily[] = [
   "KanjiVG",
   "Tatoeba",
 ];
+
+export * from "./kanjidic2";

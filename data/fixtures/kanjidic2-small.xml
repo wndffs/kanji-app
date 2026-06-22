@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kanjidic2>
+  <header>
+    <file_version>4</file_version>
+    <database_version>fixture-2026-06-22</database_version>
+    <date_of_creation>2026-06-22</date_of_creation>
+  </header>
+  <character>
+    <literal>日</literal>
+    <codepoint>
+      <cp_value cp_type="ucs">65e5</cp_value>
+    </codepoint>
+    <misc>
+      <grade>1</grade>
+      <stroke_count>4</stroke_count>
+      <freq>1</freq>
+      <jlpt>4</jlpt>
+    </misc>
+    <reading_meaning>
+      <rmgroup>
+        <reading r_type="ja_on">ニチ</reading>
+        <reading r_type="ja_on">ジツ</reading>
+        <reading r_type="ja_kun">ひ</reading>
+        <meaning>day</meaning>
+        <meaning>sun</meaning>
+      </rmgroup>
+    </reading_meaning>
+  </character>
+  <character>
+    <literal>月</literal>
+    <codepoint>
+      <cp_value cp_type="ucs">6708</cp_value>
+    </codepoint>
+    <misc>
+      <grade>1</grade>
+      <stroke_count>4</stroke_count>
+      <freq>23</freq>
+      <jlpt>4</jlpt>
+    </misc>
+    <reading_meaning>
+      <rmgroup>
+        <reading r_type="ja_on">ゲツ</reading>
+        <reading r_type="ja_on">ガツ</reading>
+        <reading r_type="ja_kun">つき</reading>
+        <meaning>month</meaning>
+        <meaning>moon</meaning>
+      </rmgroup>
+    </reading_meaning>
+  </character>
+  <character>
+    <literal>火</literal>
+    <codepoint>
+      <cp_value cp_type="ucs">706b</cp_value>
+    </codepoint>
+    <misc>
+      <grade>1</grade>
+      <stroke_count>4</stroke_count>
+      <freq>574</freq>
+    </misc>
+    <reading_meaning>
+      <rmgroup>
+        <reading r_type="ja_on">カ</reading>
+        <reading r_type="ja_kun">ひ</reading>
+        <meaning>fire</meaning>
+      </rmgroup>
+    </reading_meaning>
+  </character>
+</kanjidic2>
