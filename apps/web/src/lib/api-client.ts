@@ -1,4 +1,14 @@
-import { type AppLocale, type DashboardDto, type TranslationDisplayMode } from "@kanji-srs/shared";
+import {
+  type AppLocale,
+  type CardAnswerType,
+  type ContentLocale,
+  type DashboardDto,
+  type ReviewAnswerRequest,
+  type ReviewAnswerResponse,
+  type ReviewQueueItem,
+  type TranslationDisplayMode,
+  type UserOverrideDto,
+} from "@kanji-srs/shared";
 
 export type UserRole = "USER" | "ADMIN";
 
@@ -24,6 +34,32 @@ export type AuthSessionDto = {
   readonly accessToken: string;
   readonly tokenType: "Bearer";
   readonly expiresAt: string;
+};
+
+export type ReviewQueueResponse = {
+  readonly items: readonly ReviewQueueItem[];
+};
+
+export type ReviewSessionDto = {
+  readonly id: string;
+  readonly startedAt: string;
+  readonly finishedAt?: string;
+  readonly mode: "review" | "lesson-quiz" | "extra-practice";
+};
+
+export type StartReviewSessionResponse = {
+  readonly session: ReviewSessionDto;
+};
+
+export type FinishReviewSessionResponse = {
+  readonly session: ReviewSessionDto & { readonly finishedAt: string };
+};
+
+export type AddPrivateAcceptedAnswerInput = {
+  readonly answerKind: CardAnswerType;
+  readonly text: string;
+  readonly locale: ContentLocale;
+  readonly note?: string | null;
 };
 
 export type ApiRequestOptions = {
@@ -92,6 +128,54 @@ export function register(input: {
 
 export function getDashboard(token: string): Promise<DashboardDto> {
   return apiRequest<DashboardDto>("/dashboard", { token });
+}
+
+export function getReviewQueue(token: string): Promise<ReviewQueueResponse> {
+  return apiRequest<ReviewQueueResponse>("/reviews/queue", { token });
+}
+
+export function startReviewSession(token: string): Promise<StartReviewSessionResponse> {
+  return apiRequest<StartReviewSessionResponse>("/reviews/start", {
+    method: "POST",
+    token,
+  });
+}
+
+export function submitReviewAnswer(
+  token: string,
+  sessionId: string,
+  request: ReviewAnswerRequest,
+): Promise<ReviewAnswerResponse> {
+  return apiRequest<ReviewAnswerResponse>(`/reviews/${encodeURIComponent(sessionId)}/answer`, {
+    method: "POST",
+    token,
+    body: request,
+  });
+}
+
+export function finishReviewSession(
+  token: string,
+  sessionId: string,
+): Promise<FinishReviewSessionResponse> {
+  return apiRequest<FinishReviewSessionResponse>(
+    `/reviews/${encodeURIComponent(sessionId)}/finish`,
+    {
+      method: "POST",
+      token,
+    },
+  );
+}
+
+export function addPrivateAcceptedAnswer(
+  token: string,
+  cardId: string,
+  input: AddPrivateAcceptedAnswerInput,
+): Promise<UserOverrideDto> {
+  return apiRequest<UserOverrideDto>(`/cards/${encodeURIComponent(cardId)}/overrides`, {
+    method: "POST",
+    token,
+    body: input,
+  });
 }
 
 export function getCurrentUser(token: string): Promise<CurrentUserDto> {

@@ -1,11 +1,5 @@
-import { SectionPage } from "../../components/SectionPage";
+import { ReviewsClient } from "./ReviewsClient";
 
 export default function ReviewsPage() {
-  return (
-    <SectionPage title="Повторения" status="Нет карточек к повторению.">
-      <div className="notice-panel">
-        <p>Следующая сессия появится по расписанию SRS.</p>
-      </div>
-    </SectionPage>
-  );
+  return <ReviewsClient />;
 }
