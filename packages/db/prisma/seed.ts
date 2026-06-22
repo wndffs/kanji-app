@@ -1,5 +1,17 @@
 import { PrismaClient } from "@prisma/client";
 
+import {
+  buildStarterCourseSeed,
+  validateStarterCourseSeed,
+  type SeedHintType,
+  type SeedItemKind,
+  type SeedMnemonicType,
+  type StarterCourseSeed,
+  type StarterCourseSeedCard,
+  type StarterCourseSeedItem,
+  type StarterCourseSeedText,
+} from "../src/course-seed";
+
 const prisma = new PrismaClient();
 
 const PROJECT_LICENSE_NAME = "Project-authored bootstrap content";
@@ -9,10 +21,59 @@ const DEV_USER_PASSWORD_HASH =
   "scrypt$v1$16384$8$1$a2Fuamktc3JzLWRldi1zZWVk$7_47H9cFgH7KJnffLc52GZ_JS1mgMrNNyDHoCeB9SEWoqIwQFxqMjei-5KN4qg2z9cRym1_PTySo7lRgCA9crg";
 
 async function main(): Promise<void> {
-  const license = await prisma.license.upsert({
+  const seed = buildStarterCourseSeed();
+  const validationIssues = validateStarterCourseSeed(seed);
+
+  if (validationIssues.length > 0) {
+    throw new Error(`Starter course seed is invalid: ${validationIssues.join("; ")}`);
+  }
+
+  const license = await upsertProjectLicense();
+  const dataSource = await upsertProjectDataSource(license.id);
+  const importRun = await upsertProjectImportRun(dataSource.id, seed);
+  const targetIds = new Map<string, string>();
+
+  for (const item of seed.items) {
+    await upsertProjectRecord(importRun.id, item);
+  }
+
+  for (const item of seed.items.filter((candidate) => candidate.target.kind === "COMPONENT")) {
+    targetIds.set(item.key, await upsertComponent(item));
+  }
+
+  for (const item of seed.items.filter((candidate) => candidate.target.kind === "KANJI")) {
+    targetIds.set(item.key, await upsertKanji(item));
+  }
+
+  for (const item of seed.items.filter((candidate) => candidate.target.kind === "WORD")) {
+    targetIds.set(item.key, await upsertWord(item));
+  }
+
+  for (const item of seed.items.filter((candidate) => candidate.target.kind === "SENTENCE")) {
+    targetIds.set(item.key, await upsertSentence(item, dataSource.id, license.id));
+  }
+
+  const learningItemIds = await upsertLearningItems(seed, targetIds);
+  await upsertLearningDependencies(seed, learningItemIds);
+  await upsertLearningContent(seed, learningItemIds);
+  const course = await upsertCourse(seed);
+  await upsertCourseLevels(seed, course.id, learningItemIds);
+  const srsSystem = await upsertDefaultSrsSystem();
+  await upsertDefaultSrsStages(srsSystem.id);
+
+  if (shouldSeedDevelopmentUser()) {
+    await upsertDemoUser(seed, course.id);
+  }
+}
+
+async function upsertProjectLicense() {
+  return prisma.license.upsert({
     where: { name: PROJECT_LICENSE_NAME },
     update: {
-      notes: "Tiny handcrafted demo content for local development only.",
+      scope: "PROJECT_AUTHORED",
+      requiresAttribution: false,
+      requiresShareAlike: false,
+      notes: "Handcrafted starter course content for local development and smoke testing.",
     },
     create: {
       name: PROJECT_LICENSE_NAME,
@@ -20,458 +81,517 @@ async function main(): Promise<void> {
       scope: "PROJECT_AUTHORED",
       requiresAttribution: false,
       requiresShareAlike: false,
-      notes: "Tiny handcrafted demo content for local development only.",
+      notes: "Handcrafted starter course content for local development and smoke testing.",
     },
   });
+}
 
-  const dataSource = await prisma.dataSource.upsert({
+async function upsertProjectDataSource(licenseId: string) {
+  return prisma.dataSource.upsert({
     where: { name: PROJECT_SOURCE_NAME },
     update: {
-      attributionText: "Project-authored sample data.",
-      licenseId: license.id,
+      homepageUrl: "https://example.local/kanji-srs/bootstrap-seed",
+      attributionText: "Project-authored starter course data.",
+      licenseId,
+      notes: "Used only to exercise schema relations and local lesson/review flows.",
     },
     create: {
       name: PROJECT_SOURCE_NAME,
       homepageUrl: "https://example.local/kanji-srs/bootstrap-seed",
-      licenseId: license.id,
-      attributionText: "Project-authored sample data.",
-      notes: "Used only to exercise schema relations in development.",
+      licenseId,
+      attributionText: "Project-authored starter course data.",
+      notes: "Used only to exercise schema relations and local lesson/review flows.",
     },
   });
+}
 
-  const importRun = await prisma.importRun.upsert({
+async function upsertProjectImportRun(dataSourceId: string, seed: StarterCourseSeed) {
+  const statsJson = {
+    levels: seed.course.levels.length,
+    items: seed.items.length,
+    components: countItems(seed, "COMPONENT"),
+    kanji: countItems(seed, "KANJI"),
+    words: countItems(seed, "WORD"),
+    sentences: countItems(seed, "SENTENCE"),
+    cards: seed.items.reduce((count, item) => count + item.cards.length, 0),
+  };
+
+  return prisma.importRun.upsert({
     where: {
       dataSourceId_checksumSha256: {
-        dataSourceId: dataSource.id,
+        dataSourceId,
         checksumSha256: BOOTSTRAP_CHECKSUM,
       },
     },
     update: {
+      sourceVersion: "starter-course-1",
+      sourceFileName: "packages/db/src/course-seed.ts",
       finishedAt: new Date(),
       status: "SUCCESS",
-      statsJson: { components: 1, kanji: 1, words: 1, cards: 4 },
+      statsJson,
+      errorText: null,
     },
     create: {
-      dataSourceId: dataSource.id,
-      sourceVersion: "bootstrap-1",
-      sourceFileName: "packages/db/prisma/seed.ts",
+      dataSourceId,
+      sourceVersion: "starter-course-1",
+      sourceFileName: "packages/db/src/course-seed.ts",
       checksumSha256: BOOTSTRAP_CHECKSUM,
       finishedAt: new Date(),
       status: "SUCCESS",
-      statsJson: { components: 1, kanji: 1, words: 1, cards: 4 },
+      statsJson,
+      errorText: null,
     },
   });
+}
 
+async function upsertProjectRecord(
+  importRunId: string,
+  item: StarterCourseSeedItem,
+): Promise<void> {
   await prisma.importedRecord.upsert({
     where: {
       importRunId_recordType_sourceRecordId: {
-        importRunId: importRun.id,
+        importRunId,
         recordType: "PROJECT_AUTHORED",
-        sourceRecordId: "bootstrap:one",
+        sourceRecordId: sourceRecordIdFor(item),
       },
     },
     update: {
-      rawJson: { symbol: "一", meaningRu: "один" },
+      rawJson: item,
     },
     create: {
-      importRunId: importRun.id,
+      importRunId,
       recordType: "PROJECT_AUTHORED",
-      sourceRecordId: "bootstrap:one",
-      rawJson: { symbol: "一", meaningRu: "один" },
+      sourceRecordId: sourceRecordIdFor(item),
+      rawJson: item,
     },
   });
+}
 
-  await prisma.importedRecord.upsert({
-    where: {
-      importRunId_recordType_sourceRecordId: {
-        importRunId: importRun.id,
-        recordType: "PROJECT_AUTHORED",
-        sourceRecordId: "bootstrap:kanji:one",
-      },
-    },
-    update: {
-      rawJson: { kind: "kanji", meaningEn: "one" },
-    },
-    create: {
-      importRunId: importRun.id,
-      recordType: "PROJECT_AUTHORED",
-      sourceRecordId: "bootstrap:kanji:one",
-      rawJson: { kind: "kanji", meaningEn: "one" },
-    },
-  });
-
-  await prisma.importedRecord.upsert({
-    where: {
-      importRunId_recordType_sourceRecordId: {
-        importRunId: importRun.id,
-        recordType: "PROJECT_AUTHORED",
-        sourceRecordId: "bootstrap:word:one",
-      },
-    },
-    update: {
-      rawJson: { kind: "word", meaningEn: "one" },
-    },
-    create: {
-      importRunId: importRun.id,
-      recordType: "PROJECT_AUTHORED",
-      sourceRecordId: "bootstrap:word:one",
-      rawJson: { kind: "word", meaningEn: "one" },
-    },
-  });
+async function upsertComponent(item: StarterCourseSeedItem): Promise<string> {
+  if (item.target.kind !== "COMPONENT") {
+    throw new Error(`${item.key} is not a component target.`);
+  }
 
   const component = await prisma.component.upsert({
-    where: { symbol: "一" },
+    where: { symbol: item.target.symbol },
     update: {
-      displayNameRu: "горизонтальная черта",
-      meaningRu: "один",
+      displayNameRu: item.target.displayNameRu,
+      meaningRu: item.target.meaningRu,
       sourceKind: "PROJECT_AUTHORED",
+      notes: item.target.notes,
     },
     create: {
-      symbol: "一",
-      displayNameRu: "горизонтальная черта",
-      meaningRu: "один",
+      symbol: item.target.symbol,
+      displayNameRu: item.target.displayNameRu,
+      meaningRu: item.target.meaningRu,
       sourceKind: "PROJECT_AUTHORED",
-      notes: "Handcrafted bootstrap component, not imported from an external course.",
+      notes: item.target.notes,
     },
   });
+
+  return component.id;
+}
+
+async function upsertKanji(item: StarterCourseSeedItem): Promise<string> {
+  if (item.target.kind !== "KANJI") {
+    throw new Error(`${item.key} is not a kanji target.`);
+  }
 
   const kanji = await prisma.kanji.upsert({
-    where: { character: "一" },
+    where: { character: item.target.character },
     update: {
-      strokeCount: 1,
-      jlptLevel: 5,
-      kanjidicSourceId: "bootstrap:kanji:one",
+      strokeCount: item.target.strokeCount,
+      jlptLevel: item.target.jlptLevel,
+      kanjidicSourceId: sourceRecordIdFor(item),
     },
     create: {
-      character: "一",
-      strokeCount: 1,
-      jlptLevel: 5,
-      kanjidicSourceId: "bootstrap:kanji:one",
+      character: item.target.character,
+      strokeCount: item.target.strokeCount,
+      jlptLevel: item.target.jlptLevel,
+      kanjidicSourceId: sourceRecordIdFor(item),
     },
   });
 
-  await prisma.kanjiComponent.upsert({
-    where: {
-      kanjiId_componentId_position: {
+  for (const reading of item.target.readings) {
+    await prisma.kanjiReading.upsert({
+      where: {
+        kanjiId_reading_readingType: {
+          kanjiId: kanji.id,
+          reading: reading.reading,
+          readingType: reading.readingType,
+        },
+      },
+      update: { priority: reading.priority },
+      create: {
+        kanjiId: kanji.id,
+        reading: reading.reading,
+        readingType: reading.readingType,
+        priority: reading.priority,
+      },
+    });
+  }
+
+  for (const meaning of item.target.meanings) {
+    await prisma.kanjiMeaning.upsert({
+      where: {
+        kanjiId_locale_meaning: {
+          kanjiId: kanji.id,
+          locale: meaning.locale,
+          meaning: meaning.text,
+        },
+      },
+      update: {
+        isPrimary: meaning.isPrimary,
+        sourceKind: "PROJECT_AUTHORED",
+      },
+      create: {
+        kanjiId: kanji.id,
+        locale: meaning.locale,
+        meaning: meaning.text,
+        isPrimary: meaning.isPrimary,
+        sourceKind: "PROJECT_AUTHORED",
+      },
+    });
+  }
+
+  for (const componentLink of item.target.components) {
+    const component = await prisma.component.findUnique({
+      where: {
+        symbol: componentSymbolForKey(componentLink.componentKey),
+      },
+    });
+
+    if (component === null) {
+      throw new Error(`${item.key} references missing component ${componentLink.componentKey}.`);
+    }
+
+    await prisma.kanjiComponent.upsert({
+      where: {
+        kanjiId_componentId_position: {
+          kanjiId: kanji.id,
+          componentId: component.id,
+          position: componentLink.position,
+        },
+      },
+      update: {
+        sourceKind: "PROJECT_AUTHORED",
+        confidence: 1,
+      },
+      create: {
         kanjiId: kanji.id,
         componentId: component.id,
-        position: "full",
+        position: componentLink.position,
+        sourceKind: "PROJECT_AUTHORED",
+        confidence: 1,
       },
-    },
-    update: {
-      sourceKind: "PROJECT_AUTHORED",
-      confidence: 1,
-    },
-    create: {
-      kanjiId: kanji.id,
-      componentId: component.id,
-      position: "full",
-      sourceKind: "PROJECT_AUTHORED",
-      confidence: 1,
-    },
-  });
+    });
+  }
 
-  await prisma.kanjiReading.upsert({
-    where: {
-      kanjiId_reading_readingType: {
-        kanjiId: kanji.id,
-        reading: "いち",
-        readingType: "ONYOMI",
-      },
-    },
-    update: { priority: 10 },
-    create: {
-      kanjiId: kanji.id,
-      reading: "いち",
-      readingType: "ONYOMI",
-      priority: 10,
-    },
-  });
+  return kanji.id;
+}
 
-  await prisma.kanjiReading.upsert({
-    where: {
-      kanjiId_reading_readingType: {
-        kanjiId: kanji.id,
-        reading: "ひと",
-        readingType: "KUNYOMI",
-      },
-    },
-    update: { priority: 5 },
-    create: {
-      kanjiId: kanji.id,
-      reading: "ひと",
-      readingType: "KUNYOMI",
-      priority: 5,
-    },
-  });
-
-  await prisma.kanjiMeaning.upsert({
-    where: {
-      kanjiId_locale_meaning: {
-        kanjiId: kanji.id,
-        locale: "ru-RU",
-        meaning: "один",
-      },
-    },
-    update: {
-      isPrimary: true,
-      sourceKind: "PROJECT_AUTHORED",
-    },
-    create: {
-      kanjiId: kanji.id,
-      locale: "ru-RU",
-      meaning: "один",
-      isPrimary: true,
-      sourceKind: "PROJECT_AUTHORED",
-    },
-  });
-
-  await prisma.kanjiMeaning.upsert({
-    where: {
-      kanjiId_locale_meaning: {
-        kanjiId: kanji.id,
-        locale: "en-US",
-        meaning: "one",
-      },
-    },
-    update: {
-      isPrimary: true,
-      sourceKind: "PROJECT_AUTHORED",
-    },
-    create: {
-      kanjiId: kanji.id,
-      locale: "en-US",
-      meaning: "one",
-      isPrimary: true,
-      sourceKind: "PROJECT_AUTHORED",
-    },
-  });
+async function upsertWord(item: StarterCourseSeedItem): Promise<string> {
+  if (item.target.kind !== "WORD") {
+    throw new Error(`${item.key} is not a word target.`);
+  }
 
   const word = await prisma.word.upsert({
     where: {
       expression_reading: {
-        expression: "一",
-        reading: "いち",
+        expression: item.target.expression,
+        reading: item.target.reading,
       },
     },
     update: {
-      jlptLevel: 5,
-      jmdictEntryId: "bootstrap:word:one",
+      jlptLevel: item.target.jlptLevel,
+      jmdictEntryId: sourceRecordIdFor(item),
     },
     create: {
-      expression: "一",
-      reading: "いち",
-      jlptLevel: 5,
-      jmdictEntryId: "bootstrap:word:one",
+      expression: item.target.expression,
+      reading: item.target.reading,
+      jlptLevel: item.target.jlptLevel,
+      jmdictEntryId: sourceRecordIdFor(item),
     },
   });
 
-  await prisma.wordSense.createMany({
-    data: [
-      {
+  for (const sense of item.target.senses) {
+    await prisma.wordSense.upsert({
+      where: {
+        wordId_locale_meaning_partOfSpeech: {
+          wordId: word.id,
+          locale: sense.locale,
+          meaning: sense.meaning,
+          partOfSpeech: sense.partOfSpeech,
+        },
+      },
+      update: { sourceKind: "PROJECT_AUTHORED" },
+      create: {
         wordId: word.id,
-        locale: "ru-RU",
-        meaning: "один",
-        partOfSpeech: "number",
+        locale: sense.locale,
+        meaning: sense.meaning,
+        partOfSpeech: sense.partOfSpeech,
         sourceKind: "PROJECT_AUTHORED",
       },
-      {
-        wordId: word.id,
-        locale: "en-US",
-        meaning: "one",
-        partOfSpeech: "number",
-        sourceKind: "PROJECT_AUTHORED",
-      },
-    ],
-    skipDuplicates: true,
-  });
+    });
+  }
 
-  const componentItem = await prisma.learningItem.upsert({
+  return word.id;
+}
+
+async function upsertSentence(
+  item: StarterCourseSeedItem,
+  dataSourceId: string,
+  licenseId: string,
+): Promise<string> {
+  if (item.target.kind !== "SENTENCE") {
+    throw new Error(`${item.key} is not a sentence target.`);
+  }
+
+  const sentence = await prisma.sentence.upsert({
     where: {
-      targetType_targetId: {
-        targetType: "COMPONENT",
-        targetId: component.id,
+      dataSourceId_sourceId: {
+        dataSourceId,
+        sourceId: sourceRecordIdFor(item),
       },
     },
     update: {
-      title: "Компонент 一",
-      status: "PUBLISHED",
+      japaneseText: item.target.japaneseText,
+      readingText: item.target.readingText,
+      translationRu: item.target.translationRu,
+      translationEn: item.target.translationEn,
+      difficulty: item.target.difficulty,
+      licenseId,
     },
     create: {
-      kind: "COMPONENT",
-      targetType: "COMPONENT",
-      targetId: component.id,
-      title: "Компонент 一",
-      levelHint: 1,
-      status: "PUBLISHED",
+      japaneseText: item.target.japaneseText,
+      readingText: item.target.readingText,
+      translationRu: item.target.translationRu,
+      translationEn: item.target.translationEn,
+      difficulty: item.target.difficulty,
+      sourceId: sourceRecordIdFor(item),
+      dataSourceId,
+      licenseId,
     },
   });
 
-  const kanjiItem = await prisma.learningItem.upsert({
-    where: {
-      targetType_targetId: {
-        targetType: "KANJI",
-        targetId: kanji.id,
+  return sentence.id;
+}
+
+async function upsertLearningItems(
+  seed: StarterCourseSeed,
+  targetIds: ReadonlyMap<string, string>,
+): Promise<Map<string, string>> {
+  const learningItemIds = new Map<string, string>();
+
+  for (const item of seed.items) {
+    const targetId = requiredMapValue(targetIds, item.key);
+    const learningItem = await prisma.learningItem.upsert({
+      where: {
+        targetType_targetId: {
+          targetType: item.kind,
+          targetId,
+        },
       },
-    },
+      update: {
+        kind: item.kind,
+        title: item.title,
+        levelHint: item.levelNumber,
+        status: "PUBLISHED",
+      },
+      create: {
+        kind: item.kind,
+        targetType: item.kind,
+        targetId,
+        title: item.title,
+        levelHint: item.levelNumber,
+        status: "PUBLISHED",
+      },
+    });
+
+    learningItemIds.set(item.key, learningItem.id);
+  }
+
+  return learningItemIds;
+}
+
+async function upsertLearningDependencies(
+  seed: StarterCourseSeed,
+  learningItemIds: ReadonlyMap<string, string>,
+): Promise<void> {
+  for (const item of seed.items) {
+    const learningItemId = requiredMapValue(learningItemIds, item.key);
+
+    for (const dependency of item.dependencies ?? []) {
+      await prisma.dependency.upsert({
+        where: {
+          learningItemId_prerequisiteItemId_dependencyType: {
+            learningItemId,
+            prerequisiteItemId: requiredMapValue(learningItemIds, dependency.prerequisiteKey),
+            dependencyType: "PREREQUISITE",
+          },
+        },
+        update: { requiredStage: dependency.requiredStage },
+        create: {
+          learningItemId,
+          prerequisiteItemId: requiredMapValue(learningItemIds, dependency.prerequisiteKey),
+          dependencyType: "PREREQUISITE",
+          requiredStage: dependency.requiredStage,
+        },
+      });
+    }
+  }
+}
+
+async function upsertLearningContent(
+  seed: StarterCourseSeed,
+  learningItemIds: ReadonlyMap<string, string>,
+): Promise<void> {
+  for (const item of seed.items) {
+    const learningItemId = requiredMapValue(learningItemIds, item.key);
+
+    for (const card of item.cards) {
+      const learningCard = await upsertCard(learningItemId, card);
+
+      for (const answer of card.acceptedAnswers) {
+        await upsertAnswer(learningCard.id, answer);
+      }
+
+      for (const blockedAnswer of card.blockedAnswers ?? []) {
+        await prisma.blockedAnswer.upsert({
+          where: {
+            learningCardId_normalizedText: {
+              learningCardId: learningCard.id,
+              normalizedText: blockedAnswer.normalizedText,
+            },
+          },
+          update: {
+            text: blockedAnswer.text,
+            reason: blockedAnswer.reason,
+          },
+          create: {
+            learningCardId: learningCard.id,
+            text: blockedAnswer.text,
+            normalizedText: blockedAnswer.normalizedText,
+            reason: blockedAnswer.reason,
+          },
+        });
+      }
+    }
+
+    for (const mnemonic of item.mnemonics ?? []) {
+      await upsertMnemonic(learningItemId, mnemonic);
+    }
+
+    for (const hint of item.hints ?? []) {
+      await upsertHint(learningItemId, hint);
+    }
+  }
+}
+
+async function upsertCourse(seed: StarterCourseSeed) {
+  return prisma.course.upsert({
+    where: { slug: seed.course.slug },
     update: {
-      title: "Кандзи 一",
+      titleRu: seed.course.titleRu,
+      descriptionRu: seed.course.descriptionRu,
+      targetLevel: seed.course.targetLevel,
+      courseType: "DEMO",
       status: "PUBLISHED",
     },
     create: {
-      kind: "KANJI",
-      targetType: "KANJI",
-      targetId: kanji.id,
-      title: "Кандзи 一",
-      levelHint: 1,
-      status: "PUBLISHED",
-    },
-  });
-
-  const wordItem = await prisma.learningItem.upsert({
-    where: {
-      targetType_targetId: {
-        targetType: "WORD",
-        targetId: word.id,
-      },
-    },
-    update: {
-      title: "Слово 一",
-      status: "PUBLISHED",
-    },
-    create: {
-      kind: "WORD",
-      targetType: "WORD",
-      targetId: word.id,
-      title: "Слово 一",
-      levelHint: 1,
-      status: "PUBLISHED",
-    },
-  });
-
-  await prisma.dependency.upsert({
-    where: {
-      learningItemId_prerequisiteItemId_dependencyType: {
-        learningItemId: kanjiItem.id,
-        prerequisiteItemId: componentItem.id,
-        dependencyType: "PREREQUISITE",
-      },
-    },
-    update: { requiredStage: 1 },
-    create: {
-      learningItemId: kanjiItem.id,
-      prerequisiteItemId: componentItem.id,
-      dependencyType: "PREREQUISITE",
-      requiredStage: 1,
-    },
-  });
-
-  await prisma.dependency.upsert({
-    where: {
-      learningItemId_prerequisiteItemId_dependencyType: {
-        learningItemId: wordItem.id,
-        prerequisiteItemId: kanjiItem.id,
-        dependencyType: "PREREQUISITE",
-      },
-    },
-    update: { requiredStage: 2 },
-    create: {
-      learningItemId: wordItem.id,
-      prerequisiteItemId: kanjiItem.id,
-      dependencyType: "PREREQUISITE",
-      requiredStage: 2,
-    },
-  });
-
-  const componentMeaningCard = await upsertCard(componentItem.id, "MEANING", "MEANING", 1);
-  const kanjiMeaningCard = await upsertCard(kanjiItem.id, "MEANING", "MEANING", 1);
-  const kanjiReadingCard = await upsertCard(kanjiItem.id, "READING", "READING", 2);
-  const wordMeaningCard = await upsertCard(wordItem.id, "MEANING", "MEANING", 1);
-
-  await upsertAnswer(componentMeaningCard.id, "один", "один", "MEANING", true);
-  await upsertAnswer(kanjiMeaningCard.id, "один", "один", "MEANING", true);
-  await upsertAnswer(componentMeaningCard.id, "one", "one", "MEANING", true, "en-US");
-  await upsertAnswer(kanjiMeaningCard.id, "one", "one", "MEANING", true, "en-US");
-  await upsertAnswer(kanjiReadingCard.id, "いち", "いち", "READING", true);
-  await upsertAnswer(wordMeaningCard.id, "один", "один", "MEANING", true);
-  await upsertAnswer(wordMeaningCard.id, "one", "one", "MEANING", true, "en-US");
-
-  await prisma.blockedAnswer.upsert({
-    where: {
-      learningCardId_normalizedText: {
-        learningCardId: componentMeaningCard.id,
-        normalizedText: "черта",
-      },
-    },
-    update: {
-      reason: "Слишком общее значение для учебной карточки.",
-    },
-    create: {
-      learningCardId: componentMeaningCard.id,
-      text: "черта",
-      normalizedText: "черта",
-      reason: "Слишком общее значение для учебной карточки.",
-    },
-  });
-
-  await upsertMnemonic(
-    componentItem.id,
-    "MEANING",
-    "Представь одну короткую линию: это самый простой знак для количества один.",
-  );
-  await upsertHint(kanjiItem.id, "READING", "Для базового счета используй чтение いち.");
-
-  const course = await prisma.course.upsert({
-    where: { slug: "starter-demo" },
-    update: {
-      titleRu: "Демо-курс",
-      status: "PUBLISHED",
-    },
-    create: {
-      slug: "starter-demo",
-      titleRu: "Демо-курс",
-      descriptionRu: "Минимальный авторский курс для проверки локальной разработки.",
-      targetLevel: "N5",
+      slug: seed.course.slug,
+      titleRu: seed.course.titleRu,
+      descriptionRu: seed.course.descriptionRu,
+      targetLevel: seed.course.targetLevel,
       courseType: "DEMO",
       status: "PUBLISHED",
     },
   });
+}
 
-  const level = await prisma.courseLevel.upsert({
+async function upsertCourseLevels(
+  seed: StarterCourseSeed,
+  courseId: string,
+  learningItemIds: ReadonlyMap<string, string>,
+): Promise<void> {
+  await prisma.courseLevelItem.deleteMany({
     where: {
-      courseId_levelNumber: {
-        courseId: course.id,
-        levelNumber: 1,
+      courseLevel: {
+        courseId,
       },
-    },
-    update: {
-      titleRu: "Первый знак",
-    },
-    create: {
-      courseId: course.id,
-      levelNumber: 1,
-      titleRu: "Первый знак",
-      descriptionRu: "Компонент, кандзи и слово для числа один.",
     },
   });
 
-  await upsertCourseLevelItem(level.id, componentItem.id, 1);
-  await upsertCourseLevelItem(level.id, kanjiItem.id, 2);
-  await upsertCourseLevelItem(level.id, wordItem.id, 3);
+  const activeLevelNumbers = seed.course.levels.map((level) => level.levelNumber);
+  await prisma.courseLevel.deleteMany({
+    where: {
+      courseId,
+      levelNumber: { notIn: activeLevelNumbers },
+    },
+  });
 
-  const srsSystem = await prisma.srsSystem.upsert({
+  for (const level of seed.course.levels) {
+    const courseLevel = await prisma.courseLevel.upsert({
+      where: {
+        courseId_levelNumber: {
+          courseId,
+          levelNumber: level.levelNumber,
+        },
+      },
+      update: {
+        titleRu: level.titleRu,
+        descriptionRu: level.descriptionRu,
+      },
+      create: {
+        courseId,
+        levelNumber: level.levelNumber,
+        titleRu: level.titleRu,
+        descriptionRu: level.descriptionRu,
+      },
+    });
+
+    for (const item of seed.items
+      .filter((candidate) => candidate.levelNumber === level.levelNumber)
+      .sort((left, right) => left.sortOrder - right.sortOrder)) {
+      await prisma.courseLevelItem.upsert({
+        where: {
+          courseLevelId_learningItemId: {
+            courseLevelId: courseLevel.id,
+            learningItemId: requiredMapValue(learningItemIds, item.key),
+          },
+        },
+        update: {
+          sortOrder: item.sortOrder,
+          unlockPolicyJson: { policy: "level-order" },
+        },
+        create: {
+          courseLevelId: courseLevel.id,
+          learningItemId: requiredMapValue(learningItemIds, item.key),
+          sortOrder: item.sortOrder,
+          unlockPolicyJson: { policy: "level-order" },
+        },
+      });
+    }
+  }
+}
+
+async function upsertDefaultSrsSystem() {
+  return prisma.srsSystem.upsert({
     where: { slug: "default-mvp" },
     update: {
       title: "Default MVP SRS",
-      configJson: { source: "bootstrap-seed" },
+      configJson: { source: "starter-course-seed" },
     },
     create: {
       slug: "default-mvp",
       title: "Default MVP SRS",
-      configJson: { source: "bootstrap-seed" },
+      configJson: { source: "starter-course-seed" },
     },
   });
+}
 
+async function upsertDefaultSrsStages(srsSystemId: string): Promise<void> {
   const stages = [
     ["Apprentice 1", 240, false],
     ["Apprentice 2", 480, false],
@@ -488,7 +608,7 @@ async function main(): Promise<void> {
     await prisma.srsStage.upsert({
       where: {
         srsSystemId_stageIndex: {
-          srsSystemId: srsSystem.id,
+          srsSystemId,
           stageIndex: index + 1,
         },
       },
@@ -498,7 +618,7 @@ async function main(): Promise<void> {
         isBurned,
       },
       create: {
-        srsSystemId: srsSystem.id,
+        srsSystemId,
         stageIndex: index + 1,
         name,
         intervalMinutes,
@@ -506,199 +626,210 @@ async function main(): Promise<void> {
       },
     });
   }
+}
 
-  if (shouldSeedDevelopmentUser()) {
-    const demoUser = await prisma.user.upsert({
-      where: { email: "demo@example.local" },
-      update: {
-        displayName: "Demo",
-        role: "USER",
-        passwordHash: DEV_USER_PASSWORD_HASH,
-      },
-      create: {
-        email: "demo@example.local",
-        passwordHash: DEV_USER_PASSWORD_HASH,
-        displayName: "Demo",
-        role: "USER",
-      },
-    });
+async function upsertDemoUser(seed: StarterCourseSeed, courseId: string): Promise<void> {
+  const demoUser = await prisma.user.upsert({
+    where: { email: seed.demoUser.email },
+    update: {
+      displayName: seed.demoUser.displayName,
+      role: "USER",
+      passwordHash: DEV_USER_PASSWORD_HASH,
+    },
+    create: {
+      email: seed.demoUser.email,
+      passwordHash: DEV_USER_PASSWORD_HASH,
+      displayName: seed.demoUser.displayName,
+      role: "USER",
+    },
+  });
 
-    await prisma.userSettings.upsert({
-      where: { userId: demoUser.id },
-      update: {
-        locale: "ru-RU",
-        translationDisplayMode: "ru",
-        timezone: "Europe/Moscow",
-      },
-      create: {
+  await prisma.userSettings.upsert({
+    where: { userId: demoUser.id },
+    update: {
+      locale: "ru-RU",
+      translationDisplayMode: "ru-en",
+      timezone: "Europe/Moscow",
+      dailyLessonLimit: 10,
+      reviewBudget: 100,
+      strictMode: false,
+    },
+    create: {
+      userId: demoUser.id,
+      locale: "ru-RU",
+      translationDisplayMode: "ru-en",
+      timezone: "Europe/Moscow",
+      dailyLessonLimit: 10,
+      reviewBudget: 100,
+      strictMode: false,
+    },
+  });
+
+  await prisma.userEnrollment.upsert({
+    where: {
+      userId_courseId: {
         userId: demoUser.id,
-        locale: "ru-RU",
-        translationDisplayMode: "ru",
-        timezone: "Europe/Moscow",
-        dailyLessonLimit: 10,
-        reviewBudget: 100,
-        strictMode: false,
+        courseId,
       },
-    });
-
-    await prisma.userEnrollment.upsert({
-      where: {
-        userId_courseId: {
-          userId: demoUser.id,
-          courseId: course.id,
-        },
-      },
-      update: { status: "ACTIVE" },
-      create: {
-        userId: demoUser.id,
-        courseId: course.id,
-        status: "ACTIVE",
-      },
-    });
-  }
+    },
+    update: { status: "ACTIVE" },
+    create: {
+      userId: demoUser.id,
+      courseId,
+      status: "ACTIVE",
+    },
+  });
 }
 
 function shouldSeedDevelopmentUser(): boolean {
   return process.env.NODE_ENV !== "production";
 }
 
-async function upsertCard(
-  learningItemId: string,
-  promptType: "MEANING" | "READING",
-  answerType: "MEANING" | "READING",
-  sortOrder: number,
-) {
+async function upsertCard(learningItemId: string, card: StarterCourseSeedCard) {
   return prisma.learningCard.upsert({
     where: {
       learningItemId_promptType_answerType_locale: {
         learningItemId,
-        promptType,
-        answerType,
+        promptType: card.promptType,
+        answerType: card.answerType,
         locale: "ru-RU",
       },
     },
     update: {
       cardType: "REVIEW",
-      sortOrder,
+      sortOrder: card.sortOrder,
     },
     create: {
       learningItemId,
       cardType: "REVIEW",
-      promptType,
-      answerType,
+      promptType: card.promptType,
+      answerType: card.answerType,
       locale: "ru-RU",
-      sortOrder,
+      sortOrder: card.sortOrder,
     },
   });
 }
 
 async function upsertAnswer(
   learningCardId: string,
-  text: string,
-  normalizedText: string,
-  answerKind: "MEANING" | "READING",
-  isPrimary: boolean,
-  locale = "ru-RU",
+  answer: StarterCourseSeedCard["acceptedAnswers"][number],
 ): Promise<void> {
   await prisma.learningAnswer.upsert({
     where: {
       learningCardId_normalizedText_answerKind_locale: {
         learningCardId,
-        normalizedText,
-        answerKind,
-        locale,
+        normalizedText: answer.normalizedText,
+        answerKind: answer.answerKind,
+        locale: answer.locale,
       },
     },
     update: {
-      text,
-      isPrimary,
+      text: answer.text,
+      isPrimary: answer.isPrimary,
     },
     create: {
       learningCardId,
-      text,
-      normalizedText,
-      answerKind,
-      locale,
-      isPrimary,
+      text: answer.text,
+      normalizedText: answer.normalizedText,
+      answerKind: answer.answerKind,
+      locale: answer.locale,
+      isPrimary: answer.isPrimary,
     },
   });
 }
 
-async function upsertMnemonic(
-  learningItemId: string,
-  mnemonicType: "MEANING" | "READING" | "STORY",
-  body: string,
-): Promise<void> {
+async function upsertMnemonic(learningItemId: string, text: StarterCourseSeedText): Promise<void> {
+  const mnemonicType = toMnemonicType(text.type);
+
   await prisma.mnemonic.upsert({
     where: {
       learningItemId_locale_mnemonicType_version: {
         learningItemId,
-        locale: "ru-RU",
+        locale: text.locale,
         mnemonicType,
         version: 1,
       },
     },
-    update: { body },
+    update: { body: text.body },
     create: {
       learningItemId,
-      locale: "ru-RU",
+      locale: text.locale,
       mnemonicType,
-      body,
+      body: text.body,
       sourceKind: "PROJECT_AUTHORED",
       version: 1,
     },
   });
 }
 
-async function upsertHint(
-  learningItemId: string,
-  hintType: "MEANING" | "READING" | "USAGE",
-  body: string,
-): Promise<void> {
+async function upsertHint(learningItemId: string, text: StarterCourseSeedText): Promise<void> {
+  const hintType = toHintType(text.type);
+
   await prisma.hint.upsert({
     where: {
       learningItemId_locale_hintType_version: {
         learningItemId,
-        locale: "ru-RU",
+        locale: text.locale,
         hintType,
         version: 1,
       },
     },
-    update: { body },
+    update: { body: text.body },
     create: {
       learningItemId,
-      locale: "ru-RU",
+      locale: text.locale,
       hintType,
-      body,
+      body: text.body,
       sourceKind: "PROJECT_AUTHORED",
       version: 1,
     },
   });
 }
 
-async function upsertCourseLevelItem(
-  courseLevelId: string,
-  learningItemId: string,
-  sortOrder: number,
-): Promise<void> {
-  await prisma.courseLevelItem.upsert({
-    where: {
-      courseLevelId_learningItemId: {
-        courseLevelId,
-        learningItemId,
-      },
-    },
-    update: {
-      sortOrder,
-      unlockPolicyJson: { policy: "level-order" },
-    },
-    create: {
-      courseLevelId,
-      learningItemId,
-      sortOrder,
-      unlockPolicyJson: { policy: "level-order" },
-    },
-  });
+function countItems(seed: StarterCourseSeed, kind: SeedItemKind): number {
+  return seed.items.filter((item) => item.kind === kind).length;
+}
+
+function sourceRecordIdFor(item: StarterCourseSeedItem): string {
+  return `starter:${item.kind.toLowerCase()}:${item.key}`;
+}
+
+function componentSymbolForKey(componentKey: string): string {
+  const component = buildStarterCourseSeed().items.find(
+    (item) => item.key === componentKey && item.target.kind === "COMPONENT",
+  );
+
+  if (component?.target.kind !== "COMPONENT") {
+    throw new Error(`Unknown component key ${componentKey}.`);
+  }
+
+  return component.target.symbol;
+}
+
+function requiredMapValue(map: ReadonlyMap<string, string>, key: string): string {
+  const value = map.get(key);
+
+  if (value === undefined) {
+    throw new Error(`Missing seed map value for ${key}.`);
+  }
+
+  return value;
+}
+
+function toMnemonicType(type: StarterCourseSeedText["type"]): SeedMnemonicType {
+  if (type === "MEANING" || type === "READING" || type === "STORY") {
+    return type;
+  }
+
+  throw new Error(`Unsupported mnemonic type ${type}.`);
+}
+
+function toHintType(type: StarterCourseSeedText["type"]): SeedHintType {
+  if (type === "MEANING" || type === "READING" || type === "USAGE") {
+    return type;
+  }
+
+  throw new Error(`Unsupported hint type ${type}.`);
 }
 
 main()
