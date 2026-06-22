@@ -1065,6 +1065,148 @@ textarea:focus-visible {
   resize: vertical;
 }
 
+.admin-heading {
+  align-items: end;
+}
+
+.admin-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.3fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.admin-queue {
+  position: sticky;
+  top: 88px;
+}
+
+.admin-queue ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-queue button {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-queue button[aria-current="true"] {
+  border-color: var(--accent);
+  background: var(--surface-strong);
+}
+
+.admin-queue strong {
+  font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Sans", sans-serif;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.admin-queue span,
+.admin-queue small {
+  color: var(--muted);
+}
+
+.admin-editor {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-item-header {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.44fr);
+  align-items: start;
+}
+
+.admin-item-header h2 {
+  margin: 4px 0;
+  font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Sans", sans-serif;
+  font-size: clamp(48px, 9vw, 88px);
+  line-height: 1;
+}
+
+.admin-item-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.admin-form,
+.admin-card-list,
+.admin-card-list article {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-form label,
+.admin-card-list label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.admin-form input,
+.admin-form select,
+.admin-form textarea,
+.admin-card-list input,
+.admin-card-list textarea {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 10px 12px;
+}
+
+.admin-form textarea,
+.admin-card-list textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.admin-two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-card-list article {
+  border-top: 1px solid var(--surface-border);
+  padding-top: 14px;
+}
+
+.admin-card-list article:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.admin-card-list h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.admin-card-list small {
+  color: var(--muted);
+}
+
+.admin-side-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
 @keyframes shimmer {
   from {
     background-position: 200% 0;
@@ -1088,6 +1230,11 @@ textarea:focus-visible {
 
   .dashboard-layout,
   .dashboard-heading,
+  .admin-heading,
+  .admin-layout,
+  .admin-item-header,
+  .admin-side-grid,
+  .admin-two-column,
   .item-hero,
   .item-layout,
   .lesson-heading,

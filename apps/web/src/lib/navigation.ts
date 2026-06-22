@@ -1,6 +1,7 @@
 export type NavigationItem = {
   href: string;
   label: string;
+  adminOnly?: boolean;
 };
 
 export const primaryNavigation = [
@@ -10,4 +11,5 @@ export const primaryNavigation = [
   { href: "/search", label: "Поиск" },
   { href: "/decks", label: "Колоды" },
   { href: "/settings", label: "Настройки" },
+  { href: "/admin", label: "Админ", adminOnly: true },
 ] satisfies NavigationItem[];

@@ -10,7 +10,7 @@ import {
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
-import { updateUserSettings } from "../lib/api-client";
+import { updateUserSettings, type UserRole } from "../lib/api-client";
 import {
   AUTH_CHANGED_EVENT,
   clearStoredSession,
@@ -31,6 +31,7 @@ export function AppShell({ children }: AppShellProps) {
   const [mode, setMode] = useState<TranslationDisplayMode>("ru");
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [role, setRole] = useState<UserRole>("USER");
 
   useEffect(() => {
     function syncSessionState(): void {
@@ -38,6 +39,7 @@ export function AppShell({ children }: AppShellProps) {
       setMode(readTranslationDisplayMode());
       setIsSignedIn(session !== null);
       setDisplayName(session?.user.displayName ?? session?.user.email ?? null);
+      setRole(session?.user.role ?? "USER");
     }
 
     syncSessionState();
@@ -78,16 +80,18 @@ export function AppShell({ children }: AppShellProps) {
             {APP_NAME}
           </Link>
           <nav aria-label="Основная навигация" className="nav">
-            {primaryNavigation.map((item) => (
-              <Link
-                aria-current={isActivePath(pathname, item.href) ? "page" : undefined}
-                className="nav-link"
-                href={item.href}
-                key={item.href}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {primaryNavigation
+              .filter((item) => item.adminOnly !== true || role === "ADMIN")
+              .map((item) => (
+                <Link
+                  aria-current={isActivePath(pathname, item.href) ? "page" : undefined}
+                  className="nav-link"
+                  href={item.href}
+                  key={item.href}
+                >
+                  {item.label}
+                </Link>
+              ))}
           </nav>
           <div className="topbar-actions">
             <label className="mode-control">

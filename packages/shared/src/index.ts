@@ -41,6 +41,9 @@ export type UserOverrideKind =
   | "note"
   | "mnemonic";
 export type DeckStatus = "draft" | "active" | "archived";
+export type AdminContentStatus = "draft" | "needs-review" | "published" | "archived";
+export type AdminImportRunStatus = "pending" | "success" | "failed";
+export type AdminTextSourceKind = "curated" | "imported" | "user";
 
 export type LocalizedTextDto = {
   readonly locale: ContentLocale;
@@ -319,6 +322,125 @@ export type DeckDto = {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly items?: readonly ItemSummary[];
+};
+
+export type AdminReviewQueueItemDto = {
+  readonly id: string;
+  readonly itemType: ItemKind;
+  readonly title: string;
+  readonly japanese: string;
+  readonly reading: string | null;
+  readonly level: number | null;
+  readonly status: AdminContentStatus;
+  readonly updatedAt: string;
+  readonly sourceNames: readonly string[];
+};
+
+export type AdminReviewQueueResponse = {
+  readonly items: readonly AdminReviewQueueItemDto[];
+};
+
+export type AdminCurationAnswerDto = {
+  readonly id: string;
+  readonly cardId: string;
+  readonly locale: ContentLocale;
+  readonly text: string;
+  readonly normalizedText: string;
+  readonly answerKind: CardAnswerType;
+  readonly isPrimary: boolean;
+};
+
+export type AdminCurationBlockedAnswerDto = {
+  readonly id: string;
+  readonly cardId: string;
+  readonly text: string;
+  readonly normalizedText: string;
+  readonly reason: string | null;
+};
+
+export type AdminCurationCardDto = {
+  readonly id: string;
+  readonly promptType: CardPromptType;
+  readonly answerType: CardAnswerType;
+  readonly locale: ContentLocale;
+  readonly sortOrder: number;
+  readonly updatedAt: string;
+  readonly acceptedAnswers: readonly AdminCurationAnswerDto[];
+  readonly blockedAnswers: readonly AdminCurationBlockedAnswerDto[];
+};
+
+export type AdminCurationTextDto = {
+  readonly id: string;
+  readonly locale: ContentLocale;
+  readonly type: "meaning" | "reading" | "story" | "usage";
+  readonly body: string;
+  readonly sourceKind: AdminTextSourceKind;
+  readonly version: number;
+  readonly updatedAt: string;
+};
+
+export type AdminImportRunSummaryDto = {
+  readonly id: string;
+  readonly dataSourceName: string;
+  readonly licenseName: string;
+  readonly sourceVersion: string | null;
+  readonly sourceFileName: string;
+  readonly checksumSha256: string;
+  readonly status: AdminImportRunStatus;
+  readonly startedAt: string;
+  readonly finishedAt: string | null;
+  readonly recordCount: number;
+};
+
+export type AdminCurationItemDto = {
+  readonly id: string;
+  readonly itemType: ItemKind;
+  readonly title: string;
+  readonly japanese: string;
+  readonly reading: string | null;
+  readonly level: number | null;
+  readonly status: AdminContentStatus;
+  readonly updatedAt: string;
+  readonly meanings: {
+    readonly ru: string;
+    readonly en: string;
+  };
+  readonly cards: readonly AdminCurationCardDto[];
+  readonly hints: readonly AdminCurationTextDto[];
+  readonly mnemonics: readonly AdminCurationTextDto[];
+  readonly attributions: readonly SourceAttributionDto[];
+  readonly importRuns: readonly AdminImportRunSummaryDto[];
+};
+
+export type AdminUpdateItemRequest = {
+  readonly status?: AdminContentStatus;
+  readonly meanings?: {
+    readonly ru?: string;
+    readonly en?: string;
+  };
+  readonly hints?: readonly {
+    readonly locale: ContentLocale;
+    readonly type: "meaning" | "reading" | "usage";
+    readonly body: string;
+  }[];
+  readonly mnemonics?: readonly {
+    readonly locale: ContentLocale;
+    readonly type: "meaning" | "reading" | "story";
+    readonly body: string;
+  }[];
+};
+
+export type AdminUpdateCardAnswersRequest = {
+  readonly acceptedAnswers: readonly {
+    readonly locale: ContentLocale;
+    readonly text: string;
+    readonly answerKind: CardAnswerType;
+    readonly isPrimary?: boolean;
+  }[];
+  readonly blockedAnswers: readonly {
+    readonly text: string;
+    readonly reason?: string | null;
+  }[];
 };
 
 export const workspacePackages: readonly WorkspacePackageInfo[] = [

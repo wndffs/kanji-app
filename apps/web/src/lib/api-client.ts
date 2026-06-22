@@ -1,4 +1,8 @@
 import {
+  type AdminCurationItemDto,
+  type AdminReviewQueueResponse,
+  type AdminUpdateCardAnswersRequest,
+  type AdminUpdateItemRequest,
   type AppLocale,
   type CardAnswerType,
   type ContentLocale,
@@ -148,6 +152,38 @@ export function register(input: {
 
 export function getDashboard(token: string): Promise<DashboardDto> {
   return apiRequest<DashboardDto>("/dashboard", { token });
+}
+
+export function getAdminReviewQueue(token: string): Promise<AdminReviewQueueResponse> {
+  return apiRequest<AdminReviewQueueResponse>("/admin/items/review-queue", { token });
+}
+
+export function getAdminCurationItem(token: string, itemId: string): Promise<AdminCurationItemDto> {
+  return apiRequest<AdminCurationItemDto>(`/admin/items/${encodeURIComponent(itemId)}`, { token });
+}
+
+export function updateAdminItem(
+  token: string,
+  itemId: string,
+  input: AdminUpdateItemRequest,
+): Promise<AdminCurationItemDto> {
+  return apiRequest<AdminCurationItemDto>(`/admin/items/${encodeURIComponent(itemId)}`, {
+    method: "PATCH",
+    token,
+    body: input,
+  });
+}
+
+export function updateAdminCardAnswers(
+  token: string,
+  cardId: string,
+  input: AdminUpdateCardAnswersRequest,
+): Promise<AdminCurationItemDto> {
+  return apiRequest<AdminCurationItemDto>(`/admin/cards/${encodeURIComponent(cardId)}/answers`, {
+    method: "PATCH",
+    token,
+    body: input,
+  });
 }
 
 export function getItemDetails(id: string, token?: string | null): Promise<ItemDetails> {
