@@ -27,6 +27,7 @@ export abstract class ReviewsRepository {
     userId: string,
     sessionId: string,
     cardId: string,
+    now: Date,
   ): Promise<ReviewAnswerTargetRecord | null>;
   abstract recordReviewAnswer(input: RecordReviewAnswerInput): Promise<void>;
   abstract finishReviewSession(
@@ -174,6 +175,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     userId: string,
     sessionId: string,
     cardId: string,
+    now: Date,
   ): Promise<ReviewAnswerTargetRecord | null> {
     const session = (await this.prisma.db.reviewSession.findFirst({
       where: {
@@ -201,6 +203,27 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       return null;
     }
 
+    if (
+      state.burnedAt !== null ||
+      state.availableAt === null ||
+      state.availableAt.getTime() > now.getTime()
+    ) {
+      return null;
+    }
+
+    const existingAnswer = await this.prisma.db.reviewAnswer.findFirst({
+      where: {
+        reviewSessionId: session.id,
+        userSrsStateId: state.id,
+        learningCardId: cardId,
+      },
+      select: { id: true },
+    });
+
+    if (existingAnswer !== null) {
+      return null;
+    }
+
     return {
       ...(await this.toQueueRecord(state)),
       session: toSessionRecord(session),
@@ -208,9 +231,39 @@ export class PrismaReviewsRepository extends ReviewsRepository {
   }
 
   async recordReviewAnswer(input: RecordReviewAnswerInput): Promise<void> {
-    await this.prisma.db.$transaction([
-      this.prisma.db.userSrsState.update({
-        where: { id: input.stateId },
+    await this.prisma.db.$transaction(async (tx) => {
+      const session = await tx.reviewSession.findFirst({
+        where: {
+          id: input.sessionId,
+          userId: input.userId,
+          finishedAt: null,
+        },
+        select: { id: true },
+      });
+
+      if (session === null) {
+        throw new Error("Review session ownership check failed.");
+      }
+
+      const existingAnswer = await tx.reviewAnswer.findFirst({
+        where: {
+          reviewSessionId: input.sessionId,
+          userSrsStateId: input.stateId,
+          learningCardId: input.cardId,
+        },
+        select: { id: true },
+      });
+
+      if (existingAnswer !== null) {
+        throw new Error("Review answer has already been recorded for this session card.");
+      }
+
+      const updated = await tx.userSrsState.updateMany({
+        where: {
+          id: input.stateId,
+          userId: input.userId,
+          learningCardId: input.cardId,
+        },
         data: {
           stageIndex: input.nextState.stageIndex,
           availableAt: input.nextState.availableAt,
@@ -220,8 +273,13 @@ export class PrismaReviewsRepository extends ReviewsRepository {
           correctStreak: input.nextState.correctStreak,
           lastReviewedAt: input.nextState.lastReviewedAt,
         },
-      }),
-      this.prisma.db.reviewAnswer.create({
+      });
+
+      if (updated.count === 0) {
+        throw new Error("Review SRS state ownership check failed.");
+      }
+
+      await tx.reviewAnswer.create({
         data: {
           reviewSessionId: input.sessionId,
           userSrsStateId: input.stateId,
@@ -234,8 +292,8 @@ export class PrismaReviewsRepository extends ReviewsRepository {
           answeredAt: input.answeredAt,
           detailsJson: input.details as Prisma.InputJsonObject,
         },
-      }),
-    ]);
+      });
+    });
   }
 
   async finishReviewSession(

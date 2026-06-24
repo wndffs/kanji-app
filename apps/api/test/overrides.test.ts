@@ -76,6 +76,29 @@ describe("OverridesService", () => {
     });
   });
 
+  it("does not let another user delete a private accepted answer", async () => {
+    const { service } = createHarness();
+    const override = await service.addAcceptedAnswer("card-meaning", createUser("owner"), {
+      answerKind: "meaning",
+      text: "single stroke",
+    });
+
+    await expect(
+      service.deleteAcceptedAnswer("card-meaning", override.id, createUser("other")),
+    ).rejects.toThrow("Private accepted answer not found.");
+    await expect(
+      service.validateAnswerForUser({
+        userId: "owner",
+        cardId: "card-meaning",
+        answerKind: "meaning",
+        answer: "single stroke",
+      }),
+    ).resolves.toMatchObject({
+      accepted: true,
+      matchSource: "user",
+    });
+  });
+
   it("lets global blocked answers reject exact private overrides", async () => {
     const { service } = createHarness();
 
@@ -133,6 +156,24 @@ describe("OverridesService", () => {
       }),
     ).resolves.toEqual({ deleted: true });
     expect(repository.listMnemonicBodies("owner", "item-kanji-one")).toEqual([]);
+  });
+
+  it("does not let another user delete a private item mnemonic", async () => {
+    const { service, repository } = createHarness();
+
+    await service.savePrivateMnemonic("item-kanji-one", createUser("owner"), {
+      locale: "en-US",
+      mnemonicType: "story",
+      body: "Owner-only note.",
+    });
+
+    await expect(
+      service.deletePrivateMnemonic("item-kanji-one", createUser("other"), {
+        locale: "en-US",
+        mnemonicType: "story",
+      }),
+    ).rejects.toThrow("Private mnemonic not found.");
+    expect(repository.listMnemonicBodies("owner", "item-kanji-one")).toEqual(["Owner-only note."]);
   });
 });
 

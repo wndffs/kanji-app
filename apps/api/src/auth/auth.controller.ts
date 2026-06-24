@@ -1,5 +1,11 @@
-import { Body, Controller, Get, Inject, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Post, Req, UseGuards } from "@nestjs/common";
 
+import {
+  getClientRateLimitKey,
+  getEmailRateLimitKey,
+  RateLimitService,
+  type RequestRateLimitSource,
+} from "../security/rate-limit.service";
 import { AuthGuard } from "./auth.guard";
 import { AuthService } from "./auth.service";
 import { CurrentUser } from "./current-user.decorator";
@@ -7,16 +13,29 @@ import { type AuthSessionDto, type CurrentUserDto } from "./auth.types";
 
 @Controller("auth")
 export class AuthController {
-  constructor(@Inject(AuthService) private readonly authService: AuthService) {}
+  constructor(
+    @Inject(AuthService) private readonly authService: AuthService,
+    @Inject(RateLimitService) private readonly rateLimitService: RateLimitService,
+  ) {}
 
   @Post("register")
-  register(@Body() body: unknown): Promise<AuthSessionDto> {
-    return this.authService.register(body);
+  async register(
+    @Req() request: RequestRateLimitSource,
+    @Body() body: unknown,
+  ): Promise<AuthSessionDto> {
+    this.limitAuthRequest("register", request, body);
+
+    return await this.authService.register(body);
   }
 
   @Post("login")
-  login(@Body() body: unknown): Promise<AuthSessionDto> {
-    return this.authService.login(body);
+  async login(
+    @Req() request: RequestRateLimitSource,
+    @Body() body: unknown,
+  ): Promise<AuthSessionDto> {
+    this.limitAuthRequest("login", request, body);
+
+    return await this.authService.login(body);
   }
 
   @UseGuards(AuthGuard)
@@ -29,5 +48,19 @@ export class AuthController {
   @Get("me")
   getCurrentUser(@CurrentUser() user: CurrentUserDto): CurrentUserDto {
     return user;
+  }
+
+  private limitAuthRequest(
+    action: "login" | "register",
+    request: RequestRateLimitSource,
+    body: unknown,
+  ): void {
+    this.rateLimitService.assertAllowed(`auth-${action}-ip`, getClientRateLimitKey(request));
+
+    const emailKey = getEmailRateLimitKey(body);
+
+    if (emailKey !== null) {
+      this.rateLimitService.assertAllowed(`auth-${action}-email`, emailKey);
+    }
   }
 }

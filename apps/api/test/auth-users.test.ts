@@ -95,6 +95,24 @@ describe("Auth and users", () => {
     ).rejects.toThrow("Invalid email or password.");
   });
 
+  it("rejects oversized passwords before hashing or verification", async () => {
+    const { authService } = createAuthHarness();
+    const oversizedPassword = "a".repeat(257);
+
+    await expect(
+      authService.register({
+        email: "learner@example.test",
+        password: oversizedPassword,
+      }),
+    ).rejects.toThrow("password must be at most 256 characters.");
+    await expect(
+      authService.login({
+        email: "learner@example.test",
+        password: oversizedPassword,
+      }),
+    ).rejects.toThrow("password must be at most 256 characters.");
+  });
+
   it("protects the current user endpoint with bearer auth", async () => {
     const { authGuard, authService } = createAuthHarness();
     const usersController = new UsersController(authService);

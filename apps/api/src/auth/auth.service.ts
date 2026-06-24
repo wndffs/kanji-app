@@ -32,6 +32,7 @@ type UserSettingsUpdate = {
 };
 
 const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 256;
 const MAX_EMAIL_LENGTH = 254;
 const MAX_DISPLAY_NAME_LENGTH = 120;
 const MAX_TIMEZONE_LENGTH = 80;
@@ -155,6 +156,7 @@ function parseLoginRequest(body: unknown): LoginRequestDto {
   const password = readRequiredString(record, "password");
 
   assertValidEmail(email);
+  assertPasswordWithinHashLimit(password);
 
   return { email, password };
 }
@@ -292,8 +294,16 @@ function assertValidEmail(email: string): void {
 }
 
 function assertValidPassword(password: string): void {
+  assertPasswordWithinHashLimit(password);
+
   if (password.length < MIN_PASSWORD_LENGTH) {
     throw new BadRequestException(`password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+  }
+}
+
+function assertPasswordWithinHashLimit(password: string): void {
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    throw new BadRequestException(`password must be at most ${MAX_PASSWORD_LENGTH} characters.`);
   }
 }
 

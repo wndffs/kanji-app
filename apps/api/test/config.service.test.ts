@@ -84,4 +84,26 @@ describe("buildConfigSnapshot", () => {
       }),
     ).toThrow("AUTH_TOKEN_SECRET must be configured in production.");
   });
+
+  it("rejects short production token secrets", () => {
+    expect(() =>
+      buildConfigSnapshot({
+        NODE_ENV: "production",
+        AUTH_MODE: "local",
+        DATABASE_URL: "postgresql://user:pass@localhost:5432/app",
+        AUTH_TOKEN_SECRET: "short-secret",
+      }),
+    ).toThrow("AUTH_TOKEN_SECRET must be at least 32 characters in production.");
+  });
+
+  it("rejects repeated-character production token secrets", () => {
+    expect(() =>
+      buildConfigSnapshot({
+        NODE_ENV: "production",
+        AUTH_MODE: "local",
+        DATABASE_URL: "postgresql://user:pass@localhost:5432/app",
+        AUTH_TOKEN_SECRET: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      }),
+    ).toThrow("AUTH_TOKEN_SECRET must not be a repeated character in production.");
+  });
 });

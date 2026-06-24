@@ -29,6 +29,7 @@ import {
   readStoredSession,
   readTranslationDisplayMode,
 } from "../../lib/auth-storage";
+import { safeExternalUrl } from "../../lib/safe-url";
 
 type ItemLookup =
   | { readonly type: "item"; readonly value: string }
@@ -419,18 +420,22 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
               <p className="muted">Источник для этого материала пока не указан.</p>
             ) : (
               <ul className="source-list">
-                {item.attributions.map((source, index) => (
-                  <li key={`${source.sourceName}-${index}`}>
-                    <strong>{source.sourceName}</strong>
-                    <span>{source.licenseName}</span>
-                    <p>{source.attributionText}</p>
-                    {source.sourceUrl === null || source.sourceUrl === undefined ? null : (
-                      <a className="inline-link" href={source.sourceUrl}>
-                        Открыть источник
-                      </a>
-                    )}
-                  </li>
-                ))}
+                {item.attributions.map((source, index) => {
+                  const sourceUrl = safeExternalUrl(source.sourceUrl);
+
+                  return (
+                    <li key={`${source.sourceName}-${index}`}>
+                      <strong>{source.sourceName}</strong>
+                      <span>{source.licenseName}</span>
+                      <p>{source.attributionText}</p>
+                      {sourceUrl === null ? null : (
+                        <a className="inline-link" href={sourceUrl} rel="noreferrer">
+                          Открыть источник
+                        </a>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>

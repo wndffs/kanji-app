@@ -30,6 +30,7 @@ import {
 } from "./reviews.types";
 
 const DEFAULT_REVIEW_QUEUE_LIMIT = 100;
+const MAX_REVIEW_ANSWER_LENGTH = 500;
 
 @Injectable()
 export class ReviewsService {
@@ -66,10 +67,12 @@ export class ReviewsService {
     body: unknown,
   ): Promise<SubmitReviewAnswerResponse> {
     const request = parseReviewAnswerRequest(body);
+    const answeredAt = new Date();
     const target = await this.reviewsRepository.findAnswerTarget(
       user.id,
       sessionId,
       request.cardId,
+      answeredAt,
     );
 
     if (target === null) {
@@ -96,7 +99,7 @@ export class ReviewsService {
     const scheduling = calculateNextReview({
       state: toSrsSnapshot(target.state),
       result: recordedResult,
-      now: request.answeredAt,
+      now: answeredAt,
       stageConfig: {
         stages: target.stages,
         rules: {
@@ -106,12 +109,13 @@ export class ReviewsService {
     });
 
     await this.reviewsRepository.recordReviewAnswer({
+      userId: user.id,
       sessionId: target.session.id,
       stateId: target.state.id,
       cardId: target.card.id,
       answerText: request.answer,
       normalizedAnswer,
-      answeredAt: request.answeredAt,
+      answeredAt,
       recordedResult,
       responseResult,
       previousStageIndex: scheduling.previousStage.stageIndex,
@@ -198,12 +202,12 @@ export class ReviewsService {
 
 function parseReviewAnswerRequest(body: unknown): ParsedReviewAnswerRequest {
   const record = parseRecord(body);
+  parseOptionalAnsweredAt(record.answeredAt);
 
   return {
     cardId: parseRequiredString(record.cardId, "cardId"),
-    answer: parseRequiredString(record.answer, "answer"),
+    answer: parseRequiredString(record.answer, "answer", MAX_REVIEW_ANSWER_LENGTH),
     answerType: parseAnswerType(record.answerType),
-    answeredAt: parseDate(record.answeredAt),
     revealRequested: parseOptionalBoolean(record.revealRequested, "revealRequested"),
     manualIgnore: parseOptionalBoolean(record.manualIgnore, "manualIgnore"),
   };
@@ -217,12 +221,18 @@ function parseRecord(value: unknown): ReviewAnswerRequestBody {
   return value as ReviewAnswerRequestBody;
 }
 
-function parseRequiredString(value: unknown, key: string): string {
+function parseRequiredString(value: unknown, key: string, maxLength?: number): string {
   if (typeof value !== "string" || value.trim() === "") {
     throw new BadRequestException(`${key} must be a non-empty string.`);
   }
 
-  return value.trim();
+  const trimmed = value.trim();
+
+  if (maxLength !== undefined && trimmed.length > maxLength) {
+    throw new BadRequestException(`${key} is too long.`);
+  }
+
+  return trimmed;
 }
 
 function parseAnswerType(value: unknown): "meaning" | "reading" {
@@ -233,9 +243,9 @@ function parseAnswerType(value: unknown): "meaning" | "reading" {
   throw new BadRequestException("answerType must be meaning or reading.");
 }
 
-function parseDate(value: unknown): Date {
+function parseOptionalAnsweredAt(value: unknown): void {
   if (value === undefined || value === null || value === "") {
-    return new Date();
+    return;
   }
 
   if (typeof value !== "string") {
@@ -247,8 +257,6 @@ function parseDate(value: unknown): Date {
   if (Number.isNaN(date.getTime())) {
     throw new BadRequestException("answeredAt must be a valid ISO date string.");
   }
-
-  return date;
 }
 
 function parseOptionalBoolean(value: unknown, key: string): boolean {

@@ -41,6 +41,7 @@ const DEFAULT_PORT = 3001;
 const DEFAULT_DATABASE_URL = "postgresql://kanji:kanji@localhost:5432/kanji_srs?schema=public";
 const DEFAULT_AUTH_TOKEN_SECRET = "dev-only-change-me";
 const DEFAULT_AUTH_SESSION_TTL_MINUTES = 43_200;
+const MIN_PRODUCTION_AUTH_TOKEN_SECRET_LENGTH = 32;
 
 @Injectable()
 export class AppConfigService {
@@ -108,8 +109,8 @@ export function buildConfigSnapshot(env: NodeJS.ProcessEnv): ApiConfigSnapshot {
     throw new Error("AUTH_MODE=dev is not allowed in production.");
   }
 
-  if (environment === "production" && authTokenSecret === DEFAULT_AUTH_TOKEN_SECRET) {
-    throw new Error("AUTH_TOKEN_SECRET must be configured in production.");
+  if (environment === "production") {
+    assertProductionAuthTokenSecret(authTokenSecret);
   }
 
   return {
@@ -183,6 +184,22 @@ function parseAuthMode(value: string | undefined): AuthMode {
   }
 
   return "local";
+}
+
+function assertProductionAuthTokenSecret(secret: string): void {
+  if (secret === DEFAULT_AUTH_TOKEN_SECRET) {
+    throw new Error("AUTH_TOKEN_SECRET must be configured in production.");
+  }
+
+  if (secret.length < MIN_PRODUCTION_AUTH_TOKEN_SECRET_LENGTH) {
+    throw new Error(
+      `AUTH_TOKEN_SECRET must be at least ${MIN_PRODUCTION_AUTH_TOKEN_SECRET_LENGTH} characters in production.`,
+    );
+  }
+
+  if (/^(.)\1+$/.test(secret)) {
+    throw new Error("AUTH_TOKEN_SECRET must not be a repeated character in production.");
+  }
 }
 
 function parseRole(value: string | undefined): UserRole {

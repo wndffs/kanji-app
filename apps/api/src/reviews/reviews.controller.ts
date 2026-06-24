@@ -3,12 +3,16 @@ import { Body, Controller, Get, Inject, Param, Post, UseGuards } from "@nestjs/c
 import { AuthGuard } from "../auth/auth.guard";
 import { type CurrentUserDto } from "../auth/auth.types";
 import { CurrentUser } from "../auth/current-user.decorator";
+import { RateLimitService } from "../security/rate-limit.service";
 import { ReviewsService } from "./reviews.service";
 
 @UseGuards(AuthGuard)
 @Controller("reviews")
 export class ReviewsController {
-  constructor(@Inject(ReviewsService) private readonly reviewsService: ReviewsService) {}
+  constructor(
+    @Inject(ReviewsService) private readonly reviewsService: ReviewsService,
+    @Inject(RateLimitService) private readonly rateLimitService: RateLimitService,
+  ) {}
 
   @Get("queue")
   getQueue(@CurrentUser() currentUser: CurrentUserDto) {
@@ -21,12 +25,14 @@ export class ReviewsController {
   }
 
   @Post(":sessionId/answer")
-  submitAnswer(
+  async submitAnswer(
     @Param("sessionId") sessionId: string,
     @CurrentUser() currentUser: CurrentUserDto,
     @Body() body: unknown,
   ) {
-    return this.reviewsService.submitAnswer(sessionId, currentUser, body);
+    this.rateLimitService.assertAllowed("review-answer-user", currentUser.id);
+
+    return await this.reviewsService.submitAnswer(sessionId, currentUser, body);
   }
 
   @Post(":sessionId/finish")

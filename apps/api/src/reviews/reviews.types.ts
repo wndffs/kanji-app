@@ -78,12 +78,12 @@ export type ParsedReviewAnswerRequest = {
   readonly cardId: string;
   readonly answer: string;
   readonly answerType: CardAnswerType;
-  readonly answeredAt: Date;
   readonly revealRequested: boolean;
   readonly manualIgnore: boolean;
 };
 
 export type RecordReviewAnswerInput = {
+  readonly userId: string;
   readonly sessionId: string;
   readonly stateId: string;
   readonly cardId: string;

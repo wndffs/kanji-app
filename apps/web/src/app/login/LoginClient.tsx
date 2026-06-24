@@ -6,14 +6,14 @@ import { type FormEvent, useState } from "react";
 
 import { login } from "../../lib/api-client";
 import { storeSession } from "../../lib/auth-storage";
+import { resolveDemoLoginPrefill } from "../../lib/demo-login";
 
-const DEMO_EMAIL = process.env.NEXT_PUBLIC_DEV_AUTH_EMAIL ?? "demo@example.local";
-const DEMO_PASSWORD = process.env.NEXT_PUBLIC_DEV_AUTH_PASSWORD ?? "dev-password";
+const DEMO_LOGIN_PREFILL = resolveDemoLoginPrefill(process.env);
 
 export function LoginClient() {
   const router = useRouter();
-  const [email, setEmail] = useState(DEMO_EMAIL);
-  const [password, setPassword] = useState(DEMO_PASSWORD);
+  const [email, setEmail] = useState(DEMO_LOGIN_PREFILL.email);
+  const [password, setPassword] = useState(DEMO_LOGIN_PREFILL.password);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 

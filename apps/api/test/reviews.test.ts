@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { validateAnswer, type AnswerKind } from "@kanji-srs/japanese";
 import { DEFAULT_SRS_STAGES, type SrsStage } from "@kanji-srs/srs";
@@ -19,6 +19,15 @@ const DUE_AT = new Date("2026-06-17T09:00:00.000Z");
 const FUTURE_AT = new Date("2999-01-01T09:00:00.000Z");
 
 describe("ReviewsService", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("returns due cards only without exposing answers", async () => {
     const { service } = createHarness();
     const queue = await service.getQueue(createUser("owner"));
@@ -172,6 +181,80 @@ describe("ReviewsService", () => {
     ).rejects.toThrow("Review session or card not found.");
   });
 
+  it("rejects duplicate answers for the same session card", async () => {
+    const { repository, service } = createHarness();
+    const session = await service.startSession(createUser("owner"));
+    const body = {
+      cardId: "card-meaning",
+      answer: "study answer",
+      answerType: "meaning",
+      answeredAt: NOW.toISOString(),
+    };
+
+    await expect(
+      service.submitAnswer(session.session.id, createUser("owner"), body),
+    ).resolves.toMatchObject({
+      accepted: true,
+    });
+    await expect(
+      service.submitAnswer(session.session.id, createUser("owner"), body),
+    ).rejects.toThrow("Review session or card not found.");
+    expect(repository.recordedAnswers).toHaveLength(1);
+  });
+
+  it("rejects future and burned cards submitted outside the due queue", async () => {
+    const { repository, service } = createHarness();
+    const session = await service.startSession(createUser("owner"));
+
+    await expect(
+      service.submitAnswer(session.session.id, createUser("owner"), {
+        cardId: "card-future",
+        answer: "future answer",
+        answerType: "meaning",
+      }),
+    ).rejects.toThrow("Review session or card not found.");
+    await expect(
+      service.submitAnswer(session.session.id, createUser("owner"), {
+        cardId: "card-burned",
+        answer: "burned answer",
+        answerType: "meaning",
+      }),
+    ).rejects.toThrow("Review session or card not found.");
+    expect(repository.recordedAnswers).toHaveLength(0);
+  });
+
+  it("uses server time instead of client answeredAt for scheduling", async () => {
+    const { repository, service } = createHarness();
+    const session = await service.startSession(createUser("owner"));
+
+    await service.submitAnswer(session.session.id, createUser("owner"), {
+      cardId: "card-meaning",
+      answer: "study answer",
+      answerType: "meaning",
+      answeredAt: "2999-01-01T00:00:00.000Z",
+    });
+
+    expect(repository.recordedAnswers[0]?.answeredAt).toEqual(NOW);
+    expect(repository.getState("state-due").availableAt).toEqual(
+      new Date("2026-06-18T17:00:00.000Z"),
+    );
+  });
+
+  it("rejects oversized answers before mutating SRS state", async () => {
+    const { repository, service } = createHarness();
+    const session = await service.startSession(createUser("owner"));
+
+    await expect(
+      service.submitAnswer(session.session.id, createUser("owner"), {
+        cardId: "card-meaning",
+        answer: "a".repeat(501),
+        answerType: "meaning",
+      }),
+    ).rejects.toThrow("answer is too long.");
+    expect(repository.recordedAnswers).toHaveLength(0);
+    expect(repository.getState("state-due").stageIndex).toBe(1);
+  });
+
   it("does not include burned cards in the due queue", async () => {
     const { service } = createHarness();
 
@@ -192,6 +275,7 @@ class InMemoryReviewsRepository extends ReviewsRepository {
     createQueueRecords(this.cards).map((record) => [record.state.id, record]),
   );
   private readonly sessions = new Map<string, ReviewSessionRecord>();
+  private readonly answeredSessionCards = new Set<string>();
   private nextSessionId = 1;
 
   async listDueReviewCards(
@@ -228,6 +312,7 @@ class InMemoryReviewsRepository extends ReviewsRepository {
     userId: string,
     sessionId: string,
     cardId: string,
+    now: Date,
   ): Promise<ReviewAnswerTargetRecord | null> {
     const session = this.sessions.get(sessionId);
     const record = [...this.states.values()].find(
@@ -238,11 +323,32 @@ class InMemoryReviewsRepository extends ReviewsRepository {
       return null;
     }
 
-    return record === undefined ? null : { ...record, session };
+    if (record === undefined) {
+      return null;
+    }
+
+    if (
+      record.state.burnedAt !== null ||
+      record.state.availableAt === null ||
+      record.state.availableAt.getTime() > now.getTime()
+    ) {
+      return null;
+    }
+
+    if (
+      this.answeredSessionCards.has(getAnsweredSessionCardKey(sessionId, record.state.id, cardId))
+    ) {
+      return null;
+    }
+
+    return { ...record, session };
   }
 
   async recordReviewAnswer(input: RecordReviewAnswerInput): Promise<void> {
     this.recordedAnswers.push(input);
+    this.answeredSessionCards.add(
+      getAnsweredSessionCardKey(input.sessionId, input.stateId, input.cardId),
+    );
 
     const record = this.states.get(input.stateId);
 
@@ -459,6 +565,10 @@ function createQueueRecord(
     card,
     stages: DEFAULT_SRS_STAGES as readonly SrsStage[],
   };
+}
+
+function getAnsweredSessionCardKey(sessionId: string, stateId: string, cardId: string): string {
+  return `${sessionId}:${stateId}:${cardId}`;
 }
 
 function createUser(
