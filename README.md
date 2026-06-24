@@ -42,6 +42,9 @@ docker compose up -d
 
 This starts PostgreSQL and Redis for later API and importer tasks.
 
+For production-like Docker builds and deployment flow, see
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
 ## Database
 
 After copying the env files and starting PostgreSQL:
