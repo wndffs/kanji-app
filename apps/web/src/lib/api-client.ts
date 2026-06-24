@@ -18,6 +18,7 @@ import {
   type ReviewAnswerRequest,
   type ReviewAnswerResponse,
   type ReviewQueueItem,
+  type SearchResponseDto,
   type StartLessonSessionResponse,
   type TranslationDisplayMode,
   type UserMnemonicDto,
@@ -196,6 +197,16 @@ export function getItemDetails(id: string, token?: string | null): Promise<ItemD
 
 export function getKanjiDetails(character: string, token?: string | null): Promise<ItemDetails> {
   return apiRequest<ItemDetails>(`/kanji/${encodeURIComponent(character)}`, { token });
+}
+
+export function searchItems(
+  query: string,
+  token?: string | null,
+  fetchImpl?: typeof fetch,
+): Promise<SearchResponseDto> {
+  const params = new URLSearchParams({ q: query });
+
+  return apiRequest<SearchResponseDto>(`/search?${params.toString()}`, { token, fetchImpl });
 }
 
 export function getLessonQueue(token: string): Promise<LessonQueueResponse> {

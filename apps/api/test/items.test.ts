@@ -92,6 +92,30 @@ describe("ItemsService", () => {
     });
   });
 
+  it("includes user SRS summary in authenticated search results", async () => {
+    const service = createService();
+
+    await expect(service.search({ q: "school" }, createUser("owner"))).resolves.toMatchObject({
+      items: [
+        {
+          id: "item-word-school",
+          srs: {
+            stageIndex: 2,
+            stageName: "Apprentice 2",
+          },
+        },
+      ],
+    });
+    await expect(service.search({ q: "school" }, null)).resolves.toMatchObject({
+      items: [
+        {
+          id: "item-word-school",
+          srs: null,
+        },
+      ],
+    });
+  });
+
   it("includes user overrides only for their owner", async () => {
     const service = createService();
 
@@ -302,6 +326,7 @@ function createItems(): readonly ItemRecord[] {
         },
       ],
       userOverrides: [],
+      srs: null,
     },
     {
       id: "item-word-school",
@@ -327,6 +352,7 @@ function createItems(): readonly ItemRecord[] {
       relations: [],
       attributions: [],
       userOverrides: [],
+      srs: null,
     },
   ];
 }
@@ -355,6 +381,17 @@ function filterForUser(item: ItemRecord, userId: string | undefined): ItemRecord
   return {
     ...item,
     cards,
+    srs:
+      userId === "owner" && item.id === "item-word-school"
+        ? {
+            stageIndex: 2,
+            stageName: "Apprentice 2",
+            availableAt: "2026-06-17T17:00:00.000Z",
+            burnedAt: null,
+            wrongCount: 0,
+            correctStreak: 2,
+          }
+        : item.srs,
     mnemonics:
       userId === "owner"
         ? [

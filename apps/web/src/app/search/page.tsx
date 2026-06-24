@@ -1,14 +1,21 @@
-import { SectionPage } from "../../components/SectionPage";
+import { Suspense } from "react";
+
+import { SearchClient } from "./SearchClient";
 
 export default function SearchPage() {
   return (
-    <SectionPage title="Поиск" status="Введите японский текст, чтение или перевод.">
-      <form className="search-panel">
-        <label>
-          Запрос
-          <input name="q" type="search" />
-        </label>
-      </form>
-    </SectionPage>
+    <Suspense
+      fallback={
+        <section className="page-stack" aria-busy="true">
+          <div className="page-heading">
+            <h1>Поиск</h1>
+            <p>Словарь</p>
+          </div>
+          <div className="search-panel skeleton" />
+        </section>
+      }
+    >
+      <SearchClient />
+    </Suspense>
   );
 }

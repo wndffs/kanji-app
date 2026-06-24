@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ApiError, apiRequest, createTextDeck } from "../src/lib/api-client";
+import { ApiError, apiRequest, createTextDeck, searchItems } from "../src/lib/api-client";
 
 describe("apiRequest", () => {
   it("sends JSON requests with bearer tokens", async () => {
@@ -98,5 +98,39 @@ describe("apiRequest", () => {
     expect(capturedInit?.body).toBe(
       JSON.stringify({ title: "Text deck", text: "学校", maxItems: 10 }),
     );
+  });
+  it("searches items through the typed API client", async () => {
+    let capturedInput: RequestInfo | URL | null = null;
+    let capturedInit: RequestInit | undefined;
+    const fetchImpl: typeof fetch = async (input, init) => {
+      capturedInput = input;
+      capturedInit = init;
+
+      return new Response(
+        JSON.stringify({
+          query: "school",
+          items: [],
+          pagination: {
+            page: 1,
+            limit: 20,
+            total: 0,
+            hasNextPage: false,
+          },
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    };
+
+    await expect(searchItems("school", "token-1", fetchImpl)).resolves.toMatchObject({
+      query: "school",
+      items: [],
+    });
+
+    expect(capturedInput).toBe("http://localhost:3001/search?q=school");
+    expect(capturedInit?.method).toBe("GET");
+    expect((capturedInit?.headers as Headers).get("Authorization")).toBe("Bearer token-1");
   });
 });

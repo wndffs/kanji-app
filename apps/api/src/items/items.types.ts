@@ -5,6 +5,7 @@ import {
   type KanjiStrokeGraphicDto,
   type LocalizedTextDto,
   type SourceAttributionDto,
+  type SrsStateSummaryDto,
 } from "@kanji-srs/shared";
 
 export type ItemStrokeGraphicRecord = KanjiStrokeGraphicDto;
@@ -75,6 +76,7 @@ export type ItemRecord = {
   readonly relations: readonly ItemRelationRecord[];
   readonly attributions: readonly SourceAttributionDto[];
   readonly userOverrides: readonly ItemUserOverrideRecord[];
+  readonly srs: SrsStateSummaryDto | null;
 };
 
 export type ItemLookupOptions = {

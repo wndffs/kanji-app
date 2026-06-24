@@ -411,6 +411,81 @@ textarea:focus-visible {
   width: 100%;
 }
 
+.search-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.search-results {
+  display: grid;
+  gap: 12px;
+}
+
+.search-result-card {
+  min-height: 136px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.42fr);
+  gap: 16px;
+  align-items: stretch;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.search-result-card:hover {
+  border-color: rgba(35, 100, 170, 0.42);
+}
+
+.search-result-main {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+
+.search-result-main strong {
+  font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Sans", sans-serif;
+  font-size: 38px;
+  line-height: 1.08;
+}
+
+.search-result-main p {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.search-result-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.search-result-meta div {
+  min-width: 0;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.search-result-meta dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.search-result-meta dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
 .form-error {
   margin: 0;
   color: var(--danger);
@@ -1441,6 +1516,8 @@ textarea:focus-visible {
   .deck-result-header,
   .item-hero,
   .item-layout,
+  .search-form,
+  .search-result-card,
   .lesson-heading,
   .lesson-session-header,
   .lesson-hero,
@@ -1506,6 +1583,7 @@ textarea:focus-visible {
   .metric-grid,
   .stats-list,
   .deck-item-facts,
+  .search-result-meta,
   .lesson-preview-grid,
   .review-loading-grid,
   .review-queue-grid,

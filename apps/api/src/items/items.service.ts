@@ -169,7 +169,7 @@ function toItemSummary(item: ItemRecord, displayMode: TranslationDisplayMode): I
     translations: toTranslationBundle(item.target.translations, displayMode),
     level: item.level,
     jlptLevel: item.target.jlptLevel,
-    srs: null,
+    srs: item.srs,
   };
 }
 

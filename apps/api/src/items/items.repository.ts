@@ -1,5 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 
+import { type SrsStateSummaryDto } from "@kanji-srs/shared";
+
 import { PrismaService } from "../database/prisma.service";
 import {
   type ItemAnswerRecord,
@@ -156,6 +158,20 @@ type SentenceRow = {
   } | null;
   readonly license: {
     readonly name: string;
+  };
+};
+
+type ItemSrsStateRow = {
+  readonly stageIndex: number;
+  readonly availableAt: Date | null;
+  readonly burnedAt: Date | null;
+  readonly wrongCount: number;
+  readonly correctStreak: number;
+  readonly srsSystem: {
+    readonly stages: readonly {
+      readonly stageIndex: number;
+      readonly name: string;
+    }[];
   };
 };
 
@@ -393,6 +409,7 @@ export class PrismaItemsRepository extends ItemsRepository {
     ];
     const cards = (item.cards ?? []).map(toCardRecord);
     const userOverrides = cards.flatMap((card) => card.userOverrides);
+    const srs = await this.findItemSrsSummary(item.id, options.userId);
 
     return {
       id: item.id,
@@ -410,6 +427,53 @@ export class PrismaItemsRepository extends ItemsRepository {
       relations,
       attributions,
       userOverrides,
+      srs,
+    };
+  }
+
+  private async findItemSrsSummary(
+    learningItemId: string,
+    userId: string | undefined,
+  ): Promise<SrsStateSummaryDto | null> {
+    if (userId === undefined) {
+      return null;
+    }
+
+    const states = (await this.prisma.db.userSrsState.findMany({
+      where: {
+        userId,
+        learningCard: {
+          learningItemId,
+        },
+      },
+      include: {
+        srsSystem: {
+          include: {
+            stages: {
+              orderBy: { stageIndex: "asc" },
+            },
+          },
+        },
+      },
+      orderBy: [{ stageIndex: "asc" }, { updatedAt: "asc" }, { id: "asc" }],
+    })) as readonly ItemSrsStateRow[];
+
+    if (states.length === 0) {
+      return null;
+    }
+
+    const selected = selectRepresentativeState(states);
+    const stage = selected.srsSystem.stages.find(
+      (candidate) => candidate.stageIndex === selected.stageIndex,
+    );
+
+    return {
+      stageIndex: selected.stageIndex,
+      stageName: stage?.name ?? `Stage ${selected.stageIndex}`,
+      availableAt: selected.availableAt?.toISOString() ?? null,
+      burnedAt: selected.burnedAt?.toISOString() ?? null,
+      wrongCount: selected.wrongCount,
+      correctStreak: selected.correctStreak,
     };
   }
 
@@ -779,6 +843,28 @@ function groupLocalizedTexts(
     ru: texts.filter((text) => text.locale === "ru-RU"),
     en: texts.filter((text) => text.locale === "en-US"),
   };
+}
+
+function selectRepresentativeState(states: readonly ItemSrsStateRow[]): ItemSrsStateRow {
+  const sorted = [...states].sort(
+    (left, right) =>
+      burnedPriority(left) - burnedPriority(right) ||
+      left.stageIndex - right.stageIndex ||
+      (left.availableAt?.getTime() ?? Number.MAX_SAFE_INTEGER) -
+        (right.availableAt?.getTime() ?? Number.MAX_SAFE_INTEGER),
+  );
+
+  const selected = sorted[0];
+
+  if (selected === undefined) {
+    throw new Error("Cannot select an SRS state from an empty list.");
+  }
+
+  return selected;
+}
+
+function burnedPriority(state: ItemSrsStateRow): number {
+  return state.burnedAt === null ? 0 : 1;
 }
 
 function formatJlptLevel(value: number | null): string | null {
