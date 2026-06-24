@@ -65,13 +65,16 @@ The root dev script starts the Next.js web app and NestJS API in parallel.
 ## Validation
 
 ```bash
+npm run db:generate
 npm run lint
 npm run typecheck
 npm test
 npm run build
+npm run test:smoke --workspace @kanji-srs/web
 ```
 
-The initial package tests are intentionally small placeholder checks. Product behavior will be added in later tasks with focused tests.
+CI runs the same npm validation commands. The web smoke command starts a local
+Next.js test server and installs/runs Playwright in CI.
 
 ## Workspace Layout
 
