@@ -474,6 +474,12 @@ export type AdminImportRunSummaryDto = {
   readonly startedAt: string;
   readonly finishedAt: string | null;
   readonly recordCount: number;
+  readonly stats: Readonly<Record<string, string | number | boolean | null>>;
+  readonly errorText: string | null;
+};
+
+export type AdminImportRunListResponse = {
+  readonly importRuns: readonly AdminImportRunSummaryDto[];
 };
 
 export type AdminCurationItemDto = {

@@ -1,5 +1,6 @@
 import {
   type AdminCurationItemDto,
+  type AdminImportRunListResponse,
   type AdminReviewQueueResponse,
   type AdminUpdateCardAnswersRequest,
   type AdminUpdateItemRequest,
@@ -161,6 +162,10 @@ export function getDashboard(token: string): Promise<DashboardDto> {
 
 export function getAdminReviewQueue(token: string): Promise<AdminReviewQueueResponse> {
   return apiRequest<AdminReviewQueueResponse>("/admin/items/review-queue", { token });
+}
+
+export function getAdminImportRuns(token: string): Promise<AdminImportRunListResponse> {
+  return apiRequest<AdminImportRunListResponse>("/admin/import-runs", { token });
 }
 
 export function getAdminCurationItem(token: string, itemId: string): Promise<AdminCurationItemDto> {

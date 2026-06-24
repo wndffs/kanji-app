@@ -1307,6 +1307,7 @@ textarea:focus-visible {
 
 .example-list small,
 .source-list span,
+.source-list small,
 .private-override-list span,
 .private-override-list small {
   color: var(--muted);
@@ -1489,6 +1490,14 @@ textarea:focus-visible {
 .admin-queue span,
 .admin-queue small {
   color: var(--muted);
+}
+
+.admin-import-runs {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--surface-border);
+  margin-top: 18px;
+  padding-top: 18px;
 }
 
 .admin-editor {

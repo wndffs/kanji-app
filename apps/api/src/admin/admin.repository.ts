@@ -22,6 +22,7 @@ import {
 } from "./admin.types";
 
 export abstract class AdminRepository {
+  abstract listImportRuns(): Promise<readonly AdminImportRunSummaryDto[]>;
   abstract listReviewItems(): Promise<readonly AdminReviewQueueItemDto[]>;
   abstract findCurationItem(itemId: string): Promise<AdminCurationItemDto | null>;
   abstract updateItemCuration(
@@ -104,6 +105,30 @@ type SourceInfo = {
   readonly importRuns: readonly AdminImportRunSummaryDto[];
 };
 
+type ImportRunCoreRow = {
+  readonly id: string;
+  readonly sourceVersion: string | null;
+  readonly sourceFileName: string;
+  readonly checksumSha256: string;
+  readonly startedAt: Date;
+  readonly finishedAt: Date | null;
+  readonly status: string;
+  readonly statsJson: unknown;
+  readonly errorText: string | null;
+  readonly dataSource: {
+    readonly name: string;
+    readonly license: {
+      readonly name: string;
+    };
+  };
+};
+
+type ImportRunSummaryRow = ImportRunCoreRow & {
+  readonly _count: {
+    readonly records: number;
+  };
+};
+
 type PrismaAdminWriteClient = Pick<
   PrismaService["db"],
   "component" | "kanjiMeaning" | "wordSense" | "sentence" | "hint" | "mnemonic"
@@ -119,6 +144,27 @@ type CardForUpdateRow = {
 export class PrismaAdminRepository extends AdminRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
     super();
+  }
+
+  async listImportRuns(): Promise<readonly AdminImportRunSummaryDto[]> {
+    const runs = (await this.prisma.db.importRun.findMany({
+      orderBy: [{ startedAt: "desc" }, { id: "asc" }],
+      take: 50,
+      include: {
+        dataSource: {
+          include: {
+            license: true,
+          },
+        },
+        _count: {
+          select: {
+            records: true,
+          },
+        },
+      },
+    })) as unknown as readonly ImportRunSummaryRow[];
+
+    return runs.map((run) => toImportRunSummary(run, run._count.records));
   }
 
   async listReviewItems(): Promise<readonly AdminReviewQueueItemDto[]> {
@@ -502,18 +548,7 @@ export class PrismaAdminRepository extends AdminRepository {
         attributionText: source.attributionText,
         sourceUrl: source.homepageUrl,
       });
-      importRunById.set(run.id, {
-        id: run.id,
-        dataSourceName: source.name,
-        licenseName: source.license.name,
-        sourceVersion: run.sourceVersion,
-        sourceFileName: run.sourceFileName,
-        checksumSha256: run.checksumSha256,
-        status: toApiImportRunStatus(run.status),
-        startedAt: run.startedAt.toISOString(),
-        finishedAt: run.finishedAt?.toISOString() ?? null,
-        recordCount: run.records.length,
-      });
+      importRunById.set(run.id, toImportRunSummary(run, run.records.length));
     }
 
     return {
@@ -800,6 +835,52 @@ function toApiImportRunStatus(status: string) {
     default:
       throw new Error(`Unsupported import run status: ${status}`);
   }
+}
+
+function toImportRunSummary(run: ImportRunCoreRow, recordCount: number): AdminImportRunSummaryDto {
+  return {
+    id: run.id,
+    dataSourceName: run.dataSource.name,
+    licenseName: run.dataSource.license.name,
+    sourceVersion: run.sourceVersion,
+    sourceFileName: run.sourceFileName,
+    checksumSha256: run.checksumSha256,
+    status: toApiImportRunStatus(run.status),
+    startedAt: run.startedAt.toISOString(),
+    finishedAt: run.finishedAt?.toISOString() ?? null,
+    recordCount,
+    stats: toImportStats(run.statsJson),
+    errorText: run.errorText,
+  };
+}
+
+function toImportStats(
+  statsJson: unknown,
+): Readonly<Record<string, string | number | boolean | null>> {
+  if (!isRecord(statsJson)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(statsJson).map(([key, value]) => [key, toImportStatValue(value)]),
+  );
+}
+
+function toImportStatValue(value: unknown): string | number | boolean | null {
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    value === null
+  ) {
+    return value;
+  }
+
+  return JSON.stringify(value) ?? String(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function toItemKind(kind: string): ItemKind {

@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { type AdminCurationItemDto, type AdminReviewQueueItemDto } from "@kanji-srs/shared";
+import {
+  type AdminCurationItemDto,
+  type AdminImportRunSummaryDto,
+  type AdminReviewQueueItemDto,
+} from "@kanji-srs/shared";
 
 import { AdminRepository } from "../src/admin/admin.repository";
 import { AdminService } from "../src/admin/admin.service";
 import { type NormalizedAdminItemCurationInput } from "../src/admin/admin.types";
-import { OverridesRepository } from "../src/overrides/overrides.repository";
+import { type OverridesRepository } from "../src/overrides/overrides.repository";
 import { OverridesService } from "../src/overrides/overrides.service";
 import {
   type CardAnswerValidationRecord,
@@ -80,9 +84,66 @@ describe("AdminService", () => {
       ],
     });
   });
+
+  it("lists import runs with status, checksum, stats, and errors", async () => {
+    const repository = new InMemoryAdminRepository();
+    const adminService = new AdminService(repository);
+
+    await expect(adminService.listImportRuns()).resolves.toEqual({
+      importRuns: [
+        expect.objectContaining({
+          id: "import-run-1",
+          dataSourceName: "Project authored",
+          checksumSha256: "sha256-test",
+          status: "success",
+          stats: { items: 1 },
+          errorText: null,
+        }),
+        expect.objectContaining({
+          id: "import-run-failed",
+          dataSourceName: "JMdict",
+          checksumSha256: "sha256-failed",
+          status: "failed",
+          stats: { entries: 0 },
+          errorText: "Parser failed.",
+        }),
+      ],
+    });
+  });
 });
 
 class InMemoryAdminRepository extends AdminRepository implements OverridesRepository {
+  private readonly importRuns: readonly AdminImportRunSummaryDto[] = [
+    {
+      id: "import-run-1",
+      dataSourceName: "Project authored",
+      licenseName: "Project content",
+      sourceVersion: "bootstrap-1",
+      sourceFileName: "seed.ts",
+      checksumSha256: "sha256-test",
+      status: "success",
+      startedAt: "2026-06-22T07:00:00.000Z",
+      finishedAt: "2026-06-22T07:01:00.000Z",
+      recordCount: 1,
+      stats: { items: 1 },
+      errorText: null,
+    },
+    {
+      id: "import-run-failed",
+      dataSourceName: "JMdict",
+      licenseName: "EDRDG License",
+      sourceVersion: "2026-06",
+      sourceFileName: "JMdict_e.gz",
+      checksumSha256: "sha256-failed",
+      status: "failed",
+      startedAt: "2026-06-23T07:00:00.000Z",
+      finishedAt: "2026-06-23T07:00:30.000Z",
+      recordCount: 0,
+      stats: { entries: 0 },
+      errorText: "Parser failed.",
+    },
+  ];
+
   private item: AdminCurationItemDto = {
     id: "item-kanji-one",
     itemType: "kanji",
@@ -137,9 +198,15 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
         startedAt: "2026-06-22T07:00:00.000Z",
         finishedAt: "2026-06-22T07:01:00.000Z",
         recordCount: 1,
+        stats: { items: 1 },
+        errorText: null,
       },
     ],
   };
+
+  async listImportRuns(): Promise<readonly AdminImportRunSummaryDto[]> {
+    return this.importRuns;
+  }
 
   async listReviewItems(): Promise<readonly AdminReviewQueueItemDto[]> {
     return [

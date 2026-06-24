@@ -144,10 +144,16 @@ Japanese morphological analysis.
 ### Admin
 
 - `GET /admin/import-runs`
-- `POST /admin/import-runs`
 - `GET /admin/items/review-queue`
 - `PATCH /admin/items/:id`
 - `PATCH /admin/cards/:id/answers`
+
+`GET /admin/import-runs` lists recent import operations with source, license,
+source version, source file name, checksum, status, stats, errors, timestamps,
+and imported record count. Local-file imports are run through controlled CLI
+commands documented in `docs/IMPORT_OPERATIONS.md`; the MVP API deliberately
+does not expose a `POST /admin/import-runs` endpoint that accepts server file
+paths.
 
 ## API rules
 

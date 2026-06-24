@@ -4,8 +4,8 @@ import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese"
 import {
   type AdminContentStatus,
   type AdminCurationItemDto,
+  type AdminImportRunListResponse,
   type AdminReviewQueueResponse,
-  type AdminUpdateCardAnswersRequest,
   type AdminUpdateItemRequest,
   type CardAnswerType,
   type ContentLocale,
@@ -26,6 +26,12 @@ const MAX_TEXT_BODY_LENGTH = 4_000;
 @Injectable()
 export class AdminService {
   constructor(@Inject(AdminRepository) private readonly adminRepository: AdminRepository) {}
+
+  async listImportRuns(): Promise<AdminImportRunListResponse> {
+    return {
+      importRuns: await this.adminRepository.listImportRuns(),
+    };
+  }
 
   async listReviewItems(): Promise<AdminReviewQueueResponse> {
     return {

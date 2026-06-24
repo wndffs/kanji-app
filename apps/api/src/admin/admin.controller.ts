@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Patch, UseGuards } from "@nestjs/common";
 
 import { AdminGuard } from "../auth/admin.guard";
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -8,7 +8,7 @@ import { AdminService } from "./admin.service";
 @UseGuards(AdminGuard)
 @Controller("admin")
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(@Inject(AdminService) private readonly adminService: AdminService) {}
 
   @Get("status")
   getStatus(@CurrentUser() user: CurrentUserDto): {
@@ -26,6 +26,11 @@ export class AdminController {
   @Get("items/review-queue")
   listReviewItems() {
     return this.adminService.listReviewItems();
+  }
+
+  @Get("import-runs")
+  listImportRuns() {
+    return this.adminService.listImportRuns();
   }
 
   @Get("items/:itemId")

@@ -7,12 +7,14 @@ import {
   type AdminContentStatus,
   type AdminCurationCardDto,
   type AdminCurationItemDto,
+  type AdminImportRunSummaryDto,
   type AdminReviewQueueItemDto,
 } from "@kanji-srs/shared";
 
 import {
   ApiError,
   getAdminCurationItem,
+  getAdminImportRuns,
   getAdminReviewQueue,
   updateAdminCardAnswers,
   updateAdminItem,
@@ -29,6 +31,7 @@ type AdminState =
       readonly status: "ready";
       readonly token: string;
       readonly queue: readonly AdminReviewQueueItemDto[];
+      readonly importRuns: readonly AdminImportRunSummaryDto[];
       readonly item: AdminCurationItemDto | null;
     };
 
@@ -86,7 +89,10 @@ export function AdminClient() {
     setStatusMessage(null);
 
     try {
-      const queue = await getAdminReviewQueue(session.token);
+      const [queue, importRuns] = await Promise.all([
+        getAdminReviewQueue(session.token),
+        getAdminImportRuns(session.token),
+      ]);
       const firstItem =
         queue.items.length === 0
           ? null
@@ -97,6 +103,7 @@ export function AdminClient() {
         status: "ready",
         token: session.token,
         queue: queue.items,
+        importRuns: importRuns.importRuns,
         item: firstItem,
       });
     } catch (error: unknown) {
@@ -352,6 +359,32 @@ export function AdminClient() {
               ))}
             </ul>
           )}
+
+          <div className="admin-import-runs">
+            <h2>Import runs</h2>
+            {state.importRuns.length === 0 ? (
+              <p className="muted">Запусков импорта пока нет.</p>
+            ) : (
+              <ul className="source-list" data-testid="admin-import-runs">
+                {state.importRuns.map((run) => (
+                  <li key={run.id}>
+                    <strong>{run.dataSourceName}</strong>
+                    <span>
+                      {formatImportStatus(run.status)} · {run.recordCount} записей
+                    </span>
+                    <small>{formatImportRunSourceMeta(run)}</small>
+                    <p>{run.sourceFileName}</p>
+                    <small>{formatImportRunTiming(run)}</small>
+                    <small>{run.checksumSha256}</small>
+                    <small>{formatImportRunStats(run)}</small>
+                    <small>
+                      {run.errorText === null ? "Ошибок нет" : `Ошибка: ${run.errorText}`}
+                    </small>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </aside>
 
         {activeItem === null ? (
@@ -562,7 +595,13 @@ export function AdminClient() {
                           {formatImportStatus(run.status)} · {run.recordCount} записей
                         </span>
                         <p>{run.sourceFileName}</p>
+                        <small>{formatImportRunSourceMeta(run)}</small>
+                        <small>{formatImportRunTiming(run)}</small>
                         <small>{run.checksumSha256}</small>
+                        <small>{formatImportRunStats(run)}</small>
+                        <small>
+                          {run.errorText === null ? "Ошибок нет" : `Ошибка: ${run.errorText}`}
+                        </small>
                       </li>
                     ))}
                   </ul>
@@ -694,6 +733,26 @@ function formatImportStatus(value: string): string {
     default:
       return value;
   }
+}
+
+function formatImportRunStats(run: AdminImportRunSummaryDto): string {
+  const entries = Object.entries(run.stats);
+
+  if (entries.length === 0) {
+    return "stats: none";
+  }
+
+  return entries.map(([key, value]) => `${key}: ${value ?? "null"}`).join(" · ");
+}
+
+function formatImportRunSourceMeta(run: AdminImportRunSummaryDto): string {
+  return run.sourceVersion === null ? run.licenseName : `${run.licenseName} · ${run.sourceVersion}`;
+}
+
+function formatImportRunTiming(run: AdminImportRunSummaryDto): string {
+  return run.finishedAt === null
+    ? `started: ${formatDate(run.startedAt)}`
+    : `${formatDate(run.startedAt)} -> ${formatDate(run.finishedAt)}`;
 }
 
 function formatPromptType(value: string): string {

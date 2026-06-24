@@ -8,6 +8,7 @@ import {
   isTranslationDisplayMode,
   workspacePackages,
   type DashboardDto,
+  type AdminImportRunListResponse,
   type DeckDetailsDto,
   type LearningCardDto,
 } from "../src";
@@ -113,6 +114,29 @@ describe("shared DTO contracts", () => {
 
     expect(dashboard.user.translationDisplayMode).toBe("en");
     expect(JSON.parse(JSON.stringify(dashboard))).toEqual(dashboard);
+  });
+
+  it("keeps admin import run responses serializable", () => {
+    const response: AdminImportRunListResponse = {
+      importRuns: [
+        {
+          id: "import-run-1",
+          dataSourceName: "JMdict",
+          licenseName: "EDRDG License",
+          sourceVersion: "2026-06",
+          sourceFileName: "JMdict_e.xml",
+          checksumSha256: "sha256-test",
+          status: "success",
+          startedAt: "2026-06-24T10:00:00.000Z",
+          finishedAt: "2026-06-24T10:01:00.000Z",
+          recordCount: 12,
+          stats: { entries: 12, words: 18 },
+          errorText: null,
+        },
+      ],
+    };
+
+    expect(JSON.parse(JSON.stringify(response))).toEqual(response);
   });
 
   it("keeps dynamic text deck details serializable", () => {

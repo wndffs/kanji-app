@@ -1,6 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
 
-import { type AdminCurationItemDto, type AdminReviewQueueResponse } from "@kanji-srs/shared";
+import {
+  type AdminCurationItemDto,
+  type AdminImportRunListResponse,
+  type AdminReviewQueueResponse,
+} from "@kanji-srs/shared";
 
 const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "admin-token";
@@ -25,7 +29,11 @@ test.describe("admin curation", () => {
     await page.goto("/admin");
 
     await expect(page.getByText("Сводка: Project authored")).toBeVisible();
-    await expect(page.getByText("seed.ts")).toBeVisible();
+    await expect(page.locator(".admin-side-grid").getByText("seed.ts")).toBeVisible();
+    await expect(page.getByTestId("admin-import-runs")).toContainText("Project authored");
+    await expect(page.getByTestId("admin-import-runs")).toContainText("sha256-test");
+    await expect(page.getByTestId("admin-import-runs")).toContainText("items: 1");
+    await expect(page.getByTestId("admin-import-runs")).toContainText("Parser failed.");
     await page.getByTestId("admin-accepted-en").fill("single line");
     await page.getByTestId("admin-save-card").click();
 
@@ -77,6 +85,30 @@ async function mockAdminApi(page: Page): Promise<void> {
           status: item.status,
           updatedAt: item.updatedAt,
           sourceNames: item.attributions.map((source) => source.sourceName),
+        },
+      ],
+    };
+
+    await route.fulfill({ json: response });
+  });
+
+  await page.route(`${API_BASE_URL}/admin/import-runs`, async (route) => {
+    const response: AdminImportRunListResponse = {
+      importRuns: [
+        ...item.importRuns,
+        {
+          id: "import-run-failed",
+          dataSourceName: "JMdict",
+          licenseName: "EDRDG License",
+          sourceVersion: "2026-06",
+          sourceFileName: "JMdict_e.gz",
+          checksumSha256: "sha256-failed",
+          status: "failed",
+          startedAt: "2026-06-23T07:00:00.000Z",
+          finishedAt: "2026-06-23T07:00:30.000Z",
+          recordCount: 0,
+          stats: { entries: 0 },
+          errorText: "Parser failed.",
         },
       ],
     };
@@ -227,6 +259,8 @@ function buildAdminItem(): AdminCurationItemDto {
         startedAt: "2026-06-22T07:00:00.000Z",
         finishedAt: "2026-06-22T07:01:00.000Z",
         recordCount: 1,
+        stats: { items: 1 },
+        errorText: null,
       },
     ],
   };
