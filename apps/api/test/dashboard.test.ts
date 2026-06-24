@@ -7,6 +7,7 @@ import { DashboardRepository } from "../src/dashboard/dashboard.repository";
 import { DashboardService } from "../src/dashboard/dashboard.service";
 import {
   type DashboardCourseProgressRecord,
+  type DashboardLeechSignalRecord,
   type DashboardLessonItemRecord,
   type DashboardLessonProgressRecord,
   type DashboardReviewResult,
@@ -46,6 +47,7 @@ describe("DashboardService", () => {
       },
       currentCourse: null,
       reviewForecast: [],
+      leechCandidates: [],
       recentReviewStats: {
         since: RECENT_SINCE,
         total: 0,
@@ -103,6 +105,24 @@ describe("DashboardService", () => {
         localHour: 13,
         dueCount: 1,
       },
+    ]);
+    expect(dashboard.leechCandidates).toEqual([
+      expect.objectContaining({
+        item: expect.objectContaining({
+          japanese: "card-leech",
+          srs: expect.objectContaining({
+            leech: expect.objectContaining({
+              score: 16,
+              isCandidate: true,
+            }),
+          }),
+        }),
+        leech: expect.objectContaining({
+          score: 16,
+          wrongCount: 9,
+          correctStreak: 1,
+        }),
+      }),
     ]);
     expect(dashboard.recentReviewStats).toMatchObject({
       since: RECENT_SINCE,
@@ -223,20 +243,16 @@ class InMemoryDashboardRepository extends DashboardRepository {
     return this.states.filter((state) => state.userId === userId && state.burnedAt !== null).length;
   }
 
-  async countLeechCandidates(
+  async listLeechSignals(
     userId: string,
-    thresholds: {
-      readonly minimumWrongCount: number;
-      readonly maximumCorrectStreak: number;
-    },
-  ): Promise<number> {
+    _since: Date,
+  ): Promise<readonly DashboardLeechSignalRecord[]> {
     return this.states.filter(
       (state) =>
         state.userId === userId &&
         state.burnedAt === null &&
-        state.wrongCount >= thresholds.minimumWrongCount &&
-        state.correctStreak <= thresholds.maximumCorrectStreak,
-    ).length;
+        (state.wrongCount > 0 || state.recentWrongCount > 0),
+    );
   }
 
   async listForecastStates(
@@ -301,6 +317,10 @@ class InMemoryDashboardRepository extends DashboardRepository {
 
 type InMemoryDashboardSrsStateRecord = DashboardSrsStateRecord & {
   readonly userId: string;
+  readonly recentWrongCount: number;
+  readonly stageDropCount: number;
+  readonly stageDropMagnitude: number;
+  readonly item: DashboardLeechSignalRecord["item"];
 };
 
 type InMemoryDashboardLessonProgressRecord = DashboardLessonProgressRecord & {
@@ -341,6 +361,9 @@ function createState(
     readonly burnedAt?: string | null;
     readonly wrongCount?: number;
     readonly correctStreak?: number;
+    readonly recentWrongCount?: number;
+    readonly stageDropCount?: number;
+    readonly stageDropMagnitude?: number;
   } = {},
 ): InMemoryDashboardSrsStateRecord {
   return {
@@ -356,7 +379,22 @@ function createState(
         : new Date(options.burnedAt),
     wrongCount: options.wrongCount ?? 0,
     correctStreak: options.correctStreak ?? 0,
+    recentWrongCount: options.recentWrongCount ?? 0,
+    stageDropCount: options.stageDropCount ?? 0,
+    stageDropMagnitude: options.stageDropMagnitude ?? 0,
     stages: DEFAULT_SRS_STAGES,
+    item: {
+      id: `item-${cardId}`,
+      itemType: "kanji",
+      japanese: cardId,
+      reading: null,
+      translations: {
+        ru: [{ locale: "ru-RU", text: cardId, isPrimary: true, sourceKind: "curated" }],
+        en: [{ locale: "en-US", text: cardId, isPrimary: true, sourceKind: "curated" }],
+      },
+      level: 1,
+      jlptLevel: "N5",
+    },
   };
 }
 

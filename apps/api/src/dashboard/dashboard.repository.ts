@@ -3,6 +3,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service";
 import {
   type DashboardCourseProgressRecord,
+  type DashboardLeechSignalRecord,
   type DashboardLessonItemRecord,
   type DashboardLessonProgressRecord,
   type DashboardReviewResult,
@@ -17,13 +18,10 @@ export abstract class DashboardRepository {
   abstract listLessonProgress(userId: string): Promise<readonly DashboardLessonProgressRecord[]>;
   abstract countDueReviews(userId: string, now: Date): Promise<number>;
   abstract countBurnedCards(userId: string): Promise<number>;
-  abstract countLeechCandidates(
+  abstract listLeechSignals(
     userId: string,
-    thresholds: {
-      readonly minimumWrongCount: number;
-      readonly maximumCorrectStreak: number;
-    },
-  ): Promise<number>;
+    since: Date,
+  ): Promise<readonly DashboardLeechSignalRecord[]>;
   abstract listForecastStates(
     userId: string,
     horizonEnd: Date,
@@ -48,6 +46,27 @@ type ForecastStateRow = {
   readonly srsSystem: {
     readonly stages: readonly SrsStageRow[];
   };
+};
+
+type LeechStateRow = ForecastStateRow & {
+  readonly reviewAnswers: readonly LeechReviewAnswerRow[];
+  readonly learningCard: {
+    readonly learningItem: LeechLearningItemRow;
+  };
+};
+
+type LeechLearningItemRow = {
+  readonly id: string;
+  readonly kind: string;
+  readonly targetType: string;
+  readonly targetId: string;
+  readonly levelHint: number | null;
+};
+
+type LeechReviewAnswerRow = {
+  readonly result: string;
+  readonly previousStageIndex: number | null;
+  readonly nextStageIndex: number | null;
 };
 
 type SrsStageRow = {
@@ -117,6 +136,46 @@ type CourseCardRow = {
   readonly srsStates: readonly {
     readonly id: string;
   }[];
+};
+
+type ComponentTargetRow = {
+  readonly symbol: string;
+  readonly displayNameRu: string;
+  readonly meaningRu: string;
+  readonly sourceKind: string;
+};
+
+type KanjiTargetRow = {
+  readonly character: string;
+  readonly jlptLevel: number | null;
+  readonly readings: readonly {
+    readonly reading: string;
+    readonly priority: number;
+  }[];
+  readonly meanings: readonly {
+    readonly locale: string;
+    readonly meaning: string;
+    readonly isPrimary: boolean;
+    readonly sourceKind: string;
+  }[];
+};
+
+type WordTargetRow = {
+  readonly expression: string;
+  readonly reading: string;
+  readonly jlptLevel: number | null;
+  readonly senses: readonly {
+    readonly locale: string;
+    readonly meaning: string;
+    readonly sourceKind: string;
+  }[];
+};
+
+type SentenceTargetRow = {
+  readonly japaneseText: string;
+  readonly readingText: string | null;
+  readonly translationRu: string | null;
+  readonly translationEn: string | null;
 };
 
 @Injectable()
@@ -239,25 +298,97 @@ export class PrismaDashboardRepository extends DashboardRepository {
     });
   }
 
-  async countLeechCandidates(
+  async listLeechSignals(
     userId: string,
-    thresholds: {
-      readonly minimumWrongCount: number;
-      readonly maximumCorrectStreak: number;
-    },
-  ): Promise<number> {
-    return this.prisma.db.userSrsState.count({
+    since: Date,
+  ): Promise<readonly DashboardLeechSignalRecord[]> {
+    const states = (await this.prisma.db.userSrsState.findMany({
       where: {
         userId,
         burnedAt: null,
-        wrongCount: {
-          gte: thresholds.minimumWrongCount,
+        OR: [
+          {
+            wrongCount: {
+              gt: 0,
+            },
+          },
+          {
+            reviewAnswers: {
+              some: {
+                answeredAt: {
+                  gte: since,
+                },
+              },
+            },
+          },
+        ],
+      },
+      include: {
+        reviewAnswers: {
+          where: {
+            answeredAt: {
+              gte: since,
+            },
+          },
+          select: {
+            result: true,
+            previousStageIndex: true,
+            nextStageIndex: true,
+          },
         },
-        correctStreak: {
-          lte: thresholds.maximumCorrectStreak,
+        learningCard: {
+          select: {
+            learningItem: {
+              select: {
+                id: true,
+                kind: true,
+                targetType: true,
+                targetId: true,
+                levelHint: true,
+              },
+            },
+          },
+        },
+        srsSystem: {
+          select: {
+            stages: {
+              select: {
+                stageIndex: true,
+                name: true,
+                intervalMinutes: true,
+                isBurned: true,
+              },
+              orderBy: { stageIndex: "asc" },
+            },
+          },
         },
       },
-    });
+      orderBy: [{ wrongCount: "desc" }, { updatedAt: "desc" }, { id: "asc" }],
+    })) as readonly LeechStateRow[];
+
+    const records: DashboardLeechSignalRecord[] = [];
+
+    for (const state of states) {
+      const item = await this.toLeechItemRecord(state.learningCard.learningItem);
+
+      records.push({
+        id: state.id,
+        learningCardId: state.learningCardId,
+        srsSystemId: state.srsSystemId,
+        stageIndex: state.stageIndex,
+        availableAt: state.availableAt,
+        burnedAt: state.burnedAt,
+        wrongCount: state.wrongCount,
+        correctStreak: state.correctStreak,
+        stages: state.srsSystem.stages,
+        recentWrongCount: countWrongLikeAnswers(state.reviewAnswers),
+        stageDropCount: countStageDrops(state.reviewAnswers),
+        stageDropMagnitude: sumStageDropMagnitude(state.reviewAnswers),
+        item,
+      });
+    }
+
+    return records;
   }
 
   async listForecastStates(
@@ -402,6 +533,224 @@ export class PrismaDashboardRepository extends DashboardRepository {
       count: row._count._all,
     }));
   }
+
+  private async toLeechItemRecord(
+    item: LeechLearningItemRow,
+  ): Promise<DashboardLeechSignalRecord["item"]> {
+    switch (item.targetType) {
+      case "COMPONENT":
+        return this.toLeechComponentItem(item);
+      case "KANJI":
+        return this.toLeechKanjiItem(item);
+      case "WORD":
+        return this.toLeechWordItem(item);
+      case "SENTENCE":
+        return this.toLeechSentenceItem(item);
+      default:
+        throw new Error(`Unsupported learning item target type: ${item.targetType}`);
+    }
+  }
+
+  private async toLeechComponentItem(
+    item: LeechLearningItemRow,
+  ): Promise<DashboardLeechSignalRecord["item"]> {
+    const component = (await this.prisma.db.component.findUnique({
+      where: { id: item.targetId },
+    })) as ComponentTargetRow | null;
+
+    if (component === null) {
+      throw new Error(`Missing component target ${item.targetId}.`);
+    }
+
+    return {
+      id: item.id,
+      itemType: "component",
+      japanese: component.symbol,
+      reading: null,
+      translations: {
+        ru: [
+          dashboardLocalizedText("ru-RU", component.meaningRu, {
+            isPrimary: true,
+            sourceKind: toSourceKind(component.sourceKind),
+          }),
+          dashboardLocalizedText("ru-RU", component.displayNameRu, {
+            sourceKind: toSourceKind(component.sourceKind),
+          }),
+        ],
+        en: [],
+      },
+      level: item.levelHint,
+      jlptLevel: null,
+    };
+  }
+
+  private async toLeechKanjiItem(
+    item: LeechLearningItemRow,
+  ): Promise<DashboardLeechSignalRecord["item"]> {
+    const kanji = (await this.prisma.db.kanji.findUnique({
+      where: { id: item.targetId },
+      include: {
+        readings: { orderBy: [{ priority: "desc" }, { reading: "asc" }] },
+        meanings: { orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }] },
+      },
+    })) as KanjiTargetRow | null;
+
+    if (kanji === null) {
+      throw new Error(`Missing kanji target ${item.targetId}.`);
+    }
+
+    return {
+      id: item.id,
+      itemType: "kanji",
+      japanese: kanji.character,
+      reading: kanji.readings[0]?.reading ?? null,
+      translations: groupLocalizedTexts(
+        kanji.meanings.map((meaning) =>
+          dashboardLocalizedText(toContentLocale(meaning.locale), meaning.meaning, {
+            isPrimary: meaning.isPrimary,
+            sourceKind: toSourceKind(meaning.sourceKind),
+          }),
+        ),
+      ),
+      level: item.levelHint,
+      jlptLevel: formatJlptLevel(kanji.jlptLevel),
+    };
+  }
+
+  private async toLeechWordItem(
+    item: LeechLearningItemRow,
+  ): Promise<DashboardLeechSignalRecord["item"]> {
+    const word = (await this.prisma.db.word.findUnique({
+      where: { id: item.targetId },
+      include: {
+        senses: { orderBy: [{ locale: "asc" }, { meaning: "asc" }] },
+      },
+    })) as WordTargetRow | null;
+
+    if (word === null) {
+      throw new Error(`Missing word target ${item.targetId}.`);
+    }
+
+    return {
+      id: item.id,
+      itemType: "word",
+      japanese: word.expression,
+      reading: word.reading,
+      translations: groupLocalizedTexts(
+        word.senses.map((sense, index) =>
+          dashboardLocalizedText(toContentLocale(sense.locale), sense.meaning, {
+            isPrimary: index === 0,
+            sourceKind: toSourceKind(sense.sourceKind),
+          }),
+        ),
+      ),
+      level: item.levelHint,
+      jlptLevel: formatJlptLevel(word.jlptLevel),
+    };
+  }
+
+  private async toLeechSentenceItem(
+    item: LeechLearningItemRow,
+  ): Promise<DashboardLeechSignalRecord["item"]> {
+    const sentence = (await this.prisma.db.sentence.findUnique({
+      where: { id: item.targetId },
+    })) as SentenceTargetRow | null;
+
+    if (sentence === null) {
+      throw new Error(`Missing sentence target ${item.targetId}.`);
+    }
+
+    return {
+      id: item.id,
+      itemType: "sentence",
+      japanese: sentence.japaneseText,
+      reading: sentence.readingText,
+      translations: {
+        ru:
+          sentence.translationRu === null
+            ? []
+            : [dashboardLocalizedText("ru-RU", sentence.translationRu, { isPrimary: true })],
+        en:
+          sentence.translationEn === null
+            ? []
+            : [dashboardLocalizedText("en-US", sentence.translationEn, { isPrimary: true })],
+      },
+      level: item.levelHint,
+      jlptLevel: null,
+    };
+  }
+}
+
+function countWrongLikeAnswers(answers: readonly LeechReviewAnswerRow[]): number {
+  return answers.filter((answer) => answer.result === "WRONG" || answer.result === "REVEAL").length;
+}
+
+function countStageDrops(answers: readonly LeechReviewAnswerRow[]): number {
+  return answers.filter(isStageDrop).length;
+}
+
+function sumStageDropMagnitude(answers: readonly LeechReviewAnswerRow[]): number {
+  return answers.reduce((sum, answer) => {
+    if (!isStageDrop(answer)) {
+      return sum;
+    }
+
+    return sum + (answer.previousStageIndex - answer.nextStageIndex);
+  }, 0);
+}
+
+function isStageDrop(answer: LeechReviewAnswerRow): answer is LeechReviewAnswerRow & {
+  readonly previousStageIndex: number;
+  readonly nextStageIndex: number;
+} {
+  return (
+    answer.previousStageIndex !== null &&
+    answer.nextStageIndex !== null &&
+    answer.previousStageIndex > answer.nextStageIndex
+  );
+}
+
+function dashboardLocalizedText(
+  locale: "ru-RU" | "en-US",
+  text: string,
+  options: {
+    readonly isPrimary?: boolean;
+    readonly sourceKind?: "curated" | "imported" | "user";
+  } = {},
+) {
+  return {
+    locale,
+    text,
+    ...options,
+  };
+}
+
+function groupLocalizedTexts(
+  texts: readonly { readonly locale: "ru-RU" | "en-US"; readonly text: string }[],
+) {
+  return {
+    ru: texts.filter((text) => text.locale === "ru-RU"),
+    en: texts.filter((text) => text.locale === "en-US"),
+  };
+}
+
+function toContentLocale(locale: string): "ru-RU" | "en-US" {
+  return locale === "en-US" ? "en-US" : "ru-RU";
+}
+
+function toSourceKind(value: string): "curated" | "imported" | "user" {
+  switch (value) {
+    case "IMPORTED":
+      return "imported";
+    case "USER_PRIVATE":
+      return "user";
+    default:
+      return "curated";
+  }
+}
+
+function formatJlptLevel(value: number | null): string | null {
+  return value === null ? null : `N${value}`;
 }
 
 function toDashboardReviewResult(result: string): DashboardReviewResult {

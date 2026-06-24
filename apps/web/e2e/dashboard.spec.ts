@@ -32,7 +32,7 @@ test.describe("dashboard smoke", () => {
             dueReviews: 4,
             availableLessons: 2,
             burnedCards: 1,
-            leechCandidates: 0,
+            leechCandidates: 1,
           },
           currentCourse: null,
           reviewForecast: [
@@ -47,6 +47,55 @@ test.describe("dashboard smoke", () => {
               localDate: "2026-06-24",
               localHour: 16,
               dueCount: 1,
+            },
+          ],
+          leechCandidates: [
+            {
+              learningCardId: "card-kanji-trouble-meaning",
+              item: {
+                id: "item-kanji-trouble",
+                itemType: "kanji",
+                slug: "kanji:困",
+                japanese: "困",
+                reading: "こま",
+                translations: {
+                  displayMode: "ru-en",
+                  primaryRu: "затруднение",
+                  primaryEn: "trouble",
+                  ru: [{ locale: "ru-RU", text: "затруднение", isPrimary: true }],
+                  en: [{ locale: "en-US", text: "trouble", isPrimary: true }],
+                },
+                level: 12,
+                jlptLevel: "N3",
+                srs: {
+                  stageIndex: 4,
+                  stageName: "Apprentice 4",
+                  availableAt: "2026-06-24T15:00:00.000Z",
+                  burnedAt: null,
+                  wrongCount: 8,
+                  correctStreak: 1,
+                  leech: {
+                    score: 29,
+                    isCandidate: true,
+                    wrongCount: 8,
+                    correctStreak: 1,
+                    recentWrongCount: 2,
+                    stageDropCount: 1,
+                    stageDropMagnitude: 4,
+                    reasons: ["wrong-count", "recent-wrong", "stage-instability"],
+                  },
+                },
+              },
+              leech: {
+                score: 29,
+                isCandidate: true,
+                wrongCount: 8,
+                correctStreak: 1,
+                recentWrongCount: 2,
+                stageDropCount: 1,
+                stageDropMagnitude: 4,
+                reasons: ["wrong-count", "recent-wrong", "stage-instability"],
+              },
             },
           ],
           recentReviewStats: {
@@ -71,6 +120,8 @@ test.describe("dashboard smoke", () => {
     await expect(page.getByTestId("forecast-bucket").first()).toContainText("3");
     await expect(page.getByTestId("forecast-bucket").nth(1)).toContainText("16:00");
     await expect(page.getByTestId("forecast-bucket").nth(1)).toContainText("1");
+    await expect(page.locator(".leech-list")).toContainText("困");
+    await expect(page.locator(".leech-list")).toContainText("29");
   });
 });
 

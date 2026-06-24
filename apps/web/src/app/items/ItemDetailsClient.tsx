@@ -352,6 +352,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
 
       {statusMessage === null ? null : <p className="success-text">{statusMessage}</p>}
       {formError === null ? null : <p className="form-error">{formError}</p>}
+      {item.srs?.leech?.isCandidate ? <LeechNotice item={item} /> : null}
 
       <div className="item-layout">
         <main className="item-main">
@@ -660,6 +661,24 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
           </section>
         </aside>
       </div>
+    </section>
+  );
+}
+
+function LeechNotice({ item }: { readonly item: ItemDetails }) {
+  const leech = item.srs?.leech;
+
+  if (leech === undefined || leech === null || !leech.isCandidate) {
+    return null;
+  }
+
+  return (
+    <section className="notice-panel leech-notice" data-testid="item-leech-notice">
+      <div>
+        <strong>Карточка требует внимания</strong>
+        <p>Score {leech.score}. Пересмотрите мнемонику и личную заметку перед следующей сессией.</p>
+      </div>
+      <p>{formatLeechReasons(leech.reasons)}</p>
     </section>
   );
 }
@@ -1000,6 +1019,29 @@ function formatAnswerType(answerType: CardAnswerType): string {
 
 function formatLocale(locale: ContentLocale): string {
   return locale === "ru-RU" ? "RU" : "EN";
+}
+
+function formatLeechReasons(
+  reasons: NonNullable<NonNullable<ItemDetails["srs"]>["leech"]>["reasons"],
+) {
+  return reasons.map(formatLeechReason).join(" · ");
+}
+
+function formatLeechReason(
+  reason: NonNullable<NonNullable<ItemDetails["srs"]>["leech"]>["reasons"][number],
+) {
+  switch (reason) {
+    case "wrong-count":
+      return "накопленные ошибки";
+    case "recent-wrong":
+      return "недавние ошибки";
+    case "stage-instability":
+      return "нестабильная стадия";
+    case "correct-streak-relief":
+      return "есть серия верных ответов";
+    case "burned":
+      return "сожжено";
+  }
 }
 
 function formatRelationType(

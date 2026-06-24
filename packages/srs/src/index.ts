@@ -120,6 +120,44 @@ export type ReviewForecastBucket = {
   readonly lastDueAt: Date;
 };
 
+export type LeechScoreReason =
+  | "wrong-count"
+  | "recent-wrong"
+  | "stage-instability"
+  | "correct-streak-relief"
+  | "burned";
+
+export type LeechScoreRules = {
+  readonly wrongCountWeight: number;
+  readonly recentWrongWeight: number;
+  readonly stageDropWeight: number;
+  readonly stageDropMagnitudeWeight: number;
+  readonly correctStreakRelief: number;
+  readonly candidateThreshold: number;
+  readonly maximumScore: number;
+};
+
+export type LeechScoreInput = {
+  readonly wrongCount: number;
+  readonly correctStreak: number;
+  readonly burnedAt?: DateInput | null;
+  readonly recentWrongCount?: number;
+  readonly stageDropCount?: number;
+  readonly stageDropMagnitude?: number;
+  readonly rules?: Partial<LeechScoreRules>;
+};
+
+export type LeechScoreResult = {
+  readonly score: number;
+  readonly isCandidate: boolean;
+  readonly wrongCount: number;
+  readonly correctStreak: number;
+  readonly recentWrongCount: number;
+  readonly stageDropCount: number;
+  readonly stageDropMagnitude: number;
+  readonly reasons: readonly LeechScoreReason[];
+};
+
 export type ResolvedSrsStageConfig = {
   readonly stages: readonly SrsStage[];
   readonly rules: SrsSchedulingRules;
@@ -173,6 +211,16 @@ export const DEFAULT_SRS_STAGE_CONFIG = {
   stages: DEFAULT_SRS_STAGES,
   rules: DEFAULT_SRS_RULES,
 } as const satisfies SrsStageConfig;
+
+export const DEFAULT_LEECH_SCORE_RULES = {
+  wrongCountWeight: 2,
+  recentWrongWeight: 4,
+  stageDropWeight: 3,
+  stageDropMagnitudeWeight: 1,
+  correctStreakRelief: 2,
+  candidateThreshold: 12,
+  maximumScore: 100,
+} as const satisfies LeechScoreRules;
 
 export type SchedulingPackageStatus = {
   packageName: typeof SRS_PACKAGE_NAME;
@@ -381,6 +429,63 @@ export function buildReviewForecast(input: ReviewForecastInput): ReviewForecastB
     }));
 }
 
+export function calculateLeechScore(input: LeechScoreInput): LeechScoreResult {
+  const rules = {
+    ...DEFAULT_LEECH_SCORE_RULES,
+    ...input.rules,
+  };
+  validateLeechRules(rules);
+
+  const wrongCount = normalizeMetric(input.wrongCount, "wrongCount");
+  const correctStreak = normalizeMetric(input.correctStreak, "correctStreak");
+  const recentWrongCount = normalizeMetric(input.recentWrongCount ?? 0, "recentWrongCount");
+  const stageDropCount = normalizeMetric(input.stageDropCount ?? 0, "stageDropCount");
+  const stageDropMagnitude = normalizeMetric(input.stageDropMagnitude ?? 0, "stageDropMagnitude");
+  const isBurned =
+    input.burnedAt !== undefined && input.burnedAt !== null
+      ? !Number.isNaN(toDate(input.burnedAt, "burnedAt").getTime())
+      : false;
+  const rawScore =
+    wrongCount * rules.wrongCountWeight +
+    recentWrongCount * rules.recentWrongWeight +
+    stageDropCount * rules.stageDropWeight +
+    stageDropMagnitude * rules.stageDropMagnitudeWeight -
+    correctStreak * rules.correctStreakRelief;
+  const score = isBurned ? 0 : Math.max(0, Math.min(rules.maximumScore, Math.round(rawScore)));
+  const reasons: LeechScoreReason[] = [];
+
+  if (isBurned) {
+    reasons.push("burned");
+  }
+
+  if (wrongCount > 0) {
+    reasons.push("wrong-count");
+  }
+
+  if (recentWrongCount > 0) {
+    reasons.push("recent-wrong");
+  }
+
+  if (stageDropCount > 0 || stageDropMagnitude > 0) {
+    reasons.push("stage-instability");
+  }
+
+  if (correctStreak > 0) {
+    reasons.push("correct-streak-relief");
+  }
+
+  return {
+    score,
+    isCandidate: !isBurned && score >= rules.candidateThreshold,
+    wrongCount,
+    correctStreak,
+    recentWrongCount,
+    stageDropCount,
+    stageDropMagnitude,
+    reasons,
+  };
+}
+
 function resolveStageConfig(config?: SrsStageConfig): ResolvedSrsStageConfig {
   const stages = [...(config?.stages ?? DEFAULT_SRS_STAGES)].sort(
     (left, right) => left.stageIndex - right.stageIndex,
@@ -396,6 +501,34 @@ function resolveStageConfig(config?: SrsStageConfig): ResolvedSrsStageConfig {
   validateRules(rules, stages);
 
   return { stages, rules };
+}
+
+function validateLeechRules(rules: LeechScoreRules): void {
+  for (const [name, value] of [
+    ["wrongCountWeight", rules.wrongCountWeight],
+    ["recentWrongWeight", rules.recentWrongWeight],
+    ["stageDropWeight", rules.stageDropWeight],
+    ["stageDropMagnitudeWeight", rules.stageDropMagnitudeWeight],
+    ["correctStreakRelief", rules.correctStreakRelief],
+    ["candidateThreshold", rules.candidateThreshold],
+    ["maximumScore", rules.maximumScore],
+  ] as const) {
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error(`Leech score rule ${name} must be a non-negative number.`);
+    }
+  }
+
+  if (rules.candidateThreshold > rules.maximumScore) {
+    throw new Error("Leech score candidateThreshold must not exceed maximumScore.");
+  }
+}
+
+function normalizeMetric(value: number, name: string): number {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`Leech score metric ${name} must be a non-negative number.`);
+  }
+
+  return Math.floor(value);
 }
 
 function validateStages(stages: readonly SrsStage[]): void {

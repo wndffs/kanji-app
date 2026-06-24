@@ -75,6 +75,24 @@ export type SourceAttributionDto = {
   readonly sourceUrl?: string | null;
 };
 
+export type LeechScoreReason =
+  | "wrong-count"
+  | "recent-wrong"
+  | "stage-instability"
+  | "correct-streak-relief"
+  | "burned";
+
+export type LeechScoreDto = {
+  readonly score: number;
+  readonly isCandidate: boolean;
+  readonly wrongCount: number;
+  readonly correctStreak: number;
+  readonly recentWrongCount: number;
+  readonly stageDropCount: number;
+  readonly stageDropMagnitude: number;
+  readonly reasons: readonly LeechScoreReason[];
+};
+
 export type SrsStateSummaryDto = {
   readonly stageIndex: number;
   readonly stageName: string;
@@ -82,6 +100,7 @@ export type SrsStateSummaryDto = {
   readonly burnedAt: string | null;
   readonly wrongCount: number;
   readonly correctStreak: number;
+  readonly leech?: LeechScoreDto | null;
 };
 
 export type ItemSummary = {
@@ -283,6 +302,12 @@ export type DashboardRecentReviewStatsDto = {
   readonly accuracy: number | null;
 };
 
+export type DashboardLeechCandidateDto = {
+  readonly learningCardId: string;
+  readonly item: ItemSummary;
+  readonly leech: LeechScoreDto;
+};
+
 export type DashboardDto = {
   readonly user: {
     readonly id: string;
@@ -304,6 +329,7 @@ export type DashboardDto = {
     readonly levelProgress: DashboardLevelProgressDto;
   } | null;
   readonly reviewForecast: readonly ReviewForecastBucketDto[];
+  readonly leechCandidates: readonly DashboardLeechCandidateDto[];
   readonly recentReviewStats: DashboardRecentReviewStatsDto;
   readonly recentItems: readonly ItemSummary[];
 };

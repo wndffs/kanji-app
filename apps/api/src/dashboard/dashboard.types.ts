@@ -1,4 +1,5 @@
 import { type SrsStage } from "@kanji-srs/srs";
+import { type BilingualTextDto, type ItemKind } from "@kanji-srs/shared";
 
 export type DashboardSrsStateRecord = {
   readonly id: string;
@@ -61,4 +62,30 @@ export type DashboardReviewResult =
 export type DashboardReviewResultCountRecord = {
   readonly result: DashboardReviewResult;
   readonly count: number;
+};
+
+export type DashboardLeechItemRecord = {
+  readonly id: string;
+  readonly itemType: ItemKind;
+  readonly japanese: string;
+  readonly reading: string | null;
+  readonly translations: BilingualTextDto;
+  readonly level: number | null;
+  readonly jlptLevel: string | null;
+};
+
+export type DashboardLeechSignalRecord = {
+  readonly id: string;
+  readonly learningCardId: string;
+  readonly srsSystemId: string;
+  readonly stageIndex: number;
+  readonly availableAt: Date | null;
+  readonly burnedAt: Date | null;
+  readonly wrongCount: number;
+  readonly correctStreak: number;
+  readonly stages: readonly SrsStage[];
+  readonly recentWrongCount: number;
+  readonly stageDropCount: number;
+  readonly stageDropMagnitude: number;
+  readonly item: DashboardLeechItemRecord;
 };

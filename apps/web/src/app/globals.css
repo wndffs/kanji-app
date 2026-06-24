@@ -366,6 +366,60 @@ textarea:focus-visible {
   font-weight: 800;
 }
 
+.leech-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.leech-list li {
+  display: grid;
+  gap: 10px;
+  border-bottom: 1px solid var(--surface-border);
+  padding-bottom: 12px;
+}
+
+.leech-list li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.leech-list small,
+.leech-list p {
+  color: var(--muted);
+}
+
+.leech-list p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.leech-list dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.leech-list dl div {
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.leech-list dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.leech-list dd {
+  margin: 2px 0 0;
+  font-weight: 850;
+}
+
 .notice-panel {
   display: grid;
   gap: 14px;
@@ -381,6 +435,16 @@ textarea:focus-visible {
 
 .error-panel {
   border-color: rgba(179, 57, 57, 0.45);
+}
+
+.leech-notice {
+  border-color: rgba(190, 127, 41, 0.55);
+  background: #fff8eb;
+}
+
+.leech-notice strong {
+  display: block;
+  margin-bottom: 4px;
 }
 
 .auth-layout {
@@ -1572,6 +1636,7 @@ textarea:focus-visible {
   .lesson-preview-grid,
   .lesson-study-grid,
   .lesson-quiz-form,
+  .leech-list dl,
   .private-answer-form,
   .settings-grid {
     grid-template-columns: 1fr;

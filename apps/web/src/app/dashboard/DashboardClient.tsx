@@ -194,6 +194,42 @@ function DashboardView({ dashboard }: { readonly dashboard: DashboardDto }) {
         </section>
 
         <section className="panel">
+          <h2>Сложные карточки</h2>
+          {dashboard.leechCandidates.length === 0 ? (
+            <p className="muted">Нет карточек, которые требуют отдельного внимания.</p>
+          ) : (
+            <ul className="leech-list">
+              {dashboard.leechCandidates.map((candidate) => (
+                <li key={candidate.learningCardId}>
+                  <div>
+                    <span className="eyebrow">{formatItemType(candidate.item.itemType)}</span>
+                    <Link className="inline-link" href={`/items/${candidate.item.id}`}>
+                      {candidate.item.japanese}
+                    </Link>
+                    <small>{formatCandidateTranslation(candidate.item)}</small>
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>Score</dt>
+                      <dd>{candidate.leech.score}</dd>
+                    </div>
+                    <div>
+                      <dt>Ошибок</dt>
+                      <dd>{candidate.leech.wrongCount}</dd>
+                    </div>
+                    <div>
+                      <dt>Недавно</dt>
+                      <dd>{candidate.leech.recentWrongCount}</dd>
+                    </div>
+                  </dl>
+                  <p>{formatLeechReasons(candidate.leech.reasons)}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="panel">
           <h2>Последние ответы</h2>
           <dl className="stats-list">
             <div>
@@ -217,6 +253,49 @@ function DashboardView({ dashboard }: { readonly dashboard: DashboardDto }) {
       </div>
     </section>
   );
+}
+
+function formatCandidateTranslation(candidate: DashboardDto["leechCandidates"][number]["item"]) {
+  const translations = candidate.translations;
+  const parts = [translations.primaryRu, translations.primaryEn].filter(
+    (part): part is string => part !== null,
+  );
+
+  return parts.length === 0 ? "перевод не задан" : parts.join(" / ");
+}
+
+function formatLeechReasons(reasons: DashboardDto["leechCandidates"][number]["leech"]["reasons"]) {
+  return reasons.map(formatLeechReason).join(" · ");
+}
+
+function formatLeechReason(
+  reason: DashboardDto["leechCandidates"][number]["leech"]["reasons"][number],
+) {
+  switch (reason) {
+    case "wrong-count":
+      return "накопленные ошибки";
+    case "recent-wrong":
+      return "недавние ошибки";
+    case "stage-instability":
+      return "нестабильная стадия";
+    case "correct-streak-relief":
+      return "есть серия верных ответов";
+    case "burned":
+      return "сожжено";
+  }
+}
+
+function formatItemType(itemType: DashboardDto["leechCandidates"][number]["item"]["itemType"]) {
+  switch (itemType) {
+    case "component":
+      return "Компонент";
+    case "kanji":
+      return "Кандзи";
+    case "word":
+      return "Слово";
+    case "sentence":
+      return "Предложение";
+  }
 }
 
 function MetricCard({ label, value }: { readonly label: string; readonly value: number }) {

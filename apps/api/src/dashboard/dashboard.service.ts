@@ -2,15 +2,23 @@ import { Inject, Injectable } from "@nestjs/common";
 
 import {
   buildReviewForecast,
+  calculateLeechScore,
   type ForecastableSrsState,
+  type LeechScoreResult,
   type ReviewForecastBucket,
 } from "@kanji-srs/srs";
 import {
+  type BilingualTextDto,
+  type DashboardLeechCandidateDto,
   DEFAULT_TRANSLATION_DISPLAY_MODE,
   type DashboardDto,
   type DashboardLevelProgressDto,
   type DashboardRecentReviewStatsDto,
+  type ItemSummary,
+  type LeechScoreDto,
   type ReviewForecastBucketDto,
+  type TranslationBundleDto,
+  type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
 import { type CurrentUserDto } from "../auth/auth.types";
@@ -19,6 +27,7 @@ import {
   type DashboardCourseItemProgressRecord,
   type DashboardCourseLevelProgressRecord,
   type DashboardCourseProgressRecord,
+  type DashboardLeechSignalRecord,
   type DashboardLessonItemRecord,
   type DashboardLessonProgressRecord,
   type DashboardReviewResult,
@@ -28,8 +37,8 @@ import {
 
 const FORECAST_HORIZON_DAYS = 7;
 const RECENT_REVIEW_STATS_DAYS = 7;
-const LEECH_MINIMUM_WRONG_COUNT = 8;
-const LEECH_MAXIMUM_CORRECT_STREAK = 2;
+const LEECH_RECENT_REVIEW_DAYS = 14;
+const MAX_DASHBOARD_LEECH_CANDIDATES = 5;
 const DEFAULT_DAILY_LESSON_LIMIT = 10;
 
 @Injectable()
@@ -41,13 +50,14 @@ export class DashboardService {
   async getDashboard(user: CurrentUserDto): Promise<DashboardDto> {
     const now = new Date();
     const recentSince = addDays(now, -RECENT_REVIEW_STATS_DAYS);
+    const leechSince = addDays(now, -LEECH_RECENT_REVIEW_DAYS);
     const forecastHorizonEnd = addDays(now, FORECAST_HORIZON_DAYS);
     const [
       lessonItems,
       lessonProgress,
       dueReviews,
       burnedCards,
-      leechCandidates,
+      leechSignals,
       forecastStates,
       currentCourse,
       recentReviewCounts,
@@ -56,32 +66,31 @@ export class DashboardService {
       this.dashboardRepository.listLessonProgress(user.id),
       this.dashboardRepository.countDueReviews(user.id, now),
       this.dashboardRepository.countBurnedCards(user.id),
-      this.dashboardRepository.countLeechCandidates(user.id, {
-        minimumWrongCount: LEECH_MINIMUM_WRONG_COUNT,
-        maximumCorrectStreak: LEECH_MAXIMUM_CORRECT_STREAK,
-      }),
+      this.dashboardRepository.listLeechSignals(user.id, leechSince),
       this.dashboardRepository.listForecastStates(user.id, forecastHorizonEnd),
       this.dashboardRepository.findCurrentCourseProgress(user.id),
       this.dashboardRepository.countRecentReviewResults(user.id, recentSince, now),
     ]);
+    const displayMode = user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE;
+    const leechCandidates = toLeechCandidatesDto(leechSignals, displayMode);
 
     return {
       user: {
         id: user.id,
         displayName: user.displayName,
         locale: user.settings.locale,
-        translationDisplayMode:
-          user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE,
+        translationDisplayMode: displayMode,
         timezone: user.settings.timezone,
       },
       counts: {
         dueReviews,
         availableLessons: countAvailableLessons(user, lessonItems, lessonProgress, now),
         burnedCards,
-        leechCandidates,
+        leechCandidates: leechCandidates.length,
       },
       currentCourse: currentCourse === null ? null : toCurrentCourseDto(currentCourse),
       reviewForecast: toReviewForecastDto(forecastStates, now, user.settings.timezone),
+      leechCandidates: leechCandidates.slice(0, MAX_DASHBOARD_LEECH_CANDIDATES),
       recentReviewStats: toRecentReviewStatsDto(recentReviewCounts, recentSince),
       recentItems: [],
     };
@@ -441,6 +450,103 @@ function toReviewForecastBucketDto(bucket: ReviewForecastBucket): ReviewForecast
     localDate: bucket.localDate,
     localHour: bucket.localHour,
     dueCount: bucket.dueCount,
+  };
+}
+
+function toLeechCandidatesDto(
+  signals: readonly DashboardLeechSignalRecord[],
+  displayMode: TranslationDisplayMode,
+): readonly DashboardLeechCandidateDto[] {
+  return signals
+    .map((signal) => {
+      const leech = calculateLeechScore({
+        wrongCount: signal.wrongCount,
+        correctStreak: signal.correctStreak,
+        burnedAt: signal.burnedAt,
+        recentWrongCount: signal.recentWrongCount,
+        stageDropCount: signal.stageDropCount,
+        stageDropMagnitude: signal.stageDropMagnitude,
+      });
+
+      return leech.isCandidate ? toLeechCandidateDto(signal, leech, displayMode) : null;
+    })
+    .filter((candidate): candidate is DashboardLeechCandidateDto => candidate !== null)
+    .sort(
+      (left, right) =>
+        right.leech.score - left.leech.score ||
+        right.leech.recentWrongCount - left.leech.recentWrongCount ||
+        right.leech.wrongCount - left.leech.wrongCount ||
+        left.item.japanese.localeCompare(right.item.japanese),
+    );
+}
+
+function toLeechCandidateDto(
+  signal: DashboardLeechSignalRecord,
+  leech: LeechScoreResult,
+  displayMode: TranslationDisplayMode,
+): DashboardLeechCandidateDto {
+  const leechDto = toLeechScoreDto(leech);
+
+  return {
+    learningCardId: signal.learningCardId,
+    item: toLeechItemSummary(signal, leechDto, displayMode),
+    leech: leechDto,
+  };
+}
+
+function toLeechItemSummary(
+  signal: DashboardLeechSignalRecord,
+  leech: LeechScoreDto,
+  displayMode: TranslationDisplayMode,
+): ItemSummary {
+  const item = signal.item;
+  const stage = signal.stages.find((candidate) => candidate.stageIndex === signal.stageIndex);
+
+  return {
+    id: item.id,
+    itemType: item.itemType,
+    slug: `${item.itemType}:${item.japanese}`,
+    japanese: item.japanese,
+    reading: item.reading,
+    translations: toTranslationBundle(item.translations, displayMode),
+    level: item.level,
+    jlptLevel: item.jlptLevel,
+    srs: {
+      stageIndex: signal.stageIndex,
+      stageName: stage?.name ?? `Stage ${signal.stageIndex}`,
+      availableAt: signal.availableAt?.toISOString() ?? null,
+      burnedAt: signal.burnedAt?.toISOString() ?? null,
+      wrongCount: signal.wrongCount,
+      correctStreak: signal.correctStreak,
+      leech,
+    },
+  };
+}
+
+function toLeechScoreDto(leech: LeechScoreResult): LeechScoreDto {
+  return {
+    score: leech.score,
+    isCandidate: leech.isCandidate,
+    wrongCount: leech.wrongCount,
+    correctStreak: leech.correctStreak,
+    recentWrongCount: leech.recentWrongCount,
+    stageDropCount: leech.stageDropCount,
+    stageDropMagnitude: leech.stageDropMagnitude,
+    reasons: leech.reasons,
+  };
+}
+
+function toTranslationBundle(
+  translations: BilingualTextDto,
+  displayMode: TranslationDisplayMode,
+): TranslationBundleDto {
+  return {
+    ...translations,
+    displayMode,
+    primaryRu:
+      translations.ru.find((text) => text.isPrimary)?.text ?? translations.ru[0]?.text ?? null,
+    primaryEn:
+      translations.en.find((text) => text.isPrimary)?.text ?? translations.en[0]?.text ?? null,
   };
 }
 

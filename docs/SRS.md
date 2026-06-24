@@ -64,3 +64,19 @@ Start simple:
 - Track wrongCount and correctStreak.
 - A card is a leech candidate if wrongCount is high and recent mistakes persist.
 - Add API/UI later to show leeches and extra mnemonics.
+
+MVP leech score is deterministic and intentionally simple:
+
+```text
+score =
+  wrongCount * 2
+  + recentWrongCount * 4
+  + stageDropCount * 3
+  + stageDropMagnitude * 1
+  - correctStreak * 2
+```
+
+Clamp score to `0..100`. A non-burned card is a leech candidate at score `>= 12`.
+Burned cards always have score `0` and are not leech candidates. A correct streak
+is recovery evidence: each correct answer in the current streak reduces score by
+2, so correct streaks lower or stabilize leech pressure and never increase it.

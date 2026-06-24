@@ -96,6 +96,7 @@ describe("shared DTO contracts", () => {
       },
       currentCourse: null,
       reviewForecast: [],
+      leechCandidates: [],
       recentReviewStats: {
         since: "2026-06-11T09:00:00.000Z",
         total: 0,

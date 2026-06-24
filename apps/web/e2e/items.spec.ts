@@ -29,6 +29,16 @@ test.describe("item details", () => {
     await expect(page.getByText("KanjiVG", { exact: true })).toBeVisible();
   });
 
+  test("suggests mnemonic review for leech items", async ({ page }) => {
+    await signIn(page);
+    await mockItemApi(page);
+
+    await page.goto(`/items/${ITEM_ID}`);
+
+    await expect(page.getByTestId("item-leech-notice")).toContainText("Score 29");
+    await expect(page.getByTestId("item-leech-notice")).toContainText("мнемонику");
+  });
+
   test("adds a private synonym", async ({ page }) => {
     await signIn(page);
     await mockItemApi(page);
@@ -187,7 +197,24 @@ function buildItemDetails(
     },
     level: 1,
     jlptLevel: "N5",
-    srs: null,
+    srs: {
+      stageIndex: 4,
+      stageName: "Apprentice 4",
+      availableAt: "2026-06-24T15:00:00.000Z",
+      burnedAt: null,
+      wrongCount: 8,
+      correctStreak: 1,
+      leech: {
+        score: 29,
+        isCandidate: true,
+        wrongCount: 8,
+        correctStreak: 1,
+        recentWrongCount: 2,
+        stageDropCount: 1,
+        stageDropMagnitude: 4,
+        reasons: ["wrong-count", "recent-wrong", "stage-instability"],
+      },
+    },
     strokeGraphic: {
       sourceRecordId: "kanjivg:04e00",
       viewBox: "0 0 109 109",

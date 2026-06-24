@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 
+import { calculateLeechScore, type LeechScoreResult } from "@kanji-srs/srs";
 import { type SrsStateSummaryDto } from "@kanji-srs/shared";
 
 import { PrismaService } from "../database/prisma.service";
@@ -173,7 +174,14 @@ type ItemSrsStateRow = {
       readonly name: string;
     }[];
   };
+  readonly reviewAnswers: readonly {
+    readonly result: string;
+    readonly previousStageIndex: number | null;
+    readonly nextStageIndex: number | null;
+  }[];
 };
+
+const LEECH_RECENT_REVIEW_DAYS = 14;
 
 @Injectable()
 export class PrismaItemsRepository extends ItemsRepository {
@@ -454,6 +462,18 @@ export class PrismaItemsRepository extends ItemsRepository {
             },
           },
         },
+        reviewAnswers: {
+          where: {
+            answeredAt: {
+              gte: addDays(new Date(), -LEECH_RECENT_REVIEW_DAYS),
+            },
+          },
+          select: {
+            result: true,
+            previousStageIndex: true,
+            nextStageIndex: true,
+          },
+        },
       },
       orderBy: [{ stageIndex: "asc" }, { updatedAt: "asc" }, { id: "asc" }],
     })) as readonly ItemSrsStateRow[];
@@ -474,6 +494,16 @@ export class PrismaItemsRepository extends ItemsRepository {
       burnedAt: selected.burnedAt?.toISOString() ?? null,
       wrongCount: selected.wrongCount,
       correctStreak: selected.correctStreak,
+      leech: toLeechScoreDto(
+        calculateLeechScore({
+          wrongCount: selected.wrongCount,
+          correctStreak: selected.correctStreak,
+          burnedAt: selected.burnedAt,
+          recentWrongCount: countWrongLikeAnswers(selected.reviewAnswers),
+          stageDropCount: countStageDrops(selected.reviewAnswers),
+          stageDropMagnitude: sumStageDropMagnitude(selected.reviewAnswers),
+        }),
+      ),
     };
   }
 
@@ -863,8 +893,71 @@ function selectRepresentativeState(states: readonly ItemSrsStateRow[]): ItemSrsS
   return selected;
 }
 
+function toLeechScoreDto(leech: LeechScoreResult): NonNullable<SrsStateSummaryDto["leech"]> {
+  return {
+    score: leech.score,
+    isCandidate: leech.isCandidate,
+    wrongCount: leech.wrongCount,
+    correctStreak: leech.correctStreak,
+    recentWrongCount: leech.recentWrongCount,
+    stageDropCount: leech.stageDropCount,
+    stageDropMagnitude: leech.stageDropMagnitude,
+    reasons: leech.reasons,
+  };
+}
+
+function countWrongLikeAnswers(
+  answers: readonly {
+    readonly result: string;
+  }[],
+): number {
+  return answers.filter((answer) => answer.result === "WRONG" || answer.result === "REVEAL").length;
+}
+
+function countStageDrops(
+  answers: readonly {
+    readonly previousStageIndex: number | null;
+    readonly nextStageIndex: number | null;
+  }[],
+): number {
+  return answers.filter(isStageDrop).length;
+}
+
+function sumStageDropMagnitude(
+  answers: readonly {
+    readonly previousStageIndex: number | null;
+    readonly nextStageIndex: number | null;
+  }[],
+): number {
+  return answers.reduce((sum, answer) => {
+    if (!isStageDrop(answer)) {
+      return sum;
+    }
+
+    return sum + (answer.previousStageIndex - answer.nextStageIndex);
+  }, 0);
+}
+
+function isStageDrop(answer: {
+  readonly previousStageIndex: number | null;
+  readonly nextStageIndex: number | null;
+}): answer is {
+  readonly previousStageIndex: number;
+  readonly nextStageIndex: number;
+} {
+  return (
+    answer.previousStageIndex !== null &&
+    answer.nextStageIndex !== null &&
+    answer.previousStageIndex > answer.nextStageIndex
+  );
+}
+
 function burnedPriority(state: ItemSrsStateRow): number {
   return state.burnedAt === null ? 0 : 1;
+}
+
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
 function formatJlptLevel(value: number | null): string | null {
