@@ -890,6 +890,147 @@ textarea:focus-visible {
   gap: 18px;
 }
 
+.deck-builder-panel {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.deck-builder-panel label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.deck-builder-panel input,
+.deck-builder-panel textarea {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 10px 12px;
+}
+
+.deck-builder-panel textarea {
+  min-height: 220px;
+  resize: vertical;
+  font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Sans", sans-serif;
+  line-height: 1.65;
+}
+
+.deck-form-grid,
+.deck-result-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.22fr);
+  gap: 12px;
+}
+
+.deck-result {
+  display: grid;
+  gap: 16px;
+}
+
+.deck-result-header {
+  align-items: start;
+}
+
+.deck-result-header h2 {
+  margin: 4px 0 0;
+  font-size: 24px;
+  line-height: 1.18;
+}
+
+.deck-item-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.deck-item-card {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.deck-item-card strong {
+  display: block;
+  margin-top: 4px;
+  font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Sans", sans-serif;
+  font-size: 34px;
+  line-height: 1.08;
+}
+
+.deck-item-card p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.deck-item-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.deck-item-facts div {
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.deck-item-facts dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.deck-item-facts dd {
+  margin: 4px 0 0;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.deck-reason-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.deck-reason-list li {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 6px;
+  background: var(--surface-strong);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 10px;
+}
+
+.deck-reason-list small {
+  color: var(--primary-strong);
+}
+
 .item-page {
   display: grid;
   gap: 18px;
@@ -1296,6 +1437,8 @@ textarea:focus-visible {
   .admin-item-header,
   .admin-side-grid,
   .admin-two-column,
+  .deck-form-grid,
+  .deck-result-header,
   .item-hero,
   .item-layout,
   .lesson-heading,
@@ -1316,6 +1459,7 @@ textarea:focus-visible {
   }
 
   .feedback-grid,
+  .deck-item-list,
   .lesson-preview-grid,
   .lesson-study-grid,
   .lesson-quiz-form,
@@ -1361,6 +1505,7 @@ textarea:focus-visible {
 
   .metric-grid,
   .stats-list,
+  .deck-item-facts,
   .lesson-preview-grid,
   .review-loading-grid,
   .review-queue-grid,

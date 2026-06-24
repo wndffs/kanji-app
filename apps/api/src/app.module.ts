@@ -5,6 +5,7 @@ import { AuthModule } from "./auth/auth.module";
 import { AppConfigModule } from "./config/app-config.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { DatabaseModule } from "./database/database.module";
+import { DecksModule } from "./decks/decks.module";
 import { HealthModule } from "./health/health.module";
 import { ItemsModule } from "./items/items.module";
 import { LessonsModule } from "./lessons/lessons.module";
@@ -27,6 +28,7 @@ import { UsersModule } from "./users/users.module";
     LessonsModule,
     OverridesModule,
     ReviewsModule,
+    DecksModule,
   ],
   providers: [ApiLogger],
 })

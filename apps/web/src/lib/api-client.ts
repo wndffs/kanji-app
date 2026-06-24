@@ -8,8 +8,12 @@ import {
   type ContentLocale,
   type DashboardDto,
   type CompleteLessonItemResponse,
+  type CreateTextDeckRequest,
+  type CreateTextDeckResponse,
   type FinishLessonSessionResponse,
   type ItemDetails,
+  type DeckDetailsDto,
+  type DeckListResponse,
   type LessonQueueResponse,
   type ReviewAnswerRequest,
   type ReviewAnswerResponse,
@@ -235,6 +239,27 @@ export function finishLessonSession(
 
 export function getReviewQueue(token: string): Promise<ReviewQueueResponse> {
   return apiRequest<ReviewQueueResponse>("/reviews/queue", { token });
+}
+
+export function createTextDeck(
+  token: string,
+  input: CreateTextDeckRequest,
+  fetchImpl?: typeof fetch,
+): Promise<CreateTextDeckResponse> {
+  return apiRequest<CreateTextDeckResponse>("/decks/from-text", {
+    method: "POST",
+    token,
+    body: input,
+    fetchImpl,
+  });
+}
+
+export function listDecks(token: string): Promise<DeckListResponse> {
+  return apiRequest<DeckListResponse>("/decks", { token });
+}
+
+export function getDeck(token: string, deckId: string): Promise<DeckDetailsDto> {
+  return apiRequest<DeckDetailsDto>(`/decks/${encodeURIComponent(deckId)}`, { token });
 }
 
 export function startReviewSession(token: string): Promise<StartReviewSessionResponse> {

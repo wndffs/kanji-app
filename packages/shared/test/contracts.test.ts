@@ -8,6 +8,7 @@ import {
   isTranslationDisplayMode,
   workspacePackages,
   type DashboardDto,
+  type DeckDetailsDto,
   type LearningCardDto,
 } from "../src";
 
@@ -111,5 +112,52 @@ describe("shared DTO contracts", () => {
 
     expect(dashboard.user.translationDisplayMode).toBe("en");
     expect(JSON.parse(JSON.stringify(dashboard))).toEqual(dashboard);
+  });
+
+  it("keeps dynamic text deck details serializable", () => {
+    const deck: DeckDetailsDto = {
+      id: "deck-1",
+      title: "Text deck",
+      description: "Dynamic text deck",
+      status: "active",
+      itemCount: 1,
+      newItemCount: 1,
+      translationDisplayMode: "ru-en",
+      createdAt: "2026-06-24T09:00:00.000Z",
+      updatedAt: "2026-06-24T09:00:00.000Z",
+      items: [
+        {
+          sortOrder: 1,
+          isNewForUser: true,
+          reasons: [
+            {
+              code: "appears-in-text",
+              detail: "Matched in pasted text.",
+              matchedText: "学校",
+            },
+          ],
+          item: {
+            id: "item-word-school",
+            itemType: "word",
+            slug: "word:学校",
+            japanese: "学校",
+            reading: "がっこう",
+            translations: {
+              displayMode: "ru-en",
+              primaryRu: "школа",
+              primaryEn: "school",
+              ru: [{ locale: "ru-RU", text: "школа", isPrimary: true }],
+              en: [{ locale: "en-US", text: "school", isPrimary: true }],
+            },
+            level: 1,
+            jlptLevel: "N5",
+            srs: null,
+          },
+        },
+      ],
+    };
+
+    expect(JSON.parse(JSON.stringify(deck))).toEqual(deck);
+    expect(deck.items[0]?.reasons[0]?.code).toBe("appears-in-text");
   });
 });

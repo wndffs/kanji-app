@@ -135,6 +135,12 @@ accepted answer.
 - `GET /decks/:id`
 - `POST /decks/:id/enroll`
 
+`POST /decks/from-text` uses a local MVP tokenizer fallback: it splits contiguous
+Japanese text runs, emits exact substrings up to eight characters, extracts kanji
+characters, and matches those candidates to existing `Word` and `Kanji`
+learning items. It does not call external APIs and is not intended to be perfect
+Japanese morphological analysis.
+
 ### Admin
 
 - `GET /admin/import-runs`

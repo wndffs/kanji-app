@@ -41,6 +41,11 @@ export type UserOverrideKind =
   | "note"
   | "mnemonic";
 export type DeckStatus = "draft" | "active" | "archived";
+export type DeckItemReasonCode =
+  | "appears-in-text"
+  | "prerequisite-kanji"
+  | "prerequisite-component"
+  | "high-frequency";
 export type AdminContentStatus = "draft" | "needs-review" | "published" | "archived";
 export type AdminImportRunStatus = "pending" | "success" | "failed";
 export type AdminTextSourceKind = "curated" | "imported" | "user";
@@ -336,6 +341,45 @@ export type DeckDto = {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly items?: readonly ItemSummary[];
+};
+
+export type DeckItemReasonDto = {
+  readonly code: DeckItemReasonCode;
+  readonly detail: string;
+  readonly matchedText?: string | null;
+  readonly sourceItemId?: string | null;
+  readonly rank?: number | null;
+};
+
+export type DeckItemDto = {
+  readonly item: ItemSummary;
+  readonly sortOrder: number;
+  readonly reasons: readonly DeckItemReasonDto[];
+  readonly isNewForUser: boolean;
+};
+
+export type DeckDetailsDto = Omit<DeckDto, "items"> & {
+  readonly items: readonly DeckItemDto[];
+};
+
+export type CreateTextDeckRequest = {
+  readonly text: string;
+  readonly title?: string | null;
+  readonly maxItems?: number | null;
+};
+
+export type CreateTextDeckResponse = {
+  readonly deck: DeckDetailsDto;
+  readonly tokenization: {
+    readonly strategy: "substring-fallback";
+    readonly candidateCount: number;
+    readonly matchedItemCount: number;
+    readonly unmatchedCandidateCount: number;
+  };
+};
+
+export type DeckListResponse = {
+  readonly decks: readonly DeckDto[];
 };
 
 export type AdminReviewQueueItemDto = {
