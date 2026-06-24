@@ -317,6 +317,9 @@ export function ReviewsClient() {
             <Link className="secondary-action" href="/dashboard">
               На панель
             </Link>
+            <Link className="secondary-action" href="/settings">
+              Настроить нагрузку
+            </Link>
           </div>
         </div>
       </section>
@@ -332,9 +335,14 @@ export function ReviewsClient() {
         </div>
         <div className="notice-panel">
           <p>Следующая сессия появится, когда SRS расписание откроет новые карточки.</p>
-          <button className="secondary-action" onClick={() => void loadQueue()} type="button">
-            Проверить снова
-          </button>
+          <div className="action-row">
+            <button className="secondary-action" onClick={() => void loadQueue()} type="button">
+              Проверить снова
+            </button>
+            <Link className="secondary-action" href="/settings">
+              Настроить нагрузку
+            </Link>
+          </div>
         </div>
       </section>
     );

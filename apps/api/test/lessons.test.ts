@@ -127,6 +127,43 @@ describe("LessonsService", () => {
       ],
     });
   });
+
+  it("applies the daily lesson limit in the user's timezone", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const service = new LessonsService(repository);
+
+    repository.addProgress(
+      "owner",
+      "item-component-two",
+      ["card-component-two"],
+      1,
+      new Date("2026-06-17T22:30:00.000Z"),
+    );
+
+    await expect(
+      service.getQueue(
+        createUser("owner", {
+          dailyLessonLimit: 1,
+          timezone: "Europe/Moscow",
+        }),
+      ),
+    ).resolves.toEqual({ items: [] });
+
+    await expect(
+      service.getQueue(
+        createUser("owner", {
+          dailyLessonLimit: 1,
+          timezone: "America/Los_Angeles",
+        }),
+      ),
+    ).resolves.toEqual({
+      items: [
+        expect.objectContaining({
+          item: expect.objectContaining({ id: "item-component-one" }),
+        }),
+      ],
+    });
+  });
 });
 
 class InMemoryLessonsRepository extends LessonsRepository {
@@ -249,6 +286,7 @@ class InMemoryLessonsRepository extends LessonsRepository {
     itemId: string,
     cardIds: readonly string[],
     stageIndex: number,
+    createdAt = new Date("2026-06-17T09:00:00.000Z"),
   ): void {
     const itemKey = `${userId}:${itemId}`;
 
@@ -260,7 +298,7 @@ class InMemoryLessonsRepository extends LessonsRepository {
         learningItemId: itemKey,
         learningCardId: cardId,
         stageIndex,
-        createdAt: new Date("2026-06-17T09:00:00.000Z"),
+        createdAt,
       };
 
       if (existingIndex === -1) {

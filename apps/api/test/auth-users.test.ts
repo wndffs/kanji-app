@@ -143,6 +143,7 @@ describe("Auth and users", () => {
     await expect(
       usersController.updateSettings(requireCurrentUser(request), {
         translationDisplayMode: "en",
+        timezone: "Asia/Tokyo",
         dailyLessonLimit: 12,
         reviewBudget: 80,
         strictMode: true,
@@ -150,6 +151,7 @@ describe("Auth and users", () => {
     ).resolves.toMatchObject({
       settings: {
         translationDisplayMode: "en",
+        timezone: "Asia/Tokyo",
         dailyLessonLimit: 12,
         reviewBudget: 80,
         strictMode: true,

@@ -53,6 +53,46 @@ describe("ReviewsService", () => {
     expect(repository.getState("state-due").stageIndex).toBe(2);
   });
 
+  it("uses strict mode to keep typo answers on the current stage", async () => {
+    const relaxedHarness = createHarness();
+    const relaxedSession = await relaxedHarness.service.startSession(createUser("owner"));
+
+    await expect(
+      relaxedHarness.service.submitAnswer(relaxedSession.session.id, createUser("owner"), {
+        cardId: "card-meaning",
+        answer: "study answr",
+        answerType: "meaning",
+        answeredAt: NOW.toISOString(),
+      }),
+    ).resolves.toMatchObject({
+      accepted: true,
+      result: "typo",
+      nextSrs: { stageIndex: 2 },
+    });
+
+    const strictHarness = createHarness();
+    const strictSession = await strictHarness.service.startSession(
+      createUser("owner", { strictMode: true }),
+    );
+
+    await expect(
+      strictHarness.service.submitAnswer(
+        strictSession.session.id,
+        createUser("owner", { strictMode: true }),
+        {
+          cardId: "card-meaning",
+          answer: "study answr",
+          answerType: "meaning",
+          answeredAt: NOW.toISOString(),
+        },
+      ),
+    ).resolves.toMatchObject({
+      accepted: true,
+      result: "typo",
+      nextSrs: { stageIndex: 1 },
+    });
+  });
+
   it("demotes the stage for a wrong answer", async () => {
     const { repository, service } = createHarness();
     const session = await service.startSession(createUser("owner"));
@@ -421,7 +461,10 @@ function createQueueRecord(
   };
 }
 
-function createUser(id: string): CurrentUserDto {
+function createUser(
+  id: string,
+  settings: Partial<CurrentUserDto["settings"]> = {},
+): CurrentUserDto {
   return {
     id,
     email: `${id}@example.test`,
@@ -434,6 +477,7 @@ function createUser(id: string): CurrentUserDto {
       dailyLessonLimit: 10,
       reviewBudget: 20,
       strictMode: false,
+      ...settings,
     },
   };
 }

@@ -180,9 +180,9 @@ function DashboardView({ dashboard }: { readonly dashboard: DashboardDto }) {
           {dashboard.reviewForecast.length === 0 ? (
             <p className="muted">Нет запланированных повторений.</p>
           ) : (
-            <ol className="forecast-list">
+            <ol className="forecast-list" data-testid="forecast-list">
               {dashboard.reviewForecast.slice(0, 6).map((bucket) => (
-                <li key={bucket.bucketKey}>
+                <li data-testid="forecast-bucket" key={bucket.bucketKey}>
                   <span>{formatForecastBucket(bucket)}</span>
                   <strong>
                     {formatCount(bucket.dueCount, "карточка", "карточки", "карточек")}

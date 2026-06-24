@@ -97,7 +97,12 @@ export class ReviewsService {
       state: toSrsSnapshot(target.state),
       result: recordedResult,
       now: request.answeredAt,
-      stageConfig: { stages: target.stages },
+      stageConfig: {
+        stages: target.stages,
+        rules: {
+          typoBehavior: user.settings.strictMode ? "stay" : "advance",
+        },
+      },
     });
 
     await this.reviewsRepository.recordReviewAnswer({

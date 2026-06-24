@@ -389,6 +389,12 @@ textarea:focus-visible {
   gap: 18px;
 }
 
+.settings-layout {
+  width: min(760px, 100%);
+  display: grid;
+  gap: 18px;
+}
+
 .form-panel,
 .search-panel {
   display: grid;
@@ -409,6 +415,32 @@ textarea:focus-visible {
 .form-panel select,
 .search-panel input {
   width: 100%;
+}
+
+.form-panel input:disabled,
+.form-panel select:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.form-panel .checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--foreground);
+}
+
+.form-panel .checkbox-row input {
+  width: 18px;
+  min-height: 18px;
+  padding: 0;
+  accent-color: var(--primary);
 }
 
 .search-form {
@@ -1540,7 +1572,8 @@ textarea:focus-visible {
   .lesson-preview-grid,
   .lesson-study-grid,
   .lesson-quiz-form,
-  .private-answer-form {
+  .private-answer-form,
+  .settings-grid {
     grid-template-columns: 1fr;
   }
 
