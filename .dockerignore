@@ -3,6 +3,11 @@
 .codex
 .agents
 .codex-tmp
+data/raw
+**/data/raw
+data/**/*.gz
+data/**/*.zip
+data/**/*.xz
 node_modules
 **/node_modules
 dist

@@ -4,26 +4,27 @@
 
 - `License`: id, name, spdxLikeId, url, requiresAttribution, requiresShareAlike, notes.
 - `DataSource`: id, name, homepageUrl, downloadUrl, licenseId, attributionText, notes.
-- `ImportRun`: id, dataSourceId, sourceVersion, sourceFileName, checksumSha256, startedAt, finishedAt, status, statsJson, errorText.
+- `ImportRun`: id, dataSourceId, sourceVersion, sourceFileName, sourceDownloadedAt, checksumSha256, startedAt, finishedAt, status, statsJson, errorText.
 - `ImportedRecord`: id, importRunId, sourceRecordId, recordType, rawJson.
+- Imported target rows keep exact provenance with nullable `ImportedRecord` links in addition to source-record IDs. These links should be filled by importers as they are upgraded.
 
 ## Linguistic graph
 
 - `Component`: id, symbol, displayNameRu, displayNameEn, meaningRu, meaningEn, sourceKind, notes.
-- `Kanji`: id, character, strokeCount, grade, jlptLevel, frequencyRank, kanjidicSourceId.
+- `Kanji`: id, character, strokeCount, grade, jlptLevel, frequencyRank, kanjidicSourceId, kanjidicImportedRecordId.
 - `KanjiReading`: id, kanjiId, reading, readingType, priority.
 - `KanjiMeaning`: id, kanjiId, locale, meaning, isPrimary, sourceKind.
 - `KanjiComponent`: id, kanjiId, componentId, position, sourceKind, confidence.
-- `Word`: id, expression, reading, commonnessRank, jlptLevel, jmdictEntryId.
+- `Word`: id, expression, reading, commonnessRank, jlptLevel, jmdictEntryId, jmdictImportedRecordId.
 - `WordSense`: id, wordId, locale, meaning, partOfSpeech, register, tags, sourceKind.
-- `Sentence`: id, japaneseText, readingText, translationRu, translationEn, difficulty, sourceId, licenseId.
+- `Sentence`: id, japaneseText, readingText, translationRu, translationEn, difficulty, sourceId, importedRecordId, licenseId.
 
 ## Pedagogical layer
 
 - `LearningItem`: id, kind, targetType, targetId, title, levelHint, status.
 - `LearningCard`: id, learningItemId, cardType, promptType, answerType, locale/displayMode, sortOrder. Cards should be able to present Russian only, English only, or both translation sets.
-- `LearningAnswer`: id, learningCardId, text, normalizedText, answerKind, locale, isPrimary.
-- `BlockedAnswer`: id, learningCardId, text, normalizedText, reason.
+- `LearningAnswer`: id, learningCardId, text, normalizedText, answerKind, locale, isPrimary, sourceKind.
+- `BlockedAnswer`: id, learningCardId, text, normalizedText, reason, sourceKind.
 - `Mnemonic`: id, learningItemId, locale, mnemonicType, body, sourceKind, version.
 - `Hint`: id, learningItemId, locale, hintType, body, sourceKind, version.
 - `Dependency`: id, learningItemId, prerequisiteItemId, dependencyType, requiredStage.

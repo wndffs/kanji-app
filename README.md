@@ -2,7 +2,7 @@
 
 Personal Russian-localized Japanese kanji and vocabulary SRS web application.
 
-This repository is bootstrapped as an npm TypeScript monorepo. The current state is infrastructure only: workspace wiring, app shells, package shells, local service configuration, and placeholder tests.
+This repository is an npm TypeScript monorepo with a tiny project-authored starter course for local development and smoke testing. The seed is deliberately small and is not copied from WaniKani or external decks.
 
 ## Requirements
 
@@ -55,7 +55,7 @@ npm run db:migrate
 npm run db:seed
 ```
 
-The initial seed is tiny, handcrafted project content for local development. It does not include external datasets or WaniKani-derived content.
+The initial seed is tiny, handcrafted project content for local development. It does not include external datasets, WaniKani-derived content, or community deck content.
 
 ## Development
 
@@ -93,4 +93,6 @@ Next.js test server and installs/runs Playwright in CI.
 
 ## Data And Licensing
 
-No educational content is seeded in this bootstrap. Future data imports must use legally reusable sources, track source/license/import runs, and keep raw imported data separate from curated Russian learning content.
+The repository may contain only tiny fixtures and project-authored starter content. Full-size raw source dumps belong outside git, or in ignored local paths such as `data/raw/` while running local imports.
+
+Future data imports must use legally reusable sources, track source/license/checksum/import runs, and keep raw imported data separate from curated Russian and English learning content. See [`docs/DATA_SOURCES_AND_LICENSING.md`](docs/DATA_SOURCES_AND_LICENSING.md) and [`docs/IMPORT_OPERATIONS.md`](docs/IMPORT_OPERATIONS.md).

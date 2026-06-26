@@ -56,13 +56,23 @@ describe("Prisma schema", () => {
     expect(schema).toContain("@@unique([dataSourceId, checksumSha256])");
     expect(schema).toContain("@@unique([importRunId, recordType, sourceRecordId])");
     expect(schema).toContain("@@index([sourceRecordId])");
+    expect(schema).toContain("sourceDownloadedAt");
+    expect(schema).toContain("kanjidicImportedRecordId");
+    expect(schema).toContain("jmdictImportedRecordId");
+    expect(schema).toContain('@relation("SentenceImportedRecord"');
   });
 
   it("stores KanjiVG stroke graphics linked to kanji", () => {
     expect(schema).toContain("model KanjiStrokeGraphic ");
-    expect(schema).toContain("strokeGraphic    KanjiStrokeGraphic?");
-    expect(schema).toContain("sourceRecordId String   @unique");
-    expect(schema).toContain("strokesJson    Json");
+    expect(schema).toMatch(/strokeGraphic\s+KanjiStrokeGraphic\?/u);
+    expect(schema).toMatch(/sourceRecordId\s+String\s+@unique/u);
+    expect(schema).toContain('@relation("StrokeGraphicImportedRecord"');
+    expect(schema).toMatch(/strokesJson\s+Json/u);
+  });
+
+  it("keeps global card answers marked as curated content by default", () => {
+    expect(schema).toMatch(/sourceKind\s+ContentSourceKind\s+@default\(PROJECT_AUTHORED\)/u);
+    expect(schema).toContain("@@index([sourceKind])");
   });
 
   it("indexes due SRS state by user and availability", () => {

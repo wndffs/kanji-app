@@ -13,5 +13,7 @@ test-results/
 !.env.example
 
 .codex-tmp/
+data/raw/**
+!data/raw/.gitkeep
 npm-debug.log*
 yarn-debug.log*

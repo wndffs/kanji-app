@@ -122,6 +122,33 @@ describe("Tatoeba importer", () => {
       },
     });
   });
+
+  it("retains sentence/link provenance without importing audio metadata", async () => {
+    const db = new InMemoryTatoebaDb();
+
+    await importTatoebaFiles(db, sentencesTsv, linksTsv, {
+      sourceFileName: "tatoeba-sentences-small.tsv+tatoeba-links-small.tsv",
+      maxTextLength: 16,
+    });
+
+    expect([...db.licenses.values()][0]).toMatchObject({
+      requiresAttribution: true,
+      notes: expect.stringContaining("does not import audio"),
+    });
+    expect([...db.dataSources.values()][0]).toMatchObject({
+      notes: expect.stringContaining("Audio is intentionally excluded"),
+    });
+
+    for (const record of db.importedRecords.values()) {
+      expect(record.rawJson).toEqual(
+        expect.objectContaining({
+          sentenceId: expect.any(String),
+          links: expect.any(Array),
+        }),
+      );
+      expect(JSON.stringify(record.rawJson).toLowerCase()).not.toContain("audio");
+    }
+  });
 });
 
 class InMemoryTatoebaDb implements TatoebaImportDatabase {

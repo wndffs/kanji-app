@@ -185,18 +185,19 @@ model DataSource {
 }
 
 model ImportRun {
-  id             String           @id @default(uuid()) @db.Uuid
-  dataSourceId   String           @db.Uuid
-  sourceVersion  String?
-  sourceFileName String
-  checksumSha256 String
-  startedAt      DateTime         @default(now())
-  finishedAt     DateTime?
-  status         ImportRunStatus  @default(PENDING)
-  statsJson      Json?
-  errorText      String?
-  dataSource     DataSource       @relation(fields: [dataSourceId], references: [id], onDelete: Restrict)
-  records        ImportedRecord[]
+  id                 String           @id @default(uuid()) @db.Uuid
+  dataSourceId       String           @db.Uuid
+  sourceVersion      String?
+  sourceFileName     String
+  sourceDownloadedAt DateTime?
+  checksumSha256     String
+  startedAt          DateTime         @default(now())
+  finishedAt         DateTime?
+  status             ImportRunStatus  @default(PENDING)
+  statsJson          Json?
+  errorText          String?
+  dataSource         DataSource       @relation(fields: [dataSourceId], references: [id], onDelete: Restrict)
+  records            ImportedRecord[]
 
   @@unique([dataSourceId, checksumSha256])
   @@index([dataSourceId, startedAt])
@@ -204,13 +205,17 @@ model ImportRun {
 }
 
 model ImportedRecord {
-  id             String             @id @default(uuid()) @db.Uuid
-  importRunId    String             @db.Uuid
-  sourceRecordId String
-  recordType     ImportedRecordType
-  rawJson        Json
-  createdAt      DateTime           @default(now())
-  importRun      ImportRun          @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  id              String               @id @default(uuid()) @db.Uuid
+  importRunId     String               @db.Uuid
+  sourceRecordId  String
+  recordType      ImportedRecordType
+  rawJson         Json
+  createdAt       DateTime             @default(now())
+  importRun       ImportRun            @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  kanjiTargets    Kanji[]              @relation("KanjiImportedRecord")
+  wordTargets     Word[]               @relation("WordImportedRecord")
+  sentenceTargets Sentence[]           @relation("SentenceImportedRecord")
+  strokeGraphics  KanjiStrokeGraphic[] @relation("StrokeGraphicImportedRecord")
 
   @@unique([importRunId, recordType, sourceRecordId])
   @@index([sourceRecordId])
@@ -233,36 +238,42 @@ model Component {
 }
 
 model Kanji {
-  id               String              @id @default(uuid()) @db.Uuid
-  character        String              @unique
-  strokeCount      Int?
-  grade            Int?
-  jlptLevel        Int?
-  frequencyRank    Int?
-  kanjidicSourceId String?             @unique
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
-  readings         KanjiReading[]
-  meanings         KanjiMeaning[]
-  components       KanjiComponent[]
-  strokeGraphic    KanjiStrokeGraphic?
+  id                       String              @id @default(uuid()) @db.Uuid
+  character                String              @unique
+  strokeCount              Int?
+  grade                    Int?
+  jlptLevel                Int?
+  frequencyRank            Int?
+  kanjidicSourceId         String?             @unique
+  kanjidicImportedRecordId String?             @db.Uuid
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+  importedRecord           ImportedRecord?     @relation("KanjiImportedRecord", fields: [kanjidicImportedRecordId], references: [id], onDelete: SetNull)
+  readings                 KanjiReading[]
+  meanings                 KanjiMeaning[]
+  components               KanjiComponent[]
+  strokeGraphic            KanjiStrokeGraphic?
 
   @@index([jlptLevel])
   @@index([frequencyRank])
   @@index([kanjidicSourceId])
+  @@index([kanjidicImportedRecordId])
 }
 
 model KanjiStrokeGraphic {
-  id             String   @id @default(uuid()) @db.Uuid
-  kanjiId        String   @unique @db.Uuid
-  sourceRecordId String   @unique
-  viewBox        String
-  strokesJson    Json
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  kanji          Kanji    @relation(fields: [kanjiId], references: [id], onDelete: Cascade)
+  id               String          @id @default(uuid()) @db.Uuid
+  kanjiId          String          @unique @db.Uuid
+  sourceRecordId   String          @unique
+  importedRecordId String?         @db.Uuid
+  viewBox          String
+  strokesJson      Json
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  kanji            Kanji           @relation(fields: [kanjiId], references: [id], onDelete: Cascade)
+  importedRecord   ImportedRecord? @relation("StrokeGraphicImportedRecord", fields: [importedRecordId], references: [id], onDelete: SetNull)
 
   @@index([sourceRecordId])
+  @@index([importedRecordId])
 }
 
 model KanjiReading {
@@ -308,20 +319,23 @@ model KanjiComponent {
 }
 
 model Word {
-  id             String      @id @default(uuid()) @db.Uuid
-  expression     String
-  reading        String
-  commonnessRank Int?
-  jlptLevel      Int?
-  jmdictEntryId  String?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  senses         WordSense[]
+  id                     String          @id @default(uuid()) @db.Uuid
+  expression             String
+  reading                String
+  commonnessRank         Int?
+  jlptLevel              Int?
+  jmdictEntryId          String?
+  jmdictImportedRecordId String?         @db.Uuid
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  importedRecord         ImportedRecord? @relation("WordImportedRecord", fields: [jmdictImportedRecordId], references: [id], onDelete: SetNull)
+  senses                 WordSense[]
 
   @@unique([expression, reading])
   @@index([expression])
   @@index([reading])
   @@index([jmdictEntryId])
+  @@index([jmdictImportedRecordId])
   @@index([jlptLevel])
   @@index([commonnessRank])
 }
@@ -345,24 +359,27 @@ model WordSense {
 }
 
 model Sentence {
-  id            String      @id @default(uuid()) @db.Uuid
-  japaneseText  String
-  readingText   String?
-  translationRu String?
-  translationEn String?
-  difficulty    Int?
-  sourceId      String?
-  dataSourceId  String?     @db.Uuid
-  licenseId     String      @db.Uuid
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  dataSource    DataSource? @relation(fields: [dataSourceId], references: [id], onDelete: SetNull)
-  license       License     @relation(fields: [licenseId], references: [id], onDelete: Restrict)
+  id               String          @id @default(uuid()) @db.Uuid
+  japaneseText     String
+  readingText      String?
+  translationRu    String?
+  translationEn    String?
+  difficulty       Int?
+  sourceId         String?
+  importedRecordId String?         @db.Uuid
+  dataSourceId     String?         @db.Uuid
+  licenseId        String          @db.Uuid
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  dataSource       DataSource?     @relation(fields: [dataSourceId], references: [id], onDelete: SetNull)
+  importedRecord   ImportedRecord? @relation("SentenceImportedRecord", fields: [importedRecordId], references: [id], onDelete: SetNull)
+  license          License         @relation(fields: [licenseId], references: [id], onDelete: Restrict)
 
   @@unique([dataSourceId, sourceId])
   @@index([japaneseText])
   @@index([translationRu])
   @@index([sourceId])
+  @@index([importedRecordId])
   @@index([licenseId])
 }
 
@@ -413,30 +430,34 @@ model LearningCard {
 }
 
 model LearningAnswer {
-  id             String       @id @default(uuid()) @db.Uuid
-  learningCardId String       @db.Uuid
+  id             String            @id @default(uuid()) @db.Uuid
+  learningCardId String            @db.Uuid
   text           String
   normalizedText String
   answerKind     AnswerKind
   locale         String
-  isPrimary      Boolean      @default(false)
-  learningCard   LearningCard @relation(fields: [learningCardId], references: [id], onDelete: Cascade)
+  isPrimary      Boolean           @default(false)
+  sourceKind     ContentSourceKind @default(PROJECT_AUTHORED)
+  learningCard   LearningCard      @relation(fields: [learningCardId], references: [id], onDelete: Cascade)
 
   @@unique([learningCardId, normalizedText, answerKind, locale])
   @@index([normalizedText, locale])
   @@index([answerKind])
+  @@index([sourceKind])
 }
 
 model BlockedAnswer {
-  id             String       @id @default(uuid()) @db.Uuid
-  learningCardId String       @db.Uuid
+  id             String            @id @default(uuid()) @db.Uuid
+  learningCardId String            @db.Uuid
   text           String
   normalizedText String
   reason         String?
-  learningCard   LearningCard @relation(fields: [learningCardId], references: [id], onDelete: Cascade)
+  sourceKind     ContentSourceKind @default(PROJECT_AUTHORED)
+  learningCard   LearningCard      @relation(fields: [learningCardId], references: [id], onDelete: Cascade)
 
   @@unique([learningCardId, normalizedText])
   @@index([normalizedText])
+  @@index([sourceKind])
 }
 
 model Mnemonic {
