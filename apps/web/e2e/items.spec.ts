@@ -35,7 +35,7 @@ test.describe("item details", () => {
 
     await page.goto(`/items/${ITEM_ID}`);
 
-    await expect(page.getByTestId("item-leech-notice")).toContainText("Score 29");
+    await expect(page.getByTestId("item-leech-notice")).toContainText("Балл 29");
     await expect(page.getByTestId("item-leech-notice")).toContainText("мнемонику");
   });
 

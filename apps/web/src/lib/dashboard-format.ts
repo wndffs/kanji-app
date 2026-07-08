@@ -38,3 +38,27 @@ export function formatCount(value: number, one: string, few: string, many: strin
 
   return `${value} ${word}`;
 }
+
+export function formatSrsStageName(stageName: string | null | undefined): string {
+  if (stageName === null || stageName === undefined || stageName.trim() === "") {
+    return "ещё не изучается";
+  }
+
+  const [name, rawStep] = stageName.split(" ");
+  const step = rawStep === undefined ? "" : ` ${rawStep}`;
+
+  switch (name) {
+    case "Apprentice":
+      return `Знакомство${step}`;
+    case "Guru":
+      return `Закрепление${step}`;
+    case "Master":
+      return "Уверенное знание";
+    case "Enlightened":
+      return "Долгая память";
+    case "Burned":
+      return "Закреплено";
+    default:
+      return stageName;
+  }
+}

@@ -11,12 +11,10 @@ import {
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
+import { JapaneseText } from "../../components/JapaneseText";
 import { ApiError, createTextDeck } from "../../lib/api-client";
-import {
-  clearStoredSession,
-  readStoredSession,
-  readTranslationDisplayMode,
-} from "../../lib/auth-storage";
+import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
+import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
 type DecksState =
   | { readonly status: "checking" }
@@ -24,10 +22,10 @@ type DecksState =
   | {
       readonly status: "ready";
       readonly token: string;
-      readonly displayMode: TranslationDisplayMode;
     };
 
 export function DecksClient() {
+  const displayMode = useTranslationDisplayMode();
   const [state, setState] = useState<DecksState>({ status: "checking" });
   const [title, setTitle] = useState("");
   const [sourceText, setSourceText] = useState("");
@@ -47,7 +45,6 @@ export function DecksClient() {
     setState({
       status: "ready",
       token: session.token,
-      displayMode: session.user.settings.translationDisplayMode ?? readTranslationDisplayMode(),
     });
   }, []);
 
@@ -180,7 +177,7 @@ export function DecksClient() {
         {formError === null ? null : <p className="form-error">{formError}</p>}
       </form>
 
-      {result === null ? null : <TextDeckResult result={result} displayMode={state.displayMode} />}
+      {result === null ? null : <TextDeckResult result={result} displayMode={displayMode} />}
     </section>
   );
 }
@@ -243,7 +240,7 @@ function DeckItemCard({
     <article className="deck-item-card">
       <div>
         <span className="eyebrow">{formatItemType(deckItem.item.itemType)}</span>
-        <strong>{deckItem.item.japanese}</strong>
+        <JapaneseText as="strong">{deckItem.item.japanese}</JapaneseText>
         <p>{formatTranslationBundle(deckItem.item.translations, displayMode)}</p>
       </div>
       <dl className="deck-item-facts">

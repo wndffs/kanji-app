@@ -29,18 +29,22 @@ test.describe("lesson session", () => {
     await page.getByRole("button", { name: "Перейти к мини-проверке" }).click();
 
     await expect(page.getByRole("heading", { name: "Мини-проверка" })).toBeVisible();
+    await expect(page.getByLabel("Ваше значение")).toBeFocused();
     await page.getByLabel("Ваше значение").fill("один");
-    await page.getByRole("button", { name: "Показать ответ" }).click();
+    await page.keyboard.press("Enter");
 
     await expect(page.getByRole("region", { name: "Ответ мини-проверки" })).toBeVisible();
     await expect(page.getByText("Правильный ответ")).toBeVisible();
     await expect(page.getByText("один")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Отметить изученным" })).toBeFocused();
 
-    await page.getByRole("button", { name: "Отметить изученным" }).click();
+    await page.keyboard.press("Enter");
 
-    await expect(page.getByText("Сессия завершена. Новые карточки добавлены в SRS.")).toBeVisible();
+    await expect(
+      page.getByText("Сессия завершена. Новые карточки добавлены в систему повторений."),
+    ).toBeVisible();
     await expect(page.getByText("Изучено")).toBeVisible();
-    await expect(page.getByText("Карточек SRS")).toBeVisible();
+    await expect(page.getByText("Карточек повторения")).toBeVisible();
   });
 });
 

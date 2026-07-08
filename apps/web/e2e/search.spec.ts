@@ -21,7 +21,7 @@ test.describe("search UI", () => {
     await expect(page.getByText("учеба / study")).toBeVisible();
     await expect(page.getByText("がく")).toBeVisible();
     await expect(page.getByText("N5")).toBeVisible();
-    await expect(page.getByText("Apprentice 1")).toBeVisible();
+    await expect(page.getByText("Знакомство 1")).toBeVisible();
 
     await page.getByRole("link", { name: /学/ }).click();
 

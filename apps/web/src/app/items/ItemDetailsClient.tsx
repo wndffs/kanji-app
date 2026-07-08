@@ -15,6 +15,7 @@ import {
   type UserOverrideDto,
 } from "@kanji-srs/shared";
 
+import { JapaneseText } from "../../components/JapaneseText";
 import {
   addPrivateAcceptedAnswer,
   ApiError,
@@ -29,7 +30,9 @@ import {
   readStoredSession,
   readTranslationDisplayMode,
 } from "../../lib/auth-storage";
+import { formatSrsStageName } from "../../lib/dashboard-format";
 import { safeExternalUrl } from "../../lib/safe-url";
+import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
 type ItemLookup =
   | { readonly type: "item"; readonly value: string }
@@ -76,6 +79,7 @@ const EMPTY_MNEMONIC_FORM: MnemonicFormState = {
 };
 
 export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
+  const liveDisplayMode = useTranslationDisplayMode();
   const [state, setState] = useState<ItemState>({ status: "loading" });
   const [acceptedForm, setAcceptedForm] = useState<AcceptedAnswerFormState>(EMPTY_ACCEPTED_FORM);
   const [mnemonicForm, setMnemonicForm] = useState<MnemonicFormState>(EMPTY_MNEMONIC_FORM);
@@ -305,7 +309,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
           <p>Не удалось открыть страницу.</p>
         </div>
         <div className="notice-panel error-panel">
-          <p>{state.message}</p>
+          <p role="alert">{state.message}</p>
           <button className="secondary-action" onClick={() => void loadItem()} type="button">
             Повторить загрузку
           </button>
@@ -314,7 +318,8 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
     );
   }
 
-  const { item, token, displayMode } = state;
+  const { item, token } = state;
+  const displayMode = liveDisplayMode;
   const readingCards = item.cards.filter((card) => card.answerType === "reading");
   const privateOverrides = item.userOverrides.filter(
     (override) => override.kind === "accepted-answer",
@@ -328,7 +333,13 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
       <header className="item-hero panel">
         <div className="item-hero-main">
           <span className="eyebrow">{formatItemType(item.itemType)}</span>
-          <h1 className="review-japanese">{item.japanese}</h1>
+          <JapaneseText
+            as="h1"
+            className="review-japanese"
+            variant={item.itemType === "sentence" ? "sentence" : "display"}
+          >
+            {item.japanese}
+          </JapaneseText>
           <p>{formatTranslationBundle(item.translations, displayMode)}</p>
         </div>
         <dl className="lesson-facts">
@@ -345,14 +356,18 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
             <dd>{item.jlptLevel ?? "нет"}</dd>
           </div>
           <div>
-            <dt>SRS</dt>
-            <dd>{item.srs?.stageName ?? "ещё не изучается"}</dd>
+            <dt>Повторения</dt>
+            <dd>{formatSrsStageName(item.srs?.stageName)}</dd>
           </div>
         </dl>
       </header>
 
       {statusMessage === null ? null : <p className="success-text">{statusMessage}</p>}
-      {formError === null ? null : <p className="form-error">{formError}</p>}
+      {formError === null ? null : (
+        <p className="form-error" role="alert">
+          {formError}
+        </p>
+      )}
       {item.srs?.leech?.isCandidate ? <LeechNotice item={item} /> : null}
 
       <div className="item-layout">
@@ -368,6 +383,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
               <p className="muted">Для этого материала чтение не требуется.</p>
             ) : (
               <TextList
+                textKind="reading"
                 texts={[
                   ...(item.reading === null
                     ? []
@@ -396,7 +412,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
               <ul className="example-list">
                 {item.exampleSentences.map((sentence) => (
                   <li key={sentence.id}>
-                    <span>{sentence.japaneseText}</span>
+                    <JapaneseText variant="sentence">{sentence.japaneseText}</JapaneseText>
                     {sentence.readingText === null ? null : <small>{sentence.readingText}</small>}
                     <p>{formatSentenceTranslation(sentence, displayMode)}</p>
                   </li>
@@ -508,23 +524,29 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
                       ))}
                     </select>
                   </label>
-                  <label>
-                    <span>Язык</span>
-                    <select
-                      onChange={(event) => {
-                        const locale = event.currentTarget.value as ContentLocale;
+                  {acceptedForm.answerKind === "reading" ? (
+                    <p className="muted">
+                      Чтения сохраняются как японские варианты без метки RU/EN.
+                    </p>
+                  ) : (
+                    <label>
+                      <span>Язык</span>
+                      <select
+                        onChange={(event) => {
+                          const locale = event.currentTarget.value as ContentLocale;
 
-                        setAcceptedForm((previous) => ({
-                          ...previous,
-                          locale,
-                        }));
-                      }}
-                      value={acceptedForm.locale}
-                    >
-                      <option value="ru-RU">Русский</option>
-                      <option value="en-US">English</option>
-                    </select>
-                  </label>
+                          setAcceptedForm((previous) => ({
+                            ...previous,
+                            locale,
+                          }));
+                        }}
+                        value={acceptedForm.locale}
+                      >
+                        <option value="ru-RU">Русский</option>
+                        <option value="en-US">English</option>
+                      </select>
+                    </label>
+                  )}
                   <label>
                     <span>Ответ</span>
                     <input
@@ -681,7 +703,7 @@ function LeechNotice({ item }: { readonly item: ItemDetails }) {
     <section className="notice-panel leech-notice" data-testid="item-leech-notice">
       <div>
         <strong>Карточка требует внимания</strong>
-        <p>Score {leech.score}. Пересмотрите мнемонику и личную заметку перед следующей сессией.</p>
+        <p>Балл {leech.score}. Пересмотрите мнемонику и личную заметку перед следующей сессией.</p>
       </div>
       <p>{formatLeechReasons(leech.reasons)}</p>
     </section>
@@ -745,7 +767,8 @@ function PrivateOverridesList({
             <div>
               <strong>{override.text}</strong>
               <span>
-                {formatLocale(override.locale)} · {formatAnswerType(card?.answerType ?? "meaning")}
+                {card?.answerType === "reading" ? "чтение" : formatLocale(override.locale)} ·{" "}
+                {formatAnswerType(card?.answerType ?? "meaning")}
               </span>
               {override.note === null ? null : <small>{override.note}</small>}
             </div>
@@ -782,7 +805,10 @@ function CardAnswerList({
           <h3>
             {formatPromptType(card.promptType)} · {formatAnswerType(card.answerType)}
           </h3>
-          <TextList texts={filterCardAnswers(card, displayMode)} />
+          <TextList
+            textKind={card.answerType === "reading" ? "reading" : "localized"}
+            texts={filterCardAnswers(card, displayMode)}
+          />
           {card.blockedAnswers.length === 0 ? null : (
             <p className="blocked-hint">
               Не принимайте как правильный ответ:{" "}
@@ -811,7 +837,7 @@ function RelationsList({
       {relations.map((relation) => (
         <li key={`${relation.relationType}-${relation.item.id}`}>
           <Link className="inline-link" href={`/items/${relation.item.id}`}>
-            {relation.item.japanese}
+            <JapaneseText>{relation.item.japanese}</JapaneseText>
           </Link>
           <small>
             {formatRelationType(relation.relationType)} ·{" "}
@@ -863,7 +889,7 @@ function KanjiStrokeGraphic({
 function StrokePlaceholder({ character }: { readonly character: string }) {
   return (
     <>
-      <div className="stroke-fallback" aria-hidden="true">
+      <div className="stroke-fallback" aria-hidden="true" lang="ja">
         {character}
       </div>
       <p className="muted">
@@ -888,7 +914,13 @@ function ContentBlock({
   );
 }
 
-function TextList({ texts }: { readonly texts: readonly LocalizedTextDto[] }) {
+function TextList({
+  textKind = "localized",
+  texts,
+}: {
+  readonly textKind?: "localized" | "reading";
+  readonly texts: readonly LocalizedTextDto[];
+}) {
   if (texts.length === 0) {
     return <p className="muted">Нет данных для выбранного режима.</p>;
   }
@@ -897,8 +929,12 @@ function TextList({ texts }: { readonly texts: readonly LocalizedTextDto[] }) {
     <ul className="lesson-text-list">
       {texts.map((text, index) => (
         <li key={`${text.locale}-${text.text}-${index}`}>
-          <span>{text.text}</span>
-          <small>{formatLocale(text.locale)}</small>
+          {textKind === "reading" ? (
+            <JapaneseText>{text.text}</JapaneseText>
+          ) : (
+            <span>{text.text}</span>
+          )}
+          <small>{textKind === "reading" ? "чтение" : formatLocale(text.locale)}</small>
         </li>
       ))}
     </ul>

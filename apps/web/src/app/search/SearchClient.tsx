@@ -11,12 +11,11 @@ import {
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
+import { JapaneseText } from "../../components/JapaneseText";
 import { ApiError, searchItems } from "../../lib/api-client";
-import {
-  clearStoredSession,
-  readStoredSession,
-  readTranslationDisplayMode,
-} from "../../lib/auth-storage";
+import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
+import { formatSrsStageName } from "../../lib/dashboard-format";
+import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
 type SearchState =
   | { readonly status: "idle" }
@@ -28,16 +27,15 @@ export function SearchClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryFromUrl = searchParams.get("q")?.trim() ?? "";
+  const displayMode = useTranslationDisplayMode();
   const [query, setQuery] = useState(queryFromUrl);
   const [state, setState] = useState<SearchState>({ status: "idle" });
   const [token, setToken] = useState<string | null>(null);
-  const [displayMode, setDisplayMode] = useState<TranslationDisplayMode>("ru");
 
   useEffect(() => {
     const session = readStoredSession();
 
     setToken(session?.token ?? null);
-    setDisplayMode(session?.user.settings.translationDisplayMode ?? readTranslationDisplayMode());
   }, []);
 
   const runSearch = useCallback(
@@ -194,7 +192,7 @@ function SearchResultCard({
     <Link className="search-result-card" href={`/items/${encodeURIComponent(item.id)}`}>
       <div className="search-result-main">
         <span className="eyebrow">{formatItemType(item.itemType)}</span>
-        <strong>{item.japanese}</strong>
+        <JapaneseText as="strong">{item.japanese}</JapaneseText>
         <p>{formatTranslationBundle(item.translations, displayMode)}</p>
       </div>
       <dl className="search-result-meta">
@@ -212,8 +210,8 @@ function SearchResultCard({
         </div>
         {isAuthenticated ? (
           <div>
-            <dt>SRS</dt>
-            <dd>{item.srs?.stageName ?? "не начат"}</dd>
+            <dt>Повторения</dt>
+            <dd>{formatSrsStageName(item.srs?.stageName)}</dd>
           </div>
         ) : null}
       </dl>

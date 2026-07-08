@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { type DashboardDto } from "@kanji-srs/shared";
 
+import { JapaneseText } from "../../components/JapaneseText";
 import { ApiError, getDashboard } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import {
@@ -143,7 +144,7 @@ function DashboardView({ dashboard }: { readonly dashboard: DashboardDto }) {
         <MetricCard label="К повторению" value={dashboard.counts.dueReviews} />
         <MetricCard label="Доступно уроков" value={dashboard.counts.availableLessons} />
         <MetricCard label="Сожжено" value={dashboard.counts.burnedCards} />
-        <MetricCard label="Пиявки" value={dashboard.counts.leechCandidates} />
+        <MetricCard label="Сложные" value={dashboard.counts.leechCandidates} />
       </section>
 
       <div className="dashboard-layout">
@@ -204,13 +205,13 @@ function DashboardView({ dashboard }: { readonly dashboard: DashboardDto }) {
                   <div>
                     <span className="eyebrow">{formatItemType(candidate.item.itemType)}</span>
                     <Link className="inline-link" href={`/items/${candidate.item.id}`}>
-                      {candidate.item.japanese}
+                      <JapaneseText>{candidate.item.japanese}</JapaneseText>
                     </Link>
                     <small>{formatCandidateTranslation(candidate.item)}</small>
                   </div>
                   <dl>
                     <div>
-                      <dt>Score</dt>
+                      <dt>Балл</dt>
                       <dd>{candidate.leech.score}</dd>
                     </div>
                     <div>

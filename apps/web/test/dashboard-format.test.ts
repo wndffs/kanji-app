@@ -4,6 +4,7 @@ import {
   formatAccuracy,
   formatCount,
   formatForecastBucket,
+  formatSrsStageName,
   formatTranslationDisplayMode,
 } from "../src/lib/dashboard-format";
 
@@ -31,5 +32,12 @@ describe("dashboard formatters", () => {
     expect(formatCount(1, "карточка", "карточки", "карточек")).toBe("1 карточка");
     expect(formatCount(3, "карточка", "карточки", "карточек")).toBe("3 карточки");
     expect(formatCount(11, "карточка", "карточки", "карточек")).toBe("11 карточек");
+  });
+
+  it("formats SRS stage names for learner-facing UI", () => {
+    expect(formatSrsStageName("Apprentice 2")).toBe("Знакомство 2");
+    expect(formatSrsStageName("Guru 1")).toBe("Закрепление 1");
+    expect(formatSrsStageName("Enlightened")).toBe("Долгая память");
+    expect(formatSrsStageName(null)).toBe("ещё не изучается");
   });
 });

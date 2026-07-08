@@ -12,13 +12,16 @@ import {
 } from "react";
 
 import {
+  getContentLocalesForDisplayMode,
   type CardAnswerType,
   type ContentLocale,
   type LocalizedTextDto,
   type ReviewAnswerResponse,
   type ReviewQueueItem,
+  type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
+import { JapaneseText } from "../../components/JapaneseText";
 import {
   ApiError,
   addPrivateAcceptedAnswer,
@@ -29,6 +32,8 @@ import {
   type ReviewSessionDto,
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
+import { formatSrsStageName } from "../../lib/dashboard-format";
+import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
 type QueueState =
   | { readonly status: "checking" }
@@ -54,6 +59,7 @@ const INITIAL_PROGRESS: ReviewProgress = {
 };
 
 export function ReviewsClient() {
+  const displayMode = useTranslationDisplayMode();
   const [queueState, setQueueState] = useState<QueueState>({ status: "checking" });
   const [session, setSession] = useState<ReviewSessionDto | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -262,7 +268,7 @@ export function ReviewsClient() {
           <p>Нужен вход в аккаунт.</p>
         </div>
         <div className="notice-panel">
-          <p>Войдите в demo-аккаунт, чтобы открыть очередь SRS и отправлять ответы.</p>
+          <p>Войдите в demo-аккаунт, чтобы открыть очередь повторений и отправлять ответы.</p>
           <Link className="primary-action" href="/login">
             Войти
           </Link>
@@ -334,7 +340,7 @@ export function ReviewsClient() {
           <p>Нет карточек к повторению.</p>
         </div>
         <div className="notice-panel">
-          <p>Следующая сессия появится, когда SRS расписание откроет новые карточки.</p>
+          <p>Следующая сессия появится, когда расписание повторений откроет новые карточки.</p>
           <div className="action-row">
             <button className="secondary-action" onClick={() => void loadQueue()} type="button">
               Проверить снова
@@ -355,7 +361,7 @@ export function ReviewsClient() {
           <div>
             <h1>Повторения</h1>
             <p>
-              Готово карточек: {queueState.queue.length}. Ответы проверяются API с учётом ваших
+              Готово карточек: {queueState.queue.length}. Ответы проверяются с учётом ваших
               приватных вариантов.
             </p>
           </div>
@@ -405,10 +411,16 @@ export function ReviewsClient() {
         <div className="review-card-meta">
           <span>{formatItemType(currentItem.item.itemType)}</span>
           <span>{formatAnswerType(currentItem.card.answerType)}</span>
-          <span>{currentItem.srs.stageName}</span>
+          <span>{formatSrsStageName(currentItem.srs.stageName)}</span>
         </div>
         <div className="review-prompt">
-          <p className="review-japanese">{currentItem.card.prompt.japanese}</p>
+          <JapaneseText
+            as="p"
+            className="review-japanese"
+            variant={currentItem.item.itemType === "sentence" ? "sentence" : "display"}
+          >
+            {currentItem.card.prompt.japanese}
+          </JapaneseText>
           {currentItem.card.answerType === "meaning" ? null : (
             <p className="muted">Введите чтение. Правильный вариант появится после ответа.</p>
           )}
@@ -425,36 +437,45 @@ export function ReviewsClient() {
           item={currentItem}
           onContinue={() => void handleContinue()}
           continueButtonRef={continueButtonRef}
+          displayMode={displayMode}
           isContinuing={isContinuing}
           token={queueState.token}
         />
       )}
 
-      {sessionError === null ? null : <p className="form-error">{sessionError}</p>}
+      {sessionError === null ? null : (
+        <p className="form-error" role="alert">
+          {sessionError}
+        </p>
+      )}
 
-      <form className="review-answer-bar" onSubmit={(event) => void handleSubmit(event)}>
-        <label htmlFor="review-answer">
-          <span>{formatInputLabel(currentItem.card.answerType)}</span>
-          <input
-            autoComplete="off"
-            disabled={feedback !== null || isSubmitting}
-            id="review-answer"
-            onChange={(event) => setAnswer(event.currentTarget.value)}
-            placeholder={formatInputPlaceholder(currentItem.card.answerType)}
-            ref={answerInputRef}
-            spellCheck={currentItem.card.answerType === "meaning"}
-            value={answer}
-          />
-        </label>
-        <button
-          className="primary-action"
-          disabled={feedback !== null || isSubmitting}
-          type="submit"
-        >
-          {isSubmitting ? "Проверяю..." : "Ответить"}
-        </button>
-        {formError === null ? null : <p className="form-error">{formError}</p>}
-      </form>
+      {feedback !== null ? null : (
+        <form className="review-answer-bar" onSubmit={(event) => void handleSubmit(event)}>
+          <label htmlFor="review-answer">
+            <span>{formatInputLabel(currentItem.card.answerType)}</span>
+            <input
+              aria-describedby={formError === null ? undefined : "review-answer-error"}
+              aria-invalid={formError !== null}
+              autoComplete="off"
+              disabled={isSubmitting}
+              id="review-answer"
+              onChange={(event) => setAnswer(event.currentTarget.value)}
+              placeholder={formatInputPlaceholder(currentItem.card.answerType)}
+              ref={answerInputRef}
+              spellCheck={currentItem.card.answerType === "meaning"}
+              value={answer}
+            />
+          </label>
+          <button className="primary-action" disabled={isSubmitting} type="submit">
+            {isSubmitting ? "Проверяю..." : "Ответить"}
+          </button>
+          {formError === null ? null : (
+            <p className="form-error" id="review-answer-error" role="alert">
+              {formError}
+            </p>
+          )}
+        </form>
+      )}
     </section>
   );
 }
@@ -466,7 +487,7 @@ function ReviewQueuePreview({ queue }: { readonly queue: readonly ReviewQueueIte
         <article className="review-queue-card" key={item.card.id}>
           <div>
             <span className="eyebrow">{formatItemType(item.item.itemType)}</span>
-            <strong>{item.item.japanese}</strong>
+            <JapaneseText as="strong">{item.item.japanese}</JapaneseText>
           </div>
           <span>{formatAnswerType(item.card.answerType)}</span>
         </article>
@@ -481,6 +502,7 @@ function FeedbackPanel({
   item,
   onContinue,
   continueButtonRef,
+  displayMode,
   isContinuing,
   token,
 }: {
@@ -489,6 +511,7 @@ function FeedbackPanel({
   readonly item: ReviewQueueItem;
   readonly onContinue: () => void;
   readonly continueButtonRef: RefObject<HTMLButtonElement | null>;
+  readonly displayMode: TranslationDisplayMode;
   readonly isContinuing: boolean;
   readonly token: string;
 }) {
@@ -556,12 +579,16 @@ function FeedbackPanel({
         </div>
         <div>
           <h3>Правильные ответы</h3>
-          <ExpectedAnswers answers={feedback.feedback.expected} answerType={item.card.answerType} />
+          <ExpectedAnswers
+            answers={feedback.feedback.expected}
+            answerType={item.card.answerType}
+            displayMode={displayMode}
+          />
         </div>
         <div>
-          <h3>Следующий SRS</h3>
+          <h3>Следующая стадия</h3>
           <p>
-            {feedback.nextSrs.stageName}
+            {formatSrsStageName(feedback.nextSrs.stageName)}
             {feedback.nextSrs.availableAt === null
               ? ""
               : ` · ${new Date(feedback.nextSrs.availableAt).toLocaleString("ru-RU")}`}
@@ -581,21 +608,29 @@ function FeedbackPanel({
             value={privateAnswer}
           />
         </label>
-        <label>
-          <span>Язык</span>
-          <select
-            onChange={(event) => setPrivateLocale(event.currentTarget.value as ContentLocale)}
-            value={privateLocale}
-          >
-            <option value="ru-RU">Русский</option>
-            <option value="en-US">English</option>
-          </select>
-        </label>
+        {item.card.answerType === "reading" ? (
+          <p className="muted">Чтения сохраняются как японские варианты без метки RU/EN.</p>
+        ) : (
+          <label>
+            <span>Язык</span>
+            <select
+              onChange={(event) => setPrivateLocale(event.currentTarget.value as ContentLocale)}
+              value={privateLocale}
+            >
+              <option value="ru-RU">Русский</option>
+              <option value="en-US">English</option>
+            </select>
+          </label>
+        )}
         <button className="secondary-action" disabled={isSaving} type="submit">
           {isSaving ? "Сохраняю..." : "Сохранить вариант"}
         </button>
         {saveMessage === null ? null : <p className="success-text">{saveMessage}</p>}
-        {saveError === null ? null : <p className="form-error">{saveError}</p>}
+        {saveError === null ? null : (
+          <p className="form-error" role="alert">
+            {saveError}
+          </p>
+        )}
       </form>
     </section>
   );
@@ -604,20 +639,33 @@ function FeedbackPanel({
 function ExpectedAnswers({
   answers,
   answerType,
+  displayMode,
 }: {
   readonly answers: readonly LocalizedTextDto[];
   readonly answerType: CardAnswerType;
+  readonly displayMode: TranslationDisplayMode;
 }) {
-  if (answers.length === 0) {
-    return <p className="muted">API не вернул список ответов.</p>;
+  const visibleAnswers =
+    answerType === "reading"
+      ? answers
+      : answers.filter((answer) =>
+          getContentLocalesForDisplayMode(displayMode).includes(answer.locale),
+        );
+
+  if (visibleAnswers.length === 0) {
+    return <p className="muted">Список ответов недоступен для выбранного режима.</p>;
   }
 
   return (
     <ul aria-label="Правильные ответы" className="expected-answer-list">
-      {answers.map((answer, index) => (
+      {visibleAnswers.map((answer, index) => (
         <li key={`${answer.locale}-${answer.text}-${index}`}>
-          <span>{answer.text}</span>
-          {answerType === "reading" ? null : <small>{formatLocale(answer.locale)}</small>}
+          {answerType === "reading" ? (
+            <JapaneseText>{answer.text}</JapaneseText>
+          ) : (
+            <span>{answer.text}</span>
+          )}
+          <small>{answerType === "reading" ? "чтение" : formatLocale(answer.locale)}</small>
         </li>
       ))}
     </ul>

@@ -4,6 +4,7 @@ import {
   type ContentLocale,
   type ReviewAnswerResponse,
   type ReviewQueueItem,
+  type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
 const API_BASE_URL = "http://localhost:3001";
@@ -57,6 +58,123 @@ test.describe("review session", () => {
     await expect(page.getByText("солнце")).toBeVisible();
   });
 
+  test("filters expected meanings by English display mode", async ({ page }) => {
+    await signIn(page, "en");
+    await mockReviewApi(page);
+
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение" }).click();
+    await page.getByLabel("Ответ значением").fill("wrong");
+    await page.keyboard.press("Enter");
+
+    await expect(page.getByRole("list", { name: "Правильные ответы" })).toBeVisible();
+    await expect(page.getByText("sun", { exact: true })).toBeVisible();
+    await expect(page.getByText("солнце", { exact: true })).toBeHidden();
+  });
+
+  test("keeps Enter-only keyboard flow across multiple cards", async ({ page }) => {
+    const answerRequests: Array<{ readonly cardId?: string; readonly answerType?: string }> = [];
+
+    await signIn(page);
+    await mockReviewApi(page, {
+      answerRequests,
+      queue: [reviewQueueItem, secondReviewQueueItem],
+    });
+
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение" }).click();
+
+    const answerInput = page.getByLabel("Ответ значением");
+    await expect(answerInput).toBeFocused();
+    await answerInput.fill("солнце");
+    await page.keyboard.press("Enter");
+
+    await expect(page.getByRole("region", { name: "Результат ответа" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Дальше" })).toBeFocused();
+    expect(answerRequests[0]).toMatchObject({
+      answerType: "meaning",
+      cardId: reviewQueueItem.card.id,
+    });
+
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("2 из 2")).toBeVisible();
+    await expect(page.getByText("月", { exact: true })).toBeVisible();
+    await expect(answerInput).toBeFocused();
+    await expect(answerInput).toHaveValue("");
+
+    await answerInput.fill("луна");
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("button", { name: "Дальше" })).toBeFocused();
+    expect(answerRequests[1]).toMatchObject({
+      answerType: "meaning",
+      cardId: secondReviewQueueItem.card.id,
+    });
+
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Сессия завершена.")).toBeVisible();
+  });
+
+  test("shows empty queue state and reloads", async ({ page }) => {
+    let requestCount = 0;
+
+    await signIn(page);
+    await page.route(`${API_BASE_URL}/reviews/queue`, async (route) => {
+      requestCount += 1;
+      await route.fulfill({
+        json: { items: requestCount === 1 ? [] : [reviewQueueItem] },
+      });
+    });
+
+    await page.goto("/reviews");
+    await expect(page.getByText("Нет карточек к повторению.")).toBeVisible();
+    await page.getByRole("button", { name: "Проверить снова" }).click();
+    await expect(page.getByText("Готово карточек: 1")).toBeVisible();
+  });
+
+  test("keeps mobile review input sticky and Japanese prompt readable", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "mobile", "mobile-only layout assertion");
+
+    await signIn(page);
+    await mockReviewApi(page, { queue: [sentenceReviewQueueItem] });
+
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение" }).click();
+    await expect(page.getByText(sentenceReviewQueueItem.card.prompt.japanese)).toBeVisible();
+    await expect(page.locator(".review-japanese")).toHaveAttribute("lang", "ja");
+
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+
+    const metrics = await page.locator(".review-answer-bar").evaluate((element) => {
+      const bar = element.getBoundingClientRect();
+      const input = element.querySelector("input")?.getBoundingClientRect();
+      const prompt = document.querySelector(".review-japanese")?.getBoundingClientRect();
+      const promptStyles =
+        document.querySelector(".review-japanese") === null
+          ? null
+          : window.getComputedStyle(document.querySelector(".review-japanese") as HTMLElement);
+
+      return {
+        barBottom: bar.bottom,
+        barTop: bar.top,
+        fontSize: promptStyles === null ? 0 : Number.parseFloat(promptStyles.fontSize),
+        inputHeight: input?.height ?? 0,
+        promptBottom: prompt?.bottom ?? 0,
+        scrollWidth: document.documentElement.scrollWidth,
+        viewportHeight: window.innerHeight,
+        viewportWidth: window.innerWidth,
+      };
+    });
+
+    expect(metrics.barTop).toBeGreaterThanOrEqual(0);
+    expect(metrics.barBottom).toBeLessThanOrEqual(metrics.viewportHeight + 1);
+    expect(metrics.inputHeight).toBeGreaterThanOrEqual(44);
+    expect(metrics.fontSize).toBeGreaterThanOrEqual(22);
+    expect(metrics.promptBottom).toBeLessThan(metrics.barTop);
+    expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.viewportWidth);
+  });
+
   test("saves a private answer and accepts it in a later review", async ({ page }) => {
     await signIn(page);
     await mockReviewApi(page);
@@ -83,11 +201,11 @@ test.describe("review session", () => {
   });
 });
 
-async function signIn(page: Page): Promise<void> {
+async function signIn(page: Page, displayMode: TranslationDisplayMode = "ru-en"): Promise<void> {
   await page.addInitScript(
-    ({ accessToken }) => {
+    ({ accessToken, mode }) => {
       window.localStorage.setItem("kanji-srs.accessToken", accessToken);
-      window.localStorage.setItem("kanji-srs.translationDisplayMode", "ru-en");
+      window.localStorage.setItem("kanji-srs.translationDisplayMode", mode);
       window.localStorage.setItem(
         "kanji-srs.user",
         JSON.stringify({
@@ -97,7 +215,7 @@ async function signIn(page: Page): Promise<void> {
           role: "USER",
           settings: {
             locale: "ru-RU",
-            translationDisplayMode: "ru-en",
+            translationDisplayMode: mode,
             timezone: "Europe/Moscow",
             dailyLessonLimit: 20,
             reviewBudget: 100,
@@ -106,15 +224,22 @@ async function signIn(page: Page): Promise<void> {
         }),
       );
     },
-    { accessToken: ACCESS_TOKEN },
+    { accessToken: ACCESS_TOKEN, mode: displayMode },
   );
 }
 
-async function mockReviewApi(page: Page): Promise<void> {
+async function mockReviewApi(
+  page: Page,
+  options: {
+    readonly answerRequests?: Array<{ readonly cardId?: string; readonly answerType?: string }>;
+    readonly queue?: readonly ReviewQueueItem[];
+  } = {},
+): Promise<void> {
   const privateAnswers = new Set<string>();
+  const queue = options.queue ?? [reviewQueueItem];
 
   await page.route(`${API_BASE_URL}/reviews/queue`, async (route) => {
-    await route.fulfill({ json: { items: [reviewQueueItem] } });
+    await route.fulfill({ json: { items: queue } });
   });
 
   await page.route(`${API_BASE_URL}/reviews/start`, async (route) => {
@@ -130,14 +255,29 @@ async function mockReviewApi(page: Page): Promise<void> {
   });
 
   await page.route(`${API_BASE_URL}/reviews/${SESSION_ID}/answer`, async (route) => {
-    const body = route.request().postDataJSON() as { readonly answer?: string };
+    const body = route.request().postDataJSON() as {
+      readonly answer?: string;
+      readonly answerType?: string;
+      readonly cardId?: string;
+    };
     const answer = body.answer ?? "";
-    const accepted = answer === "солнце" || privateAnswers.has(answer);
+    const item = queue.find((candidate) => candidate.card.id === body.cardId) ?? queue[0];
+    if (item === undefined) {
+      await route.fulfill({ status: 404, json: { message: "No review item" } });
+      return;
+    }
+    const accepted = getExpectedAnswerTexts(item).includes(answer) || privateAnswers.has(answer);
+
+    options.answerRequests?.push({
+      answerType: body.answerType,
+      cardId: body.cardId,
+    });
 
     await route.fulfill({
       json: createAnswerResponse({
         answer,
         accepted,
+        item,
         result: accepted ? "correct" : "wrong",
       }),
     });
@@ -156,7 +296,7 @@ async function mockReviewApi(page: Page): Promise<void> {
     });
   });
 
-  await page.route(`${API_BASE_URL}/cards/${reviewQueueItem.card.id}/overrides`, async (route) => {
+  await page.route(`${API_BASE_URL}/cards/*/overrides`, async (route) => {
     const body = route.request().postDataJSON() as {
       readonly text?: string;
       readonly locale?: ContentLocale;
@@ -168,7 +308,8 @@ async function mockReviewApi(page: Page): Promise<void> {
     await route.fulfill({
       json: {
         id: "override-1",
-        learningCardId: reviewQueueItem.card.id,
+        learningCardId:
+          route.request().url().split("/cards/")[1]?.split("/")[0] ?? reviewQueueItem.card.id,
         kind: "accepted-answer",
         locale,
         text,
@@ -215,39 +356,97 @@ const reviewQueueItem: ReviewQueueItem = {
   },
 };
 
+const secondReviewQueueItem: ReviewQueueItem = {
+  card: {
+    id: "card-meaning-2",
+    learningItemId: "item-kanji-2",
+    itemType: "kanji",
+    cardType: "review",
+    promptType: "meaning",
+    answerType: "meaning",
+    prompt: {
+      japanese: "月",
+      reading: "げつ",
+    },
+    sortOrder: 1,
+  },
+  item: {
+    id: "item-kanji-2",
+    itemType: "kanji",
+    slug: "kanji:月",
+    japanese: "月",
+    reading: "げつ",
+    level: 1,
+    jlptLevel: "N5",
+  },
+  dueAt: "2026-06-22T08:00:00.000Z",
+  srs: {
+    stageIndex: 1,
+    stageName: "Apprentice 1",
+    availableAt: "2026-06-22T08:00:00.000Z",
+    burnedAt: null,
+    wrongCount: 0,
+    correctStreak: 0,
+  },
+};
+
+const sentenceReviewQueueItem: ReviewQueueItem = {
+  card: {
+    id: "card-sentence-meaning-1",
+    learningItemId: "item-sentence-1",
+    itemType: "sentence",
+    cardType: "review",
+    promptType: "meaning",
+    answerType: "meaning",
+    prompt: {
+      japanese: "今日は日本語を勉強します",
+      reading: "きょうはにほんごをべんきょうします",
+    },
+    sortOrder: 1,
+  },
+  item: {
+    id: "item-sentence-1",
+    itemType: "sentence",
+    slug: "sentence:study-japanese",
+    japanese: "今日は日本語を勉強します",
+    reading: "きょうはにほんごをべんきょうします",
+    level: 1,
+    jlptLevel: "N5",
+  },
+  dueAt: "2026-06-22T08:00:00.000Z",
+  srs: {
+    stageIndex: 1,
+    stageName: "Apprentice 1",
+    availableAt: "2026-06-22T08:00:00.000Z",
+    burnedAt: null,
+    wrongCount: 0,
+    correctStreak: 0,
+  },
+};
+
 function createAnswerResponse({
   answer,
   accepted,
+  item,
   result,
 }: {
   readonly answer: string;
   readonly accepted: boolean;
+  readonly item: ReviewQueueItem;
   readonly result: ReviewAnswerResponse["result"];
 }): ReviewAnswerResponse {
   return {
-    cardId: reviewQueueItem.card.id,
+    cardId: item.card.id,
     accepted,
     result,
     normalizedAnswer: answer,
     matchedAnswer: accepted ? answer : null,
     feedback: {
       message: accepted ? "Ответ принят." : "Ответ не принят.",
-      expected: [
-        {
-          locale: "ru-RU",
-          text: "солнце",
-          isPrimary: true,
-          sourceKind: "curated",
-        },
-        {
-          locale: "en-US",
-          text: "sun",
-          sourceKind: "curated",
-        },
-      ],
+      expected: getExpectedAnswers(item),
       blockedReason: null,
     },
-    previousSrs: reviewQueueItem.srs,
+    previousSrs: item.srs,
     nextSrs: {
       stageIndex: accepted ? 2 : 1,
       stageName: accepted ? "Apprentice 2" : "Apprentice 1",
@@ -257,4 +456,67 @@ function createAnswerResponse({
       correctStreak: accepted ? 1 : 0,
     },
   };
+}
+
+function getExpectedAnswers(item: ReviewQueueItem): ReviewAnswerResponse["feedback"]["expected"] {
+  if (item.card.answerType === "reading") {
+    return [
+      {
+        locale: "ru-RU",
+        text: item.card.prompt.reading ?? item.item.reading ?? "",
+        isPrimary: true,
+        sourceKind: "curated",
+      },
+    ];
+  }
+
+  if (item.card.id === secondReviewQueueItem.card.id) {
+    return [
+      {
+        locale: "ru-RU",
+        text: "луна",
+        isPrimary: true,
+        sourceKind: "curated",
+      },
+      {
+        locale: "en-US",
+        text: "moon",
+        sourceKind: "curated",
+      },
+    ];
+  }
+
+  if (item.card.id === sentenceReviewQueueItem.card.id) {
+    return [
+      {
+        locale: "ru-RU",
+        text: "сегодня я занимаюсь японским",
+        isPrimary: true,
+        sourceKind: "curated",
+      },
+      {
+        locale: "en-US",
+        text: "today I study Japanese",
+        sourceKind: "curated",
+      },
+    ];
+  }
+
+  return [
+    {
+      locale: "ru-RU",
+      text: "солнце",
+      isPrimary: true,
+      sourceKind: "curated",
+    },
+    {
+      locale: "en-US",
+      text: "sun",
+      sourceKind: "curated",
+    },
+  ];
+}
+
+function getExpectedAnswerTexts(item: ReviewQueueItem): readonly string[] {
+  return getExpectedAnswers(item).map((answer) => answer.text);
 }

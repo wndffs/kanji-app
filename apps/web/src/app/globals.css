@@ -341,6 +341,27 @@ textarea:focus-visible {
   color: var(--muted);
 }
 
+.japanese-text {
+  font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Sans", sans-serif;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.japanese-text-inline {
+  font-size: 1em;
+}
+
+.japanese-text-display {
+  font-size: clamp(42px, 10vw, 76px);
+  font-weight: 800;
+}
+
+.japanese-text-sentence {
+  font-size: clamp(24px, 6vw, 44px);
+  font-weight: 750;
+  line-height: 1.42;
+}
+
 .stats-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -714,10 +735,9 @@ textarea:focus-visible {
 
 .review-japanese {
   margin: 0;
-  font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Sans", sans-serif;
-  font-size: 76px;
-  font-weight: 800;
-  line-height: 1.08;
+  line-height: 1.16;
+  max-width: 100%;
+  text-wrap: pretty;
 }
 
 .feedback-panel {
@@ -822,13 +842,19 @@ textarea:focus-visible {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 -10px 30px rgba(25, 36, 40, 0.1);
-  padding: 14px;
+  padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
 }
 
 .review-answer-bar .form-error,
 .private-answer-form .form-error,
 .private-answer-form .success-text {
   grid-column: 1 / -1;
+}
+
+.private-answer-form .muted {
+  margin: 0;
+  align-self: center;
+  line-height: 1.4;
 }
 
 .review-summary {
@@ -1651,8 +1677,12 @@ textarea:focus-visible {
     grid-template-columns: 1fr;
   }
 
-  .review-japanese {
-    font-size: 64px;
+  .japanese-text-display.review-japanese {
+    font-size: clamp(40px, 12vw, 64px);
+  }
+
+  .japanese-text-sentence.review-japanese {
+    font-size: clamp(24px, 7vw, 38px);
   }
 }
 
@@ -1716,7 +1746,11 @@ textarea:focus-visible {
     padding: 18px;
   }
 
-  .review-japanese {
-    font-size: 54px;
+  .japanese-text-display.review-japanese {
+    font-size: clamp(38px, 13vw, 54px);
+  }
+
+  .japanese-text-sentence.review-japanese {
+    font-size: clamp(22px, 7vw, 34px);
   }
 }

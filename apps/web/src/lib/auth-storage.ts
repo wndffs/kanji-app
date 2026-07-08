@@ -10,6 +10,7 @@ const TOKEN_KEY = "kanji-srs.accessToken";
 const USER_KEY = "kanji-srs.user";
 const MODE_KEY = "kanji-srs.translationDisplayMode";
 export const AUTH_CHANGED_EVENT = "kanji-srs.auth-changed";
+export const TRANSLATION_DISPLAY_MODE_CHANGED_EVENT = "kanji-srs.translation-display-mode-changed";
 
 export type StoredSession = {
   readonly token: string;
@@ -88,6 +89,11 @@ export function storeTranslationDisplayMode(mode: TranslationDisplayMode): void 
   }
 
   window.localStorage.setItem(MODE_KEY, mode);
+  window.dispatchEvent(
+    new CustomEvent(TRANSLATION_DISPLAY_MODE_CHANGED_EVENT, {
+      detail: { mode },
+    }),
+  );
 }
 
 function canUseStorage(): boolean {

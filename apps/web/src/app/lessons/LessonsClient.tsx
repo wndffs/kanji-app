@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type FormEvent,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   getContentLocalesForDisplayMode,
@@ -15,6 +23,7 @@ import {
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
+import { JapaneseText } from "../../components/JapaneseText";
 import {
   ApiError,
   completeLessonItem,
@@ -22,11 +31,8 @@ import {
   getLessonQueue,
   startLessonSession,
 } from "../../lib/api-client";
-import {
-  clearStoredSession,
-  readStoredSession,
-  readTranslationDisplayMode,
-} from "../../lib/auth-storage";
+import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
+import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
 type QueueState =
   | { readonly status: "checking" }
@@ -37,7 +43,6 @@ type QueueState =
       readonly status: "ready";
       readonly token: string;
       readonly queue: readonly LessonQueueItem[];
-      readonly displayMode: TranslationDisplayMode;
     };
 
 type LessonStep = "study" | "quiz";
@@ -48,6 +53,7 @@ type CompletionSummary = {
 };
 
 export function LessonsClient() {
+  const activeDisplayMode = useTranslationDisplayMode();
   const [queueState, setQueueState] = useState<QueueState>({ status: "checking" });
   const [session, setSession] = useState<LessonSessionDto | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -58,6 +64,8 @@ export function LessonsClient() {
   const [isCompleting, setIsCompleting] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummary | null>(null);
+  const quizInputRef = useRef<HTMLInputElement>(null);
+  const completeButtonRef = useRef<HTMLButtonElement>(null);
 
   const loadQueue = useCallback(async () => {
     const storedSession = readStoredSession();
@@ -82,8 +90,6 @@ export function LessonsClient() {
         status: "ready",
         token: storedSession.token,
         queue: queue.items,
-        displayMode:
-          storedSession.user.settings.translationDisplayMode ?? readTranslationDisplayMode(),
       });
     } catch (error: unknown) {
       if (error instanceof ApiError && error.status === 401) {
@@ -104,7 +110,6 @@ export function LessonsClient() {
   }, [loadQueue]);
 
   const activeQueue = queueState.status === "ready" ? queueState.queue : [];
-  const activeDisplayMode = queueState.status === "ready" ? queueState.displayMode : "ru";
   const currentLesson = session === null ? null : (activeQueue[currentIndex] ?? null);
   const learnedItems = currentLesson === null ? currentIndex : currentIndex;
   const progressLabel = useMemo(() => {
@@ -144,6 +149,18 @@ export function LessonsClient() {
     setIsQuizRevealed(false);
     setSessionError(null);
   }
+
+  useEffect(() => {
+    if (step === "quiz" && !isQuizRevealed) {
+      quizInputRef.current?.focus();
+    }
+  }, [currentIndex, isQuizRevealed, step]);
+
+  useEffect(() => {
+    if (step === "quiz" && isQuizRevealed) {
+      completeButtonRef.current?.focus();
+    }
+  }, [isQuizRevealed, step]);
 
   function handleRevealQuiz(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -218,7 +235,7 @@ export function LessonsClient() {
           <p>Нужен вход в аккаунт.</p>
         </div>
         <div className="notice-panel">
-          <p>Войдите в demo-аккаунт, чтобы открыть очередь уроков и создать SRS карточки.</p>
+          <p>Войдите в demo-аккаунт, чтобы открыть очередь уроков и создать карточки повторения.</p>
           <Link className="primary-action" href="/login">
             Войти
           </Link>
@@ -249,7 +266,7 @@ export function LessonsClient() {
       <section className="page-stack">
         <div className="page-heading">
           <h1>Уроки</h1>
-          <p>Сессия завершена. Новые карточки добавлены в SRS.</p>
+          <p>Сессия завершена. Новые карточки добавлены в систему повторений.</p>
         </div>
         <div className="lesson-summary panel">
           <dl className="stats-list">
@@ -258,7 +275,7 @@ export function LessonsClient() {
               <dd>{completionSummary.learnedItems}</dd>
             </div>
             <div>
-              <dt>Карточек SRS</dt>
+              <dt>Карточек повторения</dt>
               <dd>{completionSummary.createdCards}</dd>
             </div>
           </dl>
@@ -314,7 +331,11 @@ export function LessonsClient() {
             {isStarting ? "Начинаю..." : "Начать урок"}
           </button>
         </div>
-        {sessionError === null ? null : <p className="form-error">{sessionError}</p>}
+        {sessionError === null ? null : (
+          <p className="form-error" role="alert">
+            {sessionError}
+          </p>
+        )}
         <LessonQueuePreview queue={queueState.queue} displayMode={activeDisplayMode} />
       </section>
     );
@@ -362,11 +383,17 @@ export function LessonsClient() {
           isCompleting={isCompleting}
           onAnswerChange={setQuizAnswer}
           onComplete={() => void handleCompleteItem()}
+          completeButtonRef={completeButtonRef}
+          inputRef={quizInputRef}
           onReveal={handleRevealQuiz}
         />
       )}
 
-      {sessionError === null ? null : <p className="form-error">{sessionError}</p>}
+      {sessionError === null ? null : (
+        <p className="form-error" role="alert">
+          {sessionError}
+        </p>
+      )}
     </section>
   );
 }
@@ -384,7 +411,7 @@ function LessonQueuePreview({
         <article className="lesson-preview-card" key={lesson.item.id}>
           <div>
             <span className="eyebrow">{formatItemType(lesson.item.itemType)}</span>
-            <strong>{lesson.item.japanese}</strong>
+            <JapaneseText as="strong">{lesson.item.japanese}</JapaneseText>
           </div>
           <p>{formatTranslationBundle(lesson.item.translations, displayMode)}</p>
         </article>
@@ -410,7 +437,13 @@ function LessonStudyView({
       <article className="lesson-hero panel">
         <div className="lesson-hero-main">
           <span className="eyebrow">{formatItemType(lesson.item.itemType)}</span>
-          <p className="review-japanese">{lesson.item.japanese}</p>
+          <JapaneseText
+            as="p"
+            className="review-japanese"
+            variant={lesson.item.itemType === "sentence" ? "sentence" : "display"}
+          >
+            {lesson.item.japanese}
+          </JapaneseText>
           <p>{formatTranslationBundle(lesson.item.translations, displayMode)}</p>
         </div>
         <dl className="lesson-facts">
@@ -434,7 +467,7 @@ function LessonStudyView({
           <h2>Объяснение</h2>
           <p>
             Изучаем {formatItemTypeLower(lesson.item.itemType)} как отдельный учебный материал.
-            После мини-проверки API создаст SRS-состояния для {lesson.cards.length}{" "}
+            После мини-проверки система создаст расписание повторений для {lesson.cards.length}{" "}
             {formatCardsCount(lesson.cards.length)}.
           </p>
         </section>
@@ -450,6 +483,7 @@ function LessonStudyView({
             <p className="muted">Для этого материала чтение не требуется.</p>
           ) : (
             <TextList
+              textKind="reading"
               texts={[
                 ...(lesson.item.reading === null
                   ? []
@@ -468,7 +502,7 @@ function LessonStudyView({
             <ul className="lesson-relation-list">
               {lesson.unlockedBy.map((item) => (
                 <li key={item.id}>
-                  <span>{item.japanese}</span>
+                  <JapaneseText>{item.japanese}</JapaneseText>
                   <small>{formatTranslationBundle(item.translations, displayMode)}</small>
                 </li>
               ))}
@@ -503,6 +537,8 @@ function LessonQuizView({
   isCompleting,
   onAnswerChange,
   onComplete,
+  completeButtonRef,
+  inputRef,
   onReveal,
 }: {
   readonly lesson: LessonQueueItem;
@@ -512,6 +548,8 @@ function LessonQuizView({
   readonly isCompleting: boolean;
   readonly onAnswerChange: (value: string) => void;
   readonly onComplete: () => void;
+  readonly completeButtonRef: RefObject<HTMLButtonElement | null>;
+  readonly inputRef: RefObject<HTMLInputElement | null>;
   readonly onReveal: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const quizCard = lesson.cards.find((card) => card.answerType === "meaning") ?? lesson.cards[0];
@@ -523,7 +561,13 @@ function LessonQuizView({
     <article className="lesson-quiz panel">
       <div className="lesson-quiz-prompt">
         <span className="eyebrow">{formatAnswerType(answerType)}</span>
-        <p className="review-japanese">{lesson.item.japanese}</p>
+        <JapaneseText
+          as="p"
+          className="review-japanese"
+          variant={lesson.item.itemType === "sentence" ? "sentence" : "display"}
+        >
+          {lesson.item.japanese}
+        </JapaneseText>
         <p className="muted">
           Вспомните {answerType === "reading" ? "чтение" : "значение"}, затем откройте правильный
           вариант и подтвердите результат.
@@ -538,6 +582,7 @@ function LessonQuizView({
             id="lesson-quiz-answer"
             onChange={(event) => onAnswerChange(event.currentTarget.value)}
             placeholder={answerType === "reading" ? "например: いち" : "например: один"}
+            ref={inputRef}
             value={answer}
           />
         </label>
@@ -549,11 +594,15 @@ function LessonQuizView({
       {isRevealed ? (
         <section className="lesson-quiz-result" aria-label="Ответ мини-проверки">
           <h2>Правильный ответ</h2>
-          <TextList texts={expectedAnswers} />
+          <TextList
+            textKind={answerType === "reading" ? "reading" : "localized"}
+            texts={expectedAnswers}
+          />
           <button
             className="primary-action"
             disabled={isCompleting}
             onClick={onComplete}
+            ref={completeButtonRef}
             type="button"
           >
             {isCompleting ? "Добавляю..." : "Отметить изученным"}
@@ -564,7 +613,13 @@ function LessonQuizView({
   );
 }
 
-function TextList({ texts }: { readonly texts: readonly LocalizedTextDto[] }) {
+function TextList({
+  textKind = "localized",
+  texts,
+}: {
+  readonly textKind?: "localized" | "reading";
+  readonly texts: readonly LocalizedTextDto[];
+}) {
   if (texts.length === 0) {
     return <p className="muted">Нет данных для выбранного режима перевода.</p>;
   }
@@ -573,8 +628,12 @@ function TextList({ texts }: { readonly texts: readonly LocalizedTextDto[] }) {
     <ul className="lesson-text-list">
       {texts.map((text, index) => (
         <li key={`${text.locale}-${text.text}-${index}`}>
-          <span>{text.text}</span>
-          <small>{formatLocale(text.locale)}</small>
+          {textKind === "reading" ? (
+            <JapaneseText>{text.text}</JapaneseText>
+          ) : (
+            <span>{text.text}</span>
+          )}
+          <small>{textKind === "reading" ? "чтение" : formatLocale(text.locale)}</small>
         </li>
       ))}
     </ul>
