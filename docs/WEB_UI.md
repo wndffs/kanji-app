@@ -47,3 +47,21 @@
 
 - `@playwright/test` is a dev-only dependency for browser smoke tests. It is Apache-2.0 licensed.
 - The dashboard smoke test starts the Next.js web app, loads `/dashboard`, and checks the Russian app shell on desktop and mobile profiles.
+
+## Final MVP integration test
+
+- Spec: `apps/web/e2e/mvp-integration.spec.ts`.
+- The path mocks the API at `http://localhost:3001`, uses deterministic starter-course fixture data with a seeded active course enrollment, and does not need external network, a real API service, or a database.
+- Run only this integration path from the repository root:
+
+```powershell
+npm run test:smoke --workspace @kanji-srs/web -- e2e/mvp-integration.spec.ts --workers=1
+```
+
+- Run the full web smoke suite from the repository root:
+
+```powershell
+$env:WEB_SMOKE_WORKERS = "4"
+npm run test:smoke --workspace @kanji-srs/web
+Remove-Item Env:WEB_SMOKE_WORKERS
+```

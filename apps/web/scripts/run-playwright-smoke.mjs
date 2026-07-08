@@ -6,10 +6,11 @@ const port = Number(process.env.WEB_SMOKE_PORT ?? 3100);
 const hostname = process.env.WEB_SMOKE_HOST ?? "127.0.0.1";
 const baseURL = `http://${hostname}:${port}`;
 const isWindows = process.platform === "win32";
+const playwrightArgs = process.argv.slice(2);
 
 const server = spawnCommand(
-  "npx",
-  ["next", "dev", "--port", String(port), "--hostname", hostname],
+  "npm",
+  ["exec", "--", "next", "dev", "--port", String(port), "--hostname", hostname],
   {
     WEB_SMOKE_HOST: hostname,
     WEB_SMOKE_PORT: String(port),
@@ -48,13 +49,13 @@ function spawnCommand(command, args, env = {}) {
 
 function runPlaywright(env = {}) {
   return new Promise((resolve) => {
-    const args = ["playwright", "test"];
+    const args = ["exec", "--", "playwright", "test", ...playwrightArgs];
 
-    if (process.env.WEB_SMOKE_WORKERS !== undefined) {
+    if (process.env.WEB_SMOKE_WORKERS !== undefined && !hasWorkerArg(playwrightArgs)) {
       args.push("--workers", process.env.WEB_SMOKE_WORKERS);
     }
 
-    const child = spawn(resolveCommand("npx"), args, {
+    const child = spawn(resolveCommand("npm"), args, {
       detached: !isWindows,
       env: { ...process.env, ...env },
       shell: isWindows,
@@ -115,6 +116,10 @@ function runPlaywright(env = {}) {
 
 function hasPassingSummary(output) {
   return /\b\d+\s+passed\b/.test(output) && !/\b(failed|timed out)\b/i.test(output);
+}
+
+function hasWorkerArg(args) {
+  return args.some((arg) => arg === "--workers" || arg.startsWith("--workers="));
 }
 
 async function waitForServer(url) {
