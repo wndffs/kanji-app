@@ -5,17 +5,23 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react
 
 import {
   type AdminContentStatus,
+  type AdminCurriculumCompletenessReportDto,
   type AdminCurationCardDto,
   type AdminCurationItemDto,
   type AdminImportRunSummaryDto,
+  type AdminReviewQueueFilters,
   type AdminReviewQueueItemDto,
+  SUPPORTED_COURSE_BANDS,
+  type CourseBand,
 } from "@kanji-srs/shared";
 
 import {
   ApiError,
+  getAdminCompletenessReport,
   getAdminCurationItem,
   getAdminImportRuns,
-  getAdminReviewQueue,
+  getAdminReviewQueueWithFilters,
+  promoteAdminImportedCandidate,
   updateAdminCardAnswers,
   updateAdminItem,
 } from "../../lib/api-client";
@@ -32,11 +38,21 @@ type AdminState =
       readonly token: string;
       readonly queue: readonly AdminReviewQueueItemDto[];
       readonly importRuns: readonly AdminImportRunSummaryDto[];
+      readonly report: AdminCurriculumCompletenessReportDto;
       readonly item: AdminCurationItemDto | null;
     };
 
+type AdminFilters = {
+  readonly band: "" | CourseBand;
+  readonly jlptLevel: "" | "N5" | "N4" | "N3" | "N2";
+  readonly status: AdminContentStatus;
+  readonly missingAcceptedAnswers: boolean;
+  readonly missingMnemonics: boolean;
+};
+
 type ItemDraft = {
   readonly status: AdminContentStatus;
+  readonly band: "" | CourseBand;
   readonly meaningRu: string;
   readonly meaningEn: string;
   readonly hintRu: string;
@@ -52,10 +68,20 @@ type CardDraft = {
   readonly blockedReason: string;
 };
 
+type PromoteDraft = {
+  readonly targetType: "component" | "kanji" | "word" | "sentence";
+  readonly targetId: string;
+  readonly title: string;
+  readonly band: CourseBand;
+  readonly level: string;
+};
+
 export function AdminClient() {
   const [state, setState] = useState<AdminState>({ status: "checking" });
+  const [filters, setFilters] = useState<AdminFilters>(DEFAULT_FILTERS);
   const [itemDraft, setItemDraft] = useState<ItemDraft>(EMPTY_ITEM_DRAFT);
   const [cardDrafts, setCardDrafts] = useState<Record<string, CardDraft>>({});
+  const [promoteDraft, setPromoteDraft] = useState<PromoteDraft>(EMPTY_PROMOTE_DRAFT);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -89,9 +115,10 @@ export function AdminClient() {
     setStatusMessage(null);
 
     try {
-      const [queue, importRuns] = await Promise.all([
-        getAdminReviewQueue(session.token),
+      const [queue, importRuns, report] = await Promise.all([
+        getAdminReviewQueueWithFilters(session.token, toApiFilters(filters)),
         getAdminImportRuns(session.token),
+        getAdminCompletenessReport(session.token),
       ]);
       const firstItem =
         queue.items.length === 0
@@ -104,6 +131,7 @@ export function AdminClient() {
         token: session.token,
         queue: queue.items,
         importRuns: importRuns.importRuns,
+        report,
         item: firstItem,
       });
     } catch (error: unknown) {
@@ -123,7 +151,7 @@ export function AdminClient() {
         message: error instanceof Error ? error.message : "Не удалось загрузить админку.",
       });
     }
-  }, [syncDrafts]);
+  }, [filters, syncDrafts]);
 
   useEffect(() => {
     void loadAdmin();
@@ -175,6 +203,7 @@ export function AdminClient() {
     try {
       const item = await updateAdminItem(state.token, state.item.id, {
         status: nextStatus ?? itemDraft.status,
+        band: itemDraft.band === "" ? null : itemDraft.band,
         meanings: {
           ru: itemDraft.meaningRu,
           en: itemDraft.meaningEn,
@@ -194,6 +223,56 @@ export function AdminClient() {
       setStatusMessage("Материал сохранён.");
     } catch (error: unknown) {
       setFormError(error instanceof Error ? error.message : "Не удалось сохранить материал.");
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  async function handlePromoteCandidate(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+
+    if (state.status !== "ready" || savingKey !== null) {
+      return;
+    }
+
+    const targetId = promoteDraft.targetId.trim();
+    const title = promoteDraft.title.trim();
+    const levelText = promoteDraft.level.trim();
+    const level = levelText === "" ? null : Number(levelText);
+
+    if (targetId === "" || title === "") {
+      setFormError("Укажите target ID и название кандидата.");
+      return;
+    }
+
+    if (level !== null && (!Number.isInteger(level) || level <= 0)) {
+      setFormError("Level must be a positive integer.");
+      return;
+    }
+
+    setSavingKey("promote");
+    setFormError(null);
+    setStatusMessage(null);
+
+    try {
+      const item = await promoteAdminImportedCandidate(state.token, {
+        targetType: promoteDraft.targetType,
+        targetId,
+        title,
+        band: promoteDraft.band,
+        level,
+      });
+      const [queue, report] = await Promise.all([
+        getAdminReviewQueueWithFilters(state.token, toApiFilters(filters)),
+        getAdminCompletenessReport(state.token),
+      ]);
+
+      syncDrafts(item);
+      setState({ ...state, queue: queue.items, report, item });
+      setPromoteDraft(EMPTY_PROMOTE_DRAFT);
+      setStatusMessage("Кандидат добавлен в кураторскую очередь.");
+    } catch (error: unknown) {
+      setFormError(error instanceof Error ? error.message : "Не удалось продвинуть кандидата.");
     } finally {
       setSavingKey(null);
     }
@@ -336,6 +415,123 @@ export function AdminClient() {
       {statusMessage === null ? null : <p className="success-text">{statusMessage}</p>}
       {formError === null ? null : <p className="form-error">{formError}</p>}
 
+      <section className="panel admin-form" aria-label="Фильтры учебной программы">
+        <h2>Фильтры курса</h2>
+        <div className="admin-two-column">
+          <label>
+            Band
+            <select
+              onChange={(event) => {
+                const band = event.currentTarget.value as AdminFilters["band"];
+                setFilters((previous) => ({ ...previous, band }));
+              }}
+              value={filters.band}
+            >
+              <option value="">Все</option>
+              <option value="foundation">Foundation</option>
+              <option value="n5">N5</option>
+              <option value="n4">N4</option>
+              <option value="n3">N3</option>
+              <option value="n2">N2</option>
+            </select>
+          </label>
+          <label>
+            JLPT
+            <select
+              onChange={(event) => {
+                const jlptLevel = event.currentTarget.value as AdminFilters["jlptLevel"];
+                setFilters((previous) => ({ ...previous, jlptLevel }));
+              }}
+              value={filters.jlptLevel}
+            >
+              <option value="">Все</option>
+              <option value="N5">N5</option>
+              <option value="N4">N4</option>
+              <option value="N3">N3</option>
+              <option value="N2">N2</option>
+            </select>
+          </label>
+        </div>
+        <div className="admin-two-column">
+          <label>
+            Статус
+            <select
+              onChange={(event) => {
+                const status = event.currentTarget.value as AdminContentStatus;
+                setFilters((previous) => ({ ...previous, status }));
+              }}
+              value={filters.status}
+            >
+              <option value="draft">Черновик</option>
+              <option value="needs-review">Нужна проверка</option>
+              <option value="published">Опубликовано</option>
+              <option value="archived">Архив</option>
+            </select>
+          </label>
+          <div className="admin-filter-flags">
+            <label className="checkbox-row">
+              <input
+                checked={filters.missingAcceptedAnswers}
+                onChange={(event) => {
+                  const missingAcceptedAnswers = event.currentTarget.checked;
+                  setFilters((previous) => ({ ...previous, missingAcceptedAnswers }));
+                }}
+                type="checkbox"
+              />
+              Нет правильных ответов
+            </label>
+            <label className="checkbox-row">
+              <input
+                checked={filters.missingMnemonics}
+                onChange={(event) => {
+                  const missingMnemonics = event.currentTarget.checked;
+                  setFilters((previous) => ({ ...previous, missingMnemonics }));
+                }}
+                type="checkbox"
+              />
+              Нет мнемоник
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <h2>Completeness by band</h2>
+        <div className="admin-completeness-grid">
+          {state.report.bands.map((band) => (
+            <article key={band.band}>
+              <strong>{formatBand(band.band)}</strong>
+              <dl>
+                <div>
+                  <dt>Всего</dt>
+                  <dd>{band.totalItems}</dd>
+                </div>
+                <div>
+                  <dt>Опубликовано</dt>
+                  <dd>{band.publishedItems}</dd>
+                </div>
+                <div>
+                  <dt>Нет ответов</dt>
+                  <dd>{band.missingAcceptedAnswers}</dd>
+                </div>
+                <div>
+                  <dt>Нет мнемоник</dt>
+                  <dd>{band.missingMnemonics}</dd>
+                </div>
+                <div>
+                  <dt>Нет RU/EN</dt>
+                  <dd>{band.missingLocaleCoverage}</dd>
+                </div>
+                <div>
+                  <dt>Связи</dt>
+                  <dd>{band.invalidDependencies}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <div className="admin-layout">
         <aside className="panel admin-queue">
           <h2>Нужны правки</h2>
@@ -354,6 +550,10 @@ export function AdminClient() {
                     <strong>{item.japanese}</strong>
                     <span>{item.title}</span>
                     <small>{formatStatus(item.status)}</small>
+                    <small>
+                      {formatBand(item.band)} {item.jlptLevel ?? "no JLPT"}
+                    </small>
+                    <small>{item.qualityIssues.length} quality issue(s)</small>
                   </button>
                 </li>
               ))}
@@ -385,6 +585,80 @@ export function AdminClient() {
               </ul>
             )}
           </div>
+
+          <form
+            className="admin-promote-form"
+            onSubmit={(event) => void handlePromoteCandidate(event)}
+          >
+            <h2>Promote candidate</h2>
+            <label>
+              Target type
+              <select
+                onChange={(event) => {
+                  const targetType = event.currentTarget.value as PromoteDraft["targetType"];
+                  setPromoteDraft((previous) => ({ ...previous, targetType }));
+                }}
+                value={promoteDraft.targetType}
+              >
+                <option value="component">Component</option>
+                <option value="kanji">Kanji</option>
+                <option value="word">Word</option>
+                <option value="sentence">Sentence</option>
+              </select>
+            </label>
+            <label>
+              Target ID
+              <input
+                onChange={(event) => {
+                  const targetId = event.currentTarget.value;
+                  setPromoteDraft((previous) => ({ ...previous, targetId }));
+                }}
+                value={promoteDraft.targetId}
+              />
+            </label>
+            <label>
+              Curated title
+              <input
+                onChange={(event) => {
+                  const title = event.currentTarget.value;
+                  setPromoteDraft((previous) => ({ ...previous, title }));
+                }}
+                value={promoteDraft.title}
+              />
+            </label>
+            <div className="admin-two-column">
+              <label>
+                Band
+                <select
+                  onChange={(event) => {
+                    const band = event.currentTarget.value as CourseBand;
+                    setPromoteDraft((previous) => ({ ...previous, band }));
+                  }}
+                  value={promoteDraft.band}
+                >
+                  {SUPPORTED_COURSE_BANDS.map((band) => (
+                    <option key={band} value={band}>
+                      {formatBand(band)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Level
+                <input
+                  inputMode="numeric"
+                  onChange={(event) => {
+                    const level = event.currentTarget.value;
+                    setPromoteDraft((previous) => ({ ...previous, level }));
+                  }}
+                  value={promoteDraft.level}
+                />
+              </label>
+            </div>
+            <button className="secondary-action" disabled={savingKey !== null} type="submit">
+              Promote
+            </button>
+          </form>
         </aside>
 
         {activeItem === null ? (
@@ -412,6 +686,14 @@ export function AdminClient() {
                   <dd>{activeItem.level ?? "нет"}</dd>
                 </div>
                 <div>
+                  <dt>Band</dt>
+                  <dd>{formatBand(activeItem.band)}</dd>
+                </div>
+                <div>
+                  <dt>JLPT</dt>
+                  <dd>{activeItem.jlptLevel ?? "нет"}</dd>
+                </div>
+                <div>
                   <dt>Обновлено</dt>
                   <dd>{formatDate(activeItem.updatedAt)}</dd>
                 </div>
@@ -420,21 +702,40 @@ export function AdminClient() {
 
             <form className="panel admin-form" onSubmit={(event) => void handleSaveItem(event)}>
               <h2>Значения и подсказки</h2>
-              <label>
-                Статус
-                <select
-                  onChange={(event) => {
-                    const status = event.currentTarget.value as AdminContentStatus;
-                    setItemDraft((previous) => ({ ...previous, status }));
-                  }}
-                  value={itemDraft.status}
-                >
-                  <option value="draft">Черновик</option>
-                  <option value="needs-review">Нужна проверка</option>
-                  <option value="published">Опубликовано</option>
-                  <option value="archived">Архив</option>
-                </select>
-              </label>
+              <div className="admin-two-column">
+                <label>
+                  Статус
+                  <select
+                    onChange={(event) => {
+                      const status = event.currentTarget.value as AdminContentStatus;
+                      setItemDraft((previous) => ({ ...previous, status }));
+                    }}
+                    value={itemDraft.status}
+                  >
+                    <option value="draft">Черновик</option>
+                    <option value="needs-review">Нужна проверка</option>
+                    <option value="published">Опубликовано</option>
+                    <option value="archived">Архив</option>
+                  </select>
+                </label>
+                <label>
+                  Band
+                  <select
+                    onChange={(event) => {
+                      const band = event.currentTarget.value as ItemDraft["band"];
+                      setItemDraft((previous) => ({ ...previous, band }));
+                    }}
+                    value={itemDraft.band}
+                  >
+                    <option value="">Unset</option>
+                    {SUPPORTED_COURSE_BANDS.map((band) => (
+                      <option key={band} value={band}>
+                        {formatBand(band)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
               <div className="admin-two-column">
                 <label>
                   Значение RU
@@ -565,6 +866,46 @@ export function AdminClient() {
 
             <div className="admin-side-grid">
               <section className="panel">
+                <h2>Quality gates</h2>
+                {activeItem.qualityIssues.length === 0 ? (
+                  <p className="success-text">Ready to publish.</p>
+                ) : (
+                  <ul className="quality-list">
+                    {activeItem.qualityIssues.map((issue, index) => (
+                      <li key={`${issue.code}-${issue.cardId ?? issue.dependencyItemId ?? index}`}>
+                        <strong>{formatQualityIssueCode(issue.code)}</strong>
+                        <span>{issue.message}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section className="panel">
+                <h2>Dependencies</h2>
+                {activeItem.dependencies.length === 0 ? (
+                  <p className="muted">No prerequisites are linked.</p>
+                ) : (
+                  <ul className="dependency-list">
+                    {activeItem.dependencies.map((dependency) => (
+                      <li key={dependency.id}>
+                        <strong>{dependency.prerequisiteTitle}</strong>
+                        <span>
+                          {formatDependencyType(dependency.dependencyType)} ·{" "}
+                          {formatStatus(dependency.prerequisiteStatus)}
+                        </span>
+                        <small>
+                          {dependency.requiredStage === null
+                            ? "No required SRS stage"
+                            : `Required SRS stage ${dependency.requiredStage}`}
+                        </small>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section className="panel">
                 <h2>Источники</h2>
                 {activeItem.attributions.length === 0 ? (
                   <p className="muted">Источник не указан.</p>
@@ -631,8 +972,17 @@ export function AdminClient() {
   }
 }
 
+const DEFAULT_FILTERS: AdminFilters = {
+  band: "",
+  jlptLevel: "",
+  status: "needs-review",
+  missingAcceptedAnswers: false,
+  missingMnemonics: false,
+};
+
 const EMPTY_ITEM_DRAFT: ItemDraft = {
   status: "needs-review",
+  band: "",
   meaningRu: "",
   meaningEn: "",
   hintRu: "",
@@ -648,9 +998,18 @@ const EMPTY_CARD_DRAFT: CardDraft = {
   blockedReason: "",
 };
 
+const EMPTY_PROMOTE_DRAFT: PromoteDraft = {
+  targetType: "word",
+  targetId: "",
+  title: "",
+  band: "n5",
+  level: "",
+};
+
 function buildItemDraft(item: AdminCurationItemDto): ItemDraft {
   return {
     status: item.status,
+    band: item.band ?? "",
     meaningRu: item.meanings.ru,
     meaningEn: item.meanings.en,
     hintRu: findText(item.hints, "ru-RU"),
@@ -692,6 +1051,55 @@ function splitLines(value: string): string[] {
     .split(/\r?\n/gu)
     .map((line) => line.trim())
     .filter((line) => line !== "");
+}
+
+function toApiFilters(filters: AdminFilters): AdminReviewQueueFilters {
+  return {
+    ...(filters.band === "" ? {} : { band: filters.band }),
+    ...(filters.jlptLevel === "" ? {} : { jlptLevel: filters.jlptLevel }),
+    status: filters.status,
+    ...(filters.missingAcceptedAnswers
+      ? { missingAcceptedAnswers: filters.missingAcceptedAnswers }
+      : {}),
+    ...(filters.missingMnemonics ? { missingMnemonics: filters.missingMnemonics } : {}),
+  };
+}
+
+function formatBand(value: CourseBand | null): string {
+  switch (value) {
+    case "foundation":
+      return "Foundation";
+    case "n5":
+      return "N5";
+    case "n4":
+      return "N4";
+    case "n3":
+      return "N3";
+    case "n2":
+      return "N2";
+    default:
+      return "Unset";
+  }
+}
+
+function formatQualityIssueCode(value: string): string {
+  return value
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatDependencyType(value: string): string {
+  switch (value) {
+    case "prerequisite":
+      return "Prerequisite";
+    case "related":
+      return "Related";
+    case "unlock":
+      return "Unlock";
+    default:
+      return value;
+  }
 }
 
 function formatItemType(value: string): string {

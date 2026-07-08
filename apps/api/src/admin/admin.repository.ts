@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 
 import {
   type AdminContentStatus,
+  type AdminCurriculumCompletenessReportDto,
   type AdminCurationCardDto,
   type AdminCurationItemDto,
   type AdminCurationTextDto,
@@ -10,21 +11,32 @@ import {
   type CardAnswerType,
   type CardPromptType,
   type ContentLocale,
+  type CourseBand,
   type ItemKind,
   type SourceAttributionDto,
 } from "@kanji-srs/shared";
 
 import { PrismaService } from "../database/prisma.service";
+import { applyQualityIssues, buildCurriculumCompletenessReport } from "./curriculum-quality";
 import {
   type NormalizedAdminCardAnswersInput,
   type NormalizedAdminItemCurationInput,
+  type NormalizedAdminPromoteCandidateInput,
+  type NormalizedAdminReviewQueueFilters,
   type NormalizedAdminTextInput,
 } from "./admin.types";
 
 export abstract class AdminRepository {
   abstract listImportRuns(): Promise<readonly AdminImportRunSummaryDto[]>;
-  abstract listReviewItems(): Promise<readonly AdminReviewQueueItemDto[]>;
+  abstract listReviewItems(
+    filters: NormalizedAdminReviewQueueFilters,
+  ): Promise<readonly AdminReviewQueueItemDto[]>;
+  abstract getCompletenessReport(): Promise<AdminCurriculumCompletenessReportDto>;
   abstract findCurationItem(itemId: string): Promise<AdminCurationItemDto | null>;
+  abstract findItemByCardId(cardId: string): Promise<AdminCurationItemDto | null>;
+  abstract promoteImportedCandidate(
+    input: NormalizedAdminPromoteCandidateInput,
+  ): Promise<AdminCurationItemDto | null>;
   abstract updateItemCuration(
     itemId: string,
     input: NormalizedAdminItemCurationInput,
@@ -42,11 +54,13 @@ type LearningItemRow = {
   readonly targetId: string;
   readonly title: string;
   readonly levelHint: number | null;
+  readonly curriculumBand: string | null;
   readonly status: string;
   readonly updatedAt: Date;
   readonly cards: readonly LearningCardRow[];
   readonly hints: readonly TextRow[];
   readonly mnemonics: readonly TextRow[];
+  readonly dependencies: readonly DependencyRow[];
 };
 
 type LearningCardRow = {
@@ -89,6 +103,18 @@ type TextRow = {
   readonly updatedAt: Date;
 };
 
+type DependencyRow = {
+  readonly id: string;
+  readonly dependencyType: string;
+  readonly requiredStage: number | null;
+  readonly prerequisiteItemId: string;
+  readonly prerequisiteItem: {
+    readonly id: string;
+    readonly title: string;
+    readonly status: string;
+  };
+};
+
 type TargetSnapshot = {
   readonly japanese: string;
   readonly reading: string | null;
@@ -96,6 +122,7 @@ type TargetSnapshot = {
     readonly ru: string;
     readonly en: string;
   };
+  readonly jlptLevel: string | null;
   readonly sourceRecordIds: readonly string[];
   readonly attributions: readonly SourceAttributionDto[];
 };
@@ -140,6 +167,13 @@ type CardForUpdateRow = {
   readonly answerType: string;
 };
 
+const PROJECT_AUTHORED_ATTRIBUTION: SourceAttributionDto = {
+  sourceName: "Project authored",
+  licenseName: "Project content",
+  attributionText: "Project-authored curated learning content.",
+  sourceUrl: null,
+};
+
 @Injectable()
 export class PrismaAdminRepository extends AdminRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
@@ -167,34 +201,80 @@ export class PrismaAdminRepository extends AdminRepository {
     return runs.map((run) => toImportRunSummary(run, run._count.records));
   }
 
-  async listReviewItems(): Promise<readonly AdminReviewQueueItemDto[]> {
+  async listReviewItems(
+    filters: NormalizedAdminReviewQueueFilters,
+  ): Promise<readonly AdminReviewQueueItemDto[]> {
     const items = (await this.prisma.db.learningItem.findMany({
-      where: { status: "NEEDS_REVIEW" },
+      where: {
+        status: filters.status === undefined ? "NEEDS_REVIEW" : toPrismaStatus(filters.status),
+        ...(filters.band === undefined ? {} : { curriculumBand: toPrismaBand(filters.band) }),
+      },
       orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-      take: 50,
+      take: 200,
       include: this.itemInclude(),
     })) as unknown as readonly LearningItemRow[];
 
     const summaries: AdminReviewQueueItemDto[] = [];
 
     for (const item of items) {
-      const target = await this.findTargetSnapshot(item.targetType, item.targetId);
-      const sourceInfo = await this.findSourceInfo(target.sourceRecordIds, target.attributions);
+      const curationItem = await this.toCurationItem(item);
+
+      if (filters.jlptLevel !== undefined && curationItem.jlptLevel !== filters.jlptLevel) {
+        continue;
+      }
+
+      if (
+        filters.missingAcceptedAnswers === true &&
+        !curationItem.qualityIssues.some((issue) => issue.code === "missing-accepted-answer")
+      ) {
+        continue;
+      }
+
+      if (
+        filters.missingMnemonics === true &&
+        !curationItem.qualityIssues.some(
+          (issue) => issue.code === "missing-ru-mnemonic" || issue.code === "missing-en-mnemonic",
+        )
+      ) {
+        continue;
+      }
 
       summaries.push({
         id: item.id,
         itemType: toItemKind(item.kind),
         title: item.title,
-        japanese: target.japanese,
-        reading: target.reading,
+        band: curationItem.band,
+        japanese: curationItem.japanese,
+        reading: curationItem.reading,
         level: item.levelHint,
+        jlptLevel: curationItem.jlptLevel,
         status: toApiStatus(item.status),
         updatedAt: item.updatedAt.toISOString(),
-        sourceNames: sourceInfo.attributions.map((source) => source.sourceName),
+        sourceNames: curationItem.attributions.map((source) => source.sourceName),
+        qualityIssues: curationItem.qualityIssues,
       });
+
+      if (summaries.length >= 50) {
+        break;
+      }
     }
 
     return summaries;
+  }
+
+  async getCompletenessReport(): Promise<AdminCurriculumCompletenessReportDto> {
+    const items = (await this.prisma.db.learningItem.findMany({
+      orderBy: [{ curriculumBand: "asc" }, { levelHint: "asc" }, { id: "asc" }],
+      include: this.itemInclude(),
+    })) as unknown as readonly LearningItemRow[];
+
+    const curationItems: AdminCurationItemDto[] = [];
+
+    for (const item of items) {
+      curationItems.push(await this.toCurationItem(item));
+    }
+
+    return buildCurriculumCompletenessReport(curationItems, new Date());
   }
 
   async findCurationItem(itemId: string): Promise<AdminCurationItemDto | null> {
@@ -204,6 +284,15 @@ export class PrismaAdminRepository extends AdminRepository {
     })) as unknown as LearningItemRow | null;
 
     return item === null ? null : this.toCurationItem(item);
+  }
+
+  async findItemByCardId(cardId: string): Promise<AdminCurationItemDto | null> {
+    const card = await this.prisma.db.learningCard.findUnique({
+      where: { id: cardId },
+      select: { learningItemId: true },
+    });
+
+    return card === null ? null : this.findCurationItem(card.learningItemId);
   }
 
   async updateItemCuration(
@@ -238,12 +327,52 @@ export class PrismaAdminRepository extends AdminRepository {
         where: { id: item.id },
         data: {
           ...(input.status === undefined ? {} : { status: toPrismaStatus(input.status) }),
+          ...(input.band === undefined ? {} : { curriculumBand: toPrismaBandOrNull(input.band) }),
           updatedAt: now,
         },
       });
     });
 
     return this.findCurationItem(itemId);
+  }
+
+  async promoteImportedCandidate(
+    input: NormalizedAdminPromoteCandidateInput,
+  ): Promise<AdminCurationItemDto | null> {
+    const targetType = toPrismaTargetType(input.targetType);
+    const targetExists = await this.targetExists(targetType, input.targetId);
+
+    if (!targetExists) {
+      return null;
+    }
+
+    const item = await this.prisma.db.learningItem.upsert({
+      where: {
+        targetType_targetId: {
+          targetType,
+          targetId: input.targetId,
+        },
+      },
+      update: {
+        kind: toPrismaItemKind(input.targetType),
+        title: input.title,
+        levelHint: input.level,
+        curriculumBand: toPrismaBand(input.band),
+        status: "NEEDS_REVIEW",
+      },
+      create: {
+        kind: toPrismaItemKind(input.targetType),
+        targetType,
+        targetId: input.targetId,
+        title: input.title,
+        levelHint: input.level,
+        curriculumBand: toPrismaBand(input.band),
+        status: "NEEDS_REVIEW",
+      },
+      include: this.itemInclude(),
+    });
+
+    return this.toCurationItem(item as unknown as LearningItemRow);
   }
 
   async updateCardAnswers(
@@ -331,6 +460,18 @@ export class PrismaAdminRepository extends AdminRepository {
           { version: "desc" as const },
         ],
       },
+      dependencies: {
+        orderBy: [{ dependencyType: "asc" as const }, { prerequisiteItemId: "asc" as const }],
+        include: {
+          prerequisiteItem: {
+            select: {
+              id: true,
+              title: true,
+              status: true,
+            },
+          },
+        },
+      },
     };
   }
 
@@ -338,22 +479,26 @@ export class PrismaAdminRepository extends AdminRepository {
     const target = await this.findTargetSnapshot(item.targetType, item.targetId);
     const sourceInfo = await this.findSourceInfo(target.sourceRecordIds, target.attributions);
 
-    return {
+    return applyQualityIssues({
       id: item.id,
       itemType: toItemKind(item.kind),
+      band: toApiBandOrNull(item.curriculumBand),
       title: item.title,
       japanese: target.japanese,
       reading: target.reading,
       level: item.levelHint,
+      jlptLevel: target.jlptLevel,
       status: toApiStatus(item.status),
       updatedAt: item.updatedAt.toISOString(),
       meanings: target.meanings,
       cards: item.cards.map(toCardDto),
       hints: item.hints.map(toTextDto),
       mnemonics: item.mnemonics.map(toTextDto),
+      dependencies: item.dependencies.map(toDependencyDto),
       attributions: sourceInfo.attributions,
       importRuns: sourceInfo.importRuns,
-    };
+      qualityIssues: [],
+    });
   }
 
   private async findTargetSnapshot(targetType: string, targetId: string): Promise<TargetSnapshot> {
@@ -371,11 +516,30 @@ export class PrismaAdminRepository extends AdminRepository {
     }
   }
 
+  private async targetExists(targetType: string, targetId: string): Promise<boolean> {
+    switch (targetType) {
+      case "COMPONENT":
+        return (await this.prisma.db.component.count({ where: { id: targetId } })) > 0;
+      case "KANJI":
+        return (await this.prisma.db.kanji.count({ where: { id: targetId } })) > 0;
+      case "WORD":
+        return (await this.prisma.db.word.count({ where: { id: targetId } })) > 0;
+      case "SENTENCE":
+        return (await this.prisma.db.sentence.count({ where: { id: targetId } })) > 0;
+      default:
+        return false;
+    }
+  }
+
   private async findComponentTarget(targetId: string): Promise<TargetSnapshot> {
     const component = (await this.prisma.db.component.findUnique({
       where: { id: targetId },
-      select: { symbol: true, meaningRu: true },
-    })) as { readonly symbol: string; readonly meaningRu: string } | null;
+      select: { symbol: true, meaningRu: true, meaningEn: true },
+    })) as {
+      readonly symbol: string;
+      readonly meaningRu: string;
+      readonly meaningEn: string;
+    } | null;
 
     if (component === null) {
       throw new Error(`Missing component target ${targetId}.`);
@@ -384,9 +548,10 @@ export class PrismaAdminRepository extends AdminRepository {
     return {
       japanese: component.symbol,
       reading: null,
-      meanings: { ru: component.meaningRu, en: "" },
+      meanings: { ru: component.meaningRu, en: component.meaningEn },
+      jlptLevel: null,
       sourceRecordIds: [],
-      attributions: [],
+      attributions: [PROJECT_AUTHORED_ATTRIBUTION],
     };
   }
 
@@ -399,6 +564,7 @@ export class PrismaAdminRepository extends AdminRepository {
       },
     })) as {
       readonly character: string;
+      readonly jlptLevel: number | null;
       readonly kanjidicSourceId: string | null;
       readonly readings: readonly { readonly reading: string }[];
       readonly meanings: readonly {
@@ -416,6 +582,7 @@ export class PrismaAdminRepository extends AdminRepository {
       japanese: kanji.character,
       reading: kanji.readings[0]?.reading ?? null,
       meanings: pickMeanings(kanji.meanings),
+      jlptLevel: formatJlptLevel(kanji.jlptLevel),
       sourceRecordIds: kanji.kanjidicSourceId === null ? [] : [kanji.kanjidicSourceId],
       attributions: [],
     };
@@ -430,6 +597,7 @@ export class PrismaAdminRepository extends AdminRepository {
     })) as {
       readonly expression: string;
       readonly reading: string;
+      readonly jlptLevel: number | null;
       readonly jmdictEntryId: string | null;
       readonly senses: readonly {
         readonly locale: string;
@@ -446,6 +614,7 @@ export class PrismaAdminRepository extends AdminRepository {
       japanese: word.expression,
       reading: word.reading,
       meanings: pickMeanings(word.senses),
+      jlptLevel: formatJlptLevel(word.jlptLevel),
       sourceRecordIds: word.jmdictEntryId === null ? [] : [word.jmdictEntryId],
       attributions: [],
     };
@@ -484,6 +653,7 @@ export class PrismaAdminRepository extends AdminRepository {
         ru: sentence.translationRu ?? "",
         en: sentence.translationEn ?? "",
       },
+      jlptLevel: null,
       sourceRecordIds: sentence.sourceId === null ? [] : [sentence.sourceId],
       attributions:
         sentence.dataSource === null
@@ -585,6 +755,17 @@ function toCardDto(card: LearningCardRow): AdminCurationCardDto {
   };
 }
 
+function toDependencyDto(dependency: DependencyRow): AdminCurationItemDto["dependencies"][number] {
+  return {
+    id: dependency.id,
+    prerequisiteItemId: dependency.prerequisiteItemId,
+    prerequisiteTitle: dependency.prerequisiteItem.title,
+    prerequisiteStatus: toApiStatus(dependency.prerequisiteItem.status),
+    dependencyType: toApiDependencyType(dependency.dependencyType),
+    requiredStage: dependency.requiredStage,
+  };
+}
+
 function toTextDto(text: TextRow): AdminCurationTextDto {
   return {
     id: text.id,
@@ -639,6 +820,13 @@ async function updateTargetMeanings(
         await db.component.update({
           where: { id: targetId },
           data: { meaningRu: meanings.ru },
+        });
+      }
+
+      if (meanings.en !== undefined) {
+        await db.component.update({
+          where: { id: targetId },
+          data: { meaningEn: meanings.en },
         });
       }
       return;
@@ -824,6 +1012,46 @@ function toPrismaStatus(status: AdminContentStatus) {
   }
 }
 
+function toApiBandOrNull(value: string | null): CourseBand | null {
+  if (value === null) {
+    return null;
+  }
+
+  switch (value) {
+    case "FOUNDATION":
+      return "foundation";
+    case "N5":
+      return "n5";
+    case "N4":
+      return "n4";
+    case "N3":
+      return "n3";
+    case "N2":
+      return "n2";
+    default:
+      throw new Error(`Unsupported course band: ${value}`);
+  }
+}
+
+function toPrismaBand(band: CourseBand) {
+  switch (band) {
+    case "foundation":
+      return "FOUNDATION";
+    case "n5":
+      return "N5";
+    case "n4":
+      return "N4";
+    case "n3":
+      return "N3";
+    case "n2":
+      return "N2";
+  }
+}
+
+function toPrismaBandOrNull(band: CourseBand | null) {
+  return band === null ? null : toPrismaBand(band);
+}
+
 function toApiImportRunStatus(status: string) {
   switch (status) {
     case "PENDING":
@@ -898,6 +1126,23 @@ function toItemKind(kind: string): ItemKind {
   }
 }
 
+function toPrismaItemKind(kind: ItemKind) {
+  switch (kind) {
+    case "component":
+      return "COMPONENT";
+    case "kanji":
+      return "KANJI";
+    case "word":
+      return "WORD";
+    case "sentence":
+      return "SENTENCE";
+  }
+}
+
+function toPrismaTargetType(kind: ItemKind) {
+  return toPrismaItemKind(kind);
+}
+
 function toPromptType(value: string): CardPromptType {
   switch (value) {
     case "MEANING":
@@ -938,6 +1183,23 @@ function toTextType(value: string): AdminCurationTextDto["type"] {
     default:
       return "meaning";
   }
+}
+
+function toApiDependencyType(
+  value: string,
+): AdminCurationItemDto["dependencies"][number]["dependencyType"] {
+  switch (value) {
+    case "COMPONENT_OF":
+      return "related";
+    case "UNLOCKS":
+      return "unlock";
+    default:
+      return "prerequisite";
+  }
+}
+
+function formatJlptLevel(level: number | null): string | null {
+  return level === null ? null : `N${level}`;
 }
 
 function toApiSourceKind(value: string): AdminCurationTextDto["sourceKind"] {

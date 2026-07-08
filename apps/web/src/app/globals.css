@@ -1526,6 +1526,33 @@ textarea:focus-visible {
   padding-top: 18px;
 }
 
+.admin-promote-form {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--surface-border);
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
+.admin-promote-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.admin-promote-form input,
+.admin-promote-form select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 10px 12px;
+}
+
 .admin-editor {
   display: grid;
   gap: 16px;
@@ -1588,6 +1615,90 @@ textarea:focus-visible {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.admin-filter-flags {
+  display: grid;
+  align-content: end;
+  gap: 10px;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--foreground);
+}
+
+.checkbox-row input {
+  width: 18px;
+  min-height: 18px;
+  padding: 0;
+  accent-color: var(--primary);
+}
+
+.admin-completeness-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-completeness-grid article {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.admin-completeness-grid dl,
+.quality-list,
+.dependency-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-completeness-grid dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--surface-border);
+  padding-bottom: 6px;
+}
+
+.admin-completeness-grid dl div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.admin-completeness-grid dt,
+.quality-list span,
+.dependency-list span,
+.dependency-list small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.admin-completeness-grid dd {
+  margin: 0;
+  font-weight: 850;
+}
+
+.quality-list li,
+.dependency-list li {
+  display: grid;
+  gap: 4px;
+  border-bottom: 1px solid var(--surface-border);
+  padding-bottom: 8px;
+}
+
+.quality-list li:last-child,
+.dependency-list li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 
 .admin-card-list article {
@@ -1662,8 +1773,16 @@ textarea:focus-visible {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .admin-completeness-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .review-progress {
     justify-content: start;
+  }
+
+  .admin-queue {
+    position: static;
   }
 
   .feedback-grid,
@@ -1718,6 +1837,7 @@ textarea:focus-visible {
   }
 
   .metric-grid,
+  .admin-completeness-grid,
   .stats-list,
   .deck-item-facts,
   .search-result-meta,

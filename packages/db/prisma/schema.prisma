@@ -126,6 +126,14 @@ enum CourseType {
   DEMO
 }
 
+enum CourseBand {
+  FOUNDATION
+  N5
+  N4
+  N3
+  N2
+}
+
 enum DeckType {
   TEXT_MINING
   CUSTOM
@@ -227,6 +235,7 @@ model Component {
   symbol        String            @unique
   displayNameRu String
   meaningRu     String
+  meaningEn     String            @default("")
   sourceKind    ContentSourceKind @default(PROJECT_AUTHORED)
   notes         String?
   createdAt     DateTime          @default(now())
@@ -235,6 +244,7 @@ model Component {
 
   @@index([displayNameRu])
   @@index([meaningRu])
+  @@index([meaningEn])
 }
 
 model Kanji {
@@ -390,6 +400,7 @@ model LearningItem {
   targetId         String             @db.Uuid
   title            String
   levelHint        Int?
+  curriculumBand   CourseBand?
   status           ContentStatus      @default(DRAFT)
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
@@ -405,6 +416,7 @@ model LearningItem {
   @@unique([targetType, targetId])
   @@index([kind, status])
   @@index([levelHint])
+  @@index([curriculumBand])
 }
 
 model LearningCard {
@@ -599,6 +611,7 @@ model Course {
   titleRu       String
   descriptionRu String?
   targetLevel   String?
+  band          CourseBand       @default(FOUNDATION)
   courseType    CourseType       @default(STRUCTURED)
   status        ContentStatus    @default(DRAFT)
   createdAt     DateTime         @default(now())
@@ -608,12 +621,14 @@ model Course {
 
   @@index([status])
   @@index([targetLevel])
+  @@index([band])
 }
 
 model CourseLevel {
   id            String            @id @default(uuid()) @db.Uuid
   courseId      String            @db.Uuid
   levelNumber   Int
+  band          CourseBand        @default(FOUNDATION)
   titleRu       String
   descriptionRu String?
   course        Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -621,6 +636,7 @@ model CourseLevel {
 
   @@unique([courseId, levelNumber])
   @@index([courseId])
+  @@index([band])
 }
 
 model CourseLevelItem {

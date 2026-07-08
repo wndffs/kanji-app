@@ -1,6 +1,9 @@
 import {
   type AdminCurationItemDto,
+  type AdminCurriculumCompletenessReportDto,
   type AdminImportRunListResponse,
+  type AdminPromoteCandidateRequest,
+  type AdminReviewQueueFilters,
   type AdminReviewQueueResponse,
   type AdminUpdateCardAnswersRequest,
   type AdminUpdateItemRequest,
@@ -164,8 +167,35 @@ export function getAdminReviewQueue(token: string): Promise<AdminReviewQueueResp
   return apiRequest<AdminReviewQueueResponse>("/admin/items/review-queue", { token });
 }
 
+export function getAdminReviewQueueWithFilters(
+  token: string,
+  filters: AdminReviewQueueFilters,
+): Promise<AdminReviewQueueResponse> {
+  const params = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined) {
+      params.set(key, String(value));
+    }
+  }
+
+  const query = params.toString();
+  return apiRequest<AdminReviewQueueResponse>(
+    `/admin/items/review-queue${query === "" ? "" : `?${query}`}`,
+    { token },
+  );
+}
+
 export function getAdminImportRuns(token: string): Promise<AdminImportRunListResponse> {
   return apiRequest<AdminImportRunListResponse>("/admin/import-runs", { token });
+}
+
+export function getAdminCompletenessReport(
+  token: string,
+): Promise<AdminCurriculumCompletenessReportDto> {
+  return apiRequest<AdminCurriculumCompletenessReportDto>("/admin/curriculum/completeness", {
+    token,
+  });
 }
 
 export function getAdminCurationItem(token: string, itemId: string): Promise<AdminCurationItemDto> {
@@ -191,6 +221,17 @@ export function updateAdminCardAnswers(
 ): Promise<AdminCurationItemDto> {
   return apiRequest<AdminCurationItemDto>(`/admin/cards/${encodeURIComponent(cardId)}/answers`, {
     method: "PATCH",
+    token,
+    body: input,
+  });
+}
+
+export function promoteAdminImportedCandidate(
+  token: string,
+  input: AdminPromoteCandidateRequest,
+): Promise<AdminCurationItemDto> {
+  return apiRequest<AdminCurationItemDto>("/admin/imported-candidates/promote", {
+    method: "POST",
     token,
     body: input,
   });

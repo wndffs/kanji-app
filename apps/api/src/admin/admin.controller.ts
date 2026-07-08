@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Inject, Param, Patch, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
 
 import { AdminGuard } from "../auth/admin.guard";
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -24,13 +34,18 @@ export class AdminController {
   }
 
   @Get("items/review-queue")
-  listReviewItems() {
-    return this.adminService.listReviewItems();
+  listReviewItems(@Query() query: Record<string, unknown>) {
+    return this.adminService.listReviewItems(query);
   }
 
   @Get("import-runs")
   listImportRuns() {
     return this.adminService.listImportRuns();
+  }
+
+  @Get("curriculum/completeness")
+  getCompletenessReport() {
+    return this.adminService.getCompletenessReport();
   }
 
   @Get("items/:itemId")
@@ -46,5 +61,10 @@ export class AdminController {
   @Patch("cards/:cardId/answers")
   updateCardAnswers(@Param("cardId") cardId: string, @Body() body: unknown) {
     return this.adminService.updateCardAnswers(cardId, body);
+  }
+
+  @Post("imported-candidates/promote")
+  promoteImportedCandidate(@Body() body: unknown) {
+    return this.adminService.promoteImportedCandidate(body);
   }
 }

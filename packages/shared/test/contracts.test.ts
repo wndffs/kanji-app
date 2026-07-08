@@ -3,10 +3,14 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_TRANSLATION_DISPLAY_MODE,
   SUPPORTED_CONTENT_LOCALES,
+  SUPPORTED_COURSE_BANDS,
   getContentLocalesForDisplayMode,
   isContentLocale,
+  isCourseBand,
   isTranslationDisplayMode,
   workspacePackages,
+  type AdminCurriculumCompletenessReportDto,
+  type AdminReviewQueueResponse,
   type DashboardDto,
   type AdminImportRunListResponse,
   type DeckDetailsDto,
@@ -43,6 +47,14 @@ describe("translation display modes", () => {
     expect(isContentLocale("ja-JP")).toBe(false);
     expect(isTranslationDisplayMode("ru-en")).toBe(true);
     expect(isTranslationDisplayMode("all")).toBe(false);
+  });
+});
+
+describe("course bands", () => {
+  it("defines Foundation through N2 course bands", () => {
+    expect(SUPPORTED_COURSE_BANDS).toEqual(["foundation", "n5", "n4", "n3", "n2"]);
+    expect(isCourseBand("n2")).toBe(true);
+    expect(isCourseBand("n1")).toBe(false);
   });
 });
 
@@ -137,6 +149,56 @@ describe("shared DTO contracts", () => {
     };
 
     expect(JSON.parse(JSON.stringify(response))).toEqual(response);
+  });
+
+  it("keeps admin curriculum review and completeness DTOs serializable", () => {
+    const queue: AdminReviewQueueResponse = {
+      items: [
+        {
+          id: "item-word-empty",
+          itemType: "word",
+          band: "n5",
+          title: "Word candidate",
+          japanese: "空",
+          reading: "そら",
+          level: 8,
+          jlptLevel: "N5",
+          status: "needs-review",
+          updatedAt: "2026-06-24T10:00:00.000Z",
+          sourceNames: ["JMdict"],
+          qualityIssues: [
+            {
+              code: "missing-accepted-answer",
+              message: "Missing accepted answer.",
+              cardId: "card-empty",
+              dependencyItemId: null,
+            },
+          ],
+        },
+      ],
+    };
+    const report: AdminCurriculumCompletenessReportDto = {
+      generatedAt: "2026-06-24T10:00:00.000Z",
+      bands: [
+        {
+          band: "n5",
+          totalItems: 1,
+          publishedItems: 0,
+          draftItems: 0,
+          needsReviewItems: 1,
+          archivedItems: 0,
+          importDerivedCandidates: 1,
+          missingAcceptedAnswers: 1,
+          missingMnemonics: 1,
+          missingLocaleCoverage: 1,
+          missingAttribution: 1,
+          invalidDependencies: 1,
+        },
+      ],
+    };
+
+    expect(JSON.parse(JSON.stringify(queue))).toEqual(queue);
+    expect(JSON.parse(JSON.stringify(report))).toEqual(report);
   });
 
   it("keeps dynamic text deck details serializable", () => {

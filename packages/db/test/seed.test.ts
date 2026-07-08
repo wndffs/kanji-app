@@ -32,6 +32,32 @@ describe("Prisma seed", () => {
     expect(starterSeed.items.every((item) => item.cards.length > 0)).toBe(true);
   });
 
+  it("assigns starter levels and items to Foundation and N5 course bands", () => {
+    const starterSeed = buildStarterCourseSeed();
+
+    expect(starterSeed.course.band).toBe("FOUNDATION");
+    expect(starterSeed.course.levels.map((level) => level.band)).toEqual([
+      "FOUNDATION",
+      "FOUNDATION",
+      "N5",
+      "N5",
+    ]);
+    expect(new Set(starterSeed.items.map((item) => item.band))).toEqual(
+      new Set(["FOUNDATION", "N5"]),
+    );
+  });
+
+  it("keeps starter component meanings bilingual", () => {
+    const components = buildStarterCourseSeed().items.filter(
+      (item) => item.target.kind === "COMPONENT",
+    );
+
+    expect(components.length).toBeGreaterThan(0);
+    expect(
+      components.every((item) => item.target.kind === "COMPONENT" && item.target.meaningEn !== ""),
+    ).toBe(true);
+  });
+
   it("keeps starter course dependencies valid", () => {
     const starterSeed = buildStarterCourseSeed();
 

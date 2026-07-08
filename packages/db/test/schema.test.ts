@@ -85,6 +85,20 @@ describe("Prisma schema", () => {
     expect(schema).toContain("@@index([translationDisplayMode])");
   });
 
+  it("models structured course bands through N2", () => {
+    expect(schema).toContain("enum CourseBand");
+    for (const band of ["FOUNDATION", "N5", "N4", "N3", "N2"]) {
+      expect(schema).toContain(`  ${band}`);
+    }
+
+    expect(schema).toMatch(/curriculumBand\s+CourseBand\?/u);
+    expect(schema).toMatch(/band\s+CourseBand\s+@default\(FOUNDATION\)/u);
+    expect(schema).toMatch(/meaningEn\s+String\s+@default\(""\)/u);
+    expect(schema).toContain("@@index([curriculumBand])");
+    expect(schema).toContain("@@index([band])");
+    expect(schema).toContain("@@index([meaningEn])");
+  });
+
   it("stores locales for private overrides and mnemonics", () => {
     expect(schema).toContain('locale         String           @default("ru-RU")');
     expect(schema).toContain(

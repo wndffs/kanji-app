@@ -1,9 +1,13 @@
 import {
   type AdminContentStatus,
+  type AdminPromoteCandidateRequest,
+  type AdminReviewQueueFilters,
   type AdminUpdateCardAnswersRequest,
   type AdminUpdateItemRequest,
   type CardAnswerType,
   type ContentLocale,
+  type CourseBand,
+  type ItemKind,
 } from "@kanji-srs/shared";
 
 export type NormalizedAdminAcceptedAnswerInput = {
@@ -33,10 +37,22 @@ export type NormalizedAdminTextInput = {
 
 export type NormalizedAdminItemCurationInput = {
   readonly status?: AdminContentStatus;
+  readonly band?: CourseBand | null;
   readonly meanings?: NonNullable<AdminUpdateItemRequest["meanings"]>;
   readonly hints?: readonly NormalizedAdminTextInput[];
   readonly mnemonics?: readonly NormalizedAdminTextInput[];
 };
 
+export type NormalizedAdminReviewQueueFilters = AdminReviewQueueFilters;
+
+export type NormalizedAdminPromoteCandidateInput = {
+  readonly targetType: ItemKind;
+  readonly targetId: string;
+  readonly title: string;
+  readonly band: CourseBand;
+  readonly level: number | null;
+};
+
 export type RawAdminCardAnswersInput = AdminUpdateCardAnswersRequest;
 export type RawAdminItemCurationInput = AdminUpdateItemRequest;
+export type RawAdminPromoteCandidateInput = AdminPromoteCandidateRequest;

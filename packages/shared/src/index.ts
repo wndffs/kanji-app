@@ -41,6 +41,8 @@ export type UserOverrideKind =
   | "note"
   | "mnemonic";
 export type DeckStatus = "draft" | "active" | "archived";
+export const SUPPORTED_COURSE_BANDS = ["foundation", "n5", "n4", "n3", "n2"] as const;
+export type CourseBand = (typeof SUPPORTED_COURSE_BANDS)[number];
 export type DeckItemReasonCode =
   | "appears-in-text"
   | "prerequisite-kanji"
@@ -49,6 +51,18 @@ export type DeckItemReasonCode =
 export type AdminContentStatus = "draft" | "needs-review" | "published" | "archived";
 export type AdminImportRunStatus = "pending" | "success" | "failed";
 export type AdminTextSourceKind = "curated" | "imported" | "user";
+export type AdminQualityIssueCode =
+  | "missing-accepted-answer"
+  | "missing-ru-accepted-answer"
+  | "missing-en-accepted-answer"
+  | "missing-ru-meaning"
+  | "missing-en-meaning"
+  | "missing-ru-mnemonic"
+  | "missing-en-mnemonic"
+  | "missing-attribution"
+  | "missing-dependency"
+  | "self-dependency"
+  | "unpublished-dependency";
 
 export type LocalizedTextDto = {
   readonly locale: ContentLocale;
@@ -411,17 +425,44 @@ export type DeckListResponse = {
 export type AdminReviewQueueItemDto = {
   readonly id: string;
   readonly itemType: ItemKind;
+  readonly band: CourseBand | null;
   readonly title: string;
   readonly japanese: string;
   readonly reading: string | null;
   readonly level: number | null;
+  readonly jlptLevel: string | null;
   readonly status: AdminContentStatus;
   readonly updatedAt: string;
   readonly sourceNames: readonly string[];
+  readonly qualityIssues: readonly AdminQualityIssueDto[];
 };
 
 export type AdminReviewQueueResponse = {
   readonly items: readonly AdminReviewQueueItemDto[];
+};
+
+export type AdminReviewQueueFilters = {
+  readonly band?: CourseBand;
+  readonly jlptLevel?: "N5" | "N4" | "N3" | "N2";
+  readonly status?: AdminContentStatus;
+  readonly missingAcceptedAnswers?: boolean;
+  readonly missingMnemonics?: boolean;
+};
+
+export type AdminQualityIssueDto = {
+  readonly code: AdminQualityIssueCode;
+  readonly message: string;
+  readonly cardId?: string | null;
+  readonly dependencyItemId?: string | null;
+};
+
+export type AdminDependencyDto = {
+  readonly id: string;
+  readonly prerequisiteItemId: string;
+  readonly prerequisiteTitle: string;
+  readonly prerequisiteStatus: AdminContentStatus;
+  readonly dependencyType: "prerequisite" | "related" | "unlock";
+  readonly requiredStage: number | null;
 };
 
 export type AdminCurationAnswerDto = {
@@ -485,10 +526,12 @@ export type AdminImportRunListResponse = {
 export type AdminCurationItemDto = {
   readonly id: string;
   readonly itemType: ItemKind;
+  readonly band: CourseBand | null;
   readonly title: string;
   readonly japanese: string;
   readonly reading: string | null;
   readonly level: number | null;
+  readonly jlptLevel: string | null;
   readonly status: AdminContentStatus;
   readonly updatedAt: string;
   readonly meanings: {
@@ -498,12 +541,15 @@ export type AdminCurationItemDto = {
   readonly cards: readonly AdminCurationCardDto[];
   readonly hints: readonly AdminCurationTextDto[];
   readonly mnemonics: readonly AdminCurationTextDto[];
+  readonly dependencies: readonly AdminDependencyDto[];
   readonly attributions: readonly SourceAttributionDto[];
   readonly importRuns: readonly AdminImportRunSummaryDto[];
+  readonly qualityIssues: readonly AdminQualityIssueDto[];
 };
 
 export type AdminUpdateItemRequest = {
   readonly status?: AdminContentStatus;
+  readonly band?: CourseBand | null;
   readonly meanings?: {
     readonly ru?: string;
     readonly en?: string;
@@ -518,6 +564,34 @@ export type AdminUpdateItemRequest = {
     readonly type: "meaning" | "reading" | "story";
     readonly body: string;
   }[];
+};
+
+export type AdminPromoteCandidateRequest = {
+  readonly targetType: ItemKind;
+  readonly targetId: string;
+  readonly title: string;
+  readonly band: CourseBand;
+  readonly level?: number | null;
+};
+
+export type AdminCurriculumBandCompletenessDto = {
+  readonly band: CourseBand;
+  readonly totalItems: number;
+  readonly publishedItems: number;
+  readonly draftItems: number;
+  readonly needsReviewItems: number;
+  readonly archivedItems: number;
+  readonly importDerivedCandidates: number;
+  readonly missingAcceptedAnswers: number;
+  readonly missingMnemonics: number;
+  readonly missingLocaleCoverage: number;
+  readonly missingAttribution: number;
+  readonly invalidDependencies: number;
+};
+
+export type AdminCurriculumCompletenessReportDto = {
+  readonly generatedAt: string;
+  readonly bands: readonly AdminCurriculumBandCompletenessDto[];
 };
 
 export type AdminUpdateCardAnswersRequest = {
@@ -547,6 +621,10 @@ export const workspacePackages: readonly WorkspacePackageInfo[] = [
 
 export function isContentLocale(value: string): value is ContentLocale {
   return (SUPPORTED_CONTENT_LOCALES as readonly string[]).includes(value);
+}
+
+export function isCourseBand(value: string): value is CourseBand {
+  return (SUPPORTED_COURSE_BANDS as readonly string[]).includes(value);
 }
 
 export function isTranslationDisplayMode(value: string): value is TranslationDisplayMode {

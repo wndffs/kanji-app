@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
 import {
+  type AdminCurriculumCompletenessReportDto,
   type AdminCurationItemDto,
   type AdminImportRunListResponse,
   type AdminReviewQueueResponse,
@@ -72,20 +73,57 @@ async function signIn(page: Page, role: "USER" | "ADMIN"): Promise<void> {
 async function mockAdminApi(page: Page): Promise<void> {
   let item = buildAdminItem();
 
-  await page.route(`${API_BASE_URL}/admin/items/review-queue`, async (route) => {
+  await page.route(`${API_BASE_URL}/admin/items/review-queue**`, async (route) => {
     const response: AdminReviewQueueResponse = {
       items: [
         {
           id: item.id,
           itemType: item.itemType,
+          band: item.band,
           title: item.title,
           japanese: item.japanese,
           reading: item.reading,
           level: item.level,
+          jlptLevel: item.jlptLevel,
           status: item.status,
           updatedAt: item.updatedAt,
           sourceNames: item.attributions.map((source) => source.sourceName),
+          qualityIssues: item.qualityIssues,
         },
+      ],
+    };
+
+    await route.fulfill({ json: response });
+  });
+
+  await page.route(`${API_BASE_URL}/admin/curriculum/completeness`, async (route) => {
+    const emptyBand = {
+      totalItems: 0,
+      publishedItems: 0,
+      draftItems: 0,
+      needsReviewItems: 0,
+      archivedItems: 0,
+      importDerivedCandidates: 0,
+      missingAcceptedAnswers: 0,
+      missingMnemonics: 0,
+      missingLocaleCoverage: 0,
+      missingAttribution: 0,
+      invalidDependencies: 0,
+    };
+    const response: AdminCurriculumCompletenessReportDto = {
+      generatedAt: "2026-06-22T09:00:00.000Z",
+      bands: [
+        {
+          band: "foundation",
+          ...emptyBand,
+          totalItems: 1,
+          needsReviewItems: 1,
+          missingMnemonics: 1,
+        },
+        { band: "n5", ...emptyBand },
+        { band: "n4", ...emptyBand },
+        { band: "n3", ...emptyBand },
+        { band: "n2", ...emptyBand },
       ],
     };
 
@@ -171,10 +209,12 @@ function buildAdminItem(): AdminCurationItemDto {
   return {
     id: ITEM_ID,
     itemType: "kanji",
+    band: "foundation",
     title: "Кандзи 一",
     japanese: "一",
     reading: "いち",
     level: 1,
+    jlptLevel: "N5",
     status: "needs-review",
     updatedAt: "2026-06-22T08:00:00.000Z",
     meanings: { ru: "один", en: "one" },
@@ -239,6 +279,16 @@ function buildAdminItem(): AdminCurationItemDto {
         updatedAt: "2026-06-22T08:00:00.000Z",
       },
     ],
+    dependencies: [
+      {
+        id: "dependency-1",
+        prerequisiteItemId: "item-component-one",
+        prerequisiteTitle: "Component one",
+        prerequisiteStatus: "published",
+        dependencyType: "prerequisite",
+        requiredStage: 1,
+      },
+    ],
     attributions: [
       {
         sourceName: "Project authored",
@@ -261,6 +311,14 @@ function buildAdminItem(): AdminCurationItemDto {
         recordCount: 1,
         stats: { items: 1 },
         errorText: null,
+      },
+    ],
+    qualityIssues: [
+      {
+        code: "missing-en-mnemonic",
+        message: "Missing English mnemonic.",
+        cardId: null,
+        dependencyItemId: null,
       },
     ],
   };

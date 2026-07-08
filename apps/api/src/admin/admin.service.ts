@@ -3,18 +3,28 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from "@nes
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
 import {
   type AdminContentStatus,
+  type AdminCurriculumCompletenessReportDto,
   type AdminCurationItemDto,
   type AdminImportRunListResponse,
   type AdminReviewQueueResponse,
   type AdminUpdateItemRequest,
   type CardAnswerType,
   type ContentLocale,
+  type CourseBand,
+  isCourseBand,
 } from "@kanji-srs/shared";
 
 import { AdminRepository } from "./admin.repository";
 import {
+  previewAdminCardAnswersUpdate,
+  previewAdminItemUpdate,
+  getAdminQualityIssues,
+} from "./curriculum-quality";
+import {
   type NormalizedAdminCardAnswersInput,
   type NormalizedAdminItemCurationInput,
+  type NormalizedAdminPromoteCandidateInput,
+  type NormalizedAdminReviewQueueFilters,
   type NormalizedAdminTextInput,
 } from "./admin.types";
 
@@ -33,10 +43,16 @@ export class AdminService {
     };
   }
 
-  async listReviewItems(): Promise<AdminReviewQueueResponse> {
+  async listReviewItems(query: unknown = {}): Promise<AdminReviewQueueResponse> {
+    const filters = parseReviewQueueFilters(query);
+
     return {
-      items: await this.adminRepository.listReviewItems(),
+      items: await this.adminRepository.listReviewItems(filters),
     };
+  }
+
+  async getCompletenessReport(): Promise<AdminCurriculumCompletenessReportDto> {
+    return this.adminRepository.getCompletenessReport();
   }
 
   async getCurationItem(itemId: string): Promise<AdminCurationItemDto> {
@@ -51,6 +67,12 @@ export class AdminService {
 
   async updateItem(itemId: string, body: unknown): Promise<AdminCurationItemDto> {
     const request = parseUpdateItemRequest(body);
+    const current = await this.getCurationItem(itemId);
+
+    if ((request.status ?? current.status) === "published") {
+      assertPublishable(previewAdminItemUpdate(current, request));
+    }
+
     const item = await this.adminRepository.updateItemCuration(itemId, request);
 
     if (item === null) {
@@ -62,6 +84,33 @@ export class AdminService {
 
   async updateCardAnswers(cardId: string, body: unknown): Promise<AdminCurationItemDto> {
     const request = parseUpdateCardAnswersRequest(body);
+    const current = await this.adminRepository.findItemByCardId(cardId);
+
+    if (current !== null && current.status === "published") {
+      assertPublishable(
+        previewAdminCardAnswersUpdate(
+          current,
+          cardId,
+          request.acceptedAnswers.map((answer, index) => ({
+            id: `preview-answer-${index}`,
+            cardId,
+            locale: answer.locale,
+            text: answer.text,
+            normalizedText: answer.normalizedText,
+            answerKind: answer.answerKind,
+            isPrimary: answer.isPrimary,
+          })),
+          request.blockedAnswers.map((answer, index) => ({
+            id: `preview-blocked-${index}`,
+            cardId,
+            text: answer.text,
+            normalizedText: answer.normalizedText,
+            reason: answer.reason,
+          })),
+        ),
+      );
+    }
+
     const item = await this.adminRepository.updateCardAnswers(cardId, request);
 
     if (item === null) {
@@ -70,20 +119,68 @@ export class AdminService {
 
     return item;
   }
+
+  async promoteImportedCandidate(body: unknown): Promise<AdminCurationItemDto> {
+    const request = parsePromoteCandidateRequest(body);
+    const item = await this.adminRepository.promoteImportedCandidate(request);
+
+    if (item === null) {
+      throw new NotFoundException("Import-derived target not found.");
+    }
+
+    return item;
+  }
+}
+
+function parseReviewQueueFilters(query: unknown): NormalizedAdminReviewQueueFilters {
+  const record =
+    typeof query === "object" && query !== null ? (query as Record<string, unknown>) : {};
+
+  return {
+    ...(record.band === undefined ? {} : { band: parseCourseBand(record.band, "band") }),
+    ...(record.jlptLevel === undefined ? {} : { jlptLevel: parseJlptLevel(record.jlptLevel) }),
+    ...(record.status === undefined ? {} : { status: parseRequiredStatus(record.status) }),
+    ...(record.missingAcceptedAnswers === undefined
+      ? {}
+      : {
+          missingAcceptedAnswers: parseBooleanQuery(
+            record.missingAcceptedAnswers,
+            "missingAcceptedAnswers",
+          ),
+        }),
+    ...(record.missingMnemonics === undefined
+      ? {}
+      : { missingMnemonics: parseBooleanQuery(record.missingMnemonics, "missingMnemonics") }),
+  };
 }
 
 function parseUpdateItemRequest(body: unknown): NormalizedAdminItemCurationInput {
   const record = parseRecord(body, "Request body");
   const status = parseOptionalStatus(record.status);
+  const band = record.band === undefined ? undefined : parseOptionalCourseBand(record.band, "band");
   const meanings = parseOptionalMeanings(record.meanings);
 
   return {
     ...(status === undefined ? {} : { status }),
+    ...(band === undefined ? {} : { band }),
     ...(meanings === undefined ? {} : { meanings }),
     ...(record.hints === undefined ? {} : { hints: parseTextInputs(record.hints, "hint") }),
     ...(record.mnemonics === undefined
       ? {}
       : { mnemonics: parseTextInputs(record.mnemonics, "mnemonic") }),
+  };
+}
+
+function parsePromoteCandidateRequest(body: unknown): NormalizedAdminPromoteCandidateInput {
+  const record = parseRecord(body, "Request body");
+  const targetType = parseItemKind(record.targetType);
+
+  return {
+    targetType,
+    targetId: parseRequiredString(record.targetId, "targetId", { maxLength: 80 }),
+    title: parseRequiredString(record.title, "title", { maxLength: 160 }),
+    band: parseCourseBand(record.band, "band"),
+    level: parseOptionalPositiveInteger(record.level, "level"),
   };
 }
 
@@ -146,6 +243,10 @@ function parseOptionalStatus(value: unknown): AdminContentStatus | undefined {
     return undefined;
   }
 
+  return parseRequiredStatus(value);
+}
+
+function parseRequiredStatus(value: unknown): AdminContentStatus {
   if (
     value === "draft" ||
     value === "needs-review" ||
@@ -156,6 +257,64 @@ function parseOptionalStatus(value: unknown): AdminContentStatus | undefined {
   }
 
   throw new BadRequestException("status must be draft, needs-review, published, or archived.");
+}
+
+function parseCourseBand(value: unknown, label: string): CourseBand {
+  if (typeof value === "string" && isCourseBand(value)) {
+    return value;
+  }
+
+  throw new BadRequestException(`${label} must be foundation, n5, n4, n3, or n2.`);
+}
+
+function parseOptionalCourseBand(value: unknown, label: string): CourseBand | null {
+  if (value === null || value === "") {
+    return null;
+  }
+
+  return parseCourseBand(value, label);
+}
+
+function parseJlptLevel(value: unknown): "N5" | "N4" | "N3" | "N2" {
+  if (value === "N5" || value === "N4" || value === "N3" || value === "N2") {
+    return value;
+  }
+
+  throw new BadRequestException("jlptLevel must be N5, N4, N3, or N2.");
+}
+
+function parseBooleanQuery(value: unknown, label: string): boolean {
+  if (value === true || value === "true" || value === "1") {
+    return true;
+  }
+
+  if (value === false || value === "false" || value === "0") {
+    return false;
+  }
+
+  throw new BadRequestException(`${label} must be true or false.`);
+}
+
+function parseItemKind(value: unknown): NormalizedAdminPromoteCandidateInput["targetType"] {
+  if (value === "component" || value === "kanji" || value === "word" || value === "sentence") {
+    return value;
+  }
+
+  throw new BadRequestException("targetType must be component, kanji, word, or sentence.");
+}
+
+function parseOptionalPositiveInteger(value: unknown, label: string): number | null {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  const parsed = typeof value === "number" ? value : Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new BadRequestException(`${label} must be a positive integer.`);
+  }
+
+  return parsed;
 }
 
 function parseOptionalMeanings(
@@ -290,4 +449,16 @@ function parseOptionalString(
   }
 
   return trimmed;
+}
+
+function assertPublishable(item: AdminCurationItemDto): void {
+  const issues = getAdminQualityIssues(item);
+
+  if (issues.length === 0) {
+    return;
+  }
+
+  throw new BadRequestException(
+    `Нельзя опубликовать материал: ${issues.map((issue) => issue.message).join(" ")}`,
+  );
 }

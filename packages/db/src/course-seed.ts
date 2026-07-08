@@ -4,6 +4,7 @@ export type SeedPromptType = "MEANING" | "READING" | "RECALL" | "CLOZE" | "RECOG
 export type SeedAnswerType = "MEANING" | "READING";
 export type SeedMnemonicType = "MEANING" | "READING" | "STORY";
 export type SeedHintType = "MEANING" | "READING" | "USAGE";
+export type SeedCourseBand = "FOUNDATION" | "N5" | "N4" | "N3" | "N2";
 
 export type StarterCourseSeed = {
   readonly course: {
@@ -11,6 +12,7 @@ export type StarterCourseSeed = {
     readonly titleRu: string;
     readonly descriptionRu: string;
     readonly targetLevel: string;
+    readonly band: SeedCourseBand;
     readonly levels: readonly StarterCourseSeedLevel[];
   };
   readonly demoUser: {
@@ -23,6 +25,7 @@ export type StarterCourseSeed = {
 
 export type StarterCourseSeedLevel = {
   readonly levelNumber: number;
+  readonly band: SeedCourseBand;
   readonly titleRu: string;
   readonly descriptionRu: string;
 };
@@ -31,6 +34,7 @@ export type StarterCourseSeedItem = {
   readonly key: string;
   readonly kind: SeedItemKind;
   readonly title: string;
+  readonly band: SeedCourseBand;
   readonly levelNumber: number;
   readonly sortOrder: number;
   readonly target: StarterCourseSeedTarget;
@@ -46,6 +50,7 @@ export type StarterCourseSeedTarget =
       readonly symbol: string;
       readonly displayNameRu: string;
       readonly meaningRu: string;
+      readonly meaningEn: string;
       readonly notes: string;
     }
   | {
@@ -129,24 +134,29 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
     descriptionRu:
       "Небольшой авторский курс для проверки уроков, повторений и связей компонентов, кандзи, слов и предложений.",
     targetLevel: "N5",
+    band: "FOUNDATION",
     levels: [
       {
         levelNumber: 1,
+        band: "FOUNDATION",
         titleRu: "Первые формы",
         descriptionRu: "Две простые формы, из которых можно объяснить первые знаки.",
       },
       {
         levelNumber: 2,
+        band: "FOUNDATION",
         titleRu: "Первые кандзи",
         descriptionRu: "Кандзи для числа один и слова рот.",
       },
       {
         levelNumber: 3,
+        band: "N5",
         titleRu: "Первые слова",
         descriptionRu: "Короткие слова, основанные на уже изученных кандзи.",
       },
       {
         levelNumber: 4,
+        band: "N5",
         titleRu: "Первое предложение",
         descriptionRu: "Минимальная фраза для проверки карточки предложения.",
       },
@@ -162,6 +172,7 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
       key: "component-one-stroke",
       kind: "COMPONENT",
       title: "Компонент 一",
+      band: "FOUNDATION",
       levelNumber: 1,
       sortOrder: 1,
       target: {
@@ -169,6 +180,7 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
         symbol: "一",
         displayNameRu: "одна черта",
         meaningRu: "одна черта",
+        meaningEn: "one stroke",
         notes: "Project-authored starter component.",
       },
       cards: [
@@ -203,6 +215,7 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
       key: "component-mouth-frame",
       kind: "COMPONENT",
       title: "Компонент 口",
+      band: "FOUNDATION",
       levelNumber: 1,
       sortOrder: 2,
       target: {
@@ -210,6 +223,7 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
         symbol: "口",
         displayNameRu: "рамка рта",
         meaningRu: "отверстие",
+        meaningEn: "opening",
         notes: "Project-authored starter component.",
       },
       cards: [
@@ -240,6 +254,7 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
       key: "kanji-one",
       kind: "KANJI",
       title: "Кандзи 一",
+      band: "FOUNDATION",
       levelNumber: 2,
       sortOrder: 1,
       target: {
@@ -281,6 +296,7 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
       key: "kanji-mouth",
       kind: "KANJI",
       title: "Кандзи 口",
+      band: "FOUNDATION",
       levelNumber: 2,
       sortOrder: 2,
       target: {
@@ -309,6 +325,7 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
       key: "word-hitotsu",
       kind: "WORD",
       title: "Слово 一つ",
+      band: "N5",
       levelNumber: 3,
       sortOrder: 1,
       target: {
@@ -341,6 +358,7 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
       key: "word-kuchi",
       kind: "WORD",
       title: "Слово 口",
+      band: "N5",
       levelNumber: 3,
       sortOrder: 2,
       target: {
@@ -363,6 +381,7 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
       key: "sentence-hitotsu-kudasai",
       kind: "SENTENCE",
       title: "Предложение 一つください。",
+      band: "N5",
       levelNumber: 4,
       sortOrder: 1,
       target: {
@@ -441,6 +460,10 @@ export function validateStarterCourseSeed(seed: StarterCourseSeed): readonly str
 
     if (item.target.kind !== item.kind) {
       issues.push(`${item.key} kind does not match its target kind`);
+    }
+
+    if (item.target.kind === "COMPONENT" && item.target.meaningEn.trim() === "") {
+      issues.push(`${item.key} component is missing an English meaning`);
     }
   }
 

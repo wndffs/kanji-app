@@ -178,6 +178,7 @@ async function upsertComponent(item: StarterCourseSeedItem): Promise<string> {
     update: {
       displayNameRu: item.target.displayNameRu,
       meaningRu: item.target.meaningRu,
+      meaningEn: item.target.meaningEn,
       sourceKind: "PROJECT_AUTHORED",
       notes: item.target.notes,
     },
@@ -185,6 +186,7 @@ async function upsertComponent(item: StarterCourseSeedItem): Promise<string> {
       symbol: item.target.symbol,
       displayNameRu: item.target.displayNameRu,
       meaningRu: item.target.meaningRu,
+      meaningEn: item.target.meaningEn,
       sourceKind: "PROJECT_AUTHORED",
       notes: item.target.notes,
     },
@@ -397,6 +399,7 @@ async function upsertLearningItems(
         kind: item.kind,
         title: item.title,
         levelHint: item.levelNumber,
+        curriculumBand: item.band,
         status: "PUBLISHED",
       },
       create: {
@@ -405,6 +408,7 @@ async function upsertLearningItems(
         targetId,
         title: item.title,
         levelHint: item.levelNumber,
+        curriculumBand: item.band,
         status: "PUBLISHED",
       },
     });
@@ -496,6 +500,7 @@ async function upsertCourse(seed: StarterCourseSeed) {
       titleRu: seed.course.titleRu,
       descriptionRu: seed.course.descriptionRu,
       targetLevel: seed.course.targetLevel,
+      band: seed.course.band,
       courseType: "DEMO",
       status: "PUBLISHED",
     },
@@ -504,6 +509,7 @@ async function upsertCourse(seed: StarterCourseSeed) {
       titleRu: seed.course.titleRu,
       descriptionRu: seed.course.descriptionRu,
       targetLevel: seed.course.targetLevel,
+      band: seed.course.band,
       courseType: "DEMO",
       status: "PUBLISHED",
     },
@@ -540,12 +546,14 @@ async function upsertCourseLevels(
         },
       },
       update: {
+        band: level.band,
         titleRu: level.titleRu,
         descriptionRu: level.descriptionRu,
       },
       create: {
         courseId,
         levelNumber: level.levelNumber,
+        band: level.band,
         titleRu: level.titleRu,
         descriptionRu: level.descriptionRu,
       },

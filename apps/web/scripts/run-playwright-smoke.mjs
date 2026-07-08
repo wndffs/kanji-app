@@ -48,7 +48,13 @@ function spawnCommand(command, args, env = {}) {
 
 function runPlaywright(env = {}) {
   return new Promise((resolve) => {
-    const child = spawn(resolveCommand("npx"), ["playwright", "test"], {
+    const args = ["playwright", "test"];
+
+    if (process.env.WEB_SMOKE_WORKERS !== undefined) {
+      args.push("--workers", process.env.WEB_SMOKE_WORKERS);
+    }
+
+    const child = spawn(resolveCommand("npx"), args, {
       detached: !isWindows,
       env: { ...process.env, ...env },
       shell: isWindows,

@@ -35,6 +35,22 @@ Implementation should not require all N2 content at MVP. Design schema and UI fo
 - N3: mixed readings, abstract words, longer sentences.
 - N2: higher-frequency written vocabulary, compounds, reading-focused practice.
 
+Each curated course, course level, and learning item can be assigned to one of these bands. Imported
+dictionary or sentence candidates stay import-derived until an admin promotes the target into a curated
+learning item with a band, title, and optional level hint.
+
+Published structured-course content must pass quality gates:
+
+- every card has at least one accepted answer;
+- meaning cards have Russian and English accepted answers;
+- the target has Russian and English learning meanings/translations;
+- Russian and English mnemonic or note content is present;
+- source attribution or project authorship is traceable;
+- non-component items have valid prerequisite dependencies, and prerequisites are published.
+
+The admin curriculum completeness report summarizes these gaps by band so expansion work can move
+from Foundation through N2 without requiring the full corpus upfront.
+
 ## Lesson flow
 
 1. Explain item.
