@@ -63,6 +63,7 @@ export class AuthService {
       role: "USER",
       settings: mergeUserSettings(request.settings),
     });
+    await this.usersRepository.enrollInDefaultCourse(user.id);
 
     return this.createSession(user);
   }

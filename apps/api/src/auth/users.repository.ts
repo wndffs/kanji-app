@@ -10,6 +10,7 @@ export abstract class UsersRepository {
   abstract findByEmail(email: string): Promise<StoredUser | null>;
   abstract findById(id: string): Promise<StoredUser | null>;
   abstract createUser(input: CreateUserInput): Promise<StoredUser>;
+  abstract enrollInDefaultCourse(userId: string): Promise<void>;
   abstract updateSettings(userId: string, settings: Partial<UserSettingsDto>): Promise<StoredUser>;
 }
 
@@ -28,6 +29,8 @@ type PrismaUserWithSettings = {
     readonly strictMode: boolean;
   } | null;
 };
+
+const DEFAULT_STARTER_COURSE_SLUG = "starter-demo";
 
 @Injectable()
 export class PrismaUsersRepository extends UsersRepository {
@@ -68,6 +71,35 @@ export class PrismaUsersRepository extends UsersRepository {
     });
 
     return toStoredUser(user as PrismaUserWithSettings);
+  }
+
+  async enrollInDefaultCourse(userId: string): Promise<void> {
+    const course = await this.prisma.db.course.findFirst({
+      where: {
+        slug: DEFAULT_STARTER_COURSE_SLUG,
+        status: "PUBLISHED",
+      },
+      select: { id: true },
+    });
+
+    if (course === null) {
+      return;
+    }
+
+    await this.prisma.db.userEnrollment.upsert({
+      where: {
+        userId_courseId: {
+          userId,
+          courseId: course.id,
+        },
+      },
+      update: { status: "ACTIVE" },
+      create: {
+        userId,
+        courseId: course.id,
+        status: "ACTIVE",
+      },
+    });
   }
 
   async updateSettings(userId: string, settings: Partial<UserSettingsDto>): Promise<StoredUser> {

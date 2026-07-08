@@ -49,6 +49,7 @@ describe("Auth and users", () => {
     expect(session.accessToken).toContain(".");
     expect(storedUser?.passwordHash).toMatch(/^scrypt\$v1\$/);
     expect(storedUser?.passwordHash).not.toContain("correct-password");
+    expect(repository.defaultCourseEnrollmentUserIds).toEqual(["user-1"]);
   });
 
   it("rejects duplicate registration by normalized email", async () => {
@@ -203,6 +204,7 @@ class InMemoryUsersRepository extends UsersRepository {
   private readonly usersById = new Map<string, StoredUser>();
   private readonly usersByEmail = new Map<string, StoredUser>();
   private nextId = 1;
+  readonly defaultCourseEnrollmentUserIds: string[] = [];
 
   async findByEmail(email: string): Promise<StoredUser | null> {
     return this.usersByEmail.get(email) ?? null;
@@ -226,6 +228,10 @@ class InMemoryUsersRepository extends UsersRepository {
     this.usersByEmail.set(user.email, user);
 
     return user;
+  }
+
+  async enrollInDefaultCourse(userId: string): Promise<void> {
+    this.defaultCourseEnrollmentUserIds.push(userId);
   }
 
   async updateSettings(userId: string, settings: Partial<UserSettingsDto>): Promise<StoredUser> {

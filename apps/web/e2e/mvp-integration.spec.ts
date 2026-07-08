@@ -65,9 +65,9 @@ test.describe("final MVP integration path", () => {
       await expect(page).toHaveURL(/\/dashboard$/);
       await expect(page.getByRole("heading", { name: "Панель" })).toBeVisible();
       await expect(page.getByText("Стартовый MVP-курс")).toBeVisible();
-      await expect(page.locator(".metric-card").filter({ hasText: "Доступно уроков" })).toContainText(
-        "1",
-      );
+      await expect(
+        page.locator(".metric-card").filter({ hasText: "Доступно уроков" }),
+      ).toContainText("1");
     });
 
     await test.step("Log in with the registered user", async () => {
@@ -106,9 +106,9 @@ test.describe("final MVP integration path", () => {
       await expect(page.locator(".metric-card").filter({ hasText: "К повторению" })).toContainText(
         "1",
       );
-      await expect(page.locator(".metric-card").filter({ hasText: "Доступно уроков" })).toContainText(
-        "0",
-      );
+      await expect(
+        page.locator(".metric-card").filter({ hasText: "Доступно уроков" }),
+      ).toContainText("0");
     });
 
     await test.step("Answer the review correctly and save a private accepted answer", async () => {
@@ -252,7 +252,9 @@ async function mockMvpApi(page: Page): Promise<void> {
     expectAuthorized(route);
 
     await route.fulfill({
-      json: { items: state.lessonCompleted && !state.reviewAnswered ? [starterReviewQueueItem] : [] },
+      json: {
+        items: state.lessonCompleted && !state.reviewAnswered ? [starterReviewQueueItem] : [],
+      },
     });
   });
 
