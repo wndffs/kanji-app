@@ -174,7 +174,9 @@ STAGING_API_URL=https://<your-render-service>.onrender.com
 3. Open GitHub Actions, select `Deploy staging database`, and run the workflow
    from the `main` branch. The workflow applies all Prisma migrations and runs
    the production seed from a GitHub-hosted runner, avoiding local VPN and
-   database-route dependencies.
+   database-route dependencies. Leave `rolled_back_migration` empty during a
+   normal deploy. Set it only when Prisma reports a failed migration that must
+   be marked as rolled back before retrying.
 
 For a local fallback, apply the same migrations and seed from a trusted machine:
 

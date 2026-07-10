@@ -2,6 +2,11 @@ name: Deploy staging database
 
 on:
   workflow_dispatch:
+    inputs:
+      rolled_back_migration:
+        description: Failed migration to mark as rolled back before deploy (normally empty)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -40,6 +45,14 @@ jobs:
             echo "Repository secret STAGING_DATABASE_URL is required."
             exit 1
           fi
+
+      - name: Resolve failed migration
+        if: ${{ inputs.rolled_back_migration != '' }}
+        working-directory: packages/db
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          FAILED_MIGRATION: ${{ inputs.rolled_back_migration }}
+        run: npm exec -- prisma migrate resolve --rolled-back "$FAILED_MIGRATION"
 
       - name: Apply Prisma migrations
         env:
