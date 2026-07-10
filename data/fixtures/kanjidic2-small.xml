@@ -21,8 +21,10 @@
         <reading r_type="ja_on">ニチ</reading>
         <reading r_type="ja_on">ジツ</reading>
         <reading r_type="ja_kun">ひ</reading>
+        <reading r_type="pinyin">ri4</reading>
         <meaning>day</meaning>
         <meaning>sun</meaning>
+        <meaning m_lang="fr">jour</meaning>
       </rmgroup>
     </reading_meaning>
   </character>

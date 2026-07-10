@@ -49,6 +49,8 @@ export type JmDictEntryDto = {
 
 export type JmDictParseResult = {
   readonly entries: readonly JmDictEntryDto[];
+  readonly glossCount: number;
+  readonly unsupportedGlossCount: number;
 };
 
 export type JmDictImportOptions = {
@@ -65,6 +67,9 @@ export type JmDictImportResult = {
   readonly status: "SUCCESS";
   readonly entryCount: number;
   readonly wordCount: number;
+  readonly glossCount: number;
+  readonly importedGlossCount: number;
+  readonly unsupportedGlossCount: number;
   readonly importedRecordCount: number;
 };
 
@@ -137,13 +142,28 @@ export type JmDictImportDatabase = {
 };
 
 const JMDICT_LICENSE_NAME = "EDRDG JMdict license";
+const JMDICT_LICENSE_REFERENCE = "LicenseRef-JMdict-Multilingual";
 const JMDICT_SOURCE_NAME = "JMdict";
 const JMDICT_HOMEPAGE_URL = "https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project";
-const JMDICT_DOWNLOAD_URL = "https://www.edrdg.org/jmdict/edict_doc.html";
+const JMDICT_DOWNLOAD_URL = "https://ftp.edrdg.org/pub/Nihongo/JMdict.gz";
+const EDRDG_LICENSE_URL = "https://www.edrdg.org/edrdg/licence.html";
 
 export function parseJmDictXml(xml: string): JmDictParseResult {
+  const entryBlocks = extractElements(stripDoctype(xml), "entry");
+  const sourceGlosses = entryBlocks.flatMap((entryBlock) =>
+    extractElements(entryBlock, "sense").flatMap((senseBlock) =>
+      extractAttributedElements(senseBlock, "gloss"),
+    ),
+  );
+
   return {
-    entries: extractElements(stripDoctype(xml), "entry").map(parseEntryBlock),
+    entries: entryBlocks.map(parseEntryBlock),
+    glossCount: sourceGlosses.length,
+    unsupportedGlossCount: sourceGlosses.filter((gloss) => {
+      const sourceLanguage = gloss.attributes["xml:lang"] ?? gloss.attributes.lang ?? "eng";
+
+      return toGlossLocale(sourceLanguage) === null;
+    }).length,
   };
 }
 
@@ -156,27 +176,28 @@ export async function importJmDictXml(
   const checksumSha256 = options.checksumSha256 ?? calculateSha256(xml);
   const sourceVersion = options.sourceVersion ?? "unknown";
   const wordCount = parsed.entries.reduce((count, entry) => count + entry.words.length, 0);
+  const importedGlossCount = parsed.glossCount - parsed.unsupportedGlossCount;
 
   const license = await db.license.upsert({
     where: { name: JMDICT_LICENSE_NAME },
     update: {
-      spdxLikeId: "LicenseRef-EDRDG",
+      spdxLikeId: JMDICT_LICENSE_REFERENCE,
       scope: "OPEN_DATA",
-      url: JMDICT_HOMEPAGE_URL,
+      url: EDRDG_LICENSE_URL,
       requiresAttribution: true,
-      requiresShareAlike: false,
+      requiresShareAlike: true,
       notes:
-        "JMdict data from EDRDG. Imported glosses are dictionary data, not curated learning copy.",
+        "The EDRDG CC BY-SA 4.0 statement covers the Japanese and English JMdict components. Russian glosses are separately copyrighted by their source compilers; retain source attribution and verify source-specific terms before redistribution. Imported glosses are dictionary data, not curated learning copy.",
     },
     create: {
       name: JMDICT_LICENSE_NAME,
-      spdxLikeId: "LicenseRef-EDRDG",
+      spdxLikeId: JMDICT_LICENSE_REFERENCE,
       scope: "OPEN_DATA",
-      url: JMDICT_HOMEPAGE_URL,
+      url: EDRDG_LICENSE_URL,
       requiresAttribution: true,
-      requiresShareAlike: false,
+      requiresShareAlike: true,
       notes:
-        "JMdict data from EDRDG. Imported glosses are dictionary data, not curated learning copy.",
+        "The EDRDG CC BY-SA 4.0 statement covers the Japanese and English JMdict components. Russian glosses are separately copyrighted by their source compilers; retain source attribution and verify source-specific terms before redistribution. Imported glosses are dictionary data, not curated learning copy.",
     },
   });
   const dataSource = await db.dataSource.upsert({
@@ -211,7 +232,15 @@ export async function importJmDictXml(
       sourceFileName: options.sourceFileName,
       finishedAt: new Date(),
       status: "SUCCESS",
-      statsJson: { entries: parsed.entries.length, words: wordCount },
+      statsJson: {
+        entries: parsed.entries.length,
+        words: wordCount,
+        glosses: {
+          total: parsed.glossCount,
+          imported: importedGlossCount,
+          unsupported: parsed.unsupportedGlossCount,
+        },
+      },
       errorText: null,
     },
     create: {
@@ -221,7 +250,15 @@ export async function importJmDictXml(
       checksumSha256,
       finishedAt: new Date(),
       status: "SUCCESS",
-      statsJson: { entries: parsed.entries.length, words: wordCount },
+      statsJson: {
+        entries: parsed.entries.length,
+        words: wordCount,
+        glosses: {
+          total: parsed.glossCount,
+          imported: importedGlossCount,
+          unsupported: parsed.unsupportedGlossCount,
+        },
+      },
       errorText: null,
     },
   });
@@ -299,6 +336,9 @@ export async function importJmDictXml(
     status: "SUCCESS",
     entryCount: parsed.entries.length,
     wordCount,
+    glossCount: parsed.glossCount,
+    importedGlossCount,
+    unsupportedGlossCount: parsed.unsupportedGlossCount,
     importedRecordCount: parsed.entries.length,
   };
 }
@@ -348,14 +388,11 @@ function parseSense(block: string): JmDictSenseDto {
 
   return {
     partOfSpeech: partOfSpeech.length === 0 ? ["unknown"] : partOfSpeech,
-    glosses: extractAttributedElements(block, "gloss").map((gloss) => {
+    glosses: extractAttributedElements(block, "gloss").flatMap((gloss) => {
       const sourceLanguage = gloss.attributes["xml:lang"] ?? gloss.attributes.lang ?? "eng";
+      const locale = toGlossLocale(sourceLanguage);
 
-      return {
-        locale: toGlossLocale(sourceLanguage),
-        text: gloss.text,
-        sourceLanguage,
-      };
+      return locale === null ? [] : [{ locale, text: gloss.text, sourceLanguage }];
     }),
   };
 }
@@ -413,8 +450,17 @@ function pickCommonnessRank(priorities: readonly string[]): number | null {
   return ranks.length === 0 ? null : Math.min(...ranks);
 }
 
-function toGlossLocale(sourceLanguage: string): "en-US" | "ru-RU" {
-  return sourceLanguage === "rus" || sourceLanguage === "ru" ? "ru-RU" : "en-US";
+function toGlossLocale(sourceLanguage: string): "en-US" | "ru-RU" | null {
+  switch (sourceLanguage.trim().toLowerCase()) {
+    case "eng":
+    case "en":
+      return "en-US";
+    case "rus":
+    case "ru":
+      return "ru-RU";
+    default:
+      return null;
+  }
 }
 
 function decodeJmDictEntity(value: string): string {

@@ -24,11 +24,23 @@ tracked there. Do not commit raw full-size source dumps unless a task explicitly
 asks for a tiny fixture.
 
 ```powershell
-npm run import:jmdict -- C:\data\JMdict_e.xml --source-version 2026-06
+npm run import:jmdict -- C:\data\JMdict.xml --source-version 2026-07
 npm run import:kanjidic2 -- C:\data\kanjidic2.xml --source-version 2026-06
 npm run import:kanjivg -- C:\data\kanjivg.xml --source-version 2026-06
 npm run import:tatoeba -- C:\data\sentences.tsv C:\data\links.tsv --source-version 2026-06
 ```
+
+Use the full multilingual `JMdict.gz` distribution and decompress it outside the repository.
+The English-only `JMdict_e.gz` file cannot populate Russian word senses. The importer stores
+English (`eng`/`en`) and Russian (`rus`/`ru`) glosses as normalized word senses. Other languages
+are discarded before `ImportedRecord.rawJson` is written and are counted as unsupported in the
+import stats; they are never silently converted to English.
+
+The EDRDG general license covers the Japanese/English JMdict components under CC BY-SA 4.0,
+while its license statement identifies non-English glosses as separately copyrighted. The
+multilingual import therefore uses `LicenseRef-JMdict-Multilingual`; retain EDRDG and Russian
+source attribution and verify source-specific terms before redistributing the imported Russian
+glosses.
 
 The commands store only the source file basename in `ImportRun.sourceFileName`,
 plus checksum, source version/date, optional downloaded date, status, stats,

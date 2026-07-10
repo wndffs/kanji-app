@@ -141,6 +141,7 @@ const KANJIDIC2_LICENSE_NAME = "EDRDG KANJIDIC2 license";
 const KANJIDIC2_SOURCE_NAME = "KANJIDIC2";
 const KANJIDIC2_HOMEPAGE_URL = "https://www.edrdg.org/wiki/index.php/KANJIDIC_Project";
 const KANJIDIC2_DOWNLOAD_URL = "https://www.edrdg.org/kanjidic/kanjidic2.xml.gz";
+const EDRDG_LICENSE_URL = "https://www.edrdg.org/edrdg/licence.html";
 
 export function parseKanjiDic2Xml(xml: string): KanjiDic2ParseResult {
   const headerBlock = extractOptionalElement(xml, "header") ?? "";
@@ -173,23 +174,23 @@ export async function importKanjiDic2Xml(
   const license = await db.license.upsert({
     where: { name: KANJIDIC2_LICENSE_NAME },
     update: {
-      spdxLikeId: "LicenseRef-EDRDG",
+      spdxLikeId: "CC-BY-SA-4.0",
       scope: "OPEN_DATA",
-      url: KANJIDIC2_HOMEPAGE_URL,
+      url: EDRDG_LICENSE_URL,
       requiresAttribution: true,
-      requiresShareAlike: false,
+      requiresShareAlike: true,
       notes:
-        "KANJIDIC2 data from EDRDG. Keep imported rows separate from curated learning content.",
+        "KANJIDIC2 data from EDRDG is distributed under CC BY-SA 4.0. Keep imported rows separate from curated learning content.",
     },
     create: {
       name: KANJIDIC2_LICENSE_NAME,
-      spdxLikeId: "LicenseRef-EDRDG",
+      spdxLikeId: "CC-BY-SA-4.0",
       scope: "OPEN_DATA",
-      url: KANJIDIC2_HOMEPAGE_URL,
+      url: EDRDG_LICENSE_URL,
       requiresAttribution: true,
-      requiresShareAlike: false,
+      requiresShareAlike: true,
       notes:
-        "KANJIDIC2 data from EDRDG. Keep imported rows separate from curated learning content.",
+        "KANJIDIC2 data from EDRDG is distributed under CC BY-SA 4.0. Keep imported rows separate from curated learning content.",
     },
   });
   const dataSource = await db.dataSource.upsert({
@@ -345,25 +346,28 @@ function parseCharacterBlock(block: string): KanjiDic2CharacterDto {
   const miscBlock = extractOptionalElement(block, "misc") ?? "";
   const readingElements = extractAttributedElements(block, "reading");
   const meaningElements = extractAttributedElements(block, "meaning");
-  const readings = readingElements.map((reading, index) => {
-    const sourceType = reading.attributes.r_type ?? "unknown";
-
-    return {
+  const selectedReadings = readingElements
+    .map((reading) => ({
       reading: reading.text,
-      readingType: toReadingType(sourceType),
-      sourceType,
-      priority: index + 1,
-    };
-  });
-  const meanings = meaningElements
-    .filter(
-      (meaning) => meaning.attributes.m_lang === undefined || meaning.attributes.m_lang === "en",
-    )
-    .map((meaning, index) => ({
-      locale: "en-US" as const,
+      sourceType: reading.attributes.r_type ?? "unknown",
+    }))
+    .filter((reading) => isJapaneseReadingSourceType(reading.sourceType));
+  const selectedMeanings = meaningElements
+    .map((meaning) => ({
       text: meaning.text,
-      isPrimary: index === 0,
-    }));
+      sourceLanguage: meaning.attributes.m_lang ?? "en",
+    }))
+    .filter((meaning) => meaning.sourceLanguage.trim().toLowerCase() === "en");
+  const readings = selectedReadings.map((reading, index) => ({
+    ...reading,
+    readingType: toReadingType(reading.sourceType),
+    priority: index + 1,
+  }));
+  const meanings = selectedMeanings.map((meaning, index) => ({
+    locale: "en-US" as const,
+    text: meaning.text,
+    isPrimary: index === 0,
+  }));
 
   return {
     sourceRecordId: `kanjidic2:${codepoint.toLowerCase()}`,
@@ -384,8 +388,8 @@ function parseCharacterBlock(block: string): KanjiDic2CharacterDto {
         jlptLevel: parseOptionalInteger(extractOptionalText(miscBlock, "jlpt")),
         frequencyRank: parseOptionalInteger(extractOptionalText(miscBlock, "freq")),
       },
-      readings,
-      meanings,
+      readings: selectedReadings,
+      meanings: selectedMeanings,
     },
   };
 }
@@ -422,4 +426,8 @@ function toReadingType(sourceType: string): KanjiDic2ReadingType {
     default:
       return "OTHER";
   }
+}
+
+function isJapaneseReadingSourceType(sourceType: string): boolean {
+  return sourceType === "ja_on" || sourceType === "ja_kun";
 }

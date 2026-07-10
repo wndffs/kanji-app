@@ -39,6 +39,8 @@
     <sense>
       <pos>&int;</pos>
       <gloss>thank you</gloss>
+      <gloss xml:lang="rus">спасибо</gloss>
+      <gloss xml:lang="ger">danke</gloss>
     </sense>
   </entry>
   <entry>

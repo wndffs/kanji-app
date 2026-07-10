@@ -10,11 +10,26 @@ The app must not rely on proprietary WaniKani content. Use open or compatible so
 
 Use for Japanese dictionary entries, readings, senses, kanji metadata, and priority/frequency hints where available.
 
+EDRDG distributes KANJIDIC2 and the Japanese/English components of JMdict under
+CC BY-SA 4.0. The same license statement says that non-English JMdict glosses
+are separately copyrighted by their compilers. Store KANJIDIC2 as
+`CC-BY-SA-4.0`, store the multilingual JMdict source as
+`LicenseRef-JMdict-Multilingual`, keep attribution and share-alike flags enabled,
+and link to the [EDRDG license statement](https://www.edrdg.org/edrdg/licence.html).
+
 Implementation requirements:
 
 - Track source file name, source URL, downloaded date, checksum, and license.
 - Keep raw source fields separate from curated Russian and English learning content.
 - Do not pretend raw dictionary glosses are final lesson copy.
+- Import the multilingual `JMdict` file when Russian glosses are required. `JMdict_e` contains
+  English glosses only.
+- Attribute the Russian dictionary source listed by EDRDG and verify its source-specific terms
+  before redistributing Russian glosses outside this personal application.
+- Discard unsupported JMdict gloss languages during parsing. Persist only Russian and English
+  glosses, and record the number of discarded glosses in import statistics.
+- Discard non-Japanese KANJIDIC2 readings and non-English meanings before persisting imported
+  records; do not expose or retain them as application data.
 
 ### KanjiVG
 

@@ -48,6 +48,19 @@ describe("KANJIDIC2 importer", () => {
       jlptLevel: null,
       frequencyRank: 574,
     });
+    expect(parsed.characters[0]?.raw).toMatchObject({
+      readings: [
+        { reading: "ニチ", sourceType: "ja_on" },
+        { reading: "ジツ", sourceType: "ja_on" },
+        { reading: "ひ", sourceType: "ja_kun" },
+      ],
+      meanings: [
+        { text: "day", sourceLanguage: "en" },
+        { text: "sun", sourceLanguage: "en" },
+      ],
+    });
+    expect(JSON.stringify(parsed.characters[0]?.raw)).not.toContain("ri4");
+    expect(JSON.stringify(parsed.characters[0]?.raw)).not.toContain("jour");
   });
 
   it("writes DB records idempotently for the same source IDs", async () => {
@@ -61,6 +74,8 @@ describe("KANJIDIC2 importer", () => {
     expect(db.kanjiRows.size).toBe(3);
     expect(db.readingRows.size).toBe(8);
     expect(db.meaningRows.size).toBe(5);
+    expect(JSON.stringify([...db.importedRecords.values()])).not.toContain("ri4");
+    expect(JSON.stringify([...db.importedRecords.values()])).not.toContain("jour");
     expect([...db.kanjiRows.values()].map((row) => row.kanjidicSourceId)).toEqual([
       "kanjidic2:65e5",
       "kanjidic2:6708",
@@ -87,6 +102,12 @@ describe("KANJIDIC2 importer", () => {
       checksumSha256: checksum,
       status: "SUCCESS",
       statsJson: { characters: 3 },
+    });
+    expect([...db.licenses.values()][0]).toMatchObject({
+      spdxLikeId: "CC-BY-SA-4.0",
+      url: "https://www.edrdg.org/edrdg/licence.html",
+      requiresAttribution: true,
+      requiresShareAlike: true,
     });
   });
 });

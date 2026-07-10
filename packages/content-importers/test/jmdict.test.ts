@@ -47,8 +47,22 @@ describe("JMdict importer", () => {
       expect.objectContaining({ expression: "一日", reading: "ついたち", commonnessRank: 1 }),
     ]);
     expect(parsed.entries[1].words).toEqual([
-      expect.objectContaining({ expression: "ありがとう", reading: "ありがとう" }),
+      expect.objectContaining({
+        expression: "ありがとう",
+        reading: "ありがとう",
+        senses: [
+          expect.objectContaining({ locale: "en-US", meaning: "thank you" }),
+          expect.objectContaining({ locale: "ru-RU", meaning: "спасибо" }),
+        ],
+      }),
     ]);
+    expect(parsed.entries[1].senses[0]?.glosses).toEqual([
+      { locale: "en-US", text: "thank you", sourceLanguage: "eng" },
+      { locale: "ru-RU", text: "спасибо", sourceLanguage: "rus" },
+    ]);
+    expect(parsed.glossCount).toBe(8);
+    expect(parsed.unsupportedGlossCount).toBe(1);
+    expect(JSON.stringify(parsed.entries[1].raw)).not.toContain("danke");
     expect(parsed.entries[2].words).toEqual([
       expect.objectContaining({ expression: "見る", reading: "みる" }),
       expect.objectContaining({ expression: "観る", reading: "みる" }),
@@ -64,7 +78,11 @@ describe("JMdict importer", () => {
     expect(db.importRuns.size).toBe(1);
     expect(db.importedRecords.size).toBe(3);
     expect(db.wordRows.size).toBe(5);
-    expect(db.senseRows.size).toBe(11);
+    expect(db.senseRows.size).toBe(12);
+    expect([...db.senseRows.values()]).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ meaning: "danke" })]),
+    );
+    expect(JSON.stringify([...db.importedRecords.values()])).not.toContain("danke");
     expect([...db.wordRows.values()].map((row) => row.jmdictEntryId)).toEqual([
       "jmdict:1000001",
       "jmdict:1000001",
@@ -88,12 +106,25 @@ describe("JMdict importer", () => {
       status: "SUCCESS",
       entryCount: 3,
       wordCount: 5,
+      glossCount: 8,
+      importedGlossCount: 7,
+      unsupportedGlossCount: 1,
       importedRecordCount: 3,
     });
     expect([...db.importRuns.values()][0]).toMatchObject({
       checksumSha256: checksum,
       status: "SUCCESS",
-      statsJson: { entries: 3, words: 5 },
+      statsJson: {
+        entries: 3,
+        words: 5,
+        glosses: { total: 8, imported: 7, unsupported: 1 },
+      },
+    });
+    expect([...db.licenses.values()][0]).toMatchObject({
+      spdxLikeId: "LicenseRef-JMdict-Multilingual",
+      url: "https://www.edrdg.org/edrdg/licence.html",
+      requiresAttribution: true,
+      requiresShareAlike: true,
     });
   });
 });
