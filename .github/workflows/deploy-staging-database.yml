@@ -1,0 +1,54 @@
+name: Deploy staging database
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-database-deploy
+  cancel-in-progress: false
+
+jobs:
+  migrate-and-seed:
+    name: Migrate and seed Neon
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Verify staging database secret
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "Repository secret STAGING_DATABASE_URL is required."
+            exit 1
+          fi
+
+      - name: Apply Prisma migrations
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          NODE_ENV: production
+        run: npm run db:migrate:deploy
+
+      - name: Seed starter course
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          NODE_ENV: production
+        run: npm run db:seed
