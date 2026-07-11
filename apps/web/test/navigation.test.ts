@@ -6,4 +6,8 @@ describe("primaryNavigation", () => {
   it("starts with the dashboard route", () => {
     expect(primaryNavigation[0]).toEqual({ href: "/dashboard", label: "Панель" });
   });
+
+  it("links to kana onboarding from primary navigation", () => {
+    expect(primaryNavigation).toContainEqual({ href: "/kana", label: "Кана" });
+  });
 });

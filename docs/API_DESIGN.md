@@ -56,6 +56,21 @@ states inside the active enrollment, forecast buckets use the user's timezone,
 and recent review stats aggregate review-session answers from the last seven
 days.
 
+### Kana onboarding
+
+- `GET /kana/assessment?script=hiragana|katakana`
+- `POST /kana/assessment/answer`
+
+The authenticated kana assessment covers the 46 modern basic hiragana and 46
+modern basic katakana. The progress response includes symbols and per-user
+attempt state but deliberately omits romaji, so it cannot reveal answers before
+submission. Answer feedback returns the canonical romaji after the attempt and
+accepts documented common alternatives such as `si`, `ti`, `tu`, and `hu`.
+A character is marked familiar after three consecutive correct answers; a
+wrong answer resets that streak while preserving attempt history. This is an
+onboarding signal, not an SRS schedule. Future kana lessons must still create
+ordinary `LearningCard` and `UserSrsState` records.
+
 ### Lessons
 
 - `GET /lessons/queue`

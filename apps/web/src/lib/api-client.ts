@@ -18,6 +18,10 @@ import {
   type CreateTextDeckResponse,
   type FinishLessonSessionResponse,
   type ItemDetails,
+  type KanaAssessmentAnswerRequest,
+  type KanaAssessmentAnswerResponse,
+  type KanaAssessmentProgressDto,
+  type KanaScript,
   type DeckDetailsDto,
   type DeckListResponse,
   type LessonQueueResponse,
@@ -163,6 +167,27 @@ export function register(input: {
 
 export function getDashboard(token: string): Promise<DashboardDto> {
   return apiRequest<DashboardDto>("/dashboard", { token });
+}
+
+export function getKanaAssessment(
+  token: string,
+  script: KanaScript,
+): Promise<KanaAssessmentProgressDto> {
+  return apiRequest<KanaAssessmentProgressDto>(
+    `/kana/assessment?script=${encodeURIComponent(script)}`,
+    { token },
+  );
+}
+
+export function submitKanaAssessmentAnswer(
+  token: string,
+  input: KanaAssessmentAnswerRequest,
+): Promise<KanaAssessmentAnswerResponse> {
+  return apiRequest<KanaAssessmentAnswerResponse>("/kana/assessment/answer", {
+    method: "POST",
+    token,
+    body: input,
+  });
 }
 
 export function getAdminReviewQueue(token: string): Promise<AdminReviewQueueResponse> {

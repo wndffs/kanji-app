@@ -9,6 +9,7 @@ export const SUPPORTED_TRANSLATION_DISPLAY_MODES = ["ru", "en", "ru-en"] as cons
 export type AppLocale = "ru-RU";
 export type ContentLocale = (typeof SUPPORTED_CONTENT_LOCALES)[number];
 export type TranslationDisplayMode = (typeof SUPPORTED_TRANSLATION_DISPLAY_MODES)[number];
+export type KanaScript = "hiragana" | "katakana";
 
 export type WorkspacePackageName =
   | "@kanji-srs/db"
@@ -352,6 +353,41 @@ export type DashboardDto = {
   readonly leechCandidates: readonly DashboardLeechCandidateDto[];
   readonly recentReviewStats: DashboardRecentReviewStatsDto;
   readonly recentItems: readonly ItemSummary[];
+};
+
+export type KanaAssessmentItemDto = {
+  readonly character: string;
+  readonly script: KanaScript;
+  readonly row: string;
+  readonly order: number;
+  readonly attemptCount: number;
+  readonly correctCount: number;
+  readonly currentStreak: number;
+  readonly mastered: boolean;
+  readonly lastAnsweredAt: string | null;
+};
+
+export type KanaAssessmentProgressDto = {
+  readonly script: KanaScript;
+  readonly masteryThreshold: number;
+  readonly totalCount: number;
+  readonly attemptedCount: number;
+  readonly masteredCount: number;
+  readonly items: readonly KanaAssessmentItemDto[];
+};
+
+export type KanaAssessmentAnswerRequest = {
+  readonly character: string;
+  readonly answer: string;
+};
+
+export type KanaAssessmentAnswerResponse = {
+  readonly correct: boolean;
+  readonly normalizedAnswer: string;
+  readonly expectedRomaji: string;
+  readonly item: KanaAssessmentItemDto;
+  readonly attemptedCount: number;
+  readonly masteredCount: number;
 };
 
 export type UserOverrideDto = {

@@ -45,6 +45,7 @@ describe("Prisma schema", () => {
       "UserSrsState",
       "ReviewSession",
       "ReviewAnswer",
+      "UserKanaProgress",
     ];
 
     for (const model of requiredModels) {
@@ -87,6 +88,13 @@ describe("Prisma schema", () => {
   it("stores the user's translation display mode", () => {
     expect(schema).toContain('translationDisplayMode String   @default("ru")');
     expect(schema).toContain("@@index([translationDisplayMode])");
+  });
+
+  it("stores per-user kana assessment progress", () => {
+    expect(schema).toContain("enum KanaScript");
+    expect(schema).toContain("model UserKanaProgress");
+    expect(schema).toContain("@@unique([userId, character])");
+    expect(schema).toContain("@@index([userId, script, masteredAt])");
   });
 
   it("models structured course bands through N2", () => {

@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   answerValidationPackageStatus,
+  BASIC_KANA,
   calculateStringDistance,
   isConservativeTypo,
+  findBasicKana,
   isMeaningAccepted,
   isReadingAccepted,
   katakanaToHiragana,
@@ -11,8 +13,11 @@ import {
   normalizeJapaneseReading,
   normalizeKana,
   normalizeMeaning,
+  normalizeRomaji,
   normalizeRussianMeaning,
   splitRussianMeaningList,
+  listBasicKana,
+  isKanaRomajiAccepted,
   validateAnswer,
 } from "../src";
 
@@ -70,6 +75,27 @@ describe("Japanese reading normalization", () => {
       result: "blocked",
       matchedAnswer: "ニホン",
     });
+  });
+});
+
+describe("basic kana catalogue", () => {
+  it("contains the 46 modern basic characters for each script", () => {
+    expect(BASIC_KANA).toHaveLength(92);
+    expect(listBasicKana("hiragana")).toHaveLength(46);
+    expect(listBasicKana("katakana")).toHaveLength(46);
+  });
+
+  it("accepts canonical and common alternative romaji", () => {
+    const shi = findBasicKana("し");
+    const tsu = findBasicKana("ツ");
+
+    expect(shi).not.toBeNull();
+    expect(tsu).not.toBeNull();
+    expect(isKanaRomajiAccepted(shi!, " SHI ")).toBe(true);
+    expect(isKanaRomajiAccepted(shi!, "si")).toBe(true);
+    expect(isKanaRomajiAccepted(tsu!, "tu")).toBe(true);
+    expect(isKanaRomajiAccepted(tsu!, "su")).toBe(false);
+    expect(normalizeRomaji(" t-su ")).toBe("tsu");
   });
 });
 

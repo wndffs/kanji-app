@@ -38,6 +38,9 @@
 - `UserItemOverride`: id, userId, learningCardId, overrideType, text, normalizedText, note, createdAt, updatedAt.
 - `UserMnemonic`: id, userId, learningItemId, mnemonicType, body, createdAt, updatedAt.
 - `UserEnrollment`: id, userId, courseId, status, startedAt.
+- `UserKanaProgress`: id, userId, character, script, attemptCount, correctCount,
+  currentStreak, masteredAt, lastAnsweredAt. This stores onboarding assessment
+  evidence only; scheduled kana study still belongs to `LearningCard`.
 
 ## Curriculum layer
 

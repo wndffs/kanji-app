@@ -1893,6 +1893,209 @@ textarea:focus-visible {
   gap: 16px;
 }
 
+.kana-page {
+  min-width: 0;
+}
+
+.kana-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 20px;
+}
+
+.kana-heading h1 {
+  margin-bottom: 0;
+}
+
+.kana-script-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.kana-script-control button {
+  min-height: 44px;
+  border: 0;
+  border-right: 1px solid var(--surface-border);
+  background: var(--surface);
+  color: var(--muted);
+  padding: 8px 14px;
+  font-weight: 800;
+}
+
+.kana-script-control button:last-child {
+  border-right: 0;
+}
+
+.kana-script-control button[aria-pressed="true"] {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.kana-progress-summary {
+  display: grid;
+  grid-template-columns: auto minmax(160px, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.kana-progress-summary > div:first-child {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.kana-progress-summary span,
+.kana-progress-summary small {
+  color: var(--muted);
+}
+
+.kana-progress-summary strong {
+  font-size: 20px;
+}
+
+.kana-progress-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--surface-border);
+}
+
+.kana-progress-track > span {
+  height: 100%;
+  display: block;
+  background: var(--success);
+}
+
+.kana-workspace {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1.2fr);
+  align-items: start;
+  gap: 20px;
+}
+
+.kana-practice {
+  min-height: 440px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 24px;
+}
+
+.kana-practice form {
+  width: min(100%, 460px);
+  display: grid;
+  gap: 8px;
+}
+
+.kana-practice label {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.kana-prompt {
+  min-height: 132px;
+  display: grid;
+  place-items: center;
+  font-family: "Noto Sans JP", "Yu Gothic", sans-serif;
+  font-size: 104px;
+  line-height: 1;
+}
+
+.kana-answer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.kana-answer-row input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 10px 12px;
+  font-size: 20px;
+}
+
+.kana-streak {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.kana-feedback {
+  width: min(100%, 460px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 2px solid;
+  padding-top: 16px;
+}
+
+.kana-feedback.is-correct {
+  border-color: var(--success);
+}
+
+.kana-feedback.is-wrong {
+  border-color: var(--danger);
+}
+
+.kana-feedback > div {
+  display: grid;
+  gap: 3px;
+}
+
+.kana-feedback strong {
+  font-size: 18px;
+}
+
+.kana-feedback span {
+  color: var(--muted);
+}
+
+.kana-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(54px, 1fr));
+  gap: 8px;
+}
+
+.kana-map button {
+  aspect-ratio: 1;
+  min-width: 0;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  font-family: "Noto Sans JP", "Yu Gothic", sans-serif;
+  font-size: 24px;
+}
+
+.kana-map button.is-started {
+  border-color: var(--warning);
+  background: #fff8eb;
+}
+
+.kana-map button.is-mastered {
+  border-color: var(--success);
+  background: #e9f6f1;
+  color: #0d5948;
+}
+
+.kana-map button[aria-current="true"] {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+
+.kana-loading {
+  min-height: 440px;
+}
+
 @keyframes shimmer {
   from {
     background-position: 200% 0;
@@ -1922,6 +2125,8 @@ textarea:focus-visible {
   .admin-side-grid,
   .admin-translation-workspace,
   .admin-two-column,
+  .kana-heading,
+  .kana-workspace,
   .deck-form-grid,
   .deck-result-header,
   .item-hero,
@@ -2016,6 +2221,30 @@ textarea:focus-visible {
   .review-queue-grid,
   .review-answer-bar {
     grid-template-columns: 1fr;
+  }
+
+  .kana-progress-summary,
+  .kana-answer-row {
+    grid-template-columns: 1fr;
+  }
+
+  .kana-script-control {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kana-practice {
+    min-height: 380px;
+  }
+
+  .kana-prompt {
+    min-height: 104px;
+    font-size: 80px;
+  }
+
+  .kana-feedback {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .admin-translation-queue-list {

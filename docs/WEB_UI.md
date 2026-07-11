@@ -5,6 +5,7 @@
 - `/`: landing or redirect to dashboard.
 - `/login`, `/register`.
 - `/dashboard`.
+- `/kana` for authenticated hiragana/katakana onboarding assessment.
 - `/lessons` and `/lessons/session/[id]`.
 - `/reviews` and `/reviews/session/[id]`.
 - `/items/[id]`.

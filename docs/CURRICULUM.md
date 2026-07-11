@@ -51,6 +51,14 @@ Published structured-course content must pass quality gates:
 The admin curriculum completeness report summarizes these gaps by band so expansion work can move
 from Foundation through N2 without requiring the full corpus upfront.
 
+## Kana onboarding
+
+The Foundation path begins with a separate familiarity assessment for the 46
+modern basic hiragana and 46 modern basic katakana. It records attempts and a
+three-answer familiarity streak per user. Assessment mastery is diagnostic and
+must not unlock course content by itself; unknown kana should later enter the
+normal lesson and `LearningCard` SRS workflow.
+
 ## Lesson flow
 
 1. Explain item.

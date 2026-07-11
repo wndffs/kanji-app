@@ -107,6 +107,11 @@ enum UserRole {
   ADMIN
 }
 
+enum KanaScript {
+  HIRAGANA
+  KATAKANA
+}
+
 enum UserOverrideType {
   ACCEPTED_MEANING
   ACCEPTED_READING
@@ -537,8 +542,27 @@ model User {
   decks          Deck[]
   srsStates      UserSrsState[]
   reviewSessions ReviewSession[]
+  kanaProgress   UserKanaProgress[]
 
   @@index([role])
+}
+
+model UserKanaProgress {
+  id             String     @id @default(uuid()) @db.Uuid
+  userId         String     @db.Uuid
+  character      String
+  script         KanaScript
+  attemptCount   Int        @default(0)
+  correctCount   Int        @default(0)
+  currentStreak  Int        @default(0)
+  masteredAt     DateTime?
+  lastAnsweredAt DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, character])
+  @@index([userId, script, masteredAt])
 }
 
 model UserSettings {

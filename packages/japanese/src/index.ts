@@ -1,5 +1,7 @@
 export const JAPANESE_PACKAGE_NAME = "@kanji-srs/japanese";
 
+export * from "./kana";
+
 export type AnswerKind = "meaning" | "reading";
 export type MeaningLocale = "ru-RU" | "en-US";
 

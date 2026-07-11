@@ -8,6 +8,7 @@ import { DatabaseModule } from "./database/database.module";
 import { DecksModule } from "./decks/decks.module";
 import { HealthModule } from "./health/health.module";
 import { ItemsModule } from "./items/items.module";
+import { KanaModule } from "./kana/kana.module";
 import { LessonsModule } from "./lessons/lessons.module";
 import { ApiLogger } from "./logging/api-logger.service";
 import { RequestLoggerMiddleware } from "./logging/request-logger.middleware";
@@ -24,6 +25,7 @@ import { UsersModule } from "./users/users.module";
     UsersModule,
     AdminModule,
     ItemsModule,
+    KanaModule,
     DashboardModule,
     LessonsModule,
     OverridesModule,

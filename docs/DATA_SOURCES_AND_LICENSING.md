@@ -6,6 +6,14 @@ The app must not rely on proprietary WaniKani content. Use open or compatible so
 
 ## Preferred sources
 
+### Basic kana catalogue
+
+The hiragana/katakana onboarding catalogue contains project-authored factual
+symbol-to-romaji mappings for the 46 modern basic characters in each script.
+It does not copy mnemonics, explanations, ordering, or other educational text
+from third-party applications. Extended sounds and combinations should be
+added as separately reviewed project content.
+
 ### EDRDG: JMdict / KANJIDIC2
 
 Use for Japanese dictionary entries, readings, senses, kanji metadata, and priority/frequency hints where available.
