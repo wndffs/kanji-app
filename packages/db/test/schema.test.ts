@@ -90,7 +90,7 @@ describe("Prisma schema", () => {
     expect(schema).toContain("@@index([translationDisplayMode])");
   });
 
-  it("stores per-user kana assessment progress", () => {
+  it("stores per-user kana lesson and assessment progress", () => {
     expect(schema).toContain("enum KanaScript");
     expect(schema).toContain("model UserKanaProgress");
     expect(schema).toContain("@@unique([userId, character])");

@@ -39,8 +39,8 @@
 - `UserMnemonic`: id, userId, learningItemId, mnemonicType, body, createdAt, updatedAt.
 - `UserEnrollment`: id, userId, courseId, status, startedAt.
 - `UserKanaProgress`: id, userId, character, script, attemptCount, correctCount,
-  currentStreak, masteredAt, lastAnsweredAt. This stores onboarding assessment
-  evidence only; scheduled kana study still belongs to `LearningCard`.
+  currentStreak, masteredAt, lastAnsweredAt. This supports the separate kana
+  lesson and assessment track; kana does not use `LearningCard` or the main SRS.
 
 ## Curriculum layer
 

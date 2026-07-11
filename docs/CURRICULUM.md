@@ -51,13 +51,26 @@ Published structured-course content must pass quality gates:
 The admin curriculum completeness report summarizes these gaps by band so expansion work can move
 from Foundation through N2 without requiring the full corpus upfront.
 
-## Kana onboarding
+## Kana curriculum
 
-The Foundation path begins with a separate familiarity assessment for the 46
-modern basic hiragana and 46 modern basic katakana. It records attempts and a
-three-answer familiarity streak per user. Assessment mastery is diagnostic and
-must not unlock course content by itself; unknown kana should later enter the
-normal lesson and `LearningCard` SRS workflow.
+Kana is a separate character-learning track and does not use `LearningCard` or
+the interval-based SRS for components, kanji, vocabulary, and sentences.
+
+Each script contains 71 independent learning characters:
+
+- 46 modern basic characters;
+- 20 voiced variants with dakuten;
+- 5 semi-voiced variants with handakuten.
+
+Modified sounds are separate units: for example, `ひ` (`hi`), `び` (`bi`), and
+`ぴ` (`pi`) keep independent progress. Hiragana and katakana progress is also
+independent.
+
+The character track is split into sequential row lessons. A lesson first shows
+the character and its reading, then checks recognition. Three correct answers
+complete a character; completion is permanent, while the current streak can
+still reset after a wrong answer. The free assessment remains a separate mode
+for learners who already know some kana and can complete earlier lessons.
 
 ## Lesson flow
 

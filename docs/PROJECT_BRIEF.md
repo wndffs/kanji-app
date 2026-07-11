@@ -21,7 +21,7 @@ MVP should prove the learning loop, not cover all Japanese content.
 
 Target MVP content:
 
-- Kana check/onboarding.
+- Separate hiragana/katakana lessons and familiarity assessment.
 - 10-15 starter levels.
 - 300-500 kanji.
 - 1,500-2,000 vocabulary words.

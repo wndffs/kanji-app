@@ -41,7 +41,7 @@ export class PrismaKanaRepository extends KanaRepository {
       });
       const currentStreak = input.correct ? (existing?.currentStreak ?? 0) + 1 : 0;
       const masteredAt =
-        currentStreak >= input.masteryThreshold ? (existing?.masteredAt ?? input.answeredAt) : null;
+        existing?.masteredAt ?? (currentStreak >= input.masteryThreshold ? input.answeredAt : null);
 
       return db.userKanaProgress.upsert({
         where: {

@@ -6,6 +6,7 @@ import {
   calculateStringDistance,
   isConservativeTypo,
   findBasicKana,
+  findKana,
   isMeaningAccepted,
   isReadingAccepted,
   katakanaToHiragana,
@@ -17,6 +18,7 @@ import {
   normalizeRussianMeaning,
   splitRussianMeaningList,
   listBasicKana,
+  listKana,
   isKanaRomajiAccepted,
   validateAnswer,
 } from "../src";
@@ -83,6 +85,23 @@ describe("basic kana catalogue", () => {
     expect(BASIC_KANA).toHaveLength(92);
     expect(listBasicKana("hiragana")).toHaveLength(46);
     expect(listBasicKana("katakana")).toHaveLength(46);
+  });
+
+  it("keeps dakuten and handakuten sounds as independent learning characters", () => {
+    expect(listKana("hiragana")).toHaveLength(71);
+    expect(listKana("katakana")).toHaveLength(71);
+    expect(findKana("ひ")).toMatchObject({ romaji: "hi", variant: "basic" });
+    expect(findKana("び")).toMatchObject({
+      romaji: "bi",
+      variant: "dakuten",
+      baseCharacter: "ひ",
+    });
+    expect(findKana("ぴ")).toMatchObject({
+      romaji: "pi",
+      variant: "handakuten",
+      baseCharacter: "ひ",
+    });
+    expect(findBasicKana("び")).toBeNull();
   });
 
   it("accepts canonical and common alternative romaji", () => {

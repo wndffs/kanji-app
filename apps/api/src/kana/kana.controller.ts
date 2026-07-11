@@ -6,17 +6,27 @@ import { CurrentUser } from "../auth/current-user.decorator";
 import { KanaService } from "./kana.service";
 
 @UseGuards(AuthGuard)
-@Controller("kana/assessment")
+@Controller("kana")
 export class KanaController {
   constructor(@Inject(KanaService) private readonly kanaService: KanaService) {}
 
-  @Get()
+  @Get("assessment")
   getProgress(@CurrentUser() user: CurrentUserDto, @Query("script") script?: string) {
     return this.kanaService.getProgress(user.id, script);
   }
 
-  @Post("answer")
+  @Post("assessment/answer")
   answer(@CurrentUser() user: CurrentUserDto, @Body() body: unknown) {
+    return this.kanaService.answer(user.id, body);
+  }
+
+  @Get("lessons")
+  getLessons(@CurrentUser() user: CurrentUserDto, @Query("script") script?: string) {
+    return this.kanaService.getLessonPath(user.id, script);
+  }
+
+  @Post("lessons/answer")
+  answerLesson(@CurrentUser() user: CurrentUserDto, @Body() body: unknown) {
     return this.kanaService.answer(user.id, body);
   }
 }

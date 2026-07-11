@@ -1,9 +1,9 @@
 import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 
 import {
-  findBasicKana,
+  findKana,
   isKanaRomajiAccepted,
-  listBasicKana,
+  listKana,
   normalizeRomaji,
   type KanaCharacter,
 } from "@kanji-srs/japanese";
@@ -12,6 +12,8 @@ import {
   type KanaAssessmentAnswerResponse,
   type KanaAssessmentItemDto,
   type KanaAssessmentProgressDto,
+  type KanaLessonPathDto,
+  type KanaLessonUnitDto,
   type KanaScript,
 } from "@kanji-srs/shared";
 
@@ -32,12 +34,19 @@ export class KanaService {
     return buildProgressDto(script, progress);
   }
 
+  async getLessonPath(userId: string, scriptValue: unknown): Promise<KanaLessonPathDto> {
+    const script = parseScript(scriptValue);
+    const progress = await this.kanaRepository.listProgress(userId, script);
+
+    return buildLessonPathDto(script, progress);
+  }
+
   async answer(userId: string, body: unknown): Promise<KanaAssessmentAnswerResponse> {
     const request = parseAnswerRequest(body);
-    const kana = findBasicKana(request.character);
+    const kana = findKana(request.character);
 
     if (kana === null) {
-      throw new BadRequestException("Неизвестный базовый знак кана.");
+      throw new BadRequestException("Неизвестный знак кана.");
     }
 
     const normalizedAnswer = normalizeRomaji(request.answer);
@@ -116,7 +125,7 @@ function buildProgressDto(
     totalCount: summary.totalCount,
     attemptedCount: summary.attemptedCount,
     masteredCount: summary.masteredCount,
-    items: listBasicKana(script).map((kana) =>
+    items: listKana(script).map((kana) =>
       toItemDto(kana, progressByCharacter.get(kana.character) ?? null),
     ),
   };
@@ -130,7 +139,7 @@ function summarizeProgress(
   readonly attemptedCount: number;
   readonly masteredCount: number;
 } {
-  const characters = new Set(listBasicKana(script).map((kana) => kana.character));
+  const characters = new Set(listKana(script).map((kana) => kana.character));
   const relevant = progress.filter((item) => characters.has(item.character));
 
   return {
@@ -149,10 +158,73 @@ function toItemDto(
     script: kana.script,
     row: kana.row,
     order: kana.order,
+    variant: kana.variant,
+    baseCharacter: kana.baseCharacter,
     attemptCount: progress?.attemptCount ?? 0,
     correctCount: progress?.correctCount ?? 0,
     currentStreak: progress?.currentStreak ?? 0,
     mastered: progress?.masteredAt !== null && progress?.masteredAt !== undefined,
     lastAnsweredAt: progress?.lastAnsweredAt?.toISOString() ?? null,
+  };
+}
+
+const KANA_LESSON_GROUPS = [
+  { id: "vowels", rows: ["vowels"], title: "Гласные" },
+  { id: "k", rows: ["k"], title: "Ряд K" },
+  { id: "s", rows: ["s"], title: "Ряд S" },
+  { id: "t", rows: ["t"], title: "Ряд T" },
+  { id: "n", rows: ["n"], title: "Ряд N" },
+  { id: "h", rows: ["h"], title: "Ряд H" },
+  { id: "m", rows: ["m"], title: "Ряд M" },
+  { id: "y", rows: ["y"], title: "Ряд Y" },
+  { id: "r", rows: ["r"], title: "Ряд R" },
+  { id: "w-n", rows: ["w", "n-final"], title: "Ряд W и финальный N" },
+  { id: "g", rows: ["g"], title: "Дакутэн: G" },
+  { id: "z", rows: ["z"], title: "Дакутэн: Z" },
+  { id: "d", rows: ["d"], title: "Дакутэн: D" },
+  { id: "b", rows: ["b"], title: "Дакутэн: B" },
+  { id: "p", rows: ["p"], title: "Хандакутэн: P" },
+] as const;
+
+function buildLessonPathDto(
+  script: KanaScript,
+  progress: readonly KanaProgressRecord[],
+): KanaLessonPathDto {
+  const progressByCharacter = new Map(progress.map((item) => [item.character, item]));
+  const kana = listKana(script);
+  let previousComplete = true;
+
+  const units: KanaLessonUnitDto[] = KANA_LESSON_GROUPS.map((group, order) => {
+    const items = kana
+      .filter((item) => (group.rows as readonly string[]).includes(item.row))
+      .map((item) => ({
+        ...toItemDto(item, progressByCharacter.get(item.character) ?? null),
+        romaji: item.romaji,
+      }));
+    const masteredCount = items.filter((item) => item.mastered).length;
+    const complete = items.length > 0 && masteredCount === items.length;
+    const unlocked = order === 0 || previousComplete;
+
+    previousComplete = previousComplete && complete;
+
+    return {
+      id: `${script}-${group.id}`,
+      script,
+      title: group.title,
+      order,
+      unlocked,
+      complete,
+      masteredCount,
+      totalCount: items.length,
+      items,
+    };
+  });
+
+  return {
+    script,
+    masteryThreshold: KANA_MASTERY_STREAK,
+    masteredCount: units.reduce((count, unit) => count + unit.masteredCount, 0),
+    totalCount: kana.length,
+    units,
   };
 }

@@ -10,6 +10,7 @@ export type AppLocale = "ru-RU";
 export type ContentLocale = (typeof SUPPORTED_CONTENT_LOCALES)[number];
 export type TranslationDisplayMode = (typeof SUPPORTED_TRANSLATION_DISPLAY_MODES)[number];
 export type KanaScript = "hiragana" | "katakana";
+export type KanaVariant = "basic" | "dakuten" | "handakuten";
 
 export type WorkspacePackageName =
   | "@kanji-srs/db"
@@ -360,6 +361,8 @@ export type KanaAssessmentItemDto = {
   readonly script: KanaScript;
   readonly row: string;
   readonly order: number;
+  readonly variant: KanaVariant;
+  readonly baseCharacter: string;
   readonly attemptCount: number;
   readonly correctCount: number;
   readonly currentStreak: number;
@@ -388,6 +391,30 @@ export type KanaAssessmentAnswerResponse = {
   readonly item: KanaAssessmentItemDto;
   readonly attemptedCount: number;
   readonly masteredCount: number;
+};
+
+export type KanaLessonItemDto = KanaAssessmentItemDto & {
+  readonly romaji: string;
+};
+
+export type KanaLessonUnitDto = {
+  readonly id: string;
+  readonly script: KanaScript;
+  readonly title: string;
+  readonly order: number;
+  readonly unlocked: boolean;
+  readonly complete: boolean;
+  readonly masteredCount: number;
+  readonly totalCount: number;
+  readonly items: readonly KanaLessonItemDto[];
+};
+
+export type KanaLessonPathDto = {
+  readonly script: KanaScript;
+  readonly masteryThreshold: number;
+  readonly masteredCount: number;
+  readonly totalCount: number;
+  readonly units: readonly KanaLessonUnitDto[];
 };
 
 export type UserOverrideDto = {

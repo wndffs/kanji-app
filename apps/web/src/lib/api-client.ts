@@ -21,6 +21,7 @@ import {
   type KanaAssessmentAnswerRequest,
   type KanaAssessmentAnswerResponse,
   type KanaAssessmentProgressDto,
+  type KanaLessonPathDto,
   type KanaScript,
   type DeckDetailsDto,
   type DeckListResponse,
@@ -184,6 +185,23 @@ export function submitKanaAssessmentAnswer(
   input: KanaAssessmentAnswerRequest,
 ): Promise<KanaAssessmentAnswerResponse> {
   return apiRequest<KanaAssessmentAnswerResponse>("/kana/assessment/answer", {
+    method: "POST",
+    token,
+    body: input,
+  });
+}
+
+export function getKanaLessons(token: string, script: KanaScript): Promise<KanaLessonPathDto> {
+  return apiRequest<KanaLessonPathDto>(`/kana/lessons?script=${encodeURIComponent(script)}`, {
+    token,
+  });
+}
+
+export function submitKanaLessonAnswer(
+  token: string,
+  input: KanaAssessmentAnswerRequest,
+): Promise<KanaAssessmentAnswerResponse> {
+  return apiRequest<KanaAssessmentAnswerResponse>("/kana/lessons/answer", {
     method: "POST",
     token,
     body: input,
