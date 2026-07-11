@@ -10,7 +10,7 @@ export type AppLocale = "ru-RU";
 export type ContentLocale = (typeof SUPPORTED_CONTENT_LOCALES)[number];
 export type TranslationDisplayMode = (typeof SUPPORTED_TRANSLATION_DISPLAY_MODES)[number];
 export type KanaScript = "hiragana" | "katakana";
-export type KanaVariant = "basic" | "dakuten" | "handakuten";
+export type KanaVariant = "basic" | "dakuten" | "handakuten" | "yoon";
 
 export type WorkspacePackageName =
   | "@kanji-srs/db"

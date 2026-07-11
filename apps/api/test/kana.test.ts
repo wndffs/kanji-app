@@ -5,7 +5,7 @@ import { KANA_MASTERY_STREAK, KanaService } from "../src/kana/kana.service";
 import { type KanaProgressRecord, type RecordKanaAttemptInput } from "../src/kana/kana.types";
 
 describe("KanaService", () => {
-  it("returns 71 prompts without exposing romaji before an answer", async () => {
+  it("returns 104 prompts without exposing romaji before an answer", async () => {
     const service = new KanaService(new InMemoryKanaRepository());
 
     const progress = await service.getProgress("user-1", "hiragana");
@@ -13,11 +13,11 @@ describe("KanaService", () => {
     expect(progress).toMatchObject({
       script: "hiragana",
       masteryThreshold: KANA_MASTERY_STREAK,
-      totalCount: 71,
+      totalCount: 104,
       attemptedCount: 0,
       masteredCount: 0,
     });
-    expect(progress.items).toHaveLength(71);
+    expect(progress.items).toHaveLength(104);
     expect(progress.items[0]).not.toHaveProperty("romaji");
   });
 
@@ -27,16 +27,19 @@ describe("KanaService", () => {
 
     const path = await service.getLessonPath("user-1", "hiragana");
 
-    expect(path).toMatchObject({ totalCount: 71, masteredCount: 0 });
-    expect(path.units).toHaveLength(15);
+    expect(path).toMatchObject({ totalCount: 104, masteredCount: 0 });
+    expect(path.units).toHaveLength(26);
+    expect(path.units.reduce((count, unit) => count + unit.totalCount, 0)).toBe(104);
+    expect(path.units.every((unit) => unit.totalCount > 0)).toBe(true);
     expect(path.units[0]).toMatchObject({ id: "hiragana-vowels", unlocked: true, totalCount: 5 });
     expect(path.units[1]).toMatchObject({ id: "hiragana-k", unlocked: false });
-    expect(path.units.at(-1)).toMatchObject({ id: "hiragana-p", totalCount: 5 });
+    expect(path.units.at(-1)).toMatchObject({ id: "hiragana-py", totalCount: 3 });
     expect(path.units.flatMap((unit) => unit.items)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ character: "ひ", romaji: "hi", variant: "basic" }),
         expect.objectContaining({ character: "び", romaji: "bi", variant: "dakuten" }),
         expect.objectContaining({ character: "ぴ", romaji: "pi", variant: "handakuten" }),
+        expect.objectContaining({ character: "きゃ", romaji: "kya", variant: "yoon" }),
       ]),
     );
 
@@ -71,6 +74,10 @@ describe("KanaService", () => {
         mastered: true,
       },
     });
+
+    await expect(
+      service.answer("user-1", { character: "しゃ", answer: "sya" }),
+    ).resolves.toMatchObject({ correct: true, expectedRomaji: "sha" });
   });
 
   it("resets the streak without taking away a completed lesson", async () => {
@@ -99,6 +106,9 @@ describe("KanaService", () => {
     );
     await expect(service.answer("user-1", { character: "一", answer: "ichi" })).rejects.toThrow(
       "Неизвестный знак кана",
+    );
+    await expect(service.answer("user-1", { character: "きょう", answer: "kyou" })).rejects.toThrow(
+      "один знак или сочетание кана",
     );
   });
 });

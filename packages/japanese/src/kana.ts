@@ -1,5 +1,5 @@
 export type KanaScript = "hiragana" | "katakana";
-export type KanaVariant = "basic" | "dakuten" | "handakuten";
+export type KanaVariant = "basic" | "dakuten" | "handakuten" | "yoon";
 
 export type KanaCharacter = {
   readonly character: string;
@@ -108,6 +108,52 @@ const MODIFIED_KANA_DEFINITIONS: readonly ModifiedKanaDefinition[] = [
   ["ほ", "ホ", "ぽ", "ポ", "po", "p", "handakuten"],
 ];
 
+type YoonKanaDefinition = readonly [
+  baseHiragana: string,
+  baseKatakana: string,
+  hiragana: string,
+  katakana: string,
+  romaji: string,
+  row: string,
+  aliases?: readonly string[],
+];
+
+const YOON_KANA_DEFINITIONS: readonly YoonKanaDefinition[] = [
+  ["き", "キ", "きゃ", "キャ", "kya", "ky"],
+  ["き", "キ", "きゅ", "キュ", "kyu", "ky"],
+  ["き", "キ", "きょ", "キョ", "kyo", "ky"],
+  ["し", "シ", "しゃ", "シャ", "sha", "sh", ["sya"]],
+  ["し", "シ", "しゅ", "シュ", "shu", "sh", ["syu"]],
+  ["し", "シ", "しょ", "ショ", "sho", "sh", ["syo"]],
+  ["ち", "チ", "ちゃ", "チャ", "cha", "ch", ["tya", "cya"]],
+  ["ち", "チ", "ちゅ", "チュ", "chu", "ch", ["tyu", "cyu"]],
+  ["ち", "チ", "ちょ", "チョ", "cho", "ch", ["tyo", "cyo"]],
+  ["に", "ニ", "にゃ", "ニャ", "nya", "ny"],
+  ["に", "ニ", "にゅ", "ニュ", "nyu", "ny"],
+  ["に", "ニ", "にょ", "ニョ", "nyo", "ny"],
+  ["ひ", "ヒ", "ひゃ", "ヒャ", "hya", "hy"],
+  ["ひ", "ヒ", "ひゅ", "ヒュ", "hyu", "hy"],
+  ["ひ", "ヒ", "ひょ", "ヒョ", "hyo", "hy"],
+  ["み", "ミ", "みゃ", "ミャ", "mya", "my"],
+  ["み", "ミ", "みゅ", "ミュ", "myu", "my"],
+  ["み", "ミ", "みょ", "ミョ", "myo", "my"],
+  ["り", "リ", "りゃ", "リャ", "rya", "ry"],
+  ["り", "リ", "りゅ", "リュ", "ryu", "ry"],
+  ["り", "リ", "りょ", "リョ", "ryo", "ry"],
+  ["ぎ", "ギ", "ぎゃ", "ギャ", "gya", "gy"],
+  ["ぎ", "ギ", "ぎゅ", "ギュ", "gyu", "gy"],
+  ["ぎ", "ギ", "ぎょ", "ギョ", "gyo", "gy"],
+  ["じ", "ジ", "じゃ", "ジャ", "ja", "j", ["jya", "zya"]],
+  ["じ", "ジ", "じゅ", "ジュ", "ju", "j", ["jyu", "zyu"]],
+  ["じ", "ジ", "じょ", "ジョ", "jo", "j", ["jyo", "zyo"]],
+  ["び", "ビ", "びゃ", "ビャ", "bya", "by"],
+  ["び", "ビ", "びゅ", "ビュ", "byu", "by"],
+  ["び", "ビ", "びょ", "ビョ", "byo", "by"],
+  ["ぴ", "ピ", "ぴゃ", "ピャ", "pya", "py"],
+  ["ぴ", "ピ", "ぴゅ", "ピュ", "pyu", "py"],
+  ["ぴ", "ピ", "ぴょ", "ピョ", "pyo", "py"],
+];
+
 export const BASIC_KANA: readonly KanaCharacter[] = BASIC_KANA_DEFINITIONS.flatMap(
   ([hiragana, katakana, romaji, row, aliases = []], order) => {
     const acceptedRomaji = [romaji, ...aliases];
@@ -167,7 +213,37 @@ export const MODIFIED_KANA: readonly KanaCharacter[] = MODIFIED_KANA_DEFINITIONS
   },
 );
 
-export const KANA: readonly KanaCharacter[] = [...BASIC_KANA, ...MODIFIED_KANA];
+export const YOON_KANA: readonly KanaCharacter[] = YOON_KANA_DEFINITIONS.flatMap(
+  ([baseHiragana, baseKatakana, hiragana, katakana, romaji, row, aliases = []], index) => {
+    const acceptedRomaji = [romaji, ...aliases];
+    const order = BASIC_KANA_DEFINITIONS.length + MODIFIED_KANA_DEFINITIONS.length + index;
+
+    return [
+      {
+        character: hiragana,
+        script: "hiragana" as const,
+        romaji,
+        acceptedRomaji,
+        row,
+        order,
+        variant: "yoon" as const,
+        baseCharacter: baseHiragana,
+      },
+      {
+        character: katakana,
+        script: "katakana" as const,
+        romaji,
+        acceptedRomaji,
+        row,
+        order,
+        variant: "yoon" as const,
+        baseCharacter: baseKatakana,
+      },
+    ];
+  },
+);
+
+export const KANA: readonly KanaCharacter[] = [...BASIC_KANA, ...MODIFIED_KANA, ...YOON_KANA];
 
 const BASIC_KANA_BY_CHARACTER = new Map(BASIC_KANA.map((kana) => [kana.character, kana]));
 const KANA_BY_CHARACTER = new Map(KANA.map((kana) => [kana.character, kana]));

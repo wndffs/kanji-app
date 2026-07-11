@@ -604,6 +604,8 @@ function formatVariant(item: KanaLessonItemDto): string {
       return "Дакутэн";
     case "handakuten":
       return "Хандакутэн";
+    case "yoon":
+      return "Ёон";
     default:
       return "Новый знак";
   }

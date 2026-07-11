@@ -56,15 +56,17 @@ from Foundation through N2 without requiring the full corpus upfront.
 Kana is a separate character-learning track and does not use `LearningCard` or
 the interval-based SRS for components, kanji, vocabulary, and sentences.
 
-Each script contains 71 independent learning characters:
+Each script contains 104 independent learning characters or combinations:
 
 - 46 modern basic characters;
 - 20 voiced variants with dakuten;
-- 5 semi-voiced variants with handakuten.
+- 5 semi-voiced variants with handakuten;
+- 33 standard yoon combinations with small `ゃ`, `ゅ`, or `ょ`.
 
 Modified sounds are separate units: for example, `ひ` (`hi`), `び` (`bi`), and
 `ぴ` (`pi`) keep independent progress. Hiragana and katakana progress is also
-independent.
+independent. Yoon combinations such as `きゃ` (`kya`) and `しゃ` (`sha`) also
+keep their own progress instead of inheriting mastery from their base symbol.
 
 The character track is split into sequential row lessons. A lesson first shows
 the character and its reading, then checks recognition. Three correct answers

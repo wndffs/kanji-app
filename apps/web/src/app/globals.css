@@ -2187,13 +2187,14 @@ textarea:focus-visible {
 }
 
 .kana-unit-characters span {
-  width: 34px;
+  width: 44px;
   height: 34px;
   display: grid;
   place-items: center;
   border: 1px solid var(--surface-border);
   border-radius: 4px;
   color: var(--muted);
+  font-size: 22px;
 }
 
 .kana-unit-characters span.is-mastered {

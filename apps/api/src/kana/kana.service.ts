@@ -97,8 +97,15 @@ function parseAnswerRequest(value: unknown): KanaAssessmentAnswerRequest {
 
   const record = value as Record<string, unknown>;
 
-  if (typeof record.character !== "string" || Array.from(record.character.trim()).length !== 1) {
-    throw new BadRequestException("character должен содержать один знак кана.");
+  if (typeof record.character !== "string") {
+    throw new BadRequestException("character должен содержать один знак или сочетание кана.");
+  }
+
+  const character = record.character.trim();
+  const characterLength = Array.from(character).length;
+
+  if (characterLength < 1 || characterLength > 2) {
+    throw new BadRequestException("character должен содержать один знак или сочетание кана.");
   }
 
   if (typeof record.answer !== "string") {
@@ -109,7 +116,7 @@ function parseAnswerRequest(value: unknown): KanaAssessmentAnswerRequest {
     throw new BadRequestException("Ответ слишком длинный.");
   }
 
-  return { character: record.character.trim(), answer: record.answer };
+  return { character, answer: record.answer };
 }
 
 function buildProgressDto(
@@ -184,6 +191,17 @@ const KANA_LESSON_GROUPS = [
   { id: "d", rows: ["d"], title: "Дакутэн: D" },
   { id: "b", rows: ["b"], title: "Дакутэн: B" },
   { id: "p", rows: ["p"], title: "Хандакутэн: P" },
+  { id: "ky", rows: ["ky"], title: "Ёон: KY" },
+  { id: "sh", rows: ["sh"], title: "Ёон: SH" },
+  { id: "ch", rows: ["ch"], title: "Ёон: CH" },
+  { id: "ny", rows: ["ny"], title: "Ёон: NY" },
+  { id: "hy", rows: ["hy"], title: "Ёон: HY" },
+  { id: "my", rows: ["my"], title: "Ёон: MY" },
+  { id: "ry", rows: ["ry"], title: "Ёон: RY" },
+  { id: "gy", rows: ["gy"], title: "Ёон: GY" },
+  { id: "j", rows: ["j"], title: "Ёон: J" },
+  { id: "by", rows: ["by"], title: "Ёон: BY" },
+  { id: "py", rows: ["py"], title: "Ёон: PY" },
 ] as const;
 
 function buildLessonPathDto(

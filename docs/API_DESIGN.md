@@ -63,9 +63,10 @@ days.
 - `GET /kana/lessons?script=hiragana|katakana`
 - `POST /kana/lessons/answer`
 
-The authenticated kana track covers 71 independent characters per script: 46
-modern basic characters, 20 dakuten variants, and 5 handakuten variants. The
-assessment response omits romaji until answer feedback. The lesson response
+The authenticated kana track covers 104 independent characters or combinations
+per script: 46 modern basic characters, 20 dakuten variants, 5 handakuten
+variants, and 33 standard yoon combinations. The assessment response omits
+romaji until answer feedback. The lesson response
 groups characters into sequential rows and includes readings for the teaching
 step. Three correct answers complete a character; later mistakes reset the
 current streak but not completed lesson progress. Kana does not create

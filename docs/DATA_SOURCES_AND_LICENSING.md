@@ -10,10 +10,10 @@ The app must not rely on proprietary WaniKani content. Use open or compatible so
 
 The hiragana/katakana lesson catalogue contains project-authored factual
 symbol-to-romaji mappings for 46 modern basic characters, 20 dakuten variants,
-and 5 handakuten variants in each script.
+5 handakuten variants, and 33 standard yoon combinations in each script.
 It does not copy mnemonics, explanations, ordering, or other educational text
-from third-party applications. Contracted sounds and combinations should be
-added as separately reviewed project content.
+from third-party applications. Additional orthographic rules should be added as
+separately reviewed project content.
 
 ### EDRDG: JMdict / KANJIDIC2
 

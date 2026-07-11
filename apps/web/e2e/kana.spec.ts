@@ -23,6 +23,18 @@ test.describe("kana lessons", () => {
     await expect(page.getByRole("heading", { name: "Кана" })).toBeVisible();
     await expect(practice).toContainText("あ");
     await expect(practice).toContainText("a");
+    const yoonTile = page.getByTestId("kana-unit-list").getByText("きゃ", { exact: true });
+    await expect(yoonTile).toBeVisible();
+    expect(await yoonTile.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+      true,
+    );
+    await page.getByRole("tab", { name: "Проверка" }).click();
+    const assessmentYoon = page.getByRole("button", { name: "きゃ: прогресс 0 из 3" });
+    await expect(assessmentYoon).toBeVisible();
+    expect(
+      await assessmentYoon.evaluate((element) => element.scrollWidth <= element.clientWidth),
+    ).toBe(true);
+    await page.getByRole("tab", { name: "Уроки" }).click();
     await page.getByRole("button", { name: "Проверить чтение" }).click();
     await page.getByLabel("Ромадзи").fill("a");
     await page.getByRole("button", { name: "Проверить" }).click();
@@ -34,6 +46,9 @@ test.describe("kana lessons", () => {
 
     await page.getByRole("button", { name: "Катакана" }).click();
     await expect(practice).toContainText("ア");
+    await expect(
+      page.getByTestId("kana-unit-list").getByText("キャ", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Освоено 0%" })).toBeVisible();
   });
 });
@@ -67,8 +82,8 @@ async function signIn(page: Page): Promise<void> {
 
 async function mockKanaApi(page: Page): Promise<void> {
   const progressByScript = new Map<KanaScript, KanaAssessmentProgressDto>([
-    ["hiragana", buildProgress("hiragana", ["あ", "い", "う"])],
-    ["katakana", buildProgress("katakana", ["ア", "イ", "ウ"])],
+    ["hiragana", buildProgress("hiragana", ["あ", "い", "う", "きゃ"])],
+    ["katakana", buildProgress("katakana", ["ア", "イ", "ウ", "キャ"])],
   ]);
 
   await page.route(`${API_BASE_URL}/kana/assessment?script=*`, async (route) => {
@@ -139,23 +154,30 @@ function buildProgress(
     totalCount: characters.length,
     attemptedCount: 0,
     masteredCount: 0,
-    items: characters.map((character, order) => ({
-      character,
-      script,
-      row: "vowels",
-      order,
-      variant: "basic",
-      baseCharacter: character,
-      attemptCount: 0,
-      correctCount: 0,
-      currentStreak: 0,
-      mastered: false,
-      lastAnsweredAt: null,
-    })),
+    items: characters.map((character, order) => {
+      const isYoon = Array.from(character).length === 2;
+
+      return {
+        character,
+        script,
+        row: isYoon ? "ky" : "vowels",
+        order,
+        variant: isYoon ? "yoon" : "basic",
+        baseCharacter: isYoon ? (Array.from(character)[0] ?? character) : character,
+        attemptCount: 0,
+        correctCount: 0,
+        currentStreak: 0,
+        mastered: false,
+        lastAnsweredAt: null,
+      };
+    }),
   };
 }
 
 function buildLessonPath(progress: KanaAssessmentProgressDto): KanaLessonPathDto {
+  const vowels = progress.items.filter((item) => item.row === "vowels");
+  const yoon = progress.items.filter((item) => item.row === "ky");
+
   return {
     script: progress.script,
     masteryThreshold: progress.masteryThreshold,
@@ -170,11 +192,22 @@ function buildLessonPath(progress: KanaAssessmentProgressDto): KanaLessonPathDto
         unlocked: true,
         complete: false,
         masteredCount: 0,
-        totalCount: progress.items.length,
-        items: progress.items.map((item, index) => ({
+        totalCount: vowels.length,
+        items: vowels.map((item, index) => ({
           ...item,
           romaji: ["a", "i", "u"][index] ?? "a",
         })),
+      },
+      {
+        id: `${progress.script}-ky`,
+        script: progress.script,
+        title: "Ёон: KY",
+        order: 1,
+        unlocked: false,
+        complete: false,
+        masteredCount: 0,
+        totalCount: yoon.length,
+        items: yoon.map((item) => ({ ...item, romaji: "kya" })),
       },
     ],
   };
