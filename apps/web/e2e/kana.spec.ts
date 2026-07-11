@@ -1,4 +1,4 @@
-import { expect, type Page, type Route, test } from "@playwright/test";
+import { expect, type Locator, type Page, type Route, test } from "@playwright/test";
 
 import {
   type KanaAssessmentAnswerRequest,
@@ -78,6 +78,15 @@ test.describe("kana lessons", () => {
       )
       .toBe("かっか");
     await practice.getByRole("button", { name: "っか", exact: true }).click();
+    await expect(practice.getByText("Верно")).toBeVisible();
+    await page.getByRole("button", { name: "Следующий" }).click();
+
+    await page.getByRole("button", { name: "え: прогресс 0 из 3" }).click();
+    await expect(practice.getByText("Обводка", { exact: true })).toBeVisible();
+    const traceSurface = practice.getByTestId("kana-trace-surface");
+    await traceLine(page, traceSurface, { x: 15, y: 30 }, { x: 94, y: 30 });
+    await traceLine(page, traceSurface, { x: 15, y: 75 }, { x: 94, y: 75 });
+    await expect(practice.getByText("Знак обведён", { exact: true })).toBeVisible();
     await expect(practice.getByText("Верно")).toBeVisible();
     await page.getByRole("button", { name: "Следующий" }).click();
 
@@ -169,9 +178,22 @@ async function signIn(page: Page): Promise<void> {
 
 async function mockKanaApi(page: Page): Promise<void> {
   const progressByScript = new Map<KanaScript, KanaAssessmentProgressDto>([
-    ["hiragana", buildProgress("hiragana", ["あ", "い", "う", "きゃ", "っか", "おう"])],
-    ["katakana", buildProgress("katakana", ["ア", "イ", "ウ", "キャ", "ッカ", "オー"])],
+    ["hiragana", buildProgress("hiragana", ["あ", "い", "う", "きゃ", "っか", "え", "おう"])],
+    ["katakana", buildProgress("katakana", ["ア", "イ", "ウ", "キャ", "ッカ", "エ", "オー"])],
   ]);
+
+  await page.route("**/api/kana-strokes/*", async (route) => {
+    await route.fulfill({
+      body: `<?xml version="1.0" encoding="UTF-8"?>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 109 109">
+          <g id="kvg:StrokePaths_03048">
+            <path id="kvg:03048-s1" d="M15,30 L94,30" />
+            <path id="kvg:03048-s2" d="M15,75 L94,75" />
+          </g>
+        </svg>`,
+      contentType: "image/svg+xml",
+    });
+  });
 
   await page.route(`${API_BASE_URL}/kana/assessment?script=*`, async (route) => {
     const script = new URL(route.request().url()).searchParams.get("script") as KanaScript;
@@ -286,7 +308,7 @@ function buildLessonPath(progress: KanaAssessmentProgressDto): KanaLessonPathDto
         totalCount: vowels.length,
         items: vowels.map((item, index) => ({
           ...item,
-          romaji: ["a", "i", "u"][index] ?? "a",
+          romaji: ["a", "i", "u", "e"][index] ?? "a",
         })),
       },
       {
@@ -354,12 +376,14 @@ function getMockRomaji(character: string): string {
     ["う", "u"],
     ["きゃ", "kya"],
     ["っか", "kka"],
+    ["え", "e"],
     ["おう", "ou"],
     ["ア", "a"],
     ["イ", "i"],
     ["ウ", "u"],
     ["キャ", "kya"],
     ["ッカ", "kka"],
+    ["エ", "e"],
     ["オー", "oo"],
   ]).get(character);
 
@@ -368,4 +392,31 @@ function getMockRomaji(character: string): string {
   }
 
   return romaji;
+}
+
+async function traceLine(
+  page: Page,
+  surface: Locator,
+  from: { readonly x: number; readonly y: number },
+  to: { readonly x: number; readonly y: number },
+): Promise<void> {
+  const bounds = await surface.boundingBox();
+
+  if (bounds === null) {
+    throw new Error("Kana trace surface is not visible.");
+  }
+
+  const start = {
+    x: bounds.x + (from.x / 109) * bounds.width,
+    y: bounds.y + (from.y / 109) * bounds.height,
+  };
+  const end = {
+    x: bounds.x + (to.x / 109) * bounds.width,
+    y: bounds.y + (to.y / 109) * bounds.height,
+  };
+
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 24 });
+  await page.mouse.up();
 }

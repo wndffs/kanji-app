@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type FormEvent,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   type KanaAssessmentAnswerResponse,
@@ -27,6 +35,8 @@ import {
   type KanaExerciseKind,
 } from "../../lib/kana-exercises";
 import { buildKanaSpeechText } from "../../lib/kana-speech";
+import { isKanaTracingCandidate } from "../../lib/kana-tracing";
+import { KanaTracingExercise } from "./KanaTracingExercise";
 import { useKanaSpeech } from "./useKanaSpeech";
 
 type KanaMode = "lessons" | "assessment";
@@ -59,6 +69,7 @@ export function KanaClient() {
   const choiceRef = useRef<HTMLButtonElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
   const kanaSpeech = useKanaSpeech();
+  const handleTracingUnavailable = useCallback(() => setExerciseKind("typing"), []);
 
   useEffect(() => {
     const session = readStoredSession();
@@ -211,6 +222,18 @@ export function KanaClient() {
     }
   }
 
+  async function handleTraceComplete(): Promise<void> {
+    if (currentItem === null || currentLessonItem === null || feedback !== null || submitting) {
+      return;
+    }
+
+    const result = await submitAnswer(currentItem.character, currentLessonItem.romaji);
+
+    if (result !== null) {
+      setFeedback(result);
+    }
+  }
+
   async function submitAnswer(
     character: string,
     submittedAnswer: string,
@@ -262,7 +285,10 @@ export function KanaClient() {
     setExerciseKind(
       item === undefined
         ? "typing"
-        : selectKanaExerciseKind(item, { listeningAvailable: kanaSpeech.available }),
+        : selectKanaExerciseKind(item, {
+            listeningAvailable: kanaSpeech.available,
+            tracingAvailable: isKanaTracingCandidate(item),
+          }),
     );
     setAnswer("");
     setFeedback(null);
@@ -484,6 +510,8 @@ export function KanaClient() {
               onNext={handleNext}
               onSpeak={() => kanaSpeech.speak(buildKanaSpeechText(currentLessonItem))}
               onSubmit={(event) => void handleSubmit(event)}
+              onTraceComplete={handleTraceComplete}
+              onTracingUnavailable={handleTracingUnavailable}
               submitting={submitting}
             />
           )}
@@ -557,6 +585,8 @@ function KanaQuiz({
   onNext,
   onSpeak,
   onSubmit,
+  onTraceComplete,
+  onTracingUnavailable,
   submitting,
 }: {
   readonly answer: string;
@@ -577,6 +607,8 @@ function KanaQuiz({
   readonly onNext: () => void;
   readonly onSpeak: () => boolean;
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  readonly onTraceComplete: () => Promise<void>;
+  readonly onTracingUnavailable: () => void;
   readonly submitting: boolean;
 }) {
   if (exerciseKind === "matching") {
@@ -588,6 +620,28 @@ function KanaQuiz({
         onNext={onNext}
         submitting={submitting}
       />
+    );
+  }
+
+  if (exerciseKind === "tracing") {
+    return (
+      <>
+        <KanaTracingExercise
+          disabled={feedback !== null || submitting}
+          item={item}
+          onComplete={onTraceComplete}
+          onUnavailable={onTracingUnavailable}
+        />
+        {feedback === null ? null : (
+          <KanaFeedback
+            continueRef={continueRef}
+            feedback={feedback}
+            item={item}
+            onNext={onNext}
+            reverse={true}
+          />
+        )}
+      </>
     );
   }
 

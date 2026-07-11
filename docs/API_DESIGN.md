@@ -62,6 +62,7 @@ days.
 - `POST /kana/assessment/answer`
 - `GET /kana/lessons?script=hiragana|katakana`
 - `POST /kana/lessons/answer`
+- `GET /api/kana-strokes/:character` (Next.js web route)
 
 The authenticated kana track covers a 104-target shared core per script: 46
 modern basic characters, 20 dakuten variants, 5 handakuten variants, and 33
@@ -69,12 +70,19 @@ standard yoon combinations. Four sokuon patterns and script-specific long-vowel
 spellings extend that to 115 hiragana targets and 113 katakana targets. The
 assessment response omits romaji until answer feedback. The lesson response
 groups targets into sequential units and includes readings for the teaching
-step. Typed, choice, reverse-choice, matching, and listening interactions all
-submit the target character plus the selected romaji through the same answer
-endpoints, so the server remains the correctness authority. Speech generation
-is client-side and sends no audio payload to the API. Three correct answers
+step. Typed, choice, reverse-choice, matching, listening, and tracing
+interactions all submit the target character plus the selected romaji through
+the same answer endpoints, so the server remains the correctness authority.
+Speech generation and stroke validation are client-side and send no audio or
+pointer data to the API. Three correct answers
 complete a target; later mistakes reset the current streak but not completed
 lesson progress. Kana does not create `LearningCard` or `UserSrsState` records.
+
+The web stroke route accepts one hiragana or katakana codepoint, fetches the
+matching SVG from the pinned KanjiVG `r20250816` release, and returns it with
+shared-cache headers. The client extracts only ordered path data and validates
+the user's strokes locally. A completed trace submits the normal romaji answer
+endpoint; the stroke SVG itself is not persisted in kana progress.
 
 ### Lessons
 

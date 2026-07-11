@@ -69,6 +69,19 @@ Implementation requirements:
 - Preserve enough metadata to regenerate SVG paths if the renderer changes.
 - Do not mix KanjiVG component groupings with proprietary radical names.
 
+Kana tracing reads unmodified SVG files from the pinned KanjiVG `r20250816`
+release through a same-origin web route. It does not persist them as `Kanji`
+rows because kana is a separate learning domain. The tracing UI shows KanjiVG
+and CC BY-SA 3.0 attribution next to every guide; the source URL is also retained
+in the proxy response header. Any future modified or redistributed path bundle
+must remain under compatible share-alike terms.
+
+References:
+
+- [KanjiVG repository and license](https://github.com/KanjiVG/kanjivg)
+- [KanjiVG SVG format](https://kanjivg.tagaini.net/svg-format.html)
+- [KanjiVG `あ` path file](https://github.com/KanjiVG/kanjivg/blob/r20250816/kanji/03042.svg)
+
 ### Tatoeba
 
 Use for example sentences only after attribution and license handling are implemented.

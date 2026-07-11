@@ -80,12 +80,16 @@ independent. Yoon combinations such as `きゃ` (`kya`) and `しゃ` (`sha`) als
 keep their own progress instead of inheriting mastery from their base symbol.
 
 The character track is split into sequential row lessons. A lesson first shows
-the character and its reading, then rotates five retrieval formats: typed
+the character and its reading, then rotates six retrieval formats: typed
 romaji, character-to-reading choice, reading-to-character choice, a three-pair
-matching board, and browser-generated Japanese listening. Listening uses a
-context pair such as `かっか` for a leading sokuon target so the doubled
-consonant is pronounceable. If browser speech synthesis is unavailable, the
-four silent formats continue without blocking the lesson.
+matching board, browser-generated Japanese listening, and stroke-order tracing
+for single kana glyphs. Tracing checks stroke order, direction, endpoints, and
+path proximity against KanjiVG guides. Combined targets continue to use the
+other exercise formats.
+
+Listening uses a context pair such as `かっか` for a leading sokuon target so
+the doubled consonant is pronounceable. If speech synthesis or a tracing guide
+is unavailable, the remaining formats continue without blocking the lesson.
 
 Choice sets exclude duplicate readings so equivalent targets such as `じ` and
 `ぢ` cannot create an ambiguous question. Every pair or answer is checked by the

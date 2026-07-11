@@ -18,6 +18,18 @@ describe("kana exercise selection", () => {
     expect(selectKanaExerciseKind(buildItem("あ", "a", 0, 5), { listeningAvailable: true })).toBe(
       "typing",
     );
+    expect(
+      selectKanaExerciseKind(buildItem("あ", "a", 0, 5), {
+        listeningAvailable: true,
+        tracingAvailable: true,
+      }),
+    ).toBe("tracing");
+    expect(
+      selectKanaExerciseKind(buildItem("あ", "a", 0, 6), {
+        listeningAvailable: true,
+        tracingAvailable: true,
+      }),
+    ).toBe("typing");
   });
 
   it("keeps the target and removes ambiguous duplicate readings", () => {

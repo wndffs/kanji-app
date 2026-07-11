@@ -2150,6 +2150,123 @@ textarea:focus-visible {
   font-weight: 700;
 }
 
+.kana-tracing {
+  width: min(100%, 460px);
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+
+.kana-trace-loading {
+  min-height: 320px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.kana-trace-heading {
+  width: min(100%, 360px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.kana-trace-heading strong {
+  font-family: "Noto Sans JP", "Yu Gothic", sans-serif;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.kana-trace-heading span,
+.kana-trace-attribution {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.kana-trace-surface {
+  width: min(100%, 360px);
+  aspect-ratio: 1;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+.kana-trace-background {
+  fill: var(--surface);
+}
+
+.kana-trace-grid {
+  stroke: var(--surface-border);
+  stroke-dasharray: 3 4;
+  stroke-width: 0.8;
+}
+
+.kana-trace-surface path {
+  fill: none;
+  stroke: var(--surface-border);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 4;
+  pointer-events: none;
+}
+
+.kana-trace-surface path.is-current {
+  stroke: var(--primary);
+  stroke-dasharray: 5 4;
+}
+
+.kana-trace-surface path.is-complete {
+  stroke: #b9d8d0;
+}
+
+.kana-trace-user {
+  fill: none;
+  stroke: var(--foreground);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 5;
+  pointer-events: none;
+}
+
+.kana-trace-user.is-complete {
+  stroke: var(--success);
+}
+
+.kana-trace-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.kana-trace-actions button {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.kana-trace-actions button.kana-trace-skip {
+  width: auto;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.kana-trace-attribution a {
+  color: var(--primary);
+}
+
 .kana-streak {
   color: var(--muted);
   font-weight: 700;

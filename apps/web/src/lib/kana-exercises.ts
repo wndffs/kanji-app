@@ -6,19 +6,23 @@ export const KANA_EXERCISE_KINDS = [
   "reverse-choice",
   "matching",
   "listening-choice",
+  "tracing",
 ] as const;
 
 export type KanaExerciseKind = (typeof KANA_EXERCISE_KINDS)[number];
 
-const SILENT_KANA_EXERCISE_KINDS = KANA_EXERCISE_KINDS.filter(
-  (kind) => kind !== "listening-choice",
-);
-
 export function selectKanaExerciseKind(
   item: Pick<KanaLessonItemDto, "attemptCount" | "order">,
-  options: { readonly listeningAvailable?: boolean } = {},
+  options: {
+    readonly listeningAvailable?: boolean;
+    readonly tracingAvailable?: boolean;
+  } = {},
 ): KanaExerciseKind {
-  const kinds = options.listeningAvailable ? KANA_EXERCISE_KINDS : SILENT_KANA_EXERCISE_KINDS;
+  const kinds = KANA_EXERCISE_KINDS.filter(
+    (kind) =>
+      (options.listeningAvailable === true || kind !== "listening-choice") &&
+      (options.tracingAvailable === true || kind !== "tracing"),
+  );
 
   return kinds[(item.order + item.attemptCount) % kinds.length]!;
 }
