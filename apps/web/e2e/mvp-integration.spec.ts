@@ -438,6 +438,7 @@ function buildSearchResponse(query: string, state: MvpApiState): SearchResponseD
 function buildStarterItemDetails(state: MvpApiState): ItemDetails {
   return {
     ...buildStarterItemSummary(state),
+    componentDetails: null,
     cards: [starterMeaningCard],
     relations: [{ item: starterComponentSummary, relationType: "component" }],
     mnemonics: {

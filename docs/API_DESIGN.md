@@ -104,6 +104,12 @@ summaries, and current-user private overrides when the request includes a valid
 bearer token. Normal learner responses expose attribution metadata only; raw
 import records stay out of public item/search responses.
 
+Component item details expose `translations` as the learnable component meaning
+and a separate `componentDetails` object with bilingual `name` and
+`shapeDescription` bundles. A visual label such as "horizontal stroke" must not
+be returned as a dictionary meaning or accepted answer merely because it names
+the component's shape.
+
 Search supports kanji characters, Japanese expressions, readings, and
 Russian/English meanings. Search responses are paginated with `page` and
 `limit`.

@@ -134,6 +134,11 @@ export type ItemRelationDto = {
   readonly relationType: "component" | "kanji" | "word" | "dependency" | "example";
 };
 
+export type ComponentDetailsDto = {
+  readonly name: TranslationBundleDto;
+  readonly shapeDescription: TranslationBundleDto;
+};
+
 export type KanjiStrokePathDto = {
   readonly id: string;
   readonly order: number;
@@ -192,6 +197,7 @@ export type ReviewQueueItemSummary = {
 };
 
 export type ItemDetails = ItemSummary & {
+  readonly componentDetails: ComponentDetailsDto | null;
   readonly cards: readonly LearningCardDto[];
   readonly relations: readonly ItemRelationDto[];
   readonly mnemonics: BilingualTextDto;

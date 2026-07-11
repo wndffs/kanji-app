@@ -47,15 +47,84 @@ describe("Prisma seed", () => {
     );
   });
 
-  it("keeps starter component meanings bilingual", () => {
+  it("keeps starter component names, shapes, and meanings bilingual", () => {
     const components = buildStarterCourseSeed().items.filter(
       (item) => item.target.kind === "COMPONENT",
     );
 
     expect(components.length).toBeGreaterThan(0);
     expect(
-      components.every((item) => item.target.kind === "COMPONENT" && item.target.meaningEn !== ""),
+      components.every(
+        (item) =>
+          item.target.kind === "COMPONENT" &&
+          item.target.displayNameRu !== "" &&
+          item.target.displayNameEn !== "" &&
+          item.target.shapeDescriptionRu !== "" &&
+          item.target.shapeDescriptionEn !== "" &&
+          item.target.meaningRu !== "" &&
+          item.target.meaningEn !== "",
+      ),
     ).toBe(true);
+  });
+
+  it("does not confuse the shapes of 一 and 口 with their meanings", () => {
+    const items = buildStarterCourseSeed().items;
+    const one = items.find((item) => item.key === "component-one-stroke");
+    const mouth = items.find((item) => item.key === "component-mouth-frame");
+
+    expect(one?.target).toMatchObject({
+      kind: "COMPONENT",
+      displayNameRu: "единица",
+      displayNameEn: "one",
+      shapeDescriptionRu: "горизонтальная черта",
+      shapeDescriptionEn: "horizontal stroke",
+      meaningRu: "один",
+      meaningEn: "one",
+    });
+    expect(one?.cards[0]?.acceptedAnswers.map((answer) => answer.normalizedText)).toEqual([
+      "единица",
+      "один",
+      "one",
+      "unit",
+    ]);
+    expect(one?.cards[0]?.blockedAnswers?.map((answer) => answer.normalizedText)).toEqual([
+      "одна черта",
+    ]);
+
+    expect(mouth?.target).toMatchObject({
+      kind: "COMPONENT",
+      displayNameRu: "рот",
+      displayNameEn: "mouth",
+      shapeDescriptionRu: "прямоугольная рамка",
+      shapeDescriptionEn: "rectangular frame",
+      meaningRu: "рот",
+      meaningEn: "mouth",
+    });
+    expect(mouth?.cards[0]?.acceptedAnswers.map((answer) => answer.normalizedText)).toEqual([
+      "рот",
+      "mouth",
+    ]);
+    expect(mouth?.cards[0]?.blockedAnswers?.map((answer) => answer.normalizedText)).toEqual([
+      "отверстие",
+    ]);
+
+    const oneKanji = items.find((item) => item.key === "kanji-one");
+    expect(
+      oneKanji?.target.kind === "KANJI"
+        ? oneKanji.target.meanings.map((meaning) => [meaning.locale, meaning.text])
+        : [],
+    ).toEqual([
+      ["ru-RU", "один"],
+      ["ru-RU", "единица"],
+      ["en-US", "one"],
+      ["en-US", "unit"],
+    ]);
+  });
+
+  it("reconciles project-authored answers when the starter seed changes", () => {
+    expect(seed).toContain("prisma.learningAnswer.deleteMany");
+    expect(seed).toContain("prisma.blockedAnswer.deleteMany");
+    expect(seed).toContain('sourceKind: "PROJECT_AUTHORED"');
   });
 
   it("keeps starter course dependencies valid", () => {

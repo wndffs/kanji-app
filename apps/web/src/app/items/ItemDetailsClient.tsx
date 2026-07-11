@@ -377,6 +377,24 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
             <TextList texts={getLocalizedTexts(item.translations, displayMode)} />
           </section>
 
+          {item.componentDetails === null ? null : (
+            <section className="panel" data-testid="component-details">
+              <h2>Компонент</h2>
+              <dl className="lesson-facts">
+                <div>
+                  <dt>Учебное имя</dt>
+                  <dd>{formatTranslationBundle(item.componentDetails.name, displayMode)}</dd>
+                </div>
+                <div>
+                  <dt>Описание формы</dt>
+                  <dd>
+                    {formatTranslationBundle(item.componentDetails.shapeDescription, displayMode)}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+          )}
+
           <section className="panel">
             <h2>Чтения</h2>
             {item.reading === null && readingCards.length === 0 ? (

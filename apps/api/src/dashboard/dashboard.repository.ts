@@ -140,8 +140,8 @@ type CourseCardRow = {
 
 type ComponentTargetRow = {
   readonly symbol: string;
-  readonly displayNameRu: string;
   readonly meaningRu: string;
+  readonly meaningEn: string;
   readonly sourceKind: string;
 };
 
@@ -573,11 +573,13 @@ export class PrismaDashboardRepository extends DashboardRepository {
             isPrimary: true,
             sourceKind: toSourceKind(component.sourceKind),
           }),
-          dashboardLocalizedText("ru-RU", component.displayNameRu, {
+        ],
+        en: [
+          dashboardLocalizedText("en-US", component.meaningEn, {
+            isPrimary: true,
             sourceKind: toSourceKind(component.sourceKind),
           }),
         ],
-        en: [],
       },
       level: item.levelHint,
       jlptLevel: null,

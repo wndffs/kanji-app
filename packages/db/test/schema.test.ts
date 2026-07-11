@@ -99,6 +99,16 @@ describe("Prisma schema", () => {
     expect(schema).toContain("@@index([meaningEn])");
   });
 
+  it("separates component names and shape descriptions from meanings", () => {
+    expect(schema).toMatch(/displayNameRu\s+String/u);
+    expect(schema).toMatch(/displayNameEn\s+String\s+@default\(""\)/u);
+    expect(schema).toMatch(/shapeDescriptionRu\s+String\?/u);
+    expect(schema).toMatch(/shapeDescriptionEn\s+String\?/u);
+    expect(schema).toMatch(/meaningRu\s+String/u);
+    expect(schema).toMatch(/meaningEn\s+String\s+@default\(""\)/u);
+    expect(schema).toContain("@@index([displayNameEn])");
+  });
+
   it("stores locales for private overrides and mnemonics", () => {
     expect(schema).toContain('locale         String           @default("ru-RU")');
     expect(schema).toContain(

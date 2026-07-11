@@ -231,18 +231,22 @@ model ImportedRecord {
 }
 
 model Component {
-  id            String            @id @default(uuid()) @db.Uuid
-  symbol        String            @unique
-  displayNameRu String
-  meaningRu     String
-  meaningEn     String            @default("")
-  sourceKind    ContentSourceKind @default(PROJECT_AUTHORED)
-  notes         String?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  kanjiLinks    KanjiComponent[]
+  id                 String            @id @default(uuid()) @db.Uuid
+  symbol             String            @unique
+  displayNameRu      String
+  displayNameEn      String            @default("")
+  shapeDescriptionRu String?
+  shapeDescriptionEn String?
+  meaningRu          String
+  meaningEn          String            @default("")
+  sourceKind         ContentSourceKind @default(PROJECT_AUTHORED)
+  notes              String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  kanjiLinks         KanjiComponent[]
 
   @@index([displayNameRu])
+  @@index([displayNameEn])
   @@index([meaningRu])
   @@index([meaningEn])
 }

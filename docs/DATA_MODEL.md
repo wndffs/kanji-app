@@ -10,7 +10,9 @@
 
 ## Linguistic graph
 
-- `Component`: id, symbol, displayNameRu, displayNameEn, meaningRu, meaningEn, sourceKind, notes.
+- `Component`: id, symbol, displayNameRu/displayNameEn, shapeDescriptionRu/shapeDescriptionEn,
+  meaningRu/meaningEn, sourceKind, notes. Names and visual descriptions are pedagogical metadata;
+  dictionary meanings for a standalone kanji remain in `KanjiMeaning`.
 - `Kanji`: id, character, strokeCount, grade, jlptLevel, frequencyRank, kanjidicSourceId, kanjidicImportedRecordId.
 - `KanjiReading`: id, kanjiId, reading, readingType, priority.
 - `KanjiMeaning`: id, kanjiId, locale, meaning, isPrimary, sourceKind.

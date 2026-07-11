@@ -143,6 +143,16 @@ function parsePositiveInteger(
 function toItemDetails(item: ItemRecord, displayMode: TranslationDisplayMode): ItemDetails {
   return {
     ...toItemSummary(item, displayMode),
+    componentDetails:
+      item.target.componentDetails === null
+        ? null
+        : {
+            name: toTranslationBundle(item.target.componentDetails.name, displayMode),
+            shapeDescription: toTranslationBundle(
+              item.target.componentDetails.shapeDescription,
+              displayMode,
+            ),
+          },
     cards: item.cards.map((card) => toLearningCard(item, card, displayMode)),
     relations: item.relations.map((relation): ItemRelationDto => {
       return {

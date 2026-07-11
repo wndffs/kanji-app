@@ -77,8 +77,8 @@ type KanjiRow = {
 
 type ComponentRow = {
   readonly symbol: string;
-  readonly displayNameRu: string;
   readonly meaningRu: string;
+  readonly meaningEn: string;
   readonly sourceKind: string;
 };
 
@@ -413,11 +413,13 @@ export class PrismaDecksRepository extends DecksRepository {
             isPrimary: true,
             sourceKind: toSourceKind(component.sourceKind),
           }),
-          localizedText("ru-RU", component.displayNameRu, {
+        ],
+        en: [
+          localizedText("en-US", component.meaningEn, {
+            isPrimary: true,
             sourceKind: toSourceKind(component.sourceKind),
           }),
         ],
-        en: [],
       },
     };
   }

@@ -10,6 +10,7 @@ import {
 const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 const ITEM_ID = "item-kanji-one";
+const COMPONENT_ID = "item-component-one";
 
 test.describe("item details", () => {
   test("opens an item page", async ({ page }) => {
@@ -37,6 +38,24 @@ test.describe("item details", () => {
 
     await expect(page.getByTestId("item-leech-notice")).toContainText("Балл 29");
     await expect(page.getByTestId("item-leech-notice")).toContainText("мнемонику");
+  });
+
+  test("separates a component name and shape from its meaning", async ({ page }) => {
+    await signIn(page);
+    await page.route(`${API_BASE_URL}/items/${COMPONENT_ID}`, async (route) => {
+      await route.fulfill({ json: buildComponentDetails() });
+    });
+
+    await page.goto(`/items/${COMPONENT_ID}`);
+
+    await expect(page.getByRole("heading", { name: "Значения" })).toBeVisible();
+    await expect(page.getByText("один / one", { exact: true })).toBeVisible();
+    const details = page.getByTestId("component-details");
+    await expect(details.getByText("единица / one", { exact: true })).toBeVisible();
+    await expect(
+      details.getByText("горизонтальная черта / horizontal stroke", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("одна черта", { exact: true })).toHaveCount(0);
   });
 
   test("adds a private synonym", async ({ page }) => {
@@ -195,6 +214,7 @@ function buildItemDetails(
       ru: [{ locale: "ru-RU", text: "один", isPrimary: true, sourceKind: "curated" }],
       en: [{ locale: "en-US", text: "one", isPrimary: true, sourceKind: "curated" }],
     },
+    componentDetails: null,
     level: 1,
     jlptLevel: "N5",
     srs: {
@@ -364,5 +384,65 @@ function buildItemDetails(
       },
     ],
     userOverrides: privateOverrides,
+  };
+}
+
+function buildComponentDetails(): ItemDetails {
+  const item = buildItemDetails([], null);
+
+  return {
+    ...item,
+    id: COMPONENT_ID,
+    itemType: "component",
+    slug: "component:一",
+    japanese: "一",
+    reading: null,
+    translations: {
+      displayMode: "ru-en",
+      primaryRu: "один",
+      primaryEn: "one",
+      ru: [{ locale: "ru-RU", text: "один", isPrimary: true, sourceKind: "curated" }],
+      en: [{ locale: "en-US", text: "one", isPrimary: true, sourceKind: "curated" }],
+    },
+    componentDetails: {
+      name: {
+        displayMode: "ru-en",
+        primaryRu: "единица",
+        primaryEn: "one",
+        ru: [{ locale: "ru-RU", text: "единица", isPrimary: true, sourceKind: "curated" }],
+        en: [{ locale: "en-US", text: "one", isPrimary: true, sourceKind: "curated" }],
+      },
+      shapeDescription: {
+        displayMode: "ru-en",
+        primaryRu: "горизонтальная черта",
+        primaryEn: "horizontal stroke",
+        ru: [
+          {
+            locale: "ru-RU",
+            text: "горизонтальная черта",
+            isPrimary: true,
+            sourceKind: "curated",
+          },
+        ],
+        en: [
+          {
+            locale: "en-US",
+            text: "horizontal stroke",
+            isPrimary: true,
+            sourceKind: "curated",
+          },
+        ],
+      },
+    },
+    jlptLevel: null,
+    srs: null,
+    strokeGraphic: null,
+    cards: [],
+    relations: [],
+    mnemonics: { ru: [], en: [] },
+    hints: { ru: [], en: [] },
+    exampleSentences: [],
+    attributions: [],
+    userOverrides: [],
   };
 }

@@ -106,7 +106,11 @@ type HydrationOptions = ItemLookupOptions & {
 type ComponentRow = {
   readonly symbol: string;
   readonly displayNameRu: string;
+  readonly displayNameEn: string;
+  readonly shapeDescriptionRu: string | null;
+  readonly shapeDescriptionEn: string | null;
   readonly meaningRu: string;
+  readonly meaningEn: string;
   readonly sourceKind: string;
 };
 
@@ -307,7 +311,15 @@ export class PrismaItemsRepository extends ItemsRepository {
       }),
       this.prisma.db.component.findMany({
         where: {
-          OR: [{ symbol: query }, { displayNameRu: contains }, { meaningRu: contains }],
+          OR: [
+            { symbol: query },
+            { displayNameRu: contains },
+            { displayNameEn: contains },
+            { shapeDescriptionRu: contains },
+            { shapeDescriptionEn: contains },
+            { meaningRu: contains },
+            { meaningEn: contains },
+          ],
         },
         select: { id: true },
       }),
@@ -568,11 +580,33 @@ export class PrismaItemsRepository extends ItemsRepository {
             isPrimary: true,
             sourceKind: toSourceKind(component.sourceKind),
           }),
-          localizedText("ru-RU", component.displayNameRu, {
+        ],
+        en: [
+          localizedText("en-US", component.meaningEn, {
+            isPrimary: true,
             sourceKind: toSourceKind(component.sourceKind),
           }),
         ],
-        en: [],
+      },
+      componentDetails: {
+        name: {
+          ru: [
+            localizedText("ru-RU", component.displayNameRu, {
+              isPrimary: true,
+              sourceKind: toSourceKind(component.sourceKind),
+            }),
+          ],
+          en: [
+            localizedText("en-US", component.displayNameEn, {
+              isPrimary: true,
+              sourceKind: toSourceKind(component.sourceKind),
+            }),
+          ],
+        },
+        shapeDescription: {
+          ru: optionalLocalizedText("ru-RU", component.shapeDescriptionRu, component.sourceKind),
+          en: optionalLocalizedText("en-US", component.shapeDescriptionEn, component.sourceKind),
+        },
       },
       sourceRecordIds: [],
       strokeGraphic: null,
@@ -608,6 +642,7 @@ export class PrismaItemsRepository extends ItemsRepository {
           }),
         ),
       ),
+      componentDetails: null,
       sourceRecordIds: uniqueSourceRecordIds(
         kanji.kanjidicSourceId,
         strokeGraphic?.sourceRecordId ?? null,
@@ -641,6 +676,7 @@ export class PrismaItemsRepository extends ItemsRepository {
           }),
         ),
       ),
+      componentDetails: null,
       sourceRecordIds: word.jmdictEntryId === null ? [] : [word.jmdictEntryId],
       strokeGraphic: null,
       attributions: [],
@@ -674,6 +710,7 @@ export class PrismaItemsRepository extends ItemsRepository {
             ? []
             : [localizedText("en-US", sentence.translationEn, { isPrimary: true })],
       },
+      componentDetails: null,
       sourceRecordIds: sentence.sourceId === null ? [] : [sentence.sourceId],
       strokeGraphic: null,
       attributions:
@@ -873,6 +910,17 @@ function groupLocalizedTexts(
     ru: texts.filter((text) => text.locale === "ru-RU"),
     en: texts.filter((text) => text.locale === "en-US"),
   };
+}
+
+function optionalLocalizedText(locale: "ru-RU" | "en-US", text: string | null, sourceKind: string) {
+  return text === null || text.trim() === ""
+    ? []
+    : [
+        localizedText(locale, text, {
+          isPrimary: true,
+          sourceKind: toSourceKind(sourceKind),
+        }),
+      ];
 }
 
 function selectRepresentativeState(states: readonly ItemSrsStateRow[]): ItemSrsStateRow {

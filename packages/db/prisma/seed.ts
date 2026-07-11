@@ -16,7 +16,7 @@ const prisma = new PrismaClient();
 
 const PROJECT_LICENSE_NAME = "Project-authored bootstrap content";
 const PROJECT_SOURCE_NAME = "Kanji SRS bootstrap seed";
-const BOOTSTRAP_CHECKSUM = "0000000000000000000000000000000000000000000000000000000000000001";
+const BOOTSTRAP_CHECKSUM = "0000000000000000000000000000000000000000000000000000000000000002";
 const DEV_USER_PASSWORD_HASH =
   "scrypt$v1$16384$8$1$a2Fuamktc3JzLWRldi1zZWVk$7_47H9cFgH7KJnffLc52GZ_JS1mgMrNNyDHoCeB9SEWoqIwQFxqMjei-5KN4qg2z9cRym1_PTySo7lRgCA9crg";
 
@@ -124,7 +124,7 @@ async function upsertProjectImportRun(dataSourceId: string, seed: StarterCourseS
       },
     },
     update: {
-      sourceVersion: "starter-course-1",
+      sourceVersion: "starter-course-2",
       sourceFileName: "packages/db/src/course-seed.ts",
       finishedAt: new Date(),
       status: "SUCCESS",
@@ -133,7 +133,7 @@ async function upsertProjectImportRun(dataSourceId: string, seed: StarterCourseS
     },
     create: {
       dataSourceId,
-      sourceVersion: "starter-course-1",
+      sourceVersion: "starter-course-2",
       sourceFileName: "packages/db/src/course-seed.ts",
       checksumSha256: BOOTSTRAP_CHECKSUM,
       finishedAt: new Date(),
@@ -177,6 +177,9 @@ async function upsertComponent(item: StarterCourseSeedItem): Promise<string> {
     where: { symbol: item.target.symbol },
     update: {
       displayNameRu: item.target.displayNameRu,
+      displayNameEn: item.target.displayNameEn,
+      shapeDescriptionRu: item.target.shapeDescriptionRu,
+      shapeDescriptionEn: item.target.shapeDescriptionEn,
       meaningRu: item.target.meaningRu,
       meaningEn: item.target.meaningEn,
       sourceKind: "PROJECT_AUTHORED",
@@ -185,6 +188,9 @@ async function upsertComponent(item: StarterCourseSeedItem): Promise<string> {
     create: {
       symbol: item.target.symbol,
       displayNameRu: item.target.displayNameRu,
+      displayNameEn: item.target.displayNameEn,
+      shapeDescriptionRu: item.target.shapeDescriptionRu,
+      shapeDescriptionEn: item.target.shapeDescriptionEn,
       meaningRu: item.target.meaningRu,
       meaningEn: item.target.meaningEn,
       sourceKind: "PROJECT_AUTHORED",
@@ -456,6 +462,13 @@ async function upsertLearningContent(
 
     for (const card of item.cards) {
       const learningCard = await upsertCard(learningItemId, card);
+
+      await prisma.learningAnswer.deleteMany({
+        where: { learningCardId: learningCard.id, sourceKind: "PROJECT_AUTHORED" },
+      });
+      await prisma.blockedAnswer.deleteMany({
+        where: { learningCardId: learningCard.id, sourceKind: "PROJECT_AUTHORED" },
+      });
 
       for (const answer of card.acceptedAnswers) {
         await upsertAnswer(learningCard.id, answer);

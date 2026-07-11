@@ -122,8 +122,8 @@ type SrsSystemRow = {
 
 type ComponentTargetRow = {
   readonly symbol: string;
-  readonly displayNameRu: string;
   readonly meaningRu: string;
+  readonly meaningEn: string;
   readonly sourceKind: string;
 };
 
@@ -403,11 +403,13 @@ export class PrismaLessonsRepository extends LessonsRepository {
             isPrimary: true,
             sourceKind: toSourceKind(component.sourceKind),
           }),
-          localizedText("ru-RU", component.displayNameRu, {
+        ],
+        en: [
+          localizedText("en-US", component.meaningEn, {
+            isPrimary: true,
             sourceKind: toSourceKind(component.sourceKind),
           }),
         ],
-        en: [],
       },
     };
   }

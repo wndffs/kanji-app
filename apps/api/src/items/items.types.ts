@@ -10,11 +10,17 @@ import {
 
 export type ItemStrokeGraphicRecord = KanjiStrokeGraphicDto;
 
+export type ItemComponentDetailsRecord = {
+  readonly name: BilingualTextDto;
+  readonly shapeDescription: BilingualTextDto;
+};
+
 export type ItemTargetRecord = {
   readonly japanese: string;
   readonly reading: string | null;
   readonly jlptLevel: string | null;
   readonly translations: BilingualTextDto;
+  readonly componentDetails: ItemComponentDetailsRecord | null;
   readonly sourceRecordIds: readonly string[];
   readonly strokeGraphic: ItemStrokeGraphicRecord | null;
   readonly attributions: readonly SourceAttributionDto[];

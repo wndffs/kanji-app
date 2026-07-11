@@ -196,6 +196,27 @@ describe("ItemsService", () => {
       },
     });
   });
+
+  it("keeps component names and shapes separate from meanings", async () => {
+    const service = createService([createComponentItem()]);
+
+    await expect(service.getItemDetails("item-component-one", null)).resolves.toMatchObject({
+      itemType: "component",
+      translations: {
+        primaryRu: "один",
+        primaryEn: "one",
+        ru: [{ text: "один" }],
+        en: [{ text: "one" }],
+      },
+      componentDetails: {
+        name: { primaryRu: "единица", primaryEn: "one" },
+        shapeDescription: {
+          primaryRu: "горизонтальная черта",
+          primaryEn: "horizontal stroke",
+        },
+      },
+    });
+  });
 });
 
 class InMemoryItemsRepository extends ItemsRepository {
@@ -229,8 +250,47 @@ class InMemoryItemsRepository extends ItemsRepository {
   }
 }
 
-function createService(): ItemsService {
-  return new ItemsService(new InMemoryItemsRepository(createItems()));
+function createService(items: readonly ItemRecord[] = createItems()): ItemsService {
+  return new ItemsService(new InMemoryItemsRepository(items));
+}
+
+function createComponentItem(): ItemRecord {
+  return {
+    id: "item-component-one",
+    itemType: "component",
+    title: "Component one",
+    level: 1,
+    status: "PUBLISHED",
+    target: {
+      japanese: "一",
+      reading: null,
+      jlptLevel: null,
+      translations: {
+        ru: [localizedText("ru-RU", "один", { isPrimary: true })],
+        en: [localizedText("en-US", "one", { isPrimary: true })],
+      },
+      componentDetails: {
+        name: {
+          ru: [localizedText("ru-RU", "единица", { isPrimary: true })],
+          en: [localizedText("en-US", "one", { isPrimary: true })],
+        },
+        shapeDescription: {
+          ru: [localizedText("ru-RU", "горизонтальная черта", { isPrimary: true })],
+          en: [localizedText("en-US", "horizontal stroke", { isPrimary: true })],
+        },
+      },
+      sourceRecordIds: [],
+      strokeGraphic: null,
+      attributions: [],
+    },
+    cards: [],
+    mnemonics: [],
+    hints: [],
+    relations: [],
+    attributions: [],
+    userOverrides: [],
+    srs: null,
+  };
 }
 
 function createItems(): readonly ItemRecord[] {
@@ -251,6 +311,7 @@ function createItems(): readonly ItemRecord[] {
           ru: [localizedText("ru-RU", "один", { isPrimary: true })],
           en: [localizedText("en-US", "one", { isPrimary: true })],
         },
+        componentDetails: null,
         sourceRecordIds: ["fixture:kanji:one"],
         strokeGraphic: {
           sourceRecordId: "kanjivg:04e00",
@@ -342,6 +403,7 @@ function createItems(): readonly ItemRecord[] {
           ru: [localizedText("ru-RU", "школа", { isPrimary: true })],
           en: [localizedText("en-US", "school", { isPrimary: true })],
         },
+        componentDetails: null,
         sourceRecordIds: ["fixture:word:school"],
         strokeGraphic: null,
         attributions: [],

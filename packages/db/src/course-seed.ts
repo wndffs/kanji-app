@@ -49,6 +49,9 @@ export type StarterCourseSeedTarget =
       readonly kind: "COMPONENT";
       readonly symbol: string;
       readonly displayNameRu: string;
+      readonly displayNameEn: string;
+      readonly shapeDescriptionRu: string;
+      readonly shapeDescriptionEn: string;
       readonly meaningRu: string;
       readonly meaningEn: string;
       readonly notes: string;
@@ -178,9 +181,12 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
       target: {
         kind: "COMPONENT",
         symbol: "一",
-        displayNameRu: "одна черта",
-        meaningRu: "одна черта",
-        meaningEn: "one stroke",
+        displayNameRu: "единица",
+        displayNameEn: "one",
+        shapeDescriptionRu: "горизонтальная черта",
+        shapeDescriptionEn: "horizontal stroke",
+        meaningRu: "один",
+        meaningEn: "one",
         notes: "Project-authored starter component.",
       },
       cards: [
@@ -189,26 +195,27 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
           answerType: "MEANING",
           sortOrder: 1,
           acceptedAnswers: [
-            ruAnswer("одна черта", "одна черта", true),
-            ruAnswer("черта один", "черта один", false),
-            enAnswer("one stroke", "one stroke", true),
+            ruAnswer("единица", "единица", true),
+            ruAnswer("один", "один", false),
+            enAnswer("one", "one", true),
+            enAnswer("unit", "unit", false),
           ],
           blockedAnswers: [
             {
-              text: "линия",
-              normalizedText: "линия",
-              reason: "Слишком общее слово: нужна идея одной отдельной черты.",
+              text: "одна черта",
+              normalizedText: "одна черта",
+              reason: "Это описание формы, а не значение компонента.",
             },
           ],
         },
       ],
       mnemonics: [
-        ruText("STORY", "Одна короткая черта задает идею единицы и ровной линии."),
-        enText("STORY", "A single stroke gives you the idea of one straight mark."),
+        ruText("STORY", "Одна горизонтальная черта обозначает одну целую единицу."),
+        enText("STORY", "One horizontal stroke represents one whole unit."),
       ],
       hints: [
-        ruText("MEANING", "Отвечай смыслом формы, а не только словом линия."),
-        enText("MEANING", "Answer with the idea of a single stroke."),
+        ruText("MEANING", "Отвечай значением: единица или один. Черта описывает только форму."),
+        enText("MEANING", "Answer with one or unit. Stroke only describes the shape."),
       ],
     },
     {
@@ -221,9 +228,12 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
       target: {
         kind: "COMPONENT",
         symbol: "口",
-        displayNameRu: "рамка рта",
-        meaningRu: "отверстие",
-        meaningEn: "opening",
+        displayNameRu: "рот",
+        displayNameEn: "mouth",
+        shapeDescriptionRu: "прямоугольная рамка",
+        shapeDescriptionEn: "rectangular frame",
+        meaningRu: "рот",
+        meaningEn: "mouth",
         notes: "Project-authored starter component.",
       },
       cards: [
@@ -231,23 +241,19 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
           promptType: "MEANING",
           answerType: "MEANING",
           sortOrder: 1,
-          acceptedAnswers: [
-            ruAnswer("отверстие", "отверстие", true),
-            ruAnswer("рамка рта", "рамка рта", false),
-            enAnswer("opening", "opening", true),
-          ],
+          acceptedAnswers: [ruAnswer("рот", "рот", true), enAnswer("mouth", "mouth", true)],
           blockedAnswers: [
             {
-              text: "квадрат",
-              normalizedText: "квадрат",
-              reason: "Форма похожа на квадрат, но учебный смысл здесь другой.",
+              text: "отверстие",
+              normalizedText: "отверстие",
+              reason: "Это не значение компонента 口; правильное базовое значение - рот.",
             },
           ],
         },
       ],
       mnemonics: [
-        ruText("STORY", "Открытая рамка напоминает рот, через который проходит звук."),
-        enText("STORY", "The open frame points to a mouth-like opening."),
+        ruText("STORY", "Прямоугольная рамка напоминает открытый рот."),
+        enText("STORY", "The rectangular frame resembles an open mouth."),
       ],
     },
     {
@@ -269,13 +275,20 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
         ],
         meanings: [
           { locale: "ru-RU", text: "один", isPrimary: true },
+          { locale: "ru-RU", text: "единица", isPrimary: false },
           { locale: "en-US", text: "one", isPrimary: true },
+          { locale: "en-US", text: "unit", isPrimary: false },
         ],
       },
       dependencies: [{ prerequisiteKey: "component-one-stroke", requiredStage: 1 }],
       cards: [
         meaningCard(
-          [ruAnswer("один", "один", true), enAnswer("one", "one", true)],
+          [
+            ruAnswer("один", "один", true),
+            ruAnswer("единица", "единица", false),
+            enAnswer("one", "one", true),
+            enAnswer("unit", "unit", false),
+          ],
           [
             {
               text: "черта",
@@ -462,8 +475,21 @@ export function validateStarterCourseSeed(seed: StarterCourseSeed): readonly str
       issues.push(`${item.key} kind does not match its target kind`);
     }
 
-    if (item.target.kind === "COMPONENT" && item.target.meaningEn.trim() === "") {
-      issues.push(`${item.key} component is missing an English meaning`);
+    if (item.target.kind === "COMPONENT") {
+      const requiredFields = [
+        ["Russian display name", item.target.displayNameRu],
+        ["English display name", item.target.displayNameEn],
+        ["Russian shape description", item.target.shapeDescriptionRu],
+        ["English shape description", item.target.shapeDescriptionEn],
+        ["Russian meaning", item.target.meaningRu],
+        ["English meaning", item.target.meaningEn],
+      ] as const;
+
+      for (const [label, value] of requiredFields) {
+        if (value.trim() === "") {
+          issues.push(`${item.key} component is missing its ${label.toLowerCase()}`);
+        }
+      }
     }
   }
 

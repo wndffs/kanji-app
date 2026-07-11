@@ -116,6 +116,7 @@ function buildSearchResponse(query: string): SearchResponseDto {
 function buildItemDetails(summary: ItemSummary): ItemDetails {
   return {
     ...summary,
+    componentDetails: null,
     cards: [],
     relations: [],
     mnemonics: { ru: [], en: [] },
