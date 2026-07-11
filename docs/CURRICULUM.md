@@ -56,12 +56,23 @@ from Foundation through N2 without requiring the full corpus upfront.
 Kana is a separate character-learning track and does not use `LearningCard` or
 the interval-based SRS for components, kanji, vocabulary, and sentences.
 
-Each script contains 104 independent learning characters or combinations:
+The shared core contains 104 independent learning characters or combinations
+per script:
 
 - 46 modern basic characters;
 - 20 voiced variants with dakuten;
 - 5 semi-voiced variants with handakuten;
 - 33 standard yoon combinations with small `ゃ`, `ゅ`, or `ょ`.
+
+The track then teaches orthographic sound patterns as separate targets:
+
+- 4 representative sokuon patterns per script, using small `っ` or `ッ` to
+  double the following consonant;
+- 7 hiragana long-vowel spellings: repeated vowels plus `えい` and `おう`;
+- 5 katakana long-vowel spellings using the prolonged sound mark `ー`.
+
+This produces 115 hiragana targets and 113 katakana targets. The counts differ
+because the scripts express long vowels differently.
 
 Modified sounds are separate units: for example, `ひ` (`hi`), `び` (`bi`), and
 `ぴ` (`pi`) keep independent progress. Hiragana and katakana progress is also

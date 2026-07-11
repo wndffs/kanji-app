@@ -63,14 +63,15 @@ days.
 - `GET /kana/lessons?script=hiragana|katakana`
 - `POST /kana/lessons/answer`
 
-The authenticated kana track covers 104 independent characters or combinations
-per script: 46 modern basic characters, 20 dakuten variants, 5 handakuten
-variants, and 33 standard yoon combinations. The assessment response omits
-romaji until answer feedback. The lesson response
-groups characters into sequential rows and includes readings for the teaching
-step. Three correct answers complete a character; later mistakes reset the
-current streak but not completed lesson progress. Kana does not create
-`LearningCard` or `UserSrsState` records.
+The authenticated kana track covers a 104-target shared core per script: 46
+modern basic characters, 20 dakuten variants, 5 handakuten variants, and 33
+standard yoon combinations. Four sokuon patterns and script-specific long-vowel
+spellings extend that to 115 hiragana targets and 113 katakana targets. The
+assessment response omits romaji until answer feedback. The lesson response
+groups targets into sequential units and includes readings for the teaching
+step. Three correct answers complete a target; later mistakes reset the current
+streak but not completed lesson progress. Kana does not create `LearningCard`
+or `UserSrsState` records.
 
 ### Lessons
 

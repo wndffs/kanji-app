@@ -28,6 +28,16 @@ test.describe("kana lessons", () => {
     expect(await yoonTile.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
       true,
     );
+    const sokuonTile = page.getByTestId("kana-unit-list").getByText("っか", { exact: true });
+    const longVowelTile = page.getByTestId("kana-unit-list").getByText("おう", { exact: true });
+    await expect(sokuonTile).toBeVisible();
+    await expect(longVowelTile).toBeVisible();
+    expect(await sokuonTile.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+      true,
+    );
+    expect(
+      await longVowelTile.evaluate((element) => element.scrollWidth <= element.clientWidth),
+    ).toBe(true);
     await page.getByRole("tab", { name: "Проверка" }).click();
     const assessmentYoon = page.getByRole("button", { name: "きゃ: прогресс 0 из 3" });
     await expect(assessmentYoon).toBeVisible();
@@ -48,6 +58,12 @@ test.describe("kana lessons", () => {
     await expect(practice).toContainText("ア");
     await expect(
       page.getByTestId("kana-unit-list").getByText("キャ", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("kana-unit-list").getByText("ッカ", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("kana-unit-list").getByText("オー", { exact: true }),
     ).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Освоено 0%" })).toBeVisible();
   });
@@ -82,8 +98,8 @@ async function signIn(page: Page): Promise<void> {
 
 async function mockKanaApi(page: Page): Promise<void> {
   const progressByScript = new Map<KanaScript, KanaAssessmentProgressDto>([
-    ["hiragana", buildProgress("hiragana", ["あ", "い", "う", "きゃ"])],
-    ["katakana", buildProgress("katakana", ["ア", "イ", "ウ", "キャ"])],
+    ["hiragana", buildProgress("hiragana", ["あ", "い", "う", "きゃ", "っか", "おう"])],
+    ["katakana", buildProgress("katakana", ["ア", "イ", "ウ", "キャ", "ッカ", "オー"])],
   ]);
 
   await page.route(`${API_BASE_URL}/kana/assessment?script=*`, async (route) => {
@@ -155,15 +171,15 @@ function buildProgress(
     attemptedCount: 0,
     masteredCount: 0,
     items: characters.map((character, order) => {
-      const isYoon = Array.from(character).length === 2;
+      const metadata = getMockKanaMetadata(character);
 
       return {
         character,
         script,
-        row: isYoon ? "ky" : "vowels",
+        row: metadata.row,
         order,
-        variant: isYoon ? "yoon" : "basic",
-        baseCharacter: isYoon ? (Array.from(character)[0] ?? character) : character,
+        variant: metadata.variant,
+        baseCharacter: metadata.baseCharacter,
         attemptCount: 0,
         correctCount: 0,
         currentStreak: 0,
@@ -177,6 +193,8 @@ function buildProgress(
 function buildLessonPath(progress: KanaAssessmentProgressDto): KanaLessonPathDto {
   const vowels = progress.items.filter((item) => item.row === "vowels");
   const yoon = progress.items.filter((item) => item.row === "ky");
+  const sokuon = progress.items.filter((item) => item.row === "sokuon");
+  const longVowels = progress.items.filter((item) => item.row === "long-vowel");
 
   return {
     script: progress.script,
@@ -209,6 +227,49 @@ function buildLessonPath(progress: KanaAssessmentProgressDto): KanaLessonPathDto
         totalCount: yoon.length,
         items: yoon.map((item) => ({ ...item, romaji: "kya" })),
       },
+      {
+        id: `${progress.script}-sokuon`,
+        script: progress.script,
+        title: "Малая っ: удвоение",
+        order: 2,
+        unlocked: false,
+        complete: false,
+        masteredCount: 0,
+        totalCount: sokuon.length,
+        items: sokuon.map((item) => ({ ...item, romaji: "kka" })),
+      },
+      {
+        id: `${progress.script}-long-vowels`,
+        script: progress.script,
+        title: "Долгие гласные",
+        order: 3,
+        unlocked: false,
+        complete: false,
+        masteredCount: 0,
+        totalCount: longVowels.length,
+        items: longVowels.map((item) => ({
+          ...item,
+          romaji: item.character === "おう" ? "ou" : "oo",
+        })),
+      },
     ],
   };
+}
+
+function getMockKanaMetadata(
+  character: string,
+): Pick<KanaAssessmentItemDto, "row" | "variant" | "baseCharacter"> {
+  if (character === "きゃ" || character === "キャ") {
+    return { row: "ky", variant: "yoon", baseCharacter: character[0] ?? character };
+  }
+
+  if (character === "っか" || character === "ッカ") {
+    return { row: "sokuon", variant: "sokuon", baseCharacter: character[0] ?? character };
+  }
+
+  if (character === "おう" || character === "オー") {
+    return { row: "long-vowel", variant: "long-vowel", baseCharacter: character[0] ?? character };
+  }
+
+  return { row: "vowels", variant: "basic", baseCharacter: character };
 }

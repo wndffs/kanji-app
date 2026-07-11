@@ -5,7 +5,7 @@ import { KANA_MASTERY_STREAK, KanaService } from "../src/kana/kana.service";
 import { type KanaProgressRecord, type RecordKanaAttemptInput } from "../src/kana/kana.types";
 
 describe("KanaService", () => {
-  it("returns 104 prompts without exposing romaji before an answer", async () => {
+  it("returns the complete hiragana track without exposing romaji before an answer", async () => {
     const service = new KanaService(new InMemoryKanaRepository());
 
     const progress = await service.getProgress("user-1", "hiragana");
@@ -13,12 +13,16 @@ describe("KanaService", () => {
     expect(progress).toMatchObject({
       script: "hiragana",
       masteryThreshold: KANA_MASTERY_STREAK,
-      totalCount: 104,
+      totalCount: 115,
       attemptedCount: 0,
       masteredCount: 0,
     });
-    expect(progress.items).toHaveLength(104);
+    expect(progress.items).toHaveLength(115);
     expect(progress.items[0]).not.toHaveProperty("romaji");
+
+    const katakanaProgress = await service.getProgress("user-1", "katakana");
+    expect(katakanaProgress).toMatchObject({ totalCount: 113, attemptedCount: 0 });
+    expect(katakanaProgress.items).toHaveLength(113);
   });
 
   it("builds a separate sequential lesson path with modified sounds", async () => {
@@ -27,21 +31,32 @@ describe("KanaService", () => {
 
     const path = await service.getLessonPath("user-1", "hiragana");
 
-    expect(path).toMatchObject({ totalCount: 104, masteredCount: 0 });
-    expect(path.units).toHaveLength(26);
-    expect(path.units.reduce((count, unit) => count + unit.totalCount, 0)).toBe(104);
+    expect(path).toMatchObject({ totalCount: 115, masteredCount: 0 });
+    expect(path.units).toHaveLength(28);
+    expect(path.units.reduce((count, unit) => count + unit.totalCount, 0)).toBe(115);
     expect(path.units.every((unit) => unit.totalCount > 0)).toBe(true);
     expect(path.units[0]).toMatchObject({ id: "hiragana-vowels", unlocked: true, totalCount: 5 });
     expect(path.units[1]).toMatchObject({ id: "hiragana-k", unlocked: false });
-    expect(path.units.at(-1)).toMatchObject({ id: "hiragana-py", totalCount: 3 });
+    expect(path.units.at(-2)).toMatchObject({ id: "hiragana-sokuon", totalCount: 4 });
+    expect(path.units.at(-1)).toMatchObject({ id: "hiragana-long-vowels", totalCount: 7 });
     expect(path.units.flatMap((unit) => unit.items)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ character: "ひ", romaji: "hi", variant: "basic" }),
         expect.objectContaining({ character: "び", romaji: "bi", variant: "dakuten" }),
         expect.objectContaining({ character: "ぴ", romaji: "pi", variant: "handakuten" }),
         expect.objectContaining({ character: "きゃ", romaji: "kya", variant: "yoon" }),
+        expect.objectContaining({ character: "っか", romaji: "kka", variant: "sokuon" }),
+        expect.objectContaining({ character: "おう", romaji: "ou", variant: "long-vowel" }),
       ]),
     );
+
+    const katakanaPath = await service.getLessonPath("user-1", "katakana");
+    expect(katakanaPath).toMatchObject({ totalCount: 113, masteredCount: 0 });
+    expect(katakanaPath.units).toHaveLength(28);
+    expect(katakanaPath.units.at(-1)).toMatchObject({
+      id: "katakana-long-vowels",
+      totalCount: 5,
+    });
 
     for (const character of ["あ", "い", "う", "え", "お"]) {
       for (let attempt = 0; attempt < KANA_MASTERY_STREAK; attempt += 1) {
@@ -78,6 +93,12 @@ describe("KanaService", () => {
     await expect(
       service.answer("user-1", { character: "しゃ", answer: "sya" }),
     ).resolves.toMatchObject({ correct: true, expectedRomaji: "sha" });
+    await expect(
+      service.answer("user-1", { character: "ッカ", answer: "kka" }),
+    ).resolves.toMatchObject({ correct: true, expectedRomaji: "kka" });
+    await expect(
+      service.answer("user-1", { character: "オー", answer: "ō" }),
+    ).resolves.toMatchObject({ correct: true, expectedRomaji: "oo" });
   });
 
   it("resets the streak without taking away a completed lesson", async () => {

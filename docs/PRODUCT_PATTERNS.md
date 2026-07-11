@@ -61,13 +61,31 @@ The implementation must continue to use project-authored Russian and English
 learning content plus legally reusable dictionary, sentence, and stroke data.
 All imported content remains source-traceable.
 
+## Authenticated product audit
+
+A read-only audit of the signed-in web products on 2026-07-11 confirmed and
+refined the public-document findings without copying account data or protected
+learning content:
+
+- Duolingo keeps Hiragana, Katakana, and Kanji as tabs in one character area,
+  shows progress per target, and separates basic kana, dakuon/handakuon, yoon,
+  small `っ`, and long-vowel patterns.
+- WaniKani's dashboard makes the next 24 hours of reviews, recent mistakes,
+  level progress, active-item spread, and optional practice visible together.
+- WaniKani's lesson picker groups available items by level and type and supports
+  learner selection, generated batches, and optional interleaving.
+
+Only those general product mechanics inform this plan. User progress, item
+content, copy, visual styling, and proprietary curriculum order are excluded.
+
 ## Corrected post-MVP sequence
 
 1. Task 41: add standard yoon combinations as independent kana lesson units.
-2. Task 42: add varied kana recognition, reverse-choice, matching, and typing exercises.
-3. Task 43: add kana listening after selecting a legally compatible audio source.
-4. Task 44: add kana tracing after selecting or authoring suitable stroke-path data.
-5. Task 45: tighten the main lesson batch and required quiz flow before SRS entry.
-6. Task 46: add learner-controlled lesson picking and interleaving within prerequisites.
-7. Task 47: add optional recent-lesson, recent-mistake, and burned-item practice.
-8. Task 48: expose workload balance and level progress without copying another dashboard.
+2. Task 42: add small `っ` and script-appropriate long-vowel lesson units.
+3. Task 43: add varied kana recognition, reverse-choice, matching, and typing exercises.
+4. Task 44: add kana listening after selecting a legally compatible audio source.
+5. Task 45: add kana tracing after selecting or authoring suitable stroke-path data.
+6. Task 46: tighten the main lesson batch and required quiz flow before SRS entry.
+7. Task 47: add learner-controlled lesson picking and interleaving within prerequisites.
+8. Task 48: add optional recent-lesson, recent-mistake, and burned-item practice.
+9. Task 49: expose workload balance and level progress without copying another dashboard.

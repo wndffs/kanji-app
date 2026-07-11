@@ -202,6 +202,8 @@ const KANA_LESSON_GROUPS = [
   { id: "j", rows: ["j"], title: "Ёон: J" },
   { id: "by", rows: ["by"], title: "Ёон: BY" },
   { id: "py", rows: ["py"], title: "Ёон: PY" },
+  { id: "sokuon", rows: ["sokuon"], title: "Малая っ: удвоение" },
+  { id: "long-vowels", rows: ["long-vowel"], title: "Долгие гласные" },
 ] as const;
 
 function buildLessonPathDto(

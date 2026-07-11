@@ -1,5 +1,5 @@
 export type KanaScript = "hiragana" | "katakana";
-export type KanaVariant = "basic" | "dakuten" | "handakuten" | "yoon";
+export type KanaVariant = "basic" | "dakuten" | "handakuten" | "yoon" | "sokuon" | "long-vowel";
 
 export type KanaCharacter = {
   readonly character: string;
@@ -154,6 +154,43 @@ const YOON_KANA_DEFINITIONS: readonly YoonKanaDefinition[] = [
   ["ぴ", "ピ", "ぴょ", "ピョ", "pyo", "py"],
 ];
 
+type SokuonKanaDefinition = readonly [
+  hiragana: string,
+  katakana: string,
+  romaji: string,
+  aliases?: readonly string[],
+];
+
+const SOKUON_KANA_DEFINITIONS: readonly SokuonKanaDefinition[] = [
+  ["っか", "ッカ", "kka"],
+  ["っさ", "ッサ", "ssa"],
+  ["った", "ッタ", "tta"],
+  ["っぱ", "ッパ", "ppa"],
+];
+
+type LongVowelKanaDefinition = readonly [
+  script: KanaScript,
+  character: string,
+  romaji: string,
+  baseCharacter: string,
+  aliases?: readonly string[],
+];
+
+const LONG_VOWEL_KANA_DEFINITIONS: readonly LongVowelKanaDefinition[] = [
+  ["hiragana", "ああ", "aa", "あ", ["ā"]],
+  ["hiragana", "いい", "ii", "い", ["ī"]],
+  ["hiragana", "うう", "uu", "う", ["ū"]],
+  ["hiragana", "ええ", "ee", "え", ["ē"]],
+  ["hiragana", "おお", "oo", "お", ["ō"]],
+  ["hiragana", "えい", "ei", "え", ["ē"]],
+  ["hiragana", "おう", "ou", "お", ["ō"]],
+  ["katakana", "アー", "aa", "ア", ["ā"]],
+  ["katakana", "イー", "ii", "イ", ["ī"]],
+  ["katakana", "ウー", "uu", "ウ", ["ū"]],
+  ["katakana", "エー", "ee", "エ", ["ē"]],
+  ["katakana", "オー", "oo", "オ", ["ō"]],
+];
+
 export const BASIC_KANA: readonly KanaCharacter[] = BASIC_KANA_DEFINITIONS.flatMap(
   ([hiragana, katakana, romaji, row, aliases = []], order) => {
     const acceptedRomaji = [romaji, ...aliases];
@@ -243,7 +280,65 @@ export const YOON_KANA: readonly KanaCharacter[] = YOON_KANA_DEFINITIONS.flatMap
   },
 );
 
-export const KANA: readonly KanaCharacter[] = [...BASIC_KANA, ...MODIFIED_KANA, ...YOON_KANA];
+export const SOKUON_KANA: readonly KanaCharacter[] = SOKUON_KANA_DEFINITIONS.flatMap(
+  ([hiragana, katakana, romaji, aliases = []], index) => {
+    const acceptedRomaji = [romaji, ...aliases];
+    const order =
+      BASIC_KANA_DEFINITIONS.length +
+      MODIFIED_KANA_DEFINITIONS.length +
+      YOON_KANA_DEFINITIONS.length +
+      index;
+
+    return [
+      {
+        character: hiragana,
+        script: "hiragana" as const,
+        romaji,
+        acceptedRomaji,
+        row: "sokuon",
+        order,
+        variant: "sokuon" as const,
+        baseCharacter: "っ",
+      },
+      {
+        character: katakana,
+        script: "katakana" as const,
+        romaji,
+        acceptedRomaji,
+        row: "sokuon",
+        order,
+        variant: "sokuon" as const,
+        baseCharacter: "ッ",
+      },
+    ];
+  },
+);
+
+export const LONG_VOWEL_KANA: readonly KanaCharacter[] = LONG_VOWEL_KANA_DEFINITIONS.map(
+  ([script, character, romaji, baseCharacter, aliases = []], index, definitions) => ({
+    character,
+    script,
+    romaji,
+    acceptedRomaji: [romaji, ...aliases],
+    row: "long-vowel",
+    order:
+      BASIC_KANA_DEFINITIONS.length +
+      MODIFIED_KANA_DEFINITIONS.length +
+      YOON_KANA_DEFINITIONS.length +
+      SOKUON_KANA_DEFINITIONS.length +
+      definitions.slice(0, index).filter(([candidateScript]) => candidateScript === script).length,
+    variant: "long-vowel" as const,
+    baseCharacter,
+  }),
+);
+
+export const KANA: readonly KanaCharacter[] = [
+  ...BASIC_KANA,
+  ...MODIFIED_KANA,
+  ...YOON_KANA,
+  ...SOKUON_KANA,
+  ...LONG_VOWEL_KANA,
+];
 
 const BASIC_KANA_BY_CHARACTER = new Map(BASIC_KANA.map((kana) => [kana.character, kana]));
 const KANA_BY_CHARACTER = new Map(KANA.map((kana) => [kana.character, kana]));

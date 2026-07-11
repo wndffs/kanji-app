@@ -606,6 +606,10 @@ function formatVariant(item: KanaLessonItemDto): string {
       return "Хандакутэн";
     case "yoon":
       return "Ёон";
+    case "sokuon":
+      return "Малая っ";
+    case "long-vowel":
+      return "Долгая гласная";
     default:
       return "Новый знак";
   }

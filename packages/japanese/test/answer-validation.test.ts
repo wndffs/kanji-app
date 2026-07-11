@@ -87,9 +87,9 @@ describe("basic kana catalogue", () => {
     expect(listBasicKana("katakana")).toHaveLength(46);
   });
 
-  it("keeps modified and yoon sounds as independent learning characters", () => {
-    expect(listKana("hiragana")).toHaveLength(104);
-    expect(listKana("katakana")).toHaveLength(104);
+  it("keeps modified and combined sounds as independent learning targets", () => {
+    expect(listKana("hiragana")).toHaveLength(115);
+    expect(listKana("katakana")).toHaveLength(113);
     expect(findKana("ひ")).toMatchObject({ romaji: "hi", variant: "basic" });
     expect(findKana("び")).toMatchObject({
       romaji: "bi",
@@ -108,6 +108,22 @@ describe("basic kana catalogue", () => {
       baseCharacter: "き",
     });
     expect(isKanaRomajiAccepted(findKana("しゃ")!, "sya")).toBe(true);
+    expect(findKana("っか")).toMatchObject({
+      romaji: "kka",
+      variant: "sokuon",
+      baseCharacter: "っ",
+    });
+    expect(findKana("おう")).toMatchObject({
+      romaji: "ou",
+      variant: "long-vowel",
+      baseCharacter: "お",
+    });
+    expect(findKana("オー")).toMatchObject({
+      romaji: "oo",
+      variant: "long-vowel",
+      baseCharacter: "オ",
+    });
+    expect(isKanaRomajiAccepted(findKana("おう")!, "ō")).toBe(true);
   });
 
   it("accepts canonical and common alternative romaji", () => {
