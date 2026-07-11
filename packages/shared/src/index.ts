@@ -619,6 +619,22 @@ export type AdminPromoteCandidateRequest = {
   readonly level?: number | null;
 };
 
+export type AdminApproveImportedTranslationRequest = {
+  readonly targetType: "kanji" | "word";
+  readonly targetId: string;
+  readonly title: string;
+  readonly band: CourseBand;
+  readonly level?: number | null;
+  readonly meanings: {
+    readonly ru: string;
+    readonly en: string;
+  };
+  readonly acceptedAnswers: {
+    readonly ru: readonly string[];
+    readonly en: readonly string[];
+  };
+};
+
 export type AdminCurriculumBandCompletenessDto = {
   readonly band: CourseBand;
   readonly totalItems: number;

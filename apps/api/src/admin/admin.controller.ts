@@ -72,4 +72,9 @@ export class AdminController {
   promoteImportedCandidate(@Body() body: unknown) {
     return this.adminService.promoteImportedCandidate(body);
   }
+
+  @Post("imported-candidates/approve-translation")
+  approveImportedTranslation(@Body() body: unknown) {
+    return this.adminService.approveImportedTranslation(body);
+  }
 }

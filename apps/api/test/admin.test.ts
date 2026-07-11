@@ -15,6 +15,7 @@ import {
   buildCurriculumCompletenessReport,
 } from "../src/admin/curriculum-quality";
 import {
+  type NormalizedAdminApproveImportedTranslationInput,
   type NormalizedAdminItemCurationInput,
   type NormalizedAdminPromoteCandidateInput,
 } from "../src/admin/admin.types";
@@ -208,6 +209,55 @@ describe("AdminService", () => {
         }),
       ],
     });
+  });
+
+  it("approves bilingual imported meanings into authored cards", async () => {
+    const repository = new InMemoryAdminRepository();
+    const adminService = new AdminService(repository);
+
+    await expect(
+      adminService.approveImportedTranslation({
+        targetType: "word",
+        targetId: "target-imported-word",
+        title: "Слово 水",
+        band: "n5",
+        level: 6,
+        meanings: { ru: "вода", en: "water" },
+        acceptedAnswers: { ru: ["Вода"], en: ["Water"] },
+      }),
+    ).resolves.toMatchObject({
+      itemType: "word",
+      meanings: { ru: "вода", en: "water" },
+      status: "needs-review",
+      cards: [
+        {
+          answerType: "meaning",
+          acceptedAnswers: [
+            { locale: "ru-RU", normalizedText: "вода", isPrimary: true },
+            { locale: "en-US", normalizedText: "water", isPrimary: true },
+          ],
+        },
+        {
+          answerType: "reading",
+          acceptedAnswers: [{ text: "みず", normalizedText: "みず" }],
+        },
+      ],
+    });
+  });
+
+  it("requires non-empty RU and EN accepted answers for translation approval", async () => {
+    const adminService = new AdminService(new InMemoryAdminRepository());
+
+    await expect(
+      adminService.approveImportedTranslation({
+        targetType: "word",
+        targetId: "target-imported-word",
+        title: "Слово 水",
+        band: "n5",
+        meanings: { ru: "вода", en: "water" },
+        acceptedAnswers: { ru: ["вода"], en: [] },
+      }),
+    ).rejects.toThrow("acceptedAnswers.en must contain at least one answer");
   });
 
   it("lists import runs with status, checksum, stats, and errors", async () => {
@@ -518,6 +568,83 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
     });
 
     this.items = [...this.items, item];
+
+    return item;
+  }
+
+  async approveImportedTranslation(
+    input: NormalizedAdminApproveImportedTranslationInput,
+  ): Promise<AdminCurationItemDto | null> {
+    if (input.targetType !== "word" || input.targetId !== "target-imported-word") {
+      return null;
+    }
+
+    const meaningCardId = "card-target-imported-word-meaning";
+    const readingCardId = "card-target-imported-word-reading";
+    const item = applyQualityIssues({
+      id: "item-target-imported-word",
+      itemType: input.targetType,
+      band: input.band,
+      title: input.title,
+      japanese: "水",
+      reading: "みず",
+      level: input.level,
+      jlptLevel: null,
+      status: "needs-review",
+      updatedAt: "2026-06-22T09:25:00.000Z",
+      meanings: input.meanings,
+      cards: [
+        {
+          id: meaningCardId,
+          promptType: "meaning",
+          answerType: "meaning",
+          locale: "ru-RU",
+          sortOrder: 1,
+          updatedAt: "2026-06-22T09:25:00.000Z",
+          acceptedAnswers: input.acceptedAnswers.map((answer, index) => ({
+            id: `approved-answer-${index}`,
+            cardId: meaningCardId,
+            ...answer,
+          })),
+          blockedAnswers: [],
+        },
+        {
+          id: readingCardId,
+          promptType: "reading",
+          answerType: "reading",
+          locale: "ru-RU",
+          sortOrder: 2,
+          updatedAt: "2026-06-22T09:25:00.000Z",
+          acceptedAnswers: [
+            {
+              id: "approved-reading",
+              cardId: readingCardId,
+              locale: "ru-RU",
+              text: "みず",
+              normalizedText: "みず",
+              answerKind: "reading",
+              isPrimary: true,
+            },
+          ],
+          blockedAnswers: [],
+        },
+      ],
+      hints: [],
+      mnemonics: [],
+      dependencies: [],
+      attributions: [
+        {
+          sourceName: "JMdict",
+          licenseName: "EDRDG License",
+          attributionText: "EDRDG dictionary data.",
+          sourceUrl: null,
+        },
+      ],
+      importRuns: this.importRuns.slice(1, 2),
+      qualityIssues: [],
+    });
+
+    this.items = [...this.items.filter((candidate) => candidate.id !== item.id), item];
 
     return item;
   }

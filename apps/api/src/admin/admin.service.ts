@@ -23,6 +23,7 @@ import {
 } from "./curriculum-quality";
 import {
   type NormalizedAdminCardAnswersInput,
+  type NormalizedAdminApproveImportedTranslationInput,
   type NormalizedAdminItemCurationInput,
   type NormalizedAdminPromoteCandidateInput,
   type NormalizedAdminReviewQueueFilters,
@@ -31,6 +32,7 @@ import {
 
 const MAX_MEANING_LENGTH = 240;
 const MAX_ANSWER_LENGTH = 120;
+const MAX_ACCEPTED_ANSWERS_PER_LOCALE = 20;
 const MAX_BLOCKED_REASON_LENGTH = 500;
 const MAX_TEXT_BODY_LENGTH = 4_000;
 
@@ -137,6 +139,17 @@ export class AdminService {
 
     return item;
   }
+
+  async approveImportedTranslation(body: unknown): Promise<AdminCurationItemDto> {
+    const request = parseApproveImportedTranslationRequest(body);
+    const item = await this.adminRepository.approveImportedTranslation(request);
+
+    if (item === null) {
+      throw new NotFoundException("Import-derived bilingual target not found.");
+    }
+
+    return item;
+  }
 }
 
 function parseReviewQueueFilters(query: unknown): NormalizedAdminReviewQueueFilters {
@@ -189,6 +202,84 @@ function parsePromoteCandidateRequest(body: unknown): NormalizedAdminPromoteCand
     band: parseCourseBand(record.band, "band"),
     level: parseOptionalPositiveInteger(record.level, "level"),
   };
+}
+
+function parseApproveImportedTranslationRequest(
+  body: unknown,
+): NormalizedAdminApproveImportedTranslationInput {
+  const record = parseRecord(body, "Request body");
+  const targetType = parseImportedTranslationTargetType(record.targetType);
+  const meanings = parseRecord(record.meanings, "meanings");
+  const answers = parseRecord(record.acceptedAnswers, "acceptedAnswers");
+
+  return {
+    targetType,
+    targetId: parseRequiredString(record.targetId, "targetId", { maxLength: 80 }),
+    title: parseRequiredString(record.title, "title", { maxLength: 160 }),
+    band: parseCourseBand(record.band, "band"),
+    level: parseOptionalPositiveInteger(record.level, "level"),
+    meanings: {
+      ru: parseRequiredString(meanings.ru, "meanings.ru", { maxLength: MAX_MEANING_LENGTH }),
+      en: parseRequiredString(meanings.en, "meanings.en", { maxLength: MAX_MEANING_LENGTH }),
+    },
+    acceptedAnswers: [
+      ...parseAcceptedMeaningAnswers(answers.ru, "acceptedAnswers.ru", "ru-RU"),
+      ...parseAcceptedMeaningAnswers(answers.en, "acceptedAnswers.en", "en-US"),
+    ],
+  };
+}
+
+function parseAcceptedMeaningAnswers(
+  value: unknown,
+  label: string,
+  locale: ContentLocale,
+): readonly NormalizedAdminApproveImportedTranslationInput["acceptedAnswers"][number][] {
+  const normalized = new Set<string>();
+  const values = parseArray(value, label);
+
+  if (values.length > MAX_ACCEPTED_ANSWERS_PER_LOCALE) {
+    throw new BadRequestException(
+      `${label} must contain at most ${MAX_ACCEPTED_ANSWERS_PER_LOCALE} answers.`,
+    );
+  }
+
+  const answers = values.map((answer, index) => {
+    const text = parseRequiredString(answer, `${label}[${index}]`, {
+      maxLength: MAX_ANSWER_LENGTH,
+    });
+    const normalizedText = normalizeMeaning(text, locale);
+
+    if (normalizedText === "") {
+      throw new BadRequestException(`${label}[${index}] is empty after normalization.`);
+    }
+
+    return { locale, text, normalizedText, answerKind: "meaning" as const };
+  });
+
+  if (answers.length === 0) {
+    throw new BadRequestException(`${label} must contain at least one answer.`);
+  }
+
+  const uniqueAnswers = answers.filter((answer) => {
+    if (normalized.has(answer.normalizedText)) {
+      return false;
+    }
+
+    normalized.add(answer.normalizedText);
+    return true;
+  });
+
+  return uniqueAnswers.map((answer, index) => ({ ...answer, isPrimary: index === 0 }));
+}
+
+function parseImportedTranslationTargetType(
+  value: unknown,
+): NormalizedAdminApproveImportedTranslationInput["targetType"] {
+  if (value === "kanji" || value === "word") {
+    return value;
+  }
+
+  throw new BadRequestException("targetType must be kanji or word.");
 }
 
 function parseUpdateCardAnswersRequest(body: unknown): NormalizedAdminCardAnswersInput {

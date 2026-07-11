@@ -132,10 +132,11 @@ export type KanjiDic2ImportDatabase = {
   readonly kanjiMeaning: {
     upsert(args: {
       readonly where: {
-        readonly kanjiId_locale_meaning: {
+        readonly kanjiId_locale_meaning_sourceKind: {
           readonly kanjiId: string;
           readonly locale: "en-US";
           readonly meaning: string;
+          readonly sourceKind: "IMPORTED";
         };
       };
       readonly update: Record<string, unknown>;
@@ -316,10 +317,11 @@ export async function importKanjiDic2Xml(
       for (const meaning of character.meanings) {
         await db.kanjiMeaning.upsert({
           where: {
-            kanjiId_locale_meaning: {
+            kanjiId_locale_meaning_sourceKind: {
               kanjiId: kanji.id,
               locale: meaning.locale,
               meaning: meaning.text,
+              sourceKind: "IMPORTED",
             },
           },
           update: {

@@ -102,6 +102,10 @@ private storage permitted by their license terms. The manifest is sufficient to
 verify those retained files. KanjiVG uses an immutable release URL.
 
 The full multilingual JMdict import retains only Russian and English glosses.
+The admin translation-review queue only offers ranked targets for which both
+locales are available. Confirming a translation writes a separate
+project-authored curation layer; it does not replace or relabel imported
+dictionary senses.
 It can run for a long time and consume substantial Neon storage; inspect the
 provider's current usage after the first run. A failed Action can be rerun:
 source checksum and compound database keys make imports idempotent.

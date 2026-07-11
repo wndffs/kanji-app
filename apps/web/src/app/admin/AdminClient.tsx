@@ -18,6 +18,7 @@ import {
 
 import {
   ApiError,
+  approveAdminImportedTranslation,
   getAdminCompletenessReport,
   getAdminCurationItem,
   getAdminImportRuns,
@@ -79,12 +80,27 @@ type PromoteDraft = {
   readonly level: string;
 };
 
+type TranslationReviewDraft = {
+  readonly targetType: "kanji" | "word";
+  readonly targetId: string;
+  readonly title: string;
+  readonly band: CourseBand;
+  readonly level: string;
+  readonly meaningRu: string;
+  readonly meaningEn: string;
+  readonly acceptedRu: string;
+  readonly acceptedEn: string;
+};
+
 export function AdminClient() {
   const [state, setState] = useState<AdminState>({ status: "checking" });
   const [filters, setFilters] = useState<AdminFilters>(DEFAULT_FILTERS);
   const [itemDraft, setItemDraft] = useState<ItemDraft>(EMPTY_ITEM_DRAFT);
   const [cardDrafts, setCardDrafts] = useState<Record<string, CardDraft>>({});
   const [promoteDraft, setPromoteDraft] = useState<PromoteDraft>(EMPTY_PROMOTE_DRAFT);
+  const [translationDraft, setTranslationDraft] = useState<TranslationReviewDraft>(
+    EMPTY_TRANSLATION_REVIEW_DRAFT,
+  );
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -128,8 +144,14 @@ export function AdminClient() {
         queue.items.length === 0
           ? null
           : await getAdminCurationItem(session.token, queue.items[0].id);
+      const firstTranslationCandidate = importedCandidates.candidates.find(isBilingualCandidate);
 
       syncDrafts(firstItem);
+      setTranslationDraft(
+        firstTranslationCandidate === undefined
+          ? EMPTY_TRANSLATION_REVIEW_DRAFT
+          : buildTranslationReviewDraft(firstTranslationCandidate),
+      );
       setState({
         status: "ready",
         token: session.token,
@@ -170,6 +192,17 @@ export function AdminClient() {
 
     return activeItem.attributions.map((source) => source.sourceName).join(", ");
   }, [activeItem]);
+  const translationReviewCandidates = useMemo(
+    () => (state.status === "ready" ? state.importedCandidates.filter(isBilingualCandidate) : []),
+    [state],
+  );
+  const activeTranslationCandidate = useMemo(
+    () =>
+      translationReviewCandidates.find(
+        (candidate) => candidate.targetId === translationDraft.targetId,
+      ) ?? null,
+    [translationDraft.targetId, translationReviewCandidates],
+  );
 
   async function handleSelectItem(itemId: string): Promise<void> {
     if (state.status !== "ready" || savingKey !== null) {
@@ -300,6 +333,79 @@ export function AdminClient() {
     });
     setFormError(null);
     setStatusMessage(`Кандидат ${candidate.japanese} выбран для подготовки.`);
+  }
+
+  function handleSelectTranslationCandidate(candidate: AdminImportedCandidateDto): void {
+    setTranslationDraft(buildTranslationReviewDraft(candidate));
+    setFormError(null);
+    setStatusMessage(null);
+  }
+
+  async function handleApproveTranslation(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+
+    if (state.status !== "ready" || savingKey !== null || translationDraft.targetId === "") {
+      return;
+    }
+
+    const levelText = translationDraft.level.trim();
+    const level = levelText === "" ? null : Number(levelText);
+    const acceptedRu = splitLines(translationDraft.acceptedRu);
+    const acceptedEn = splitLines(translationDraft.acceptedEn);
+
+    if (level !== null && (!Number.isInteger(level) || level <= 0)) {
+      setFormError("Уровень должен быть положительным целым числом.");
+      return;
+    }
+
+    if (acceptedRu.length === 0 || acceptedEn.length === 0) {
+      setFormError("Добавьте хотя бы один принятый ответ на русском и английском.");
+      return;
+    }
+
+    setSavingKey("translation-review");
+    setFormError(null);
+    setStatusMessage(null);
+
+    try {
+      const item = await approveAdminImportedTranslation(state.token, {
+        targetType: translationDraft.targetType,
+        targetId: translationDraft.targetId,
+        title: translationDraft.title.trim(),
+        band: translationDraft.band,
+        level,
+        meanings: {
+          ru: translationDraft.meaningRu.trim(),
+          en: translationDraft.meaningEn.trim(),
+        },
+        acceptedAnswers: { ru: acceptedRu, en: acceptedEn },
+      });
+      const [queue, importedCandidates, report] = await Promise.all([
+        getAdminReviewQueueWithFilters(state.token, toApiFilters(filters)),
+        getAdminImportedCandidates(state.token),
+        getAdminCompletenessReport(state.token),
+      ]);
+      const nextCandidate = importedCandidates.candidates.find(isBilingualCandidate);
+
+      syncDrafts(item);
+      setTranslationDraft(
+        nextCandidate === undefined
+          ? EMPTY_TRANSLATION_REVIEW_DRAFT
+          : buildTranslationReviewDraft(nextCandidate),
+      );
+      setState({
+        ...state,
+        queue: queue.items,
+        importedCandidates: importedCandidates.candidates,
+        report,
+        item,
+      });
+      setStatusMessage("Перевод подтверждён и добавлен в кураторскую очередь.");
+    } catch (error: unknown) {
+      setFormError(error instanceof Error ? error.message : "Не удалось подтвердить перевод.");
+    } finally {
+      setSavingKey(null);
+    }
   }
 
   async function handleSaveCard(card: AdminCurationCardDto): Promise<void> {
@@ -554,6 +660,164 @@ export function AdminClient() {
             </article>
           ))}
         </div>
+      </section>
+
+      <section className="panel admin-translation-review" data-testid="admin-translation-review">
+        <div className="admin-translation-review-heading">
+          <div>
+            <span className="eyebrow">RU + EN</span>
+            <h2>Проверка переводов</h2>
+          </div>
+          <strong>{translationReviewCandidates.length}</strong>
+        </div>
+        {translationReviewCandidates.length === 0 ? (
+          <p className="muted">Кандидатов с русским и английским переводом пока нет.</p>
+        ) : (
+          <div className="admin-translation-workspace">
+            <ol className="admin-translation-queue-list">
+              {translationReviewCandidates.map((candidate) => (
+                <li key={`${candidate.itemType}:${candidate.targetId}`}>
+                  <button
+                    aria-current={
+                      translationDraft.targetId === candidate.targetId ? "true" : undefined
+                    }
+                    disabled={savingKey !== null}
+                    onClick={() => handleSelectTranslationCandidate(candidate)}
+                    type="button"
+                  >
+                    <span>
+                      <strong>{candidate.japanese}</strong>
+                      <b>#{candidate.rank}</b>
+                    </span>
+                    <small>{candidate.reading ?? "без чтения"}</small>
+                    <small>{candidate.meanings.ru.join(", ")}</small>
+                  </button>
+                </li>
+              ))}
+            </ol>
+
+            <form
+              className="admin-translation-form"
+              onSubmit={(event) => void handleApproveTranslation(event)}
+            >
+              <header>
+                <div>
+                  <span className="eyebrow">{formatItemType(translationDraft.targetType)}</span>
+                  <h3>{activeTranslationCandidate?.japanese}</h3>
+                </div>
+                <span>{activeTranslationCandidate?.reading ?? ""}</span>
+              </header>
+
+              <div className="admin-translation-source-grid">
+                <div>
+                  <span>Импорт RU</span>
+                  <p>{activeTranslationCandidate?.meanings.ru.join(" · ")}</p>
+                </div>
+                <div>
+                  <span>Import EN</span>
+                  <p>{activeTranslationCandidate?.meanings.en.join(" · ")}</p>
+                </div>
+              </div>
+
+              <label>
+                Название материала
+                <input
+                  onChange={(event) => {
+                    const title = event.currentTarget.value;
+                    setTranslationDraft((previous) => ({ ...previous, title }));
+                  }}
+                  required
+                  value={translationDraft.title}
+                />
+              </label>
+
+              <div className="admin-two-column">
+                <label>
+                  Учебное значение RU
+                  <input
+                    data-testid="translation-meaning-ru"
+                    onChange={(event) => {
+                      const meaningRu = event.currentTarget.value;
+                      setTranslationDraft((previous) => ({ ...previous, meaningRu }));
+                    }}
+                    required
+                    value={translationDraft.meaningRu}
+                  />
+                </label>
+                <label>
+                  Learning meaning EN
+                  <input
+                    data-testid="translation-meaning-en"
+                    onChange={(event) => {
+                      const meaningEn = event.currentTarget.value;
+                      setTranslationDraft((previous) => ({ ...previous, meaningEn }));
+                    }}
+                    required
+                    value={translationDraft.meaningEn}
+                  />
+                </label>
+              </div>
+
+              <div className="admin-two-column">
+                <label>
+                  Принятые ответы RU
+                  <textarea
+                    data-testid="translation-accepted-ru"
+                    onChange={(event) => {
+                      const acceptedRu = event.currentTarget.value;
+                      setTranslationDraft((previous) => ({ ...previous, acceptedRu }));
+                    }}
+                    value={translationDraft.acceptedRu}
+                  />
+                </label>
+                <label>
+                  Accepted answers EN
+                  <textarea
+                    data-testid="translation-accepted-en"
+                    onChange={(event) => {
+                      const acceptedEn = event.currentTarget.value;
+                      setTranslationDraft((previous) => ({ ...previous, acceptedEn }));
+                    }}
+                    value={translationDraft.acceptedEn}
+                  />
+                </label>
+              </div>
+
+              <div className="admin-translation-meta">
+                <label>
+                  Band
+                  <select
+                    onChange={(event) => {
+                      const band = event.currentTarget.value as CourseBand;
+                      setTranslationDraft((previous) => ({ ...previous, band }));
+                    }}
+                    value={translationDraft.band}
+                  >
+                    {SUPPORTED_COURSE_BANDS.map((band) => (
+                      <option key={band} value={band}>
+                        {formatBand(band)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Уровень
+                  <input
+                    inputMode="numeric"
+                    onChange={(event) => {
+                      const level = event.currentTarget.value;
+                      setTranslationDraft((previous) => ({ ...previous, level }));
+                    }}
+                    value={translationDraft.level}
+                  />
+                </label>
+                <button className="primary-action" disabled={savingKey !== null} type="submit">
+                  Подтвердить перевод
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </section>
 
       <div className="admin-layout">
@@ -1063,6 +1327,36 @@ const EMPTY_PROMOTE_DRAFT: PromoteDraft = {
   band: "n5",
   level: "",
 };
+
+const EMPTY_TRANSLATION_REVIEW_DRAFT: TranslationReviewDraft = {
+  targetType: "word",
+  targetId: "",
+  title: "",
+  band: "n5",
+  level: "",
+  meaningRu: "",
+  meaningEn: "",
+  acceptedRu: "",
+  acceptedEn: "",
+};
+
+function isBilingualCandidate(candidate: AdminImportedCandidateDto): boolean {
+  return candidate.meanings.ru.length > 0 && candidate.meanings.en.length > 0;
+}
+
+function buildTranslationReviewDraft(candidate: AdminImportedCandidateDto): TranslationReviewDraft {
+  return {
+    targetType: candidate.itemType,
+    targetId: candidate.targetId,
+    title: candidate.suggestedTitle,
+    band: candidate.suggestedBand,
+    level: "",
+    meaningRu: candidate.meanings.ru[0] ?? "",
+    meaningEn: candidate.meanings.en[0] ?? "",
+    acceptedRu: candidate.meanings.ru.join("\n"),
+    acceptedEn: candidate.meanings.en.join("\n"),
+  };
+}
 
 function buildItemDraft(item: AdminCurationItemDto): ItemDraft {
   return {

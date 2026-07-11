@@ -16,6 +16,7 @@ import {
   type ItemKind,
   type SourceAttributionDto,
 } from "@kanji-srs/shared";
+import { normalizeJapaneseReading } from "@kanji-srs/japanese";
 
 import { PrismaService } from "../database/prisma.service";
 import { applyQualityIssues, buildCurriculumCompletenessReport } from "./curriculum-quality";
@@ -25,6 +26,7 @@ import {
 } from "./imported-candidate-ranking";
 import {
   type NormalizedAdminCardAnswersInput,
+  type NormalizedAdminApproveImportedTranslationInput,
   type NormalizedAdminItemCurationInput,
   type NormalizedAdminPromoteCandidateInput,
   type NormalizedAdminReviewQueueFilters,
@@ -42,6 +44,9 @@ export abstract class AdminRepository {
   abstract findItemByCardId(cardId: string): Promise<AdminCurationItemDto | null>;
   abstract promoteImportedCandidate(
     input: NormalizedAdminPromoteCandidateInput,
+  ): Promise<AdminCurationItemDto | null>;
+  abstract approveImportedTranslation(
+    input: NormalizedAdminApproveImportedTranslationInput,
   ): Promise<AdminCurationItemDto | null>;
   abstract updateItemCuration(
     itemId: string,
@@ -485,6 +490,120 @@ export class PrismaAdminRepository extends AdminRepository {
     return this.toCurationItem(item as unknown as LearningItemRow);
   }
 
+  async approveImportedTranslation(
+    input: NormalizedAdminApproveImportedTranslationInput,
+  ): Promise<AdminCurationItemDto | null> {
+    const source = await this.findImportedTranslationSource(input.targetType, input.targetId);
+
+    if (source === null || !source.hasRussianMeaning || !source.hasEnglishMeaning) {
+      return null;
+    }
+
+    const targetType = toPrismaTargetType(input.targetType);
+    const itemId = await this.prisma.db.$transaction(async (db) => {
+      const item = await db.learningItem.upsert({
+        where: {
+          targetType_targetId: {
+            targetType,
+            targetId: input.targetId,
+          },
+        },
+        update: {
+          kind: toPrismaItemKind(input.targetType),
+          title: input.title,
+          levelHint: input.level,
+          curriculumBand: toPrismaBand(input.band),
+          status: "NEEDS_REVIEW",
+        },
+        create: {
+          kind: toPrismaItemKind(input.targetType),
+          targetType,
+          targetId: input.targetId,
+          title: input.title,
+          levelHint: input.level,
+          curriculumBand: toPrismaBand(input.band),
+          status: "NEEDS_REVIEW",
+        },
+      });
+
+      await updateTargetMeanings(db, targetType, input.targetId, input.meanings);
+
+      const meaningCard = await db.learningCard.upsert({
+        where: {
+          learningItemId_promptType_answerType_locale: {
+            learningItemId: item.id,
+            promptType: "MEANING",
+            answerType: "MEANING",
+            locale: "ru-RU",
+          },
+        },
+        update: { cardType: "REVIEW", sortOrder: 1 },
+        create: {
+          learningItemId: item.id,
+          cardType: "REVIEW",
+          promptType: "MEANING",
+          answerType: "MEANING",
+          locale: "ru-RU",
+          sortOrder: 1,
+        },
+      });
+
+      await db.learningAnswer.deleteMany({ where: { learningCardId: meaningCard.id } });
+      await db.learningAnswer.createMany({
+        data: input.acceptedAnswers.map((answer) => ({
+          learningCardId: meaningCard.id,
+          text: answer.text,
+          normalizedText: answer.normalizedText,
+          answerKind: "MEANING",
+          locale: answer.locale,
+          isPrimary: answer.isPrimary,
+          sourceKind: "PROJECT_AUTHORED",
+        })),
+      });
+
+      const readings = uniqueNormalizedReadings(source.readings);
+
+      if (readings.length > 0) {
+        const readingCard = await db.learningCard.upsert({
+          where: {
+            learningItemId_promptType_answerType_locale: {
+              learningItemId: item.id,
+              promptType: "READING",
+              answerType: "READING",
+              locale: "ru-RU",
+            },
+          },
+          update: { cardType: "REVIEW", sortOrder: 2 },
+          create: {
+            learningItemId: item.id,
+            cardType: "REVIEW",
+            promptType: "READING",
+            answerType: "READING",
+            locale: "ru-RU",
+            sortOrder: 2,
+          },
+        });
+
+        await db.learningAnswer.deleteMany({ where: { learningCardId: readingCard.id } });
+        await db.learningAnswer.createMany({
+          data: readings.map((reading, index) => ({
+            learningCardId: readingCard.id,
+            text: reading.text,
+            normalizedText: reading.normalizedText,
+            answerKind: "READING",
+            locale: "ru-RU",
+            isPrimary: index === 0,
+            sourceKind: "PROJECT_AUTHORED",
+          })),
+        });
+      }
+
+      return item.id;
+    });
+
+    return this.findCurationItem(itemId);
+  }
+
   async updateCardAnswers(
     cardId: string,
     input: NormalizedAdminCardAnswersInput,
@@ -583,6 +702,48 @@ export class PrismaAdminRepository extends AdminRepository {
         },
       },
     };
+  }
+
+  private async findImportedTranslationSource(
+    targetType: NormalizedAdminApproveImportedTranslationInput["targetType"],
+    targetId: string,
+  ): Promise<{
+    readonly readings: readonly string[];
+    readonly hasRussianMeaning: boolean;
+    readonly hasEnglishMeaning: boolean;
+  } | null> {
+    if (targetType === "kanji") {
+      const kanji = await this.prisma.db.kanji.findFirst({
+        where: { id: targetId, kanjidicImportedRecordId: { not: null } },
+        include: {
+          readings: { orderBy: [{ priority: "asc" }, { reading: "asc" }] },
+          meanings: { where: { sourceKind: "IMPORTED", locale: { in: ["ru-RU", "en-US"] } } },
+        },
+      });
+
+      return kanji === null
+        ? null
+        : {
+            readings: kanji.readings.map((reading) => reading.reading),
+            hasRussianMeaning: kanji.meanings.some((meaning) => meaning.locale === "ru-RU"),
+            hasEnglishMeaning: kanji.meanings.some((meaning) => meaning.locale === "en-US"),
+          };
+    }
+
+    const word = await this.prisma.db.word.findFirst({
+      where: { id: targetId, jmdictImportedRecordId: { not: null } },
+      include: {
+        senses: { where: { sourceKind: "IMPORTED", locale: { in: ["ru-RU", "en-US"] } } },
+      },
+    });
+
+    return word === null
+      ? null
+      : {
+          readings: word.reading.trim() === "" ? [] : [word.reading],
+          hasRussianMeaning: word.senses.some((sense) => sense.locale === "ru-RU"),
+          hasEnglishMeaning: word.senses.some((sense) => sense.locale === "en-US"),
+        };
   }
 
   private async toCurationItem(item: LearningItemRow): Promise<AdminCurationItemDto> {
@@ -1340,6 +1501,27 @@ function toWordCandidate(row: ImportedWordCandidateRow): ImportedCandidateRankin
     hasStrokeData: false,
     sourceName: assertCandidateSource(row.importedRecord, "JMdict"),
   };
+}
+
+function uniqueNormalizedReadings(
+  readings: readonly string[],
+): readonly { readonly text: string; readonly normalizedText: string }[] {
+  const normalized = new Set<string>();
+  const result: { text: string; normalizedText: string }[] = [];
+
+  for (const value of readings) {
+    const text = value.trim();
+    const normalizedText = normalizeJapaneseReading(text);
+
+    if (normalizedText === "" || normalized.has(normalizedText)) {
+      continue;
+    }
+
+    normalized.add(normalizedText);
+    result.push({ text, normalizedText });
+  }
+
+  return result;
 }
 
 function pickCandidateMeanings(

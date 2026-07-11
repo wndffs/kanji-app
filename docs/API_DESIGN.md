@@ -151,6 +151,8 @@ Japanese morphological analysis.
 
 - `GET /admin/import-runs`
 - `GET /admin/imported-candidates`
+- `POST /admin/imported-candidates/promote`
+- `POST /admin/imported-candidates/approve-translation`
 - `GET /admin/items/review-queue`
 - `PATCH /admin/items/:id`
 - `PATCH /admin/cards/:id/answers`
@@ -178,6 +180,20 @@ uses the legacy four-level JLPT field, so candidate
 suggestions map legacy 4 to N5, 3 to N4, 2 to N2, and leave legacy 1 outside the
 current N5-N2 course scope. These mappings must remain visible as ranking
 heuristics and must not be presented as official modern JLPT assignments.
+
+The admin translation-review workspace uses the ranked candidates that contain
+both Russian and English imported meanings. It never displays or persists
+unsupported gloss languages. `POST /admin/imported-candidates/approve-translation`
+requires reviewed RU and EN learning meanings plus at least one accepted answer
+for each locale. In one transaction it creates or updates the `LearningItem`,
+stores the reviewed meanings as `PROJECT_AUTHORED`, creates a bilingual meaning
+card, and creates a reading card from the imported source reading when present.
+The original imported meanings remain unchanged and traceable. The resulting
+item stays in `needs-review` until the remaining quality gates are satisfied.
+No reject action is exposed because rejected-candidate state is not yet stored.
+Kanji meaning uniqueness includes `sourceKind`, allowing an imported meaning
+and its separately reviewed project-authored counterpart to retain identical
+wording without collapsing provenance.
 
 ## API rules
 

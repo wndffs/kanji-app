@@ -243,10 +243,11 @@ async function upsertKanji(item: StarterCourseSeedItem): Promise<string> {
   for (const meaning of item.target.meanings) {
     await prisma.kanjiMeaning.upsert({
       where: {
-        kanjiId_locale_meaning: {
+        kanjiId_locale_meaning_sourceKind: {
           kanjiId: kanji.id,
           locale: meaning.locale,
           meaning: meaning.text,
+          sourceKind: "PROJECT_AUTHORED",
         },
       },
       update: {

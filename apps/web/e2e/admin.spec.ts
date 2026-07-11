@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
 import {
+  type AdminApproveImportedTranslationRequest,
   type AdminCurriculumCompletenessReportDto,
   type AdminCurationItemDto,
   type AdminImportRunListResponse,
@@ -46,6 +47,26 @@ test.describe("admin curation", () => {
     await expect(page.getByText("Ответы карточки сохранены.")).toBeVisible();
     await expect(page.getByTestId("admin-accepted-en")).toHaveValue("single line");
   });
+
+  test("admin can approve the next bilingual imported translation", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await mockAdminApi(page);
+
+    await page.goto("/admin");
+
+    const review = page.getByTestId("admin-translation-review");
+    await expect(review).toContainText("Импорт RU");
+    await expect(review).toContainText("Import EN");
+    await expect(page.getByTestId("translation-meaning-ru")).toHaveValue("вода");
+    await expect(page.getByTestId("translation-meaning-en")).toHaveValue("water");
+    await page.getByTestId("translation-accepted-ru").fill("вода\nводы");
+    await page.getByRole("button", { name: "Подтвердить перевод" }).click();
+
+    await expect(
+      page.getByText("Перевод подтверждён и добавлен в кураторскую очередь."),
+    ).toBeVisible();
+    await expect(review).toContainText("Кандидатов с русским и английским переводом пока нет.");
+  });
 });
 
 async function signIn(page: Page, role: "USER" | "ADMIN"): Promise<void> {
@@ -77,6 +98,29 @@ async function signIn(page: Page, role: "USER" | "ADMIN"): Promise<void> {
 
 async function mockAdminApi(page: Page): Promise<void> {
   let item = buildAdminItem();
+  let importedCandidates: AdminImportedCandidateListResponse["candidates"] = [
+    {
+      rank: 1,
+      score: 100,
+      targetId: "target-imported-word",
+      itemType: "word",
+      japanese: "水",
+      reading: "みず",
+      meanings: { ru: ["вода"], en: ["water"] },
+      jlptLevel: null,
+      sourcePriority: 1_000,
+      sourceName: "JMdict",
+      suggestedBand: "n5",
+      suggestedTitle: "Слово 水",
+      reasons: [
+        { code: "source-priority", points: 55 },
+        { code: "ru-coverage", points: 15 },
+        { code: "en-coverage", points: 15 },
+        { code: "reading", points: 10 },
+        { code: "kanji-orthography", points: 5 },
+      ],
+    },
+  ];
 
   await page.route(`${API_BASE_URL}/admin/items/review-queue**`, async (route) => {
     const response: AdminReviewQueueResponse = {
@@ -161,33 +205,67 @@ async function mockAdminApi(page: Page): Promise<void> {
 
   await page.route(`${API_BASE_URL}/admin/imported-candidates`, async (route) => {
     const response: AdminImportedCandidateListResponse = {
-      candidates: [
-        {
-          rank: 1,
-          score: 100,
-          targetId: "target-imported-word",
-          itemType: "word",
-          japanese: "水",
-          reading: "みず",
-          meanings: { ru: ["вода"], en: ["water"] },
-          jlptLevel: null,
-          sourcePriority: 1_000,
-          sourceName: "JMdict",
-          suggestedBand: "n5",
-          suggestedTitle: "Слово 水",
-          reasons: [
-            { code: "source-priority", points: 55 },
-            { code: "ru-coverage", points: 15 },
-            { code: "en-coverage", points: 15 },
-            { code: "reading", points: 10 },
-            { code: "kanji-orthography", points: 5 },
-          ],
-        },
-      ],
+      candidates: importedCandidates,
     };
 
     await route.fulfill({ json: response });
   });
+
+  await page.route(
+    `${API_BASE_URL}/admin/imported-candidates/approve-translation`,
+    async (route) => {
+      const body = route.request().postDataJSON() as AdminApproveImportedTranslationRequest;
+      const meaningCardId = "card-imported-word-meaning";
+
+      item = {
+        ...item,
+        id: "item-imported-word",
+        itemType: body.targetType,
+        band: body.band,
+        title: body.title,
+        japanese: "水",
+        reading: "みず",
+        level: body.level ?? null,
+        jlptLevel: null,
+        meanings: body.meanings,
+        cards: [
+          {
+            id: meaningCardId,
+            promptType: "meaning",
+            answerType: "meaning",
+            locale: "ru-RU",
+            sortOrder: 1,
+            updatedAt: "2026-06-22T09:40:00.000Z",
+            acceptedAnswers: [
+              ...body.acceptedAnswers.ru.map((text, index) => ({
+                id: `answer-ru-${index}`,
+                cardId: meaningCardId,
+                locale: "ru-RU" as const,
+                text,
+                normalizedText: text,
+                answerKind: "meaning" as const,
+                isPrimary: index === 0,
+              })),
+              ...body.acceptedAnswers.en.map((text, index) => ({
+                id: `answer-en-${index}`,
+                cardId: meaningCardId,
+                locale: "en-US" as const,
+                text,
+                normalizedText: text,
+                answerKind: "meaning" as const,
+                isPrimary: index === 0,
+              })),
+            ],
+            blockedAnswers: [],
+          },
+        ],
+        updatedAt: "2026-06-22T09:40:00.000Z",
+      };
+      importedCandidates = [];
+
+      await route.fulfill({ json: item });
+    },
+  );
 
   await page.route(`${API_BASE_URL}/admin/items/${ITEM_ID}`, async (route) => {
     await route.fulfill({ json: item });

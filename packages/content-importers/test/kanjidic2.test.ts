@@ -187,9 +187,10 @@ class InMemoryKanjiDic2Db implements KanjiDic2ImportDatabase {
   readonly kanjiMeaning = {
     upsert: async (args: Parameters<KanjiDic2ImportDatabase["kanjiMeaning"]["upsert"]>[0]) => {
       const key = [
-        args.where.kanjiId_locale_meaning.kanjiId,
-        args.where.kanjiId_locale_meaning.locale,
-        args.where.kanjiId_locale_meaning.meaning,
+        args.where.kanjiId_locale_meaning_sourceKind.kanjiId,
+        args.where.kanjiId_locale_meaning_sourceKind.locale,
+        args.where.kanjiId_locale_meaning_sourceKind.meaning,
+        args.where.kanjiId_locale_meaning_sourceKind.sourceKind,
       ].join(":");
 
       await this.upsert(this.meaningRows, key, args.update, args.create);

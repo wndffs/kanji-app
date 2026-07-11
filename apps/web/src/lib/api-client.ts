@@ -1,4 +1,5 @@
 import {
+  type AdminApproveImportedTranslationRequest,
   type AdminCurationItemDto,
   type AdminCurriculumCompletenessReportDto,
   type AdminImportRunListResponse,
@@ -238,6 +239,17 @@ export function promoteAdminImportedCandidate(
   input: AdminPromoteCandidateRequest,
 ): Promise<AdminCurationItemDto> {
   return apiRequest<AdminCurationItemDto>("/admin/imported-candidates/promote", {
+    method: "POST",
+    token,
+    body: input,
+  });
+}
+
+export function approveAdminImportedTranslation(
+  token: string,
+  input: AdminApproveImportedTranslationRequest,
+): Promise<AdminCurationItemDto> {
+  return apiRequest<AdminCurationItemDto>("/admin/imported-candidates/approve-translation", {
     method: "POST",
     token,
     body: input,

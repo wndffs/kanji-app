@@ -1,4 +1,5 @@
 import {
+  type AdminApproveImportedTranslationRequest,
   type AdminContentStatus,
   type AdminPromoteCandidateRequest,
   type AdminReviewQueueFilters,
@@ -53,6 +54,20 @@ export type NormalizedAdminPromoteCandidateInput = {
   readonly level: number | null;
 };
 
+export type NormalizedAdminApproveImportedTranslationInput = {
+  readonly targetType: AdminApproveImportedTranslationRequest["targetType"];
+  readonly targetId: string;
+  readonly title: string;
+  readonly band: CourseBand;
+  readonly level: number | null;
+  readonly meanings: {
+    readonly ru: string;
+    readonly en: string;
+  };
+  readonly acceptedAnswers: readonly NormalizedAdminAcceptedAnswerInput[];
+};
+
 export type RawAdminCardAnswersInput = AdminUpdateCardAnswersRequest;
 export type RawAdminItemCurationInput = AdminUpdateItemRequest;
 export type RawAdminPromoteCandidateInput = AdminPromoteCandidateRequest;
+export type RawAdminApproveImportedTranslationInput = AdminApproveImportedTranslationRequest;

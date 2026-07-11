@@ -312,7 +312,7 @@ model KanjiMeaning {
   sourceKind ContentSourceKind @default(IMPORTED)
   kanji      Kanji             @relation(fields: [kanjiId], references: [id], onDelete: Cascade)
 
-  @@unique([kanjiId, locale, meaning])
+  @@unique([kanjiId, locale, meaning, sourceKind])
   @@index([locale, meaning])
   @@index([sourceKind])
 }

@@ -1526,6 +1526,132 @@ textarea:focus-visible {
   padding-top: 18px;
 }
 
+.admin-translation-review {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-translation-review-heading,
+.admin-translation-form > header,
+.admin-translation-queue-list button > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-translation-review-heading h2,
+.admin-translation-form h3 {
+  margin: 0;
+}
+
+.admin-translation-review-heading > strong {
+  font-size: 24px;
+}
+
+.admin-translation-workspace {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 20px;
+  min-width: 0;
+}
+
+.admin-translation-queue-list {
+  max-height: 500px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0 4px 0 0;
+  list-style: none;
+}
+
+.admin-translation-queue-list button {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--foreground);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.admin-translation-queue-list button[aria-current="true"] {
+  border-color: var(--accent);
+  background: var(--surface-strong);
+}
+
+.admin-translation-queue-list button strong {
+  font-size: 22px;
+}
+
+.admin-translation-queue-list button b,
+.admin-translation-queue-list button small,
+.admin-translation-form > header > span,
+.admin-translation-source-grid span {
+  color: var(--muted);
+}
+
+.admin-translation-queue-list button small,
+.admin-translation-source-grid p {
+  overflow-wrap: anywhere;
+}
+
+.admin-translation-form {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.admin-translation-form label,
+.admin-translation-meta label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.admin-translation-form input,
+.admin-translation-form select,
+.admin-translation-form textarea {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 9px 11px;
+  font: inherit;
+}
+
+.admin-translation-form textarea {
+  min-height: 104px;
+  resize: vertical;
+}
+
+.admin-translation-source-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  border-block: 1px solid var(--surface-border);
+  padding-block: 12px;
+}
+
+.admin-translation-source-grid p {
+  margin: 4px 0 0;
+}
+
+.admin-translation-meta {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(100px, 140px) minmax(180px, max-content);
+  align-items: end;
+  gap: 12px;
+}
+
 .admin-candidate-ranking {
   display: grid;
   gap: 10px;
@@ -1794,6 +1920,7 @@ textarea:focus-visible {
   .admin-layout,
   .admin-item-header,
   .admin-side-grid,
+  .admin-translation-workspace,
   .admin-two-column,
   .deck-form-grid,
   .deck-result-header,
@@ -1879,6 +2006,8 @@ textarea:focus-visible {
 
   .metric-grid,
   .admin-completeness-grid,
+  .admin-translation-source-grid,
+  .admin-translation-meta,
   .stats-list,
   .deck-item-facts,
   .search-result-meta,
@@ -1887,6 +2016,10 @@ textarea:focus-visible {
   .review-queue-grid,
   .review-answer-bar {
     grid-template-columns: 1fr;
+  }
+
+  .admin-translation-queue-list {
+    max-height: 250px;
   }
 
   .lesson-action-bar {

@@ -75,6 +75,10 @@ describe("Prisma schema", () => {
     expect(schema).toContain("@@index([sourceKind])");
   });
 
+  it("keeps imported and curated kanji meanings as separate source layers", () => {
+    expect(schema).toContain("@@unique([kanjiId, locale, meaning, sourceKind])");
+  });
+
   it("indexes due SRS state by user and availability", () => {
     expect(schema).toContain("@@unique([userId, learningCardId])");
     expect(schema).toContain("@@index([userId, availableAt])");
