@@ -67,6 +67,20 @@ test.describe("kana lessons", () => {
     await expect(practice.getByText("Верно")).toBeVisible();
 
     await page.getByRole("tab", { name: "Проверка" }).click();
+    await page.getByRole("button", { name: "っか: прогресс 0 из 3" }).click();
+    await expect(practice.getByText("Аудирование", { exact: true })).toBeVisible();
+    await practice.getByRole("button", { name: "Воспроизвести произношение" }).click();
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          (window as typeof window & { __spokenKana: readonly string[] }).__spokenKana.at(-1),
+        ),
+      )
+      .toBe("かっか");
+    await practice.getByRole("button", { name: "っか", exact: true }).click();
+    await expect(practice.getByText("Верно")).toBeVisible();
+    await page.getByRole("button", { name: "Следующий" }).click();
+
     await page.getByRole("button", { name: "きゃ: прогресс 0 из 3" }).click();
     await expect(practice.getByText("Сопоставление", { exact: true })).toBeVisible();
     for (const [character, romaji] of [
@@ -98,6 +112,37 @@ test.describe("kana lessons", () => {
 async function signIn(page: Page): Promise<void> {
   await page.addInitScript(
     ({ accessToken }) => {
+      const speechWindow = window as typeof window & { __spokenKana: string[] };
+      speechWindow.__spokenKana = [];
+      class MockSpeechSynthesisUtterance {
+        lang = "";
+        pitch = 1;
+        rate = 1;
+        text: string;
+        voice: SpeechSynthesisVoice | null = null;
+
+        constructor(text: string) {
+          this.text = text;
+        }
+      }
+
+      Object.defineProperty(window, "SpeechSynthesisUtterance", {
+        configurable: true,
+        value: MockSpeechSynthesisUtterance,
+      });
+      Object.defineProperty(window, "speechSynthesis", {
+        configurable: true,
+        value: {
+          addEventListener: () => undefined,
+          cancel: () => undefined,
+          getVoices: () => [{ default: true, lang: "ja-JP", name: "Test Japanese" }],
+          removeEventListener: () => undefined,
+          speak: (utterance: MockSpeechSynthesisUtterance) => {
+            speechWindow.__spokenKana.push(utterance.text);
+          },
+        },
+      });
+
       window.localStorage.setItem("kanji-srs.accessToken", accessToken);
       window.localStorage.setItem("kanji-srs.translationDisplayMode", "ru-en");
       window.localStorage.setItem(

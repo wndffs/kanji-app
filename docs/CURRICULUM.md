@@ -80,11 +80,16 @@ independent. Yoon combinations such as `きゃ` (`kya`) and `しゃ` (`sha`) als
 keep their own progress instead of inheriting mastery from their base symbol.
 
 The character track is split into sequential row lessons. A lesson first shows
-the character and its reading, then rotates four retrieval formats: typed
-romaji, character-to-reading choice, reading-to-character choice, and a
-three-pair matching board. Choice sets exclude duplicate readings so equivalent
-targets such as `じ` and `ぢ` cannot create an ambiguous question. Every pair or
-answer is checked by the API and affects the corresponding target's progress.
+the character and its reading, then rotates five retrieval formats: typed
+romaji, character-to-reading choice, reading-to-character choice, a three-pair
+matching board, and browser-generated Japanese listening. Listening uses a
+context pair such as `かっか` for a leading sokuon target so the doubled
+consonant is pronounceable. If browser speech synthesis is unavailable, the
+four silent formats continue without blocking the lesson.
+
+Choice sets exclude duplicate readings so equivalent targets such as `じ` and
+`ぢ` cannot create an ambiguous question. Every pair or answer is checked by the
+API and affects the corresponding target's progress.
 
 Three correct answers complete a target; completion is permanent, while the
 current streak can still reset after a wrong answer. The free assessment remains

@@ -26,6 +26,8 @@ import {
   selectKanaExerciseKind,
   type KanaExerciseKind,
 } from "../../lib/kana-exercises";
+import { buildKanaSpeechText } from "../../lib/kana-speech";
+import { useKanaSpeech } from "./useKanaSpeech";
 
 type KanaMode = "lessons" | "assessment";
 type LessonPhase = "teach" | "quiz";
@@ -56,6 +58,7 @@ export function KanaClient() {
   const inputRef = useRef<HTMLInputElement>(null);
   const choiceRef = useRef<HTMLButtonElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
+  const kanaSpeech = useKanaSpeech();
 
   useEffect(() => {
     const session = readStoredSession();
@@ -121,6 +124,8 @@ export function KanaClient() {
       continueRef.current?.focus();
     }
   }, [exerciseKind, feedback, lessonPhase, selectedCharacter]);
+
+  useEffect(() => kanaSpeech.cancel, [kanaSpeech.cancel, selectedCharacter, script]);
 
   const currentItem = useMemo(() => {
     if (state.status !== "ready") {
@@ -197,6 +202,7 @@ export function KanaClient() {
       return;
     }
 
+    kanaSpeech.cancel();
     setAnswer(selectedRomaji);
     const result = await submitAnswer(currentItem.character, selectedRomaji);
 
@@ -253,7 +259,11 @@ export function KanaClient() {
     const item = items.find((candidate) => candidate.character === character);
 
     setSelectedCharacter(character);
-    setExerciseKind(item === undefined ? "typing" : selectKanaExerciseKind(item));
+    setExerciseKind(
+      item === undefined
+        ? "typing"
+        : selectKanaExerciseKind(item, { listeningAvailable: kanaSpeech.available }),
+    );
     setAnswer("");
     setFeedback(null);
   }
@@ -472,6 +482,7 @@ export function KanaClient() {
               onChoice={(romaji) => void handleChoiceAnswer(romaji)}
               onMatchAnswer={submitAnswer}
               onNext={handleNext}
+              onSpeak={() => kanaSpeech.speak(buildKanaSpeechText(currentLessonItem))}
               onSubmit={(event) => void handleSubmit(event)}
               submitting={submitting}
             />
@@ -544,6 +555,7 @@ function KanaQuiz({
   onChoice,
   onMatchAnswer,
   onNext,
+  onSpeak,
   onSubmit,
   submitting,
 }: {
@@ -563,6 +575,7 @@ function KanaQuiz({
     answer: string,
   ) => Promise<KanaAssessmentAnswerResponse | null>;
   readonly onNext: () => void;
+  readonly onSpeak: () => boolean;
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   readonly submitting: boolean;
 }) {
@@ -579,11 +592,27 @@ function KanaQuiz({
   }
 
   const reverse = exerciseKind === "reverse-choice";
+  const listening = exerciseKind === "listening-choice";
+  const characterChoices = reverse || listening;
 
   return (
     <>
       <span className="eyebrow">{formatExerciseKind(exerciseKind)}</span>
-      {reverse ? (
+      {listening ? (
+        <div className="kana-listening-prompt">
+          <button
+            aria-label="Воспроизвести произношение"
+            className="kana-audio-button"
+            onClick={() => void onSpeak()}
+            ref={choiceRef}
+            title="Воспроизвести произношение"
+            type="button"
+          >
+            <span aria-hidden="true">▶</span>
+            <span>Воспроизвести</span>
+          </button>
+        </div>
+      ) : reverse ? (
         <div className="kana-romaji-prompt">{item.romaji}</div>
       ) : (
         <div className="kana-prompt" lang="ja">
@@ -615,19 +644,19 @@ function KanaQuiz({
           </div>
         </form>
       ) : (
-        <div className={`kana-choice-grid ${reverse ? "is-kana" : ""}`}>
+        <div className={`kana-choice-grid ${characterChoices ? "is-kana" : ""}`}>
           {choices.map((choice, index) => (
             <button
               aria-pressed={answer === choice.romaji}
               className={answer === choice.romaji ? "is-selected" : ""}
               disabled={feedback !== null || submitting}
               key={choice.character}
-              lang={reverse ? "ja" : undefined}
+              lang={characterChoices ? "ja" : undefined}
               onClick={() => onChoice(choice.romaji)}
-              ref={index === 0 ? choiceRef : undefined}
+              ref={index === 0 && !listening ? choiceRef : undefined}
               type="button"
             >
-              {reverse ? choice.character : choice.romaji}
+              {characterChoices ? choice.character : choice.romaji}
             </button>
           ))}
         </div>
@@ -643,7 +672,7 @@ function KanaQuiz({
           feedback={feedback}
           item={item}
           onNext={onNext}
-          reverse={reverse}
+          reverse={characterChoices}
         />
       )}
     </>
@@ -924,6 +953,8 @@ function formatExerciseKind(kind: Exclude<KanaExerciseKind, "matching">): string
       return "Выберите чтение";
     case "reverse-choice":
       return "Выберите знак";
+    case "listening-choice":
+      return "Аудирование";
     default:
       return "Введите чтение";
   }

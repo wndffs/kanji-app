@@ -17,6 +17,19 @@ It does not copy mnemonics, explanations, ordering, or other educational text
 from third-party applications. Additional orthographic rules should be added as
 separately reviewed project content.
 
+Kana listening uses the browser's standard Web Speech API with `ja-JP` language
+metadata. The project does not download, bundle, cache, or redistribute a voice
+model or recorded pronunciation, so there is no third-party audio dataset to
+attribute. Voice availability and rendering quality depend on the user's
+browser and operating system; the lesson falls back to non-audio exercises when
+speech synthesis is unavailable.
+
+Implementation references:
+
+- [W3C Speech Synthesis](https://www.w3.org/TR/speech-synthesis11/)
+- [MDN SpeechSynthesis.getVoices](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesis/getVoices)
+- [MDN voiceschanged event](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesis/voiceschanged_event)
+
 ### EDRDG: JMdict / KANJIDIC2
 
 Use for Japanese dictionary entries, readings, senses, kanji metadata, and priority/frequency hints where available.

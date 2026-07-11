@@ -83,7 +83,7 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 1. Task 41: add standard yoon combinations as independent kana lesson units.
 2. Task 42: add small `っ` and script-appropriate long-vowel lesson units.
 3. Task 43: add varied kana recognition, reverse-choice, matching, and typing exercises.
-4. Task 44: add kana listening after selecting a legally compatible audio source.
+4. Task 44: add kana listening through platform speech synthesis without bundling third-party audio.
 5. Task 45: add kana tracing after selecting or authoring suitable stroke-path data.
 6. Task 46: tighten the main lesson batch and required quiz flow before SRS entry.
 7. Task 47: add learner-controlled lesson picking and interleaving within prerequisites.

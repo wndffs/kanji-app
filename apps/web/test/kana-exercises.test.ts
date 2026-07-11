@@ -11,6 +11,13 @@ describe("kana exercise selection", () => {
     expect(selectKanaExerciseKind(buildItem("あ", "a", 0, 2))).toBe("reverse-choice");
     expect(selectKanaExerciseKind(buildItem("あ", "a", 0, 3))).toBe("matching");
     expect(selectKanaExerciseKind(buildItem("あ", "a", 0, 4))).toBe("typing");
+
+    expect(selectKanaExerciseKind(buildItem("あ", "a", 0, 4), { listeningAvailable: true })).toBe(
+      "listening-choice",
+    );
+    expect(selectKanaExerciseKind(buildItem("あ", "a", 0, 5), { listeningAvailable: true })).toBe(
+      "typing",
+    );
   });
 
   it("keeps the target and removes ambiguous duplicate readings", () => {

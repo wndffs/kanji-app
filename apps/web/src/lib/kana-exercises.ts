@@ -5,14 +5,22 @@ export const KANA_EXERCISE_KINDS = [
   "recognition-choice",
   "reverse-choice",
   "matching",
+  "listening-choice",
 ] as const;
 
 export type KanaExerciseKind = (typeof KANA_EXERCISE_KINDS)[number];
 
+const SILENT_KANA_EXERCISE_KINDS = KANA_EXERCISE_KINDS.filter(
+  (kind) => kind !== "listening-choice",
+);
+
 export function selectKanaExerciseKind(
   item: Pick<KanaLessonItemDto, "attemptCount" | "order">,
+  options: { readonly listeningAvailable?: boolean } = {},
 ): KanaExerciseKind {
-  return KANA_EXERCISE_KINDS[(item.order + item.attemptCount) % KANA_EXERCISE_KINDS.length]!;
+  const kinds = options.listeningAvailable ? KANA_EXERCISE_KINDS : SILENT_KANA_EXERCISE_KINDS;
+
+  return kinds[(item.order + item.attemptCount) % kinds.length]!;
 }
 
 export function buildKanaExerciseChoices(

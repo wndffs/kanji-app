@@ -2052,6 +2052,33 @@ textarea:focus-visible {
   line-height: 1;
 }
 
+.kana-listening-prompt {
+  min-height: 132px;
+  display: grid;
+  place-items: center;
+}
+
+.kana-audio-button {
+  min-width: 180px;
+  min-height: 88px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  place-items: center;
+  gap: 12px;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  background: var(--surface-strong);
+  color: var(--primary);
+  padding: 14px 18px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.kana-audio-button span[aria-hidden="true"] {
+  font-size: 30px;
+  line-height: 1;
+}
+
 .kana-choice-grid {
   width: min(100%, 460px);
   display: grid;
@@ -2436,6 +2463,10 @@ textarea:focus-visible {
   .kana-romaji-prompt {
     min-height: 104px;
     font-size: 52px;
+  }
+
+  .kana-listening-prompt {
+    min-height: 104px;
   }
 
   .kana-feedback {
