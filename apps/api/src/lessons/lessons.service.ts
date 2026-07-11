@@ -3,22 +3,25 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from "@nes
 import {
   DEFAULT_TRANSLATION_DISPLAY_MODE,
   type BilingualTextDto,
+  type CompleteLessonItemRequestDto,
   type CompleteLessonItemResponse,
   type FinishLessonSessionResponse,
   type ItemSummary,
   type LearningCardDto,
   type LessonQueueItem,
   type LessonQueueResponse,
+  type LocalizedTextDto,
   type SrsStateSummaryDto,
   type StartLessonSessionResponse,
   type TranslationBundleDto,
   type TranslationDisplayMode,
+  getContentLocalesForDisplayMode,
 } from "@kanji-srs/shared";
 
 import { type CurrentUserDto } from "../auth/auth.types";
+import { OverridesService } from "../overrides/overrides.service";
 import { LessonsRepository } from "./lessons.repository";
 import {
-  type CompleteLessonItemRequest,
   type CourseLessonItemRecord,
   type LessonCardRecord,
   type LessonItemRecord,
@@ -28,18 +31,27 @@ import {
 } from "./lessons.types";
 
 const DEFAULT_DAILY_LESSON_LIMIT = 10;
+const DEFAULT_LESSON_BATCH_LIMIT = 5;
+const MAX_LESSON_ANSWER_LENGTH = 500;
 
 @Injectable()
 export class LessonsService {
-  constructor(@Inject(LessonsRepository) private readonly lessonsRepository: LessonsRepository) {}
+  constructor(
+    @Inject(LessonsRepository) private readonly lessonsRepository: LessonsRepository,
+    @Inject(OverridesService) private readonly overridesService: OverridesService,
+  ) {}
 
   async getQueue(user: CurrentUserDto): Promise<LessonQueueResponse> {
-    const { availableItems, displayMode } = await this.getAvailableItems(user, new Date());
+    const { availableItems, displayMode, remainingToday } = await this.getAvailableItems(
+      user,
+      new Date(),
+    );
+    const batch = availableItems.slice(0, Math.min(DEFAULT_LESSON_BATCH_LIMIT, remainingToday));
 
     return {
-      items: availableItems.map((item) =>
-        toLessonQueueItem(item.item, item.unlockedBy, displayMode),
-      ),
+      items: batch.map((item) => toLessonQueueItem(item.item, item.unlockedBy, displayMode)),
+      batchLimit: DEFAULT_LESSON_BATCH_LIMIT,
+      remainingToday,
     };
   }
 
@@ -64,11 +76,48 @@ export class LessonsService {
     }
 
     const now = new Date();
-    const { availableItems } = await this.getAvailableItems(user, now);
+    const { availableItems, displayMode } = await this.getAvailableItems(user, now);
     const lessonItem = availableItems.find((candidate) => candidate.item.id === request.itemId);
 
     if (lessonItem === undefined) {
       throw new BadRequestException("Lesson item is not currently available.");
+    }
+
+    assertCompleteQuizAnswers(lessonItem.item, request.answers);
+    const answers = await Promise.all(
+      request.answers.map(async (answer) => {
+        const card = lessonItem.item.cards.find((candidate) => candidate.id === answer.cardId);
+
+        if (card === undefined) {
+          throw new BadRequestException("Lesson answer references an unknown card.");
+        }
+
+        const validation = await this.overridesService.validateAnswerForUser({
+          userId: user.id,
+          cardId: card.id,
+          answerKind: card.answerType,
+          answer: answer.answer,
+        });
+
+        return {
+          cardId: card.id,
+          answerType: card.answerType,
+          accepted: validation.accepted,
+          result: validation.result,
+          normalizedAnswer: validation.normalizedAnswer,
+          expected: getExpectedAnswers(card, displayMode),
+        };
+      }),
+    );
+
+    if (answers.some((answer) => !answer.accepted)) {
+      return {
+        itemId: lessonItem.item.id,
+        passed: false,
+        createdSrsStateCount: 0,
+        answers,
+        cards: [],
+      };
     }
 
     const srsSystem = await this.lessonsRepository.getDefaultSrsSystem();
@@ -91,7 +140,9 @@ export class LessonsService {
 
     return {
       itemId: lessonItem.item.id,
+      passed: true,
       createdSrsStateCount: result.createdSrsStateCount,
+      answers,
       cards: lessonItem.item.cards.map((card) => ({
         cardId: card.id,
         srs,
@@ -124,6 +175,7 @@ export class LessonsService {
   ): Promise<{
     readonly availableItems: readonly AvailableLessonItem[];
     readonly displayMode: TranslationDisplayMode;
+    readonly remainingToday: number;
   }> {
     const [courseItems, progress] = await Promise.all([
       this.lessonsRepository.listCourseLessonItems(user.id),
@@ -133,12 +185,12 @@ export class LessonsService {
     const remainingToday = getRemainingDailyLessons(user, progress, now);
 
     if (remainingToday <= 0 || courseItems.length === 0) {
-      return { availableItems: [], displayMode };
+      return { availableItems: [], displayMode, remainingToday };
     }
 
-    const availableItems = findAvailableCourseItems(courseItems, progress).slice(0, remainingToday);
+    const availableItems = findAvailableCourseItems(courseItems, progress);
 
-    return { availableItems, displayMode };
+    return { availableItems, displayMode, remainingToday };
   }
 }
 
@@ -346,18 +398,109 @@ function readDatePart(
   return parts.find((part) => part.type === type)?.value ?? "00";
 }
 
-function parseCompleteLessonItemRequest(body: unknown): Required<CompleteLessonItemRequest> {
+function parseCompleteLessonItemRequest(body: unknown): CompleteLessonItemRequestDto {
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     throw new BadRequestException("Request body must be a JSON object.");
   }
 
-  const itemId = (body as CompleteLessonItemRequest).itemId;
+  const record = body as Record<string, unknown>;
+  const itemId = record.itemId;
 
   if (typeof itemId !== "string" || itemId.trim() === "") {
     throw new BadRequestException("itemId must be a non-empty string.");
   }
 
-  return { itemId: itemId.trim() };
+  if (!Array.isArray(record.answers) || record.answers.length === 0) {
+    throw new BadRequestException("answers must be a non-empty array.");
+  }
+
+  const answers = record.answers.map((answer, index) => parseLessonAnswer(answer, index));
+  const cardIds = new Set(answers.map((answer) => answer.cardId));
+
+  if (cardIds.size !== answers.length) {
+    throw new BadRequestException("answers must contain each card only once.");
+  }
+
+  return { itemId: itemId.trim(), answers };
+}
+
+function parseLessonAnswer(
+  value: unknown,
+  index: number,
+): CompleteLessonItemRequestDto["answers"][number] {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new BadRequestException(`answers[${index}] must be a JSON object.`);
+  }
+
+  const record = value as Record<string, unknown>;
+  const cardId = parseRequiredString(record.cardId, `answers[${index}].cardId`, 200);
+  const answer = parseRequiredString(
+    record.answer,
+    `answers[${index}].answer`,
+    MAX_LESSON_ANSWER_LENGTH,
+  );
+
+  if (record.answerType !== "meaning" && record.answerType !== "reading") {
+    throw new BadRequestException(`answers[${index}].answerType must be meaning or reading.`);
+  }
+
+  return { cardId, answerType: record.answerType, answer };
+}
+
+function parseRequiredString(value: unknown, label: string, maxLength: number): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new BadRequestException(`${label} must be a non-empty string.`);
+  }
+
+  const trimmed = value.trim();
+
+  if (trimmed.length > maxLength) {
+    throw new BadRequestException(`${label} is too long.`);
+  }
+
+  return trimmed;
+}
+
+function assertCompleteQuizAnswers(
+  item: LessonItemRecord,
+  answers: CompleteLessonItemRequestDto["answers"],
+): void {
+  if (answers.length !== item.cards.length) {
+    throw new BadRequestException("answers must contain exactly one answer for every lesson card.");
+  }
+
+  const cardById = new Map(item.cards.map((card) => [card.id, card]));
+
+  for (const answer of answers) {
+    const card = cardById.get(answer.cardId);
+
+    if (card === undefined) {
+      throw new BadRequestException("Lesson answer references an unknown card.");
+    }
+
+    if (card.answerType !== answer.answerType) {
+      throw new BadRequestException(`answerType must be ${card.answerType} for card ${card.id}.`);
+    }
+  }
+}
+
+function getExpectedAnswers(
+  card: LessonCardRecord,
+  displayMode: TranslationDisplayMode,
+): readonly LocalizedTextDto[] {
+  const answers =
+    card.answerType === "reading"
+      ? card.answers
+      : card.answers.filter((answer) =>
+          getContentLocalesForDisplayMode(displayMode).includes(answer.locale),
+        );
+
+  return answers.map((answer) => ({
+    locale: answer.locale,
+    text: answer.text,
+    isPrimary: answer.isPrimary,
+    sourceKind: answer.sourceKind,
+  }));
 }
 
 function getInitialStage(srsSystem: SrsSystemRecord): SrsSystemRecord["stages"][number] {

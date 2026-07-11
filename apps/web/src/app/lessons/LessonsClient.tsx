@@ -14,6 +14,7 @@ import {
 import {
   getContentLocalesForDisplayMode,
   type CardAnswerType,
+  type CompleteLessonItemResponse,
   type ContentLocale,
   type LearningCardDto,
   type LessonQueueItem,
@@ -43,6 +44,8 @@ type QueueState =
       readonly status: "ready";
       readonly token: string;
       readonly queue: readonly LessonQueueItem[];
+      readonly batchLimit: number;
+      readonly remainingToday: number;
     };
 
 type LessonStep = "study" | "quiz";
@@ -58,14 +61,17 @@ export function LessonsClient() {
   const [session, setSession] = useState<LessonSessionDto | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [step, setStep] = useState<LessonStep>("study");
+  const [quizCardIndex, setQuizCardIndex] = useState(0);
   const [quizAnswer, setQuizAnswer] = useState("");
-  const [isQuizRevealed, setIsQuizRevealed] = useState(false);
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
+  const [quizFeedback, setQuizFeedback] = useState<
+    CompleteLessonItemResponse["answers"][number] | null
+  >(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummary | null>(null);
   const quizInputRef = useRef<HTMLInputElement>(null);
-  const completeButtonRef = useRef<HTMLButtonElement>(null);
 
   const loadQueue = useCallback(async () => {
     const storedSession = readStoredSession();
@@ -79,8 +85,10 @@ export function LessonsClient() {
     setSession(null);
     setCurrentIndex(0);
     setStep("study");
+    setQuizCardIndex(0);
     setQuizAnswer("");
-    setIsQuizRevealed(false);
+    setQuizAnswers({});
+    setQuizFeedback(null);
     setSessionError(null);
     setCompletionSummary(null);
 
@@ -90,6 +98,8 @@ export function LessonsClient() {
         status: "ready",
         token: storedSession.token,
         queue: queue.items,
+        batchLimit: queue.batchLimit,
+        remainingToday: queue.remainingToday,
       });
     } catch (error: unknown) {
       if (error instanceof ApiError && error.status === 401) {
@@ -111,7 +121,7 @@ export function LessonsClient() {
 
   const activeQueue = queueState.status === "ready" ? queueState.queue : [];
   const currentLesson = session === null ? null : (activeQueue[currentIndex] ?? null);
-  const learnedItems = currentLesson === null ? currentIndex : currentIndex;
+  const learnedItems = completionSummary?.learnedItems ?? 0;
   const progressLabel = useMemo(() => {
     if (currentLesson === null) {
       return "";
@@ -134,8 +144,10 @@ export function LessonsClient() {
       setSession(response.session);
       setCurrentIndex(0);
       setStep("study");
+      setQuizCardIndex(0);
       setQuizAnswer("");
-      setIsQuizRevealed(false);
+      setQuizAnswers({});
+      setQuizFeedback(null);
     } catch (error: unknown) {
       setSessionError(error instanceof Error ? error.message : "Не удалось начать урок.");
     } finally {
@@ -143,38 +155,53 @@ export function LessonsClient() {
     }
   }
 
-  function handleStartQuiz(): void {
+  function handleContinueStudy(): void {
+    if (currentIndex + 1 < activeQueue.length) {
+      setCurrentIndex(currentIndex + 1);
+      return;
+    }
+
+    setCurrentIndex(0);
     setStep("quiz");
+    setQuizCardIndex(0);
     setQuizAnswer("");
-    setIsQuizRevealed(false);
+    setQuizAnswers({});
+    setQuizFeedback(null);
     setSessionError(null);
   }
 
   useEffect(() => {
-    if (step === "quiz" && !isQuizRevealed) {
+    if (step === "quiz") {
       quizInputRef.current?.focus();
     }
-  }, [currentIndex, isQuizRevealed, step]);
+  }, [currentIndex, quizCardIndex, step]);
 
-  useEffect(() => {
-    if (step === "quiz" && isQuizRevealed) {
-      completeButtonRef.current?.focus();
-    }
-  }, [isQuizRevealed, step]);
-
-  function handleRevealQuiz(event: FormEvent<HTMLFormElement>): void {
+  async function handleQuizSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    setIsQuizRevealed(true);
-  }
 
-  async function handleCompleteItem(): Promise<void> {
+    const quizCard = currentLesson?.cards[quizCardIndex];
     if (
       queueState.status !== "ready" ||
       session === null ||
       currentLesson === null ||
-      !isQuizRevealed ||
+      quizCard === undefined ||
+      quizAnswer.trim() === "" ||
       isCompleting
     ) {
+      return;
+    }
+
+    const nextAnswers = { ...quizAnswers, [quizCard.id]: quizAnswer.trim() };
+    const nextUnansweredIndex = currentLesson.cards.findIndex(
+      (card) => (nextAnswers[card.id] ?? "").trim() === "",
+    );
+
+    setQuizAnswers(nextAnswers);
+    setQuizFeedback(null);
+
+    if (nextUnansweredIndex !== -1) {
+      setQuizCardIndex(nextUnansweredIndex);
+      setQuizAnswer("");
       return;
     }
 
@@ -182,7 +209,27 @@ export function LessonsClient() {
     setSessionError(null);
 
     try {
-      const result = await completeLessonItem(queueState.token, session.id, currentLesson.item.id);
+      const result = await completeLessonItem(queueState.token, session.id, {
+        itemId: currentLesson.item.id,
+        answers: currentLesson.cards.map((card) => ({
+          cardId: card.id,
+          answerType: card.answerType,
+          answer: nextAnswers[card.id] ?? "",
+        })),
+      });
+
+      if (!result.passed) {
+        const firstFailed = result.answers.find((answer) => !answer.accepted);
+        const failedIndex = currentLesson.cards.findIndex(
+          (card) => card.id === firstFailed?.cardId,
+        );
+
+        setQuizCardIndex(Math.max(0, failedIndex));
+        setQuizAnswer("");
+        setQuizFeedback(firstFailed ?? null);
+        return;
+      }
+
       const nextIndex = currentIndex + 1;
       const nextSummary: CompletionSummary = {
         learnedItems: learnedItems + 1,
@@ -191,9 +238,10 @@ export function LessonsClient() {
 
       if (nextIndex < queueState.queue.length) {
         setCurrentIndex(nextIndex);
-        setStep("study");
+        setQuizCardIndex(0);
         setQuizAnswer("");
-        setIsQuizRevealed(false);
+        setQuizAnswers({});
+        setQuizFeedback(null);
         setCompletionSummary(nextSummary);
         return;
       }
@@ -202,8 +250,10 @@ export function LessonsClient() {
       setSession(null);
       setCurrentIndex(0);
       setStep("study");
+      setQuizCardIndex(0);
       setQuizAnswer("");
-      setIsQuizRevealed(false);
+      setQuizAnswers({});
+      setQuizFeedback(null);
       setCompletionSummary(nextSummary);
     } catch (error: unknown) {
       setSessionError(error instanceof Error ? error.message : "Не удалось завершить карточку.");
@@ -318,7 +368,8 @@ export function LessonsClient() {
           <div>
             <h1>Уроки</h1>
             <p>
-              Доступно: {queueState.queue.length}. Режим перевода:{" "}
+              В этой группе: {queueState.queue.length} из максимум {queueState.batchLimit}. Осталось
+              на сегодня: {queueState.remainingToday}. Режим перевода:{" "}
               {formatDisplayMode(activeDisplayMode)}.
             </p>
           </div>
@@ -360,7 +411,7 @@ export function LessonsClient() {
       <header className="lesson-session-header">
         <div>
           <span className="eyebrow">{progressLabel}</span>
-          <h1>{step === "study" ? "Изучение" : "Мини-проверка"}</h1>
+          <h1>{step === "study" ? "Изучение" : "Обязательная проверка"}</h1>
         </div>
         <div className="review-progress">
           <span>Изучено: {learnedItems}</span>
@@ -372,20 +423,19 @@ export function LessonsClient() {
         <LessonStudyView
           lesson={currentLesson}
           displayMode={activeDisplayMode}
-          onStartQuiz={handleStartQuiz}
+          isLast={currentIndex === activeQueue.length - 1}
+          onContinue={handleContinueStudy}
         />
       ) : (
         <LessonQuizView
           lesson={currentLesson}
-          displayMode={activeDisplayMode}
+          cardIndex={quizCardIndex}
           answer={quizAnswer}
-          isRevealed={isQuizRevealed}
+          feedback={quizFeedback}
           isCompleting={isCompleting}
           onAnswerChange={setQuizAnswer}
-          onComplete={() => void handleCompleteItem()}
-          completeButtonRef={completeButtonRef}
           inputRef={quizInputRef}
-          onReveal={handleRevealQuiz}
+          onSubmit={(event) => void handleQuizSubmit(event)}
         />
       )}
 
@@ -407,7 +457,7 @@ function LessonQueuePreview({
 }) {
   return (
     <div className="lesson-preview-grid">
-      {queue.slice(0, 6).map((lesson) => (
+      {queue.map((lesson) => (
         <article className="lesson-preview-card" key={lesson.item.id}>
           <div>
             <span className="eyebrow">{formatItemType(lesson.item.itemType)}</span>
@@ -423,11 +473,13 @@ function LessonQueuePreview({
 function LessonStudyView({
   lesson,
   displayMode,
-  onStartQuiz,
+  isLast,
+  onContinue,
 }: {
   readonly lesson: LessonQueueItem;
   readonly displayMode: TranslationDisplayMode;
-  readonly onStartQuiz: () => void;
+  readonly isLast: boolean;
+  readonly onContinue: () => void;
 }) {
   const meaningCards = lesson.cards.filter((card) => card.answerType === "meaning");
   const readingCards = lesson.cards.filter((card) => card.answerType === "reading");
@@ -467,8 +519,8 @@ function LessonStudyView({
           <h2>Объяснение</h2>
           <p>
             Изучаем {formatItemTypeLower(lesson.item.itemType)} как отдельный учебный материал.
-            После мини-проверки система создаст расписание повторений для {lesson.cards.length}{" "}
-            {formatCardsCount(lesson.cards.length)}.
+            После изучения всей группы обязательная проверка создаст расписание повторений для{" "}
+            {lesson.cards.length} {formatCardsCount(lesson.cards.length)} только при верных ответах.
           </p>
         </section>
 
@@ -521,8 +573,8 @@ function LessonStudyView({
       </div>
 
       <div className="lesson-action-bar">
-        <button className="primary-action" onClick={onStartQuiz} type="button">
-          Перейти к мини-проверке
+        <button className="primary-action" onClick={onContinue} type="button">
+          {isLast ? "Перейти к проверке" : "Следующий материал"}
         </button>
       </div>
     </>
@@ -531,36 +583,33 @@ function LessonStudyView({
 
 function LessonQuizView({
   lesson,
-  displayMode,
+  cardIndex,
   answer,
-  isRevealed,
+  feedback,
   isCompleting,
   onAnswerChange,
-  onComplete,
-  completeButtonRef,
   inputRef,
-  onReveal,
+  onSubmit,
 }: {
   readonly lesson: LessonQueueItem;
-  readonly displayMode: TranslationDisplayMode;
+  readonly cardIndex: number;
   readonly answer: string;
-  readonly isRevealed: boolean;
+  readonly feedback: CompleteLessonItemResponse["answers"][number] | null;
   readonly isCompleting: boolean;
   readonly onAnswerChange: (value: string) => void;
-  readonly onComplete: () => void;
-  readonly completeButtonRef: RefObject<HTMLButtonElement | null>;
   readonly inputRef: RefObject<HTMLInputElement | null>;
-  readonly onReveal: (event: FormEvent<HTMLFormElement>) => void;
+  readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
-  const quizCard = lesson.cards.find((card) => card.answerType === "meaning") ?? lesson.cards[0];
-  const expectedAnswers =
-    quizCard === undefined ? [] : getExpectedQuizAnswers(quizCard, displayMode);
+  const quizCard = lesson.cards[cardIndex];
   const answerType = quizCard?.answerType ?? "meaning";
 
   return (
     <article className="lesson-quiz panel">
       <div className="lesson-quiz-prompt">
         <span className="eyebrow">{formatAnswerType(answerType)}</span>
+        <strong className="lesson-quiz-count">
+          Карточка {Math.min(cardIndex + 1, lesson.cards.length)} из {lesson.cards.length}
+        </strong>
         <JapaneseText
           as="p"
           className="review-japanese"
@@ -569,16 +618,17 @@ function LessonQuizView({
           {lesson.item.japanese}
         </JapaneseText>
         <p className="muted">
-          Вспомните {answerType === "reading" ? "чтение" : "значение"}, затем откройте правильный
-          вариант и подтвердите результат.
+          Введите {answerType === "reading" ? "чтение" : "значение"}. Материал попадёт в SRS только
+          после верных ответов на все карточки.
         </p>
       </div>
 
-      <form className="lesson-quiz-form" onSubmit={onReveal}>
+      <form className="lesson-quiz-form" onSubmit={onSubmit}>
         <label htmlFor="lesson-quiz-answer">
           <span>{answerType === "reading" ? "Ваше чтение" : "Ваше значение"}</span>
           <input
             autoComplete="off"
+            disabled={isCompleting}
             id="lesson-quiz-answer"
             onChange={(event) => onAnswerChange(event.currentTarget.value)}
             placeholder={answerType === "reading" ? "например: いち" : "например: один"}
@@ -586,29 +636,29 @@ function LessonQuizView({
             value={answer}
           />
         </label>
-        <button className="secondary-action" type="submit">
-          Показать ответ
+        <button
+          className="primary-action"
+          disabled={isCompleting || answer.trim() === ""}
+          type="submit"
+        >
+          {isCompleting ? "Проверяю..." : "Проверить"}
         </button>
       </form>
 
-      {isRevealed ? (
-        <section className="lesson-quiz-result" aria-label="Ответ мини-проверки">
-          <h2>Правильный ответ</h2>
+      {feedback === null ? null : (
+        <section className="lesson-quiz-result" aria-label="Результат проверки" role="alert">
+          <h2>{feedback.result === "blocked" ? "Этот ответ не подходит" : "Попробуйте ещё раз"}</h2>
+          <p>
+            Карточка ещё не добавлена в SRS. Введите другой ответ, чтобы продолжить обязательную
+            проверку.
+          </p>
+          <strong>Допустимые ответы</strong>
           <TextList
             textKind={answerType === "reading" ? "reading" : "localized"}
-            texts={expectedAnswers}
+            texts={feedback.expected}
           />
-          <button
-            className="primary-action"
-            disabled={isCompleting}
-            onClick={onComplete}
-            ref={completeButtonRef}
-            type="button"
-          >
-            {isCompleting ? "Добавляю..." : "Отметить изученным"}
-          </button>
         </section>
-      ) : null}
+      )}
     </article>
   );
 }
@@ -638,18 +688,6 @@ function TextList({
       ))}
     </ul>
   );
-}
-
-function getExpectedQuizAnswers(
-  card: LearningCardDto,
-  displayMode: TranslationDisplayMode,
-): readonly LocalizedTextDto[] {
-  if (card.answerType === "reading") {
-    return card.acceptedAnswers;
-  }
-
-  const locales = getContentLocalesForDisplayMode(displayMode);
-  return card.acceptedAnswers.filter((answer) => locales.includes(answer.locale));
 }
 
 function collectCardAnswers(

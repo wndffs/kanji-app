@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { validateAnswer } from "@kanji-srs/japanese";
+
 import { type CurrentUserDto } from "../src/auth/auth.types";
 import { LessonsRepository } from "../src/lessons/lessons.repository";
 import { LessonsService } from "../src/lessons/lessons.service";
+import type { OverridesService } from "../src/overrides/overrides.service";
 import {
   type CompleteLessonItemInput,
   type CompletedLessonItemRecord,
@@ -28,7 +31,11 @@ describe("LessonsService", () => {
   it("returns no lessons without active enrollment", async () => {
     const service = createService({ courseItems: [] });
 
-    await expect(service.getQueue(createUser("owner"))).resolves.toEqual({ items: [] });
+    await expect(service.getQueue(createUser("owner"))).resolves.toEqual({
+      items: [],
+      batchLimit: 5,
+      remainingToday: 10,
+    });
   });
 
   it("returns first-level lessons that have no prerequisites", async () => {
@@ -41,7 +48,7 @@ describe("LessonsService", () => {
 
   it("locks dependent items until prerequisite stage threshold is reached", async () => {
     const repository = new InMemoryLessonsRepository();
-    const service = new LessonsService(repository);
+    const service = new LessonsService(repository, createOverridesService());
 
     await expect(service.getQueue(createUser("owner"))).resolves.toMatchObject({
       items: expect.not.arrayContaining([
@@ -87,16 +94,25 @@ describe("LessonsService", () => {
 
   it("creates initial SRS states when completing a lesson item", async () => {
     const repository = new InMemoryLessonsRepository();
-    const service = new LessonsService(repository);
+    const service = new LessonsService(repository, createOverridesService());
     const session = await service.startSession(createUser("owner"));
 
     const response = await service.completeItem(session.session.id, createUser("owner"), {
       itemId: "item-component-one",
+      answers: [
+        {
+          cardId: "card-component-one",
+          answerType: "meaning",
+          answer: "study",
+        },
+      ],
     });
 
     expect(response).toMatchObject({
       itemId: "item-component-one",
+      passed: true,
       createdSrsStateCount: 1,
+      answers: [expect.objectContaining({ cardId: "card-component-one", accepted: true })],
       cards: [
         {
           cardId: "card-component-one",
@@ -108,12 +124,85 @@ describe("LessonsService", () => {
         },
       ],
     });
+    expect(response.answers[0]?.expected[0]).toEqual({
+      locale: "en-US",
+      text: "study",
+      isPrimary: true,
+      sourceKind: "curated",
+    });
     expect(repository.listProgressFor("owner", "item-component-one")).toMatchObject([
       {
         learningCardId: "card-component-one",
         stageIndex: 1,
       },
     ]);
+  });
+
+  it("does not create SRS states until every lesson answer is accepted", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const service = new LessonsService(repository, createOverridesService());
+    const session = await service.startSession(createUser("owner"));
+
+    const response = await service.completeItem(session.session.id, createUser("owner"), {
+      itemId: "item-component-one",
+      answers: [
+        {
+          cardId: "card-component-one",
+          answerType: "meaning",
+          answer: "wrong answer",
+        },
+      ],
+    });
+
+    expect(response).toMatchObject({
+      itemId: "item-component-one",
+      passed: false,
+      createdSrsStateCount: 0,
+      answers: [
+        {
+          cardId: "card-component-one",
+          accepted: false,
+          result: "wrong",
+        },
+      ],
+      cards: [],
+    });
+    expect(repository.listProgressFor("owner", "item-component-one")).toEqual([]);
+  });
+
+  it("requires exactly one matching answer for every card", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const service = new LessonsService(repository, createOverridesService());
+    const session = await service.startSession(createUser("owner"));
+
+    await expect(
+      service.completeItem(session.session.id, createUser("owner"), {
+        itemId: "item-component-one",
+        answers: [
+          {
+            cardId: "card-component-one",
+            answerType: "reading",
+            answer: "study",
+          },
+        ],
+      }),
+    ).rejects.toThrow("answerType must be meaning for card card-component-one");
+    expect(repository.listProgressFor("owner", "item-component-one")).toEqual([]);
+  });
+
+  it("caps a lesson batch at five available items", async () => {
+    const courseItems = Array.from({ length: 7 }, (_, index) =>
+      createCourseItem(
+        createItem(`item-component-${index}`, "component", [`card-component-${index}`]),
+        index + 1,
+      ),
+    );
+    const service = createService({ courseItems });
+
+    const queue = await service.getQueue(createUser("owner"));
+
+    expect(queue.items).toHaveLength(5);
+    expect(queue).toMatchObject({ batchLimit: 5, remainingToday: 10 });
   });
 
   it("respects the user's daily lesson limit", async () => {
@@ -125,12 +214,14 @@ describe("LessonsService", () => {
           item: expect.objectContaining({ id: "item-component-one" }),
         }),
       ],
+      batchLimit: 5,
+      remainingToday: 1,
     });
   });
 
   it("applies the daily lesson limit in the user's timezone", async () => {
     const repository = new InMemoryLessonsRepository();
-    const service = new LessonsService(repository);
+    const service = new LessonsService(repository, createOverridesService());
 
     repository.addProgress(
       "owner",
@@ -147,7 +238,7 @@ describe("LessonsService", () => {
           timezone: "Europe/Moscow",
         }),
       ),
-    ).resolves.toEqual({ items: [] });
+    ).resolves.toEqual({ items: [], batchLimit: 5, remainingToday: 0 });
 
     await expect(
       service.getQueue(
@@ -162,6 +253,8 @@ describe("LessonsService", () => {
           item: expect.objectContaining({ id: "item-component-one" }),
         }),
       ],
+      batchLimit: 5,
+      remainingToday: 1,
     });
   });
 });
@@ -317,7 +410,20 @@ class InMemoryLessonsRepository extends LessonsRepository {
 function createService(
   options: { readonly courseItems?: readonly CourseLessonItemRecord[] } = {},
 ): LessonsService {
-  return new LessonsService(new InMemoryLessonsRepository(options));
+  return new LessonsService(new InMemoryLessonsRepository(options), createOverridesService());
+}
+
+function createOverridesService(): OverridesService {
+  return {
+    validateAnswerForUser: async (input) =>
+      validateAnswer({
+        answerKind: input.answerKind,
+        answer: input.answer,
+        acceptedAnswers: [input.answerKind === "reading" ? "がく" : "study"],
+        blockedAnswers: [],
+        userAcceptedAnswers: [],
+      }),
+  } as OverridesService;
 }
 
 function createCourseItems(): readonly CourseLessonItemRecord[] {

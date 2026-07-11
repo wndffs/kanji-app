@@ -83,17 +83,14 @@ test.describe("final MVP integration path", () => {
 
     await test.step("Complete one starter lesson item", async () => {
       await page.getByRole("link", { name: "Уроки" }).click();
-      await expect(page.getByText("Доступно: 1")).toBeVisible();
+      await expect(page.getByText(/В этой группе: 1 из максимум 5/)).toBeVisible();
       await expect(page.getByText("один / one")).toBeVisible();
 
       await page.getByRole("button", { name: "Начать урок" }).click();
       await expect(page.getByRole("heading", { name: "Изучение" })).toBeVisible();
-      await page.getByRole("button", { name: "Перейти к мини-проверке" }).click();
+      await page.getByRole("button", { name: "Перейти к проверке" }).click();
       await page.getByLabel("Ваше значение").fill("один");
       await page.keyboard.press("Enter");
-
-      await expect(page.getByRole("region", { name: "Ответ мини-проверки" })).toBeVisible();
-      await page.getByRole("button", { name: "Отметить изученным" }).click();
 
       await expect(
         page.getByText("Сессия завершена. Новые карточки добавлены в систему повторений."),
@@ -204,7 +201,11 @@ async function mockMvpApi(page: Page): Promise<void> {
     expectAuthorized(route);
 
     await route.fulfill({
-      json: { items: state.lessonCompleted ? [] : [starterLessonQueueItem] },
+      json: {
+        items: state.lessonCompleted ? [] : [starterLessonQueueItem],
+        batchLimit: 5,
+        remainingToday: state.lessonCompleted ? 19 : 20,
+      },
     });
   });
 
@@ -225,9 +226,23 @@ async function mockMvpApi(page: Page): Promise<void> {
 
   await page.route(`${API_BASE_URL}/lessons/${LESSON_SESSION_ID}/complete-item`, async (route) => {
     expectAuthorized(route);
-    const body = route.request().postDataJSON() as { readonly itemId?: string };
+    const body = route.request().postDataJSON() as {
+      readonly itemId?: string;
+      readonly answers?: readonly {
+        readonly cardId: string;
+        readonly answerType: string;
+        readonly answer: string;
+      }[];
+    };
 
     expect(body.itemId).toBe(starterItemId);
+    expect(body.answers).toEqual([
+      {
+        cardId: starterMeaningCardId,
+        answerType: "meaning",
+        answer: "один",
+      },
+    ]);
     state.lessonCompleted = true;
 
     await route.fulfill({ json: completeStarterLessonItemResponse });
@@ -648,7 +663,18 @@ const starterLessonQueueItem: LessonQueueItem = {
 
 const completeStarterLessonItemResponse: CompleteLessonItemResponse = {
   itemId: starterItemId,
+  passed: true,
   createdSrsStateCount: 1,
+  answers: [
+    {
+      cardId: starterMeaningCardId,
+      answerType: "meaning",
+      accepted: true,
+      result: "correct",
+      normalizedAnswer: "один",
+      expected: starterMeaningCard.acceptedAnswers,
+    },
+  ],
   cards: [
     {
       cardId: starterMeaningCardId,

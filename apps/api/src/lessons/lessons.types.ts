@@ -2,6 +2,7 @@ import {
   type BilingualTextDto,
   type CardAnswerType,
   type CardPromptType,
+  type CompleteLessonItemRequestDto,
   type ContentLocale,
   type FinishLessonSessionResponse,
   type ItemKind,
@@ -101,15 +102,12 @@ export type CompletedLessonItemRecord = {
   readonly createdSrsStateCount: number;
 };
 
-export type CompleteLessonItemRequest = {
-  readonly itemId?: unknown;
-};
-
 export type LessonDisplayContext = {
   readonly displayMode: TranslationDisplayMode;
 };
 
 export type {
+  CompleteLessonItemRequestDto,
   CompleteLessonItemResponse,
   FinishLessonSessionResponse,
   LessonQueueResponse,

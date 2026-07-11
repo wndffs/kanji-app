@@ -12,6 +12,7 @@ import {
   type AppLocale,
   type CardAnswerType,
   type ContentLocale,
+  type CompleteLessonItemRequestDto,
   type DashboardDto,
   type CompleteLessonItemResponse,
   type CreateTextDeckRequest,
@@ -331,14 +332,14 @@ export function startLessonSession(token: string): Promise<StartLessonSessionRes
 export function completeLessonItem(
   token: string,
   sessionId: string,
-  itemId: string,
+  input: CompleteLessonItemRequestDto,
 ): Promise<CompleteLessonItemResponse> {
   return apiRequest<CompleteLessonItemResponse>(
     `/lessons/${encodeURIComponent(sessionId)}/complete-item`,
     {
       method: "POST",
       token,
-      body: { itemId },
+      body: input,
     },
   );
 }

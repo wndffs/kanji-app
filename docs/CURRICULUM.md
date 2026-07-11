@@ -51,6 +51,18 @@ Published structured-course content must pass quality gates:
 The admin curriculum completeness report summarizes these gaps by band so expansion work can move
 from Foundation through N2 without requiring the full corpus upfront.
 
+## Main lesson flow
+
+Component, kanji, vocabulary, and sentence lessons use small groups of at most
+five new items. The learner studies every item in the group before retrieval
+begins. The required quiz then asks every meaning and reading card independently.
+
+The API, rather than the browser, validates the complete answer set against
+global accepted answers, private user answers, and blocked answers. Failed cards
+stay in the quiz and reveal the accepted Russian and/or English answers for the
+user's display mode. An item enters the interval-based SRS only after all of its
+lesson cards pass; incomplete or failed attempts create no SRS progress.
+
 ## Kana curriculum
 
 Kana is a separate character-learning track and does not use `LearningCard` or

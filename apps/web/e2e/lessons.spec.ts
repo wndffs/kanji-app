@@ -7,14 +7,14 @@ const ACCESS_TOKEN = "test-token";
 const SESSION_ID = "lesson-session-1";
 
 test.describe("lesson session", () => {
-  test("starts a lesson and completes one item", async ({ page }) => {
+  test("requires every lesson quiz answer before completing one item", async ({ page }) => {
     await signIn(page);
     await mockLessonApi(page);
 
     await page.goto("/lessons");
 
     await expect(page.getByRole("heading", { name: "Уроки" })).toBeVisible();
-    await expect(page.getByText("Доступно: 1")).toBeVisible();
+    await expect(page.getByText(/В этой группе: 1 из максимум 5/)).toBeVisible();
     await expect(page.getByText("один / one")).toBeVisible();
 
     await page.getByRole("button", { name: "Начать урок" }).click();
@@ -26,18 +26,22 @@ test.describe("lesson session", () => {
     await expect(page.getByRole("heading", { name: "Мнемоника и подсказка" })).toBeVisible();
     await expect(page.getByText("компонент один")).toBeVisible();
 
-    await page.getByRole("button", { name: "Перейти к мини-проверке" }).click();
+    await page.getByRole("button", { name: "Перейти к проверке" }).click();
 
-    await expect(page.getByRole("heading", { name: "Мини-проверка" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Обязательная проверка" })).toBeVisible();
     await expect(page.getByLabel("Ваше значение")).toBeFocused();
-    await page.getByLabel("Ваше значение").fill("один");
+    await page.getByLabel("Ваше значение").fill("не один");
     await page.keyboard.press("Enter");
 
-    await expect(page.getByRole("region", { name: "Ответ мини-проверки" })).toBeVisible();
-    await expect(page.getByText("Правильный ответ")).toBeVisible();
-    await expect(page.getByText("один")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Отметить изученным" })).toBeFocused();
+    await expect(page.getByLabel("Ваше чтение")).toBeFocused();
+    await page.getByLabel("Ваше чтение").fill("いち");
+    await page.keyboard.press("Enter");
 
+    await expect(page.getByRole("alert", { name: "Результат проверки" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Попробуйте ещё раз" })).toBeVisible();
+    await expect(page.getByText("один")).toBeVisible();
+    await expect(page.getByLabel("Ваше значение")).toBeFocused();
+    await page.getByLabel("Ваше значение").fill("один");
     await page.keyboard.press("Enter");
 
     await expect(
@@ -77,7 +81,9 @@ async function signIn(page: Page): Promise<void> {
 
 async function mockLessonApi(page: Page): Promise<void> {
   await page.route(`${API_BASE_URL}/lessons/queue`, async (route) => {
-    await route.fulfill({ json: { items: [lessonQueueItem] } });
+    await route.fulfill({
+      json: { items: [lessonQueueItem], batchLimit: 5, remainingToday: 20 },
+    });
   });
 
   await page.route(`${API_BASE_URL}/lessons/start`, async (route) => {
@@ -94,7 +100,15 @@ async function mockLessonApi(page: Page): Promise<void> {
   });
 
   await page.route(`${API_BASE_URL}/lessons/${SESSION_ID}/complete-item`, async (route) => {
-    await route.fulfill({ json: completeLessonItemResponse });
+    const body = route.request().postDataJSON() as {
+      readonly answers: readonly { readonly cardId: string; readonly answer: string }[];
+    };
+    const meaningAnswer = body.answers.find((answer) => answer.cardId === "card-kanji-one-meaning");
+
+    await route.fulfill({
+      json:
+        meaningAnswer?.answer === "один" ? completeLessonItemResponse : failedLessonItemResponse,
+    });
   });
 
   await page.route(`${API_BASE_URL}/lessons/${SESSION_ID}/finish`, async (route) => {
@@ -224,7 +238,29 @@ const lessonQueueItem: LessonQueueItem = {
 
 const completeLessonItemResponse: CompleteLessonItemResponse = {
   itemId: "item-kanji-one",
+  passed: true,
   createdSrsStateCount: 2,
+  answers: [
+    {
+      cardId: "card-kanji-one-meaning",
+      answerType: "meaning",
+      accepted: true,
+      result: "correct",
+      normalizedAnswer: "один",
+      expected: [
+        { locale: "ru-RU", text: "один", isPrimary: true, sourceKind: "curated" },
+        { locale: "en-US", text: "one", isPrimary: true, sourceKind: "curated" },
+      ],
+    },
+    {
+      cardId: "card-kanji-one-reading",
+      answerType: "reading",
+      accepted: true,
+      result: "correct",
+      normalizedAnswer: "いち",
+      expected: [{ locale: "ru-RU", text: "いち", isPrimary: true, sourceKind: "curated" }],
+    },
+  ],
   cards: [
     {
       cardId: "card-kanji-one-meaning",
@@ -249,4 +285,32 @@ const completeLessonItemResponse: CompleteLessonItemResponse = {
       },
     },
   ],
+};
+
+const failedLessonItemResponse: CompleteLessonItemResponse = {
+  itemId: "item-kanji-one",
+  passed: false,
+  createdSrsStateCount: 0,
+  answers: [
+    {
+      cardId: "card-kanji-one-meaning",
+      answerType: "meaning",
+      accepted: false,
+      result: "wrong",
+      normalizedAnswer: "не один",
+      expected: [
+        { locale: "ru-RU", text: "один", isPrimary: true, sourceKind: "curated" },
+        { locale: "en-US", text: "one", isPrimary: true, sourceKind: "curated" },
+      ],
+    },
+    {
+      cardId: "card-kanji-one-reading",
+      answerType: "reading",
+      accepted: true,
+      result: "correct",
+      normalizedAnswer: "いち",
+      expected: [{ locale: "ru-RU", text: "いち", isPrimary: true, sourceKind: "curated" }],
+    },
+  ],
+  cards: [],
 };

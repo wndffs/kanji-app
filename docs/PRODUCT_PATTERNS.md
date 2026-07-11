@@ -85,7 +85,7 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 3. Task 43: add varied kana recognition, reverse-choice, matching, and typing exercises.
 4. Task 44: add kana listening through platform speech synthesis without bundling third-party audio.
 5. Task 45: add single-glyph kana tracing with pinned, attributed KanjiVG paths.
-6. Task 46: tighten the main lesson batch and required quiz flow before SRS entry.
+6. Task 46 (completed): tighten the main lesson batch and required quiz flow before SRS entry.
 7. Task 47: add learner-controlled lesson picking and interleaving within prerequisites.
 8. Task 48: add optional recent-lesson, recent-mistake, and burned-item practice.
 9. Task 49: expose workload balance and level progress without copying another dashboard.

@@ -270,6 +270,8 @@ export type LessonQueueItem = {
 
 export type LessonQueueResponse = {
   readonly items: readonly LessonQueueItem[];
+  readonly batchLimit: number;
+  readonly remainingToday: number;
 };
 
 export type LessonSessionDto = {
@@ -285,10 +287,28 @@ export type StartLessonSessionResponse = {
 
 export type CompleteLessonItemResponse = {
   readonly itemId: string;
+  readonly passed: boolean;
   readonly createdSrsStateCount: number;
+  readonly answers: readonly {
+    readonly cardId: string;
+    readonly answerType: CardAnswerType;
+    readonly accepted: boolean;
+    readonly result: "correct" | "typo" | "blocked" | "wrong";
+    readonly normalizedAnswer: string;
+    readonly expected: readonly LocalizedTextDto[];
+  }[];
   readonly cards: readonly {
     readonly cardId: string;
     readonly srs: SrsStateSummaryDto;
+  }[];
+};
+
+export type CompleteLessonItemRequestDto = {
+  readonly itemId: string;
+  readonly answers: readonly {
+    readonly cardId: string;
+    readonly answerType: CardAnswerType;
+    readonly answer: string;
   }[];
 };
 

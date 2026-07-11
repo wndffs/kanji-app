@@ -93,11 +93,18 @@ endpoint; the stroke SVG itself is not persisted in kana progress.
 
 `GET /lessons/queue` returns new learning items for the authenticated user's
 active course enrollment. Availability uses the first incomplete course level,
-item dependency thresholds, and the user's `dailyLessonLimit`. Completing a
-lesson item creates initial `UserSrsState` rows for that item's cards using the
-configured default SRS system. Lesson sessions are stored as `ReviewSession`
-records with `LESSON_QUIZ` mode until a dedicated lesson-session table is
-introduced.
+item dependency thresholds, and the user's `dailyLessonLimit`. The response
+contains at most five items in `items`, plus `batchLimit` and `remainingToday`
+for workload display.
+
+`POST /lessons/:sessionId/complete-item` accepts `itemId` and an `answers` array
+with exactly one `{ cardId, answerType, answer }` entry for every card on the
+item. The API revalidates global and private accepted answers and blocked
+answers. It returns `passed: false`, per-card feedback, and no SRS rows when any
+answer fails. Only a complete accepted set atomically creates initial
+`UserSrsState` rows using the configured default SRS system. Lesson sessions are
+stored as `ReviewSession` records with `LESSON_QUIZ` mode until a dedicated
+lesson-session table is introduced.
 
 ### Reviews
 
