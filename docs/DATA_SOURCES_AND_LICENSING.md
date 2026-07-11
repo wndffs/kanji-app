@@ -35,6 +35,10 @@ Implementation requirements:
 
 Use for stroke order SVG/path data and kanji component graphics.
 
+KanjiVG is distributed under CC BY-SA 3.0. Store it as `CC-BY-SA-3.0`, retain
+Ulrich Apel/KanjiVG attribution, and keep the imported paths separate from
+project-authored component names and explanations.
+
 Implementation requirements:
 
 - Store source attribution.

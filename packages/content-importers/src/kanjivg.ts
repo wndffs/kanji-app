@@ -1,4 +1,6 @@
-import { calculateSha256 } from "./checksum";
+import { verifySha256 } from "./import-metadata";
+import { forEachConcurrent } from "./concurrency";
+import { executeTrackedImport } from "./import-run";
 import {
   extractOpeningTagAttributes,
   extractSelfClosingElements,
@@ -30,6 +32,7 @@ export type KanjiVgParseResult = {
 export type KanjiVgImportOptions = {
   readonly sourceFileName: string;
   readonly sourceVersion?: string | null;
+  readonly sourceDownloadedAt?: Date | null;
   readonly checksumSha256?: string;
 };
 
@@ -69,6 +72,10 @@ export type KanjiVgImportDatabase = {
       readonly update: Record<string, unknown>;
       readonly create: Record<string, unknown>;
     }): Promise<{ readonly id: string }>;
+    update(args: {
+      readonly where: { readonly id: string };
+      readonly data: Record<string, unknown>;
+    }): Promise<unknown>;
   };
   readonly importedRecord: {
     upsert(args: {
@@ -81,7 +88,7 @@ export type KanjiVgImportDatabase = {
       };
       readonly update: Record<string, unknown>;
       readonly create: Record<string, unknown>;
-    }): Promise<unknown>;
+    }): Promise<{ readonly id: string }>;
   };
   readonly kanji: {
     upsert(args: {
@@ -102,10 +109,15 @@ export type KanjiVgImportDatabase = {
 const KANJIVG_LICENSE_NAME = "KanjiVG license";
 const KANJIVG_SOURCE_NAME = "KanjiVG";
 const KANJIVG_HOMEPAGE_URL = "https://kanjivg.tagaini.net/";
-const KANJIVG_DOWNLOAD_URL = "https://github.com/KanjiVG/kanjivg";
+const KANJIVG_DOWNLOAD_URL = "https://github.com/KanjiVG/kanjivg/releases";
+const KANJIVG_LICENSE_URL = "https://creativecommons.org/licenses/by-sa/3.0/";
+const KANJIVG_LEGACY_VIEW_BOX = "0 0 109 109";
+const IMPORT_WRITE_CONCURRENCY = 8;
 
 export function parseKanjiVgXml(xml: string): KanjiVgParseResult {
-  const viewBox = extractOpeningTagAttributes(xml, "svg")?.viewBox;
+  const viewBox =
+    extractOpeningTagAttributes(xml, "svg")?.viewBox ??
+    (extractOpeningTagAttributes(xml, "kanjivg") === null ? undefined : KANJIVG_LEGACY_VIEW_BOX);
 
   if (viewBox === undefined || viewBox.trim() === "") {
     throw new Error("KanjiVG SVG is missing a viewBox attribute.");
@@ -123,25 +135,26 @@ export async function importKanjiVgXml(
   xml: string,
   options: KanjiVgImportOptions,
 ): Promise<KanjiVgImportResult> {
+  const checksumSha256 = verifySha256(xml, options.checksumSha256);
   const parsed = parseKanjiVgXml(xml);
-  const checksumSha256 = options.checksumSha256 ?? calculateSha256(xml);
   const sourceVersion = options.sourceVersion ?? "unknown";
+  const statsJson = { characters: parsed.characters.length };
 
   const license = await db.license.upsert({
     where: { name: KANJIVG_LICENSE_NAME },
     update: {
-      spdxLikeId: "LicenseRef-KanjiVG",
+      spdxLikeId: "CC-BY-SA-3.0",
       scope: "OPEN_DATA",
-      url: KANJIVG_HOMEPAGE_URL,
+      url: KANJIVG_LICENSE_URL,
       requiresAttribution: true,
       requiresShareAlike: true,
       notes: "KanjiVG stroke order data. Store paths separately from curated learning content.",
     },
     create: {
       name: KANJIVG_LICENSE_NAME,
-      spdxLikeId: "LicenseRef-KanjiVG",
+      spdxLikeId: "CC-BY-SA-3.0",
       scope: "OPEN_DATA",
-      url: KANJIVG_HOMEPAGE_URL,
+      url: KANJIVG_LICENSE_URL,
       requiresAttribution: true,
       requiresShareAlike: true,
       notes: "KanjiVG stroke order data. Store paths separately from curated learning content.",
@@ -175,67 +188,72 @@ export async function importKanjiVgXml(
     update: {
       sourceVersion,
       sourceFileName: options.sourceFileName,
-      finishedAt: new Date(),
-      status: "SUCCESS",
-      statsJson: { characters: parsed.characters.length },
+      sourceDownloadedAt: options.sourceDownloadedAt ?? null,
+      startedAt: new Date(),
+      finishedAt: null,
+      status: "PENDING",
+      statsJson: null,
       errorText: null,
     },
     create: {
       dataSourceId: dataSource.id,
       sourceVersion,
       sourceFileName: options.sourceFileName,
+      sourceDownloadedAt: options.sourceDownloadedAt ?? null,
       checksumSha256,
-      finishedAt: new Date(),
-      status: "SUCCESS",
-      statsJson: { characters: parsed.characters.length },
+      status: "PENDING",
       errorText: null,
     },
   });
 
-  for (const character of parsed.characters) {
-    await db.importedRecord.upsert({
-      where: {
-        importRunId_recordType_sourceRecordId: {
+  await executeTrackedImport(db.importRun, importRun.id, statsJson, async () => {
+    await forEachConcurrent(parsed.characters, IMPORT_WRITE_CONCURRENCY, async (character) => {
+      const importedRecord = await db.importedRecord.upsert({
+        where: {
+          importRunId_recordType_sourceRecordId: {
+            importRunId: importRun.id,
+            recordType: "KANJIVG_CHARACTER",
+            sourceRecordId: character.sourceRecordId,
+          },
+        },
+        update: {
+          rawJson: character.raw,
+        },
+        create: {
           importRunId: importRun.id,
           recordType: "KANJIVG_CHARACTER",
           sourceRecordId: character.sourceRecordId,
+          rawJson: character.raw,
         },
-      },
-      update: {
-        rawJson: character.raw,
-      },
-      create: {
-        importRunId: importRun.id,
-        recordType: "KANJIVG_CHARACTER",
-        sourceRecordId: character.sourceRecordId,
-        rawJson: character.raw,
-      },
-    });
+      });
 
-    const kanji = await db.kanji.upsert({
-      where: { character: character.character },
-      update: {},
-      create: {
-        character: character.character,
-        strokeCount: character.strokeCount,
-      },
-    });
+      const kanji = await db.kanji.upsert({
+        where: { character: character.character },
+        update: {},
+        create: {
+          character: character.character,
+          strokeCount: character.strokeCount,
+        },
+      });
 
-    await db.kanjiStrokeGraphic.upsert({
-      where: { sourceRecordId: character.sourceRecordId },
-      update: {
-        kanjiId: kanji.id,
-        viewBox: character.viewBox,
-        strokesJson: character.strokes,
-      },
-      create: {
-        kanjiId: kanji.id,
-        sourceRecordId: character.sourceRecordId,
-        viewBox: character.viewBox,
-        strokesJson: character.strokes,
-      },
+      await db.kanjiStrokeGraphic.upsert({
+        where: { sourceRecordId: character.sourceRecordId },
+        update: {
+          kanjiId: kanji.id,
+          importedRecordId: importedRecord.id,
+          viewBox: character.viewBox,
+          strokesJson: character.strokes,
+        },
+        create: {
+          kanjiId: kanji.id,
+          sourceRecordId: character.sourceRecordId,
+          importedRecordId: importedRecord.id,
+          viewBox: character.viewBox,
+          strokesJson: character.strokes,
+        },
+      });
     });
-  }
+  });
 
   return {
     licenseId: license.id,
@@ -273,10 +291,23 @@ function extractStrokePathGroups(xml: string): readonly StrokePathGroup[] {
   }
 
   const paths = extractSelfClosingElements(xml, "path");
+  const pathsByCodepoint = new Map<string, XmlElementWithAttributes[]>();
+
+  for (const path of paths) {
+    const codepoint = path.attributes.id?.match(/^kvg:([0-9a-fA-F]+)-s\d+$/u)?.[1]?.toLowerCase();
+
+    if (codepoint === undefined || !codepoints.has(codepoint)) {
+      continue;
+    }
+
+    const groupedPaths = pathsByCodepoint.get(codepoint) ?? [];
+    groupedPaths.push(path);
+    pathsByCodepoint.set(codepoint, groupedPaths);
+  }
 
   return [...codepoints].map((codepoint) => ({
     codepoint,
-    paths: paths.filter((path) => path.attributes.id?.startsWith(`kvg:${codepoint}-s`) ?? false),
+    paths: pathsByCodepoint.get(codepoint) ?? [],
   }));
 }
 

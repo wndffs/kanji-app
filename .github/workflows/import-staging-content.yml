@@ -1,0 +1,204 @@
+name: Import staging content
+
+on:
+  workflow_dispatch:
+    inputs:
+      snapshot_version:
+        description: Snapshot label stored for JMdict (use YYYY-MM-DD)
+        required: true
+        type: string
+      expected_jmdict_archive_sha256:
+        description: Optional pinned SHA-256 of JMdict.gz
+        required: false
+        type: string
+      expected_kanjidic2_archive_sha256:
+        description: Optional pinned SHA-256 of kanjidic2.xml.gz
+        required: false
+        type: string
+      expected_kanjivg_archive_sha256:
+        description: Optional pinned SHA-256 of the KanjiVG release archive
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-database
+  cancel-in-progress: false
+
+jobs:
+  import-content:
+    name: Import open-data snapshot into Neon
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=4096
+      SNAPSHOT_VERSION: ${{ inputs.snapshot_version }}
+      EXPECTED_JMDICT_ARCHIVE_SHA256: ${{ inputs.expected_jmdict_archive_sha256 }}
+      EXPECTED_KANJIDIC2_ARCHIVE_SHA256: ${{ inputs.expected_kanjidic2_archive_sha256 }}
+      EXPECTED_KANJIVG_ARCHIVE_SHA256: ${{ inputs.expected_kanjivg_archive_sha256 }}
+      JMDICT_URL: https://ftp.edrdg.org/pub/Nihongo/JMdict.gz
+      KANJIDIC2_URL: https://www.edrdg.org/kanjidic/kanjidic2.xml.gz
+      KANJIVG_URL: https://github.com/KanjiVG/kanjivg/releases/download/r20250816/kanjivg-20250816.xml.gz
+      KANJIVG_VERSION: r20250816
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Validate inputs and secret
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "Repository secret STAGING_DATABASE_URL is required."
+            exit 1
+          fi
+
+          if ! printf '%s' "$SNAPSHOT_VERSION" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+            echo "snapshot_version must use YYYY-MM-DD format."
+            exit 1
+          fi
+
+          for checksum in \
+            "$EXPECTED_JMDICT_ARCHIVE_SHA256" \
+            "$EXPECTED_KANJIDIC2_ARCHIVE_SHA256" \
+            "$EXPECTED_KANJIVG_ARCHIVE_SHA256"; do
+            if [ -n "$checksum" ] && ! printf '%s' "$checksum" | grep -Eiq '^[a-f0-9]{64}$'; then
+              echo "Expected checksums must contain exactly 64 hexadecimal characters."
+              exit 1
+            fi
+          done
+
+      - name: Download official source archives
+        run: |
+          SNAPSHOT_DIR="$RUNNER_TEMP/kanji-content-snapshot"
+          mkdir -p "$SNAPSHOT_DIR"
+          echo "SNAPSHOT_DIR=$SNAPSHOT_DIR" >> "$GITHUB_ENV"
+
+          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 \
+            --output "$SNAPSHOT_DIR/JMdict.gz" "$JMDICT_URL"
+          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 \
+            --output "$SNAPSHOT_DIR/kanjidic2.xml.gz" "$KANJIDIC2_URL"
+          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 \
+            --output "$SNAPSHOT_DIR/kanjivg-20250816.xml.gz" "$KANJIVG_URL"
+
+          gzip --test "$SNAPSHOT_DIR/JMdict.gz"
+          gzip --test "$SNAPSHOT_DIR/kanjidic2.xml.gz"
+          gzip --test "$SNAPSHOT_DIR/kanjivg-20250816.xml.gz"
+
+      - name: Verify and unpack snapshot
+        run: |
+          verify_archive() {
+            local file="$1"
+            local expected="$2"
+            local actual
+            actual="$(sha256sum "$file" | cut -d ' ' -f 1)"
+
+            if [ -n "$expected" ] && [ "${actual,,}" != "${expected,,}" ]; then
+              echo "SHA-256 mismatch for $(basename "$file"): expected $expected, received $actual."
+              exit 1
+            fi
+          }
+
+          verify_archive "$SNAPSHOT_DIR/JMdict.gz" "$EXPECTED_JMDICT_ARCHIVE_SHA256"
+          verify_archive "$SNAPSHOT_DIR/kanjidic2.xml.gz" "$EXPECTED_KANJIDIC2_ARCHIVE_SHA256"
+          verify_archive "$SNAPSHOT_DIR/kanjivg-20250816.xml.gz" "$EXPECTED_KANJIVG_ARCHIVE_SHA256"
+
+          gzip --decompress --stdout "$SNAPSHOT_DIR/JMdict.gz" > "$SNAPSHOT_DIR/JMdict.xml"
+          gzip --decompress --stdout "$SNAPSHOT_DIR/kanjidic2.xml.gz" > "$SNAPSHOT_DIR/kanjidic2.xml"
+          gzip --decompress --stdout "$SNAPSHOT_DIR/kanjivg-20250816.xml.gz" > "$SNAPSHOT_DIR/kanjivg-20250816.xml"
+
+          echo "SOURCE_DOWNLOADED_AT=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+          echo "JMDICT_ARCHIVE_SHA256=$(sha256sum "$SNAPSHOT_DIR/JMdict.gz" | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
+          echo "KANJIDIC2_ARCHIVE_SHA256=$(sha256sum "$SNAPSHOT_DIR/kanjidic2.xml.gz" | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
+          echo "KANJIVG_ARCHIVE_SHA256=$(sha256sum "$SNAPSHOT_DIR/kanjivg-20250816.xml.gz" | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
+          echo "JMDICT_CONTENT_SHA256=$(sha256sum "$SNAPSHOT_DIR/JMdict.xml" | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
+          echo "KANJIDIC2_CONTENT_SHA256=$(sha256sum "$SNAPSHOT_DIR/kanjidic2.xml" | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
+          echo "KANJIVG_CONTENT_SHA256=$(sha256sum "$SNAPSHOT_DIR/kanjivg-20250816.xml" | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
+
+      - name: Write reproducibility manifest
+        run: |
+          node <<'NODE'
+          const { writeFileSync } = require("node:fs");
+          const { join } = require("node:path");
+
+          const source = (name, url, archiveFile, contentFile, archiveSha256, contentSha256) => ({
+            name,
+            url,
+            archiveFile,
+            contentFile,
+            archiveSha256,
+            contentSha256,
+          });
+          const manifest = {
+            schemaVersion: 1,
+            snapshotVersion: process.env.SNAPSHOT_VERSION,
+            downloadedAt: process.env.SOURCE_DOWNLOADED_AT,
+            sources: [
+              source("JMdict", process.env.JMDICT_URL, "JMdict.gz", "JMdict.xml", process.env.JMDICT_ARCHIVE_SHA256, process.env.JMDICT_CONTENT_SHA256),
+              source("KANJIDIC2", process.env.KANJIDIC2_URL, "kanjidic2.xml.gz", "kanjidic2.xml", process.env.KANJIDIC2_ARCHIVE_SHA256, process.env.KANJIDIC2_CONTENT_SHA256),
+              source("KanjiVG", process.env.KANJIVG_URL, "kanjivg-20250816.xml.gz", "kanjivg-20250816.xml", process.env.KANJIVG_ARCHIVE_SHA256, process.env.KANJIVG_CONTENT_SHA256),
+            ],
+          };
+
+          writeFileSync(join(process.env.SNAPSHOT_DIR, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+          NODE
+
+      - name: Upload snapshot manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: content-snapshot-${{ inputs.snapshot_version }}-${{ github.run_id }}
+          path: ${{ env.SNAPSHOT_DIR }}/manifest.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Apply Prisma migrations
+        run: npm run db:migrate:deploy
+
+      - name: Import KANJIDIC2
+        run: >-
+          npm run import:kanjidic2 -- "$SNAPSHOT_DIR/kanjidic2.xml"
+          --source-downloaded-at "$SOURCE_DOWNLOADED_AT"
+          --checksum-sha256 "$KANJIDIC2_CONTENT_SHA256"
+
+      - name: Import KanjiVG
+        run: >-
+          npm run import:kanjivg -- "$SNAPSHOT_DIR/kanjivg-20250816.xml"
+          --source-version "$KANJIVG_VERSION"
+          --source-downloaded-at "$SOURCE_DOWNLOADED_AT"
+          --checksum-sha256 "$KANJIVG_CONTENT_SHA256"
+
+      - name: Import multilingual JMdict
+        run: >-
+          npm run import:jmdict -- "$SNAPSHOT_DIR/JMdict.xml"
+          --source-version "$SNAPSHOT_VERSION"
+          --source-downloaded-at "$SOURCE_DOWNLOADED_AT"
+          --checksum-sha256 "$JMDICT_CONTENT_SHA256"
+
+      - name: Publish manifest in workflow summary
+        if: ${{ always() && env.SNAPSHOT_DIR != '' }}
+        run: |
+          if [ -f "$SNAPSHOT_DIR/manifest.json" ]; then
+            echo '## Imported content snapshot' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat "$SNAPSHOT_DIR/manifest.json" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Remove downloaded source files
+        if: ${{ always() && env.SNAPSHOT_DIR != '' }}
+        run: rm -rf -- "$SNAPSHOT_DIR"

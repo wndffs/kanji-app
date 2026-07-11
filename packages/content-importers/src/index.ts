@@ -10,7 +10,10 @@ export const supportedSourceFamilies: SupportedSourceFamily[] = [
 ];
 
 export * from "./checksum";
+export * from "./concurrency";
 export * from "./jmdict";
+export * from "./import-metadata";
+export * from "./import-run";
 export * from "./kanjidic2";
 export * from "./kanjivg";
 export * from "./tatoeba";

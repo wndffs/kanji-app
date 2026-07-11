@@ -37,6 +37,30 @@ describe("KanjiVG importer", () => {
     });
   });
 
+  it("parses the official combined release format", () => {
+    const combinedXml = fixtureXml
+      .replace(/<svg[^>]*>/u, '<kanjivg xmlns:kvg="http://kanjivg.tagaini.net">')
+      .replace(
+        "</svg>",
+        '<g id="kvg:StrokePaths_04e8c"><path id="kvg:04e8c-s1" d="M1,1" /><path id="kvg:04e8c-s2" d="M2,2" /></g></kanjivg>',
+      );
+
+    expect(parseKanjiVgXml(combinedXml).characters).toMatchObject([
+      {
+        sourceRecordId: "kanjivg:04e00",
+        viewBox: "0 0 109 109",
+        strokeCount: 1,
+        strokes: [{ id: "kvg:04e00-s1" }],
+      },
+      {
+        sourceRecordId: "kanjivg:04e8c",
+        viewBox: "0 0 109 109",
+        strokeCount: 2,
+        strokes: [{ id: "kvg:04e8c-s1" }, { id: "kvg:04e8c-s2" }],
+      },
+    ]);
+  });
+
   it("writes DB records idempotently for the same source IDs", async () => {
     const db = new InMemoryKanjiVgDb();
 
@@ -49,6 +73,7 @@ describe("KanjiVG importer", () => {
     expect(db.strokeGraphicRows.size).toBe(1);
     expect([...db.strokeGraphicRows.values()][0]).toMatchObject({
       sourceRecordId: "kanjivg:04e00",
+      importedRecordId: expect.any(String),
       viewBox: "0 0 109 109",
       strokesJson: [
         {
@@ -64,10 +89,12 @@ describe("KanjiVG importer", () => {
   it("records import run checksum and success status", async () => {
     const db = new InMemoryKanjiVgDb();
     const checksum = calculateSha256(fixtureXml);
+    const sourceDownloadedAt = new Date("2026-07-11T09:30:00.000Z");
 
     const result = await importKanjiVgXml(db, fixtureXml, {
       sourceFileName: "kanjivg-small.svg",
       checksumSha256: checksum,
+      sourceDownloadedAt,
     });
 
     expect(result).toMatchObject({
@@ -78,8 +105,15 @@ describe("KanjiVG importer", () => {
     });
     expect([...db.importRuns.values()][0]).toMatchObject({
       checksumSha256: checksum,
+      sourceDownloadedAt,
       status: "SUCCESS",
       statsJson: { characters: 1 },
+    });
+    expect([...db.licenses.values()][0]).toMatchObject({
+      spdxLikeId: "CC-BY-SA-3.0",
+      url: "https://creativecommons.org/licenses/by-sa/3.0/",
+      requiresAttribution: true,
+      requiresShareAlike: true,
     });
   });
 });
@@ -114,6 +148,9 @@ class InMemoryKanjiVgDb implements KanjiVgImportDatabase {
 
       return this.upsert(this.importRuns, key, args.update, args.create);
     },
+    update: async (args: Parameters<KanjiVgImportDatabase["importRun"]["update"]>[0]) => {
+      this.updateById(this.importRuns, args.where.id, args.data);
+    },
   };
 
   readonly importedRecord = {
@@ -124,7 +161,7 @@ class InMemoryKanjiVgDb implements KanjiVgImportDatabase {
         args.where.importRunId_recordType_sourceRecordId.sourceRecordId,
       ].join(":");
 
-      await this.upsert(this.importedRecords, key, args.update, args.create);
+      return this.upsert(this.importedRecords, key, args.update, args.create);
     },
   };
 
@@ -163,5 +200,19 @@ class InMemoryKanjiVgDb implements KanjiVgImportDatabase {
     rows.set(key, row);
 
     return { id: String(row.id) };
+  }
+
+  private updateById(
+    rows: Map<string, Record<string, unknown>>,
+    id: string,
+    data: Record<string, unknown>,
+  ): void {
+    const row = [...rows.values()].find((candidate) => candidate.id === id);
+
+    if (row === undefined) {
+      throw new Error(`Missing row ${id}.`);
+    }
+
+    Object.assign(row, data);
   }
 }

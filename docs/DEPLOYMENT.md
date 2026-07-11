@@ -178,6 +178,13 @@ STAGING_API_URL=https://<your-render-service>.onrender.com
    normal deploy. Set it only when Prisma reports a failed migration that must
    be marked as rolled back before retrying.
 
+After the database deploy succeeds, use the separate `Import staging content`
+workflow to load a checksummed full JMdict/KANJIDIC2/KanjiVG snapshot. Detailed
+inputs, provenance behavior, and retry rules are documented in
+`docs/IMPORT_OPERATIONS.md`. This import is intentionally not part of every
+deployment because the source data is large and changes independently of the
+application schema.
+
 For a local fallback, apply the same migrations and seed from a trusted machine:
 
 ```bash

@@ -83,22 +83,27 @@ describe("JMdict importer", () => {
       expect.arrayContaining([expect.objectContaining({ meaning: "danke" })]),
     );
     expect(JSON.stringify([...db.importedRecords.values()])).not.toContain("danke");
-    expect([...db.wordRows.values()].map((row) => row.jmdictEntryId)).toEqual([
+    expect([...db.wordRows.values()].map((row) => row.jmdictEntryId).sort()).toEqual([
       "jmdict:1000001",
       "jmdict:1000001",
       "jmdict:1000002",
       "jmdict:1000003",
       "jmdict:1000003",
     ]);
+    expect([...db.wordRows.values()].every((row) => row.jmdictImportedRecordId !== undefined)).toBe(
+      true,
+    );
   });
 
   it("records import run checksum and success status", async () => {
     const db = new InMemoryJmDictDb();
     const checksum = calculateSha256(fixtureXml);
+    const sourceDownloadedAt = new Date("2026-07-11T09:30:00.000Z");
 
     const result = await importJmDictXml(db, fixtureXml, {
       sourceFileName: "jmdict-small.xml",
       checksumSha256: checksum,
+      sourceDownloadedAt,
     });
 
     expect(result).toMatchObject({
@@ -113,6 +118,7 @@ describe("JMdict importer", () => {
     });
     expect([...db.importRuns.values()][0]).toMatchObject({
       checksumSha256: checksum,
+      sourceDownloadedAt,
       status: "SUCCESS",
       statsJson: {
         entries: 3,
@@ -159,6 +165,9 @@ class InMemoryJmDictDb implements JmDictImportDatabase {
 
       return this.upsert(this.importRuns, key, args.update, args.create);
     },
+    update: async (args: Parameters<JmDictImportDatabase["importRun"]["update"]>[0]) => {
+      this.updateById(this.importRuns, args.where.id, args.data);
+    },
   };
 
   readonly importedRecord = {
@@ -169,7 +178,7 @@ class InMemoryJmDictDb implements JmDictImportDatabase {
         args.where.importRunId_recordType_sourceRecordId.sourceRecordId,
       ].join(":");
 
-      await this.upsert(this.importedRecords, key, args.update, args.create);
+      return this.upsert(this.importedRecords, key, args.update, args.create);
     },
   };
 
@@ -215,5 +224,19 @@ class InMemoryJmDictDb implements JmDictImportDatabase {
     rows.set(key, row);
 
     return { id: String(row.id) };
+  }
+
+  private updateById(
+    rows: Map<string, Record<string, unknown>>,
+    id: string,
+    data: Record<string, unknown>,
+  ): void {
+    const row = [...rows.values()].find((candidate) => candidate.id === id);
+
+    if (row === undefined) {
+      throw new Error(`Missing row ${id}.`);
+    }
+
+    Object.assign(row, data);
   }
 }

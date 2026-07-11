@@ -81,15 +81,20 @@ describe("KANJIDIC2 importer", () => {
       "kanjidic2:6708",
       "kanjidic2:706b",
     ]);
+    expect(
+      [...db.kanjiRows.values()].every((row) => row.kanjidicImportedRecordId !== undefined),
+    ).toBe(true);
   });
 
   it("records import run checksum and success status", async () => {
     const db = new InMemoryKanjiDic2Db();
     const checksum = calculateSha256(fixtureXml);
+    const sourceDownloadedAt = new Date("2026-07-11T09:30:00.000Z");
 
     const result = await importKanjiDic2Xml(db, fixtureXml, {
       sourceFileName: "kanjidic2-small.xml",
       checksumSha256: checksum,
+      sourceDownloadedAt,
     });
 
     expect(result).toMatchObject({
@@ -100,6 +105,7 @@ describe("KANJIDIC2 importer", () => {
     });
     expect([...db.importRuns.values()][0]).toMatchObject({
       checksumSha256: checksum,
+      sourceDownloadedAt,
       status: "SUCCESS",
       statsJson: { characters: 3 },
     });
@@ -143,6 +149,9 @@ class InMemoryKanjiDic2Db implements KanjiDic2ImportDatabase {
 
       return this.upsert(this.importRuns, key, args.update, args.create);
     },
+    update: async (args: Parameters<KanjiDic2ImportDatabase["importRun"]["update"]>[0]) => {
+      this.updateById(this.importRuns, args.where.id, args.data);
+    },
   };
 
   readonly importedRecord = {
@@ -153,7 +162,7 @@ class InMemoryKanjiDic2Db implements KanjiDic2ImportDatabase {
         args.where.importRunId_recordType_sourceRecordId.sourceRecordId,
       ].join(":");
 
-      await this.upsert(this.importedRecords, key, args.update, args.create);
+      return this.upsert(this.importedRecords, key, args.update, args.create);
     },
   };
 
@@ -205,5 +214,19 @@ class InMemoryKanjiDic2Db implements KanjiDic2ImportDatabase {
     rows.set(key, row);
 
     return { id: String(row.id) };
+  }
+
+  private updateById(
+    rows: Map<string, Record<string, unknown>>,
+    id: string,
+    data: Record<string, unknown>,
+  ): void {
+    const row = [...rows.values()].find((candidate) => candidate.id === id);
+
+    if (row === undefined) {
+      throw new Error(`Missing row ${id}.`);
+    }
+
+    Object.assign(row, data);
   }
 }

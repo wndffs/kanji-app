@@ -30,6 +30,19 @@ npm run import:kanjivg -- C:\data\kanjivg.xml --source-version 2026-06
 npm run import:tatoeba -- C:\data\sentences.tsv C:\data\links.tsv --source-version 2026-06
 ```
 
+The three XML import commands also accept reproducibility metadata:
+
+```powershell
+npm run import:jmdict -- C:\data\JMdict.xml `
+  --source-version 2026-07-11 `
+  --source-downloaded-at 2026-07-11T09:30:00Z `
+  --checksum-sha256 <sha256-of-decompressed-xml>
+```
+
+When `--checksum-sha256` is present, the command verifies the XML before making
+database changes. The checksum is normalized to lowercase and must contain 64
+hexadecimal characters.
+
 Use the full multilingual `JMdict.gz` distribution and decompress it outside the repository.
 The English-only `JMdict_e.gz` file cannot populate Russian word senses. The importer stores
 English (`eng`/`en`) and Russian (`rus`/`ru`) glosses as normalized word senses. Other languages
@@ -46,6 +59,47 @@ The commands store only the source file basename in `ImportRun.sourceFileName`,
 plus checksum, source version/date, optional downloaded date, status, stats,
 errors, and imported records. Keep the exact download URL and license on the
 `DataSource`/`License` rows rather than in ad hoc notes.
+
+## Full staging snapshot
+
+Use the manually dispatched GitHub Actions workflow `Import staging content` for
+a complete staging import. It downloads these official distributions on a
+GitHub-hosted runner:
+
+- multilingual `JMdict.gz` from EDRDG;
+- `kanjidic2.xml.gz` from EDRDG;
+- the immutable KanjiVG `r20250816` combined XML release.
+
+The workflow applies migrations, then imports KANJIDIC2, KanjiVG, and JMdict in
+that order. It shares the `staging-database` concurrency lock with the migration
+workflow, so do not cancel a running import to start a database deploy.
+
+To run it:
+
+1. Confirm the GitHub repository secret `STAGING_DATABASE_URL` contains the
+   direct Neon connection string.
+2. Open **Actions -> Import staging content -> Run workflow** on `main`.
+3. Enter the current download date as `snapshot_version` in `YYYY-MM-DD` form.
+4. For an initial snapshot, leave the three expected archive checksums empty.
+5. For a pinned repeat while the same files remain available, copy the archive
+   checksums from the previous run's `manifest.json` into the expected checksum
+   inputs. The workflow aborts before touching the database if any archive has
+   changed.
+
+Every run uploads a small `content-snapshot-...` artifact containing only
+`manifest.json`. The manifest records official URLs, download time, filenames,
+and SHA-256 values for both compressed archives and imported XML. Source archives
+are deleted from the runner and are never committed or uploaded as artifacts.
+
+EDRDG's current JMdict and KANJIDIC2 URLs are mutable daily distributions. An
+exact later replay therefore also requires retaining the original archives in
+private storage permitted by their license terms. The manifest is sufficient to
+verify those retained files. KanjiVG uses an immutable release URL.
+
+The full multilingual JMdict import retains only Russian and English glosses.
+It can run for a long time and consume substantial Neon storage; inspect the
+provider's current usage after the first run. A failed Action can be rerun:
+source checksum and compound database keys make imports idempotent.
 
 Tatoeba imports currently use sentence/link TSV exports only. They store
 sentence IDs and language links in `ImportedRecord.rawJson`. They do not import

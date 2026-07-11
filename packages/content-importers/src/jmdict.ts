@@ -1,4 +1,6 @@
-import { calculateSha256 } from "./checksum";
+import { verifySha256 } from "./import-metadata";
+import { forEachConcurrent } from "./concurrency";
+import { executeTrackedImport } from "./import-run";
 import { decodeXml, extractAttributedElements, extractElements, extractRequiredText } from "./xml";
 
 export type JmDictGlossDto = {
@@ -56,6 +58,7 @@ export type JmDictParseResult = {
 export type JmDictImportOptions = {
   readonly sourceFileName: string;
   readonly sourceVersion?: string | null;
+  readonly sourceDownloadedAt?: Date | null;
   readonly checksumSha256?: string;
 };
 
@@ -99,6 +102,10 @@ export type JmDictImportDatabase = {
       readonly update: Record<string, unknown>;
       readonly create: Record<string, unknown>;
     }): Promise<{ readonly id: string }>;
+    update(args: {
+      readonly where: { readonly id: string };
+      readonly data: Record<string, unknown>;
+    }): Promise<unknown>;
   };
   readonly importedRecord: {
     upsert(args: {
@@ -111,7 +118,7 @@ export type JmDictImportDatabase = {
       };
       readonly update: Record<string, unknown>;
       readonly create: Record<string, unknown>;
-    }): Promise<unknown>;
+    }): Promise<{ readonly id: string }>;
   };
   readonly word: {
     upsert(args: {
@@ -147,23 +154,33 @@ const JMDICT_SOURCE_NAME = "JMdict";
 const JMDICT_HOMEPAGE_URL = "https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project";
 const JMDICT_DOWNLOAD_URL = "https://ftp.edrdg.org/pub/Nihongo/JMdict.gz";
 const EDRDG_LICENSE_URL = "https://www.edrdg.org/edrdg/licence.html";
+const IMPORT_WRITE_CONCURRENCY = 8;
 
 export function parseJmDictXml(xml: string): JmDictParseResult {
   const entryBlocks = extractElements(stripDoctype(xml), "entry");
-  const sourceGlosses = entryBlocks.flatMap((entryBlock) =>
-    extractElements(entryBlock, "sense").flatMap((senseBlock) =>
-      extractAttributedElements(senseBlock, "gloss"),
-    ),
-  );
+  const entries: JmDictEntryDto[] = [];
+  let glossCount = 0;
+  let unsupportedGlossCount = 0;
+
+  for (const entryBlock of entryBlocks) {
+    for (const senseBlock of extractElements(entryBlock, "sense")) {
+      for (const gloss of extractAttributedElements(senseBlock, "gloss")) {
+        const sourceLanguage = gloss.attributes["xml:lang"] ?? gloss.attributes.lang ?? "eng";
+        glossCount += 1;
+
+        if (toGlossLocale(sourceLanguage) === null) {
+          unsupportedGlossCount += 1;
+        }
+      }
+    }
+
+    entries.push(parseEntryBlock(entryBlock));
+  }
 
   return {
-    entries: entryBlocks.map(parseEntryBlock),
-    glossCount: sourceGlosses.length,
-    unsupportedGlossCount: sourceGlosses.filter((gloss) => {
-      const sourceLanguage = gloss.attributes["xml:lang"] ?? gloss.attributes.lang ?? "eng";
-
-      return toGlossLocale(sourceLanguage) === null;
-    }).length,
+    entries,
+    glossCount,
+    unsupportedGlossCount,
   };
 }
 
@@ -172,11 +189,20 @@ export async function importJmDictXml(
   xml: string,
   options: JmDictImportOptions,
 ): Promise<JmDictImportResult> {
+  const checksumSha256 = verifySha256(xml, options.checksumSha256);
   const parsed = parseJmDictXml(xml);
-  const checksumSha256 = options.checksumSha256 ?? calculateSha256(xml);
   const sourceVersion = options.sourceVersion ?? "unknown";
   const wordCount = parsed.entries.reduce((count, entry) => count + entry.words.length, 0);
   const importedGlossCount = parsed.glossCount - parsed.unsupportedGlossCount;
+  const statsJson = {
+    entries: parsed.entries.length,
+    words: wordCount,
+    glosses: {
+      total: parsed.glossCount,
+      imported: importedGlossCount,
+      unsupported: parsed.unsupportedGlossCount,
+    },
+  };
 
   const license = await db.license.upsert({
     where: { name: JMDICT_LICENSE_NAME },
@@ -230,103 +256,92 @@ export async function importJmDictXml(
     update: {
       sourceVersion,
       sourceFileName: options.sourceFileName,
-      finishedAt: new Date(),
-      status: "SUCCESS",
-      statsJson: {
-        entries: parsed.entries.length,
-        words: wordCount,
-        glosses: {
-          total: parsed.glossCount,
-          imported: importedGlossCount,
-          unsupported: parsed.unsupportedGlossCount,
-        },
-      },
+      sourceDownloadedAt: options.sourceDownloadedAt ?? null,
+      startedAt: new Date(),
+      finishedAt: null,
+      status: "PENDING",
+      statsJson: null,
       errorText: null,
     },
     create: {
       dataSourceId: dataSource.id,
       sourceVersion,
       sourceFileName: options.sourceFileName,
+      sourceDownloadedAt: options.sourceDownloadedAt ?? null,
       checksumSha256,
-      finishedAt: new Date(),
-      status: "SUCCESS",
-      statsJson: {
-        entries: parsed.entries.length,
-        words: wordCount,
-        glosses: {
-          total: parsed.glossCount,
-          imported: importedGlossCount,
-          unsupported: parsed.unsupportedGlossCount,
-        },
-      },
+      status: "PENDING",
       errorText: null,
     },
   });
 
-  for (const entry of parsed.entries) {
-    await db.importedRecord.upsert({
-      where: {
-        importRunId_recordType_sourceRecordId: {
-          importRunId: importRun.id,
-          recordType: "JMDICT_ENTRY",
-          sourceRecordId: entry.sourceRecordId,
-        },
-      },
-      update: {
-        rawJson: entry.raw,
-      },
-      create: {
-        importRunId: importRun.id,
-        recordType: "JMDICT_ENTRY",
-        sourceRecordId: entry.sourceRecordId,
-        rawJson: entry.raw,
-      },
-    });
-
-    for (const word of entry.words) {
-      const wordRow = await db.word.upsert({
+  await executeTrackedImport(db.importRun, importRun.id, statsJson, async () => {
+    await forEachConcurrent(parsed.entries, IMPORT_WRITE_CONCURRENCY, async (entry) => {
+      const importedRecord = await db.importedRecord.upsert({
         where: {
-          expression_reading: {
-            expression: word.expression,
-            reading: word.reading,
+          importRunId_recordType_sourceRecordId: {
+            importRunId: importRun.id,
+            recordType: "JMDICT_ENTRY",
+            sourceRecordId: entry.sourceRecordId,
           },
         },
         update: {
-          commonnessRank: word.commonnessRank,
-          jmdictEntryId: entry.sourceRecordId,
+          rawJson: entry.raw,
         },
         create: {
-          expression: word.expression,
-          reading: word.reading,
-          commonnessRank: word.commonnessRank,
-          jmdictEntryId: entry.sourceRecordId,
+          importRunId: importRun.id,
+          recordType: "JMDICT_ENTRY",
+          sourceRecordId: entry.sourceRecordId,
+          rawJson: entry.raw,
         },
       });
 
-      for (const sense of word.senses) {
-        await db.wordSense.upsert({
+      for (const word of entry.words) {
+        const wordRow = await db.word.upsert({
           where: {
-            wordId_locale_meaning_partOfSpeech: {
+            expression_reading: {
+              expression: word.expression,
+              reading: word.reading,
+            },
+          },
+          update: {
+            commonnessRank: word.commonnessRank,
+            jmdictEntryId: entry.sourceRecordId,
+            jmdictImportedRecordId: importedRecord.id,
+          },
+          create: {
+            expression: word.expression,
+            reading: word.reading,
+            commonnessRank: word.commonnessRank,
+            jmdictEntryId: entry.sourceRecordId,
+            jmdictImportedRecordId: importedRecord.id,
+          },
+        });
+
+        for (const sense of word.senses) {
+          await db.wordSense.upsert({
+            where: {
+              wordId_locale_meaning_partOfSpeech: {
+                wordId: wordRow.id,
+                locale: sense.locale,
+                meaning: sense.meaning,
+                partOfSpeech: sense.partOfSpeech,
+              },
+            },
+            update: {
+              sourceKind: sense.sourceKind,
+            },
+            create: {
               wordId: wordRow.id,
               locale: sense.locale,
               meaning: sense.meaning,
               partOfSpeech: sense.partOfSpeech,
+              sourceKind: sense.sourceKind,
             },
-          },
-          update: {
-            sourceKind: sense.sourceKind,
-          },
-          create: {
-            wordId: wordRow.id,
-            locale: sense.locale,
-            meaning: sense.meaning,
-            partOfSpeech: sense.partOfSpeech,
-            sourceKind: sense.sourceKind,
-          },
-        });
+          });
+        }
       }
-    }
-  }
+    });
+  });
 
   return {
     licenseId: license.id,

@@ -4,14 +4,15 @@ import { basename, resolve } from "node:path";
 import { PrismaClient } from "@kanji-srs/db";
 
 import { importKanjiVgXml, type KanjiVgImportDatabase } from "../kanjivg";
+import { readImportMetadata } from "./import-options";
 
 const args = process.argv.slice(2);
 const filePath = args.find((arg) => !arg.startsWith("--"));
-const sourceVersion = readFlagValue(args, "--source-version");
+const metadata = readImportMetadata(args);
 
 if (filePath === undefined) {
   console.error(
-    "Usage: npm run import:kanjivg --workspace @kanji-srs/content-importers -- <path> [--source-version <version>]",
+    "Usage: npm run import:kanjivg --workspace @kanji-srs/content-importers -- <path> [--source-version <version>] [--source-downloaded-at <ISO-8601>] [--checksum-sha256 <hash>]",
   );
   process.exitCode = 1;
 } else {
@@ -22,7 +23,7 @@ if (filePath === undefined) {
     const xml = await readFile(absolutePath, "utf8");
     const result = await importKanjiVgXml(prisma as unknown as KanjiVgImportDatabase, xml, {
       sourceFileName: basename(absolutePath),
-      sourceVersion,
+      ...metadata,
     });
 
     console.log(
@@ -40,16 +41,4 @@ if (filePath === undefined) {
   } finally {
     await prisma.$disconnect();
   }
-}
-
-function readFlagValue(args: readonly string[], flag: string): string | null {
-  const index = args.indexOf(flag);
-
-  if (index === -1) {
-    return null;
-  }
-
-  const value = args[index + 1];
-
-  return value === undefined || value.startsWith("--") ? null : value;
 }

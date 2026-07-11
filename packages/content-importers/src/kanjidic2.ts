@@ -1,4 +1,6 @@
-import { calculateSha256 } from "./checksum";
+import { verifySha256 } from "./import-metadata";
+import { forEachConcurrent } from "./concurrency";
+import { executeTrackedImport } from "./import-run";
 import {
   extractAttributedElements,
   extractElements,
@@ -49,6 +51,7 @@ export type KanjiDic2ParseResult = {
 export type KanjiDic2ImportOptions = {
   readonly sourceFileName: string;
   readonly sourceVersion?: string | null;
+  readonly sourceDownloadedAt?: Date | null;
   readonly checksumSha256?: string;
 };
 
@@ -88,6 +91,10 @@ export type KanjiDic2ImportDatabase = {
       readonly update: Record<string, unknown>;
       readonly create: Record<string, unknown>;
     }): Promise<{ readonly id: string }>;
+    update(args: {
+      readonly where: { readonly id: string };
+      readonly data: Record<string, unknown>;
+    }): Promise<unknown>;
   };
   readonly importedRecord: {
     upsert(args: {
@@ -100,7 +107,7 @@ export type KanjiDic2ImportDatabase = {
       };
       readonly update: Record<string, unknown>;
       readonly create: Record<string, unknown>;
-    }): Promise<unknown>;
+    }): Promise<{ readonly id: string }>;
   };
   readonly kanji: {
     upsert(args: {
@@ -142,6 +149,7 @@ const KANJIDIC2_SOURCE_NAME = "KANJIDIC2";
 const KANJIDIC2_HOMEPAGE_URL = "https://www.edrdg.org/wiki/index.php/KANJIDIC_Project";
 const KANJIDIC2_DOWNLOAD_URL = "https://www.edrdg.org/kanjidic/kanjidic2.xml.gz";
 const EDRDG_LICENSE_URL = "https://www.edrdg.org/edrdg/licence.html";
+const IMPORT_WRITE_CONCURRENCY = 8;
 
 export function parseKanjiDic2Xml(xml: string): KanjiDic2ParseResult {
   const headerBlock = extractOptionalElement(xml, "header") ?? "";
@@ -162,14 +170,15 @@ export async function importKanjiDic2Xml(
   xml: string,
   options: KanjiDic2ImportOptions,
 ): Promise<KanjiDic2ImportResult> {
+  const checksumSha256 = verifySha256(xml, options.checksumSha256);
   const parsed = parseKanjiDic2Xml(xml);
-  const checksumSha256 = options.checksumSha256 ?? calculateSha256(xml);
   const sourceVersion =
     options.sourceVersion ??
     parsed.header.databaseVersion ??
     parsed.header.dateOfCreation ??
     parsed.header.fileVersion ??
     "unknown";
+  const statsJson = { characters: parsed.characters.length };
 
   const license = await db.license.upsert({
     where: { name: KANJIDIC2_LICENSE_NAME },
@@ -223,106 +232,111 @@ export async function importKanjiDic2Xml(
     update: {
       sourceVersion,
       sourceFileName: options.sourceFileName,
-      finishedAt: new Date(),
-      status: "SUCCESS",
-      statsJson: { characters: parsed.characters.length },
+      sourceDownloadedAt: options.sourceDownloadedAt ?? null,
+      startedAt: new Date(),
+      finishedAt: null,
+      status: "PENDING",
+      statsJson: null,
       errorText: null,
     },
     create: {
       dataSourceId: dataSource.id,
       sourceVersion,
       sourceFileName: options.sourceFileName,
+      sourceDownloadedAt: options.sourceDownloadedAt ?? null,
       checksumSha256,
-      finishedAt: new Date(),
-      status: "SUCCESS",
-      statsJson: { characters: parsed.characters.length },
+      status: "PENDING",
       errorText: null,
     },
   });
 
-  for (const character of parsed.characters) {
-    await db.importedRecord.upsert({
-      where: {
-        importRunId_recordType_sourceRecordId: {
+  await executeTrackedImport(db.importRun, importRun.id, statsJson, async () => {
+    await forEachConcurrent(parsed.characters, IMPORT_WRITE_CONCURRENCY, async (character) => {
+      const importedRecord = await db.importedRecord.upsert({
+        where: {
+          importRunId_recordType_sourceRecordId: {
+            importRunId: importRun.id,
+            recordType: "KANJIDIC2_CHARACTER",
+            sourceRecordId: character.sourceRecordId,
+          },
+        },
+        update: {
+          rawJson: character.raw,
+        },
+        create: {
           importRunId: importRun.id,
           recordType: "KANJIDIC2_CHARACTER",
           sourceRecordId: character.sourceRecordId,
+          rawJson: character.raw,
         },
-      },
-      update: {
-        rawJson: character.raw,
-      },
-      create: {
-        importRunId: importRun.id,
-        recordType: "KANJIDIC2_CHARACTER",
-        sourceRecordId: character.sourceRecordId,
-        rawJson: character.raw,
-      },
-    });
+      });
 
-    const kanji = await db.kanji.upsert({
-      where: { character: character.character },
-      update: {
-        strokeCount: character.strokeCount,
-        grade: character.grade,
-        jlptLevel: character.jlptLevel,
-        frequencyRank: character.frequencyRank,
-        kanjidicSourceId: character.sourceRecordId,
-      },
-      create: {
-        character: character.character,
-        strokeCount: character.strokeCount,
-        grade: character.grade,
-        jlptLevel: character.jlptLevel,
-        frequencyRank: character.frequencyRank,
-        kanjidicSourceId: character.sourceRecordId,
-      },
-    });
+      const kanji = await db.kanji.upsert({
+        where: { character: character.character },
+        update: {
+          strokeCount: character.strokeCount,
+          grade: character.grade,
+          jlptLevel: character.jlptLevel,
+          frequencyRank: character.frequencyRank,
+          kanjidicSourceId: character.sourceRecordId,
+          kanjidicImportedRecordId: importedRecord.id,
+        },
+        create: {
+          character: character.character,
+          strokeCount: character.strokeCount,
+          grade: character.grade,
+          jlptLevel: character.jlptLevel,
+          frequencyRank: character.frequencyRank,
+          kanjidicSourceId: character.sourceRecordId,
+          kanjidicImportedRecordId: importedRecord.id,
+        },
+      });
 
-    for (const reading of character.readings) {
-      await db.kanjiReading.upsert({
-        where: {
-          kanjiId_reading_readingType: {
+      for (const reading of character.readings) {
+        await db.kanjiReading.upsert({
+          where: {
+            kanjiId_reading_readingType: {
+              kanjiId: kanji.id,
+              reading: reading.reading,
+              readingType: reading.readingType,
+            },
+          },
+          update: {
+            priority: reading.priority,
+          },
+          create: {
             kanjiId: kanji.id,
             reading: reading.reading,
             readingType: reading.readingType,
+            priority: reading.priority,
           },
-        },
-        update: {
-          priority: reading.priority,
-        },
-        create: {
-          kanjiId: kanji.id,
-          reading: reading.reading,
-          readingType: reading.readingType,
-          priority: reading.priority,
-        },
-      });
-    }
+        });
+      }
 
-    for (const meaning of character.meanings) {
-      await db.kanjiMeaning.upsert({
-        where: {
-          kanjiId_locale_meaning: {
+      for (const meaning of character.meanings) {
+        await db.kanjiMeaning.upsert({
+          where: {
+            kanjiId_locale_meaning: {
+              kanjiId: kanji.id,
+              locale: meaning.locale,
+              meaning: meaning.text,
+            },
+          },
+          update: {
+            isPrimary: meaning.isPrimary,
+            sourceKind: "IMPORTED",
+          },
+          create: {
             kanjiId: kanji.id,
             locale: meaning.locale,
             meaning: meaning.text,
+            isPrimary: meaning.isPrimary,
+            sourceKind: "IMPORTED",
           },
-        },
-        update: {
-          isPrimary: meaning.isPrimary,
-          sourceKind: "IMPORTED",
-        },
-        create: {
-          kanjiId: kanji.id,
-          locale: meaning.locale,
-          meaning: meaning.text,
-          isPrimary: meaning.isPrimary,
-          sourceKind: "IMPORTED",
-        },
-      });
-    }
-  }
+        });
+      }
+    });
+  });
 
   return {
     licenseId: license.id,
