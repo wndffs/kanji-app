@@ -13,7 +13,7 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "kana-token";
 
 test.describe("kana lessons", () => {
-  test("teaches hiragana, checks it, and switches to katakana", async ({ page }) => {
+  test("rotates kana exercises and switches to katakana", async ({ page }) => {
     await signIn(page);
     await mockKanaApi(page);
 
@@ -54,6 +54,32 @@ test.describe("kana lessons", () => {
     await page.getByRole("button", { name: "Следующий" }).click();
     await expect(practice).toContainText("い");
 
+    await page.getByRole("button", { name: "Проверить чтение" }).click();
+    await expect(practice.getByText("Выберите чтение", { exact: true })).toBeVisible();
+    await practice.getByRole("button", { name: "i", exact: true }).click();
+    await expect(practice.getByText("Верно")).toBeVisible();
+    await page.getByRole("button", { name: "Следующий" }).click();
+    await expect(practice).toContainText("う");
+
+    await page.getByRole("button", { name: "Проверить чтение" }).click();
+    await expect(practice.getByText("Выберите знак", { exact: true })).toBeVisible();
+    await practice.getByRole("button", { name: "う", exact: true }).click();
+    await expect(practice.getByText("Верно")).toBeVisible();
+
+    await page.getByRole("tab", { name: "Проверка" }).click();
+    await page.getByRole("button", { name: "きゃ: прогресс 0 из 3" }).click();
+    await expect(practice.getByText("Сопоставление", { exact: true })).toBeVisible();
+    for (const [character, romaji] of [
+      ["きゃ", "kya"],
+      ["う", "u"],
+      ["っか", "kka"],
+    ] as const) {
+      await practice.getByRole("button", { name: character, exact: true }).click();
+      await practice.getByRole("button", { name: romaji, exact: true }).click();
+    }
+    await expect(practice.getByText("Все пары собраны", { exact: true })).toBeVisible();
+
+    await page.getByRole("tab", { name: "Уроки" }).click();
     await page.getByRole("button", { name: "Катакана" }).click();
     await expect(practice).toContainText("ア");
     await expect(
@@ -136,11 +162,13 @@ async function answerKanaRoute(
 
   const progress = progressByScript.get(script)!;
   const current = progress.items.find((item) => item.character === body.character)!;
+  const expectedRomaji = getMockRomaji(body.character);
+  const correct = body.answer === expectedRomaji;
   const updated: KanaAssessmentItemDto = {
     ...current,
     attemptCount: current.attemptCount + 1,
-    correctCount: current.correctCount + 1,
-    currentStreak: current.currentStreak + 1,
+    correctCount: current.correctCount + (correct ? 1 : 0),
+    currentStreak: correct ? current.currentStreak + 1 : 0,
     lastAnsweredAt: "2026-07-11T18:00:00.000Z",
   };
   progressByScript.set(script, {
@@ -149,9 +177,9 @@ async function answerKanaRoute(
     items: progress.items.map((item) => (item.character === updated.character ? updated : item)),
   });
   const response: KanaAssessmentAnswerResponse = {
-    correct: true,
+    correct,
     normalizedAnswer: body.answer,
-    expectedRomaji: "a",
+    expectedRomaji,
     item: updated,
     attemptedCount: 1,
     masteredCount: 0,
@@ -272,4 +300,27 @@ function getMockKanaMetadata(
   }
 
   return { row: "vowels", variant: "basic", baseCharacter: character };
+}
+
+function getMockRomaji(character: string): string {
+  const romaji = new Map([
+    ["あ", "a"],
+    ["い", "i"],
+    ["う", "u"],
+    ["きゃ", "kya"],
+    ["っか", "kka"],
+    ["おう", "ou"],
+    ["ア", "a"],
+    ["イ", "i"],
+    ["ウ", "u"],
+    ["キャ", "kya"],
+    ["ッカ", "kka"],
+    ["オー", "oo"],
+  ]).get(character);
+
+  if (romaji === undefined) {
+    throw new Error(`Unknown mocked kana ${character}.`);
+  }
+
+  return romaji;
 }

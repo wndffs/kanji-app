@@ -2043,6 +2043,86 @@ textarea:focus-visible {
   font-size: 20px;
 }
 
+.kana-romaji-prompt {
+  min-height: 132px;
+  display: grid;
+  place-items: center;
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.kana-choice-grid {
+  width: min(100%, 460px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.kana-choice-grid button,
+.kana-match-column button {
+  min-width: 0;
+  min-height: 64px;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 10px 12px;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.kana-choice-grid.is-kana button,
+.kana-match-column:first-child button {
+  font-family: "Noto Sans JP", "Yu Gothic", sans-serif;
+  font-size: 34px;
+}
+
+.kana-choice-grid button.is-selected,
+.kana-choice-grid button[aria-pressed="true"],
+.kana-match-column button[aria-pressed="true"] {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+
+.kana-matching {
+  width: min(100%, 460px);
+  display: grid;
+  justify-items: stretch;
+  gap: 18px;
+}
+
+.kana-matching > .eyebrow,
+.kana-matching > .secondary-action,
+.kana-match-status {
+  justify-self: center;
+}
+
+.kana-match-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.kana-match-column {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.kana-match-column button.is-matched {
+  border-color: var(--success);
+  background: #e9f6f1;
+  color: #0d5948;
+  opacity: 0.55;
+}
+
+.kana-match-status {
+  min-height: 24px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .kana-streak {
   color: var(--muted);
   font-weight: 700;
@@ -2351,6 +2431,11 @@ textarea:focus-visible {
   .kana-prompt {
     min-height: 104px;
     font-size: 80px;
+  }
+
+  .kana-romaji-prompt {
+    min-height: 104px;
+    font-size: 52px;
   }
 
   .kana-feedback {

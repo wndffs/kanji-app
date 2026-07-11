@@ -80,10 +80,16 @@ independent. Yoon combinations such as `きゃ` (`kya`) and `しゃ` (`sha`) als
 keep their own progress instead of inheriting mastery from their base symbol.
 
 The character track is split into sequential row lessons. A lesson first shows
-the character and its reading, then checks recognition. Three correct answers
-complete a character; completion is permanent, while the current streak can
-still reset after a wrong answer. The free assessment remains a separate mode
-for learners who already know some kana and can complete earlier lessons.
+the character and its reading, then rotates four retrieval formats: typed
+romaji, character-to-reading choice, reading-to-character choice, and a
+three-pair matching board. Choice sets exclude duplicate readings so equivalent
+targets such as `じ` and `ぢ` cannot create an ambiguous question. Every pair or
+answer is checked by the API and affects the corresponding target's progress.
+
+Three correct answers complete a target; completion is permanent, while the
+current streak can still reset after a wrong answer. The free assessment remains
+a separate mode for learners who already know some kana and can complete earlier
+lessons.
 
 ## Lesson flow
 

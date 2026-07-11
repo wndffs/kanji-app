@@ -69,9 +69,11 @@ standard yoon combinations. Four sokuon patterns and script-specific long-vowel
 spellings extend that to 115 hiragana targets and 113 katakana targets. The
 assessment response omits romaji until answer feedback. The lesson response
 groups targets into sequential units and includes readings for the teaching
-step. Three correct answers complete a target; later mistakes reset the current
-streak but not completed lesson progress. Kana does not create `LearningCard`
-or `UserSrsState` records.
+step. Typed, choice, reverse-choice, and matching interactions all submit the
+target character plus the selected romaji through the same answer endpoints, so
+the server remains the correctness authority. Three correct answers complete a
+target; later mistakes reset the current streak but not completed lesson
+progress. Kana does not create `LearningCard` or `UserSrsState` records.
 
 ### Lessons
 
