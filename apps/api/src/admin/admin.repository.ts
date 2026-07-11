@@ -7,6 +7,7 @@ import {
   type AdminCurationItemDto,
   type AdminCurationTextDto,
   type AdminImportRunSummaryDto,
+  type AdminImportedCandidateDto,
   type AdminReviewQueueItemDto,
   type CardAnswerType,
   type CardPromptType,
@@ -19,6 +20,10 @@ import {
 import { PrismaService } from "../database/prisma.service";
 import { applyQualityIssues, buildCurriculumCompletenessReport } from "./curriculum-quality";
 import {
+  type ImportedCandidateRankingInput,
+  rankImportedCandidates,
+} from "./imported-candidate-ranking";
+import {
   type NormalizedAdminCardAnswersInput,
   type NormalizedAdminItemCurationInput,
   type NormalizedAdminPromoteCandidateInput,
@@ -28,6 +33,7 @@ import {
 
 export abstract class AdminRepository {
   abstract listImportRuns(): Promise<readonly AdminImportRunSummaryDto[]>;
+  abstract listImportedCandidates(): Promise<readonly AdminImportedCandidateDto[]>;
   abstract listReviewItems(
     filters: NormalizedAdminReviewQueueFilters,
   ): Promise<readonly AdminReviewQueueItemDto[]>;
@@ -156,6 +162,36 @@ type ImportRunSummaryRow = ImportRunCoreRow & {
   };
 };
 
+type ImportedCandidateSourceRow = {
+  readonly importRun: {
+    readonly dataSource: {
+      readonly name: string;
+    };
+  };
+};
+
+type ImportedKanjiCandidateRow = {
+  readonly id: string;
+  readonly character: string;
+  readonly frequencyRank: number | null;
+  readonly grade: number | null;
+  readonly jlptLevel: number | null;
+  readonly readings: readonly { readonly reading: string }[];
+  readonly meanings: readonly { readonly locale: string; readonly meaning: string }[];
+  readonly strokeGraphic: { readonly id: string } | null;
+  readonly importedRecord: ImportedCandidateSourceRow | null;
+};
+
+type ImportedWordCandidateRow = {
+  readonly id: string;
+  readonly expression: string;
+  readonly reading: string;
+  readonly commonnessRank: number | null;
+  readonly jlptLevel: number | null;
+  readonly senses: readonly { readonly locale: string; readonly meaning: string }[];
+  readonly importedRecord: ImportedCandidateSourceRow | null;
+};
+
 type PrismaAdminWriteClient = Pick<
   PrismaService["db"],
   "component" | "kanjiMeaning" | "wordSense" | "sentence" | "hint" | "mnemonic"
@@ -173,6 +209,8 @@ const PROJECT_AUTHORED_ATTRIBUTION: SourceAttributionDto = {
   attributionText: "Project-authored curated learning content.",
   sourceUrl: null,
 };
+const IMPORTED_CANDIDATE_QUERY_LIMIT = 500;
+const IMPORTED_CANDIDATE_RESPONSE_LIMIT = 100;
 
 @Injectable()
 export class PrismaAdminRepository extends AdminRepository {
@@ -199,6 +237,78 @@ export class PrismaAdminRepository extends AdminRepository {
     })) as unknown as readonly ImportRunSummaryRow[];
 
     return runs.map((run) => toImportRunSummary(run, run._count.records));
+  }
+
+  async listImportedCandidates(): Promise<readonly AdminImportedCandidateDto[]> {
+    const promotedTargets = await this.prisma.db.learningItem.findMany({
+      where: { targetType: { in: ["KANJI", "WORD"] } },
+      select: { targetType: true, targetId: true },
+    });
+    const promotedKanjiIds = promotedTargets
+      .filter((target) => target.targetType === "KANJI")
+      .map((target) => target.targetId);
+    const promotedWordIds = promotedTargets
+      .filter((target) => target.targetType === "WORD")
+      .map((target) => target.targetId);
+    const [kanjiRows, wordRows] = await Promise.all([
+      this.prisma.db.kanji.findMany({
+        where: {
+          kanjidicImportedRecordId: { not: null },
+          ...(promotedKanjiIds.length === 0 ? {} : { id: { notIn: promotedKanjiIds } }),
+        },
+        orderBy: [{ frequencyRank: "asc" }, { grade: "asc" }, { character: "asc" }],
+        take: IMPORTED_CANDIDATE_QUERY_LIMIT,
+        include: {
+          readings: {
+            orderBy: [{ priority: "asc" }, { reading: "asc" }],
+            take: 3,
+          },
+          meanings: {
+            where: { locale: { in: ["ru-RU", "en-US"] } },
+            orderBy: [{ locale: "asc" }, { isPrimary: "desc" }, { meaning: "asc" }],
+          },
+          strokeGraphic: { select: { id: true } },
+          importedRecord: {
+            include: {
+              importRun: {
+                include: {
+                  dataSource: { select: { name: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.db.word.findMany({
+        where: {
+          jmdictImportedRecordId: { not: null },
+          ...(promotedWordIds.length === 0 ? {} : { id: { notIn: promotedWordIds } }),
+        },
+        orderBy: [{ commonnessRank: "asc" }, { expression: "asc" }, { reading: "asc" }],
+        take: IMPORTED_CANDIDATE_QUERY_LIMIT,
+        include: {
+          senses: {
+            where: { locale: { in: ["ru-RU", "en-US"] } },
+            orderBy: [{ locale: "asc" }, { meaning: "asc" }],
+          },
+          importedRecord: {
+            include: {
+              importRun: {
+                include: {
+                  dataSource: { select: { name: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+    const candidates: ImportedCandidateRankingInput[] = [
+      ...(kanjiRows as unknown as readonly ImportedKanjiCandidateRow[]).map(toKanjiCandidate),
+      ...(wordRows as unknown as readonly ImportedWordCandidateRow[]).map(toWordCandidate),
+    ];
+
+    return rankImportedCandidates(candidates, IMPORTED_CANDIDATE_RESPONSE_LIMIT);
   }
 
   async listReviewItems(
@@ -1200,6 +1310,110 @@ function toApiDependencyType(
 
 function formatJlptLevel(level: number | null): string | null {
   return level === null ? null : `N${level}`;
+}
+
+function toKanjiCandidate(row: ImportedKanjiCandidateRow): ImportedCandidateRankingInput {
+  return {
+    targetId: row.id,
+    itemType: "kanji",
+    japanese: row.character,
+    reading: row.readings[0]?.reading ?? null,
+    meanings: pickCandidateMeanings(row.meanings),
+    jlptLevel: formatImportedKanjiJlptLevel(row.jlptLevel),
+    sourcePriority: row.frequencyRank,
+    schoolGrade: row.grade,
+    hasStrokeData: row.strokeGraphic !== null,
+    sourceName: assertCandidateSource(row.importedRecord, "KANJIDIC2"),
+  };
+}
+
+function toWordCandidate(row: ImportedWordCandidateRow): ImportedCandidateRankingInput {
+  return {
+    targetId: row.id,
+    itemType: "word",
+    japanese: row.expression,
+    reading: row.reading.trim() === "" ? null : row.reading,
+    meanings: pickCandidateMeanings(row.senses),
+    jlptLevel: formatCurrentJlptLevel(row.jlptLevel),
+    sourcePriority: normalizeStoredWordRank(row.commonnessRank),
+    schoolGrade: null,
+    hasStrokeData: false,
+    sourceName: assertCandidateSource(row.importedRecord, "JMdict"),
+  };
+}
+
+function pickCandidateMeanings(
+  rows: readonly { readonly locale: string; readonly meaning: string }[],
+): ImportedCandidateRankingInput["meanings"] {
+  return {
+    ru: uniqueCandidateMeanings(rows, "ru-RU"),
+    en: uniqueCandidateMeanings(rows, "en-US"),
+  };
+}
+
+function uniqueCandidateMeanings(
+  rows: readonly { readonly locale: string; readonly meaning: string }[],
+  locale: "ru-RU" | "en-US",
+): readonly string[] {
+  return [
+    ...new Set(
+      rows
+        .filter((row) => row.locale === locale)
+        .map((row) => row.meaning.trim())
+        .filter((meaning) => meaning !== ""),
+    ),
+  ].slice(0, 3);
+}
+
+function formatImportedKanjiJlptLevel(
+  level: number | null,
+): ImportedCandidateRankingInput["jlptLevel"] {
+  switch (level) {
+    case 5:
+    case 4:
+      return "N5";
+    case 3:
+      return "N4";
+    case 2:
+      return "N2";
+    default:
+      return null;
+  }
+}
+
+function formatCurrentJlptLevel(level: number | null): ImportedCandidateRankingInput["jlptLevel"] {
+  return level === 5 || level === 4 || level === 3 || level === 2 ? `N${level}` : null;
+}
+
+function normalizeStoredWordRank(rank: number | null): number | null {
+  if (rank === null || rank >= 500) {
+    return rank;
+  }
+
+  if (rank === 1) {
+    return 1_000;
+  }
+
+  if (rank === 2) {
+    return 10_000;
+  }
+
+  return rank * 500;
+}
+
+function assertCandidateSource(
+  importedRecord: ImportedCandidateSourceRow | null,
+  expected: AdminImportedCandidateDto["sourceName"],
+): AdminImportedCandidateDto["sourceName"] {
+  const actual = importedRecord?.importRun.dataSource.name;
+
+  if (actual !== expected) {
+    throw new Error(
+      `Imported candidate source mismatch: expected ${expected}, received ${actual}.`,
+    );
+  }
+
+  return expected;
 }
 
 function toApiSourceKind(value: string): AdminCurationTextDto["sourceKind"] {

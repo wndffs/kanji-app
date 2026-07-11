@@ -9,6 +9,7 @@ import {
   type AdminCurationCardDto,
   type AdminCurationItemDto,
   type AdminImportRunSummaryDto,
+  type AdminImportedCandidateDto,
   type AdminReviewQueueFilters,
   type AdminReviewQueueItemDto,
   SUPPORTED_COURSE_BANDS,
@@ -20,6 +21,7 @@ import {
   getAdminCompletenessReport,
   getAdminCurationItem,
   getAdminImportRuns,
+  getAdminImportedCandidates,
   getAdminReviewQueueWithFilters,
   promoteAdminImportedCandidate,
   updateAdminCardAnswers,
@@ -37,6 +39,7 @@ type AdminState =
       readonly status: "ready";
       readonly token: string;
       readonly queue: readonly AdminReviewQueueItemDto[];
+      readonly importedCandidates: readonly AdminImportedCandidateDto[];
       readonly importRuns: readonly AdminImportRunSummaryDto[];
       readonly report: AdminCurriculumCompletenessReportDto;
       readonly item: AdminCurationItemDto | null;
@@ -115,9 +118,10 @@ export function AdminClient() {
     setStatusMessage(null);
 
     try {
-      const [queue, importRuns, report] = await Promise.all([
+      const [queue, importRuns, importedCandidates, report] = await Promise.all([
         getAdminReviewQueueWithFilters(session.token, toApiFilters(filters)),
         getAdminImportRuns(session.token),
+        getAdminImportedCandidates(session.token),
         getAdminCompletenessReport(session.token),
       ]);
       const firstItem =
@@ -130,6 +134,7 @@ export function AdminClient() {
         status: "ready",
         token: session.token,
         queue: queue.items,
+        importedCandidates: importedCandidates.candidates,
         importRuns: importRuns.importRuns,
         report,
         item: firstItem,
@@ -262,13 +267,20 @@ export function AdminClient() {
         band: promoteDraft.band,
         level,
       });
-      const [queue, report] = await Promise.all([
+      const [queue, importedCandidates, report] = await Promise.all([
         getAdminReviewQueueWithFilters(state.token, toApiFilters(filters)),
+        getAdminImportedCandidates(state.token),
         getAdminCompletenessReport(state.token),
       ]);
 
       syncDrafts(item);
-      setState({ ...state, queue: queue.items, report, item });
+      setState({
+        ...state,
+        queue: queue.items,
+        importedCandidates: importedCandidates.candidates,
+        report,
+        item,
+      });
       setPromoteDraft(EMPTY_PROMOTE_DRAFT);
       setStatusMessage("Кандидат добавлен в кураторскую очередь.");
     } catch (error: unknown) {
@@ -276,6 +288,18 @@ export function AdminClient() {
     } finally {
       setSavingKey(null);
     }
+  }
+
+  function handleSelectImportedCandidate(candidate: AdminImportedCandidateDto): void {
+    setPromoteDraft({
+      targetType: candidate.itemType,
+      targetId: candidate.targetId,
+      title: candidate.suggestedTitle,
+      band: candidate.suggestedBand,
+      level: "",
+    });
+    setFormError(null);
+    setStatusMessage(`Кандидат ${candidate.japanese} выбран для подготовки.`);
   }
 
   async function handleSaveCard(card: AdminCurationCardDto): Promise<void> {
@@ -583,6 +607,40 @@ export function AdminClient() {
                   </li>
                 ))}
               </ul>
+            )}
+          </div>
+
+          <div className="admin-candidate-ranking" data-testid="admin-imported-candidates">
+            <h2>Импортированные кандидаты</h2>
+            {state.importedCandidates.length === 0 ? (
+              <p className="muted">Новых импортированных целей пока нет.</p>
+            ) : (
+              <ol>
+                {state.importedCandidates.map((candidate) => (
+                  <li key={`${candidate.itemType}:${candidate.targetId}`}>
+                    <button
+                      aria-pressed={promoteDraft.targetId === candidate.targetId}
+                      disabled={savingKey !== null}
+                      onClick={() => handleSelectImportedCandidate(candidate)}
+                      type="button"
+                    >
+                      <span className="admin-candidate-heading">
+                        <strong>{candidate.japanese}</strong>
+                        <b>
+                          #{candidate.rank} · {candidate.score}
+                        </b>
+                      </span>
+                      <span>{formatCandidateSummary(candidate)}</span>
+                      <small>
+                        {candidate.sourceName} · {formatCandidatePriority(candidate)} ·{" "}
+                        {formatBand(candidate.suggestedBand)}
+                        {candidate.jlptLevel === null ? "" : ` · ${candidate.jlptLevel}`}
+                      </small>
+                      <small>{formatCandidateReasons(candidate.reasons)}</small>
+                    </button>
+                  </li>
+                ))}
+              </ol>
             )}
           </div>
 
@@ -1079,6 +1137,55 @@ function formatBand(value: CourseBand | null): string {
       return "N2";
     default:
       return "Unset";
+  }
+}
+
+function formatCandidateSummary(candidate: AdminImportedCandidateDto): string {
+  return [
+    candidate.reading,
+    candidate.meanings.ru.length === 0 ? null : `RU: ${candidate.meanings.ru.join(", ")}`,
+    candidate.meanings.en.length === 0 ? null : `EN: ${candidate.meanings.en.join(", ")}`,
+  ]
+    .filter((value) => value !== null && value !== "")
+    .join(" · ");
+}
+
+function formatCandidatePriority(candidate: AdminImportedCandidateDto): string {
+  if (candidate.sourcePriority === null) {
+    return "без частотного ранга";
+  }
+
+  return candidate.itemType === "kanji"
+    ? `частота #${candidate.sourcePriority}`
+    : `примерный ранг #${candidate.sourcePriority}`;
+}
+
+function formatCandidateReasons(reasons: AdminImportedCandidateDto["reasons"]): string {
+  return reasons
+    .map((reason) => `${formatCandidateReason(reason.code)} +${reason.points}`)
+    .join(" · ");
+}
+
+function formatCandidateReason(code: AdminImportedCandidateDto["reasons"][number]["code"]): string {
+  switch (code) {
+    case "source-frequency":
+      return "частотность";
+    case "source-priority":
+      return "приоритет JMdict";
+    case "jlpt":
+      return "JLPT";
+    case "school-grade":
+      return "школьный класс";
+    case "ru-coverage":
+      return "есть RU";
+    case "en-coverage":
+      return "есть EN";
+    case "reading":
+      return "есть чтение";
+    case "stroke-data":
+      return "есть KanjiVG";
+    case "kanji-orthography":
+      return "запись с кандзи";
   }
 }
 

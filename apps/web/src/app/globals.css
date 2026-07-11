@@ -1526,6 +1526,47 @@ textarea:focus-visible {
   padding-top: 18px;
 }
 
+.admin-candidate-ranking {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--surface-border);
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
+.admin-candidate-ranking ol {
+  max-height: 420px;
+  display: grid;
+  gap: 8px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0 4px 0 0;
+  list-style: none;
+}
+
+.admin-candidate-ranking button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--surface-strong);
+}
+
+.admin-candidate-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-candidate-heading b {
+  flex: 0 0 auto;
+  color: var(--foreground);
+  font-size: 13px;
+}
+
+.admin-candidate-heading strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .admin-promote-form {
   display: grid;
   gap: 10px;

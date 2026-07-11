@@ -49,6 +49,11 @@ English (`eng`/`en`) and Russian (`rus`/`ru`) glosses as normalized word senses.
 are discarded before `ImportedRecord.rawJson` is written and are counted as unsupported in the
 import stats; they are never silently converted to English.
 
+JMdict priority tags are normalized into an approximate `Word.commonnessRank`
+for cross-feature sorting. `nfXX` represents a 500-word frequency band, while
+the `ichi/news/spec/gai` tier 1 and tier 2 markers map to approximate ranks
+1,000 and 10,000. This is an ordering heuristic, not an exact corpus frequency.
+
 The EDRDG general license covers the Japanese/English JMdict components under CC BY-SA 4.0,
 while its license statement identifies non-English glosses as separately copyrighted. The
 multilingual import therefore uses `LicenseRef-JMdict-Multilingual`; retain EDRDG and Russian

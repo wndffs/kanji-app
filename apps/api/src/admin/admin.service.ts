@@ -6,6 +6,7 @@ import {
   type AdminCurriculumCompletenessReportDto,
   type AdminCurationItemDto,
   type AdminImportRunListResponse,
+  type AdminImportedCandidateListResponse,
   type AdminReviewQueueResponse,
   type AdminUpdateItemRequest,
   type CardAnswerType,
@@ -40,6 +41,12 @@ export class AdminService {
   async listImportRuns(): Promise<AdminImportRunListResponse> {
     return {
       importRuns: await this.adminRepository.listImportRuns(),
+    };
+  }
+
+  async listImportedCandidates(): Promise<AdminImportedCandidateListResponse> {
+    return {
+      candidates: await this.adminRepository.listImportedCandidates(),
     };
   }
 

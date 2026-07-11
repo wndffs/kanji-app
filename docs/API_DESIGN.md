@@ -150,6 +150,7 @@ Japanese morphological analysis.
 ### Admin
 
 - `GET /admin/import-runs`
+- `GET /admin/imported-candidates`
 - `GET /admin/items/review-queue`
 - `PATCH /admin/items/:id`
 - `PATCH /admin/cards/:id/answers`
@@ -160,6 +161,23 @@ and imported record count. Local-file imports are run through controlled CLI
 commands documented in `docs/IMPORT_OPERATIONS.md`; the MVP API deliberately
 does not expose a `POST /admin/import-runs` endpoint that accepts server file
 paths.
+
+`GET /admin/imported-candidates` ranks import-derived kanji and words that do
+not yet have a `LearningItem`. Ranking is deterministic and explains its score
+through source frequency/priority, JLPT or school-grade signals, bilingual
+meaning coverage, reading availability, and KanjiVG stroke coverage. The score
+is an editorial ordering aid, not a published curriculum level.
+
+The endpoint considers up to 500 frequency-ordered kanji and 500 words, merges
+their computed scores, applies stable tie-breakers, and returns the top 100.
+JMdict `nfXX` tags are normalized to approximate 500-word frequency bands;
+`ichi/news/spec/gai` tier 1 and tier 2 tags map to approximate ranks 1,000 and
+10,000. Values below 500 from older imports are normalized on read until the
+same source snapshot is re-imported with the corrected mapping. KANJIDIC2 still
+uses the legacy four-level JLPT field, so candidate
+suggestions map legacy 4 to N5, 3 to N4, 2 to N2, and leave legacy 1 outside the
+current N5-N2 course scope. These mappings must remain visible as ranking
+heuristics and must not be presented as official modern JLPT assignments.
 
 ## API rules
 

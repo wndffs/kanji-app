@@ -2,6 +2,7 @@ import {
   type AdminCurationItemDto,
   type AdminCurriculumCompletenessReportDto,
   type AdminImportRunListResponse,
+  type AdminImportedCandidateListResponse,
   type AdminPromoteCandidateRequest,
   type AdminReviewQueueFilters,
   type AdminReviewQueueResponse,
@@ -188,6 +189,12 @@ export function getAdminReviewQueueWithFilters(
 
 export function getAdminImportRuns(token: string): Promise<AdminImportRunListResponse> {
   return apiRequest<AdminImportRunListResponse>("/admin/import-runs", { token });
+}
+
+export function getAdminImportedCandidates(
+  token: string,
+): Promise<AdminImportedCandidateListResponse> {
+  return apiRequest<AdminImportedCandidateListResponse>("/admin/imported-candidates", { token });
 }
 
 export function getAdminCompletenessReport(

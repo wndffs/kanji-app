@@ -43,13 +43,14 @@ describe("JMdict importer", () => {
       ],
     });
     expect(parsed.entries[0].words).toEqual([
-      expect.objectContaining({ expression: "一日", reading: "いちにち", commonnessRank: 1 }),
-      expect.objectContaining({ expression: "一日", reading: "ついたち", commonnessRank: 1 }),
+      expect.objectContaining({ expression: "一日", reading: "いちにち", commonnessRank: 1_000 }),
+      expect.objectContaining({ expression: "一日", reading: "ついたち", commonnessRank: 1_000 }),
     ]);
     expect(parsed.entries[1].words).toEqual([
       expect.objectContaining({
         expression: "ありがとう",
         reading: "ありがとう",
+        commonnessRank: 10_000,
         senses: [
           expect.objectContaining({ locale: "en-US", meaning: "thank you" }),
           expect.objectContaining({ locale: "ru-RU", meaning: "спасибо" }),

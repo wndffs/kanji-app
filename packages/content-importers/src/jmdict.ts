@@ -457,9 +457,22 @@ function buildWords(
 
 function pickCommonnessRank(priorities: readonly string[]): number | null {
   const ranks = priorities.flatMap((priority) => {
-    const match = /(\d+)$/u.exec(priority);
+    const normalized = priority.trim().toLowerCase();
+    const frequencyBand = /^nf(\d{2})$/u.exec(normalized);
 
-    return match === null ? [] : [Number(match[1])];
+    if (frequencyBand !== null) {
+      return [Number(frequencyBand[1]) * 500];
+    }
+
+    if (/^(news|ichi|spec|gai)1$/u.test(normalized)) {
+      return [1_000];
+    }
+
+    if (/^(news|ichi|spec|gai)2$/u.test(normalized)) {
+      return [10_000];
+    }
+
+    return [];
   });
 
   return ranks.length === 0 ? null : Math.min(...ranks);

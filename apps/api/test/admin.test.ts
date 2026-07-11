@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   type AdminCurationItemDto,
   type AdminImportRunSummaryDto,
+  type AdminImportedCandidateDto,
   type AdminReviewQueueFilters,
   type AdminReviewQueueItemDto,
 } from "@kanji-srs/shared";
@@ -192,6 +193,23 @@ describe("AdminService", () => {
     });
   });
 
+  it("returns ranked import-derived candidates", async () => {
+    const repository = new InMemoryAdminRepository();
+    const adminService = new AdminService(repository);
+
+    await expect(adminService.listImportedCandidates()).resolves.toEqual({
+      candidates: [
+        expect.objectContaining({
+          rank: 1,
+          score: 100,
+          targetId: "target-imported-word",
+          sourceName: "JMdict",
+          suggestedBand: "n5",
+        }),
+      ],
+    });
+  });
+
   it("lists import runs with status, checksum, stats, and errors", async () => {
     const repository = new InMemoryAdminRepository();
     const adminService = new AdminService(repository);
@@ -220,6 +238,29 @@ describe("AdminService", () => {
 });
 
 class InMemoryAdminRepository extends AdminRepository implements OverridesRepository {
+  private readonly importedCandidates: readonly AdminImportedCandidateDto[] = [
+    {
+      rank: 1,
+      score: 100,
+      targetId: "target-imported-word",
+      itemType: "word",
+      japanese: "水",
+      reading: "みず",
+      meanings: { ru: ["вода"], en: ["water"] },
+      jlptLevel: null,
+      sourcePriority: 1_000,
+      sourceName: "JMdict",
+      suggestedBand: "n5",
+      suggestedTitle: "Слово 水",
+      reasons: [
+        { code: "source-priority", points: 55 },
+        { code: "ru-coverage", points: 15 },
+        { code: "en-coverage", points: 15 },
+        { code: "reading", points: 10 },
+        { code: "kanji-orthography", points: 5 },
+      ],
+    },
+  ];
   private readonly importRuns: readonly AdminImportRunSummaryDto[] = [
     {
       id: "import-run-1",
@@ -387,6 +428,10 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
 
   async listImportRuns(): Promise<readonly AdminImportRunSummaryDto[]> {
     return this.importRuns;
+  }
+
+  async listImportedCandidates(): Promise<readonly AdminImportedCandidateDto[]> {
+    return this.importedCandidates;
   }
 
   async listReviewItems(

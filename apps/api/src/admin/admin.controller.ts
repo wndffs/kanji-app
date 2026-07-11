@@ -43,6 +43,11 @@ export class AdminController {
     return this.adminService.listImportRuns();
   }
 
+  @Get("imported-candidates")
+  listImportedCandidates() {
+    return this.adminService.listImportedCandidates();
+  }
+
   @Get("curriculum/completeness")
   getCompletenessReport() {
     return this.adminService.getCompletenessReport();

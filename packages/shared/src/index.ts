@@ -455,6 +455,45 @@ export type AdminReviewQueueFilters = {
   readonly missingMnemonics?: boolean;
 };
 
+export type AdminImportedCandidateReasonCode =
+  | "source-frequency"
+  | "source-priority"
+  | "jlpt"
+  | "school-grade"
+  | "ru-coverage"
+  | "en-coverage"
+  | "reading"
+  | "stroke-data"
+  | "kanji-orthography";
+
+export type AdminImportedCandidateReasonDto = {
+  readonly code: AdminImportedCandidateReasonCode;
+  readonly points: number;
+};
+
+export type AdminImportedCandidateDto = {
+  readonly rank: number;
+  readonly score: number;
+  readonly targetId: string;
+  readonly itemType: "kanji" | "word";
+  readonly japanese: string;
+  readonly reading: string | null;
+  readonly meanings: {
+    readonly ru: readonly string[];
+    readonly en: readonly string[];
+  };
+  readonly jlptLevel: "N5" | "N4" | "N3" | "N2" | null;
+  readonly sourcePriority: number | null;
+  readonly sourceName: "KANJIDIC2" | "JMdict";
+  readonly suggestedBand: CourseBand;
+  readonly suggestedTitle: string;
+  readonly reasons: readonly AdminImportedCandidateReasonDto[];
+};
+
+export type AdminImportedCandidateListResponse = {
+  readonly candidates: readonly AdminImportedCandidateDto[];
+};
+
 export type AdminQualityIssueDto = {
   readonly code: AdminQualityIssueCode;
   readonly message: string;

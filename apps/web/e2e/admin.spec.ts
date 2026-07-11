@@ -4,6 +4,7 @@ import {
   type AdminCurriculumCompletenessReportDto,
   type AdminCurationItemDto,
   type AdminImportRunListResponse,
+  type AdminImportedCandidateListResponse,
   type AdminReviewQueueResponse,
 } from "@kanji-srs/shared";
 
@@ -35,6 +36,10 @@ test.describe("admin curation", () => {
     await expect(page.getByTestId("admin-import-runs")).toContainText("sha256-test");
     await expect(page.getByTestId("admin-import-runs")).toContainText("items: 1");
     await expect(page.getByTestId("admin-import-runs")).toContainText("Parser failed.");
+    await expect(page.getByTestId("admin-imported-candidates")).toContainText("#1 · 100");
+    await page.getByTestId("admin-imported-candidates").getByRole("button").click();
+    await expect(page.getByLabel("Target ID")).toHaveValue("target-imported-word");
+    await expect(page.getByLabel("Curated title")).toHaveValue("Слово 水");
     await page.getByTestId("admin-accepted-en").fill("single line");
     await page.getByTestId("admin-save-card").click();
 
@@ -147,6 +152,36 @@ async function mockAdminApi(page: Page): Promise<void> {
           recordCount: 0,
           stats: { entries: 0 },
           errorText: "Parser failed.",
+        },
+      ],
+    };
+
+    await route.fulfill({ json: response });
+  });
+
+  await page.route(`${API_BASE_URL}/admin/imported-candidates`, async (route) => {
+    const response: AdminImportedCandidateListResponse = {
+      candidates: [
+        {
+          rank: 1,
+          score: 100,
+          targetId: "target-imported-word",
+          itemType: "word",
+          japanese: "水",
+          reading: "みず",
+          meanings: { ru: ["вода"], en: ["water"] },
+          jlptLevel: null,
+          sourcePriority: 1_000,
+          sourceName: "JMdict",
+          suggestedBand: "n5",
+          suggestedTitle: "Слово 水",
+          reasons: [
+            { code: "source-priority", points: 55 },
+            { code: "ru-coverage", points: 15 },
+            { code: "en-coverage", points: 15 },
+            { code: "reading", points: 10 },
+            { code: "kanji-orthography", points: 5 },
+          ],
         },
       ],
     };
