@@ -83,7 +83,7 @@ test.describe("final MVP integration path", () => {
 
     await test.step("Complete one starter lesson item", async () => {
       await page.getByRole("link", { name: "Уроки" }).click();
-      await expect(page.getByText(/В этой группе: 1 из максимум 5/)).toBeVisible();
+      await expect(page.getByText(/Выбрано: 1 из максимум 5/)).toBeVisible();
       await expect(page.getByText("один / one")).toBeVisible();
 
       await page.getByRole("button", { name: "Начать урок" }).click();
@@ -203,6 +203,7 @@ async function mockMvpApi(page: Page): Promise<void> {
     await route.fulfill({
       json: {
         items: state.lessonCompleted ? [] : [starterLessonQueueItem],
+        availableItems: state.lessonCompleted ? [] : [starterLessonQueueItem],
         batchLimit: 5,
         remainingToday: state.lessonCompleted ? 19 : 20,
       },

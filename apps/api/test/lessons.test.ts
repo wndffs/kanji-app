@@ -33,6 +33,7 @@ describe("LessonsService", () => {
 
     await expect(service.getQueue(createUser("owner"))).resolves.toEqual({
       items: [],
+      availableItems: [],
       batchLimit: 5,
       remainingToday: 10,
     });
@@ -43,6 +44,10 @@ describe("LessonsService", () => {
 
     await expect(service.getQueue(createUser("owner"))).resolves.toMatchObject({
       items: [{ item: { id: "item-component-one" } }, { item: { id: "item-component-two" } }],
+      availableItems: [
+        { item: { id: "item-component-one" } },
+        { item: { id: "item-component-two" } },
+      ],
     });
   });
 
@@ -190,7 +195,7 @@ describe("LessonsService", () => {
     expect(repository.listProgressFor("owner", "item-component-one")).toEqual([]);
   });
 
-  it("caps a lesson batch at five available items", async () => {
+  it("caps the suggested batch at five while exposing the eligible daily pool", async () => {
     const courseItems = Array.from({ length: 7 }, (_, index) =>
       createCourseItem(
         createItem(`item-component-${index}`, "component", [`card-component-${index}`]),
@@ -202,6 +207,7 @@ describe("LessonsService", () => {
     const queue = await service.getQueue(createUser("owner"));
 
     expect(queue.items).toHaveLength(5);
+    expect(queue.availableItems).toHaveLength(7);
     expect(queue).toMatchObject({ batchLimit: 5, remainingToday: 10 });
   });
 
@@ -210,6 +216,11 @@ describe("LessonsService", () => {
 
     await expect(service.getQueue(createUser("owner", { dailyLessonLimit: 1 }))).resolves.toEqual({
       items: [
+        expect.objectContaining({
+          item: expect.objectContaining({ id: "item-component-one" }),
+        }),
+      ],
+      availableItems: [
         expect.objectContaining({
           item: expect.objectContaining({ id: "item-component-one" }),
         }),
@@ -238,7 +249,12 @@ describe("LessonsService", () => {
           timezone: "Europe/Moscow",
         }),
       ),
-    ).resolves.toEqual({ items: [], batchLimit: 5, remainingToday: 0 });
+    ).resolves.toEqual({
+      items: [],
+      availableItems: [],
+      batchLimit: 5,
+      remainingToday: 0,
+    });
 
     await expect(
       service.getQueue(
@@ -249,6 +265,11 @@ describe("LessonsService", () => {
       ),
     ).resolves.toEqual({
       items: [
+        expect.objectContaining({
+          item: expect.objectContaining({ id: "item-component-one" }),
+        }),
+      ],
+      availableItems: [
         expect.objectContaining({
           item: expect.objectContaining({ id: "item-component-one" }),
         }),

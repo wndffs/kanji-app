@@ -46,10 +46,13 @@ export class LessonsService {
       user,
       new Date(),
     );
-    const batch = availableItems.slice(0, Math.min(DEFAULT_LESSON_BATCH_LIMIT, remainingToday));
+    const selectableItems = availableItems
+      .slice(0, remainingToday)
+      .map((item) => toLessonQueueItem(item.item, item.unlockedBy, displayMode));
 
     return {
-      items: batch.map((item) => toLessonQueueItem(item.item, item.unlockedBy, displayMode)),
+      items: selectableItems.slice(0, DEFAULT_LESSON_BATCH_LIMIT),
+      availableItems: selectableItems,
       batchLimit: DEFAULT_LESSON_BATCH_LIMIT,
       remainingToday,
     };

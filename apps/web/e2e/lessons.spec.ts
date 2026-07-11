@@ -14,8 +14,19 @@ test.describe("lesson session", () => {
     await page.goto("/lessons");
 
     await expect(page.getByRole("heading", { name: "Уроки" })).toBeVisible();
-    await expect(page.getByText(/В этой группе: 1 из максимум 5/)).toBeVisible();
+    await expect(page.getByText(/Выбрано: 1 из максимум 5/)).toBeVisible();
     await expect(page.getByText("один / one")).toBeVisible();
+
+    const optionalLesson = page.getByLabel("Выбрать 二: два / two");
+    await expect(optionalLesson).not.toBeChecked();
+    await optionalLesson.check();
+    await expect(page.getByText(/Выбрано: 2 из максимум 5/)).toBeVisible();
+    await page.getByRole("button", { name: "Чередовать типы" }).click();
+    await expect(page.getByRole("button", { name: "Чередовать типы" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await optionalLesson.uncheck();
 
     await page.getByRole("button", { name: "Начать урок" }).click();
 
@@ -82,7 +93,12 @@ async function signIn(page: Page): Promise<void> {
 async function mockLessonApi(page: Page): Promise<void> {
   await page.route(`${API_BASE_URL}/lessons/queue`, async (route) => {
     await route.fulfill({
-      json: { items: [lessonQueueItem], batchLimit: 5, remainingToday: 20 },
+      json: {
+        items: [lessonQueueItem],
+        availableItems: [lessonQueueItem, optionalLessonQueueItem],
+        batchLimit: 5,
+        remainingToday: 20,
+      },
     });
   });
 
@@ -234,6 +250,30 @@ const lessonQueueItem: LessonQueueItem = {
       },
     },
   ],
+};
+
+const optionalLessonQueueItem: LessonQueueItem = {
+  ...lessonQueueItem,
+  item: {
+    ...lessonQueueItem.item,
+    id: "item-kanji-two",
+    slug: "kanji:二",
+    japanese: "二",
+    reading: "に",
+    translations: {
+      displayMode: "ru-en",
+      primaryRu: "два",
+      primaryEn: "two",
+      ru: [{ locale: "ru-RU", text: "два", isPrimary: true, sourceKind: "curated" }],
+      en: [{ locale: "en-US", text: "two", isPrimary: true, sourceKind: "curated" }],
+    },
+  },
+  cards: lessonQueueItem.cards.map((card) => ({
+    ...card,
+    id: `${card.id}-two`,
+    learningItemId: "item-kanji-two",
+    prompt: { japanese: "二", reading: "に" },
+  })),
 };
 
 const completeLessonItemResponse: CompleteLessonItemResponse = {

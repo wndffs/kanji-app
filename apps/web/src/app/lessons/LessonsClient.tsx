@@ -33,6 +33,7 @@ import {
   startLessonSession,
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
+import { type LessonOrderMode, orderLessonSelection } from "../../lib/lesson-selection";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
 type QueueState =
@@ -43,7 +44,8 @@ type QueueState =
   | {
       readonly status: "ready";
       readonly token: string;
-      readonly queue: readonly LessonQueueItem[];
+      readonly suggestedItems: readonly LessonQueueItem[];
+      readonly availableItems: readonly LessonQueueItem[];
       readonly batchLimit: number;
       readonly remainingToday: number;
     };
@@ -59,6 +61,9 @@ export function LessonsClient() {
   const activeDisplayMode = useTranslationDisplayMode();
   const [queueState, setQueueState] = useState<QueueState>({ status: "checking" });
   const [session, setSession] = useState<LessonSessionDto | null>(null);
+  const [sessionQueue, setSessionQueue] = useState<readonly LessonQueueItem[]>([]);
+  const [selectedItemIds, setSelectedItemIds] = useState<readonly string[]>([]);
+  const [orderMode, setOrderMode] = useState<LessonOrderMode>("course");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [step, setStep] = useState<LessonStep>("study");
   const [quizCardIndex, setQuizCardIndex] = useState(0);
@@ -83,6 +88,9 @@ export function LessonsClient() {
 
     setQueueState({ status: "loading" });
     setSession(null);
+    setSessionQueue([]);
+    setSelectedItemIds([]);
+    setOrderMode("course");
     setCurrentIndex(0);
     setStep("study");
     setQuizCardIndex(0);
@@ -94,13 +102,16 @@ export function LessonsClient() {
 
     try {
       const queue = await getLessonQueue(storedSession.token);
+      const availableItems = queue.availableItems ?? queue.items;
       setQueueState({
         status: "ready",
         token: storedSession.token,
-        queue: queue.items,
+        suggestedItems: queue.items,
+        availableItems,
         batchLimit: queue.batchLimit,
         remainingToday: queue.remainingToday,
       });
+      setSelectedItemIds(queue.items.map((lesson) => lesson.item.id));
     } catch (error: unknown) {
       if (error instanceof ApiError && error.status === 401) {
         clearStoredSession();
@@ -119,7 +130,15 @@ export function LessonsClient() {
     void loadQueue();
   }, [loadQueue]);
 
-  const activeQueue = queueState.status === "ready" ? queueState.queue : [];
+  const activeQueue = sessionQueue;
+  const selectedItemIdSet = useMemo(() => new Set(selectedItemIds), [selectedItemIds]);
+  const selectedLessons = useMemo(
+    () =>
+      queueState.status === "ready"
+        ? queueState.availableItems.filter((lesson) => selectedItemIdSet.has(lesson.item.id))
+        : [],
+    [queueState, selectedItemIdSet],
+  );
   const currentLesson = session === null ? null : (activeQueue[currentIndex] ?? null);
   const learnedItems = completionSummary?.learnedItems ?? 0;
   const progressLabel = useMemo(() => {
@@ -131,10 +150,11 @@ export function LessonsClient() {
   }, [activeQueue.length, currentIndex, currentLesson]);
 
   async function handleStartSession(): Promise<void> {
-    if (queueState.status !== "ready" || queueState.queue.length === 0 || isStarting) {
+    if (queueState.status !== "ready" || selectedLessons.length === 0 || isStarting) {
       return;
     }
 
+    const orderedLessons = orderLessonSelection(selectedLessons, orderMode);
     setIsStarting(true);
     setSessionError(null);
     setCompletionSummary(null);
@@ -142,6 +162,7 @@ export function LessonsClient() {
     try {
       const response = await startLessonSession(queueState.token);
       setSession(response.session);
+      setSessionQueue(orderedLessons);
       setCurrentIndex(0);
       setStep("study");
       setQuizCardIndex(0);
@@ -152,6 +173,26 @@ export function LessonsClient() {
       setSessionError(error instanceof Error ? error.message : "Не удалось начать урок.");
     } finally {
       setIsStarting(false);
+    }
+  }
+
+  function handleToggleLesson(itemId: string): void {
+    if (queueState.status !== "ready") {
+      return;
+    }
+
+    setSelectedItemIds((current) => {
+      if (current.includes(itemId)) {
+        return current.filter((candidate) => candidate !== itemId);
+      }
+
+      return current.length >= queueState.batchLimit ? current : [...current, itemId];
+    });
+  }
+
+  function handleUseSuggestedBatch(): void {
+    if (queueState.status === "ready") {
+      setSelectedItemIds(queueState.suggestedItems.map((lesson) => lesson.item.id));
     }
   }
 
@@ -236,7 +277,7 @@ export function LessonsClient() {
         createdCards: (completionSummary?.createdCards ?? 0) + result.createdSrsStateCount,
       };
 
-      if (nextIndex < queueState.queue.length) {
+      if (nextIndex < activeQueue.length) {
         setCurrentIndex(nextIndex);
         setQuizCardIndex(0);
         setQuizAnswer("");
@@ -248,6 +289,7 @@ export function LessonsClient() {
 
       await finishLessonSession(queueState.token, session.id);
       setSession(null);
+      setSessionQueue([]);
       setCurrentIndex(0);
       setStep("study");
       setQuizCardIndex(0);
@@ -342,7 +384,7 @@ export function LessonsClient() {
     );
   }
 
-  if (queueState.queue.length === 0) {
+  if (queueState.availableItems.length === 0) {
     return (
       <section className="page-stack">
         <div className="page-heading">
@@ -368,14 +410,14 @@ export function LessonsClient() {
           <div>
             <h1>Уроки</h1>
             <p>
-              В этой группе: {queueState.queue.length} из максимум {queueState.batchLimit}. Осталось
-              на сегодня: {queueState.remainingToday}. Режим перевода:{" "}
-              {formatDisplayMode(activeDisplayMode)}.
+              Выбрано: {selectedLessons.length} из максимум {queueState.batchLimit}. Доступно:{" "}
+              {queueState.availableItems.length}. Осталось на сегодня: {queueState.remainingToday}.
+              Режим перевода: {formatDisplayMode(activeDisplayMode)}.
             </p>
           </div>
           <button
             className="primary-action"
-            disabled={isStarting}
+            disabled={isStarting || selectedLessons.length === 0}
             onClick={() => void handleStartSession()}
             type="button"
           >
@@ -387,7 +429,17 @@ export function LessonsClient() {
             {sessionError}
           </p>
         )}
-        <LessonQueuePreview queue={queueState.queue} displayMode={activeDisplayMode} />
+        <LessonPicker
+          availableItems={queueState.availableItems}
+          batchLimit={queueState.batchLimit}
+          displayMode={activeDisplayMode}
+          orderMode={orderMode}
+          selectedItemIds={selectedItemIdSet}
+          onClear={() => setSelectedItemIds([])}
+          onOrderModeChange={setOrderMode}
+          onToggle={handleToggleLesson}
+          onUseSuggested={handleUseSuggestedBatch}
+        />
       </section>
     );
   }
@@ -448,25 +500,97 @@ export function LessonsClient() {
   );
 }
 
-function LessonQueuePreview({
-  queue,
+function LessonPicker({
+  availableItems,
+  batchLimit,
   displayMode,
+  orderMode,
+  selectedItemIds,
+  onClear,
+  onOrderModeChange,
+  onToggle,
+  onUseSuggested,
 }: {
-  readonly queue: readonly LessonQueueItem[];
+  readonly availableItems: readonly LessonQueueItem[];
+  readonly batchLimit: number;
   readonly displayMode: TranslationDisplayMode;
+  readonly orderMode: LessonOrderMode;
+  readonly selectedItemIds: ReadonlySet<string>;
+  readonly onClear: () => void;
+  readonly onOrderModeChange: (mode: LessonOrderMode) => void;
+  readonly onToggle: (itemId: string) => void;
+  readonly onUseSuggested: () => void;
 }) {
+  const selectedCount = selectedItemIds.size;
+
   return (
-    <div className="lesson-preview-grid">
-      {queue.map((lesson) => (
-        <article className="lesson-preview-card" key={lesson.item.id}>
-          <div>
-            <span className="eyebrow">{formatItemType(lesson.item.itemType)}</span>
-            <JapaneseText as="strong">{lesson.item.japanese}</JapaneseText>
-          </div>
-          <p>{formatTranslationBundle(lesson.item.translations, displayMode)}</p>
-        </article>
-      ))}
-    </div>
+    <section className="lesson-picker" aria-labelledby="lesson-picker-heading">
+      <header className="lesson-picker-header">
+        <div>
+          <span className="eyebrow">
+            {selectedCount} / {batchLimit}
+          </span>
+          <h2 id="lesson-picker-heading">Группа урока</h2>
+        </div>
+        <div className="lesson-picker-actions">
+          <button className="text-action" onClick={onUseSuggested} type="button">
+            Рекомендованные
+          </button>
+          <button
+            className="text-action"
+            disabled={selectedCount === 0}
+            onClick={onClear}
+            type="button"
+          >
+            Очистить
+          </button>
+        </div>
+      </header>
+
+      <div className="lesson-order-control" role="group" aria-label="Порядок материалов">
+        <button
+          aria-pressed={orderMode === "course"}
+          onClick={() => onOrderModeChange("course")}
+          type="button"
+        >
+          Порядок курса
+        </button>
+        <button
+          aria-pressed={orderMode === "interleaved"}
+          onClick={() => onOrderModeChange("interleaved")}
+          type="button"
+        >
+          Чередовать типы
+        </button>
+      </div>
+
+      <div className="lesson-preview-grid">
+        {availableItems.map((lesson) => {
+          const isSelected = selectedItemIds.has(lesson.item.id);
+          const isDisabled = !isSelected && selectedCount >= batchLimit;
+
+          return (
+            <label
+              className={`lesson-preview-card${isSelected ? " lesson-preview-card-selected" : ""}`}
+              key={lesson.item.id}
+            >
+              <input
+                aria-label={`Выбрать ${lesson.item.japanese}: ${formatTranslationBundle(lesson.item.translations, displayMode)}`}
+                checked={isSelected}
+                disabled={isDisabled}
+                onChange={() => onToggle(lesson.item.id)}
+                type="checkbox"
+              />
+              <span className="lesson-preview-content">
+                <span className="eyebrow">{formatItemType(lesson.item.itemType)}</span>
+                <JapaneseText as="strong">{lesson.item.japanese}</JapaneseText>
+                <span>{formatTranslationBundle(lesson.item.translations, displayMode)}</span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

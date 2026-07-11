@@ -94,8 +94,10 @@ endpoint; the stroke SVG itself is not persisted in kana progress.
 `GET /lessons/queue` returns new learning items for the authenticated user's
 active course enrollment. Availability uses the first incomplete course level,
 item dependency thresholds, and the user's `dailyLessonLimit`. The response
-contains at most five items in `items`, plus `batchLimit` and `remainingToday`
-for workload display.
+contains a recommended batch of at most five items in `items`, every currently
+eligible item within today's remaining limit in `availableItems`, plus
+`batchLimit` and `remainingToday` for workload display. The picker cannot expose
+items that fail course-level or dependency checks.
 
 `POST /lessons/:sessionId/complete-item` accepts `itemId` and an `answers` array
 with exactly one `{ cardId, answerType, answer }` entry for every card on the

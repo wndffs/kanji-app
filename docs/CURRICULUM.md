@@ -57,6 +57,12 @@ Component, kanji, vocabulary, and sentence lessons use small groups of at most
 five new items. The learner studies every item in the group before retrieval
 begins. The required quiz then asks every meaning and reading card independently.
 
+Before starting, the learner may replace the recommended items with any other
+currently eligible materials, up to the five-item batch limit. The course-order
+mode preserves curriculum order. The interleaved mode alternates selected item
+types while preserving order within each type. Selection never exposes or
+unlocks materials whose prerequisites are unsatisfied.
+
 The API, rather than the browser, validates the complete answer set against
 global accepted answers, private user answers, and blocked answers. Failed cards
 stay in the quiz and reveal the accepted Russian and/or English answers for the

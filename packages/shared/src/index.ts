@@ -269,7 +269,10 @@ export type LessonQueueItem = {
 };
 
 export type LessonQueueResponse = {
+  /** Suggested default batch, already capped by batchLimit. */
   readonly items: readonly LessonQueueItem[];
+  /** All currently eligible items the learner may choose from today. */
+  readonly availableItems: readonly LessonQueueItem[];
   readonly batchLimit: number;
   readonly remainingToday: number;
 };

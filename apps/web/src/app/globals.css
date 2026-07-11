@@ -871,19 +871,111 @@ textarea:focus-visible {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.lesson-picker {
+  display: grid;
+  gap: 16px;
+}
+
+.lesson-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.lesson-picker-header h2 {
+  margin: 4px 0 0;
+  font-size: 22px;
+  letter-spacing: 0;
+}
+
+.lesson-picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.text-action {
+  border: 0;
+  background: transparent;
+  color: var(--accent-strong);
+  padding: 4px 0;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.text-action:disabled {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.6;
+}
+
+.lesson-order-control {
+  width: fit-content;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.lesson-order-control button {
+  min-height: 38px;
+  border: 0;
+  border-right: 1px solid var(--surface-border);
+  background: transparent;
+  color: var(--muted);
+  padding: 0 14px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.lesson-order-control button:last-child {
+  border-right: 0;
+}
+
+.lesson-order-control button[aria-pressed="true"] {
+  background: var(--foreground);
+  color: var(--surface);
+}
+
 .lesson-preview-card {
   min-height: 136px;
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-content: space-between;
+  align-items: start;
   gap: 12px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--shadow);
   padding: 16px;
+  cursor: pointer;
 }
 
-.lesson-preview-card div {
+.lesson-preview-card-selected {
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-strong) 18%, transparent);
+}
+
+.lesson-preview-card:has(input:disabled) {
+  cursor: default;
+  opacity: 0.56;
+}
+
+.lesson-preview-card input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--accent-strong);
+}
+
+.lesson-preview-content {
   display: grid;
   gap: 6px;
 }
@@ -894,8 +986,7 @@ textarea:focus-visible {
   line-height: 1.08;
 }
 
-.lesson-preview-card p {
-  margin: 0;
+.lesson-preview-content > span:last-child {
   color: var(--muted);
   font-weight: 700;
   line-height: 1.45;
@@ -2605,6 +2696,19 @@ textarea:focus-visible {
 
   .lesson-action-bar {
     justify-content: stretch;
+  }
+
+  .lesson-picker-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .lesson-picker-actions {
+    justify-content: flex-start;
+  }
+
+  .lesson-order-control {
+    width: 100%;
   }
 
   .lesson-action-bar .primary-action,
