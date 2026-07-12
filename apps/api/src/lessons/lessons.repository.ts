@@ -15,6 +15,7 @@ import {
   type CompleteLessonItemInput,
   type CompletedLessonItemRecord,
   type CourseLessonItemRecord,
+  type CreateLessonSessionInput,
   type DeckLessonRecord,
   type LessonAnswerRecord,
   type LessonBlockedAnswerRecord,
@@ -24,6 +25,7 @@ import {
   type LessonSessionRecord,
   type LessonTargetRecord,
   type SrsSystemRecord,
+  type UpdateLessonSessionProgressInput,
   type UserItemProgressRecord,
 } from "./lessons.types";
 
@@ -32,16 +34,16 @@ export abstract class LessonsRepository {
   abstract findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null>;
   abstract listUserProgress(userId: string): Promise<readonly UserItemProgressRecord[]>;
   abstract getDefaultSrsSystem(): Promise<SrsSystemRecord | null>;
-  abstract createLessonSession(
-    userId: string,
-    now: Date,
-    deckId: string | null,
-  ): Promise<LessonSessionRecord>;
+  abstract createLessonSession(input: CreateLessonSessionInput): Promise<LessonSessionRecord>;
+  abstract findLatestActiveLessonSession(userId: string): Promise<LessonSessionRecord | null>;
   abstract findActiveLessonSession(
     userId: string,
     sessionId: string,
   ): Promise<LessonSessionRecord | null>;
   abstract completeLessonItem(input: CompleteLessonItemInput): Promise<CompletedLessonItemRecord>;
+  abstract updateLessonSessionProgress(
+    input: UpdateLessonSessionProgressInput,
+  ): Promise<LessonSessionRecord | null>;
   abstract finishLessonSession(
     userId: string,
     sessionId: string,
@@ -433,21 +435,35 @@ export class PrismaLessonsRepository extends LessonsRepository {
     };
   }
 
-  async createLessonSession(
-    userId: string,
-    now: Date,
-    deckId: string | null,
-  ): Promise<LessonSessionRecord> {
+  async createLessonSession(input: CreateLessonSessionInput): Promise<LessonSessionRecord> {
     const session = (await this.prisma.db.reviewSession.create({
       data: {
-        userId,
-        startedAt: now,
+        userId: input.userId,
+        startedAt: input.now,
         mode: "LESSON_QUIZ",
-        statsJson: deckId === null ? undefined : { deckId },
+        statsJson: {
+          deckId: input.deckId,
+          itemIds: input.itemIds,
+          currentItemId: input.itemIds[0],
+          phase: "meaning",
+        },
       },
     })) as SessionRow;
 
     return toSessionRecord(session);
+  }
+
+  async findLatestActiveLessonSession(userId: string): Promise<LessonSessionRecord | null> {
+    const session = (await this.prisma.db.reviewSession.findFirst({
+      where: {
+        userId,
+        mode: "LESSON_QUIZ",
+        finishedAt: null,
+      },
+      orderBy: [{ startedAt: "desc" }, { id: "desc" }],
+    })) as SessionRow | null;
+
+    return session === null ? null : toSessionRecord(session);
   }
 
   async findActiveLessonSession(
@@ -486,6 +502,43 @@ export class PrismaLessonsRepository extends LessonsRepository {
 
     return {
       createdSrsStateCount: result.count,
+    };
+  }
+
+  async updateLessonSessionProgress(
+    input: UpdateLessonSessionProgressInput,
+  ): Promise<LessonSessionRecord | null> {
+    const session = await this.findActiveLessonSession(input.userId, input.sessionId);
+
+    if (session === null) {
+      return null;
+    }
+
+    const result = await this.prisma.db.reviewSession.updateMany({
+      where: {
+        id: input.sessionId,
+        userId: input.userId,
+        mode: "LESSON_QUIZ",
+        finishedAt: null,
+      },
+      data: {
+        statsJson: {
+          deckId: session.deckId,
+          itemIds: session.itemIds,
+          currentItemId: input.currentItemId,
+          phase: input.phase,
+        },
+      },
+    });
+
+    if (result.count === 0) {
+      return null;
+    }
+
+    return {
+      ...session,
+      currentItemId: input.currentItemId,
+      phase: input.phase,
     };
   }
 
@@ -742,6 +795,14 @@ export class PrismaLessonsRepository extends LessonsRepository {
 function toSessionRecord(row: SessionRow): LessonSessionRecord {
   const stats = isRecord(row.statsJson) ? row.statsJson : null;
   const deckId = typeof stats?.deckId === "string" ? stats.deckId : null;
+  const itemIds = Array.isArray(stats?.itemIds)
+    ? [...new Set(stats.itemIds.filter((value): value is string => typeof value === "string"))]
+    : [];
+  const currentItemId =
+    typeof stats?.currentItemId === "string" && itemIds.includes(stats.currentItemId)
+      ? stats.currentItemId
+      : (itemIds[0] ?? "");
+  const phase = toLessonSessionPhase(stats?.phase);
 
   return {
     id: row.id,
@@ -750,7 +811,21 @@ function toSessionRecord(row: SessionRow): LessonSessionRecord {
     finishedAt: row.finishedAt,
     mode: "lesson",
     deckId,
+    itemIds,
+    currentItemId,
+    phase,
   };
+}
+
+function toLessonSessionPhase(value: unknown): LessonSessionRecord["phase"] {
+  switch (value) {
+    case "reading":
+    case "context":
+    case "quiz":
+      return value;
+    default:
+      return "meaning";
+  }
 }
 
 function toDeckLessonStatus(status: string): DeckLessonRecord["status"] {

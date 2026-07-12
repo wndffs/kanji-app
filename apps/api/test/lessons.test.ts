@@ -14,10 +14,12 @@ import {
   type CompleteLessonItemInput,
   type CompletedLessonItemRecord,
   type CourseLessonItemRecord,
+  type CreateLessonSessionInput,
   type DeckLessonRecord,
   type LessonItemRecord,
   type LessonSessionRecord,
   type SrsSystemRecord,
+  type UpdateLessonSessionProgressInput,
   type UserItemProgressRecord,
 } from "../src/lessons/lessons.types";
 
@@ -366,6 +368,99 @@ describe("LessonsService", () => {
     expect(queue).toMatchObject({ batchLimit: 5, remainingToday: 10 });
   });
 
+  it("restores the selected lesson group and its current study phase", async () => {
+    const service = createService();
+    const started = await service.startSession(createUser("owner"), {
+      itemIds: ["item-component-two", "item-component-one"],
+    });
+
+    expect(started.session).toMatchObject({
+      itemIds: ["item-component-two", "item-component-one"],
+      currentItemId: "item-component-two",
+      phase: "meaning",
+    });
+
+    await service.updateProgress(started.session.id, createUser("owner"), {
+      currentItemId: "item-component-one",
+      phase: "context",
+    });
+
+    await expect(service.getActiveSession(createUser("owner"))).resolves.toMatchObject({
+      session: {
+        id: started.session.id,
+        currentItemId: "item-component-one",
+        phase: "context",
+      },
+      items: [{ item: { id: "item-component-two" } }, { item: { id: "item-component-one" } }],
+      source: { kind: "course" },
+    });
+  });
+
+  it("finishes the previous active lesson when a new group starts", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const service = new LessonsService(repository, createOverridesService());
+    const first = await service.startSession(createUser("owner"), {
+      itemIds: ["item-component-one"],
+    });
+    const second = await service.startSession(createUser("owner"), {
+      itemIds: ["item-component-two"],
+    });
+
+    await expect(repository.findActiveLessonSession("owner", first.session.id)).resolves.toBeNull();
+    await expect(service.getActiveSession(createUser("owner"))).resolves.toMatchObject({
+      session: { id: second.session.id, itemIds: ["item-component-two"] },
+    });
+  });
+
+  it("rejects unavailable items and progress outside the selected lesson group", async () => {
+    const service = createService();
+
+    await expect(
+      service.startSession(createUser("owner"), { itemIds: ["item-kanji-one"] }),
+    ).rejects.toThrow("itemIds contain an unavailable lesson item");
+
+    const started = await service.startSession(createUser("owner"), {
+      itemIds: ["item-component-one"],
+    });
+
+    await expect(
+      service.updateProgress(started.session.id, createUser("owner"), {
+        currentItemId: "item-component-two",
+        phase: "meaning",
+      }),
+    ).rejects.toThrow("currentItemId is not part of this lesson session");
+  });
+
+  it("continues an active quiz with the first selected item that is not completed", async () => {
+    const service = createService();
+    const started = await service.startSession(createUser("owner"), {
+      itemIds: ["item-component-one", "item-component-two"],
+    });
+
+    await service.updateProgress(started.session.id, createUser("owner"), {
+      currentItemId: "item-component-one",
+      phase: "quiz",
+    });
+    await service.completeItem(started.session.id, createUser("owner"), {
+      itemId: "item-component-one",
+      answers: [
+        {
+          cardId: "card-component-one",
+          answerType: "meaning",
+          answer: "study",
+        },
+      ],
+    });
+
+    await expect(service.getActiveSession(createUser("owner"))).resolves.toMatchObject({
+      session: {
+        currentItemId: "item-component-two",
+        phase: "quiz",
+      },
+      items: [{ item: { id: "item-component-two" } }],
+    });
+  });
+
   it("respects the user's daily lesson limit", async () => {
     const service = createService();
 
@@ -474,7 +569,7 @@ describe("LessonsService", () => {
           },
         ],
       }),
-    ).rejects.toThrow("Lesson item is not currently available.");
+    ).rejects.toThrow("Lesson item is not part of this session.");
   });
 
   it("finishes an existing deck lesson after the deck is archived", async () => {
@@ -552,23 +647,33 @@ class InMemoryLessonsRepository extends LessonsRepository {
     };
   }
 
-  async createLessonSession(
-    userId: string,
-    now: Date,
-    deckId: string | null,
-  ): Promise<LessonSessionRecord> {
+  async createLessonSession(input: CreateLessonSessionInput): Promise<LessonSessionRecord> {
     const session: LessonSessionRecord = {
       id: `lesson-session-${this.nextSessionId++}`,
-      userId,
-      startedAt: now,
+      userId: input.userId,
+      startedAt: input.now,
       finishedAt: null,
       mode: "lesson",
-      deckId,
+      deckId: input.deckId,
+      itemIds: input.itemIds,
+      currentItemId: input.itemIds[0] ?? "",
+      phase: "meaning",
     };
 
     this.sessions.set(session.id, session);
 
     return session;
+  }
+
+  async findLatestActiveLessonSession(userId: string): Promise<LessonSessionRecord | null> {
+    return (
+      [...this.sessions.values()]
+        .filter((session) => session.userId === userId && session.finishedAt === null)
+        .sort(
+          (left, right) =>
+            right.startedAt.getTime() - left.startedAt.getTime() || right.id.localeCompare(left.id),
+        )[0] ?? null
+    );
   }
 
   async findActiveLessonSession(
@@ -605,6 +710,25 @@ class InMemoryLessonsRepository extends LessonsRepository {
     }
 
     return { createdSrsStateCount: created };
+  }
+
+  async updateLessonSessionProgress(
+    input: UpdateLessonSessionProgressInput,
+  ): Promise<LessonSessionRecord | null> {
+    const session = await this.findActiveLessonSession(input.userId, input.sessionId);
+
+    if (session === null) {
+      return null;
+    }
+
+    const updated = {
+      ...session,
+      currentItemId: input.currentItemId,
+      phase: input.phase,
+    };
+    this.sessions.set(session.id, updated);
+
+    return updated;
   }
 
   async finishLessonSession(

@@ -31,6 +31,8 @@
 
 - Guide each item through the non-empty stages meaning, reading, and context;
   allow revisiting an earlier stage before the required quiz.
+- Resume an unfinished server-confirmed lesson group at its current item and
+  stage after reload. Do not persist typed quiz answers in browser storage.
 - Explain the item and its prerequisite relationships during the meaning stage.
 - Show reading/meaning with translation display modes: Russian, English, or Russian plus English.
 - Show curated Russian/English mnemonic and hint content for the selected

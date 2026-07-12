@@ -15,6 +15,11 @@ export class LessonsController {
     return this.lessonsService.getQueue(currentUser, deckId);
   }
 
+  @Get("active")
+  getActiveSession(@CurrentUser() currentUser: CurrentUserDto) {
+    return this.lessonsService.getActiveSession(currentUser);
+  }
+
   @Post("start")
   startSession(@CurrentUser() currentUser: CurrentUserDto, @Body() body: unknown) {
     return this.lessonsService.startSession(currentUser, body);
@@ -27,6 +32,15 @@ export class LessonsController {
     @Body() body: unknown,
   ) {
     return this.lessonsService.completeItem(sessionId, currentUser, body);
+  }
+
+  @Post(":sessionId/progress")
+  updateProgress(
+    @Param("sessionId") sessionId: string,
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Body() body: unknown,
+  ) {
+    return this.lessonsService.updateProgress(sessionId, currentUser, body);
   }
 
   @Post(":sessionId/finish")

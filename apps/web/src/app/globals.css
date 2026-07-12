@@ -223,6 +223,11 @@ textarea:focus-visible {
   color: var(--primary-strong);
 }
 
+.secondary-action:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1184,6 +1189,11 @@ textarea:focus-visible {
 .lesson-phase-tabs button[aria-selected="true"] {
   background: var(--foreground);
   color: var(--surface);
+}
+
+.lesson-phase-tabs button:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .lesson-phase-tabs button span {

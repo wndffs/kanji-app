@@ -30,8 +30,10 @@ import {
   ApiError,
   completeLessonItem,
   finishLessonSession,
+  getActiveLessonSession,
   getLessonQueue,
   startLessonSession,
+  updateLessonSessionProgress,
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import { type LessonOrderMode, orderLessonSelection } from "../../lib/lesson-selection";
@@ -87,6 +89,7 @@ export function LessonsClient() {
     CompleteLessonItemResponse["answers"][number] | null
   >(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [isSavingProgress, setIsSavingProgress] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummary | null>(null);
@@ -112,11 +115,51 @@ export function LessonsClient() {
     setQuizAnswer("");
     setQuizAnswers({});
     setQuizFeedback(null);
+    setIsSavingProgress(false);
     setSessionError(null);
     setCompletionSummary(null);
 
     try {
       const requestedDeckId = readRequestedDeckId();
+      const active = await getActiveLessonSession(storedSession.token);
+      const activeMatchesSource =
+        active.session !== null && active.session.deckId === requestedDeckId;
+
+      if (activeMatchesSource && active.session !== null && active.source !== null) {
+        const resumedIndex = Math.max(
+          0,
+          active.items.findIndex((lesson) => lesson.item.id === active.session?.currentItemId),
+        );
+        const resumedLesson = active.items[resumedIndex] ?? active.items[0];
+        const resumedPhases =
+          resumedLesson === undefined ? [] : getLessonStudyPhases(resumedLesson);
+        const resumedPhaseIndex =
+          active.session.phase === "quiz"
+            ? 0
+            : Math.max(0, resumedPhases.indexOf(active.session.phase));
+
+        setQueueState({
+          status: "ready",
+          token: storedSession.token,
+          suggestedItems: active.items,
+          availableItems: active.items,
+          batchLimit: active.items.length,
+          remainingToday: active.items.length,
+          source: active.source,
+        });
+        setSession(active.session);
+        setSessionQueue(active.items);
+        setSelectedItemIds(active.items.map((lesson) => lesson.item.id));
+        setCurrentIndex(resumedIndex);
+        setStep(active.session.phase === "quiz" ? "quiz" : "study");
+        setStudyPhaseIndex(resumedPhaseIndex);
+        setCompletionSummary({
+          learnedItems: active.completedItemCount,
+          createdCards: active.createdSrsStateCount,
+        });
+        return;
+      }
+
       const queue = await getLessonQueue(storedSession.token, requestedDeckId);
       const availableItems = queue.availableItems ?? queue.items;
       setQueueState({
@@ -181,10 +224,10 @@ export function LessonsClient() {
     setCompletionSummary(null);
 
     try {
-      const response = await startLessonSession(
-        queueState.token,
-        queueState.source.kind === "deck" ? queueState.source.deckId : null,
-      );
+      const response = await startLessonSession(queueState.token, {
+        ...(queueState.source.kind === "deck" ? { deckId: queueState.source.deckId } : {}),
+        itemIds: orderedLessons.map((lesson) => lesson.item.id),
+      });
       setSession(response.session);
       setSessionQueue(orderedLessons);
       setCurrentIndex(0);
@@ -221,26 +264,81 @@ export function LessonsClient() {
     }
   }
 
-  function handleContinueStudy(): void {
-    if (studyPhaseIndex + 1 < currentStudyPhases.length) {
-      setStudyPhaseIndex(studyPhaseIndex + 1);
+  async function persistStudyProgress(
+    currentItemId: string,
+    phase: "meaning" | "reading" | "context" | "quiz",
+  ): Promise<boolean> {
+    if (queueState.status !== "ready" || session === null || isSavingProgress) {
+      return false;
+    }
+
+    setIsSavingProgress(true);
+    setSessionError(null);
+
+    try {
+      const response = await updateLessonSessionProgress(queueState.token, session.id, {
+        currentItemId,
+        phase,
+      });
+      setSession(response.session);
+      return true;
+    } catch (error: unknown) {
+      setSessionError(
+        error instanceof Error ? error.message : "Не удалось сохранить позицию урока.",
+      );
+      return false;
+    } finally {
+      setIsSavingProgress(false);
+    }
+  }
+
+  async function handleStudyPhaseChange(index: number): Promise<void> {
+    const phase = currentStudyPhases[index];
+
+    if (currentLesson === null || phase === undefined || index === studyPhaseIndex) {
       return;
     }
 
-    setStudyPhaseIndex(0);
+    if (await persistStudyProgress(currentLesson.item.id, phase)) {
+      setStudyPhaseIndex(index);
+    }
+  }
+
+  async function handleContinueStudy(): Promise<void> {
+    const nextPhase = currentStudyPhases[studyPhaseIndex + 1];
+
+    if (currentLesson === null) {
+      return;
+    }
+
+    if (nextPhase !== undefined) {
+      if (await persistStudyProgress(currentLesson.item.id, nextPhase)) {
+        setStudyPhaseIndex(studyPhaseIndex + 1);
+      }
+      return;
+    }
 
     if (currentIndex + 1 < activeQueue.length) {
-      setCurrentIndex(currentIndex + 1);
+      const nextLesson = activeQueue[currentIndex + 1];
+
+      if (nextLesson !== undefined && (await persistStudyProgress(nextLesson.item.id, "meaning"))) {
+        setStudyPhaseIndex(0);
+        setCurrentIndex(currentIndex + 1);
+      }
       return;
     }
 
-    setCurrentIndex(0);
-    setStep("quiz");
-    setQuizCardIndex(0);
-    setQuizAnswer("");
-    setQuizAnswers({});
-    setQuizFeedback(null);
-    setSessionError(null);
+    const firstLesson = activeQueue[0];
+    if (firstLesson !== undefined && (await persistStudyProgress(firstLesson.item.id, "quiz"))) {
+      setStudyPhaseIndex(0);
+      setCurrentIndex(0);
+      setStep("quiz");
+      setQuizCardIndex(0);
+      setQuizAnswer("");
+      setQuizAnswers({});
+      setQuizFeedback(null);
+      setSessionError(null);
+    }
   }
 
   useEffect(() => {
@@ -314,6 +412,22 @@ export function LessonsClient() {
       };
 
       if (nextIndex < activeQueue.length) {
+        const nextLesson = activeQueue[nextIndex];
+
+        if (nextLesson !== undefined) {
+          try {
+            const progress = await updateLessonSessionProgress(queueState.token, session.id, {
+              currentItemId: nextLesson.item.id,
+              phase: "quiz",
+            });
+            setSession(progress.session);
+          } catch {
+            setSessionError(
+              "Материал сохранён, но позицию урока не удалось обновить. При перезагрузке откроется первый незавершённый материал.",
+            );
+          }
+        }
+
         setCurrentIndex(nextIndex);
         setQuizCardIndex(0);
         setQuizAnswer("");
@@ -522,10 +636,11 @@ export function LessonsClient() {
           phase={currentStudyPhases[studyPhaseIndex] ?? "meaning"}
           phaseIndex={studyPhaseIndex}
           phases={currentStudyPhases}
+          navigationPending={isSavingProgress}
           speechAvailable={speechAvailable}
           isLast={currentIndex === activeQueue.length - 1}
-          onContinue={handleContinueStudy}
-          onPhaseChange={setStudyPhaseIndex}
+          onContinue={() => void handleContinueStudy()}
+          onPhaseChange={(index) => void handleStudyPhaseChange(index)}
           onSpeak={speakJapanese}
         />
       ) : (
@@ -650,6 +765,7 @@ function LessonStudyView({
   phase,
   phaseIndex,
   phases,
+  navigationPending,
   speechAvailable,
   isLast,
   onContinue,
@@ -661,6 +777,7 @@ function LessonStudyView({
   readonly phase: LessonStudyPhase;
   readonly phaseIndex: number;
   readonly phases: readonly LessonStudyPhase[];
+  readonly navigationPending: boolean;
   readonly speechAvailable: boolean;
   readonly isLast: boolean;
   readonly onContinue: () => void;
@@ -686,6 +803,7 @@ function LessonStudyView({
           <button
             aria-controls="lesson-study-phase"
             aria-selected={phase === candidate}
+            disabled={navigationPending}
             id={`lesson-phase-${candidate}`}
             key={candidate}
             onClick={() => onPhaseChange(index)}
@@ -851,13 +969,19 @@ function LessonStudyView({
         {phaseIndex === 0 ? null : (
           <button
             className="secondary-action"
+            disabled={navigationPending}
             onClick={() => onPhaseChange(phaseIndex - 1)}
             type="button"
           >
             Предыдущий этап
           </button>
         )}
-        <button className="primary-action" onClick={onContinue} type="button">
+        <button
+          className="primary-action"
+          disabled={navigationPending}
+          onClick={onContinue}
+          type="button"
+        >
           {nextPhase === undefined
             ? isLast
               ? "Перейти к проверке"

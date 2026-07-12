@@ -9,6 +9,7 @@ import {
   type AdminReviewQueueResponse,
   type AdminUpdateCardAnswersRequest,
   type AdminUpdateItemRequest,
+  type ActiveLessonSessionResponse,
   type AppLocale,
   type CardAnswerType,
   type ContentLocale,
@@ -36,8 +37,11 @@ import {
   type ReviewQueueItem,
   type SearchResponseDto,
   type StartLessonSessionResponse,
+  type StartLessonSessionRequestDto,
   type TranslationDisplayMode,
   type UpdateDeckStatusRequest,
+  type UpdateLessonSessionProgressRequestDto,
+  type UpdateLessonSessionProgressResponse,
   type UserMnemonicDto,
   type UserOverrideDto,
 } from "@kanji-srs/shared";
@@ -333,13 +337,32 @@ export function getLessonQueue(
 
 export function startLessonSession(
   token: string,
-  deckId: string | null = null,
+  input: StartLessonSessionRequestDto,
 ): Promise<StartLessonSessionResponse> {
   return apiRequest<StartLessonSessionResponse>("/lessons/start", {
     method: "POST",
     token,
-    body: deckId === null ? undefined : { deckId },
+    body: input,
   });
+}
+
+export function getActiveLessonSession(token: string): Promise<ActiveLessonSessionResponse> {
+  return apiRequest<ActiveLessonSessionResponse>("/lessons/active", { token });
+}
+
+export function updateLessonSessionProgress(
+  token: string,
+  sessionId: string,
+  input: UpdateLessonSessionProgressRequestDto,
+): Promise<UpdateLessonSessionProgressResponse> {
+  return apiRequest<UpdateLessonSessionProgressResponse>(
+    `/lessons/${encodeURIComponent(sessionId)}/progress`,
+    {
+      method: "POST",
+      token,
+      body: input,
+    },
+  );
 }
 
 export function completeLessonItem(

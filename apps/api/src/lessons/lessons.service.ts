@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from "@nes
 
 import {
   DEFAULT_TRANSLATION_DISPLAY_MODE,
+  type ActiveLessonSessionResponse,
   type BilingualTextDto,
   type CompleteLessonItemRequestDto,
   type CompleteLessonItemResponse,
@@ -11,9 +12,11 @@ import {
   type LessonQueueItem,
   type LessonQueueResponse,
   type LessonQueueSourceDto,
+  type LessonSessionPhase,
   type LocalizedTextDto,
   type SrsStateSummaryDto,
   type StartLessonSessionResponse,
+  type UpdateLessonSessionProgressResponse,
   type TranslationBundleDto,
   type TranslationDisplayMode,
   getContentLocalesForDisplayMode,
@@ -64,18 +67,142 @@ export class LessonsService {
   }
 
   async startSession(user: CurrentUserDto, body?: unknown): Promise<StartLessonSessionResponse> {
-    const deckId = parseStartLessonDeckId(body);
+    const request = parseStartLessonRequest(body);
     const now = new Date();
+    const { availableItems, remainingToday } = await this.getAvailableItems(
+      user,
+      now,
+      request.deckId,
+    );
+    const requestedItemIds =
+      request.itemIds ??
+      availableItems
+        .slice(0, Math.min(DEFAULT_LESSON_BATCH_LIMIT, remainingToday))
+        .map((entry) => entry.item.id);
+    const maxBatchSize = Math.min(DEFAULT_LESSON_BATCH_LIMIT, remainingToday);
 
-    if (deckId !== null) {
-      await this.getAvailableItems(user, now, deckId);
+    if (requestedItemIds.length === 0) {
+      throw new BadRequestException("No lesson items are currently available.");
     }
 
-    const session = await this.lessonsRepository.createLessonSession(user.id, now, deckId);
+    if (requestedItemIds.length > maxBatchSize) {
+      throw new BadRequestException("itemIds exceed the current lesson batch limit.");
+    }
+
+    const availableItemIds = new Set(availableItems.map((entry) => entry.item.id));
+    if (requestedItemIds.some((itemId) => !availableItemIds.has(itemId))) {
+      throw new BadRequestException("itemIds contain an unavailable lesson item.");
+    }
+
+    const existingSession = await this.lessonsRepository.findLatestActiveLessonSession(user.id);
+    const session = await this.lessonsRepository.createLessonSession({
+      userId: user.id,
+      now,
+      deckId: request.deckId,
+      itemIds: requestedItemIds,
+    });
+
+    if (existingSession !== null) {
+      await this.lessonsRepository.finishLessonSession(user.id, existingSession.id, now);
+    }
 
     return {
       session: toLessonSessionDto(session),
     };
+  }
+
+  async getActiveSession(user: CurrentUserDto): Promise<ActiveLessonSessionResponse> {
+    const session = await this.lessonsRepository.findLatestActiveLessonSession(user.id);
+
+    if (session === null || session.itemIds.length === 0) {
+      return {
+        session: null,
+        items: [],
+        source: null,
+        completedItemCount: 0,
+        createdSrsStateCount: 0,
+      };
+    }
+
+    const { availableItems, displayMode, progress, source } = await this.getAvailableItems(
+      user,
+      new Date(),
+      session.deckId,
+      true,
+    );
+    const availableById = new Map(availableItems.map((entry) => [entry.item.id, entry]));
+    const remainingEntries = session.itemIds.flatMap((itemId) => {
+      const entry = availableById.get(itemId);
+      return entry === undefined ? [] : [entry];
+    });
+
+    if (remainingEntries.length === 0) {
+      return {
+        session: null,
+        items: [],
+        source: null,
+        completedItemCount: 0,
+        createdSrsStateCount: 0,
+      };
+    }
+
+    const currentItemId = remainingEntries.some((entry) => entry.item.id === session.currentItemId)
+      ? session.currentItemId
+      : remainingEntries[0]!.item.id;
+    const normalizedSession =
+      currentItemId === session.currentItemId
+        ? session
+        : ((await this.lessonsRepository.updateLessonSessionProgress({
+            userId: user.id,
+            sessionId: session.id,
+            currentItemId,
+            phase: session.phase,
+          })) ?? session);
+
+    const sessionProgress = progress.filter(
+      (record) =>
+        session.itemIds.includes(record.learningItemId) && record.createdAt >= session.startedAt,
+    );
+
+    return {
+      session: toLessonSessionDto(normalizedSession),
+      items: remainingEntries.map((entry) =>
+        toLessonQueueItem(entry.item, entry.unlockedBy, displayMode),
+      ),
+      source,
+      completedItemCount: new Set(sessionProgress.map((record) => record.learningItemId)).size,
+      createdSrsStateCount: sessionProgress.length,
+    };
+  }
+
+  async updateProgress(
+    sessionId: string,
+    user: CurrentUserDto,
+    body: unknown,
+  ): Promise<UpdateLessonSessionProgressResponse> {
+    const request = parseLessonSessionProgress(body);
+    const session = await this.lessonsRepository.findActiveLessonSession(user.id, sessionId);
+
+    if (session === null) {
+      throw new NotFoundException("Active lesson session not found.");
+    }
+
+    if (!session.itemIds.includes(request.currentItemId)) {
+      throw new BadRequestException("currentItemId is not part of this lesson session.");
+    }
+
+    const updated = await this.lessonsRepository.updateLessonSessionProgress({
+      userId: user.id,
+      sessionId,
+      currentItemId: request.currentItemId,
+      phase: request.phase,
+    });
+
+    if (updated === null) {
+      throw new NotFoundException("Active lesson session not found.");
+    }
+
+    return { session: toLessonSessionDto(updated) };
   }
 
   async completeItem(
@@ -88,6 +215,10 @@ export class LessonsService {
 
     if (session === null) {
       throw new NotFoundException("Active lesson session not found.");
+    }
+
+    if (session.itemIds.length > 0 && !session.itemIds.includes(request.itemId)) {
+      throw new BadRequestException("Lesson item is not part of this session.");
     }
 
     const now = new Date();
@@ -197,6 +328,7 @@ export class LessonsService {
   ): Promise<{
     readonly availableItems: readonly AvailableLessonItem[];
     readonly displayMode: TranslationDisplayMode;
+    readonly progress: readonly UserItemProgressRecord[];
     readonly remainingToday: number;
     readonly source: LessonQueueSourceDto;
   }> {
@@ -221,12 +353,13 @@ export class LessonsService {
       const source: LessonQueueSourceDto = { kind: "deck", deckId: deck.id, title: deck.title };
 
       if (remainingToday <= 0 || deck.items.length === 0) {
-        return { availableItems: [], displayMode, remainingToday, source };
+        return { availableItems: [], displayMode, progress, remainingToday, source };
       }
 
       return {
         availableItems: findAvailableDeckItems(deck, progress),
         displayMode,
+        progress,
         remainingToday,
         source,
       };
@@ -240,12 +373,12 @@ export class LessonsService {
     const source: LessonQueueSourceDto = { kind: "course" };
 
     if (remainingToday <= 0 || courseItems.length === 0) {
-      return { availableItems: [], displayMode, remainingToday, source };
+      return { availableItems: [], displayMode, progress, remainingToday, source };
     }
 
     const availableItems = findAvailableCourseItems(courseItems, progress);
 
-    return { availableItems, displayMode, remainingToday, source };
+    return { availableItems, displayMode, progress, remainingToday, source };
   }
 }
 
@@ -486,16 +619,61 @@ function readDatePart(
   return parts.find((part) => part.type === type)?.value ?? "00";
 }
 
-function parseStartLessonDeckId(body: unknown): string | null {
+function parseStartLessonRequest(body: unknown): {
+  readonly deckId: string | null;
+  readonly itemIds: readonly string[] | null;
+} {
   if (body === undefined || body === null) {
-    return null;
+    return { deckId: null, itemIds: null };
   }
 
   if (typeof body !== "object" || Array.isArray(body)) {
     throw new BadRequestException("Request body must be a JSON object.");
   }
 
-  return parseOptionalDeckId((body as Record<string, unknown>).deckId);
+  const record = body as Record<string, unknown>;
+  const deckId = parseOptionalDeckId(record.deckId);
+
+  if (record.itemIds === undefined) {
+    return { deckId, itemIds: null };
+  }
+
+  if (!Array.isArray(record.itemIds) || record.itemIds.length === 0) {
+    throw new BadRequestException("itemIds must be a non-empty array.");
+  }
+
+  const itemIds = record.itemIds.map((value, index) =>
+    parseRequiredString(value, `itemIds[${index}]`, 200),
+  );
+
+  if (new Set(itemIds).size !== itemIds.length) {
+    throw new BadRequestException("itemIds must not contain duplicates.");
+  }
+
+  return { deckId, itemIds };
+}
+
+function parseLessonSessionProgress(body: unknown): {
+  readonly currentItemId: string;
+  readonly phase: LessonSessionPhase;
+} {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    throw new BadRequestException("Request body must be a JSON object.");
+  }
+
+  const record = body as Record<string, unknown>;
+  const currentItemId = parseRequiredString(record.currentItemId, "currentItemId", 200);
+
+  if (
+    record.phase !== "meaning" &&
+    record.phase !== "reading" &&
+    record.phase !== "context" &&
+    record.phase !== "quiz"
+  ) {
+    throw new BadRequestException("phase must be meaning, reading, context, or quiz.");
+  }
+
+  return { currentItemId, phase: record.phase };
 }
 
 function parseOptionalDeckId(value: unknown): string | null {
@@ -734,5 +912,8 @@ function toLessonSessionDto(session: LessonSessionRecord) {
     finishedAt: session.finishedAt?.toISOString() ?? null,
     mode: session.mode,
     deckId: session.deckId,
+    itemIds: session.itemIds,
+    currentItemId: session.currentItemId,
+    phase: session.phase,
   };
 }

@@ -11,6 +11,7 @@ import {
   workspacePackages,
   type AdminCurriculumCompletenessReportDto,
   type AdminReviewQueueResponse,
+  type ActiveLessonSessionResponse,
   type DashboardDto,
   type AdminImportRunListResponse,
   type DeckDetailsDto,
@@ -118,6 +119,27 @@ describe("shared DTO contracts", () => {
     expect(JSON.parse(JSON.stringify(memoryContent))).toEqual(memoryContent);
     expect(memoryContent.mnemonics[0]?.purpose).toBe("story");
     expect(memoryContent.hints[0]?.purpose).toBe("usage");
+  });
+
+  it("keeps resumable lesson session progress serializable", () => {
+    const response: ActiveLessonSessionResponse = {
+      session: {
+        id: "lesson-session-1",
+        startedAt: "2026-07-13T08:00:00.000Z",
+        finishedAt: null,
+        mode: "lesson",
+        deckId: null,
+        itemIds: ["item-one", "item-two"],
+        currentItemId: "item-two",
+        phase: "reading",
+      },
+      items: [],
+      source: { kind: "course" },
+      completedItemCount: 1,
+      createdSrsStateCount: 2,
+    };
+
+    expect(JSON.parse(JSON.stringify(response))).toEqual(response);
   });
 
   it("puts translation display mode in dashboard user settings", () => {

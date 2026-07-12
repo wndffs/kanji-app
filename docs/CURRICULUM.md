@@ -70,6 +70,11 @@ reading, and context. The learner can revisit stages before continuing; context
 contains curated or private story and usage guidance plus attributed examples
 when available.
 
+The ordered lesson group, current item, and current stage are stored in the
+server-side lesson session so a reload can resume safely. Quiz answer drafts are
+deliberately not persisted; retrieval restarts from the first card of the
+current item after a reload.
+
 Before starting, the learner may replace the recommended items with any other
 currently eligible materials, up to the five-item batch limit. The course-order
 mode preserves curriculum order. The interleaved mode alternates selected item

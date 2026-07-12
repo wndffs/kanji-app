@@ -321,9 +321,36 @@ export type LessonSessionDto = {
   readonly finishedAt: string | null;
   readonly mode: "lesson";
   readonly deckId: string | null;
+  readonly itemIds: readonly string[];
+  readonly currentItemId: string;
+  readonly phase: LessonSessionPhase;
+};
+
+export type LessonSessionPhase = "meaning" | "reading" | "context" | "quiz";
+
+export type StartLessonSessionRequestDto = {
+  readonly deckId?: string;
+  readonly itemIds?: readonly string[];
 };
 
 export type StartLessonSessionResponse = {
+  readonly session: LessonSessionDto;
+};
+
+export type ActiveLessonSessionResponse = {
+  readonly session: LessonSessionDto | null;
+  readonly items: readonly LessonQueueItem[];
+  readonly source: LessonQueueSourceDto | null;
+  readonly completedItemCount: number;
+  readonly createdSrsStateCount: number;
+};
+
+export type UpdateLessonSessionProgressRequestDto = {
+  readonly currentItemId: string;
+  readonly phase: LessonSessionPhase;
+};
+
+export type UpdateLessonSessionProgressResponse = {
   readonly session: LessonSessionDto;
 };
 

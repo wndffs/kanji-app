@@ -134,7 +134,44 @@ test.describe("lesson session", () => {
     await page.getByRole("button", { name: "Начать урок" }).click();
 
     await expect(page.getByRole("heading", { name: "Изучение" })).toBeVisible();
-    expect(startBody()).toEqual({ deckId: "deck-saved" });
+    expect(startBody()).toEqual({ deckId: "deck-saved", itemIds: ["item-kanji-one"] });
+  });
+
+  test("resumes the server-confirmed item and study phase after reload", async ({ page }) => {
+    await signIn(page);
+    let progressBody: unknown = null;
+
+    await page.route(`${API_BASE_URL}/lessons/active`, async (route) => {
+      await route.fulfill({
+        json: {
+          session: lessonSession("reading"),
+          items: [lessonQueueItem],
+          source: { kind: "course" },
+          completedItemCount: 0,
+          createdSrsStateCount: 0,
+        },
+      });
+    });
+    await page.route(`${API_BASE_URL}/lessons/${SESSION_ID}/progress`, async (route) => {
+      progressBody = route.request().postDataJSON();
+      const body = progressBody as { currentItemId: string; phase: "context" };
+      await route.fulfill({ json: { session: lessonSession(body.phase, body.currentItemId) } });
+    });
+
+    await page.goto("/lessons");
+
+    await expect(page.getByRole("heading", { name: "Изучение" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Чтение" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.getByRole("heading", { name: "Чтения" })).toBeVisible();
+    await page.getByRole("button", { name: "Далее: Контекст" }).click();
+    await expect(page.getByRole("tab", { name: "Контекст" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(progressBody).toEqual({ currentItemId: "item-kanji-one", phase: "context" });
   });
 });
 
@@ -203,6 +240,8 @@ async function signIn(page: Page): Promise<void> {
 }
 
 async function mockLessonApi(page: Page): Promise<void> {
+  await mockNoActiveLesson(page);
+
   await page.route(`${API_BASE_URL}/lessons/queue`, async (route) => {
     await route.fulfill({
       json: {
@@ -216,17 +255,20 @@ async function mockLessonApi(page: Page): Promise<void> {
   });
 
   await page.route(`${API_BASE_URL}/lessons/start`, async (route) => {
+    expect(route.request().postDataJSON()).toEqual({ itemIds: ["item-kanji-one"] });
     await route.fulfill({
       json: {
-        session: {
-          id: SESSION_ID,
-          startedAt: "2026-06-22T08:00:00.000Z",
-          finishedAt: null,
-          mode: "lesson",
-          deckId: null,
-        },
+        session: lessonSession("meaning"),
       },
     });
+  });
+
+  await page.route(`${API_BASE_URL}/lessons/${SESSION_ID}/progress`, async (route) => {
+    const body = route.request().postDataJSON() as {
+      readonly currentItemId: string;
+      readonly phase: "meaning" | "reading" | "context" | "quiz";
+    };
+    await route.fulfill({ json: { session: lessonSession(body.phase, body.currentItemId) } });
   });
 
   await page.route(`${API_BASE_URL}/lessons/${SESSION_ID}/complete-item`, async (route) => {
@@ -244,13 +286,7 @@ async function mockLessonApi(page: Page): Promise<void> {
   await page.route(`${API_BASE_URL}/lessons/${SESSION_ID}/finish`, async (route) => {
     await route.fulfill({
       json: {
-        session: {
-          id: SESSION_ID,
-          startedAt: "2026-06-22T08:00:00.000Z",
-          finishedAt: "2026-06-22T08:04:00.000Z",
-          mode: "lesson",
-          deckId: null,
-        },
+        session: { ...lessonSession("quiz"), finishedAt: "2026-06-22T08:04:00.000Z" },
       },
     });
   });
@@ -258,6 +294,7 @@ async function mockLessonApi(page: Page): Promise<void> {
 
 async function mockDeckLessonApi(page: Page): Promise<() => unknown> {
   let startBody: unknown = null;
+  await mockNoActiveLesson(page);
 
   await page.route(`${API_BASE_URL}/lessons/queue?deckId=deck-saved`, async (route) => {
     await route.fulfill({
@@ -275,18 +312,43 @@ async function mockDeckLessonApi(page: Page): Promise<() => unknown> {
     startBody = route.request().postDataJSON();
     await route.fulfill({
       json: {
-        session: {
-          id: SESSION_ID,
-          startedAt: "2026-06-22T08:00:00.000Z",
-          finishedAt: null,
-          mode: "lesson",
-          deckId: "deck-saved",
-        },
+        session: lessonSession("meaning", "item-kanji-one", "deck-saved"),
       },
     });
   });
 
   return () => startBody;
+}
+
+async function mockNoActiveLesson(page: Page): Promise<void> {
+  await page.route(`${API_BASE_URL}/lessons/active`, async (route) => {
+    await route.fulfill({
+      json: {
+        session: null,
+        items: [],
+        source: null,
+        completedItemCount: 0,
+        createdSrsStateCount: 0,
+      },
+    });
+  });
+}
+
+function lessonSession(
+  phase: "meaning" | "reading" | "context" | "quiz",
+  currentItemId = "item-kanji-one",
+  deckId: string | null = null,
+) {
+  return {
+    id: SESSION_ID,
+    startedAt: "2026-06-22T08:00:00.000Z",
+    finishedAt: null,
+    mode: "lesson" as const,
+    deckId,
+    itemIds: ["item-kanji-one"],
+    currentItemId,
+    phase,
+  };
 }
 
 const lessonQueueItem: LessonQueueItem = {

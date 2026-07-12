@@ -6,6 +6,7 @@ import {
   type ContentLocale,
   type FinishLessonSessionResponse,
   type ItemKind,
+  type LessonSessionPhase,
   type LessonHintGroupDto,
   type LessonMnemonicGroupDto,
   type LessonQueueResponse,
@@ -23,6 +24,23 @@ export type LessonSessionRecord = {
   readonly finishedAt: Date | null;
   readonly mode: "lesson";
   readonly deckId: string | null;
+  readonly itemIds: readonly string[];
+  readonly currentItemId: string;
+  readonly phase: LessonSessionPhase;
+};
+
+export type CreateLessonSessionInput = {
+  readonly userId: string;
+  readonly now: Date;
+  readonly deckId: string | null;
+  readonly itemIds: readonly string[];
+};
+
+export type UpdateLessonSessionProgressInput = {
+  readonly userId: string;
+  readonly sessionId: string;
+  readonly currentItemId: string;
+  readonly phase: LessonSessionPhase;
 };
 
 export type LessonTargetRecord = {

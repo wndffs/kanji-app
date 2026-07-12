@@ -99,3 +99,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 17. Task 57 (completed): separate lesson mnemonics and hints by educational purpose.
 18. Task 58 (completed): guide each lesson item through meaning, reading, and context stages.
 19. Task 59 (completed): add browser-native Japanese speech to lesson readings and examples.
+20. Task 60 (completed): resume server-confirmed lesson groups and stages after reload.

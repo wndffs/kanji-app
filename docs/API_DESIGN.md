@@ -91,7 +91,9 @@ endpoint; the stroke SVG itself is not persisted in kana progress.
 ### Lessons
 
 - `GET /lessons/queue[?deckId=:ownedDeckId]`
-- `POST /lessons/start` with optional `{ deckId }`
+- `GET /lessons/active`
+- `POST /lessons/start` with optional `deckId` and an ordered `itemIds` group
+- `POST /lessons/:sessionId/progress`
 - `POST /lessons/:sessionId/complete-item`
 - `POST /lessons/:sessionId/finish`
 
@@ -102,6 +104,16 @@ contains a recommended batch of at most five items in `items`, every currently
 eligible item within today's remaining limit in `availableItems`, plus
 `batchLimit` and `remainingToday` for workload display. The picker cannot expose
 items that fail course-level or dependency checks.
+
+Starting a session validates the ordered `itemIds` against the current source,
+daily allowance, and five-item batch limit, then stores the group in
+`ReviewSession.statsJson`. `GET /lessons/active` returns the latest unfinished
+session with only its remaining available items, current item, study phase, and
+server-derived completion counts. `POST /lessons/:sessionId/progress` accepts a
+group-owned `currentItemId` and `meaning|reading|context|quiz` phase. It stores no
+typed quiz answers; after a reload, an active quiz restarts at the first card of
+the current item. Starting a new group finishes the previous active lesson only
+after the replacement session has been created successfully.
 
 Each queue item includes published Russian and English mnemonics and hints,
 grouped by their educational purpose. Mnemonics distinguish meaning, reading,

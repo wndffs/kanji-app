@@ -198,6 +198,19 @@ async function mockMvpApi(page: Page): Promise<void> {
     await route.fulfill({ json: buildDashboard(state) });
   });
 
+  await page.route(`${API_BASE_URL}/lessons/active`, async (route) => {
+    expectAuthorized(route);
+    await route.fulfill({
+      json: {
+        session: null,
+        items: [],
+        source: null,
+        completedItemCount: 0,
+        createdSrsStateCount: 0,
+      },
+    });
+  });
+
   await page.route(`${API_BASE_URL}/lessons/queue`, async (route) => {
     expectAuthorized(route);
 
@@ -213,17 +226,23 @@ async function mockMvpApi(page: Page): Promise<void> {
 
   await page.route(`${API_BASE_URL}/lessons/start`, async (route) => {
     expectAuthorized(route);
+    expect(route.request().postDataJSON()).toEqual({ itemIds: [starterItemId] });
 
     await route.fulfill({
       json: {
-        session: {
-          id: LESSON_SESSION_ID,
-          startedAt: "2026-06-22T08:00:00.000Z",
-          finishedAt: null,
-          mode: "lesson",
-        },
+        session: buildStarterLessonSession("meaning"),
       },
     });
+  });
+
+  await page.route(`${API_BASE_URL}/lessons/${LESSON_SESSION_ID}/progress`, async (route) => {
+    expectAuthorized(route);
+    const body = route.request().postDataJSON() as {
+      readonly currentItemId: string;
+      readonly phase: "meaning" | "reading" | "context" | "quiz";
+    };
+    expect(body.currentItemId).toBe(starterItemId);
+    await route.fulfill({ json: { session: buildStarterLessonSession(body.phase) } });
   });
 
   await page.route(`${API_BASE_URL}/lessons/${LESSON_SESSION_ID}/complete-item`, async (route) => {
@@ -256,10 +275,8 @@ async function mockMvpApi(page: Page): Promise<void> {
     await route.fulfill({
       json: {
         session: {
-          id: LESSON_SESSION_ID,
-          startedAt: "2026-06-22T08:00:00.000Z",
+          ...buildStarterLessonSession("quiz"),
           finishedAt: "2026-06-22T08:04:00.000Z",
-          mode: "lesson",
         },
       },
     });
@@ -349,6 +366,19 @@ async function mockMvpApi(page: Page): Promise<void> {
 
     await route.fulfill({ json: buildStarterItemDetails(state) });
   });
+}
+
+function buildStarterLessonSession(phase: "meaning" | "reading" | "context" | "quiz") {
+  return {
+    id: LESSON_SESSION_ID,
+    startedAt: "2026-06-22T08:00:00.000Z",
+    finishedAt: null,
+    mode: "lesson" as const,
+    deckId: null,
+    itemIds: [starterItemId],
+    currentItemId: starterItemId,
+    phase,
+  };
 }
 
 function expectAuthorized(route: Route): void {
