@@ -105,15 +105,22 @@ test.describe("lesson session", () => {
     await page.getByLabel("Ваше чтение").fill("いち");
     await page.keyboard.press("Enter");
 
+    await expect(page.getByRole("heading", { name: "Верно" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Продолжить" })).toBeFocused();
+    await page.keyboard.press("Enter");
     await expect(page.getByLabel("Ваше значение")).toBeFocused();
     await page.getByLabel("Ваше значение").fill("не один");
     await page.keyboard.press("Enter");
 
     await expect(page.getByRole("alert", { name: "Результат проверки" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Попробуйте ещё раз" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Попробуйте ещё раз позже" })).toBeVisible();
     await expect(page.getByText("один")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Продолжить" })).toBeFocused();
+    await page.keyboard.press("Enter");
     await expect(page.getByLabel("Ваше значение")).toBeFocused();
     await page.getByLabel("Ваше значение").fill("один");
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("heading", { name: "Верно" })).toBeVisible();
     await page.keyboard.press("Enter");
 
     await expect(
@@ -314,15 +321,38 @@ async function mockLessonApi(page: Page): Promise<void> {
     await route.fulfill({ json: { session: lessonSession(body.phase, body.currentItemId) } });
   });
 
+  await page.route(`${API_BASE_URL}/lessons/${SESSION_ID}/check-answer`, async (route) => {
+    const body = route.request().postDataJSON() as {
+      readonly cardId: string;
+      readonly answer: string;
+    };
+    const acceptedAnswer = completeLessonItemResponse.answers.find(
+      (answer) => answer.cardId === body.cardId,
+    );
+    const failedAnswer = failedLessonItemResponse.answers.find(
+      (answer) => answer.cardId === body.cardId,
+    );
+
+    await route.fulfill({
+      json:
+        body.cardId === "card-kanji-one-meaning" && body.answer !== "один"
+          ? failedAnswer
+          : acceptedAnswer,
+    });
+  });
+
   await page.route(`${API_BASE_URL}/lessons/${SESSION_ID}/complete-item`, async (route) => {
     const body = route.request().postDataJSON() as {
       readonly answers: readonly { readonly cardId: string; readonly answer: string }[];
     };
-    const meaningAnswer = body.answers.find((answer) => answer.cardId === "card-kanji-one-meaning");
-
+    expect(body.answers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ cardId: "card-kanji-one-meaning", answer: "один" }),
+        expect.objectContaining({ cardId: "card-kanji-one-reading", answer: "いち" }),
+      ]),
+    );
     await route.fulfill({
-      json:
-        meaningAnswer?.answer === "один" ? completeLessonItemResponse : failedLessonItemResponse,
+      json: completeLessonItemResponse,
     });
   });
 

@@ -29,6 +29,7 @@ import { JapaneseText } from "../../components/JapaneseText";
 import {
   abandonLessonSession,
   ApiError,
+  checkLessonAnswer,
   completeLessonItem,
   finishLessonSession,
   getActiveLessonSession,
@@ -38,7 +39,7 @@ import {
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import { type LessonOrderMode, orderLessonSelection } from "../../lib/lesson-selection";
-import { buildLessonQuizQueue } from "../../lib/lesson-quiz";
+import { advanceLessonQuizCardQueue, buildLessonQuizQueue } from "../../lib/lesson-quiz";
 import {
   getLessonPronunciationText,
   getLessonStudyPhases,
@@ -84,7 +85,7 @@ export function LessonsClient() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [step, setStep] = useState<LessonStep>("study");
   const [studyPhaseIndex, setStudyPhaseIndex] = useState(0);
-  const [quizCardIndex, setQuizCardIndex] = useState(0);
+  const [quizPendingCardIds, setQuizPendingCardIds] = useState<readonly string[]>([]);
   const [quizAnswer, setQuizAnswer] = useState("");
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
   const [quizFeedback, setQuizFeedback] = useState<
@@ -99,6 +100,7 @@ export function LessonsClient() {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummary | null>(null);
   const quizInputRef = useRef<HTMLInputElement>(null);
+  const quizActionRef = useRef<HTMLButtonElement>(null);
 
   const loadQueue = useCallback(async () => {
     const storedSession = readStoredSession();
@@ -116,7 +118,7 @@ export function LessonsClient() {
     setCurrentIndex(0);
     setStep("study");
     setStudyPhaseIndex(0);
-    setQuizCardIndex(0);
+    setQuizPendingCardIds([]);
     setQuizAnswer("");
     setQuizAnswers({});
     setQuizFeedback(null);
@@ -165,6 +167,11 @@ export function LessonsClient() {
         setCurrentIndex(resumedIndex);
         setStep(active.session.phase === "quiz" ? "quiz" : "study");
         setStudyPhaseIndex(resumedPhaseIndex);
+        setQuizPendingCardIds(
+          active.session.phase === "quiz"
+            ? (resumedLesson?.cards.map((card) => card.id) ?? [])
+            : [],
+        );
         setCompletionSummary({
           learnedItems: active.completedItemCount,
           createdCards: active.createdSrsStateCount,
@@ -249,7 +256,7 @@ export function LessonsClient() {
       setCurrentIndex(0);
       setStep("study");
       setStudyPhaseIndex(0);
-      setQuizCardIndex(0);
+      setQuizPendingCardIds([]);
       setQuizAnswer("");
       setQuizAnswers({});
       setQuizFeedback(null);
@@ -349,7 +356,7 @@ export function LessonsClient() {
       setStudyPhaseIndex(0);
       setCurrentIndex(0);
       setStep("quiz");
-      setQuizCardIndex(0);
+      setQuizPendingCardIds(firstLesson.cards.map((card) => card.id));
       setQuizAnswer("");
       setQuizAnswers({});
       setQuizFeedback(null);
@@ -359,9 +366,13 @@ export function LessonsClient() {
 
   useEffect(() => {
     if (step === "quiz" && !isCompleting) {
-      quizInputRef.current?.focus();
+      if (quizFeedback === null) {
+        quizInputRef.current?.focus();
+      } else {
+        quizActionRef.current?.focus();
+      }
     }
-  }, [currentIndex, isCompleting, quizCardIndex, step]);
+  }, [currentIndex, isCompleting, quizFeedback, quizPendingCardIds, step]);
 
   useEffect(() => {
     cancelJapaneseSpeech();
@@ -370,7 +381,12 @@ export function LessonsClient() {
   async function handleQuizSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
-    const quizCard = currentLesson?.cards[quizCardIndex];
+    if (quizFeedback !== null) {
+      await handleQuizFeedbackContinue();
+      return;
+    }
+
+    const quizCard = currentLesson?.cards.find((card) => card.id === quizPendingCardIds[0]);
     if (
       queueState.status !== "ready" ||
       session === null ||
@@ -382,17 +398,57 @@ export function LessonsClient() {
       return;
     }
 
-    const nextAnswers = { ...quizAnswers, [quizCard.id]: quizAnswer.trim() };
-    const nextUnansweredIndex = currentLesson.cards.findIndex(
-      (card) => (nextAnswers[card.id] ?? "").trim() === "",
-    );
+    setIsCompleting(true);
+    setSessionError(null);
 
-    setQuizAnswers(nextAnswers);
-    setQuizFeedback(null);
+    try {
+      const result = await checkLessonAnswer(queueState.token, session.id, {
+        itemId: currentLesson.item.id,
+        cardId: quizCard.id,
+        answerType: quizCard.answerType,
+        answer: quizAnswer.trim(),
+      });
 
-    if (nextUnansweredIndex !== -1) {
-      setQuizCardIndex(nextUnansweredIndex);
+      if (result.accepted) {
+        setQuizAnswers((current) => ({ ...current, [quizCard.id]: quizAnswer.trim() }));
+      }
+      setQuizFeedback(result);
+    } catch (error: unknown) {
+      setSessionError(error instanceof Error ? error.message : "Не удалось проверить ответ.");
+    } finally {
+      setIsCompleting(false);
+    }
+  }
+
+  async function handleQuizFeedbackContinue(): Promise<void> {
+    if (
+      queueState.status !== "ready" ||
+      session === null ||
+      currentLesson === null ||
+      quizFeedback === null ||
+      isCompleting
+    ) {
+      return;
+    }
+
+    const currentCardId = quizPendingCardIds[0];
+    if (currentCardId === undefined || currentCardId !== quizFeedback.cardId) {
+      setSessionError("Очередь проверки изменилась. Перезагрузите урок.");
+      return;
+    }
+
+    if (!quizFeedback.accepted) {
+      setQuizPendingCardIds(advanceLessonQuizCardQueue(quizPendingCardIds, quizFeedback));
       setQuizAnswer("");
+      setQuizFeedback(null);
+      return;
+    }
+
+    const remainingCardIds = advanceLessonQuizCardQueue(quizPendingCardIds, quizFeedback);
+    if (remainingCardIds.length > 0) {
+      setQuizPendingCardIds(remainingCardIds);
+      setQuizAnswer("");
+      setQuizFeedback(null);
       return;
     }
 
@@ -405,19 +461,20 @@ export function LessonsClient() {
         answers: currentLesson.cards.map((card) => ({
           cardId: card.id,
           answerType: card.answerType,
-          answer: nextAnswers[card.id] ?? "",
+          answer: quizAnswers[card.id] ?? "",
         })),
       });
 
       if (!result.passed) {
-        const firstFailed = result.answers.find((answer) => !answer.accepted);
-        const failedIndex = currentLesson.cards.findIndex(
-          (card) => card.id === firstFailed?.cardId,
-        );
+        const failedAnswers = result.answers.filter((answer) => !answer.accepted);
+        const failedIds = new Set(failedAnswers.map((answer) => answer.cardId));
 
-        setQuizCardIndex(Math.max(0, failedIndex));
+        setQuizAnswers((current) =>
+          Object.fromEntries(Object.entries(current).filter(([cardId]) => !failedIds.has(cardId))),
+        );
+        setQuizPendingCardIds(failedAnswers.map((answer) => answer.cardId));
         setQuizAnswer("");
-        setQuizFeedback(firstFailed ?? null);
+        setQuizFeedback(failedAnswers[0] ?? null);
         return;
       }
 
@@ -445,7 +502,7 @@ export function LessonsClient() {
         }
 
         setCurrentIndex(nextIndex);
-        setQuizCardIndex(0);
+        setQuizPendingCardIds(nextLesson?.cards.map((card) => card.id) ?? []);
         setQuizAnswer("");
         setQuizAnswers({});
         setQuizFeedback(null);
@@ -459,13 +516,13 @@ export function LessonsClient() {
       setCurrentIndex(0);
       setStep("study");
       setStudyPhaseIndex(0);
-      setQuizCardIndex(0);
+      setQuizPendingCardIds([]);
       setQuizAnswer("");
       setQuizAnswers({});
       setQuizFeedback(null);
       setCompletionSummary(nextSummary);
     } catch (error: unknown) {
-      setSessionError(error instanceof Error ? error.message : "Не удалось завершить карточку.");
+      setSessionError(error instanceof Error ? error.message : "Не удалось завершить материал.");
     } finally {
       setIsCompleting(false);
     }
@@ -697,11 +754,13 @@ export function LessonsClient() {
       ) : (
         <LessonQuizView
           lesson={currentLesson}
-          cardIndex={quizCardIndex}
+          card={currentLesson.cards.find((card) => card.id === quizPendingCardIds[0]) ?? null}
+          completedCardCount={currentLesson.cards.length - quizPendingCardIds.length}
           answer={quizAnswer}
           feedback={quizFeedback}
           isCompleting={isCompleting}
           onAnswerChange={setQuizAnswer}
+          actionRef={quizActionRef}
           inputRef={quizInputRef}
           onSubmit={(event) => void handleQuizSubmit(event)}
         />
@@ -1146,32 +1205,35 @@ function LessonStudyView({
 
 function LessonQuizView({
   lesson,
-  cardIndex,
+  card,
+  completedCardCount,
   answer,
   feedback,
   isCompleting,
   onAnswerChange,
+  actionRef,
   inputRef,
   onSubmit,
 }: {
   readonly lesson: LessonQueueItem;
-  readonly cardIndex: number;
+  readonly card: LearningCardDto | null;
+  readonly completedCardCount: number;
   readonly answer: string;
   readonly feedback: CompleteLessonItemResponse["answers"][number] | null;
   readonly isCompleting: boolean;
   readonly onAnswerChange: (value: string) => void;
+  readonly actionRef: RefObject<HTMLButtonElement | null>;
   readonly inputRef: RefObject<HTMLInputElement | null>;
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
-  const quizCard = lesson.cards[cardIndex];
-  const answerType = quizCard?.answerType ?? "meaning";
+  const answerType = card?.answerType ?? "meaning";
 
   return (
     <article className="lesson-quiz panel">
       <div className="lesson-quiz-prompt">
         <span className="eyebrow">{formatAnswerType(answerType)}</span>
         <strong className="lesson-quiz-count">
-          Карточка {Math.min(cardIndex + 1, lesson.cards.length)} из {lesson.cards.length}
+          Пройдено {completedCardCount} из {lesson.cards.length}
         </strong>
         <JapaneseText
           as="p"
@@ -1191,7 +1253,7 @@ function LessonQuizView({
           <span>{answerType === "reading" ? "Ваше чтение" : "Ваше значение"}</span>
           <input
             autoComplete="off"
-            disabled={isCompleting}
+            disabled={isCompleting || feedback !== null}
             id="lesson-quiz-answer"
             onChange={(event) => onAnswerChange(event.currentTarget.value)}
             placeholder={answerType === "reading" ? "например: いち" : "например: один"}
@@ -1201,25 +1263,31 @@ function LessonQuizView({
         </label>
         <button
           className="primary-action"
-          disabled={isCompleting || answer.trim() === ""}
+          disabled={isCompleting || (feedback === null && answer.trim() === "")}
+          ref={actionRef}
           type="submit"
         >
-          {isCompleting ? "Проверяю..." : "Проверить"}
+          {isCompleting ? "Проверяю..." : feedback === null ? "Проверить" : "Продолжить"}
         </button>
       </form>
 
       {feedback === null ? null : (
         <section className="lesson-quiz-result" aria-label="Результат проверки" role="alert">
-          <h2>{feedback.result === "blocked" ? "Этот ответ не подходит" : "Попробуйте ещё раз"}</h2>
+          <h2>{formatLessonQuizResult(feedback)}</h2>
           <p>
-            Карточка ещё не добавлена в SRS. Введите другой ответ, чтобы продолжить обязательную
-            проверку.
+            {feedback.accepted
+              ? "Ответ принят. Продолжите к следующей карточке."
+              : "Карточка вернётся в конец очереди. Сначала ответьте на оставшиеся вопросы."}
           </p>
-          <strong>Допустимые ответы</strong>
-          <TextList
-            textKind={answerType === "reading" ? "reading" : "localized"}
-            texts={feedback.expected}
-          />
+          {feedback.result === "correct" ? null : (
+            <>
+              <strong>Допустимые ответы</strong>
+              <TextList
+                textKind={answerType === "reading" ? "reading" : "localized"}
+                texts={feedback.expected}
+              />
+            </>
+          )}
         </section>
       )}
     </article>
@@ -1438,6 +1506,19 @@ function formatItemTypeLower(itemType: LessonQueueItem["item"]["itemType"]): str
 
 function formatAnswerType(answerType: CardAnswerType): string {
   return answerType === "reading" ? "Чтение" : "Значение";
+}
+
+function formatLessonQuizResult(feedback: CompleteLessonItemResponse["answers"][number]): string {
+  switch (feedback.result) {
+    case "correct":
+      return "Верно";
+    case "typo":
+      return "Ответ принят, но проверьте написание";
+    case "blocked":
+      return "Этот ответ не подходит";
+    case "wrong":
+      return "Попробуйте ещё раз позже";
+  }
 }
 
 function formatLocale(locale: ContentLocale): string {

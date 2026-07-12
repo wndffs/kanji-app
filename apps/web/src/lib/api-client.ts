@@ -12,6 +12,8 @@ import {
   type ActiveLessonSessionResponse,
   type AppLocale,
   type CardAnswerType,
+  type CheckLessonAnswerRequestDto,
+  type CheckLessonAnswerResponse,
   type ContentLocale,
   type CompleteLessonItemRequestDto,
   type DashboardDto,
@@ -372,6 +374,21 @@ export function completeLessonItem(
 ): Promise<CompleteLessonItemResponse> {
   return apiRequest<CompleteLessonItemResponse>(
     `/lessons/${encodeURIComponent(sessionId)}/complete-item`,
+    {
+      method: "POST",
+      token,
+      body: input,
+    },
+  );
+}
+
+export function checkLessonAnswer(
+  token: string,
+  sessionId: string,
+  input: CheckLessonAnswerRequestDto,
+): Promise<CheckLessonAnswerResponse> {
+  return apiRequest<CheckLessonAnswerResponse>(
+    `/lessons/${encodeURIComponent(sessionId)}/check-answer`,
     {
       method: "POST",
       token,

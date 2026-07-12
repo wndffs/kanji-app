@@ -4,6 +4,8 @@ import {
   DEFAULT_TRANSLATION_DISPLAY_MODE,
   type ActiveLessonSessionResponse,
   type BilingualTextDto,
+  type CheckLessonAnswerRequestDto,
+  type CheckLessonAnswerResponse,
   type CompleteLessonItemRequestDto,
   type CompleteLessonItemResponse,
   type FinishLessonSessionResponse,
@@ -298,6 +300,61 @@ export class LessonsService {
         cardId: card.id,
         srs,
       })),
+    };
+  }
+
+  async checkAnswer(
+    sessionId: string,
+    user: CurrentUserDto,
+    body: unknown,
+  ): Promise<CheckLessonAnswerResponse> {
+    const request = parseCheckLessonAnswerRequest(body);
+    const session = await this.lessonsRepository.findActiveLessonSession(user.id, sessionId);
+
+    if (session === null) {
+      throw new NotFoundException("Active lesson session not found.");
+    }
+
+    if (session.itemIds.length > 0 && !session.itemIds.includes(request.itemId)) {
+      throw new BadRequestException("Lesson item is not part of this session.");
+    }
+
+    const { availableItems, displayMode } = await this.getAvailableItems(
+      user,
+      new Date(),
+      session.deckId,
+      true,
+    );
+    const lessonItem = availableItems.find((candidate) => candidate.item.id === request.itemId);
+
+    if (lessonItem === undefined) {
+      throw new BadRequestException("Lesson item is not currently available.");
+    }
+
+    const card = lessonItem.item.cards.find((candidate) => candidate.id === request.cardId);
+
+    if (card === undefined) {
+      throw new BadRequestException("Lesson answer references an unknown card.");
+    }
+
+    if (card.answerType !== request.answerType) {
+      throw new BadRequestException(`answerType must be ${card.answerType} for card ${card.id}.`);
+    }
+
+    const validation = await this.overridesService.validateAnswerForUser({
+      userId: user.id,
+      cardId: card.id,
+      answerKind: card.answerType,
+      answer: request.answer,
+    });
+
+    return {
+      cardId: card.id,
+      answerType: card.answerType,
+      accepted: validation.accepted,
+      result: validation.result,
+      normalizedAnswer: validation.normalizedAnswer,
+      expected: getExpectedAnswers(card, displayMode),
     };
   }
 
@@ -735,6 +792,23 @@ function parseCompleteLessonItemRequest(body: unknown): CompleteLessonItemReques
   }
 
   return { itemId: itemId.trim(), answers };
+}
+
+function parseCheckLessonAnswerRequest(body: unknown): CheckLessonAnswerRequestDto {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    throw new BadRequestException("Request body must be a JSON object.");
+  }
+
+  const record = body as Record<string, unknown>;
+  const itemId = parseRequiredString(record.itemId, "itemId", 200);
+  const cardId = parseRequiredString(record.cardId, "cardId", 200);
+  const answer = parseRequiredString(record.answer, "answer", MAX_LESSON_ANSWER_LENGTH);
+
+  if (record.answerType !== "meaning" && record.answerType !== "reading") {
+    throw new BadRequestException("answerType must be meaning or reading.");
+  }
+
+  return { itemId, cardId, answerType: record.answerType, answer };
 }
 
 function parseLessonAnswer(

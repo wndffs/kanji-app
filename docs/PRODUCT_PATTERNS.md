@@ -102,3 +102,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 20. Task 60 (completed): resume server-confirmed lesson groups and stages after reload.
 21. Task 61 (completed): safely abandon an active lesson without rolling back SRS progress.
 22. Task 62 (completed): use a stable shuffled order for required lesson quizzes.
+23. Task 63 (completed): check lesson cards immediately and requeue missed cards.

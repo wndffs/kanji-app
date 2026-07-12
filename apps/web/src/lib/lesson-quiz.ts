@@ -1,4 +1,4 @@
-import { type LessonQueueItem } from "@kanji-srs/shared";
+import { type LessonAnswerFeedbackDto, type LessonQueueItem } from "@kanji-srs/shared";
 
 export function buildLessonQuizQueue(
   lessons: readonly LessonQueueItem[],
@@ -12,6 +12,19 @@ export function buildLessonQuizQueue(
       (card) => card.id,
     ),
   }));
+}
+
+export function advanceLessonQuizCardQueue(
+  pendingCardIds: readonly string[],
+  feedback: LessonAnswerFeedbackDto,
+): readonly string[] {
+  if (pendingCardIds[0] !== feedback.cardId) {
+    return pendingCardIds;
+  }
+
+  return feedback.accepted
+    ? pendingCardIds.slice(1)
+    : [...pendingCardIds.slice(1), feedback.cardId];
 }
 
 function ensureCardOrderChanged<T>(

@@ -49,6 +49,8 @@
 - Quick check.
 - Derive quiz order independently and deterministically from the server session
   id, and keep the same remaining-item order after reload.
+- Check each quiz card immediately, pause on explicit feedback, and move a
+  failed card behind the remaining cards before retrying it.
 - Add to SRS.
 
 ## Mobile requirements

@@ -34,6 +34,15 @@ export class LessonsController {
     return this.lessonsService.completeItem(sessionId, currentUser, body);
   }
 
+  @Post(":sessionId/check-answer")
+  checkAnswer(
+    @Param("sessionId") sessionId: string,
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Body() body: unknown,
+  ) {
+    return this.lessonsService.checkAnswer(sessionId, currentUser, body);
+  }
+
   @Post(":sessionId/progress")
   updateProgress(
     @Param("sessionId") sessionId: string,

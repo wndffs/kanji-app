@@ -89,10 +89,12 @@ mode preserves curriculum order. The interleaved mode alternates selected item
 types while preserving order within each type. Selection never exposes or
 unlocks materials whose prerequisites are unsatisfied.
 
-The API, rather than the browser, validates the complete answer set against
-global accepted answers, private user answers, and blocked answers. Failed cards
-stay in the quiz and reveal the accepted Russian and/or English answers for the
-user's display mode. An item enters the interval-based SRS only after all of its
+The API, rather than the browser, validates each answer against global accepted
+answers, private user answers, and blocked answers. The learner confirms the
+result before continuing. Accepted cards leave the pending queue; failed cards
+reveal the accepted Russian and/or English answers for the user's display mode
+and return behind the remaining cards. An item enters the interval-based SRS
+only after all of its
 lesson cards pass; incomplete or failed attempts create no SRS progress.
 
 ## Kana curriculum

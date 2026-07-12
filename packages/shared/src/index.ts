@@ -354,18 +354,29 @@ export type UpdateLessonSessionProgressResponse = {
   readonly session: LessonSessionDto;
 };
 
+export type LessonAnswerFeedbackDto = {
+  readonly cardId: string;
+  readonly answerType: CardAnswerType;
+  readonly accepted: boolean;
+  readonly result: "correct" | "typo" | "blocked" | "wrong";
+  readonly normalizedAnswer: string;
+  readonly expected: readonly LocalizedTextDto[];
+};
+
+export type CheckLessonAnswerRequestDto = {
+  readonly itemId: string;
+  readonly cardId: string;
+  readonly answerType: CardAnswerType;
+  readonly answer: string;
+};
+
+export type CheckLessonAnswerResponse = LessonAnswerFeedbackDto;
+
 export type CompleteLessonItemResponse = {
   readonly itemId: string;
   readonly passed: boolean;
   readonly createdSrsStateCount: number;
-  readonly answers: readonly {
-    readonly cardId: string;
-    readonly answerType: CardAnswerType;
-    readonly accepted: boolean;
-    readonly result: "correct" | "typo" | "blocked" | "wrong";
-    readonly normalizedAnswer: string;
-    readonly expected: readonly LocalizedTextDto[];
-  }[];
+  readonly answers: readonly LessonAnswerFeedbackDto[];
   readonly cards: readonly {
     readonly cardId: string;
     readonly srs: SrsStateSummaryDto;

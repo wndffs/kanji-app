@@ -332,6 +332,44 @@ describe("LessonsService", () => {
     expect(repository.listProgressFor("owner", "item-component-one")).toEqual([]);
   });
 
+  it("checks one lesson card without creating SRS progress", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const service = new LessonsService(repository, createOverridesService());
+    const session = await service.startSession(createUser("owner"));
+
+    await expect(
+      service.checkAnswer(session.session.id, createUser("owner"), {
+        itemId: "item-component-one",
+        cardId: "card-component-one",
+        answerType: "meaning",
+        answer: "study",
+      }),
+    ).resolves.toMatchObject({
+      cardId: "card-component-one",
+      answerType: "meaning",
+      accepted: true,
+      result: "correct",
+      expected: [{ locale: "en-US", text: "study" }],
+    });
+    expect(repository.listProgressFor("owner", "item-component-one")).toEqual([]);
+  });
+
+  it("rejects a single-card check with a mismatched answer type", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const service = new LessonsService(repository, createOverridesService());
+    const session = await service.startSession(createUser("owner"));
+
+    await expect(
+      service.checkAnswer(session.session.id, createUser("owner"), {
+        itemId: "item-component-one",
+        cardId: "card-component-one",
+        answerType: "reading",
+        answer: "study",
+      }),
+    ).rejects.toThrow("answerType must be meaning for card card-component-one");
+    expect(repository.listProgressFor("owner", "item-component-one")).toEqual([]);
+  });
+
   it("requires exactly one matching answer for every card", async () => {
     const repository = new InMemoryLessonsRepository();
     const service = new LessonsService(repository, createOverridesService());

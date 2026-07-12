@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { type LearningCardDto, type LessonQueueItem } from "@kanji-srs/shared";
 
-import { buildLessonQuizQueue } from "../src/lib/lesson-quiz";
+import { advanceLessonQuizCardQueue, buildLessonQuizQueue } from "../src/lib/lesson-quiz";
 
 describe("buildLessonQuizQueue", () => {
   it("creates a stable quiz order without mutating study order", () => {
@@ -37,6 +37,29 @@ describe("buildLessonQuizQueue", () => {
     );
 
     expect(remainingOrder).toEqual(fullOrder.slice(1));
+  });
+});
+
+describe("advanceLessonQuizCardQueue", () => {
+  it("removes an accepted card from the pending queue", () => {
+    expect(
+      advanceLessonQuizCardQueue(["card-one", "card-two"], createFeedback("card-one", true)),
+    ).toEqual(["card-two"]);
+  });
+
+  it("moves a missed card behind the remaining cards", () => {
+    expect(
+      advanceLessonQuizCardQueue(
+        ["card-one", "card-two", "card-three"],
+        createFeedback("card-one", false),
+      ),
+    ).toEqual(["card-two", "card-three", "card-one"]);
+  });
+
+  it("does not change the queue for stale feedback", () => {
+    const queue = ["card-one", "card-two"];
+
+    expect(advanceLessonQuizCardQueue(queue, createFeedback("card-two", true))).toBe(queue);
   });
 });
 
@@ -87,5 +110,16 @@ function createCard(id: string, answerType: "meaning" | "reading"): LearningCard
     acceptedAnswers: [{ locale: "ru-RU", text: id }],
     blockedAnswers: [],
     sortOrder: answerType === "meaning" ? 1 : 2,
+  };
+}
+
+function createFeedback(cardId: string, accepted: boolean) {
+  return {
+    cardId,
+    answerType: "meaning" as const,
+    accepted,
+    result: accepted ? ("correct" as const) : ("wrong" as const),
+    normalizedAnswer: accepted ? "one" : "wrong",
+    expected: [],
   };
 }
