@@ -32,9 +32,10 @@
 - Explain the item.
 - Show relationships.
 - Show reading/meaning with translation display modes: Russian, English, or Russian plus English.
-- Show mnemonic/hint.
 - Show curated Russian/English mnemonic and hint content for the selected
-  translation mode, with private user mnemonics labelled separately.
+  translation mode, separated by purpose: meaning, reading, story, or usage.
+  Label private user mnemonics separately without mixing their purpose with
+  other lesson guidance.
 - Show compact attributed usage examples when the lesson item has published
   bilingual sentence dependencies.
 - Quick check.

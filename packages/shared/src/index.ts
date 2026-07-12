@@ -278,12 +278,26 @@ export type PracticeAnswerRequest = {
 
 export type PracticeAnswerResponse = Omit<ReviewAnswerResponse, "previousSrs" | "nextSrs">;
 
+export type LessonMnemonicPurpose = "meaning" | "reading" | "story";
+
+export type LessonHintPurpose = "meaning" | "reading" | "usage";
+
+export type LessonMnemonicGroupDto = {
+  readonly purpose: LessonMnemonicPurpose;
+  readonly texts: BilingualTextDto;
+};
+
+export type LessonHintGroupDto = {
+  readonly purpose: LessonHintPurpose;
+  readonly texts: BilingualTextDto;
+};
+
 export type LessonQueueItem = {
   readonly item: ItemSummary;
   readonly cards: readonly LearningCardDto[];
   readonly unlockedBy: readonly ItemSummary[];
-  readonly mnemonics: BilingualTextDto;
-  readonly hints: BilingualTextDto;
+  readonly mnemonics: readonly LessonMnemonicGroupDto[];
+  readonly hints: readonly LessonHintGroupDto[];
   readonly exampleSentences: readonly SentenceDto[];
 };
 

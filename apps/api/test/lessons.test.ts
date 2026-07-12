@@ -3,7 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { validateAnswer } from "@kanji-srs/japanese";
 
 import { type CurrentUserDto } from "../src/auth/auth.types";
-import { LessonsRepository } from "../src/lessons/lessons.repository";
+import {
+  groupLessonHints,
+  groupLessonMnemonics,
+  LessonsRepository,
+} from "../src/lessons/lessons.repository";
 import { LessonsService } from "../src/lessons/lessons.service";
 import type { OverridesService } from "../src/overrides/overrides.service";
 import {
@@ -18,6 +22,116 @@ import {
 } from "../src/lessons/lessons.types";
 
 const NOW = new Date("2026-06-18T09:00:00.000Z");
+
+describe("lesson memory grouping", () => {
+  it("keeps mnemonic purposes and only the latest curated locale version", () => {
+    expect(
+      groupLessonMnemonics(
+        [
+          {
+            locale: "ru-RU",
+            body: "Старая мнемоника",
+            sourceKind: "PROJECT_AUTHORED",
+            mnemonicType: "MEANING",
+            version: 1,
+          },
+          {
+            locale: "ru-RU",
+            body: "Актуальная мнемоника",
+            sourceKind: "PROJECT_AUTHORED",
+            mnemonicType: "MEANING",
+            version: 2,
+          },
+          {
+            locale: "en-US",
+            body: "Reading mnemonic",
+            sourceKind: "PROJECT_AUTHORED",
+            mnemonicType: "READING",
+            version: 1,
+          },
+        ],
+        [{ locale: "ru-RU", body: "Личная история", mnemonicType: "STORY" }],
+      ),
+    ).toEqual([
+      {
+        purpose: "meaning",
+        texts: {
+          ru: [
+            {
+              locale: "ru-RU",
+              text: "Актуальная мнемоника",
+              sourceKind: "curated",
+            },
+          ],
+          en: [],
+        },
+      },
+      {
+        purpose: "reading",
+        texts: {
+          ru: [],
+          en: [{ locale: "en-US", text: "Reading mnemonic", sourceKind: "curated" }],
+        },
+      },
+      {
+        purpose: "story",
+        texts: {
+          ru: [{ locale: "ru-RU", text: "Личная история", sourceKind: "user" }],
+          en: [],
+        },
+      },
+    ]);
+  });
+
+  it("keeps hint purposes and only the latest curated locale version", () => {
+    expect(
+      groupLessonHints([
+        {
+          locale: "ru-RU",
+          body: "Старая подсказка",
+          sourceKind: "PROJECT_AUTHORED",
+          hintType: "USAGE",
+          version: 1,
+        },
+        {
+          locale: "ru-RU",
+          body: "Актуальная подсказка",
+          sourceKind: "PROJECT_AUTHORED",
+          hintType: "USAGE",
+          version: 2,
+        },
+        {
+          locale: "en-US",
+          body: "Reading hint",
+          sourceKind: "PROJECT_AUTHORED",
+          hintType: "READING",
+          version: 1,
+        },
+      ]),
+    ).toEqual([
+      {
+        purpose: "reading",
+        texts: {
+          ru: [],
+          en: [{ locale: "en-US", text: "Reading hint", sourceKind: "curated" }],
+        },
+      },
+      {
+        purpose: "usage",
+        texts: {
+          ru: [
+            {
+              locale: "ru-RU",
+              text: "Актуальная подсказка",
+              sourceKind: "curated",
+            },
+          ],
+          en: [],
+        },
+      },
+    ]);
+  });
+});
 
 describe("LessonsService", () => {
   beforeEach(() => {
@@ -48,14 +162,31 @@ describe("LessonsService", () => {
       items: [
         {
           item: { id: "item-component-one" },
-          mnemonics: {
-            ru: [expect.objectContaining({ text: "мнемоника item-component-one" })],
-            en: [expect.objectContaining({ text: "mnemonic item-component-one" })],
-          },
-          hints: {
-            ru: [expect.objectContaining({ text: "подсказка item-component-one" })],
-            en: [expect.objectContaining({ text: "hint item-component-one" })],
-          },
+          mnemonics: [
+            {
+              purpose: "meaning",
+              texts: {
+                ru: [expect.objectContaining({ text: "мнемоника item-component-one" })],
+                en: [expect.objectContaining({ text: "mnemonic item-component-one" })],
+              },
+            },
+            {
+              purpose: "story",
+              texts: {
+                ru: [expect.objectContaining({ text: "история item-component-one" })],
+                en: [],
+              },
+            },
+          ],
+          hints: [
+            {
+              purpose: "usage",
+              texts: {
+                ru: [expect.objectContaining({ text: "подсказка item-component-one" })],
+                en: [expect.objectContaining({ text: "hint item-component-one" })],
+              },
+            },
+          ],
         },
         { item: { id: "item-component-two" } },
       ],
@@ -646,38 +777,55 @@ function createItem(
       blockedAnswers: [],
     })),
     dependencies,
-    mnemonics: {
-      ru: [
-        {
-          locale: "ru-RU",
-          text: `мнемоника ${id}`,
-          sourceKind: "curated",
+    mnemonics: [
+      {
+        purpose: "meaning",
+        texts: {
+          ru: [
+            {
+              locale: "ru-RU",
+              text: `мнемоника ${id}`,
+              sourceKind: "curated",
+            },
+          ],
+          en: [
+            {
+              locale: "en-US",
+              text: `mnemonic ${id}`,
+              sourceKind: "curated",
+            },
+          ],
         },
-      ],
-      en: [
-        {
-          locale: "en-US",
-          text: `mnemonic ${id}`,
-          sourceKind: "curated",
+      },
+      {
+        purpose: "story",
+        texts: {
+          ru: [{ locale: "ru-RU", text: `история ${id}`, sourceKind: "user" }],
+          en: [],
         },
-      ],
-    },
-    hints: {
-      ru: [
-        {
-          locale: "ru-RU",
-          text: `подсказка ${id}`,
-          sourceKind: "curated",
+      },
+    ],
+    hints: [
+      {
+        purpose: "usage",
+        texts: {
+          ru: [
+            {
+              locale: "ru-RU",
+              text: `подсказка ${id}`,
+              sourceKind: "curated",
+            },
+          ],
+          en: [
+            {
+              locale: "en-US",
+              text: `hint ${id}`,
+              sourceKind: "curated",
+            },
+          ],
         },
-      ],
-      en: [
-        {
-          locale: "en-US",
-          text: `hint ${id}`,
-          sourceKind: "curated",
-        },
-      ],
-    },
+      },
+    ],
     exampleSentences:
       id === "item-kanji-one"
         ? [

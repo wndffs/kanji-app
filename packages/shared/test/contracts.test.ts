@@ -15,6 +15,7 @@ import {
   type AdminImportRunListResponse,
   type DeckDetailsDto,
   type LearningCardDto,
+  type LessonQueueItem,
 } from "../src";
 
 describe("workspacePackages", () => {
@@ -90,6 +91,33 @@ describe("shared DTO contracts", () => {
     expect(JSON.parse(JSON.stringify(card))).toEqual(card);
     expect(card.translations.ru[0]?.text).toBe("один");
     expect(card.translations.en[0]?.text).toBe("one");
+  });
+
+  it("keeps lesson memory content bilingual and separated by purpose", () => {
+    const memoryContent = {
+      mnemonics: [
+        {
+          purpose: "story",
+          texts: {
+            ru: [{ locale: "ru-RU", text: "Личная история", sourceKind: "user" }],
+            en: [{ locale: "en-US", text: "Personal story", sourceKind: "user" }],
+          },
+        },
+      ],
+      hints: [
+        {
+          purpose: "usage",
+          texts: {
+            ru: [{ locale: "ru-RU", text: "Подсказка по употреблению" }],
+            en: [{ locale: "en-US", text: "Usage hint" }],
+          },
+        },
+      ],
+    } satisfies Pick<LessonQueueItem, "mnemonics" | "hints">;
+
+    expect(JSON.parse(JSON.stringify(memoryContent))).toEqual(memoryContent);
+    expect(memoryContent.mnemonics[0]?.purpose).toBe("story");
+    expect(memoryContent.hints[0]?.purpose).toBe("usage");
   });
 
   it("puts translation display mode in dashboard user settings", () => {

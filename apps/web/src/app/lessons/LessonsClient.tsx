@@ -621,8 +621,6 @@ function LessonStudyView({
 }) {
   const meaningCards = lesson.cards.filter((card) => card.answerType === "meaning");
   const readingCards = lesson.cards.filter((card) => card.answerType === "reading");
-  const mnemonicTexts = getLearningTexts(lesson.mnemonics, displayMode);
-  const hintTexts = getLearningTexts(lesson.hints, displayMode);
 
   return (
     <>
@@ -705,13 +703,17 @@ function LessonStudyView({
         <section className="panel lesson-wide-panel">
           <h2>Мнемоника и подсказка</h2>
           <div className="lesson-memory-grid">
-            <div>
-              <h3>Мнемоника</h3>
-              <TextList texts={mnemonicTexts} />
+            <div className="lesson-memory-column">
+              <h3>Мнемоники</h3>
+              <MemoryGroupList
+                displayMode={displayMode}
+                groups={lesson.mnemonics}
+                kind="mnemonic"
+              />
             </div>
-            <div>
-              <h3>Подсказка</h3>
-              <TextList texts={hintTexts} />
+            <div className="lesson-memory-column">
+              <h3>Подсказки</h3>
+              <MemoryGroupList displayMode={displayMode} groups={lesson.hints} kind="hint" />
             </div>
           </div>
         </section>
@@ -859,6 +861,38 @@ function TextList({
   );
 }
 
+function MemoryGroupList({
+  displayMode,
+  groups,
+  kind,
+}: {
+  readonly displayMode: TranslationDisplayMode;
+  readonly groups: LessonQueueItem["mnemonics"] | LessonQueueItem["hints"];
+  readonly kind: "mnemonic" | "hint";
+}) {
+  const visibleGroups = groups
+    .map((group) => ({
+      purpose: group.purpose,
+      texts: getLearningTexts(group.texts, displayMode),
+    }))
+    .filter((group) => group.texts.length > 0);
+
+  if (visibleGroups.length === 0) {
+    return <p className="muted">Нет данных для выбранного режима перевода.</p>;
+  }
+
+  return (
+    <div className="lesson-memory-groups">
+      {visibleGroups.map((group) => (
+        <section className="lesson-memory-group" key={group.purpose}>
+          <h4>{formatMemoryPurpose(group.purpose, kind)}</h4>
+          <TextList texts={group.texts} />
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function collectCardAnswers(
   cards: readonly LearningCardDto[],
   displayMode: TranslationDisplayMode,
@@ -887,11 +921,29 @@ function collectCardAnswers(
 }
 
 function getLearningTexts(
-  texts: LessonQueueItem["mnemonics"],
+  texts: LessonQueueItem["mnemonics"][number]["texts"],
   displayMode: TranslationDisplayMode,
 ): readonly LocalizedTextDto[] {
   const locales = getContentLocalesForDisplayMode(displayMode);
   return [...texts.ru, ...texts.en].filter((text) => locales.includes(text.locale));
+}
+
+function formatMemoryPurpose(
+  purpose:
+    | LessonQueueItem["mnemonics"][number]["purpose"]
+    | LessonQueueItem["hints"][number]["purpose"],
+  kind: "mnemonic" | "hint",
+): string {
+  switch (purpose) {
+    case "reading":
+      return "Чтение";
+    case "story":
+      return "История";
+    case "usage":
+      return "Употребление";
+    case "meaning":
+      return kind === "mnemonic" ? "Значение" : "Пояснение значения";
+  }
 }
 
 function formatTranslationBundle(

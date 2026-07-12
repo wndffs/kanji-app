@@ -103,10 +103,14 @@ eligible item within today's remaining limit in `availableItems`, plus
 `batchLimit` and `remainingToday` for workload display. The picker cannot expose
 items that fail course-level or dependency checks.
 
-Each queue item includes published Russian and English mnemonics and hints plus
-private `UserMnemonic` rows belonging only to the authenticated user. The web
-lesson filters those bilingual fields by the current translation display mode;
-private text is labelled separately and is never promoted to global content.
+Each queue item includes published Russian and English mnemonics and hints,
+grouped by their educational purpose. Mnemonics distinguish meaning, reading,
+and story content; hints distinguish meaning, reading, and usage content. The
+repository selects the latest published version for each locale and purpose and
+adds private `UserMnemonic` rows belonging only to the authenticated user. The
+web lesson filters those bilingual groups by the current translation display
+mode; private text is labelled separately and is never promoted to global
+content.
 
 The lesson repository also batch-loads up to three published bilingual example
 sentences per queued item through reverse prerequisite dependencies. Examples

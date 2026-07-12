@@ -96,3 +96,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 14. Task 54 (completed): show bilingual curated and private mnemonic content in lessons.
 15. Task 55 (completed): populate item pages with bilingual attributed example sentences.
 16. Task 56 (completed): show compact bilingual attributed examples during lessons.
+17. Task 57 (completed): separate lesson mnemonics and hints by educational purpose.

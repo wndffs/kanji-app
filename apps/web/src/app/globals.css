@@ -1216,9 +1216,26 @@ textarea:focus-visible {
   gap: 20px;
 }
 
-.lesson-memory-grid h3 {
+.lesson-memory-column > h3 {
   margin: 0 0 10px;
   font-size: 15px;
+  letter-spacing: 0;
+}
+
+.lesson-memory-groups {
+  display: grid;
+  gap: 14px;
+}
+
+.lesson-memory-group {
+  border-top: 1px solid var(--surface-border);
+  padding-top: 12px;
+}
+
+.lesson-memory-group h4 {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 13px;
   letter-spacing: 0;
 }
 

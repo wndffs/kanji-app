@@ -35,6 +35,8 @@ test.describe("lesson session", () => {
     await expect(page.getByRole("heading", { name: "Чтения" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Связи" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Мнемоника и подсказка" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "История" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Употребление" })).toBeVisible();
     await expect(page.getByText("Представьте одну длинную черту.")).toBeVisible();
     await expect(page.getByText("Picture one long horizontal stroke.")).toBeVisible();
     await expect(page.getByText("Моя личная история про единицу.")).toBeVisible();
@@ -307,31 +309,49 @@ const lessonQueueItem: LessonQueueItem = {
       },
     },
   ],
-  mnemonics: {
-    ru: [
-      {
-        locale: "ru-RU",
-        text: "Представьте одну длинную черту.",
-        sourceKind: "curated",
+  mnemonics: [
+    {
+      purpose: "meaning",
+      texts: {
+        ru: [
+          {
+            locale: "ru-RU",
+            text: "Представьте одну длинную черту.",
+            sourceKind: "curated",
+          },
+        ],
+        en: [
+          {
+            locale: "en-US",
+            text: "Picture one long horizontal stroke.",
+            sourceKind: "curated",
+          },
+        ],
       },
-      {
-        locale: "ru-RU",
-        text: "Моя личная история про единицу.",
-        sourceKind: "user",
+    },
+    {
+      purpose: "story",
+      texts: {
+        ru: [
+          {
+            locale: "ru-RU",
+            text: "Моя личная история про единицу.",
+            sourceKind: "user",
+          },
+        ],
+        en: [],
       },
-    ],
-    en: [
-      {
-        locale: "en-US",
-        text: "Picture one long horizontal stroke.",
-        sourceKind: "curated",
+    },
+  ],
+  hints: [
+    {
+      purpose: "usage",
+      texts: {
+        ru: [{ locale: "ru-RU", text: "Считайте от одного.", sourceKind: "curated" }],
+        en: [{ locale: "en-US", text: "Count from one.", sourceKind: "curated" }],
       },
-    ],
-  },
-  hints: {
-    ru: [{ locale: "ru-RU", text: "Считайте от одного.", sourceKind: "curated" }],
-    en: [{ locale: "en-US", text: "Count from one.", sourceKind: "curated" }],
-  },
+    },
+  ],
   exampleSentences: [
     {
       id: "sentence-one-please",

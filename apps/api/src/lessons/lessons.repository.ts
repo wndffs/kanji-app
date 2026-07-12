@@ -1,6 +1,14 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { type ContentLocale, type SentenceDto, type SourceAttributionDto } from "@kanji-srs/shared";
+import {
+  type ContentLocale,
+  type LessonHintGroupDto,
+  type LessonHintPurpose,
+  type LessonMnemonicGroupDto,
+  type LessonMnemonicPurpose,
+  type SentenceDto,
+  type SourceAttributionDto,
+} from "@kanji-srs/shared";
 
 import { PrismaService } from "../database/prisma.service";
 import {
@@ -87,11 +95,15 @@ type LessonTextRow = {
   readonly locale: string;
   readonly body: string;
   readonly sourceKind: string;
+  readonly mnemonicType?: string;
+  readonly hintType?: string;
+  readonly version: number;
 };
 
 type UserLessonTextRow = {
   readonly locale: string;
   readonly body: string;
+  readonly mnemonicType: string;
 };
 
 type LearningCardRow = {
@@ -519,23 +531,8 @@ export class PrismaLessonsRepository extends LessonsRepository {
       target: await this.findTarget(item),
       cards: item.cards.map((card) => toCardRecord(card, itemType)),
       dependencies: item.dependencies.map(toDependencyRecord),
-      mnemonics: groupLocalizedTexts([
-        ...item.mnemonics.map((text) =>
-          localizedText(toContentLocale(text.locale), text.body, {
-            sourceKind: toSourceKind(text.sourceKind),
-          }),
-        ),
-        ...item.userMnemonics.map((text) =>
-          localizedText(toContentLocale(text.locale), text.body, { sourceKind: "user" }),
-        ),
-      ]),
-      hints: groupLocalizedTexts(
-        item.hints.map((text) =>
-          localizedText(toContentLocale(text.locale), text.body, {
-            sourceKind: toSourceKind(text.sourceKind),
-          }),
-        ),
-      ),
+      mnemonics: groupLessonMnemonics(item.mnemonics, item.userMnemonics),
+      hints: groupLessonHints(item.hints),
       exampleSentences,
     };
   }
@@ -899,6 +896,89 @@ function groupLocalizedTexts(
     ru: texts.filter((text) => text.locale === "ru-RU"),
     en: texts.filter((text) => text.locale === "en-US"),
   };
+}
+
+export function groupLessonMnemonics(
+  mnemonics: readonly LessonTextRow[],
+  userMnemonics: readonly UserLessonTextRow[],
+): readonly LessonMnemonicGroupDto[] {
+  const curated = selectLatestLessonTexts(mnemonics, (text) =>
+    toLessonMnemonicPurpose(text.mnemonicType),
+  ).map((text) => ({
+    purpose: toLessonMnemonicPurpose(text.mnemonicType),
+    text: localizedText(toContentLocale(text.locale), text.body, {
+      sourceKind: toSourceKind(text.sourceKind),
+    }),
+  }));
+  const personal = userMnemonics.map((text) => ({
+    purpose: toLessonMnemonicPurpose(text.mnemonicType),
+    text: localizedText(toContentLocale(text.locale), text.body, { sourceKind: "user" }),
+  }));
+
+  return (["meaning", "reading", "story"] as const).flatMap((purpose) => {
+    const texts = [...curated, ...personal]
+      .filter((entry) => entry.purpose === purpose)
+      .map((entry) => entry.text);
+
+    return texts.length === 0 ? [] : [{ purpose, texts: groupLocalizedTexts(texts) }];
+  });
+}
+
+export function groupLessonHints(hints: readonly LessonTextRow[]): readonly LessonHintGroupDto[] {
+  const latest = selectLatestLessonTexts(hints, (text) => toLessonHintPurpose(text.hintType)).map(
+    (text) => ({
+      purpose: toLessonHintPurpose(text.hintType),
+      text: localizedText(toContentLocale(text.locale), text.body, {
+        sourceKind: toSourceKind(text.sourceKind),
+      }),
+    }),
+  );
+
+  return (["meaning", "reading", "usage"] as const).flatMap((purpose) => {
+    const texts = latest.filter((entry) => entry.purpose === purpose).map((entry) => entry.text);
+
+    return texts.length === 0 ? [] : [{ purpose, texts: groupLocalizedTexts(texts) }];
+  });
+}
+
+function selectLatestLessonTexts(
+  texts: readonly LessonTextRow[],
+  getPurpose: (text: LessonTextRow) => LessonMnemonicPurpose | LessonHintPurpose,
+): readonly LessonTextRow[] {
+  const latestByLocaleAndPurpose = new Map<string, LessonTextRow>();
+
+  for (const text of texts) {
+    const key = `${toContentLocale(text.locale)}:${getPurpose(text)}`;
+    const current = latestByLocaleAndPurpose.get(key);
+
+    if (current === undefined || text.version > current.version) {
+      latestByLocaleAndPurpose.set(key, text);
+    }
+  }
+
+  return [...latestByLocaleAndPurpose.values()];
+}
+
+function toLessonMnemonicPurpose(value: string | undefined): LessonMnemonicPurpose {
+  switch (value) {
+    case "READING":
+      return "reading";
+    case "STORY":
+      return "story";
+    default:
+      return "meaning";
+  }
+}
+
+function toLessonHintPurpose(value: string | undefined): LessonHintPurpose {
+  switch (value) {
+    case "READING":
+      return "reading";
+    case "USAGE":
+      return "usage";
+    default:
+      return "meaning";
+  }
 }
 
 function formatJlptLevel(value: number | null): string | null {
