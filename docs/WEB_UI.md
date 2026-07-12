@@ -39,6 +39,9 @@
   other lesson guidance.
 - Show compact attributed usage examples when the lesson item has published
   bilingual sentence dependencies.
+- Offer browser-native Japanese speech for the reading stage and Japanese
+  example text. Use a `ja-JP` system voice when available; do not bundle or
+  claim attribution for synthesized audio.
 - Quick check.
 - Add to SRS.
 

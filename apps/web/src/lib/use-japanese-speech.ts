@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { selectJapaneseVoice } from "../../lib/kana-speech";
+import { selectJapaneseVoice } from "./japanese-speech";
 
-export type KanaSpeech = {
+export type JapaneseSpeech = {
   readonly available: boolean;
   readonly cancel: () => void;
   readonly speak: (text: string) => boolean;
 };
 
-export function useKanaSpeech(): KanaSpeech {
+export function useJapaneseSpeech(): JapaneseSpeech {
   const [available, setAvailable] = useState(false);
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
 

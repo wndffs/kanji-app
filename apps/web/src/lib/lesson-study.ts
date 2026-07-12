@@ -24,3 +24,24 @@ export function getLessonStudyPhases(lesson: LessonQueueItem): readonly LessonSt
 
   return phases;
 }
+
+export function getLessonPronunciationText(lesson: LessonQueueItem): string | null {
+  const itemReading = lesson.item.reading?.trim() ?? "";
+
+  if (itemReading !== "") {
+    return itemReading;
+  }
+
+  for (const card of lesson.cards) {
+    if (card.answerType !== "reading") {
+      continue;
+    }
+
+    const acceptedReading = card.acceptedAnswers.find((answer) => answer.text.trim() !== "");
+    if (acceptedReading !== undefined) {
+      return acceptedReading.text;
+    }
+  }
+
+  return null;
+}

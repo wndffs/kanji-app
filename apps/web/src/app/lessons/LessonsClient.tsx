@@ -35,7 +35,12 @@ import {
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import { type LessonOrderMode, orderLessonSelection } from "../../lib/lesson-selection";
-import { getLessonStudyPhases, type LessonStudyPhase } from "../../lib/lesson-study";
+import {
+  getLessonPronunciationText,
+  getLessonStudyPhases,
+  type LessonStudyPhase,
+} from "../../lib/lesson-study";
+import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
 type QueueState =
@@ -62,6 +67,11 @@ type CompletionSummary = {
 
 export function LessonsClient() {
   const activeDisplayMode = useTranslationDisplayMode();
+  const {
+    available: speechAvailable,
+    cancel: cancelJapaneseSpeech,
+    speak: speakJapanese,
+  } = useJapaneseSpeech();
   const [queueState, setQueueState] = useState<QueueState>({ status: "checking" });
   const [session, setSession] = useState<LessonSessionDto | null>(null);
   const [sessionQueue, setSessionQueue] = useState<readonly LessonQueueItem[]>([]);
@@ -238,6 +248,10 @@ export function LessonsClient() {
       quizInputRef.current?.focus();
     }
   }, [currentIndex, quizCardIndex, step]);
+
+  useEffect(() => {
+    cancelJapaneseSpeech();
+  }, [cancelJapaneseSpeech, currentIndex, step, studyPhaseIndex]);
 
   async function handleQuizSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -508,9 +522,11 @@ export function LessonsClient() {
           phase={currentStudyPhases[studyPhaseIndex] ?? "meaning"}
           phaseIndex={studyPhaseIndex}
           phases={currentStudyPhases}
+          speechAvailable={speechAvailable}
           isLast={currentIndex === activeQueue.length - 1}
           onContinue={handleContinueStudy}
           onPhaseChange={setStudyPhaseIndex}
+          onSpeak={speakJapanese}
         />
       ) : (
         <LessonQuizView
@@ -634,18 +650,22 @@ function LessonStudyView({
   phase,
   phaseIndex,
   phases,
+  speechAvailable,
   isLast,
   onContinue,
   onPhaseChange,
+  onSpeak,
 }: {
   readonly lesson: LessonQueueItem;
   readonly displayMode: TranslationDisplayMode;
   readonly phase: LessonStudyPhase;
   readonly phaseIndex: number;
   readonly phases: readonly LessonStudyPhase[];
+  readonly speechAvailable: boolean;
   readonly isLast: boolean;
   readonly onContinue: () => void;
   readonly onPhaseChange: (index: number) => void;
+  readonly onSpeak: (text: string) => boolean;
 }) {
   const meaningCards = lesson.cards.filter((card) => card.answerType === "meaning");
   const readingCards = lesson.cards.filter((card) => card.answerType === "reading");
@@ -657,6 +677,7 @@ function LessonStudyView({
   );
   const nextPhase = phases[phaseIndex + 1];
   const showsMemory = mnemonicGroups.length > 0 || hintGroups.length > 0;
+  const pronunciationText = getLessonPronunciationText(lesson);
 
   return (
     <>
@@ -752,7 +773,16 @@ function LessonStudyView({
 
         {phase === "reading" ? (
           <section className="panel lesson-wide-panel">
-            <h2>Чтения</h2>
+            <div className="lesson-section-heading">
+              <h2>Чтения</h2>
+              {pronunciationText === null ? null : (
+                <JapaneseSpeechButton
+                  available={speechAvailable}
+                  label="Озвучить чтение"
+                  onClick={() => void onSpeak(pronunciationText)}
+                />
+              )}
+            </div>
             <TextList
               textKind="reading"
               texts={[
@@ -795,7 +825,14 @@ function LessonStudyView({
             <ul className="lesson-example-list">
               {lesson.exampleSentences.map((sentence) => (
                 <li key={sentence.id}>
-                  <JapaneseText variant="sentence">{sentence.japaneseText}</JapaneseText>
+                  <div className="lesson-example-heading">
+                    <JapaneseText variant="sentence">{sentence.japaneseText}</JapaneseText>
+                    <JapaneseSpeechButton
+                      available={speechAvailable}
+                      label={`Озвучить пример ${sentence.japaneseText}`}
+                      onClick={() => void onSpeak(sentence.japaneseText)}
+                    />
+                  </div>
                   {sentence.readingText === null ? null : <span>{sentence.readingText}</span>}
                   <p>{formatLessonSentenceTranslation(sentence, displayMode)}</p>
                   {sentence.attribution === null ? null : (
@@ -942,6 +979,29 @@ function TextList({
         </li>
       ))}
     </ul>
+  );
+}
+
+function JapaneseSpeechButton({
+  available,
+  label,
+  onClick,
+}: {
+  readonly available: boolean;
+  readonly label: string;
+  readonly onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label={label}
+      className="lesson-audio-button"
+      disabled={!available}
+      onClick={onClick}
+      title={available ? label : "Озвучивание недоступно в этом браузере"}
+      type="button"
+    >
+      <span aria-hidden="true">▶</span>
+    </button>
   );
 }
 

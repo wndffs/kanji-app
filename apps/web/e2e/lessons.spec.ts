@@ -52,6 +52,18 @@ test.describe("lesson session", () => {
     );
     await expect(page.getByRole("heading", { name: "Чтения" })).toBeVisible();
     await expect(page.getByText("Свяжите いち со значением один.")).toBeVisible();
+    await page.getByRole("button", { name: "Озвучить чтение" }).click();
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          (
+            window as typeof window & {
+              __spokenJapanese: readonly { text: string; lang: string; rate: number }[];
+            }
+          ).__spokenJapanese.at(-1),
+        ),
+      )
+      .toEqual({ text: "いち", lang: "ja-JP", rate: 0.78 });
     await expect(page.getByRole("button", { name: "Предыдущий этап" })).toBeVisible();
     await page.getByRole("button", { name: "Предыдущий этап" }).click();
     await expect(page.getByRole("tab", { name: "Значение" })).toHaveAttribute(
@@ -73,6 +85,18 @@ test.describe("lesson session", () => {
     await expect(page.getByRole("heading", { name: "Примеры употребления" })).toBeVisible();
     await expect(page.getByText("Дайте один, пожалуйста. / One, please.")).toBeVisible();
     await expect(page.getByText("Project examples · LicenseRef-Project-Authored")).toBeVisible();
+    await page.getByRole("button", { name: "Озвучить пример 一つください。" }).click();
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          (
+            window as typeof window & {
+              __spokenJapanese: readonly { text: string; lang: string; rate: number }[];
+            }
+          ).__spokenJapanese.at(-1),
+        ),
+      )
+      .toEqual({ text: "一つください。", lang: "ja-JP", rate: 0.78 });
 
     await page.getByRole("button", { name: "Перейти к проверке" }).click();
 
@@ -117,6 +141,43 @@ test.describe("lesson session", () => {
 async function signIn(page: Page): Promise<void> {
   await page.addInitScript(
     ({ accessToken }) => {
+      const speechWindow = window as typeof window & {
+        __spokenJapanese: { text: string; lang: string; rate: number }[];
+      };
+      speechWindow.__spokenJapanese = [];
+      class MockSpeechSynthesisUtterance {
+        lang = "";
+        pitch = 1;
+        rate = 1;
+        text: string;
+        voice: SpeechSynthesisVoice | null = null;
+
+        constructor(text: string) {
+          this.text = text;
+        }
+      }
+
+      Object.defineProperty(window, "SpeechSynthesisUtterance", {
+        configurable: true,
+        value: MockSpeechSynthesisUtterance,
+      });
+      Object.defineProperty(window, "speechSynthesis", {
+        configurable: true,
+        value: {
+          addEventListener: () => undefined,
+          cancel: () => undefined,
+          getVoices: () => [{ default: true, lang: "ja-JP", name: "Test Japanese" }],
+          removeEventListener: () => undefined,
+          speak: (utterance: MockSpeechSynthesisUtterance) => {
+            speechWindow.__spokenJapanese.push({
+              text: utterance.text,
+              lang: utterance.lang,
+              rate: utterance.rate,
+            });
+          },
+        },
+      });
+
       window.localStorage.setItem("kanji-srs.accessToken", accessToken);
       window.localStorage.setItem("kanji-srs.translationDisplayMode", "ru-en");
       window.localStorage.setItem(

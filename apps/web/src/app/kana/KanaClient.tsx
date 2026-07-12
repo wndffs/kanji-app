@@ -36,8 +36,8 @@ import {
 } from "../../lib/kana-exercises";
 import { buildKanaSpeechText } from "../../lib/kana-speech";
 import { isKanaTracingCandidate } from "../../lib/kana-tracing";
+import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import { KanaTracingExercise } from "./KanaTracingExercise";
-import { useKanaSpeech } from "./useKanaSpeech";
 
 type KanaMode = "lessons" | "assessment";
 type LessonPhase = "teach" | "quiz";
@@ -68,7 +68,7 @@ export function KanaClient() {
   const inputRef = useRef<HTMLInputElement>(null);
   const choiceRef = useRef<HTMLButtonElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
-  const kanaSpeech = useKanaSpeech();
+  const kanaSpeech = useJapaneseSpeech();
   const handleTracingUnavailable = useCallback(() => setExerciseKind("typing"), []);
 
   useEffect(() => {

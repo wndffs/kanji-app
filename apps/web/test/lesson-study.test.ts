@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { type LessonQueueItem } from "@kanji-srs/shared";
 
-import { getLessonStudyPhases } from "../src/lib/lesson-study";
+import { getLessonPronunciationText, getLessonStudyPhases } from "../src/lib/lesson-study";
 
 describe("getLessonStudyPhases", () => {
   it("keeps a meaning-only item on one stage", () => {
@@ -40,6 +40,34 @@ describe("getLessonStudyPhases", () => {
     });
 
     expect(getLessonStudyPhases(lesson)).toEqual(["meaning", "context"]);
+  });
+});
+
+describe("getLessonPronunciationText", () => {
+  it("prefers the item reading and falls back to an accepted reading answer", () => {
+    const explicit = createLesson({ item: { ...createLesson().item, reading: " いち " } });
+    const answerOnly = createLesson({
+      cards: [
+        {
+          id: "card-reading",
+          learningItemId: "item-one",
+          itemType: "kanji",
+          cardType: "lesson",
+          promptType: "reading",
+          answerType: "reading",
+          translationDisplayMode: "ru-en",
+          prompt: { japanese: "一", reading: null },
+          translations: createLesson().item.translations,
+          acceptedAnswers: [{ locale: "ru-RU", text: "いち" }],
+          blockedAnswers: [],
+          sortOrder: 1,
+        },
+      ],
+    });
+
+    expect(getLessonPronunciationText(explicit)).toBe("いち");
+    expect(getLessonPronunciationText(answerOnly)).toBe("いち");
+    expect(getLessonPronunciationText(createLesson())).toBeNull();
   });
 });
 
