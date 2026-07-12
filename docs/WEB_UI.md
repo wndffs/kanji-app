@@ -33,6 +33,8 @@
 - Show relationships.
 - Show reading/meaning with translation display modes: Russian, English, or Russian plus English.
 - Show mnemonic/hint.
+- Show curated Russian/English mnemonic and hint content for the selected
+  translation mode, with private user mnemonics labelled separately.
 - Quick check.
 - Add to SRS.
 

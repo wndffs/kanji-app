@@ -1210,6 +1210,18 @@ textarea:focus-visible {
   grid-column: 1 / -1;
 }
 
+.lesson-memory-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.lesson-memory-grid h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  letter-spacing: 0;
+}
+
 .lesson-text-list,
 .lesson-relation-list {
   display: grid;
@@ -2812,6 +2824,7 @@ textarea:focus-visible {
 
   .feedback-grid,
   .deck-item-list,
+  .lesson-memory-grid,
   .lesson-preview-grid,
   .lesson-study-grid,
   .lesson-quiz-form,

@@ -646,6 +646,8 @@ function toLessonQueueItem(
     item: toItemSummary(item, displayMode),
     cards: item.cards.map((card) => toLearningCard(item, card, displayMode)),
     unlockedBy: unlockedBy.map((prerequisite) => toItemSummary(prerequisite, displayMode)),
+    mnemonics: item.mnemonics,
+    hints: item.hints,
   };
 }
 

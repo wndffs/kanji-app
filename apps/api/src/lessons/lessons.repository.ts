@@ -78,6 +78,20 @@ type LearningItemRow = {
   readonly levelHint: number | null;
   readonly cards: readonly LearningCardRow[];
   readonly dependencies: readonly DependencyRow[];
+  readonly mnemonics: readonly LessonTextRow[];
+  readonly hints: readonly LessonTextRow[];
+  readonly userMnemonics: readonly UserLessonTextRow[];
+};
+
+type LessonTextRow = {
+  readonly locale: string;
+  readonly body: string;
+  readonly sourceKind: string;
+};
+
+type UserLessonTextRow = {
+  readonly locale: string;
+  readonly body: string;
 };
 
 type LearningCardRow = {
@@ -218,6 +232,20 @@ export class PrismaLessonsRepository extends LessonsRepository {
                           where: { dependencyType: "PREREQUISITE" },
                           orderBy: { prerequisiteItemId: "asc" },
                         },
+                        mnemonics: {
+                          orderBy: [
+                            { locale: "asc" },
+                            { mnemonicType: "asc" },
+                            { version: "desc" },
+                          ],
+                        },
+                        hints: {
+                          orderBy: [{ locale: "asc" }, { hintType: "asc" }, { version: "desc" }],
+                        },
+                        userMnemonics: {
+                          where: { userId },
+                          orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }],
+                        },
                       },
                     },
                   },
@@ -275,6 +303,16 @@ export class PrismaLessonsRepository extends LessonsRepository {
                 dependencies: {
                   where: { dependencyType: "PREREQUISITE" },
                   orderBy: { prerequisiteItemId: "asc" },
+                },
+                mnemonics: {
+                  orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }, { version: "desc" }],
+                },
+                hints: {
+                  orderBy: [{ locale: "asc" }, { hintType: "asc" }, { version: "desc" }],
+                },
+                userMnemonics: {
+                  where: { userId },
+                  orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }],
                 },
               },
             },
@@ -439,6 +477,23 @@ export class PrismaLessonsRepository extends LessonsRepository {
       target: await this.findTarget(item),
       cards: item.cards.map((card) => toCardRecord(card, itemType)),
       dependencies: item.dependencies.map(toDependencyRecord),
+      mnemonics: groupLocalizedTexts([
+        ...item.mnemonics.map((text) =>
+          localizedText(toContentLocale(text.locale), text.body, {
+            sourceKind: toSourceKind(text.sourceKind),
+          }),
+        ),
+        ...item.userMnemonics.map((text) =>
+          localizedText(toContentLocale(text.locale), text.body, { sourceKind: "user" }),
+        ),
+      ]),
+      hints: groupLocalizedTexts(
+        item.hints.map((text) =>
+          localizedText(toContentLocale(text.locale), text.body, {
+            sourceKind: toSourceKind(text.sourceKind),
+          }),
+        ),
+      ),
     };
   }
 

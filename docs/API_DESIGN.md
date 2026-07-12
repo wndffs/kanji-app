@@ -103,6 +103,11 @@ eligible item within today's remaining limit in `availableItems`, plus
 `batchLimit` and `remainingToday` for workload display. The picker cannot expose
 items that fail course-level or dependency checks.
 
+Each queue item includes published Russian and English mnemonics and hints plus
+private `UserMnemonic` rows belonging only to the authenticated user. The web
+lesson filters those bilingual fields by the current translation display mode;
+private text is labelled separately and is never promoted to global content.
+
 With `deckId`, the queue uses an active text deck owned by the authenticated
 user instead of the structured course. Deck order, dependency thresholds,
 existing SRS progress, and the same daily limit determine availability. The

@@ -45,7 +45,20 @@ describe("LessonsService", () => {
     const service = createService();
 
     await expect(service.getQueue(createUser("owner"))).resolves.toMatchObject({
-      items: [{ item: { id: "item-component-one" } }, { item: { id: "item-component-two" } }],
+      items: [
+        {
+          item: { id: "item-component-one" },
+          mnemonics: {
+            ru: [expect.objectContaining({ text: "мнемоника item-component-one" })],
+            en: [expect.objectContaining({ text: "mnemonic item-component-one" })],
+          },
+          hints: {
+            ru: [expect.objectContaining({ text: "подсказка item-component-one" })],
+            en: [expect.objectContaining({ text: "hint item-component-one" })],
+          },
+        },
+        { item: { id: "item-component-two" } },
+      ],
       availableItems: [
         { item: { id: "item-component-one" } },
         { item: { id: "item-component-two" } },
@@ -624,6 +637,38 @@ function createItem(
       blockedAnswers: [],
     })),
     dependencies,
+    mnemonics: {
+      ru: [
+        {
+          locale: "ru-RU",
+          text: `мнемоника ${id}`,
+          sourceKind: "curated",
+        },
+      ],
+      en: [
+        {
+          locale: "en-US",
+          text: `mnemonic ${id}`,
+          sourceKind: "curated",
+        },
+      ],
+    },
+    hints: {
+      ru: [
+        {
+          locale: "ru-RU",
+          text: `подсказка ${id}`,
+          sourceKind: "curated",
+        },
+      ],
+      en: [
+        {
+          locale: "en-US",
+          text: `hint ${id}`,
+          sourceKind: "curated",
+        },
+      ],
+    },
   };
 }
 

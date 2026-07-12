@@ -676,6 +676,8 @@ const starterLessonQueueItem: LessonQueueItem = {
   },
   cards: [starterMeaningCard],
   unlockedBy: [starterComponentSummary],
+  mnemonics: { ru: [], en: [] },
+  hints: { ru: [], en: [] },
 };
 
 const completeStarterLessonItemResponse: CompleteLessonItemResponse = {

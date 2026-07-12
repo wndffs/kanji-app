@@ -621,6 +621,8 @@ function LessonStudyView({
 }) {
   const meaningCards = lesson.cards.filter((card) => card.answerType === "meaning");
   const readingCards = lesson.cards.filter((card) => card.answerType === "reading");
+  const mnemonicTexts = getLearningTexts(lesson.mnemonics, displayMode);
+  const hintTexts = getLearningTexts(lesson.hints, displayMode);
 
   return (
     <>
@@ -702,11 +704,16 @@ function LessonStudyView({
 
         <section className="panel lesson-wide-panel">
           <h2>Мнемоника и подсказка</h2>
-          <p className="muted">
-            Для этого материала в очереди уроков пока нет отдельной мнемоники или подсказки.
-            Используйте значения, чтения и связи выше; расширенный контент появится в карточке
-            материала.
-          </p>
+          <div className="lesson-memory-grid">
+            <div>
+              <h3>Мнемоника</h3>
+              <TextList texts={mnemonicTexts} />
+            </div>
+            <div>
+              <h3>Подсказка</h3>
+              <TextList texts={hintTexts} />
+            </div>
+          </div>
         </section>
       </div>
 
@@ -821,7 +828,11 @@ function TextList({
           ) : (
             <span>{text.text}</span>
           )}
-          <small>{textKind === "reading" ? "чтение" : formatLocale(text.locale)}</small>
+          <small>
+            {textKind === "reading"
+              ? "чтение"
+              : `${formatLocale(text.locale)}${text.sourceKind === "user" ? " · личное" : ""}`}
+          </small>
         </li>
       ))}
     </ul>
@@ -853,6 +864,14 @@ function collectCardAnswers(
   }
 
   return answers;
+}
+
+function getLearningTexts(
+  texts: LessonQueueItem["mnemonics"],
+  displayMode: TranslationDisplayMode,
+): readonly LocalizedTextDto[] {
+  const locales = getContentLocalesForDisplayMode(displayMode);
+  return [...texts.ru, ...texts.en].filter((text) => locales.includes(text.locale));
 }
 
 function formatTranslationBundle(

@@ -63,6 +63,8 @@ export type LessonItemRecord = {
   readonly target: LessonTargetRecord;
   readonly cards: readonly LessonCardRecord[];
   readonly dependencies: readonly LessonDependencyRecord[];
+  readonly mnemonics: BilingualTextDto;
+  readonly hints: BilingualTextDto;
 };
 
 export type CourseLessonItemRecord = {

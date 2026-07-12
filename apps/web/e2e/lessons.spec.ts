@@ -35,6 +35,10 @@ test.describe("lesson session", () => {
     await expect(page.getByRole("heading", { name: "Чтения" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Связи" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Мнемоника и подсказка" })).toBeVisible();
+    await expect(page.getByText("Представьте одну длинную черту.")).toBeVisible();
+    await expect(page.getByText("Picture one long horizontal stroke.")).toBeVisible();
+    await expect(page.getByText("Моя личная история про единицу.")).toBeVisible();
+    await expect(page.getByText("RU · личное")).toBeVisible();
     await expect(page.getByText("компонент один")).toBeVisible();
 
     await page.getByRole("button", { name: "Перейти к проверке" }).click();
@@ -300,6 +304,31 @@ const lessonQueueItem: LessonQueueItem = {
       },
     },
   ],
+  mnemonics: {
+    ru: [
+      {
+        locale: "ru-RU",
+        text: "Представьте одну длинную черту.",
+        sourceKind: "curated",
+      },
+      {
+        locale: "ru-RU",
+        text: "Моя личная история про единицу.",
+        sourceKind: "user",
+      },
+    ],
+    en: [
+      {
+        locale: "en-US",
+        text: "Picture one long horizontal stroke.",
+        sourceKind: "curated",
+      },
+    ],
+  },
+  hints: {
+    ru: [{ locale: "ru-RU", text: "Считайте от одного.", sourceKind: "curated" }],
+    en: [{ locale: "en-US", text: "Count from one.", sourceKind: "curated" }],
+  },
 };
 
 const optionalLessonQueueItem: LessonQueueItem = {

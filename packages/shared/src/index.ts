@@ -282,6 +282,8 @@ export type LessonQueueItem = {
   readonly item: ItemSummary;
   readonly cards: readonly LearningCardDto[];
   readonly unlockedBy: readonly ItemSummary[];
+  readonly mnemonics: BilingualTextDto;
+  readonly hints: BilingualTextDto;
 };
 
 export type LessonQueueSourceDto =
