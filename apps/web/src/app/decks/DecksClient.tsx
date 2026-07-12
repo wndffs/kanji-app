@@ -431,11 +431,16 @@ function DeckDetailsResult({
             {tokenization.matchedItemCount}.
           </p>
         )}
-        {onClose === undefined ? null : (
-          <button className="secondary-action deck-close-action" onClick={onClose} type="button">
-            Закрыть
-          </button>
-        )}
+        <div className="action-row deck-result-actions">
+          <Link className="primary-action" href={`/lessons?deckId=${encodeURIComponent(deck.id)}`}>
+            Учить колоду
+          </Link>
+          {onClose === undefined ? null : (
+            <button className="secondary-action" onClick={onClose} type="button">
+              Закрыть
+            </button>
+          )}
+        </div>
       </div>
 
       {deck.items.length === 0 ? (

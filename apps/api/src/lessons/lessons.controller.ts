@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
 
 import { AuthGuard } from "../auth/auth.guard";
 import { type CurrentUserDto } from "../auth/auth.types";
@@ -11,13 +11,13 @@ export class LessonsController {
   constructor(@Inject(LessonsService) private readonly lessonsService: LessonsService) {}
 
   @Get("queue")
-  getQueue(@CurrentUser() currentUser: CurrentUserDto) {
-    return this.lessonsService.getQueue(currentUser);
+  getQueue(@CurrentUser() currentUser: CurrentUserDto, @Query("deckId") deckId?: string) {
+    return this.lessonsService.getQueue(currentUser, deckId);
   }
 
   @Post("start")
-  startSession(@CurrentUser() currentUser: CurrentUserDto) {
-    return this.lessonsService.startSession(currentUser);
+  startSession(@CurrentUser() currentUser: CurrentUserDto, @Body() body: unknown) {
+    return this.lessonsService.startSession(currentUser, body);
   }
 
   @Post(":sessionId/complete-item")

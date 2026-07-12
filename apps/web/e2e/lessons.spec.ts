@@ -61,6 +61,20 @@ test.describe("lesson session", () => {
     await expect(page.getByText("Изучено")).toBeVisible();
     await expect(page.getByText("Карточек повторения")).toBeVisible();
   });
+
+  test("starts the existing lesson flow from a saved deck", async ({ page }) => {
+    await signIn(page);
+    const startBody = await mockDeckLessonApi(page);
+
+    await page.goto("/lessons?deckId=deck-saved");
+
+    await expect(page.getByRole("heading", { name: "Уроки колоды" })).toBeVisible();
+    await expect(page.getByText(/Новости на японском\. Выбрано: 1/)).toBeVisible();
+    await page.getByRole("button", { name: "Начать урок" }).click();
+
+    await expect(page.getByRole("heading", { name: "Изучение" })).toBeVisible();
+    expect(startBody()).toEqual({ deckId: "deck-saved" });
+  });
 });
 
 async function signIn(page: Page): Promise<void> {
@@ -98,6 +112,7 @@ async function mockLessonApi(page: Page): Promise<void> {
         availableItems: [lessonQueueItem, optionalLessonQueueItem],
         batchLimit: 5,
         remainingToday: 20,
+        source: { kind: "course" },
       },
     });
   });
@@ -110,6 +125,7 @@ async function mockLessonApi(page: Page): Promise<void> {
           startedAt: "2026-06-22T08:00:00.000Z",
           finishedAt: null,
           mode: "lesson",
+          deckId: null,
         },
       },
     });
@@ -135,10 +151,44 @@ async function mockLessonApi(page: Page): Promise<void> {
           startedAt: "2026-06-22T08:00:00.000Z",
           finishedAt: "2026-06-22T08:04:00.000Z",
           mode: "lesson",
+          deckId: null,
         },
       },
     });
   });
+}
+
+async function mockDeckLessonApi(page: Page): Promise<() => unknown> {
+  let startBody: unknown = null;
+
+  await page.route(`${API_BASE_URL}/lessons/queue?deckId=deck-saved`, async (route) => {
+    await route.fulfill({
+      json: {
+        items: [lessonQueueItem],
+        availableItems: [lessonQueueItem],
+        batchLimit: 5,
+        remainingToday: 20,
+        source: { kind: "deck", deckId: "deck-saved", title: "Новости на японском" },
+      },
+    });
+  });
+
+  await page.route(`${API_BASE_URL}/lessons/start`, async (route) => {
+    startBody = route.request().postDataJSON();
+    await route.fulfill({
+      json: {
+        session: {
+          id: SESSION_ID,
+          startedAt: "2026-06-22T08:00:00.000Z",
+          finishedAt: null,
+          mode: "lesson",
+          deckId: "deck-saved",
+        },
+      },
+    });
+  });
+
+  return () => startBody;
 }
 
 const lessonQueueItem: LessonQueueItem = {

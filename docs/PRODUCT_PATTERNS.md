@@ -90,3 +90,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 8. Task 48 (completed): add optional recent-lesson, recent-mistake, and burned-item practice.
 9. Task 49 (completed): expose workload balance and level progress without copying another dashboard.
 10. Task 50 (completed): make saved text decks visible and reopenable after creation.
+11. Task 51 (completed): run owned text decks through the prerequisite-safe lesson flow.

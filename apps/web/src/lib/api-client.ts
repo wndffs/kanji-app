@@ -322,14 +322,22 @@ export function searchItems(
   return apiRequest<SearchResponseDto>(`/search?${params.toString()}`, { token, fetchImpl });
 }
 
-export function getLessonQueue(token: string): Promise<LessonQueueResponse> {
-  return apiRequest<LessonQueueResponse>("/lessons/queue", { token });
+export function getLessonQueue(
+  token: string,
+  deckId: string | null = null,
+): Promise<LessonQueueResponse> {
+  const params = deckId === null ? "" : `?${new URLSearchParams({ deckId }).toString()}`;
+  return apiRequest<LessonQueueResponse>(`/lessons/queue${params}`, { token });
 }
 
-export function startLessonSession(token: string): Promise<StartLessonSessionResponse> {
+export function startLessonSession(
+  token: string,
+  deckId: string | null = null,
+): Promise<StartLessonSessionResponse> {
   return apiRequest<StartLessonSessionResponse>("/lessons/start", {
     method: "POST",
     token,
+    body: deckId === null ? undefined : { deckId },
   });
 }
 

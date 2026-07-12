@@ -10,6 +10,7 @@ import {
   type CompleteLessonItemInput,
   type CompletedLessonItemRecord,
   type CourseLessonItemRecord,
+  type DeckLessonRecord,
   type LessonItemRecord,
   type LessonSessionRecord,
   type SrsSystemRecord,
@@ -36,6 +37,7 @@ describe("LessonsService", () => {
       availableItems: [],
       batchLimit: 5,
       remainingToday: 10,
+      source: { kind: "course" },
     });
   });
 
@@ -227,6 +229,7 @@ describe("LessonsService", () => {
       ],
       batchLimit: 5,
       remainingToday: 1,
+      source: { kind: "course" },
     });
   });
 
@@ -254,6 +257,7 @@ describe("LessonsService", () => {
       availableItems: [],
       batchLimit: 5,
       remainingToday: 0,
+      source: { kind: "course" },
     });
 
     await expect(
@@ -276,7 +280,48 @@ describe("LessonsService", () => {
       ],
       batchLimit: 5,
       remainingToday: 1,
+      source: { kind: "course" },
     });
+  });
+
+  it("uses an owned active deck as a prerequisite-safe lesson source", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const service = new LessonsService(repository, createOverridesService());
+
+    await expect(service.getQueue(createUser("owner"), "deck-study")).resolves.toMatchObject({
+      source: { kind: "deck", deckId: "deck-study", title: "Study text" },
+      items: [{ item: { id: "item-component-one" } }],
+      availableItems: [{ item: { id: "item-component-one" } }],
+    });
+
+    repository.addProgress("owner", "item-component-one", ["card-component-one"], 1);
+
+    await expect(service.getQueue(createUser("owner"), "deck-study")).resolves.toMatchObject({
+      items: [{ item: { id: "item-kanji-one" } }],
+    });
+    await expect(service.getQueue(createUser("other"), "deck-study")).rejects.toThrow(
+      "Deck not found.",
+    );
+  });
+
+  it("binds lesson completion to the deck stored in the session", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const service = new LessonsService(repository, createOverridesService());
+    const session = await service.startSession(createUser("owner"), { deckId: "deck-study" });
+
+    expect(session.session.deckId).toBe("deck-study");
+    await expect(
+      service.completeItem(session.session.id, createUser("owner"), {
+        itemId: "item-component-two",
+        answers: [
+          {
+            cardId: "card-component-two",
+            answerType: "meaning",
+            answer: "study",
+          },
+        ],
+      }),
+    ).rejects.toThrow("Lesson item is not currently available.");
   });
 });
 
@@ -294,6 +339,10 @@ class InMemoryLessonsRepository extends LessonsRepository {
 
   async listCourseLessonItems(_userId: string): Promise<readonly CourseLessonItemRecord[]> {
     return this.courseItems;
+  }
+
+  async findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null> {
+    return userId === "owner" && deckId === "deck-study" ? createDeckLesson() : null;
   }
 
   async listUserProgress(userId: string): Promise<readonly UserItemProgressRecord[]> {
@@ -325,13 +374,18 @@ class InMemoryLessonsRepository extends LessonsRepository {
     };
   }
 
-  async createLessonSession(userId: string, now: Date): Promise<LessonSessionRecord> {
+  async createLessonSession(
+    userId: string,
+    now: Date,
+    deckId: string | null,
+  ): Promise<LessonSessionRecord> {
     const session: LessonSessionRecord = {
       id: `lesson-session-${this.nextSessionId++}`,
       userId,
       startedAt: now,
       finishedAt: null,
       mode: "lesson",
+      deckId,
     };
 
     this.sessions.set(session.id, session);
@@ -472,6 +526,18 @@ function createCourseItems(): readonly CourseLessonItemRecord[] {
   ];
 
   return items;
+}
+
+function createDeckLesson(): DeckLessonRecord {
+  const courseItems = createCourseItems();
+
+  return {
+    id: "deck-study",
+    title: "Study text",
+    items: courseItems
+      .filter((entry) => ["item-component-one", "item-kanji-one"].includes(entry.item.id))
+      .map((entry) => ({ sortOrder: entry.sortOrder, item: entry.item })),
+  };
 }
 
 function createCourseItem(item: LessonItemRecord, sortOrder: number): CourseLessonItemRecord {

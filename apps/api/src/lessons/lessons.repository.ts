@@ -7,6 +7,7 @@ import {
   type CompleteLessonItemInput,
   type CompletedLessonItemRecord,
   type CourseLessonItemRecord,
+  type DeckLessonRecord,
   type LessonAnswerRecord,
   type LessonBlockedAnswerRecord,
   type LessonCardRecord,
@@ -20,9 +21,14 @@ import {
 
 export abstract class LessonsRepository {
   abstract listCourseLessonItems(userId: string): Promise<readonly CourseLessonItemRecord[]>;
+  abstract findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null>;
   abstract listUserProgress(userId: string): Promise<readonly UserItemProgressRecord[]>;
   abstract getDefaultSrsSystem(): Promise<SrsSystemRecord | null>;
-  abstract createLessonSession(userId: string, now: Date): Promise<LessonSessionRecord>;
+  abstract createLessonSession(
+    userId: string,
+    now: Date,
+    deckId: string | null,
+  ): Promise<LessonSessionRecord>;
   abstract findActiveLessonSession(
     userId: string,
     sessionId: string,
@@ -51,6 +57,15 @@ type CourseLevelItemRow = {
   readonly sortOrder: number;
   readonly unlockPolicyJson: unknown;
   readonly learningItem: LearningItemRow;
+};
+
+type DeckRow = {
+  readonly id: string;
+  readonly title: string;
+  readonly items: readonly {
+    readonly sortOrder: number;
+    readonly learningItem: LearningItemRow;
+  }[];
 };
 
 type LearningItemRow = {
@@ -108,6 +123,7 @@ type SessionRow = {
   readonly startedAt: Date;
   readonly finishedAt: Date | null;
   readonly mode: string;
+  readonly statsJson: unknown;
 };
 
 type SrsSystemRow = {
@@ -232,6 +248,57 @@ export class PrismaLessonsRepository extends LessonsRepository {
     return records;
   }
 
+  async findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null> {
+    const deck = (await this.prisma.db.deck.findFirst({
+      where: {
+        id: deckId,
+        ownerUserId: userId,
+        status: "ACTIVE",
+      },
+      include: {
+        items: {
+          orderBy: { sortOrder: "asc" },
+          include: {
+            learningItem: {
+              include: {
+                cards: {
+                  orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+                  include: {
+                    answers: {
+                      orderBy: [{ isPrimary: "desc" }, { text: "asc" }],
+                    },
+                    blockedAnswers: {
+                      orderBy: { text: "asc" },
+                    },
+                  },
+                },
+                dependencies: {
+                  where: { dependencyType: "PREREQUISITE" },
+                  orderBy: { prerequisiteItemId: "asc" },
+                },
+              },
+            },
+          },
+        },
+      },
+    })) as DeckRow | null;
+
+    if (deck === null) {
+      return null;
+    }
+
+    return {
+      id: deck.id,
+      title: deck.title,
+      items: await Promise.all(
+        deck.items.map(async (entry) => ({
+          sortOrder: entry.sortOrder,
+          item: await this.toLessonItemRecord(entry.learningItem),
+        })),
+      ),
+    };
+  }
+
   async listUserProgress(userId: string): Promise<readonly UserItemProgressRecord[]> {
     const states = (await this.prisma.db.userSrsState.findMany({
       where: { userId },
@@ -276,12 +343,17 @@ export class PrismaLessonsRepository extends LessonsRepository {
     };
   }
 
-  async createLessonSession(userId: string, now: Date): Promise<LessonSessionRecord> {
+  async createLessonSession(
+    userId: string,
+    now: Date,
+    deckId: string | null,
+  ): Promise<LessonSessionRecord> {
     const session = (await this.prisma.db.reviewSession.create({
       data: {
         userId,
         startedAt: now,
         mode: "LESSON_QUIZ",
+        statsJson: deckId === null ? undefined : { deckId },
       },
     })) as SessionRow;
 
@@ -497,12 +569,16 @@ export class PrismaLessonsRepository extends LessonsRepository {
 }
 
 function toSessionRecord(row: SessionRow): LessonSessionRecord {
+  const stats = isRecord(row.statsJson) ? row.statsJson : null;
+  const deckId = typeof stats?.deckId === "string" ? stats.deckId : null;
+
   return {
     id: row.id,
     userId: row.userId,
     startedAt: row.startedAt,
     finishedAt: row.finishedAt,
     mode: "lesson",
+    deckId,
   };
 }
 

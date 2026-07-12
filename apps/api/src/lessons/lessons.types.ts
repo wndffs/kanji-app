@@ -19,6 +19,7 @@ export type LessonSessionRecord = {
   readonly startedAt: Date;
   readonly finishedAt: Date | null;
   readonly mode: "lesson";
+  readonly deckId: string | null;
 };
 
 export type LessonTargetRecord = {
@@ -70,6 +71,15 @@ export type CourseLessonItemRecord = {
   readonly sortOrder: number;
   readonly item: LessonItemRecord;
   readonly unlockPolicy: Record<string, unknown> | null;
+};
+
+export type DeckLessonRecord = {
+  readonly id: string;
+  readonly title: string;
+  readonly items: readonly {
+    readonly sortOrder: number;
+    readonly item: LessonItemRecord;
+  }[];
 };
 
 export type UserItemProgressRecord = {

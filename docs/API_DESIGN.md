@@ -90,8 +90,8 @@ endpoint; the stroke SVG itself is not persisted in kana progress.
 
 ### Lessons
 
-- `GET /lessons/queue`
-- `POST /lessons/start`
+- `GET /lessons/queue[?deckId=:ownedDeckId]`
+- `POST /lessons/start` with optional `{ deckId }`
 - `POST /lessons/:sessionId/complete-item`
 - `POST /lessons/:sessionId/finish`
 
@@ -102,6 +102,13 @@ contains a recommended batch of at most five items in `items`, every currently
 eligible item within today's remaining limit in `availableItems`, plus
 `batchLimit` and `remainingToday` for workload display. The picker cannot expose
 items that fail course-level or dependency checks.
+
+With `deckId`, the queue uses an active text deck owned by the authenticated
+user instead of the structured course. Deck order, dependency thresholds,
+existing SRS progress, and the same daily limit determine availability. The
+lesson session stores the validated deck id in `ReviewSession.statsJson`; item
+completion always reloads that source from the session, so a client cannot
+switch to another deck or bypass prerequisites while submitting answers.
 
 `POST /lessons/:sessionId/complete-item` accepts `itemId` and an `answers` array
 with exactly one `{ cardId, answerType, answer }` entry for every card on the

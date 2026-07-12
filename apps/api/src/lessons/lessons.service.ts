@@ -10,6 +10,7 @@ import {
   type LearningCardDto,
   type LessonQueueItem,
   type LessonQueueResponse,
+  type LessonQueueSourceDto,
   type LocalizedTextDto,
   type SrsStateSummaryDto,
   type StartLessonSessionResponse,
@@ -23,6 +24,7 @@ import { OverridesService } from "../overrides/overrides.service";
 import { LessonsRepository } from "./lessons.repository";
 import {
   type CourseLessonItemRecord,
+  type DeckLessonRecord,
   type LessonCardRecord,
   type LessonItemRecord,
   type LessonSessionRecord,
@@ -41,10 +43,12 @@ export class LessonsService {
     @Inject(OverridesService) private readonly overridesService: OverridesService,
   ) {}
 
-  async getQueue(user: CurrentUserDto): Promise<LessonQueueResponse> {
-    const { availableItems, displayMode, remainingToday } = await this.getAvailableItems(
+  async getQueue(user: CurrentUserDto, deckIdValue?: unknown): Promise<LessonQueueResponse> {
+    const deckId = parseOptionalDeckId(deckIdValue);
+    const { availableItems, displayMode, remainingToday, source } = await this.getAvailableItems(
       user,
       new Date(),
+      deckId,
     );
     const selectableItems = availableItems
       .slice(0, remainingToday)
@@ -55,11 +59,19 @@ export class LessonsService {
       availableItems: selectableItems,
       batchLimit: DEFAULT_LESSON_BATCH_LIMIT,
       remainingToday,
+      source,
     };
   }
 
-  async startSession(user: CurrentUserDto): Promise<StartLessonSessionResponse> {
-    const session = await this.lessonsRepository.createLessonSession(user.id, new Date());
+  async startSession(user: CurrentUserDto, body?: unknown): Promise<StartLessonSessionResponse> {
+    const deckId = parseStartLessonDeckId(body);
+    const now = new Date();
+
+    if (deckId !== null) {
+      await this.getAvailableItems(user, now, deckId);
+    }
+
+    const session = await this.lessonsRepository.createLessonSession(user.id, now, deckId);
 
     return {
       session: toLessonSessionDto(session),
@@ -79,7 +91,7 @@ export class LessonsService {
     }
 
     const now = new Date();
-    const { availableItems, displayMode } = await this.getAvailableItems(user, now);
+    const { availableItems, displayMode } = await this.getAvailableItems(user, now, session.deckId);
     const lessonItem = availableItems.find((candidate) => candidate.item.id === request.itemId);
 
     if (lessonItem === undefined) {
@@ -175,25 +187,55 @@ export class LessonsService {
   private async getAvailableItems(
     user: CurrentUserDto,
     now: Date,
+    deckId: string | null,
   ): Promise<{
     readonly availableItems: readonly AvailableLessonItem[];
     readonly displayMode: TranslationDisplayMode;
     readonly remainingToday: number;
+    readonly source: LessonQueueSourceDto;
   }> {
+    const progressPromise = this.lessonsRepository.listUserProgress(user.id);
+    const displayMode = user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE;
+
+    if (deckId !== null) {
+      const [deck, progress] = await Promise.all([
+        this.lessonsRepository.findDeckLesson(user.id, deckId),
+        progressPromise,
+      ]);
+
+      if (deck === null) {
+        throw new NotFoundException("Deck not found.");
+      }
+
+      const remainingToday = getRemainingDailyLessons(user, progress, now);
+      const source: LessonQueueSourceDto = { kind: "deck", deckId: deck.id, title: deck.title };
+
+      if (remainingToday <= 0 || deck.items.length === 0) {
+        return { availableItems: [], displayMode, remainingToday, source };
+      }
+
+      return {
+        availableItems: findAvailableDeckItems(deck, progress),
+        displayMode,
+        remainingToday,
+        source,
+      };
+    }
+
     const [courseItems, progress] = await Promise.all([
       this.lessonsRepository.listCourseLessonItems(user.id),
-      this.lessonsRepository.listUserProgress(user.id),
+      progressPromise,
     ]);
-    const displayMode = user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE;
     const remainingToday = getRemainingDailyLessons(user, progress, now);
+    const source: LessonQueueSourceDto = { kind: "course" };
 
     if (remainingToday <= 0 || courseItems.length === 0) {
-      return { availableItems: [], displayMode, remainingToday };
+      return { availableItems: [], displayMode, remainingToday, source };
     }
 
     const availableItems = findAvailableCourseItems(courseItems, progress);
 
-    return { availableItems, displayMode, remainingToday };
+    return { availableItems, displayMode, remainingToday, source };
   }
 }
 
@@ -204,6 +246,39 @@ type AvailableLessonItem = {
   readonly courseLevelNumber: number;
   readonly sortOrder: number;
 };
+
+function findAvailableDeckItems(
+  deck: DeckLessonRecord,
+  progress: readonly UserItemProgressRecord[],
+): readonly AvailableLessonItem[] {
+  const progressByItem = groupProgressByItem(progress);
+  const itemById = new Map(deck.items.map((entry) => [entry.item.id, entry.item]));
+
+  return deck.items
+    .flatMap((entry) => {
+      if (!hasLessonCards(entry.item) || isItemStarted(entry.item, progressByItem)) {
+        return [];
+      }
+
+      const unlockedBy = getSatisfiedPrerequisites(entry.item, progressByItem, itemById);
+
+      return unlockedBy === null
+        ? []
+        : [
+            {
+              item: entry.item,
+              unlockedBy,
+              courseId: `deck:${deck.id}`,
+              courseLevelNumber: 0,
+              sortOrder: entry.sortOrder,
+            },
+          ];
+    })
+    .sort(
+      (left, right) =>
+        left.sortOrder - right.sortOrder || left.item.id.localeCompare(right.item.id),
+    );
+}
 
 function findAvailableCourseItems(
   courseItems: readonly CourseLessonItemRecord[],
@@ -399,6 +474,36 @@ function readDatePart(
   type: Intl.DateTimeFormatPartTypes,
 ): string {
   return parts.find((part) => part.type === type)?.value ?? "00";
+}
+
+function parseStartLessonDeckId(body: unknown): string | null {
+  if (body === undefined || body === null) {
+    return null;
+  }
+
+  if (typeof body !== "object" || Array.isArray(body)) {
+    throw new BadRequestException("Request body must be a JSON object.");
+  }
+
+  return parseOptionalDeckId((body as Record<string, unknown>).deckId);
+}
+
+function parseOptionalDeckId(value: unknown): string | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new BadRequestException("deckId must be a non-empty string.");
+  }
+
+  const deckId = value.trim();
+
+  if (deckId.length > 200) {
+    throw new BadRequestException("deckId is too long.");
+  }
+
+  return deckId;
 }
 
 function parseCompleteLessonItemRequest(body: unknown): CompleteLessonItemRequestDto {
@@ -615,5 +720,6 @@ function toLessonSessionDto(session: LessonSessionRecord) {
     startedAt: session.startedAt.toISOString(),
     finishedAt: session.finishedAt?.toISOString() ?? null,
     mode: session.mode,
+    deckId: session.deckId,
   };
 }

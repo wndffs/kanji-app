@@ -26,6 +26,10 @@ test.describe("dynamic text decks", () => {
     await expect(page.getByText("Кандидатов: 4. Совпадений с базой: 1.")).toBeVisible();
     await expect(page.getByText("школа / school")).toBeVisible();
     await expect(page.getByText("Есть в тексте: 学校")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Учить колоду" })).toHaveAttribute(
+      "href",
+      "/lessons?deckId=deck-1",
+    );
     expect(requestBody()).toMatchObject({
       title: "Текст про школу",
       text: "学校で学ぶ。",
@@ -48,6 +52,10 @@ test.describe("dynamic text decks", () => {
     await expect(details.getByRole("heading", { name: "Новости на японском" })).toBeVisible();
     await expect(details.getByText("Сохранённая колода")).toBeVisible();
     await expect(details.getByText("школа / school")).toBeVisible();
+    await expect(details.getByRole("link", { name: "Учить колоду" })).toHaveAttribute(
+      "href",
+      "/lessons?deckId=deck-saved",
+    );
 
     await details.getByRole("button", { name: "Закрыть" }).click();
     await expect(details).toBeHidden();

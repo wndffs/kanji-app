@@ -284,6 +284,10 @@ export type LessonQueueItem = {
   readonly unlockedBy: readonly ItemSummary[];
 };
 
+export type LessonQueueSourceDto =
+  | { readonly kind: "course" }
+  | { readonly kind: "deck"; readonly deckId: string; readonly title: string };
+
 export type LessonQueueResponse = {
   /** Suggested default batch, already capped by batchLimit. */
   readonly items: readonly LessonQueueItem[];
@@ -291,6 +295,7 @@ export type LessonQueueResponse = {
   readonly availableItems: readonly LessonQueueItem[];
   readonly batchLimit: number;
   readonly remainingToday: number;
+  readonly source: LessonQueueSourceDto;
 };
 
 export type LessonSessionDto = {
@@ -298,6 +303,7 @@ export type LessonSessionDto = {
   readonly startedAt: string;
   readonly finishedAt: string | null;
   readonly mode: "lesson";
+  readonly deckId: string | null;
 };
 
 export type StartLessonSessionResponse = {

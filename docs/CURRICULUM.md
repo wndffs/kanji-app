@@ -25,6 +25,11 @@ Rules:
 - Prefer i+1 sentences when possible.
 - The deck must not break structured-course progress.
 
+An owned active deck can feed the same small-batch lesson and required-quiz
+flow as the structured course. Existing SRS state is shared: already started
+items are omitted, prerequisites must reach their configured stages, and newly
+passed deck items create normal SRS cards without changing course ordering.
+
 ## N5 -> N2 path
 
 Implementation should not require all N2 content at MVP. Design schema and UI for these course bands:

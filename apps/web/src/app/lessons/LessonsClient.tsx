@@ -18,6 +18,7 @@ import {
   type ContentLocale,
   type LearningCardDto,
   type LessonQueueItem,
+  type LessonQueueSourceDto,
   type LessonSessionDto,
   type LocalizedTextDto,
   type TranslationBundleDto,
@@ -48,6 +49,7 @@ type QueueState =
       readonly availableItems: readonly LessonQueueItem[];
       readonly batchLimit: number;
       readonly remainingToday: number;
+      readonly source: LessonQueueSourceDto;
     };
 
 type LessonStep = "study" | "quiz";
@@ -101,7 +103,8 @@ export function LessonsClient() {
     setCompletionSummary(null);
 
     try {
-      const queue = await getLessonQueue(storedSession.token);
+      const requestedDeckId = readRequestedDeckId();
+      const queue = await getLessonQueue(storedSession.token, requestedDeckId);
       const availableItems = queue.availableItems ?? queue.items;
       setQueueState({
         status: "ready",
@@ -110,6 +113,7 @@ export function LessonsClient() {
         availableItems,
         batchLimit: queue.batchLimit,
         remainingToday: queue.remainingToday,
+        source: queue.source ?? { kind: "course" },
       });
       setSelectedItemIds(queue.items.map((lesson) => lesson.item.id));
     } catch (error: unknown) {
@@ -160,7 +164,10 @@ export function LessonsClient() {
     setCompletionSummary(null);
 
     try {
-      const response = await startLessonSession(queueState.token);
+      const response = await startLessonSession(
+        queueState.token,
+        queueState.source.kind === "deck" ? queueState.source.deckId : null,
+      );
       setSession(response.session);
       setSessionQueue(orderedLessons);
       setCurrentIndex(0);
@@ -385,15 +392,19 @@ export function LessonsClient() {
   }
 
   if (queueState.availableItems.length === 0) {
+    const isDeckQueue = queueState.source.kind === "deck";
+
     return (
       <section className="page-stack">
         <div className="page-heading">
-          <h1>Уроки</h1>
+          <h1>{isDeckQueue ? "Уроки колоды" : "Уроки"}</h1>
           <p>Очередь пуста.</p>
         </div>
         <div className="notice-panel">
           <p>
-            Новые уроки появятся, когда курс откроет следующий материал или обновится лимит дня.
+            {isDeckQueue
+              ? "В колоде нет доступных новых материалов: проверьте предпосылки или дневной лимит."
+              : "Новые уроки появятся, когда курс откроет следующий материал или обновится лимит дня."}
           </p>
           <button className="secondary-action" onClick={() => void loadQueue()} type="button">
             Проверить снова
@@ -404,12 +415,15 @@ export function LessonsClient() {
   }
 
   if (session === null) {
+    const isDeckQueue = queueState.source.kind === "deck";
+
     return (
       <section className="page-stack">
         <div className="page-heading lesson-heading">
           <div>
-            <h1>Уроки</h1>
+            <h1>{isDeckQueue ? "Уроки колоды" : "Уроки"}</h1>
             <p>
+              {isDeckQueue ? `${queueState.source.title}. ` : ""}
               Выбрано: {selectedLessons.length} из максимум {queueState.batchLimit}. Доступно:{" "}
               {queueState.availableItems.length}. Осталось на сегодня: {queueState.remainingToday}.
               Режим перевода: {formatDisplayMode(activeDisplayMode)}.
@@ -553,7 +567,7 @@ function LessonPicker({
           onClick={() => onOrderModeChange("course")}
           type="button"
         >
-          Порядок курса
+          Порядок источника
         </button>
         <button
           aria-pressed={orderMode === "interleaved"}
@@ -920,4 +934,13 @@ function formatCardsCount(count: number): string {
   }
 
   return "карточек";
+}
+
+function readRequestedDeckId(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const deckId = new URLSearchParams(window.location.search).get("deckId")?.trim() ?? "";
+  return deckId === "" ? null : deckId;
 }
