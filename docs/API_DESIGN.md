@@ -96,6 +96,7 @@ endpoint; the stroke SVG itself is not persisted in kana progress.
 - `POST /lessons/:sessionId/progress`
 - `POST /lessons/:sessionId/complete-item`
 - `POST /lessons/:sessionId/finish`
+- `POST /lessons/:sessionId/abandon`
 
 `GET /lessons/queue` returns new learning items for the authenticated user's
 active course enrollment. Availability uses the first incomplete course level,
@@ -114,6 +115,11 @@ group-owned `currentItemId` and `meaning|reading|context|quiz` phase. It stores 
 typed quiz answers; after a reload, an active quiz restarts at the first card of
 the current item. Starting a new group finishes the previous active lesson only
 after the replacement session has been created successfully.
+
+`POST /lessons/:sessionId/abandon` closes only an active session owned by the
+authenticated user and records an `abandoned` outcome in `statsJson`. Existing
+SRS rows are retained; uncompleted selected items remain eligible for a later
+lesson. Normal completion records a `completed` outcome.
 
 Each queue item includes published Russian and English mnemonics and hints,
 grouped by their educational purpose. Mnemonics distinguish meaning, reading,

@@ -75,6 +75,11 @@ server-side lesson session so a reload can resume safely. Quiz answer drafts are
 deliberately not persisted; retrieval restarts from the first card of the
 current item after a reload.
 
+The learner may explicitly end an unfinished lesson. This closes the server
+session without rolling back cards that already entered SRS; selected items that
+were not completed remain available under the normal prerequisite and daily
+limit rules.
+
 Before starting, the learner may replace the recommended items with any other
 currently eligible materials, up to the five-item batch limit. The course-order
 mode preserves curriculum order. The interleaved mode alternates selected item

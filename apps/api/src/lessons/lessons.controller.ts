@@ -47,4 +47,12 @@ export class LessonsController {
   finishSession(@Param("sessionId") sessionId: string, @CurrentUser() currentUser: CurrentUserDto) {
     return this.lessonsService.finishSession(sessionId, currentUser);
   }
+
+  @Post(":sessionId/abandon")
+  abandonSession(
+    @Param("sessionId") sessionId: string,
+    @CurrentUser() currentUser: CurrentUserDto,
+  ) {
+    return this.lessonsService.abandonSession(sessionId, currentUser);
+  }
 }

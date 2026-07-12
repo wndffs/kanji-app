@@ -103,7 +103,7 @@ export class LessonsService {
     });
 
     if (existingSession !== null) {
-      await this.lessonsRepository.finishLessonSession(user.id, existingSession.id, now);
+      await this.lessonsRepository.abandonLessonSession(user.id, existingSession.id, now);
     }
 
     return {
@@ -318,6 +318,23 @@ export class LessonsService {
     return {
       session: toLessonSessionDto(session),
     };
+  }
+
+  async abandonSession(
+    sessionId: string,
+    user: CurrentUserDto,
+  ): Promise<FinishLessonSessionResponse> {
+    const session = await this.lessonsRepository.abandonLessonSession(
+      user.id,
+      sessionId,
+      new Date(),
+    );
+
+    if (session === null) {
+      throw new NotFoundException("Active lesson session not found.");
+    }
+
+    return { session: toLessonSessionDto(session) };
   }
 
   private async getAvailableItems(

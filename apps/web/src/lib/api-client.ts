@@ -393,6 +393,19 @@ export function finishLessonSession(
   );
 }
 
+export function abandonLessonSession(
+  token: string,
+  sessionId: string,
+): Promise<FinishLessonSessionResponse> {
+  return apiRequest<FinishLessonSessionResponse>(
+    `/lessons/${encodeURIComponent(sessionId)}/abandon`,
+    {
+      method: "POST",
+      token,
+    },
+  );
+}
+
 export function getReviewQueue(token: string): Promise<ReviewQueueResponse> {
   return apiRequest<ReviewQueueResponse>("/reviews/queue", { token });
 }

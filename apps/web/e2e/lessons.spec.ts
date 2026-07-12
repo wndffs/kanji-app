@@ -140,15 +140,36 @@ test.describe("lesson session", () => {
   test("resumes the server-confirmed item and study phase after reload", async ({ page }) => {
     await signIn(page);
     let progressBody: unknown = null;
+    let active = true;
+    let abandonCalled = false;
 
     await page.route(`${API_BASE_URL}/lessons/active`, async (route) => {
       await route.fulfill({
+        json: active
+          ? {
+              session: lessonSession("reading"),
+              items: [lessonQueueItem],
+              source: { kind: "course" },
+              completedItemCount: 0,
+              createdSrsStateCount: 0,
+            }
+          : {
+              session: null,
+              items: [],
+              source: null,
+              completedItemCount: 0,
+              createdSrsStateCount: 0,
+            },
+      });
+    });
+    await page.route(`${API_BASE_URL}/lessons/queue`, async (route) => {
+      await route.fulfill({
         json: {
-          session: lessonSession("reading"),
           items: [lessonQueueItem],
+          availableItems: [lessonQueueItem],
+          batchLimit: 5,
+          remainingToday: 20,
           source: { kind: "course" },
-          completedItemCount: 0,
-          createdSrsStateCount: 0,
         },
       });
     });
@@ -156,6 +177,15 @@ test.describe("lesson session", () => {
       progressBody = route.request().postDataJSON();
       const body = progressBody as { currentItemId: string; phase: "context" };
       await route.fulfill({ json: { session: lessonSession(body.phase, body.currentItemId) } });
+    });
+    await page.route(`${API_BASE_URL}/lessons/${SESSION_ID}/abandon`, async (route) => {
+      active = false;
+      abandonCalled = true;
+      await route.fulfill({
+        json: {
+          session: { ...lessonSession("context"), finishedAt: "2026-06-22T08:05:00.000Z" },
+        },
+      });
     });
 
     await page.goto("/lessons");
@@ -172,6 +202,19 @@ test.describe("lesson session", () => {
       "true",
     );
     expect(progressBody).toEqual({ currentItemId: "item-kanji-one", phase: "context" });
+
+    await page.getByRole("button", { name: "Выйти из урока" }).click();
+    const exitDialog = page.getByRole("dialog", { name: "Завершить текущий урок?" });
+    await expect(exitDialog).toBeVisible();
+    await expect(exitDialog.getByRole("button", { name: "Продолжить урок" })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(exitDialog).not.toBeVisible();
+
+    await page.getByRole("button", { name: "Выйти из урока" }).click();
+    await exitDialog.getByRole("button", { name: "Завершить урок" }).click();
+    await expect(page.getByRole("heading", { name: "Уроки" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Начать урок" })).toBeVisible();
+    expect(abandonCalled).toBe(true);
   });
 });
 

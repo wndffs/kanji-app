@@ -33,6 +33,8 @@
   allow revisiting an earlier stage before the required quiz.
 - Resume an unfinished server-confirmed lesson group at its current item and
   stage after reload. Do not persist typed quiz answers in browser storage.
+- Let the learner leave an active lesson through an explicit confirmation
+  dialog. Keep completed SRS cards and return unfinished items to the queue.
 - Explain the item and its prerequisite relationships during the meaning stage.
 - Show reading/meaning with translation display modes: Russian, English, or Russian plus English.
 - Show curated Russian/English mnemonic and hint content for the selected

@@ -461,6 +461,40 @@ describe("LessonsService", () => {
     });
   });
 
+  it("abandons an active lesson without removing completed SRS progress", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const service = new LessonsService(repository, createOverridesService());
+    const started = await service.startSession(createUser("owner"), {
+      itemIds: ["item-component-one", "item-component-two"],
+    });
+
+    await service.completeItem(started.session.id, createUser("owner"), {
+      itemId: "item-component-one",
+      answers: [
+        {
+          cardId: "card-component-one",
+          answerType: "meaning",
+          answer: "study",
+        },
+      ],
+    });
+    await service.abandonSession(started.session.id, createUser("owner"));
+
+    await expect(service.getActiveSession(createUser("owner"))).resolves.toMatchObject({
+      session: null,
+      items: [],
+    });
+    expect(repository.listProgressFor("owner", "item-component-one")).toHaveLength(1);
+    await expect(service.getQueue(createUser("owner"))).resolves.toMatchObject({
+      items: expect.arrayContaining([
+        expect.objectContaining({ item: expect.objectContaining({ id: "item-component-two" }) }),
+      ]),
+    });
+    await expect(service.abandonSession(started.session.id, createUser("owner"))).rejects.toThrow(
+      "Active lesson session not found",
+    );
+  });
+
   it("respects the user's daily lesson limit", async () => {
     const service = createService();
 
@@ -749,6 +783,14 @@ class InMemoryLessonsRepository extends LessonsRepository {
     this.sessions.set(sessionId, finished);
 
     return finished;
+  }
+
+  async abandonLessonSession(
+    userId: string,
+    sessionId: string,
+    now: Date,
+  ): Promise<LessonSessionRecord | null> {
+    return this.finishLessonSession(userId, sessionId, now);
   }
 
   addProgress(

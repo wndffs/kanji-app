@@ -49,6 +49,11 @@ export abstract class LessonsRepository {
     sessionId: string,
     now: Date,
   ): Promise<LessonSessionRecord | null>;
+  abstract abandonLessonSession(
+    userId: string,
+    sessionId: string,
+    now: Date,
+  ): Promise<LessonSessionRecord | null>;
 }
 
 type EnrollmentRow = {
@@ -446,6 +451,7 @@ export class PrismaLessonsRepository extends LessonsRepository {
           itemIds: input.itemIds,
           currentItemId: input.itemIds[0],
           phase: "meaning",
+          outcome: "active",
         },
       },
     })) as SessionRow;
@@ -527,6 +533,7 @@ export class PrismaLessonsRepository extends LessonsRepository {
           itemIds: session.itemIds,
           currentItemId: input.currentItemId,
           phase: input.phase,
+          outcome: "active",
         },
       },
     });
@@ -547,6 +554,29 @@ export class PrismaLessonsRepository extends LessonsRepository {
     sessionId: string,
     now: Date,
   ): Promise<LessonSessionRecord | null> {
+    return this.closeLessonSession(userId, sessionId, now, "completed");
+  }
+
+  async abandonLessonSession(
+    userId: string,
+    sessionId: string,
+    now: Date,
+  ): Promise<LessonSessionRecord | null> {
+    return this.closeLessonSession(userId, sessionId, now, "abandoned");
+  }
+
+  private async closeLessonSession(
+    userId: string,
+    sessionId: string,
+    now: Date,
+    outcome: "completed" | "abandoned",
+  ): Promise<LessonSessionRecord | null> {
+    const active = await this.findActiveLessonSession(userId, sessionId);
+
+    if (active === null) {
+      return null;
+    }
+
     const result = await this.prisma.db.reviewSession.updateMany({
       where: {
         id: sessionId,
@@ -556,6 +586,13 @@ export class PrismaLessonsRepository extends LessonsRepository {
       },
       data: {
         finishedAt: now,
+        statsJson: {
+          deckId: active.deckId,
+          itemIds: active.itemIds,
+          currentItemId: active.currentItemId,
+          phase: active.phase,
+          outcome,
+        },
       },
     });
 

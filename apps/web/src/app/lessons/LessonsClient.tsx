@@ -27,6 +27,7 @@ import {
 
 import { JapaneseText } from "../../components/JapaneseText";
 import {
+  abandonLessonSession,
   ApiError,
   completeLessonItem,
   finishLessonSession,
@@ -91,6 +92,9 @@ export function LessonsClient() {
   const [isStarting, setIsStarting] = useState(false);
   const [isSavingProgress, setIsSavingProgress] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isExitDialogOpen, setIsExitDialogOpen] = useState(false);
+  const [isAbandoning, setIsAbandoning] = useState(false);
+  const [abandonError, setAbandonError] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummary | null>(null);
   const quizInputRef = useRef<HTMLInputElement>(null);
@@ -116,6 +120,9 @@ export function LessonsClient() {
     setQuizAnswers({});
     setQuizFeedback(null);
     setIsSavingProgress(false);
+    setIsExitDialogOpen(false);
+    setIsAbandoning(false);
+    setAbandonError(null);
     setSessionError(null);
     setCompletionSummary(null);
 
@@ -455,6 +462,28 @@ export function LessonsClient() {
     }
   }
 
+  async function handleAbandonSession(): Promise<void> {
+    if (queueState.status !== "ready" || session === null || isAbandoning) {
+      return;
+    }
+
+    setIsAbandoning(true);
+    setAbandonError(null);
+
+    try {
+      await abandonLessonSession(queueState.token, session.id);
+      setIsExitDialogOpen(false);
+      setSession(null);
+      setSessionQueue([]);
+      setCompletionSummary(null);
+      await loadQueue();
+    } catch (error: unknown) {
+      setAbandonError(error instanceof Error ? error.message : "Не удалось завершить урок.");
+    } finally {
+      setIsAbandoning(false);
+    }
+  }
+
   if (queueState.status === "checking" || queueState.status === "loading") {
     return (
       <section className="page-stack" aria-busy="true">
@@ -623,9 +652,22 @@ export function LessonsClient() {
           <span className="eyebrow">{progressLabel}</span>
           <h1>{step === "study" ? "Изучение" : "Обязательная проверка"}</h1>
         </div>
-        <div className="review-progress">
-          <span>Изучено: {learnedItems}</span>
-          <span>{formatDisplayMode(activeDisplayMode)}</span>
+        <div className="lesson-session-tools">
+          <div className="review-progress">
+            <span>Изучено: {learnedItems}</span>
+            <span>{formatDisplayMode(activeDisplayMode)}</span>
+          </div>
+          <button
+            className="secondary-action"
+            disabled={isSavingProgress || isCompleting}
+            onClick={() => {
+              setAbandonError(null);
+              setIsExitDialogOpen(true);
+            }}
+            type="button"
+          >
+            Выйти из урока
+          </button>
         </div>
       </header>
 
@@ -661,7 +703,107 @@ export function LessonsClient() {
           {sessionError}
         </p>
       )}
+
+      {isExitDialogOpen ? (
+        <LessonExitDialog
+          busy={isAbandoning}
+          error={abandonError}
+          onCancel={() => setIsExitDialogOpen(false)}
+          onConfirm={() => void handleAbandonSession()}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function LessonExitDialog({
+  busy,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  readonly busy: boolean;
+  readonly error: string | null;
+  readonly onCancel: () => void;
+  readonly onConfirm: () => void;
+}) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    cancelRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !busy) {
+        onCancel();
+        return;
+      }
+
+      if (event.key !== "Tab" || dialogRef.current === null) {
+        return;
+      }
+
+      const buttons = [
+        ...dialogRef.current.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
+      ];
+      const firstButton = buttons[0];
+      const lastButton = buttons.at(-1);
+
+      if (firstButton === undefined || lastButton === undefined) {
+        return;
+      }
+
+      if (event.shiftKey && document.activeElement === firstButton) {
+        event.preventDefault();
+        lastButton.focus();
+      } else if (!event.shiftKey && document.activeElement === lastButton) {
+        event.preventDefault();
+        firstButton.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [busy, onCancel]);
+
+  return (
+    <div className="dialog-backdrop">
+      <section
+        aria-describedby="lesson-exit-description"
+        aria-labelledby="lesson-exit-title"
+        aria-modal="true"
+        className="confirmation-dialog"
+        ref={dialogRef}
+        role="dialog"
+      >
+        <h2 id="lesson-exit-title">Завершить текущий урок?</h2>
+        <p id="lesson-exit-description">
+          Карточки, уже добавленные в SRS, сохранятся. Незавершённые материалы вернутся в доступную
+          очередь, а введённые ответы не сохранятся.
+        </p>
+        {error === null ? null : (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="dialog-actions">
+          <button
+            className="primary-action"
+            disabled={busy}
+            onClick={onCancel}
+            ref={cancelRef}
+            type="button"
+          >
+            Продолжить урок
+          </button>
+          <button className="danger-action" disabled={busy} onClick={onConfirm} type="button">
+            {busy ? "Завершаю..." : "Завершить урок"}
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
