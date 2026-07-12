@@ -31,20 +31,48 @@ test.describe("lesson session", () => {
     await page.getByRole("button", { name: "Начать урок" }).click();
 
     await expect(page.getByRole("heading", { name: "Изучение" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Значение" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     await expect(page.getByRole("heading", { name: "Значения" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Чтения" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Связи" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Мнемоника и подсказка" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "История" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Употребление" })).toBeVisible();
     await expect(page.getByText("Представьте одну длинную черту.")).toBeVisible();
     await expect(page.getByText("Picture one long horizontal stroke.")).toBeVisible();
+    await expect(page.getByText("компонент один")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Чтения" })).not.toBeVisible();
+    await expect(page.getByText("Моя личная история про единицу.")).not.toBeVisible();
+
+    await page.getByRole("button", { name: "Далее: Чтение" }).click();
+
+    await expect(page.getByRole("tab", { name: "Чтение" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.getByRole("heading", { name: "Чтения" })).toBeVisible();
+    await expect(page.getByText("Свяжите いち со значением один.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Предыдущий этап" })).toBeVisible();
+    await page.getByRole("button", { name: "Предыдущий этап" }).click();
+    await expect(page.getByRole("tab", { name: "Значение" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await page.getByRole("tab", { name: "Чтение" }).click();
+
+    await page.getByRole("button", { name: "Далее: Контекст" }).click();
+
+    await expect(page.getByRole("tab", { name: "Контекст" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.getByRole("heading", { name: "История" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Употребление" })).toBeVisible();
     await expect(page.getByText("Моя личная история про единицу.")).toBeVisible();
     await expect(page.getByText("RU · личное")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Примеры употребления" })).toBeVisible();
     await expect(page.getByText("Дайте один, пожалуйста. / One, please.")).toBeVisible();
     await expect(page.getByText("Project examples · LicenseRef-Project-Authored")).toBeVisible();
-    await expect(page.getByText("компонент один")).toBeVisible();
 
     await page.getByRole("button", { name: "Перейти к проверке" }).click();
 
@@ -324,6 +352,25 @@ const lessonQueueItem: LessonQueueItem = {
           {
             locale: "en-US",
             text: "Picture one long horizontal stroke.",
+            sourceKind: "curated",
+          },
+        ],
+      },
+    },
+    {
+      purpose: "reading",
+      texts: {
+        ru: [
+          {
+            locale: "ru-RU",
+            text: "Свяжите いち со значением один.",
+            sourceKind: "curated",
+          },
+        ],
+        en: [
+          {
+            locale: "en-US",
+            text: "Connect いち with the meaning one.",
             sourceKind: "curated",
           },
         ],

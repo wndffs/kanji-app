@@ -29,8 +29,9 @@
 
 ## Lesson UX
 
-- Explain the item.
-- Show relationships.
+- Guide each item through the non-empty stages meaning, reading, and context;
+  allow revisiting an earlier stage before the required quiz.
+- Explain the item and its prerequisite relationships during the meaning stage.
 - Show reading/meaning with translation display modes: Russian, English, or Russian plus English.
 - Show curated Russian/English mnemonic and hint content for the selected
   translation mode, separated by purpose: meaning, reading, story, or usage.

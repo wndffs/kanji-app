@@ -1152,6 +1152,51 @@ textarea:focus-visible {
   letter-spacing: 0;
 }
 
+.lesson-phase-tabs {
+  display: flex;
+  overflow-x: auto;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.lesson-phase-tabs button {
+  min-width: 120px;
+  min-height: 48px;
+  flex: 1 0 120px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-right: 1px solid var(--surface-border);
+  background: transparent;
+  color: var(--muted);
+  padding: 8px 14px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.lesson-phase-tabs button:last-child {
+  border-right: 0;
+}
+
+.lesson-phase-tabs button[aria-selected="true"] {
+  background: var(--foreground);
+  color: var(--surface);
+}
+
+.lesson-phase-tabs button span {
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  flex: 0 0 24px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 12px;
+}
+
 .lesson-hero {
   grid-template-columns: minmax(0, 1fr) minmax(260px, 0.42fr);
   align-items: center;
@@ -1309,6 +1354,8 @@ textarea:focus-visible {
 .lesson-action-bar {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.98);
@@ -3019,6 +3066,7 @@ textarea:focus-visible {
   }
 
   .lesson-action-bar .primary-action,
+  .lesson-action-bar .secondary-action,
   .lesson-quiz-result .primary-action {
     width: 100%;
   }

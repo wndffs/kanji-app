@@ -65,6 +65,10 @@ from Foundation through N2 without requiring the full corpus upfront.
 Component, kanji, vocabulary, and sentence lessons use small groups of at most
 five new items. The learner studies every item in the group before retrieval
 begins. The required quiz then asks every meaning and reading card independently.
+Within an item, the web flow presents only non-empty stages in the order meaning,
+reading, and context. The learner can revisit stages before continuing; context
+contains curated or private story and usage guidance plus attributed examples
+when available.
 
 Before starting, the learner may replace the recommended items with any other
 currently eligible materials, up to the five-item batch limit. The course-order

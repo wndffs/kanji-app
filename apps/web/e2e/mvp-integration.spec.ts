@@ -88,6 +88,7 @@ test.describe("final MVP integration path", () => {
 
       await page.getByRole("button", { name: "Начать урок" }).click();
       await expect(page.getByRole("heading", { name: "Изучение" })).toBeVisible();
+      await page.getByRole("button", { name: "Далее: Чтение" }).click();
       await page.getByRole("button", { name: "Перейти к проверке" }).click();
       await page.getByLabel("Ваше значение").fill("один");
       await page.keyboard.press("Enter");

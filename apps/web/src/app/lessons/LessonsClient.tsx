@@ -35,6 +35,7 @@ import {
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import { type LessonOrderMode, orderLessonSelection } from "../../lib/lesson-selection";
+import { getLessonStudyPhases, type LessonStudyPhase } from "../../lib/lesson-study";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
 type QueueState =
@@ -68,6 +69,7 @@ export function LessonsClient() {
   const [orderMode, setOrderMode] = useState<LessonOrderMode>("course");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [step, setStep] = useState<LessonStep>("study");
+  const [studyPhaseIndex, setStudyPhaseIndex] = useState(0);
   const [quizCardIndex, setQuizCardIndex] = useState(0);
   const [quizAnswer, setQuizAnswer] = useState("");
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
@@ -95,6 +97,7 @@ export function LessonsClient() {
     setOrderMode("course");
     setCurrentIndex(0);
     setStep("study");
+    setStudyPhaseIndex(0);
     setQuizCardIndex(0);
     setQuizAnswer("");
     setQuizAnswers({});
@@ -144,6 +147,10 @@ export function LessonsClient() {
     [queueState, selectedItemIdSet],
   );
   const currentLesson = session === null ? null : (activeQueue[currentIndex] ?? null);
+  const currentStudyPhases = useMemo(
+    () => (currentLesson === null ? [] : getLessonStudyPhases(currentLesson)),
+    [currentLesson],
+  );
   const learnedItems = completionSummary?.learnedItems ?? 0;
   const progressLabel = useMemo(() => {
     if (currentLesson === null) {
@@ -172,6 +179,7 @@ export function LessonsClient() {
       setSessionQueue(orderedLessons);
       setCurrentIndex(0);
       setStep("study");
+      setStudyPhaseIndex(0);
       setQuizCardIndex(0);
       setQuizAnswer("");
       setQuizAnswers({});
@@ -204,6 +212,13 @@ export function LessonsClient() {
   }
 
   function handleContinueStudy(): void {
+    if (studyPhaseIndex + 1 < currentStudyPhases.length) {
+      setStudyPhaseIndex(studyPhaseIndex + 1);
+      return;
+    }
+
+    setStudyPhaseIndex(0);
+
     if (currentIndex + 1 < activeQueue.length) {
       setCurrentIndex(currentIndex + 1);
       return;
@@ -299,6 +314,7 @@ export function LessonsClient() {
       setSessionQueue([]);
       setCurrentIndex(0);
       setStep("study");
+      setStudyPhaseIndex(0);
       setQuizCardIndex(0);
       setQuizAnswer("");
       setQuizAnswers({});
@@ -489,8 +505,12 @@ export function LessonsClient() {
         <LessonStudyView
           lesson={currentLesson}
           displayMode={activeDisplayMode}
+          phase={currentStudyPhases[studyPhaseIndex] ?? "meaning"}
+          phaseIndex={studyPhaseIndex}
+          phases={currentStudyPhases}
           isLast={currentIndex === activeQueue.length - 1}
           onContinue={handleContinueStudy}
+          onPhaseChange={setStudyPhaseIndex}
         />
       ) : (
         <LessonQuizView
@@ -611,19 +631,52 @@ function LessonPicker({
 function LessonStudyView({
   lesson,
   displayMode,
+  phase,
+  phaseIndex,
+  phases,
   isLast,
   onContinue,
+  onPhaseChange,
 }: {
   readonly lesson: LessonQueueItem;
   readonly displayMode: TranslationDisplayMode;
+  readonly phase: LessonStudyPhase;
+  readonly phaseIndex: number;
+  readonly phases: readonly LessonStudyPhase[];
   readonly isLast: boolean;
   readonly onContinue: () => void;
+  readonly onPhaseChange: (index: number) => void;
 }) {
   const meaningCards = lesson.cards.filter((card) => card.answerType === "meaning");
   const readingCards = lesson.cards.filter((card) => card.answerType === "reading");
+  const mnemonicGroups = lesson.mnemonics.filter((group) =>
+    phase === "context" ? group.purpose === "story" : group.purpose === phase,
+  );
+  const hintGroups = lesson.hints.filter((group) =>
+    phase === "context" ? group.purpose === "usage" : group.purpose === phase,
+  );
+  const nextPhase = phases[phaseIndex + 1];
+  const showsMemory = mnemonicGroups.length > 0 || hintGroups.length > 0;
 
   return (
     <>
+      <div className="lesson-phase-tabs" role="tablist" aria-label="Этапы изучения">
+        {phases.map((candidate, index) => (
+          <button
+            aria-controls="lesson-study-phase"
+            aria-selected={phase === candidate}
+            id={`lesson-phase-${candidate}`}
+            key={candidate}
+            onClick={() => onPhaseChange(index)}
+            role="tab"
+            type="button"
+          >
+            <span>{index + 1}</span>
+            {formatStudyPhase(candidate)}
+          </button>
+        ))}
+      </div>
+
       <article className="lesson-hero panel">
         <div className="lesson-hero-main">
           <span className="eyebrow">{formatItemType(lesson.item.itemType)}</span>
@@ -639,7 +692,11 @@ function LessonStudyView({
         <dl className="lesson-facts">
           <div>
             <dt>Чтение</dt>
-            <dd>{lesson.item.reading ?? "нет"}</dd>
+            <dd>
+              {phase === "meaning" && phases.includes("reading")
+                ? "следующий этап"
+                : (lesson.item.reading ?? "нет")}
+            </dd>
           </div>
           <div>
             <dt>Уровень</dt>
@@ -652,26 +709,50 @@ function LessonStudyView({
         </dl>
       </article>
 
-      <div className="lesson-study-grid">
-        <section className="panel">
-          <h2>Объяснение</h2>
-          <p>
-            Изучаем {formatItemTypeLower(lesson.item.itemType)} как отдельный учебный материал.
-            После изучения всей группы обязательная проверка создаст расписание повторений для{" "}
-            {lesson.cards.length} {formatCardsCount(lesson.cards.length)} только при верных ответах.
-          </p>
-        </section>
+      <div
+        aria-labelledby={`lesson-phase-${phase}`}
+        className="lesson-study-grid"
+        id="lesson-study-phase"
+        role="tabpanel"
+      >
+        {phase === "meaning" ? (
+          <>
+            <section className="panel">
+              <h2>Объяснение</h2>
+              <p>
+                Изучаем {formatItemTypeLower(lesson.item.itemType)} как отдельный учебный материал.
+                После изучения всей группы обязательная проверка создаст расписание повторений для{" "}
+                {lesson.cards.length} {formatCardsCount(lesson.cards.length)} только при верных
+                ответах.
+              </p>
+            </section>
 
-        <section className="panel">
-          <h2>Значения</h2>
-          <TextList texts={collectCardAnswers(meaningCards, displayMode)} />
-        </section>
+            <section className="panel">
+              <h2>Значения</h2>
+              <TextList texts={collectCardAnswers(meaningCards, displayMode)} />
+            </section>
 
-        <section className="panel">
-          <h2>Чтения</h2>
-          {lesson.item.reading === null && readingCards.length === 0 ? (
-            <p className="muted">Для этого материала чтение не требуется.</p>
-          ) : (
+            <section className="panel lesson-wide-panel">
+              <h2>Связи</h2>
+              {lesson.unlockedBy.length === 0 ? (
+                <p className="muted">Материал доступен без предварительных компонентов.</p>
+              ) : (
+                <ul className="lesson-relation-list">
+                  {lesson.unlockedBy.map((item) => (
+                    <li key={item.id}>
+                      <JapaneseText>{item.japanese}</JapaneseText>
+                      <small>{formatTranslationBundle(item.translations, displayMode)}</small>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </>
+        ) : null}
+
+        {phase === "reading" ? (
+          <section className="panel lesson-wide-panel">
+            <h2>Чтения</h2>
             <TextList
               textKind="reading"
               texts={[
@@ -681,44 +762,34 @@ function LessonStudyView({
                 ...collectCardAnswers(readingCards, displayMode),
               ]}
             />
-          )}
-        </section>
+          </section>
+        ) : null}
 
-        <section className="panel">
-          <h2>Связи</h2>
-          {lesson.unlockedBy.length === 0 ? (
-            <p className="muted">Материал доступен без предварительных компонентов.</p>
-          ) : (
-            <ul className="lesson-relation-list">
-              {lesson.unlockedBy.map((item) => (
-                <li key={item.id}>
-                  <JapaneseText>{item.japanese}</JapaneseText>
-                  <small>{formatTranslationBundle(item.translations, displayMode)}</small>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="panel lesson-wide-panel">
-          <h2>Мнемоника и подсказка</h2>
-          <div className="lesson-memory-grid">
-            <div className="lesson-memory-column">
-              <h3>Мнемоники</h3>
-              <MemoryGroupList
-                displayMode={displayMode}
-                groups={lesson.mnemonics}
-                kind="mnemonic"
-              />
+        {showsMemory ? (
+          <section className="panel lesson-wide-panel">
+            <h2>Мнемоника и подсказка</h2>
+            <div className="lesson-memory-grid">
+              {mnemonicGroups.length === 0 ? null : (
+                <div className="lesson-memory-column">
+                  <h3>Мнемоники</h3>
+                  <MemoryGroupList
+                    displayMode={displayMode}
+                    groups={mnemonicGroups}
+                    kind="mnemonic"
+                  />
+                </div>
+              )}
+              {hintGroups.length === 0 ? null : (
+                <div className="lesson-memory-column">
+                  <h3>Подсказки</h3>
+                  <MemoryGroupList displayMode={displayMode} groups={hintGroups} kind="hint" />
+                </div>
+              )}
             </div>
-            <div className="lesson-memory-column">
-              <h3>Подсказки</h3>
-              <MemoryGroupList displayMode={displayMode} groups={lesson.hints} kind="hint" />
-            </div>
-          </div>
-        </section>
+          </section>
+        ) : null}
 
-        {lesson.exampleSentences.length === 0 ? null : (
+        {phase === "context" && lesson.exampleSentences.length > 0 ? (
           <section className="panel lesson-wide-panel">
             <h2>Примеры употребления</h2>
             <ul className="lesson-example-list">
@@ -736,12 +807,25 @@ function LessonStudyView({
               ))}
             </ul>
           </section>
-        )}
+        ) : null}
       </div>
 
       <div className="lesson-action-bar">
+        {phaseIndex === 0 ? null : (
+          <button
+            className="secondary-action"
+            onClick={() => onPhaseChange(phaseIndex - 1)}
+            type="button"
+          >
+            Предыдущий этап
+          </button>
+        )}
         <button className="primary-action" onClick={onContinue} type="button">
-          {isLast ? "Перейти к проверке" : "Следующий материал"}
+          {nextPhase === undefined
+            ? isLast
+              ? "Перейти к проверке"
+              : "Следующий материал"
+            : `Далее: ${formatStudyPhase(nextPhase)}`}
         </button>
       </div>
     </>
@@ -943,6 +1027,17 @@ function formatMemoryPurpose(
       return "Употребление";
     case "meaning":
       return kind === "mnemonic" ? "Значение" : "Пояснение значения";
+  }
+}
+
+function formatStudyPhase(phase: LessonStudyPhase): string {
+  switch (phase) {
+    case "meaning":
+      return "Значение";
+    case "reading":
+      return "Чтение";
+    case "context":
+      return "Контекст";
   }
 }
 
