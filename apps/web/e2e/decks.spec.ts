@@ -1,6 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
 
-import { type CreateTextDeckResponse } from "@kanji-srs/shared";
+import {
+  type CreateTextDeckResponse,
+  type DeckDetailsDto,
+  type DeckListResponse,
+} from "@kanji-srs/shared";
 
 const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
@@ -8,11 +12,12 @@ const ACCESS_TOKEN = "test-token";
 test.describe("dynamic text decks", () => {
   test("creates a deck from pasted Japanese text", async ({ page }) => {
     await signIn(page);
+    await mockSavedDecksApi(page, { decks: [] });
     const requestBody = await mockCreateTextDeckApi(page);
 
     await page.goto("/decks");
 
-    await expect(page.getByRole("heading", { name: "Колоды" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Колоды", exact: true })).toBeVisible();
     await page.getByLabel("Название").fill("Текст про школу");
     await page.getByLabel("Японский текст").fill("学校で学ぶ。");
     await page.getByRole("button", { name: "Создать колоду" }).click();
@@ -26,6 +31,26 @@ test.describe("dynamic text decks", () => {
       text: "学校で学ぶ。",
       maxItems: 80,
     });
+    await expect(page.getByRole("button", { name: "Открыть" })).toBeVisible();
+  });
+
+  test("opens a saved deck after returning to the page", async ({ page }) => {
+    await signIn(page);
+    await mockSavedDecksApi(page, savedDeckListResponse, savedDeckDetails);
+
+    await page.goto("/decks");
+
+    await expect(page.getByRole("heading", { name: "Сохранённые колоды" })).toBeVisible();
+    await expect(page.getByText("2 элемента · новых: 1")).toBeVisible();
+    await page.getByRole("button", { name: "Открыть" }).click();
+
+    const details = page.getByRole("region", { name: "Колода Новости на японском" });
+    await expect(details.getByRole("heading", { name: "Новости на японском" })).toBeVisible();
+    await expect(details.getByText("Сохранённая колода")).toBeVisible();
+    await expect(details.getByText("школа / school")).toBeVisible();
+
+    await details.getByRole("button", { name: "Закрыть" }).click();
+    await expect(details).toBeHidden();
   });
 });
 
@@ -65,6 +90,22 @@ async function mockCreateTextDeckApi(page: Page): Promise<() => unknown> {
   });
 
   return () => requestBody;
+}
+
+async function mockSavedDecksApi(
+  page: Page,
+  listResponse: DeckListResponse,
+  detailsResponse?: DeckDetailsDto,
+): Promise<void> {
+  await page.route(`${API_BASE_URL}/decks`, async (route) => {
+    await route.fulfill({ json: listResponse });
+  });
+
+  if (detailsResponse !== undefined) {
+    await page.route(`${API_BASE_URL}/decks/${detailsResponse.id}`, async (route) => {
+      await route.fulfill({ json: detailsResponse });
+    });
+  }
 }
 
 const createTextDeckResponse: CreateTextDeckResponse = {
@@ -115,4 +156,28 @@ const createTextDeckResponse: CreateTextDeckResponse = {
     matchedItemCount: 1,
     unmatchedCandidateCount: 3,
   },
+};
+
+const savedDeckDetails: DeckDetailsDto = {
+  ...createTextDeckResponse.deck,
+  id: "deck-saved",
+  title: "Новости на японском",
+  itemCount: 2,
+  newItemCount: 1,
+};
+
+const savedDeckListResponse: DeckListResponse = {
+  decks: [
+    {
+      id: savedDeckDetails.id,
+      title: savedDeckDetails.title,
+      description: savedDeckDetails.description,
+      status: savedDeckDetails.status,
+      itemCount: savedDeckDetails.itemCount,
+      newItemCount: savedDeckDetails.newItemCount,
+      translationDisplayMode: savedDeckDetails.translationDisplayMode,
+      createdAt: savedDeckDetails.createdAt,
+      updatedAt: savedDeckDetails.updatedAt,
+    },
+  ],
 };

@@ -89,3 +89,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 7. Task 47 (completed): add learner-controlled lesson picking and interleaving within prerequisites.
 8. Task 48 (completed): add optional recent-lesson, recent-mistake, and burned-item practice.
 9. Task 49 (completed): expose workload balance and level progress without copying another dashboard.
+10. Task 50 (completed): make saved text decks visible and reopenable after creation.

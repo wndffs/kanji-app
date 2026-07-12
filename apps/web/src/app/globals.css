@@ -1318,6 +1318,72 @@ textarea:focus-visible {
   gap: 18px;
 }
 
+.saved-decks-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.saved-decks-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.saved-decks-header h2 {
+  margin: 4px 0 0;
+}
+
+.saved-decks-header > strong {
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.saved-deck-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--surface-border);
+  list-style: none;
+}
+
+.saved-deck-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 68px;
+  border-bottom: 1px solid var(--surface-border);
+  padding: 12px 0;
+}
+
+.saved-deck-list li > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.saved-deck-list li strong {
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.saved-deck-list li span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.saved-deck-list .secondary-action {
+  width: 112px;
+}
+
+.saved-deck-list .secondary-action[aria-pressed="true"] {
+  border-color: var(--primary);
+  color: var(--primary-strong);
+}
+
 .deck-builder-panel {
   display: grid;
   gap: 14px;
@@ -1374,6 +1440,10 @@ textarea:focus-visible {
   margin: 4px 0 0;
   font-size: 24px;
   line-height: 1.18;
+}
+
+.deck-close-action {
+  margin-top: 16px;
 }
 
 .deck-item-list {
@@ -2808,6 +2878,14 @@ textarea:focus-visible {
 
   .workload-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .saved-deck-list li {
+    grid-template-columns: 1fr;
+  }
+
+  .saved-deck-list .secondary-action {
+    justify-self: start;
   }
 
   .kana-progress-summary,
