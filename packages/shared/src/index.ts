@@ -262,6 +262,22 @@ export type ReviewAnswerResponse = {
   readonly nextSrs: SrsStateSummaryDto;
 };
 
+export const PRACTICE_SOURCES = ["recent-lessons", "recent-mistakes", "burned"] as const;
+export type PracticeSource = (typeof PRACTICE_SOURCES)[number];
+
+export type PracticeQueueResponse = {
+  readonly source: PracticeSource;
+  readonly items: readonly ReviewQueueItem[];
+};
+
+export type PracticeAnswerRequest = {
+  readonly cardId: string;
+  readonly answer: string;
+  readonly answerType: CardAnswerType;
+};
+
+export type PracticeAnswerResponse = Omit<ReviewAnswerResponse, "previousSrs" | "nextSrs">;
+
 export type LessonQueueItem = {
   readonly item: ItemSummary;
   readonly cards: readonly LearningCardDto[];

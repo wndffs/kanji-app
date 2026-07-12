@@ -266,6 +266,64 @@ describe("ReviewsService", () => {
       ]),
     });
   });
+
+  it("returns source-specific optional practice queues", async () => {
+    const { service } = createHarness();
+
+    await expect(
+      service.getPracticeQueue(createUser("owner"), "recent-lessons"),
+    ).resolves.toMatchObject({
+      source: "recent-lessons",
+      items: expect.arrayContaining([
+        expect.objectContaining({ card: expect.objectContaining({ id: "card-meaning" }) }),
+      ]),
+    });
+    await expect(
+      service.getPracticeQueue(createUser("owner"), "recent-mistakes"),
+    ).resolves.toMatchObject({
+      source: "recent-mistakes",
+      items: [expect.objectContaining({ card: expect.objectContaining({ id: "card-late" }) })],
+    });
+    await expect(service.getPracticeQueue(createUser("owner"), "burned")).resolves.toMatchObject({
+      source: "burned",
+      items: [expect.objectContaining({ card: expect.objectContaining({ id: "card-burned" }) })],
+    });
+  });
+
+  it("validates practice answers without recording or changing SRS", async () => {
+    const { repository, service } = createHarness();
+    const previousState = { ...repository.getState("state-burned") };
+
+    await expect(
+      service.submitPracticeAnswer(createUser("owner"), {
+        cardId: "card-burned",
+        answer: "burned answer",
+        answerType: "meaning",
+      }),
+    ).resolves.toMatchObject({
+      cardId: "card-burned",
+      accepted: true,
+      result: "correct",
+      feedback: { message: "Ответ принят." },
+    });
+    expect(repository.recordedAnswers).toEqual([]);
+    expect(repository.getState("state-burned")).toEqual(previousState);
+  });
+
+  it("rejects unknown practice sources and cards owned by another user", async () => {
+    const { service } = createHarness();
+
+    await expect(service.getPracticeQueue(createUser("owner"), "all")).rejects.toThrow(
+      "source must be recent-lessons, recent-mistakes, or burned.",
+    );
+    await expect(
+      service.submitPracticeAnswer(createUser("other"), {
+        cardId: "card-burned",
+        answer: "burned answer",
+        answerType: "meaning",
+      }),
+    ).rejects.toThrow("Practice card not found.");
+  });
 });
 
 class InMemoryReviewsRepository extends ReviewsRepository {
@@ -292,6 +350,31 @@ class InMemoryReviewsRepository extends ReviewsRepository {
           record.state.availableAt.getTime() <= now.getTime(),
       )
       .slice(0, limit);
+  }
+
+  async listPracticeCards(
+    userId: string,
+    source: "recent-lessons" | "recent-mistakes" | "burned",
+    _since: Date,
+    limit: number,
+  ): Promise<readonly ReviewQueueRecord[]> {
+    const records = [...this.states.values()].filter((record) => record.state.userId === userId);
+    const selected =
+      source === "burned"
+        ? records.filter((record) => record.state.burnedAt !== null)
+        : source === "recent-mistakes"
+          ? records.filter((record) => record.card.id === "card-late")
+          : records.filter((record) => record.state.burnedAt === null);
+
+    return selected.slice(0, limit);
+  }
+
+  async findPracticeCard(userId: string, cardId: string): Promise<ReviewQueueRecord | null> {
+    return (
+      [...this.states.values()].find(
+        (record) => record.state.userId === userId && record.card.id === cardId,
+      ) ?? null
+    );
   }
 
   async createReviewSession(userId: string, now: Date): Promise<ReviewSessionRecord> {
@@ -518,7 +601,15 @@ function createCards(): Map<string, ReviewQueueRecord["card"]> {
       {
         ...base,
         id: "card-burned",
-        acceptedAnswers: [],
+        acceptedAnswers: [
+          {
+            locale: "en-US",
+            text: "burned answer",
+            normalizedText: "burned answer",
+            answerKind: "meaning",
+            isPrimary: true,
+          },
+        ],
         blockedAnswers: [],
       },
     ],

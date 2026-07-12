@@ -623,12 +623,54 @@ textarea:focus-visible {
 }
 
 .review-heading,
+.practice-heading,
 .review-session-header,
 .feedback-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
+}
+
+.practice-source-control {
+  width: fit-content;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.practice-source-control button {
+  min-height: 42px;
+  border: 0;
+  border-right: 1px solid var(--surface-border);
+  background: transparent;
+  color: var(--muted);
+  padding: 0 14px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.practice-source-control button:last-child {
+  border-right: 0;
+}
+
+.practice-source-control button[aria-selected="true"] {
+  background: var(--foreground);
+  color: var(--surface);
+}
+
+.practice-summary {
+  gap: 16px;
+}
+
+.practice-summary h2 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 0;
 }
 
 .review-queue-card {
@@ -2560,6 +2602,7 @@ textarea:focus-visible {
   .search-form,
   .search-result-card,
   .lesson-heading,
+  .practice-heading,
   .lesson-session-header,
   .lesson-hero,
   .review-heading,
@@ -2696,6 +2739,10 @@ textarea:focus-visible {
 
   .lesson-action-bar {
     justify-content: stretch;
+  }
+
+  .practice-source-control {
+    width: 100%;
   }
 
   .lesson-picker-header {

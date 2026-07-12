@@ -27,6 +27,10 @@ import {
   type DeckDetailsDto,
   type DeckListResponse,
   type LessonQueueResponse,
+  type PracticeAnswerRequest,
+  type PracticeAnswerResponse,
+  type PracticeQueueResponse,
+  type PracticeSource,
   type ReviewAnswerRequest,
   type ReviewAnswerResponse,
   type ReviewQueueItem,
@@ -359,6 +363,27 @@ export function finishLessonSession(
 
 export function getReviewQueue(token: string): Promise<ReviewQueueResponse> {
   return apiRequest<ReviewQueueResponse>("/reviews/queue", { token });
+}
+
+export function getPracticeQueue(
+  token: string,
+  source: PracticeSource,
+): Promise<PracticeQueueResponse> {
+  const params = new URLSearchParams({ source });
+  return apiRequest<PracticeQueueResponse>(`/reviews/practice/queue?${params.toString()}`, {
+    token,
+  });
+}
+
+export function submitPracticeAnswer(
+  token: string,
+  request: PracticeAnswerRequest,
+): Promise<PracticeAnswerResponse> {
+  return apiRequest<PracticeAnswerResponse>("/reviews/practice/answer", {
+    method: "POST",
+    token,
+    body: request,
+  });
 }
 
 export function createTextDeck(

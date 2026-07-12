@@ -10,4 +10,8 @@ describe("primaryNavigation", () => {
   it("links to kana onboarding from primary navigation", () => {
     expect(primaryNavigation).toContainEqual({ href: "/kana", label: "Кана" });
   });
+
+  it("links to optional practice from primary navigation", () => {
+    expect(primaryNavigation).toContainEqual({ href: "/practice", label: "Практика" });
+  });
 });

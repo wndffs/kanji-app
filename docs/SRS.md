@@ -63,6 +63,9 @@ Start simple:
 
 - Track wrongCount and correctStreak.
 - A card is a leech candidate if wrongCount is high and recent mistakes persist.
+- Optional practice for recent lessons, recent mistakes, and burned cards is
+  read-only with respect to SRS. Its answers do not change stages, due dates,
+  streaks, wrong counts, or review history.
 - Add API/UI later to show leeches and extra mnemonics.
 
 MVP leech score is deterministic and intentionally simple:

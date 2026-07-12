@@ -114,6 +114,15 @@ lesson-session table is introduced.
 - `POST /reviews/start`
 - `POST /reviews/:sessionId/answer`
 - `POST /reviews/:sessionId/finish`
+- `GET /reviews/practice/queue?source=recent-lessons|recent-mistakes|burned`
+- `POST /reviews/practice/answer`
+
+Practice queues contain at most 20 user-owned cards. Recent lessons use SRS
+states created in the last 14 days, recent mistakes use distinct cards with a
+wrong or revealed review in the last 30 days, and burned practice uses cards
+whose SRS state has `burnedAt` set. Practice answer validation reuses global,
+private, and blocked answer rules, but it creates no review session or answer
+record and never invokes SRS scheduling.
 
 `GET /reviews/queue` returns due, non-burned `LearningCard` prompts for the
 authenticated user and respects the user's `reviewBudget`. Queue cards expose

@@ -8,7 +8,13 @@ import {
   type UserSrsStateSnapshot,
 } from "@kanji-srs/srs";
 import {
+  DEFAULT_TRANSLATION_DISPLAY_MODE,
+  getContentLocalesForDisplayMode,
   type LocalizedTextDto,
+  type PracticeAnswerRequest,
+  type PracticeAnswerResponse,
+  type PracticeQueueResponse,
+  type PracticeSource,
   type ReviewAnswerResultType,
   type ReviewQueueItem,
   type SrsStateSummaryDto,
@@ -31,6 +37,9 @@ import {
 
 const DEFAULT_REVIEW_QUEUE_LIMIT = 100;
 const MAX_REVIEW_ANSWER_LENGTH = 500;
+const PRACTICE_QUEUE_LIMIT = 20;
+const RECENT_LESSON_DAYS = 14;
+const RECENT_MISTAKE_DAYS = 30;
 
 @Injectable()
 export class ReviewsService {
@@ -57,6 +66,65 @@ export class ReviewsService {
         id: session.id,
         startedAt: session.startedAt.toISOString(),
         mode: session.mode,
+      },
+    };
+  }
+
+  async getPracticeQueue(
+    user: CurrentUserDto,
+    sourceValue: unknown,
+  ): Promise<PracticeQueueResponse> {
+    const source = parsePracticeSource(sourceValue);
+    const now = new Date();
+    const since =
+      source === "recent-lessons"
+        ? addDays(now, -RECENT_LESSON_DAYS)
+        : source === "recent-mistakes"
+          ? addDays(now, -RECENT_MISTAKE_DAYS)
+          : new Date(0);
+    const records = await this.reviewsRepository.listPracticeCards(
+      user.id,
+      source,
+      since,
+      PRACTICE_QUEUE_LIMIT,
+    );
+
+    return {
+      source,
+      items: records.map(toReviewQueueItem),
+    };
+  }
+
+  async submitPracticeAnswer(user: CurrentUserDto, body: unknown): Promise<PracticeAnswerResponse> {
+    const request = parsePracticeAnswerRequest(body);
+    const target = await this.reviewsRepository.findPracticeCard(user.id, request.cardId);
+
+    if (target === null) {
+      throw new NotFoundException("Practice card not found.");
+    }
+
+    if (target.card.answerType !== request.answerType) {
+      throw new BadRequestException(`answerType must be ${target.card.answerType} for this card.`);
+    }
+
+    const validation = await this.overridesService.validateAnswerForUser({
+      userId: user.id,
+      cardId: request.cardId,
+      answerKind: request.answerType,
+      answer: request.answer,
+    });
+    const displayMode = user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE;
+
+    return {
+      cardId: target.card.id,
+      accepted: validation.accepted,
+      result: validation.result,
+      normalizedAnswer: validation.normalizedAnswer,
+      matchedAnswer: validation.matchedAnswer,
+      feedback: {
+        message: getFeedbackMessage(validation.result),
+        expected: toExpectedAnswersForDisplay(target, displayMode),
+        blockedReason: getBlockedReason(target, validation.matchedAnswer),
       },
     };
   }
@@ -211,6 +279,24 @@ function parseReviewAnswerRequest(body: unknown): ParsedReviewAnswerRequest {
     revealRequested: parseOptionalBoolean(record.revealRequested, "revealRequested"),
     manualIgnore: parseOptionalBoolean(record.manualIgnore, "manualIgnore"),
   };
+}
+
+function parsePracticeAnswerRequest(body: unknown): PracticeAnswerRequest {
+  const record = parseRecord(body);
+
+  return {
+    cardId: parseRequiredString(record.cardId, "cardId"),
+    answer: parseRequiredString(record.answer, "answer", MAX_REVIEW_ANSWER_LENGTH),
+    answerType: parseAnswerType(record.answerType),
+  };
+}
+
+function parsePracticeSource(value: unknown): PracticeSource {
+  if (value === "recent-lessons" || value === "recent-mistakes" || value === "burned") {
+    return value;
+  }
+
+  throw new BadRequestException("source must be recent-lessons, recent-mistakes, or burned.");
 }
 
 function parseRecord(value: unknown): ReviewAnswerRequestBody {
@@ -384,10 +470,23 @@ function toExpectedAnswers(target: ReviewAnswerTargetRecord): readonly Localized
   }));
 }
 
-function getBlockedReason(
-  target: ReviewAnswerTargetRecord,
-  matchedAnswer: string | null,
-): string | null {
+function toExpectedAnswersForDisplay(
+  target: ReviewQueueRecord,
+  displayMode: CurrentUserDto["settings"]["translationDisplayMode"],
+): readonly LocalizedTextDto[] {
+  const locales = getContentLocalesForDisplayMode(displayMode);
+
+  return target.card.acceptedAnswers
+    .filter((answer) => target.card.answerType === "reading" || locales.includes(answer.locale))
+    .map((answer) => ({
+      locale: answer.locale,
+      text: answer.text,
+      isPrimary: answer.isPrimary,
+      sourceKind: answer.sourceKind,
+    }));
+}
+
+function getBlockedReason(target: ReviewQueueRecord, matchedAnswer: string | null): string | null {
   if (matchedAnswer === null) {
     return null;
   }
@@ -410,4 +509,8 @@ function getFeedbackMessage(result: ReviewAnswerResultType): string {
     default:
       return "Ответ не принят.";
   }
+}
+
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1_000);
 }

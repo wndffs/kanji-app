@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
 
 import { AuthGuard } from "../auth/auth.guard";
 import { type CurrentUserDto } from "../auth/auth.types";
@@ -22,6 +22,21 @@ export class ReviewsController {
   @Post("start")
   startSession(@CurrentUser() currentUser: CurrentUserDto) {
     return this.reviewsService.startSession(currentUser);
+  }
+
+  @Get("practice/queue")
+  getPracticeQueue(
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Query("source") source: string | undefined,
+  ) {
+    return this.reviewsService.getPracticeQueue(currentUser, source);
+  }
+
+  @Post("practice/answer")
+  async submitPracticeAnswer(@CurrentUser() currentUser: CurrentUserDto, @Body() body: unknown) {
+    this.rateLimitService.assertAllowed("review-answer-user", currentUser.id);
+
+    return await this.reviewsService.submitPracticeAnswer(currentUser, body);
   }
 
   @Post(":sessionId/answer")

@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 
 import { type Prisma } from "@kanji-srs/db";
-import { type ContentLocale } from "@kanji-srs/shared";
+import { type ContentLocale, type PracticeSource } from "@kanji-srs/shared";
 
 import { PrismaService } from "../database/prisma.service";
 import {
@@ -22,6 +22,13 @@ export abstract class ReviewsRepository {
     now: Date,
     limit: number,
   ): Promise<readonly ReviewQueueRecord[]>;
+  abstract listPracticeCards(
+    userId: string,
+    source: PracticeSource,
+    since: Date,
+    limit: number,
+  ): Promise<readonly ReviewQueueRecord[]>;
+  abstract findPracticeCard(userId: string, cardId: string): Promise<ReviewQueueRecord | null>;
   abstract createReviewSession(userId: string, now: Date): Promise<ReviewSessionRecord>;
   abstract findAnswerTarget(
     userId: string,
@@ -49,6 +56,7 @@ type UserSrsStateRow = {
   readonly wrongCount: number;
   readonly correctStreak: number;
   readonly lastReviewedAt: Date | null;
+  readonly createdAt: Date;
   readonly srsSystem: {
     readonly stages: readonly SrsStageRow[];
   };
@@ -104,6 +112,10 @@ type ReviewSessionRow = {
   readonly mode: string;
 };
 
+type ReviewAnswerWithStateRow = {
+  readonly userSrsState: UserSrsStateRow;
+};
+
 type ComponentTargetRow = {
   readonly symbol: string;
 };
@@ -157,6 +169,64 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     })) as readonly UserSrsStateRow[];
 
     return Promise.all(states.map((state) => this.toQueueRecord(state)));
+  }
+
+  async listPracticeCards(
+    userId: string,
+    source: PracticeSource,
+    since: Date,
+    limit: number,
+  ): Promise<readonly ReviewQueueRecord[]> {
+    if (limit <= 0) {
+      return [];
+    }
+
+    if (source === "recent-mistakes") {
+      const attempts = (await this.prisma.db.reviewAnswer.findMany({
+        where: {
+          userSrsState: { userId },
+          answeredAt: { gte: since },
+          result: { in: ["WRONG", "REVEAL"] },
+        },
+        include: {
+          userSrsState: { include: stateInclude },
+        },
+        distinct: ["learningCardId"],
+        orderBy: [{ answeredAt: "desc" }, { id: "asc" }],
+        take: limit,
+      })) as readonly ReviewAnswerWithStateRow[];
+
+      return Promise.all(attempts.map((attempt) => this.toQueueRecord(attempt.userSrsState)));
+    }
+
+    const states = (await this.prisma.db.userSrsState.findMany({
+      where:
+        source === "recent-lessons"
+          ? { userId, createdAt: { gte: since } }
+          : { userId, burnedAt: { not: null } },
+      include: stateInclude,
+      orderBy:
+        source === "recent-lessons"
+          ? [{ createdAt: "desc" }, { id: "asc" }]
+          : [{ burnedAt: "desc" }, { id: "asc" }],
+      take: limit,
+    })) as readonly UserSrsStateRow[];
+
+    return Promise.all(states.map((state) => this.toQueueRecord(state)));
+  }
+
+  async findPracticeCard(userId: string, cardId: string): Promise<ReviewQueueRecord | null> {
+    const state = (await this.prisma.db.userSrsState.findUnique({
+      where: {
+        userId_learningCardId: {
+          userId,
+          learningCardId: cardId,
+        },
+      },
+      include: stateInclude,
+    })) as UserSrsStateRow | null;
+
+    return state === null ? null : this.toQueueRecord(state);
   }
 
   async createReviewSession(userId: string, now: Date): Promise<ReviewSessionRecord> {
