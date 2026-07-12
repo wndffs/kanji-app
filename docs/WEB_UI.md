@@ -47,6 +47,8 @@
   example text. Use a `ja-JP` system voice when available; do not bundle or
   claim attribution for synthesized audio.
 - Quick check.
+- Derive quiz order independently and deterministically from the server session
+  id, and keep the same remaining-item order after reload.
 - Add to SRS.
 
 ## Mobile requirements

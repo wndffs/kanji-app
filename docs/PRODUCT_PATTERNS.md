@@ -101,3 +101,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 19. Task 59 (completed): add browser-native Japanese speech to lesson readings and examples.
 20. Task 60 (completed): resume server-confirmed lesson groups and stages after reload.
 21. Task 61 (completed): safely abandon an active lesson without rolling back SRS progress.
+22. Task 62 (completed): use a stable shuffled order for required lesson quizzes.

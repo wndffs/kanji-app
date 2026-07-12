@@ -38,6 +38,7 @@ import {
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import { type LessonOrderMode, orderLessonSelection } from "../../lib/lesson-selection";
+import { buildLessonQuizQueue } from "../../lib/lesson-quiz";
 import {
   getLessonPronunciationText,
   getLessonStudyPhases,
@@ -133,11 +134,15 @@ export function LessonsClient() {
         active.session !== null && active.session.deckId === requestedDeckId;
 
       if (activeMatchesSource && active.session !== null && active.source !== null) {
+        const resumedItems =
+          active.session.phase === "quiz"
+            ? buildLessonQuizQueue(active.items, active.session.id)
+            : active.items;
         const resumedIndex = Math.max(
           0,
-          active.items.findIndex((lesson) => lesson.item.id === active.session?.currentItemId),
+          resumedItems.findIndex((lesson) => lesson.item.id === active.session?.currentItemId),
         );
-        const resumedLesson = active.items[resumedIndex] ?? active.items[0];
+        const resumedLesson = resumedItems[resumedIndex] ?? resumedItems[0];
         const resumedPhases =
           resumedLesson === undefined ? [] : getLessonStudyPhases(resumedLesson);
         const resumedPhaseIndex =
@@ -197,7 +202,11 @@ export function LessonsClient() {
     void loadQueue();
   }, [loadQueue]);
 
-  const activeQueue = sessionQueue;
+  const quizQueue = useMemo(
+    () => (session === null ? [] : buildLessonQuizQueue(sessionQueue, session.id)),
+    [session, sessionQueue],
+  );
+  const activeQueue = step === "quiz" ? quizQueue : sessionQueue;
   const selectedItemIdSet = useMemo(() => new Set(selectedItemIds), [selectedItemIds]);
   const selectedLessons = useMemo(
     () =>
@@ -335,7 +344,7 @@ export function LessonsClient() {
       return;
     }
 
-    const firstLesson = activeQueue[0];
+    const firstLesson = quizQueue[0];
     if (firstLesson !== undefined && (await persistStudyProgress(firstLesson.item.id, "quiz"))) {
       setStudyPhaseIndex(0);
       setCurrentIndex(0);
@@ -349,10 +358,10 @@ export function LessonsClient() {
   }
 
   useEffect(() => {
-    if (step === "quiz") {
+    if (step === "quiz" && !isCompleting) {
       quizInputRef.current?.focus();
     }
-  }, [currentIndex, quizCardIndex, step]);
+  }, [currentIndex, isCompleting, quizCardIndex, step]);
 
   useEffect(() => {
     cancelJapaneseSpeech();

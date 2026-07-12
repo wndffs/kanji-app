@@ -101,12 +101,12 @@ test.describe("lesson session", () => {
     await page.getByRole("button", { name: "Перейти к проверке" }).click();
 
     await expect(page.getByRole("heading", { name: "Обязательная проверка" })).toBeVisible();
-    await expect(page.getByLabel("Ваше значение")).toBeFocused();
-    await page.getByLabel("Ваше значение").fill("не один");
-    await page.keyboard.press("Enter");
-
     await expect(page.getByLabel("Ваше чтение")).toBeFocused();
     await page.getByLabel("Ваше чтение").fill("いち");
+    await page.keyboard.press("Enter");
+
+    await expect(page.getByLabel("Ваше значение")).toBeFocused();
+    await page.getByLabel("Ваше значение").fill("не один");
     await page.keyboard.press("Enter");
 
     await expect(page.getByRole("alert", { name: "Результат проверки" })).toBeVisible();
