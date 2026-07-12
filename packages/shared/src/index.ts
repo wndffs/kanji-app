@@ -349,6 +349,23 @@ export type DashboardLevelProgressDto = {
   readonly completedCards: number;
   readonly totalCards: number;
   readonly percent: number;
+  readonly cardPercent: number;
+};
+
+export type DashboardWorkloadDto = {
+  readonly reviews: {
+    readonly dueNow: number;
+    readonly next24Hours: number;
+    readonly laterThisWeek: number;
+    readonly budget: number;
+    readonly pressurePercent: number;
+  };
+  readonly lessons: {
+    readonly completedToday: number;
+    readonly remainingToday: number;
+    readonly dailyLimit: number;
+    readonly percent: number;
+  };
 };
 
 export type DashboardRecentReviewStatsDto = {
@@ -389,6 +406,7 @@ export type DashboardDto = {
     readonly currentLevel: number;
     readonly levelProgress: DashboardLevelProgressDto;
   } | null;
+  readonly workload: DashboardWorkloadDto;
   readonly reviewForecast: readonly ReviewForecastBucketDto[];
   readonly leechCandidates: readonly DashboardLeechCandidateDto[];
   readonly recentReviewStats: DashboardRecentReviewStatsDto;

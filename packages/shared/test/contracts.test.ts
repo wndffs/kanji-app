@@ -108,6 +108,21 @@ describe("shared DTO contracts", () => {
         leechCandidates: 0,
       },
       currentCourse: null,
+      workload: {
+        reviews: {
+          dueNow: 3,
+          next24Hours: 2,
+          laterThisWeek: 4,
+          budget: 20,
+          pressurePercent: 25,
+        },
+        lessons: {
+          completedToday: 1,
+          remainingToday: 9,
+          dailyLimit: 10,
+          percent: 10,
+        },
+      },
       reviewForecast: [],
       leechCandidates: [],
       recentReviewStats: {

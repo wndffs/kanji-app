@@ -88,4 +88,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 6. Task 46 (completed): tighten the main lesson batch and required quiz flow before SRS entry.
 7. Task 47 (completed): add learner-controlled lesson picking and interleaving within prerequisites.
 8. Task 48 (completed): add optional recent-lesson, recent-mistake, and burned-item practice.
-9. Task 49: expose workload balance and level progress without copying another dashboard.
+9. Task 49 (completed): expose workload balance and level progress without copying another dashboard.

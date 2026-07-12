@@ -14,6 +14,7 @@ import {
   type DashboardDto,
   type DashboardLevelProgressDto,
   type DashboardRecentReviewStatsDto,
+  type DashboardWorkloadDto,
   type ItemSummary,
   type LeechScoreDto,
   type ReviewForecastBucketDto,
@@ -40,6 +41,7 @@ const RECENT_REVIEW_STATS_DAYS = 7;
 const LEECH_RECENT_REVIEW_DAYS = 14;
 const MAX_DASHBOARD_LEECH_CANDIDATES = 5;
 const DEFAULT_DAILY_LESSON_LIMIT = 10;
+const DEFAULT_REVIEW_BUDGET = 100;
 
 @Injectable()
 export class DashboardService {
@@ -89,6 +91,7 @@ export class DashboardService {
         leechCandidates: leechCandidates.length,
       },
       currentCourse: currentCourse === null ? null : toCurrentCourseDto(currentCourse),
+      workload: toWorkloadDto(user, lessonProgress, forecastStates, dueReviews, now),
       reviewForecast: toReviewForecastDto(forecastStates, now, user.settings.timezone),
       leechCandidates: leechCandidates.slice(0, MAX_DASHBOARD_LEECH_CANDIDATES),
       recentReviewStats: toRecentReviewStatsDto(recentReviewCounts, recentSince),
@@ -265,10 +268,23 @@ function getRemainingDailyLessons(
   progress: readonly DashboardLessonProgressRecord[],
   now: Date,
 ): number {
-  const dailyLimit =
-    Number.isInteger(user.settings.dailyLessonLimit) && user.settings.dailyLessonLimit > 0
-      ? user.settings.dailyLessonLimit
-      : DEFAULT_DAILY_LESSON_LIMIT;
+  const dailyLimit = getDailyLessonLimit(user);
+  const completedToday = countCompletedLessonsToday(user, progress, now);
+
+  return Math.max(0, dailyLimit - completedToday);
+}
+
+function getDailyLessonLimit(user: CurrentUserDto): number {
+  return Number.isInteger(user.settings.dailyLessonLimit) && user.settings.dailyLessonLimit > 0
+    ? user.settings.dailyLessonLimit
+    : DEFAULT_DAILY_LESSON_LIMIT;
+}
+
+function countCompletedLessonsToday(
+  user: CurrentUserDto,
+  progress: readonly DashboardLessonProgressRecord[],
+  now: Date,
+): number {
   const today = getLocalDateKey(now, user.settings.timezone);
   const completedItemIds = new Set(
     progress
@@ -276,7 +292,7 @@ function getRemainingDailyLessons(
       .map((record) => record.learningItemId),
   );
 
-  return Math.max(0, dailyLimit - completedItemIds.size);
+  return completedItemIds.size;
 }
 
 function getLocalDateKey(date: Date, timezone: string): string {
@@ -320,6 +336,7 @@ function findCurrentLevelProgress(
       completedCards: 0,
       totalCards: 0,
       percent: 0,
+      cardPercent: 0,
     }
   );
 }
@@ -352,7 +369,56 @@ function toLevelProgress(level: DashboardCourseLevelProgressRecord): DashboardLe
     completedCards,
     totalCards,
     percent: totalItems === 0 ? 0 : Math.round((completedItems / totalItems) * 100),
+    cardPercent: totalCards === 0 ? 0 : Math.round((completedCards / totalCards) * 100),
   };
+}
+
+function toWorkloadDto(
+  user: CurrentUserDto,
+  lessonProgress: readonly DashboardLessonProgressRecord[],
+  forecastStates: readonly DashboardSrsStateRecord[],
+  dueNow: number,
+  now: Date,
+): DashboardWorkloadDto {
+  const next24HoursEnd = addDays(now, 1);
+  const forecastEnd = addDays(now, FORECAST_HORIZON_DAYS);
+  const next24Hours = countStatesBetween(forecastStates, now, next24HoursEnd);
+  const laterThisWeek = countStatesBetween(forecastStates, next24HoursEnd, forecastEnd);
+  const reviewBudget =
+    Number.isInteger(user.settings.reviewBudget) && user.settings.reviewBudget > 0
+      ? user.settings.reviewBudget
+      : DEFAULT_REVIEW_BUDGET;
+  const dailyLimit = getDailyLessonLimit(user);
+  const completedToday = countCompletedLessonsToday(user, lessonProgress, now);
+
+  return {
+    reviews: {
+      dueNow,
+      next24Hours,
+      laterThisWeek,
+      budget: reviewBudget,
+      pressurePercent: Math.min(100, Math.round(((dueNow + next24Hours) / reviewBudget) * 100)),
+    },
+    lessons: {
+      completedToday,
+      remainingToday: Math.max(0, dailyLimit - completedToday),
+      dailyLimit,
+      percent: Math.min(100, Math.round((completedToday / dailyLimit) * 100)),
+    },
+  };
+}
+
+function countStatesBetween(
+  states: readonly DashboardSrsStateRecord[],
+  startExclusive: Date,
+  endInclusive: Date,
+): number {
+  return states.filter(
+    (state) =>
+      state.availableAt !== null &&
+      state.availableAt.getTime() > startExclusive.getTime() &&
+      state.availableAt.getTime() <= endInclusive.getTime(),
+  ).length;
 }
 
 function isCompletedLessonItem(item: DashboardCourseItemProgressRecord): boolean {

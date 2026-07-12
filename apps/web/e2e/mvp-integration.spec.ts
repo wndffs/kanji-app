@@ -405,6 +405,22 @@ function buildDashboard(state: MvpApiState): DashboardDto {
         completedCards: state.lessonCompleted ? 1 : 0,
         totalCards: 1,
         percent: state.lessonCompleted ? 100 : 0,
+        cardPercent: state.lessonCompleted ? 100 : 0,
+      },
+    },
+    workload: {
+      reviews: {
+        dueNow: dueReviews,
+        next24Hours: 0,
+        laterThisWeek: 0,
+        budget: 100,
+        pressurePercent: dueReviews,
+      },
+      lessons: {
+        completedToday: state.lessonCompleted ? 1 : 0,
+        remainingToday: state.lessonCompleted ? 19 : 20,
+        dailyLimit: 20,
+        percent: state.lessonCompleted ? 5 : 0,
       },
     },
     reviewForecast:

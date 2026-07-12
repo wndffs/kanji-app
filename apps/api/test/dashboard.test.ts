@@ -46,6 +46,21 @@ describe("DashboardService", () => {
         leechCandidates: 0,
       },
       currentCourse: null,
+      workload: {
+        reviews: {
+          dueNow: 0,
+          next24Hours: 0,
+          laterThisWeek: 0,
+          budget: 20,
+          pressurePercent: 0,
+        },
+        lessons: {
+          completedToday: 0,
+          remainingToday: 10,
+          dailyLimit: 10,
+          percent: 0,
+        },
+      },
       reviewForecast: [],
       leechCandidates: [],
       recentReviewStats: {
@@ -106,6 +121,21 @@ describe("DashboardService", () => {
         dueCount: 1,
       },
     ]);
+    expect(dashboard.workload).toEqual({
+      reviews: {
+        dueNow: 1,
+        next24Hours: 1,
+        laterThisWeek: 0,
+        budget: 20,
+        pressurePercent: 10,
+      },
+      lessons: {
+        completedToday: 0,
+        remainingToday: 10,
+        dailyLimit: 10,
+        percent: 0,
+      },
+    });
     expect(dashboard.leechCandidates).toEqual([
       expect.objectContaining({
         item: expect.objectContaining({
@@ -180,6 +210,36 @@ describe("DashboardService", () => {
           completedCards: 2,
           totalCards: 3,
           percent: 50,
+          cardPercent: 67,
+        },
+      },
+    });
+  });
+
+  it("summarizes today's lesson capacity using distinct completed items", async () => {
+    const { repository, service } = createHarness();
+    repository.addLessonProgress({
+      userId: "owner",
+      learningItemId: "item-today",
+      learningCardId: "card-today-meaning",
+      stageIndex: 1,
+      createdAt: NOW,
+    });
+    repository.addLessonProgress({
+      userId: "owner",
+      learningItemId: "item-today",
+      learningCardId: "card-today-reading",
+      stageIndex: 1,
+      createdAt: NOW,
+    });
+
+    await expect(service.getDashboard(createUser("owner"))).resolves.toMatchObject({
+      workload: {
+        lessons: {
+          completedToday: 1,
+          remainingToday: 9,
+          dailyLimit: 10,
+          percent: 10,
         },
       },
     });

@@ -300,6 +300,17 @@ textarea:focus-visible {
   color: var(--muted);
 }
 
+.course-progress-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.course-progress-row strong {
+  font-size: 14px;
+}
+
 .progress-track {
   height: 12px;
   overflow: hidden;
@@ -312,6 +323,93 @@ textarea:focus-visible {
   height: 100%;
   border-radius: inherit;
   background: var(--success);
+}
+
+.progress-track-secondary span {
+  background: var(--primary);
+}
+
+.workload-panel {
+  gap: 18px;
+}
+
+.workload-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.workload-panel > header h2 {
+  margin-top: 4px;
+}
+
+.workload-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--surface-border);
+}
+
+.workload-block {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 18px 18px 0 0;
+}
+
+.workload-block + .workload-block {
+  border-left: 1px solid var(--surface-border);
+  padding-right: 0;
+  padding-left: 18px;
+}
+
+.workload-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.workload-value span {
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.workload-value strong {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.workload-track {
+  height: 10px;
+}
+
+.workload-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.workload-facts div {
+  min-width: 0;
+}
+
+.workload-facts dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.workload-facts dd {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 850;
+}
+
+.workload-lesson-facts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .forecast-list {
@@ -2587,6 +2685,7 @@ textarea:focus-visible {
 
   .dashboard-layout,
   .dashboard-heading,
+  .workload-grid,
   .admin-heading,
   .admin-layout,
   .admin-item-header,
@@ -2621,6 +2720,16 @@ textarea:focus-visible {
 
   .review-progress {
     justify-content: start;
+  }
+
+  .workload-block,
+  .workload-block + .workload-block {
+    border-left: 0;
+    padding: 16px 0 0;
+  }
+
+  .workload-block + .workload-block {
+    border-top: 1px solid var(--surface-border);
   }
 
   .admin-queue {
@@ -2690,6 +2799,15 @@ textarea:focus-visible {
   .review-queue-grid,
   .review-answer-bar {
     grid-template-columns: 1fr;
+  }
+
+  .workload-panel > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .workload-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .kana-progress-summary,

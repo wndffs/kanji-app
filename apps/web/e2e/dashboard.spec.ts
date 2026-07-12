@@ -34,7 +34,35 @@ test.describe("dashboard smoke", () => {
             burnedCards: 1,
             leechCandidates: 1,
           },
-          currentCourse: null,
+          currentCourse: {
+            id: "course-1",
+            title: "Базовый курс",
+            currentLevel: 3,
+            levelProgress: {
+              level: 3,
+              completedItems: 2,
+              totalItems: 4,
+              completedCards: 4,
+              totalCards: 6,
+              percent: 50,
+              cardPercent: 67,
+            },
+          },
+          workload: {
+            reviews: {
+              dueNow: 4,
+              next24Hours: 3,
+              laterThisWeek: 1,
+              budget: 100,
+              pressurePercent: 7,
+            },
+            lessons: {
+              completedToday: 2,
+              remainingToday: 18,
+              dailyLimit: 20,
+              percent: 10,
+            },
+          },
           reviewForecast: [
             {
               bucketKey: "2026-06-24T15:00",
@@ -122,6 +150,15 @@ test.describe("dashboard smoke", () => {
     await expect(page.getByTestId("forecast-bucket").nth(1)).toContainText("1");
     await expect(page.locator(".leech-list")).toContainText("困");
     await expect(page.locator(".leech-list")).toContainText("29");
+    await expect(page.getByRole("heading", { name: "Баланс нагрузки" })).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Нагрузка повторений 7%" })).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Дневной лимит уроков 10%" })).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Материалы уровня 50%" })).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Карточки уровня 67%" })).toBeVisible();
+    await expect(page.getByRole("main").getByRole("link", { name: "Практика" })).toHaveAttribute(
+      "href",
+      "/practice",
+    );
   });
 });
 

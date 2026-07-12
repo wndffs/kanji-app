@@ -137,6 +137,9 @@ function DashboardView({ dashboard }: { readonly dashboard: DashboardDto }) {
           <Link className="secondary-action" href="/lessons">
             Учить
           </Link>
+          <Link className="secondary-action" href="/practice">
+            Практика
+          </Link>
         </div>
       </div>
 
@@ -146,6 +149,8 @@ function DashboardView({ dashboard }: { readonly dashboard: DashboardDto }) {
         <MetricCard label="Сожжено" value={dashboard.counts.burnedCards} />
         <MetricCard label="Сложные" value={dashboard.counts.leechCandidates} />
       </section>
+
+      <WorkloadPanel workload={dashboard.workload} />
 
       <div className="dashboard-layout">
         <section className="panel">
@@ -158,8 +163,12 @@ function DashboardView({ dashboard }: { readonly dashboard: DashboardDto }) {
                 <strong>{course.title}</strong>
                 <span>Уровень {course.currentLevel}</span>
               </div>
+              <div className="course-progress-row">
+                <span>Материалы уровня</span>
+                <strong>{course.levelProgress.percent}%</strong>
+              </div>
               <div
-                aria-label={`Прогресс уровня ${course.levelProgress.percent}%`}
+                aria-label={`Материалы уровня ${course.levelProgress.percent}%`}
                 aria-valuemax={100}
                 aria-valuemin={0}
                 aria-valuenow={course.levelProgress.percent}
@@ -167,6 +176,20 @@ function DashboardView({ dashboard }: { readonly dashboard: DashboardDto }) {
                 role="progressbar"
               >
                 <span style={{ width: `${course.levelProgress.percent}%` }} />
+              </div>
+              <div className="course-progress-row">
+                <span>Карточки уровня</span>
+                <strong>{course.levelProgress.cardPercent}%</strong>
+              </div>
+              <div
+                aria-label={`Карточки уровня ${course.levelProgress.cardPercent}%`}
+                aria-valuemax={100}
+                aria-valuemin={0}
+                aria-valuenow={course.levelProgress.cardPercent}
+                className="progress-track progress-track-secondary"
+                role="progressbar"
+              >
+                <span style={{ width: `${course.levelProgress.cardPercent}%` }} />
               </div>
               <p className="muted">
                 {course.levelProgress.completedItems} из {course.levelProgress.totalItems} ·{" "}
@@ -251,6 +274,89 @@ function DashboardView({ dashboard }: { readonly dashboard: DashboardDto }) {
             </div>
           </dl>
         </section>
+      </div>
+    </section>
+  );
+}
+
+function WorkloadPanel({ workload }: { readonly workload: DashboardDto["workload"] }) {
+  const reviewsBeforeTomorrow = workload.reviews.dueNow + workload.reviews.next24Hours;
+
+  return (
+    <section className="panel workload-panel" aria-labelledby="workload-heading">
+      <header>
+        <div>
+          <span className="eyebrow">Сегодня</span>
+          <h2 id="workload-heading">Баланс нагрузки</h2>
+        </div>
+        <Link className="inline-link" href="/settings">
+          Настроить лимиты
+        </Link>
+      </header>
+      <div className="workload-grid">
+        <div className="workload-block">
+          <div className="workload-value">
+            <span>Повторения до завтра</span>
+            <strong>{reviewsBeforeTomorrow}</strong>
+          </div>
+          <div
+            aria-label={`Нагрузка повторений ${workload.reviews.pressurePercent}%`}
+            aria-valuemax={100}
+            aria-valuemin={0}
+            aria-valuenow={workload.reviews.pressurePercent}
+            className="progress-track workload-track"
+            role="progressbar"
+          >
+            <span style={{ width: `${workload.reviews.pressurePercent}%` }} />
+          </div>
+          <dl className="workload-facts">
+            <div>
+              <dt>Сейчас</dt>
+              <dd>{workload.reviews.dueNow}</dd>
+            </div>
+            <div>
+              <dt>24 часа</dt>
+              <dd>{workload.reviews.next24Hours}</dd>
+            </div>
+            <div>
+              <dt>Позже за 7 дней</dt>
+              <dd>{workload.reviews.laterThisWeek}</dd>
+            </div>
+            <div>
+              <dt>Лимит сессии</dt>
+              <dd>{workload.reviews.budget}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div className="workload-block">
+          <div className="workload-value">
+            <span>Новые материалы сегодня</span>
+            <strong>
+              {workload.lessons.completedToday} / {workload.lessons.dailyLimit}
+            </strong>
+          </div>
+          <div
+            aria-label={`Дневной лимит уроков ${workload.lessons.percent}%`}
+            aria-valuemax={100}
+            aria-valuemin={0}
+            aria-valuenow={workload.lessons.percent}
+            className="progress-track progress-track-secondary workload-track"
+            role="progressbar"
+          >
+            <span style={{ width: `${workload.lessons.percent}%` }} />
+          </div>
+          <dl className="workload-facts workload-lesson-facts">
+            <div>
+              <dt>Пройдено</dt>
+              <dd>{workload.lessons.completedToday}</dd>
+            </div>
+            <div>
+              <dt>Осталось</dt>
+              <dd>{workload.lessons.remainingToday}</dd>
+            </div>
+          </dl>
+        </div>
       </div>
     </section>
   );
