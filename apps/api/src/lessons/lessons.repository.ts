@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { type ContentLocale } from "@kanji-srs/shared";
+import { type ContentLocale, type SentenceDto, type SourceAttributionDto } from "@kanji-srs/shared";
 
 import { PrismaService } from "../database/prisma.service";
 import {
@@ -121,6 +121,29 @@ type BlockedAnswerRow = {
 type DependencyRow = {
   readonly prerequisiteItemId: string;
   readonly requiredStage: number | null;
+};
+
+type LessonSentenceDependencyRow = {
+  readonly prerequisiteItemId: string;
+  readonly learningItem: {
+    readonly targetId: string;
+  };
+};
+
+type LessonSentenceExampleRow = {
+  readonly id: string;
+  readonly japaneseText: string;
+  readonly readingText: string | null;
+  readonly translationRu: string | null;
+  readonly translationEn: string | null;
+  readonly difficulty: number | null;
+  readonly dataSource: {
+    readonly name: string;
+    readonly homepageUrl: string | null;
+    readonly attributionText: string;
+    readonly license: { readonly name: string };
+  } | null;
+  readonly license: { readonly name: string };
 };
 
 type ProgressRow = {
@@ -259,6 +282,12 @@ export class PrismaLessonsRepository extends LessonsRepository {
     })) as readonly EnrollmentRow[];
 
     const records: CourseLessonItemRecord[] = [];
+    const lessonItems = enrollments.flatMap((enrollment) =>
+      enrollment.course.levels.flatMap((level) => level.items.map((entry) => entry.learningItem)),
+    );
+    const examplesByItem = await this.findExampleSentencesByItem(
+      lessonItems.map((item) => item.id),
+    );
 
     for (const enrollment of enrollments) {
       for (const level of enrollment.course.levels) {
@@ -267,7 +296,10 @@ export class PrismaLessonsRepository extends LessonsRepository {
             courseId: enrollment.course.id,
             courseLevelNumber: level.levelNumber,
             sortOrder: item.sortOrder,
-            item: await this.toLessonItemRecord(item.learningItem),
+            item: await this.toLessonItemRecord(
+              item.learningItem,
+              examplesByItem.get(item.learningItem.id) ?? [],
+            ),
             unlockPolicy: isRecord(item.unlockPolicyJson) ? item.unlockPolicyJson : null,
           });
         }
@@ -325,6 +357,10 @@ export class PrismaLessonsRepository extends LessonsRepository {
       return null;
     }
 
+    const examplesByItem = await this.findExampleSentencesByItem(
+      deck.items.map((entry) => entry.learningItem.id),
+    );
+
     return {
       id: deck.id,
       title: deck.title,
@@ -332,7 +368,10 @@ export class PrismaLessonsRepository extends LessonsRepository {
       items: await Promise.all(
         deck.items.map(async (entry) => ({
           sortOrder: entry.sortOrder,
-          item: await this.toLessonItemRecord(entry.learningItem),
+          item: await this.toLessonItemRecord(
+            entry.learningItem,
+            examplesByItem.get(entry.learningItem.id) ?? [],
+          ),
         })),
       ),
     };
@@ -466,7 +505,10 @@ export class PrismaLessonsRepository extends LessonsRepository {
     return session === null ? null : toSessionRecord(session);
   }
 
-  private async toLessonItemRecord(item: LearningItemRow): Promise<LessonItemRecord> {
+  private async toLessonItemRecord(
+    item: LearningItemRow,
+    exampleSentences: readonly SentenceDto[],
+  ): Promise<LessonItemRecord> {
     const itemType = toItemKind(item.kind);
 
     return {
@@ -494,7 +536,83 @@ export class PrismaLessonsRepository extends LessonsRepository {
           }),
         ),
       ),
+      exampleSentences,
     };
+  }
+
+  private async findExampleSentencesByItem(
+    learningItemIds: readonly string[],
+  ): Promise<ReadonlyMap<string, readonly SentenceDto[]>> {
+    const uniqueItemIds = [...new Set(learningItemIds)];
+
+    if (uniqueItemIds.length === 0) {
+      return new Map();
+    }
+
+    const dependencies = (await this.prisma.db.dependency.findMany({
+      where: {
+        prerequisiteItemId: { in: uniqueItemIds },
+        dependencyType: "PREREQUISITE",
+        learningItem: { targetType: "SENTENCE", status: "PUBLISHED" },
+      },
+      select: {
+        prerequisiteItemId: true,
+        learningItem: { select: { targetId: true } },
+      },
+      orderBy: [
+        { prerequisiteItemId: "asc" },
+        { learningItem: { levelHint: "asc" } },
+        { learningItemId: "asc" },
+      ],
+    })) as readonly LessonSentenceDependencyRow[];
+    const sentenceIds = [
+      ...new Set(dependencies.map((dependency) => dependency.learningItem.targetId)),
+    ];
+
+    if (sentenceIds.length === 0) {
+      return new Map();
+    }
+
+    const sentences = (await this.prisma.db.sentence.findMany({
+      where: {
+        id: { in: sentenceIds },
+        translationRu: { not: null },
+        translationEn: { not: null },
+      },
+      include: {
+        dataSource: { include: { license: true } },
+        license: true,
+      },
+    })) as readonly LessonSentenceExampleRow[];
+    const sentenceById = new Map(sentences.map((sentence) => [sentence.id, sentence]));
+    const examplesByItem = new Map<string, SentenceDto[]>();
+
+    for (const dependency of dependencies) {
+      const sentence = sentenceById.get(dependency.learningItem.targetId);
+      const examples = examplesByItem.get(dependency.prerequisiteItemId) ?? [];
+
+      if (
+        sentence === undefined ||
+        sentence.translationRu === null ||
+        sentence.translationEn === null ||
+        examples.length >= 3
+      ) {
+        continue;
+      }
+
+      examples.push({
+        id: sentence.id,
+        japaneseText: sentence.japaneseText,
+        readingText: sentence.readingText,
+        translationRu: sentence.translationRu,
+        translationEn: sentence.translationEn,
+        difficulty: sentence.difficulty,
+        attribution: toSentenceAttribution(sentence),
+      });
+      examplesByItem.set(dependency.prerequisiteItemId, examples);
+    }
+
+    return examplesByItem;
   }
 
   private async findTarget(item: LearningItemRow): Promise<LessonTargetRecord> {
@@ -681,6 +799,24 @@ function toBlockedAnswerRecord(answer: BlockedAnswerRow): LessonBlockedAnswerRec
     locale: "ru-RU",
     text: answer.text,
     normalizedText: answer.normalizedText,
+  };
+}
+
+function toSentenceAttribution(sentence: LessonSentenceExampleRow): SourceAttributionDto {
+  if (sentence.dataSource === null) {
+    return {
+      sourceName: "Unknown sentence source",
+      licenseName: sentence.license.name,
+      attributionText: "",
+      sourceUrl: null,
+    };
+  }
+
+  return {
+    sourceName: sentence.dataSource.name,
+    licenseName: sentence.dataSource.license.name,
+    attributionText: sentence.dataSource.attributionText,
+    sourceUrl: sentence.dataSource.homepageUrl,
   };
 }
 

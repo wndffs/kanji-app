@@ -1222,6 +1222,36 @@ textarea:focus-visible {
   letter-spacing: 0;
 }
 
+.lesson-example-list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lesson-example-list li {
+  display: grid;
+  gap: 5px;
+  border-bottom: 1px solid var(--surface-border);
+  padding-bottom: 12px;
+}
+
+.lesson-example-list li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.lesson-example-list li > span,
+.lesson-example-list small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.lesson-example-list p {
+  color: var(--foreground);
+}
+
 .lesson-text-list,
 .lesson-relation-list {
   display: grid;

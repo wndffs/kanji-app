@@ -8,6 +8,7 @@ import {
   type ItemKind,
   type LessonQueueResponse,
   type LocalizedTextDto,
+  type SentenceDto,
   type StartLessonSessionResponse,
   type TranslationDisplayMode,
   type CompleteLessonItemResponse,
@@ -65,6 +66,7 @@ export type LessonItemRecord = {
   readonly dependencies: readonly LessonDependencyRecord[];
   readonly mnemonics: BilingualTextDto;
   readonly hints: BilingualTextDto;
+  readonly exampleSentences: readonly SentenceDto[];
 };
 
 export type CourseLessonItemRecord = {

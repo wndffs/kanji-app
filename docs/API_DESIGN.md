@@ -108,6 +108,11 @@ private `UserMnemonic` rows belonging only to the authenticated user. The web
 lesson filters those bilingual fields by the current translation display mode;
 private text is labelled separately and is never promoted to global content.
 
+The lesson repository also batch-loads up to three published bilingual example
+sentences per queued item through reverse prerequisite dependencies. Examples
+retain reading, difficulty, source name, and license attribution; the UI filters
+only their displayed translation, never their attribution.
+
 With `deckId`, the queue uses an active text deck owned by the authenticated
 user instead of the structured course. Deck order, dependency thresholds,
 existing SRS progress, and the same daily limit determine availability. The

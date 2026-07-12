@@ -81,7 +81,16 @@ describe("LessonsService", () => {
 
     await expect(service.getQueue(createUser("owner"))).resolves.toMatchObject({
       items: expect.arrayContaining([
-        expect.objectContaining({ item: expect.objectContaining({ id: "item-kanji-one" }) }),
+        expect.objectContaining({
+          item: expect.objectContaining({ id: "item-kanji-one" }),
+          exampleSentences: [
+            expect.objectContaining({
+              japaneseText: "一つください。",
+              translationRu: "Дайте один, пожалуйста.",
+              translationEn: "One, please.",
+            }),
+          ],
+        }),
       ]),
     });
 
@@ -669,6 +678,25 @@ function createItem(
         },
       ],
     },
+    exampleSentences:
+      id === "item-kanji-one"
+        ? [
+            {
+              id: "sentence-one-please",
+              japaneseText: "一つください。",
+              readingText: "ひとつください。",
+              translationRu: "Дайте один, пожалуйста.",
+              translationEn: "One, please.",
+              difficulty: 1,
+              attribution: {
+                sourceName: "Project examples",
+                licenseName: "LicenseRef-Project-Authored",
+                attributionText: "Project-authored example.",
+                sourceUrl: null,
+              },
+            },
+          ]
+        : [],
   };
 }
 

@@ -39,6 +39,9 @@ test.describe("lesson session", () => {
     await expect(page.getByText("Picture one long horizontal stroke.")).toBeVisible();
     await expect(page.getByText("Моя личная история про единицу.")).toBeVisible();
     await expect(page.getByText("RU · личное")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Примеры употребления" })).toBeVisible();
+    await expect(page.getByText("Дайте один, пожалуйста. / One, please.")).toBeVisible();
+    await expect(page.getByText("Project examples · LicenseRef-Project-Authored")).toBeVisible();
     await expect(page.getByText("компонент один")).toBeVisible();
 
     await page.getByRole("button", { name: "Перейти к проверке" }).click();
@@ -329,6 +332,22 @@ const lessonQueueItem: LessonQueueItem = {
     ru: [{ locale: "ru-RU", text: "Считайте от одного.", sourceKind: "curated" }],
     en: [{ locale: "en-US", text: "Count from one.", sourceKind: "curated" }],
   },
+  exampleSentences: [
+    {
+      id: "sentence-one-please",
+      japaneseText: "一つください。",
+      readingText: "ひとつください。",
+      translationRu: "Дайте один, пожалуйста.",
+      translationEn: "One, please.",
+      difficulty: 1,
+      attribution: {
+        sourceName: "Project examples",
+        licenseName: "LicenseRef-Project-Authored",
+        attributionText: "Project-authored example.",
+        sourceUrl: null,
+      },
+    },
+  ],
 };
 
 const optionalLessonQueueItem: LessonQueueItem = {

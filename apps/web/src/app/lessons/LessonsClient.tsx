@@ -715,6 +715,26 @@ function LessonStudyView({
             </div>
           </div>
         </section>
+
+        {lesson.exampleSentences.length === 0 ? null : (
+          <section className="panel lesson-wide-panel">
+            <h2>Примеры употребления</h2>
+            <ul className="lesson-example-list">
+              {lesson.exampleSentences.map((sentence) => (
+                <li key={sentence.id}>
+                  <JapaneseText variant="sentence">{sentence.japaneseText}</JapaneseText>
+                  {sentence.readingText === null ? null : <span>{sentence.readingText}</span>}
+                  <p>{formatLessonSentenceTranslation(sentence, displayMode)}</p>
+                  {sentence.attribution === null ? null : (
+                    <small>
+                      {sentence.attribution.sourceName} · {sentence.attribution.licenseName}
+                    </small>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
 
       <div className="lesson-action-bar">
@@ -889,6 +909,23 @@ function formatTranslationBundle(
   }
 
   return parts.length === 0 ? "перевод пока не добавлен" : parts.join(" / ");
+}
+
+function formatLessonSentenceTranslation(
+  sentence: LessonQueueItem["exampleSentences"][number],
+  displayMode: TranslationDisplayMode,
+): string {
+  const parts: string[] = [];
+
+  if ((displayMode === "ru" || displayMode === "ru-en") && sentence.translationRu !== null) {
+    parts.push(sentence.translationRu);
+  }
+
+  if ((displayMode === "en" || displayMode === "ru-en") && sentence.translationEn !== null) {
+    parts.push(sentence.translationEn);
+  }
+
+  return parts.join(" / ");
 }
 
 function formatItemType(itemType: LessonQueueItem["item"]["itemType"]): string {

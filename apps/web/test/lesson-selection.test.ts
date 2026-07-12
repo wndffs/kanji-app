@@ -54,6 +54,7 @@ function createLesson(id: string, itemType: ItemKind): LessonQueueItem {
     unlockedBy: [],
     mnemonics: { ru: [], en: [] },
     hints: { ru: [], en: [] },
+    exampleSentences: [],
   };
 }
 

@@ -678,6 +678,7 @@ const starterLessonQueueItem: LessonQueueItem = {
   unlockedBy: [starterComponentSummary],
   mnemonics: { ru: [], en: [] },
   hints: { ru: [], en: [] },
+  exampleSentences: [],
 };
 
 const completeStarterLessonItemResponse: CompleteLessonItemResponse = {

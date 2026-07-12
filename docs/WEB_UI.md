@@ -35,6 +35,8 @@
 - Show mnemonic/hint.
 - Show curated Russian/English mnemonic and hint content for the selected
   translation mode, with private user mnemonics labelled separately.
+- Show compact attributed usage examples when the lesson item has published
+  bilingual sentence dependencies.
 - Quick check.
 - Add to SRS.
 

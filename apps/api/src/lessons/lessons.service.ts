@@ -648,6 +648,7 @@ function toLessonQueueItem(
     unlockedBy: unlockedBy.map((prerequisite) => toItemSummary(prerequisite, displayMode)),
     mnemonics: item.mnemonics,
     hints: item.hints,
+    exampleSentences: item.exampleSentences,
   };
 }
 
