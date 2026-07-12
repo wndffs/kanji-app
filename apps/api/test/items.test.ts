@@ -217,6 +217,26 @@ describe("ItemsService", () => {
       },
     });
   });
+
+  it("returns bilingual attributed example sentences on item details", async () => {
+    const service = createService();
+
+    await expect(service.getItemDetails("item-word-school", null)).resolves.toMatchObject({
+      exampleSentences: [
+        {
+          id: "sentence-school",
+          japaneseText: "学校へ行きます。",
+          readingText: "がっこうへいきます。",
+          translationRu: "Я иду в школу.",
+          translationEn: "I go to school.",
+          attribution: {
+            sourceName: "Project examples",
+            licenseName: "LicenseRef-Project-Authored",
+          },
+        },
+      ],
+    });
+  });
 });
 
 class InMemoryItemsRepository extends ItemsRepository {
@@ -287,6 +307,7 @@ function createComponentItem(): ItemRecord {
     mnemonics: [],
     hints: [],
     relations: [],
+    exampleSentences: [],
     attributions: [],
     userOverrides: [],
     srs: null,
@@ -378,6 +399,7 @@ function createItems(): readonly ItemRecord[] {
       mnemonics: [],
       hints: [],
       relations: [],
+      exampleSentences: [],
       attributions: [
         {
           sourceName: "Fixture source",
@@ -412,6 +434,22 @@ function createItems(): readonly ItemRecord[] {
       mnemonics: [],
       hints: [],
       relations: [],
+      exampleSentences: [
+        {
+          id: "sentence-school",
+          japaneseText: "学校へ行きます。",
+          readingText: "がっこうへいきます。",
+          translationRu: "Я иду в школу.",
+          translationEn: "I go to school.",
+          difficulty: 1,
+          attribution: {
+            sourceName: "Project examples",
+            licenseName: "LicenseRef-Project-Authored",
+            attributionText: "Project-authored example.",
+            sourceUrl: null,
+          },
+        },
+      ],
       attributions: [],
       userOverrides: [],
       srs: null,

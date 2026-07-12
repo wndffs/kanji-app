@@ -166,6 +166,12 @@ summaries, and current-user private overrides when the request includes a valid
 bearer token. Normal learner responses expose attribution metadata only; raw
 import records stay out of public item/search responses.
 
+Item details also return at most five published bilingual example sentences
+whose sentence learning items depend on the requested material. Each example
+keeps its reading, difficulty, Russian and English translations, and source
+license attribution. Search summaries and nested dependency summaries do not
+load examples.
+
 Component item details expose `translations` as the learnable component meaning
 and a separate `componentDetails` object with bilingual `name` and
 `shapeDescription` bundles. A visual label such as "horizontal stroke" must not

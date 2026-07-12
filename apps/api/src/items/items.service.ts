@@ -34,6 +34,7 @@ export class ItemsService {
   async getItemDetails(id: string, currentUser: CurrentUserDto | null): Promise<ItemDetails> {
     const item = await this.itemsRepository.findItemById(id, {
       userId: currentUser?.id,
+      includeExamples: true,
     });
 
     if (item === null) {
@@ -55,6 +56,7 @@ export class ItemsService {
 
     const item = await this.itemsRepository.findKanjiItemByCharacter(normalizedCharacter, {
       userId: currentUser?.id,
+      includeExamples: true,
     });
 
     if (item === null) {
@@ -72,6 +74,7 @@ export class ItemsService {
     const displayMode = getDisplayMode(currentUser);
     const records = await this.itemsRepository.searchItems(params.query, {
       userId: currentUser?.id,
+      includeExamples: false,
     });
     const offset = (params.page - 1) * params.limit;
     const paginatedRecords = records.slice(offset, offset + params.limit);
@@ -162,7 +165,7 @@ function toItemDetails(item: ItemRecord, displayMode: TranslationDisplayMode): I
     }),
     mnemonics: groupTextsByLocale(item.mnemonics),
     hints: groupTextsByLocale(item.hints),
-    exampleSentences: [],
+    exampleSentences: item.exampleSentences,
     attributions: item.attributions,
     userOverrides: item.userOverrides.map(toUserOverrideDto),
     strokeGraphic: item.target.strokeGraphic,

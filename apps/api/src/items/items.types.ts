@@ -4,6 +4,7 @@ import {
   type ItemKind,
   type KanjiStrokeGraphicDto,
   type LocalizedTextDto,
+  type SentenceDto,
   type SourceAttributionDto,
   type SrsStateSummaryDto,
 } from "@kanji-srs/shared";
@@ -80,6 +81,7 @@ export type ItemRecord = {
   readonly mnemonics: readonly ItemTextRecord[];
   readonly hints: readonly ItemTextRecord[];
   readonly relations: readonly ItemRelationRecord[];
+  readonly exampleSentences: readonly SentenceDto[];
   readonly attributions: readonly SourceAttributionDto[];
   readonly userOverrides: readonly ItemUserOverrideRecord[];
   readonly srs: SrsStateSummaryDto | null;
@@ -87,6 +89,7 @@ export type ItemRecord = {
 
 export type ItemLookupOptions = {
   readonly userId?: string;
+  readonly includeExamples?: boolean;
 };
 
 export type SearchLookupOptions = ItemLookupOptions;

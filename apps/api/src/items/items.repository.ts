@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 
 import { calculateLeechScore, type LeechScoreResult } from "@kanji-srs/srs";
-import { type SrsStateSummaryDto } from "@kanji-srs/shared";
+import { type SourceAttributionDto, type SrsStateSummaryDto } from "@kanji-srs/shared";
 
 import { PrismaService } from "../database/prisma.service";
 import {
@@ -148,10 +148,12 @@ type WordRow = {
 };
 
 type SentenceRow = {
+  readonly id: string;
   readonly japaneseText: string;
   readonly readingText: string | null;
   readonly translationRu: string | null;
   readonly translationEn: string | null;
+  readonly difficulty: number | null;
   readonly sourceId: string | null;
   readonly dataSource: {
     readonly name: string;
@@ -163,6 +165,12 @@ type SentenceRow = {
   } | null;
   readonly license: {
     readonly name: string;
+  };
+};
+
+type SentenceDependencyRow = {
+  readonly learningItem: {
+    readonly targetId: string;
   };
 };
 
@@ -430,6 +438,8 @@ export class PrismaItemsRepository extends ItemsRepository {
     const cards = (item.cards ?? []).map(toCardRecord);
     const userOverrides = cards.flatMap((card) => card.userOverrides);
     const srs = await this.findItemSrsSummary(item.id, options.userId);
+    const exampleSentences =
+      options.includeExamples === false ? [] : await this.findExampleSentences(item.id);
 
     return {
       id: item.id,
@@ -445,6 +455,7 @@ export class PrismaItemsRepository extends ItemsRepository {
       ],
       hints: (item.hints ?? []).map(toTextRecord),
       relations,
+      exampleSentences,
       attributions,
       userOverrides,
       srs,
@@ -538,12 +549,78 @@ export class PrismaItemsRepository extends ItemsRepository {
           item: await this.toItemRecord(related, {
             ...options,
             relationDepth: options.relationDepth - 1,
+            includeExamples: false,
           }),
         });
       }
     }
 
     return relations;
+  }
+
+  private async findExampleSentences(learningItemId: string) {
+    const dependencies = (await this.prisma.db.dependency.findMany({
+      where: {
+        prerequisiteItemId: learningItemId,
+        dependencyType: "PREREQUISITE",
+        learningItem: {
+          targetType: "SENTENCE",
+          status: "PUBLISHED",
+        },
+      },
+      select: {
+        learningItem: {
+          select: { targetId: true },
+        },
+      },
+      orderBy: [{ learningItem: { levelHint: "asc" } }, { learningItemId: "asc" }],
+    })) as readonly SentenceDependencyRow[];
+    const targetIds = [
+      ...new Set(dependencies.map((dependency) => dependency.learningItem.targetId)),
+    ];
+
+    if (targetIds.length === 0) {
+      return [];
+    }
+
+    const sentences = (await this.prisma.db.sentence.findMany({
+      where: {
+        id: { in: targetIds },
+        translationRu: { not: null },
+        translationEn: { not: null },
+      },
+      include: {
+        dataSource: { include: { license: true } },
+        license: true,
+      },
+    })) as readonly SentenceRow[];
+    const sentenceById = new Map(sentences.map((sentence) => [sentence.id, sentence]));
+
+    return targetIds
+      .flatMap((id) => {
+        const sentence = sentenceById.get(id);
+
+        if (
+          sentence === undefined ||
+          sentence.translationRu === null ||
+          sentence.translationEn === null
+        ) {
+          return [];
+        }
+
+        return [
+          {
+            id: sentence.id,
+            japaneseText: sentence.japaneseText,
+            readingText: sentence.readingText,
+            translationRu: sentence.translationRu,
+            translationEn: sentence.translationEn,
+            difficulty: sentence.difficulty,
+            attribution: toSentenceAttribution(sentence),
+          },
+        ];
+      })
+      .slice(0, 5);
   }
 
   private async findTarget(item: LearningItemRow): Promise<ItemTargetRecord> {
@@ -713,24 +790,7 @@ export class PrismaItemsRepository extends ItemsRepository {
       componentDetails: null,
       sourceRecordIds: sentence.sourceId === null ? [] : [sentence.sourceId],
       strokeGraphic: null,
-      attributions:
-        sentence.dataSource === null
-          ? [
-              {
-                sourceName: "Unknown sentence source",
-                licenseName: sentence.license.name,
-                attributionText: "",
-                sourceUrl: null,
-              },
-            ]
-          : [
-              {
-                sourceName: sentence.dataSource.name,
-                licenseName: sentence.dataSource.license.name,
-                attributionText: sentence.dataSource.attributionText,
-                sourceUrl: sentence.dataSource.homepageUrl,
-              },
-            ],
+      attributions: [toSentenceAttribution(sentence)],
     };
   }
 
@@ -833,6 +893,24 @@ function toUserMnemonicTextRecord(text: UserMnemonicTextRow): ItemTextRecord {
     text: text.body,
     type: text.mnemonicType,
     sourceKind: "user",
+  };
+}
+
+function toSentenceAttribution(sentence: SentenceRow): SourceAttributionDto {
+  if (sentence.dataSource === null) {
+    return {
+      sourceName: "Unknown sentence source",
+      licenseName: sentence.license.name,
+      attributionText: "",
+      sourceUrl: null,
+    };
+  }
+
+  return {
+    sourceName: sentence.dataSource.name,
+    licenseName: sentence.dataSource.license.name,
+    attributionText: sentence.dataSource.attributionText,
+    sourceUrl: sentence.dataSource.homepageUrl,
   };
 }
 

@@ -94,3 +94,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 12. Task 52 (completed): remove overlapping substring noise with dictionary longest matching.
 13. Task 53 (completed): add reversible archive management for personal text decks.
 14. Task 54 (completed): show bilingual curated and private mnemonic content in lessons.
+15. Task 55 (completed): populate item pages with bilingual attributed example sentences.
