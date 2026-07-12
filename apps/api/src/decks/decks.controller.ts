@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Patch, Post, UseGuards } from "@nestjs/common";
 
 import { AuthGuard } from "../auth/auth.guard";
 import { type CurrentUserDto } from "../auth/auth.types";
@@ -23,5 +23,14 @@ export class DecksController {
   @Get(":deckId")
   getDeck(@CurrentUser() currentUser: CurrentUserDto, @Param("deckId") deckId: string) {
     return this.decksService.getDeck(currentUser, deckId);
+  }
+
+  @Patch(":deckId/status")
+  updateStatus(
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Param("deckId") deckId: string,
+    @Body() body: unknown,
+  ) {
+    return this.decksService.updateStatus(currentUser, deckId, body);
   }
 }

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { ApiError, apiRequest, createTextDeck, searchItems } from "../src/lib/api-client";
+import {
+  ApiError,
+  apiRequest,
+  createTextDeck,
+  searchItems,
+  updateDeckStatus,
+} from "../src/lib/api-client";
 
 describe("apiRequest", () => {
   it("sends JSON requests with bearer tokens", async () => {
@@ -100,6 +106,27 @@ describe("apiRequest", () => {
       JSON.stringify({ title: "Text deck", text: "学校", maxItems: 10 }),
     );
   });
+
+  it("updates a deck status through the typed API client", async () => {
+    let capturedInput: RequestInfo | URL | null = null;
+    let capturedInit: RequestInit | undefined;
+    const fetchImpl: typeof fetch = async (input, init) => {
+      capturedInput = input;
+      capturedInit = init;
+      return new Response(JSON.stringify({ id: "deck-1", status: "archived", items: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+
+    await expect(
+      updateDeckStatus("token-1", "deck-1", { status: "archived" }, fetchImpl),
+    ).resolves.toMatchObject({ id: "deck-1", status: "archived" });
+    expect(capturedInput).toBe("http://localhost:3001/decks/deck-1/status");
+    expect(capturedInit?.method).toBe("PATCH");
+    expect(capturedInit?.body).toBe(JSON.stringify({ status: "archived" }));
+  });
+
   it("searches items through the typed API client", async () => {
     let capturedInput: RequestInfo | URL | null = null;
     let capturedInit: RequestInit | undefined;

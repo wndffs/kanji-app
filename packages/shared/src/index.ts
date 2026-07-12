@@ -555,6 +555,10 @@ export type DeckListResponse = {
   readonly decks: readonly DeckDto[];
 };
 
+export type UpdateDeckStatusRequest = {
+  readonly status: Extract<DeckStatus, "active" | "archived">;
+};
+
 export type AdminReviewQueueItemDto = {
   readonly id: string;
   readonly itemType: ItemKind;

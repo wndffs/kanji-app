@@ -10,6 +10,7 @@ import {
   type ItemSummary,
   type TranslationBundleDto,
   type TranslationDisplayMode,
+  type UpdateDeckStatusRequest,
 } from "@kanji-srs/shared";
 
 import { type CurrentUserDto } from "../auth/auth.types";
@@ -102,6 +103,17 @@ export class DecksService {
     return toDeckDetailsDto(deck, getDisplayMode(user));
   }
 
+  async updateStatus(user: CurrentUserDto, deckId: string, body: unknown): Promise<DeckDetailsDto> {
+    const request = parseUpdateDeckStatusRequest(body);
+    const deck = await this.decksRepository.updateDeckStatus(user.id, deckId, request.status);
+
+    if (deck === null) {
+      throw new NotFoundException("Deck not found.");
+    }
+
+    return toDeckDetailsDto(deck, getDisplayMode(user));
+  }
+
   private async addPrerequisitePlans(
     itemPlans: Map<string, DeckItemPlan>,
     selectedMatches: readonly TextDeckMatchRecord[],
@@ -179,6 +191,20 @@ function parseCreateTextDeckRequest(body: unknown): ParsedCreateTextDeckRequest 
     title: parseTitle(record.title),
     maxItems: parseMaxItems(record.maxItems),
   };
+}
+
+function parseUpdateDeckStatusRequest(body: unknown): UpdateDeckStatusRequest {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    throw new BadRequestException("Request body must be a JSON object.");
+  }
+
+  const status = (body as Record<string, unknown>).status;
+
+  if (status !== "active" && status !== "archived") {
+    throw new BadRequestException("status must be active or archived.");
+  }
+
+  return { status };
 }
 
 function parseTitle(value: unknown): string {

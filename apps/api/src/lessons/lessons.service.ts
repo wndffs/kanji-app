@@ -91,7 +91,12 @@ export class LessonsService {
     }
 
     const now = new Date();
-    const { availableItems, displayMode } = await this.getAvailableItems(user, now, session.deckId);
+    const { availableItems, displayMode } = await this.getAvailableItems(
+      user,
+      now,
+      session.deckId,
+      true,
+    );
     const lessonItem = availableItems.find((candidate) => candidate.item.id === request.itemId);
 
     if (lessonItem === undefined) {
@@ -188,6 +193,7 @@ export class LessonsService {
     user: CurrentUserDto,
     now: Date,
     deckId: string | null,
+    allowArchivedDeck = false,
   ): Promise<{
     readonly availableItems: readonly AvailableLessonItem[];
     readonly displayMode: TranslationDisplayMode;
@@ -204,6 +210,10 @@ export class LessonsService {
       ]);
 
       if (deck === null) {
+        throw new NotFoundException("Deck not found.");
+      }
+
+      if (deck.status !== "active" && !(allowArchivedDeck && deck.status === "archived")) {
         throw new NotFoundException("Deck not found.");
       }
 

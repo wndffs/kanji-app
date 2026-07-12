@@ -32,6 +32,7 @@ test.describe("dynamic text decks", () => {
       "href",
       "/lessons?deckId=deck-1",
     );
+    await expect(page.getByRole("button", { name: "Архивировать" })).toBeVisible();
     expect(requestBody()).toMatchObject({
       title: "Текст про школу",
       text: "学校で学ぶ。",
@@ -58,6 +59,15 @@ test.describe("dynamic text decks", () => {
       "href",
       "/lessons?deckId=deck-saved",
     );
+
+    await details.getByRole("button", { name: "Архивировать" }).click();
+    await expect(details.getByText(/Колода в архиве/)).toBeVisible();
+    await expect(details.getByRole("link", { name: "Учить колоду" })).toHaveCount(0);
+    await expect(page.getByText("2 элемента · новых: 1 · архив")).toBeVisible();
+
+    await details.getByRole("button", { name: "Восстановить" }).click();
+    await expect(details.getByText(/Колода в архиве/)).toHaveCount(0);
+    await expect(details.getByRole("link", { name: "Учить колоду" })).toBeVisible();
 
     await details.getByRole("button", { name: "Закрыть" }).click();
     await expect(details).toBeHidden();
@@ -112,8 +122,19 @@ async function mockSavedDecksApi(
   });
 
   if (detailsResponse !== undefined) {
+    let currentDetails = detailsResponse;
+
     await page.route(`${API_BASE_URL}/decks/${detailsResponse.id}`, async (route) => {
-      await route.fulfill({ json: detailsResponse });
+      await route.fulfill({ json: currentDetails });
+    });
+    await page.route(`${API_BASE_URL}/decks/${detailsResponse.id}/status`, async (route) => {
+      const body = route.request().postDataJSON() as { readonly status: "active" | "archived" };
+      currentDetails = {
+        ...currentDetails,
+        status: body.status,
+        updatedAt: "2026-06-24T10:00:00.000Z",
+      };
+      await route.fulfill({ json: currentDetails });
     });
   }
 }

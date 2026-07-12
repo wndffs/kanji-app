@@ -37,6 +37,7 @@ import {
   type SearchResponseDto,
   type StartLessonSessionResponse,
   type TranslationDisplayMode,
+  type UpdateDeckStatusRequest,
   type UserMnemonicDto,
   type UserOverrideDto,
 } from "@kanji-srs/shared";
@@ -413,6 +414,20 @@ export function listDecks(token: string): Promise<DeckListResponse> {
 
 export function getDeck(token: string, deckId: string): Promise<DeckDetailsDto> {
   return apiRequest<DeckDetailsDto>(`/decks/${encodeURIComponent(deckId)}`, { token });
+}
+
+export function updateDeckStatus(
+  token: string,
+  deckId: string,
+  input: UpdateDeckStatusRequest,
+  fetchImpl?: typeof fetch,
+): Promise<DeckDetailsDto> {
+  return apiRequest<DeckDetailsDto>(`/decks/${encodeURIComponent(deckId)}/status`, {
+    method: "PATCH",
+    token,
+    body: input,
+    fetchImpl,
+  });
 }
 
 export function startReviewSession(token: string): Promise<StartReviewSessionResponse> {

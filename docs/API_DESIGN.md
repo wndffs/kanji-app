@@ -196,7 +196,7 @@ accepted answer.
 - `POST /decks/from-text`
 - `GET /decks`
 - `GET /decks/:id`
-- `POST /decks/:id/enroll`
+- `PATCH /decks/:id/status`
 
 `POST /decks/from-text` uses local dictionary longest matching: it splits
 contiguous Japanese text runs, emits exact substrings up to eight characters,
@@ -206,6 +206,13 @@ then frequency and stable id; distinct kanji matches remain available for the
 prerequisite path. The response reports discarded overlaps. This process calls
 no external API and does not claim to provide deinflection or full Japanese
 morphological analysis.
+
+`PATCH /decks/:id/status` accepts owner-scoped `{ status: "active" | "archived" }`.
+Archiving is reversible and preserves deck items and SRS progress. Archived
+decks remain readable in the personal library but cannot be used as a lesson
+source until restored. A lesson session validated before archival may finish
+its current quiz, so changing library status in another tab cannot strand an
+in-progress session.
 
 ### Admin
 

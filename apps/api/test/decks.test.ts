@@ -159,6 +159,22 @@ describe("DecksService", () => {
     );
     await expect(service.listDecks(createUser("other"))).resolves.toEqual({ decks: [] });
   });
+
+  it("archives and restores only the owner's deck", async () => {
+    const repository = new InMemoryDecksRepository();
+    const service = new DecksService(repository);
+    const created = await service.createFromText(createUser("owner"), { text: "学校" });
+
+    await expect(
+      service.updateStatus(createUser("owner"), created.deck.id, { status: "archived" }),
+    ).resolves.toMatchObject({ status: "archived" });
+    await expect(
+      service.updateStatus(createUser("owner"), created.deck.id, { status: "active" }),
+    ).resolves.toMatchObject({ status: "active" });
+    await expect(
+      service.updateStatus(createUser("other"), created.deck.id, { status: "archived" }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
 });
 
 class InMemoryDecksRepository extends DecksRepository {
@@ -278,6 +294,22 @@ class InMemoryDecksRepository extends DecksRepository {
     const deck = this.decks.get(deckId);
 
     return deck === undefined || deck.ownerUserId !== ownerUserId ? null : deck;
+  }
+
+  async updateDeckStatus(
+    ownerUserId: string,
+    deckId: string,
+    status: "active" | "archived",
+  ): Promise<TextDeckRecord | null> {
+    const deck = await this.findDeckForOwner(ownerUserId, deckId);
+
+    if (deck === null) {
+      return null;
+    }
+
+    const updated = { ...deck, status, updatedAt: NOW };
+    this.decks.set(deckId, updated);
+    return updated;
   }
 }
 

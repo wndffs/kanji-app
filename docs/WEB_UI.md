@@ -11,7 +11,7 @@
 - `/items/[id]`.
 - `/kanji/[character]`.
 - `/search`.
-- `/decks` for creating text decks and reopening saved personal decks.
+- `/decks` for creating, reopening, studying, archiving, and restoring personal text decks.
 - `/settings`.
 - `/admin`.
 

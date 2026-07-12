@@ -76,6 +76,7 @@ export type CourseLessonItemRecord = {
 export type DeckLessonRecord = {
   readonly id: string;
   readonly title: string;
+  readonly status: "draft" | "active" | "archived";
   readonly items: readonly {
     readonly sortOrder: number;
     readonly item: LessonItemRecord;

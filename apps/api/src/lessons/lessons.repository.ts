@@ -62,6 +62,7 @@ type CourseLevelItemRow = {
 type DeckRow = {
   readonly id: string;
   readonly title: string;
+  readonly status: string;
   readonly items: readonly {
     readonly sortOrder: number;
     readonly learningItem: LearningItemRow;
@@ -253,7 +254,6 @@ export class PrismaLessonsRepository extends LessonsRepository {
       where: {
         id: deckId,
         ownerUserId: userId,
-        status: "ACTIVE",
       },
       include: {
         items: {
@@ -290,6 +290,7 @@ export class PrismaLessonsRepository extends LessonsRepository {
     return {
       id: deck.id,
       title: deck.title,
+      status: toDeckLessonStatus(deck.status),
       items: await Promise.all(
         deck.items.map(async (entry) => ({
           sortOrder: entry.sortOrder,
@@ -580,6 +581,17 @@ function toSessionRecord(row: SessionRow): LessonSessionRecord {
     mode: "lesson",
     deckId,
   };
+}
+
+function toDeckLessonStatus(status: string): DeckLessonRecord["status"] {
+  switch (status) {
+    case "ACTIVE":
+      return "active";
+    case "ARCHIVED":
+      return "archived";
+    default:
+      return "draft";
+  }
 }
 
 function toCardRecord(

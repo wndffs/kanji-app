@@ -29,6 +29,11 @@ export abstract class DecksRepository {
   abstract createTextDeck(input: CreateTextDeckInput): Promise<TextDeckRecord>;
   abstract listDecks(ownerUserId: string): Promise<readonly TextDeckListRecord[]>;
   abstract findDeckForOwner(ownerUserId: string, deckId: string): Promise<TextDeckRecord | null>;
+  abstract updateDeckStatus(
+    ownerUserId: string,
+    deckId: string,
+    status: "active" | "archived",
+  ): Promise<TextDeckRecord | null>;
 }
 
 type LearningItemRow = {
@@ -246,6 +251,19 @@ export class PrismaDecksRepository extends DecksRepository {
     }
 
     return toDeckRecord(deck, items, startedItemIds);
+  }
+
+  async updateDeckStatus(
+    ownerUserId: string,
+    deckId: string,
+    status: "active" | "archived",
+  ): Promise<TextDeckRecord | null> {
+    const result = await this.prisma.db.deck.updateMany({
+      where: { id: deckId, ownerUserId },
+      data: { status: status === "active" ? "ACTIVE" : "ARCHIVED" },
+    });
+
+    return result.count === 0 ? null : this.findDeckForOwner(ownerUserId, deckId);
   }
 
   private async findWordMatches(

@@ -323,12 +323,37 @@ describe("LessonsService", () => {
       }),
     ).rejects.toThrow("Lesson item is not currently available.");
   });
+
+  it("finishes an existing deck lesson after the deck is archived", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const service = new LessonsService(repository, createOverridesService());
+    const session = await service.startSession(createUser("owner"), { deckId: "deck-study" });
+
+    repository.setDeckStatus("archived");
+
+    await expect(
+      service.completeItem(session.session.id, createUser("owner"), {
+        itemId: "item-component-one",
+        answers: [
+          {
+            cardId: "card-component-one",
+            answerType: "meaning",
+            answer: "study",
+          },
+        ],
+      }),
+    ).resolves.toMatchObject({ passed: true, createdSrsStateCount: 1 });
+    await expect(service.getQueue(createUser("owner"), "deck-study")).rejects.toThrow(
+      "Deck not found.",
+    );
+  });
 });
 
 class InMemoryLessonsRepository extends LessonsRepository {
   private readonly courseItems: readonly CourseLessonItemRecord[];
   private readonly progress: UserItemProgressRecord[];
   private readonly sessions = new Map<string, LessonSessionRecord>();
+  private deckStatus: DeckLessonRecord["status"] = "active";
   private nextSessionId = 1;
 
   constructor(options: { readonly courseItems?: readonly CourseLessonItemRecord[] } = {}) {
@@ -342,7 +367,7 @@ class InMemoryLessonsRepository extends LessonsRepository {
   }
 
   async findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null> {
-    return userId === "owner" && deckId === "deck-study" ? createDeckLesson() : null;
+    return userId === "owner" && deckId === "deck-study" ? createDeckLesson(this.deckStatus) : null;
   }
 
   async listUserProgress(userId: string): Promise<readonly UserItemProgressRecord[]> {
@@ -480,6 +505,10 @@ class InMemoryLessonsRepository extends LessonsRepository {
   listProgressFor(userId: string, itemId: string): readonly UserItemProgressRecord[] {
     return this.progress.filter((record) => record.learningItemId === `${userId}:${itemId}`);
   }
+
+  setDeckStatus(status: DeckLessonRecord["status"]): void {
+    this.deckStatus = status;
+  }
 }
 
 function createService(
@@ -528,12 +557,13 @@ function createCourseItems(): readonly CourseLessonItemRecord[] {
   return items;
 }
 
-function createDeckLesson(): DeckLessonRecord {
+function createDeckLesson(status: DeckLessonRecord["status"]): DeckLessonRecord {
   const courseItems = createCourseItems();
 
   return {
     id: "deck-study",
     title: "Study text",
+    status,
     items: courseItems
       .filter((entry) => ["item-component-one", "item-kanji-one"].includes(entry.item.id))
       .map((entry) => ({ sortOrder: entry.sortOrder, item: entry.item })),

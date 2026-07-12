@@ -14,7 +14,13 @@ import {
 } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
-import { ApiError, createTextDeck, getDeck, listDecks } from "../../lib/api-client";
+import {
+  ApiError,
+  createTextDeck,
+  getDeck,
+  listDecks,
+  updateDeckStatus,
+} from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
@@ -37,11 +43,19 @@ type SelectedDeckState =
   | { readonly status: "error"; readonly deckId: string; readonly message: string }
   | { readonly status: "ready"; readonly deck: DeckDetailsDto };
 
+type DeckStatusUpdateState =
+  | { readonly status: "idle" }
+  | { readonly status: "updating"; readonly deckId: string }
+  | { readonly status: "error"; readonly deckId: string; readonly message: string };
+
 export function DecksClient() {
   const displayMode = useTranslationDisplayMode();
   const [state, setState] = useState<DecksState>({ status: "checking" });
   const [savedDecks, setSavedDecks] = useState<SavedDecksState>({ status: "idle" });
   const [selectedDeck, setSelectedDeck] = useState<SelectedDeckState>({ status: "idle" });
+  const [deckStatusUpdate, setDeckStatusUpdate] = useState<DeckStatusUpdateState>({
+    status: "idle",
+  });
   const [title, setTitle] = useState("");
   const [sourceText, setSourceText] = useState("");
   const [maxItems, setMaxItems] = useState(80);
@@ -115,6 +129,7 @@ export function DecksClient() {
     const requestId = selectedDeckRequest.current + 1;
     selectedDeckRequest.current = requestId;
     setResult(null);
+    setDeckStatusUpdate({ status: "idle" });
     setSelectedDeck({ status: "loading", deckId });
 
     try {
@@ -138,6 +153,52 @@ export function DecksClient() {
         status: "error",
         deckId,
         message: error instanceof Error ? error.message : "Не удалось открыть колоду.",
+      });
+    }
+  }
+
+  async function handleDeckStatusChange(deck: DeckDetailsDto): Promise<void> {
+    if (state.status !== "ready" || deckStatusUpdate.status === "updating") {
+      return;
+    }
+
+    const nextStatus = deck.status === "archived" ? "active" : "archived";
+    setDeckStatusUpdate({ status: "updating", deckId: deck.id });
+
+    try {
+      const updated = await updateDeckStatus(state.token, deck.id, { status: nextStatus });
+      setSelectedDeck((current) =>
+        current.status === "ready" && current.deck.id === updated.id
+          ? { status: "ready", deck: updated }
+          : current,
+      );
+      setResult((current) =>
+        current?.deck.id === updated.id ? { ...current, deck: updated } : current,
+      );
+      setSavedDecks((current) =>
+        current.status === "ready"
+          ? {
+              status: "ready",
+              decks: sortDeckSummaries(
+                current.decks.map((candidate) =>
+                  candidate.id === updated.id ? toDeckSummary(updated) : candidate,
+                ),
+              ),
+            }
+          : current,
+      );
+      setDeckStatusUpdate({ status: "idle" });
+    } catch (error: unknown) {
+      if (error instanceof ApiError && error.status === 401) {
+        clearStoredSession();
+        setState({ status: "unauthenticated" });
+        return;
+      }
+
+      setDeckStatusUpdate({
+        status: "error",
+        deckId: deck.id,
+        message: error instanceof Error ? error.message : "Не удалось изменить статус колоды.",
       });
     }
   }
@@ -239,10 +300,21 @@ export function DecksClient() {
         <DeckDetailsResult
           deck={selectedDeck.deck}
           displayMode={displayMode}
+          isStatusUpdating={
+            deckStatusUpdate.status === "updating" &&
+            deckStatusUpdate.deckId === selectedDeck.deck.id
+          }
           onClose={() => {
             selectedDeckRequest.current += 1;
+            setDeckStatusUpdate({ status: "idle" });
             setSelectedDeck({ status: "idle" });
           }}
+          onStatusChange={() => void handleDeckStatusChange(selectedDeck.deck)}
+          statusError={
+            deckStatusUpdate.status === "error" && deckStatusUpdate.deckId === selectedDeck.deck.id
+              ? deckStatusUpdate.message
+              : null
+          }
         />
       ) : null}
 
@@ -299,7 +371,21 @@ export function DecksClient() {
         {formError === null ? null : <p className="form-error">{formError}</p>}
       </form>
 
-      {result === null ? null : <TextDeckResult result={result} displayMode={displayMode} />}
+      {result === null ? null : (
+        <TextDeckResult
+          displayMode={displayMode}
+          isStatusUpdating={
+            deckStatusUpdate.status === "updating" && deckStatusUpdate.deckId === result.deck.id
+          }
+          onStatusChange={() => void handleDeckStatusChange(result.deck)}
+          result={result}
+          statusError={
+            deckStatusUpdate.status === "error" && deckStatusUpdate.deckId === result.deck.id
+              ? deckStatusUpdate.message
+              : null
+          }
+        />
+      )}
     </section>
   );
 }
@@ -337,7 +423,7 @@ function SavedDecksPanel({
 
       {state.status === "ready" && state.decks.length > 0 ? (
         <ul className="saved-deck-list">
-          {state.decks.map((deck) => {
+          {sortDeckSummaries(state.decks).map((deck) => {
             const isSelected =
               (selectedDeck.status === "ready" && selectedDeck.deck.id === deck.id) ||
               (selectedDeck.status === "loading" && selectedDeck.deckId === deck.id) ||
@@ -348,7 +434,8 @@ function SavedDecksPanel({
                 <div>
                   <strong>{deck.title}</strong>
                   <span>
-                    {formatDeckCount(deck.itemCount)} · новых: {deck.newItemCount}
+                    {formatDeckCount(deck.itemCount)} · новых: {deck.newItemCount} ·{" "}
+                    {deck.status === "archived" ? "архив" : "активна"}
                   </span>
                 </div>
                 <button
@@ -380,14 +467,23 @@ function SavedDecksPanel({
 function TextDeckResult({
   result,
   displayMode,
+  onStatusChange,
+  isStatusUpdating,
+  statusError,
 }: {
   readonly result: CreateTextDeckResponse;
   readonly displayMode: TranslationDisplayMode;
+  readonly onStatusChange: () => void;
+  readonly isStatusUpdating: boolean;
+  readonly statusError: string | null;
 }) {
   return (
     <DeckDetailsResult
       deck={result.deck}
       displayMode={displayMode}
+      isStatusUpdating={isStatusUpdating}
+      onStatusChange={onStatusChange}
+      statusError={statusError}
       tokenization={result.tokenization}
     />
   );
@@ -398,11 +494,17 @@ function DeckDetailsResult({
   displayMode,
   tokenization,
   onClose,
+  onStatusChange,
+  isStatusUpdating = false,
+  statusError = null,
 }: {
   readonly deck: DeckDetailsDto;
   readonly displayMode: TranslationDisplayMode;
   readonly tokenization?: CreateTextDeckResponse["tokenization"];
   readonly onClose?: () => void;
+  readonly onStatusChange?: () => void;
+  readonly isStatusUpdating?: boolean;
+  readonly statusError?: string | null;
 }) {
   return (
     <section className="deck-result" aria-label={`Колода ${deck.title}`}>
@@ -431,16 +533,50 @@ function DeckDetailsResult({
             {tokenization.discardedOverlapCount}.
           </p>
         )}
+        {deck.status === "archived" ? (
+          <p className="muted deck-status-note">
+            Колода в архиве. Восстановите её, чтобы снова запускать уроки.
+          </p>
+        ) : null}
         <div className="action-row deck-result-actions">
-          <Link className="primary-action" href={`/lessons?deckId=${encodeURIComponent(deck.id)}`}>
-            Учить колоду
-          </Link>
+          {deck.status === "active" ? (
+            <Link
+              className="primary-action"
+              href={`/lessons?deckId=${encodeURIComponent(deck.id)}`}
+            >
+              Учить колоду
+            </Link>
+          ) : null}
+          {onStatusChange === undefined ? null : (
+            <button
+              className="secondary-action"
+              disabled={isStatusUpdating}
+              onClick={onStatusChange}
+              type="button"
+            >
+              {isStatusUpdating
+                ? "Сохраняю..."
+                : deck.status === "archived"
+                  ? "Восстановить"
+                  : "Архивировать"}
+            </button>
+          )}
           {onClose === undefined ? null : (
-            <button className="secondary-action" onClick={onClose} type="button">
+            <button
+              className="secondary-action"
+              disabled={isStatusUpdating}
+              onClick={onClose}
+              type="button"
+            >
               Закрыть
             </button>
           )}
         </div>
+        {statusError === null ? null : (
+          <p className="form-error" role="alert">
+            {statusError}
+          </p>
+        )}
       </div>
 
       {deck.items.length === 0 ? (
@@ -504,6 +640,15 @@ function mergeDeckSummaries(
   }
 
   return [...merged.values()];
+}
+
+function sortDeckSummaries(decks: readonly DeckDto[]): readonly DeckDto[] {
+  return [...decks].sort(
+    (left, right) =>
+      Number(left.status === "archived") - Number(right.status === "archived") ||
+      right.updatedAt.localeCompare(left.updatedAt) ||
+      left.id.localeCompare(right.id),
+  );
 }
 
 function DeckItemCard({
