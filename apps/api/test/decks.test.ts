@@ -61,7 +61,10 @@ describe("DecksService", () => {
         },
       ],
     });
-    expect(response.tokenization.strategy).toBe("substring-fallback");
+    expect(response.tokenization).toMatchObject({
+      strategy: "dictionary-longest-match",
+      discardedOverlapCount: 0,
+    });
   });
 
   it("does not duplicate repeated items within one deck", async () => {
@@ -75,6 +78,40 @@ describe("DecksService", () => {
     );
 
     expect(schoolItems).toHaveLength(1);
+  });
+
+  it("keeps the longest dictionary word when word matches overlap", async () => {
+    const repository = new InMemoryDecksRepository({
+      items: [
+        createItem("item-word-tokyo-university", "word", "東京大学", "とうきょうだいがく", {
+          frequencyRank: 900,
+          ru: "Токийский университет",
+          en: "University of Tokyo",
+        }),
+        createItem("item-word-tokyo", "word", "東京", "とうきょう", {
+          frequencyRank: 100,
+          ru: "Токио",
+          en: "Tokyo",
+        }),
+        createItem("item-word-university", "word", "大学", "だいがく", {
+          frequencyRank: 200,
+          ru: "университет",
+          en: "university",
+        }),
+      ],
+      dependencies: new Map(),
+    });
+    const service = new DecksService(repository);
+
+    const response = await service.createFromText(createUser("owner"), {
+      text: "東京大学と東京を見る。",
+    });
+
+    expect(response.deck.items.map((item) => item.item.id)).toEqual([
+      "item-word-tokyo-university",
+      "item-word-tokyo",
+    ]);
+    expect(response.tokenization.discardedOverlapCount).toBe(1);
   });
 
   it("adds unknown user words when they are present in the DB", async () => {

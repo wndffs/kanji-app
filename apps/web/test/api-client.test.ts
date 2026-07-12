@@ -63,10 +63,11 @@ describe("apiRequest", () => {
             items: [],
           },
           tokenization: {
-            strategy: "substring-fallback",
+            strategy: "dictionary-longest-match",
             candidateCount: 1,
             matchedItemCount: 0,
             unmatchedCandidateCount: 1,
+            discardedOverlapCount: 0,
           },
         }),
         {

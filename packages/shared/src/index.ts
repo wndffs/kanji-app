@@ -543,10 +543,11 @@ export type CreateTextDeckRequest = {
 export type CreateTextDeckResponse = {
   readonly deck: DeckDetailsDto;
   readonly tokenization: {
-    readonly strategy: "substring-fallback";
+    readonly strategy: "dictionary-longest-match";
     readonly candidateCount: number;
     readonly matchedItemCount: number;
     readonly unmatchedCandidateCount: number;
+    readonly discardedOverlapCount: number;
   };
 };
 

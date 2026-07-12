@@ -23,7 +23,9 @@ test.describe("dynamic text decks", () => {
     await page.getByRole("button", { name: "Создать колоду" }).click();
 
     await expect(page.getByRole("heading", { name: "Текст про школу" })).toBeVisible();
-    await expect(page.getByText("Кандидатов: 4. Совпадений с базой: 1.")).toBeVisible();
+    await expect(
+      page.getByText("Найдено материалов: 1. Перекрывающихся слов исключено: 0."),
+    ).toBeVisible();
     await expect(page.getByText("школа / school")).toBeVisible();
     await expect(page.getByText("Есть в тексте: 学校")).toBeVisible();
     await expect(page.getByRole("link", { name: "Учить колоду" })).toHaveAttribute(
@@ -159,10 +161,11 @@ const createTextDeckResponse: CreateTextDeckResponse = {
     ],
   },
   tokenization: {
-    strategy: "substring-fallback",
+    strategy: "dictionary-longest-match",
     candidateCount: 4,
     matchedItemCount: 1,
     unmatchedCandidateCount: 3,
+    discardedOverlapCount: 0,
   },
 };
 

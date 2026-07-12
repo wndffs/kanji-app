@@ -18,6 +18,10 @@ Rules:
 
 The user pastes Japanese text. The app tokenizes it, identifies known/unknown words and kanji, and creates a deck with prerequisites.
 
+When dictionary words overlap in the source, the deck keeps the longest match
+at the earliest position instead of treating every nested substring as a
+separate vocabulary item. Frequency and stable ids break equal-span ties.
+
 Rules:
 
 - Prefer high-value unknown words from the text.

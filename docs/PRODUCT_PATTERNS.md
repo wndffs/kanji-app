@@ -91,3 +91,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 9. Task 49 (completed): expose workload balance and level progress without copying another dashboard.
 10. Task 50 (completed): make saved text decks visible and reopenable after creation.
 11. Task 51 (completed): run owned text decks through the prerequisite-safe lesson flow.
+12. Task 52 (completed): remove overlapping substring noise with dictionary longest matching.

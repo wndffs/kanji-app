@@ -46,7 +46,8 @@ export class DecksService {
       ...tokens,
       sourceText: request.text,
     });
-    const selectedMatches = selectBestTextMatches(textMatches, request.maxItems);
+    const matchSelection = selectBestTextMatches(textMatches, request.text, request.maxItems);
+    const selectedMatches = matchSelection.matches;
     const itemPlans = new Map<string, DeckItemPlan>();
 
     for (const match of selectedMatches) {
@@ -70,9 +71,10 @@ export class DecksService {
     return {
       deck: toDeckDetailsDto(deck, getDisplayMode(user)),
       tokenization: {
-        strategy: "substring-fallback",
+        strategy: "dictionary-longest-match",
         candidateCount: tokens.wordCandidates.length + tokens.kanjiCharacters.length,
         matchedItemCount: selectedMatches.length,
+        discardedOverlapCount: matchSelection.discardedOverlapCount,
         unmatchedCandidateCount: Math.max(
           0,
           tokens.wordCandidates.length + tokens.kanjiCharacters.length - selectedMatches.length,
@@ -145,6 +147,11 @@ type DeckItemPlan = {
   readonly reasons: DeckItemReasonDto[];
   sourceIndex: number;
   priority: number;
+};
+
+type TextMatchSelection = {
+  readonly matches: readonly TextDeckMatchRecord[];
+  readonly discardedOverlapCount: number;
 };
 
 function parseCreateTextDeckRequest(body: unknown): ParsedCreateTextDeckRequest {
@@ -258,8 +265,9 @@ function extractTextCandidates(text: string): ExtractedTextCandidates {
 
 function selectBestTextMatches(
   matches: readonly TextDeckMatchRecord[],
+  sourceText: string,
   maxItems: number,
-): readonly TextDeckMatchRecord[] {
+): TextMatchSelection {
   const bestByItem = new Map<string, TextDeckMatchRecord>();
 
   for (const match of matches) {
@@ -275,7 +283,71 @@ function selectBestTextMatches(
     }
   }
 
-  return [...bestByItem.values()].sort(compareTextMatches).slice(0, maxItems);
+  const uniqueMatches = [...bestByItem.values()];
+  const wordMatches = uniqueMatches.filter((match) => match.item.itemType === "word");
+  const selectedWords = selectLongestNonOverlappingWords(wordMatches, sourceText);
+  const nonWordMatches = uniqueMatches.filter((match) => match.item.itemType !== "word");
+
+  return {
+    matches: [...selectedWords, ...nonWordMatches].sort(compareTextMatches).slice(0, maxItems),
+    discardedOverlapCount: wordMatches.length - selectedWords.length,
+  };
+}
+
+function selectLongestNonOverlappingWords(
+  matches: readonly TextDeckMatchRecord[],
+  sourceText: string,
+): readonly TextDeckMatchRecord[] {
+  const candidates = matches.flatMap((match) =>
+    findTextOccurrences(sourceText, match.matchedText).map((sourceIndex) => ({
+      ...match,
+      sourceIndex,
+    })),
+  );
+  candidates.sort(
+    (left, right) =>
+      left.sourceIndex - right.sourceIndex ||
+      right.matchedText.length - left.matchedText.length ||
+      (left.frequencyRank ?? Number.MAX_SAFE_INTEGER) -
+        (right.frequencyRank ?? Number.MAX_SAFE_INTEGER) ||
+      left.item.id.localeCompare(right.item.id),
+  );
+  const selected: TextDeckMatchRecord[] = [];
+  const selectedItemIds = new Set<string>();
+  let occupiedUntil = -1;
+
+  for (const candidate of candidates) {
+    if (candidate.sourceIndex < occupiedUntil) {
+      continue;
+    }
+
+    occupiedUntil = candidate.sourceIndex + candidate.matchedText.length;
+
+    if (!selectedItemIds.has(candidate.item.id)) {
+      selected.push(candidate);
+      selectedItemIds.add(candidate.item.id);
+    }
+  }
+
+  return selected;
+}
+
+function findTextOccurrences(sourceText: string, matchedText: string): readonly number[] {
+  const occurrences: number[] = [];
+  let searchFrom = 0;
+
+  while (searchFrom < sourceText.length) {
+    const sourceIndex = sourceText.indexOf(matchedText, searchFrom);
+
+    if (sourceIndex === -1) {
+      break;
+    }
+
+    occurrences.push(sourceIndex);
+    searchFrom = sourceIndex + 1;
+  }
+
+  return occurrences;
 }
 
 function compareTextMatches(left: TextDeckMatchRecord, right: TextDeckMatchRecord): number {

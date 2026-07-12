@@ -198,11 +198,14 @@ accepted answer.
 - `GET /decks/:id`
 - `POST /decks/:id/enroll`
 
-`POST /decks/from-text` uses a local MVP tokenizer fallback: it splits contiguous
-Japanese text runs, emits exact substrings up to eight characters, extracts kanji
-characters, and matches those candidates to existing `Word` and `Kanji`
-learning items. It does not call external APIs and is not intended to be perfect
-Japanese morphological analysis.
+`POST /decks/from-text` uses local dictionary longest matching: it splits
+contiguous Japanese text runs, emits exact substrings up to eight characters,
+and matches those candidates to existing `Word` and `Kanji` learning items.
+Overlapping word matches are resolved left-to-right by longest surface form,
+then frequency and stable id; distinct kanji matches remain available for the
+prerequisite path. The response reports discarded overlaps. This process calls
+no external API and does not claim to provide deinflection or full Japanese
+morphological analysis.
 
 ### Admin
 

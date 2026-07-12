@@ -427,8 +427,8 @@ function DeckDetailsResult({
         </div>
         {tokenization === undefined ? null : (
           <p className="muted">
-            Кандидатов: {tokenization.candidateCount}. Совпадений с базой:{" "}
-            {tokenization.matchedItemCount}.
+            Найдено материалов: {tokenization.matchedItemCount}. Перекрывающихся слов исключено:{" "}
+            {tokenization.discardedOverlapCount}.
           </p>
         )}
         <div className="action-row deck-result-actions">
