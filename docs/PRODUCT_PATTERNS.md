@@ -106,3 +106,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 24. Task 64 (completed): distinguish alternative kanji readings and retry them without penalty.
 25. Task 65 (completed): verify full production corpus imports with database counts.
 26. Task 66 (completed): resume corpus imports without rewriting sources whose checksum already succeeded.
+27. Task 67 (completed): reuse verified local and CI source snapshots without repeated downloads.

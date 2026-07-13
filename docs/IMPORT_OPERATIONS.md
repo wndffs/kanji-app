@@ -23,10 +23,24 @@ workspace path is needed, use ignored `data/raw/` and keep only `.gitkeep`
 tracked there. Do not commit raw full-size source dumps unless a task explicitly
 asks for a tiny fixture.
 
+Prepare the shared KANJIDIC2, KanjiVG, and multilingual JMdict snapshot once:
+
 ```powershell
-npm run import:jmdict -- C:\data\JMdict.xml --source-version 2026-07
-npm run import:kanjidic2 -- C:\data\kanjidic2.xml --source-version 2026-06
-npm run import:kanjivg -- C:\data\kanjivg.xml --source-version 2026-06
+npm run content:snapshot -- --snapshot-version 2026-07-13
+```
+
+The command stores compressed archives, decompressed XML, and `manifest.json`
+under ignored `.cache/content-sources/2026-07-13/`. A repeat with the same
+snapshot label verifies archive and content SHA-256 values and uses the local
+files without another network request. Use a new date when intentionally
+refreshing either mutable EDRDG distribution. Partial downloads use temporary
+siblings and are removed or atomically replaced; they are never treated as a
+valid cache entry.
+
+```powershell
+npm run import:jmdict -- .cache\content-sources\2026-07-13\JMdict.xml --source-version 2026-07-13
+npm run import:kanjidic2 -- .cache\content-sources\2026-07-13\kanjidic2.xml --source-version 2026-07-13
+npm run import:kanjivg -- .cache\content-sources\2026-07-13\kanjivg-20250816.xml --source-version r20250816
 npm run import:tatoeba -- C:\data\sentences.tsv C:\data\links.tsv --source-version 2026-06
 npm run content:report -- --output C:\data\corpus-report.json
 ```
@@ -69,8 +83,9 @@ errors, and imported records. Keep the exact download URL and license on the
 ## Full staging snapshot
 
 Use the manually dispatched GitHub Actions workflow `Import staging content` for
-a complete staging import. It downloads these official distributions on a
-GitHub-hosted runner:
+a complete staging import. It restores a verified source snapshot from GitHub
+Actions Cache and downloads only missing snapshots from these official
+distributions:
 
 - multilingual `JMdict.gz` from EDRDG;
 - `kanjidic2.xml.gz` from EDRDG;
@@ -93,10 +108,14 @@ To run it:
    changed.
 
 Every run uploads a small `content-snapshot-...` artifact containing
-`manifest.json` and `corpus-report.json`. The manifest records official URLs,
-download time, filenames, SHA-256 values for both compressed archives and
-imported XML, and the post-import database report. Source archives are deleted
-from the runner and are never committed or uploaded as artifacts.
+`manifest.json` and `corpus-report.json`. The manifest records each source's
+official URL, original download time, filenames, SHA-256 values for both the
+compressed archive and imported XML, and the post-import database report. The
+verified archives and XML are retained only in an Actions Cache entry keyed by
+snapshot date and preparation-script version. They are never committed or
+uploaded as workflow artifacts. Cache retention is operational, not permanent;
+keep the manifest checksums for verification and use a new snapshot date for an
+intentional refresh.
 
 The post-import report separates the raw dictionary from published learning
 content. `dictionary.kanji` and `dictionary.words` measure imported targets;
@@ -107,10 +126,11 @@ graphics, 100,000 words, 30,000 words with both Russian and English imported
 senses, and successful KANJIDIC2, KanjiVG, and JMdict import runs. These are
 completeness guards, not curriculum targets.
 
-EDRDG's current JMdict and KANJIDIC2 URLs are mutable daily distributions. An
-exact later replay therefore also requires retaining the original archives in
-private storage permitted by their license terms. The manifest is sufficient to
-verify those retained files. KanjiVG uses an immutable release URL.
+EDRDG's current JMdict and KANJIDIC2 URLs are mutable daily distributions. The
+local and Actions caches make repeated imports of one snapshot deterministic
+while that cache exists. Long-term replay still requires retaining the original
+archives in storage permitted by their license terms; the manifest is
+sufficient to verify them. KanjiVG uses an immutable release URL.
 
 The full multilingual JMdict import retains only Russian and English glosses.
 The admin translation-review queue only offers ranked targets for which both

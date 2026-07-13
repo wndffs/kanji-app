@@ -77,80 +77,39 @@ jobs:
             fi
           done
 
-      - name: Download official source archives
+      - name: Configure snapshot cache
         run: |
-          SNAPSHOT_DIR="$RUNNER_TEMP/kanji-content-snapshot"
+          SNAPSHOT_DIR="$RUNNER_TEMP/kanji-content-snapshots/$SNAPSHOT_VERSION"
           mkdir -p "$SNAPSHOT_DIR"
           echo "SNAPSHOT_DIR=$SNAPSHOT_DIR" >> "$GITHUB_ENV"
 
-          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 \
-            --output "$SNAPSHOT_DIR/JMdict.gz" "$JMDICT_URL"
-          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 \
-            --output "$SNAPSHOT_DIR/kanjidic2.xml.gz" "$KANJIDIC2_URL"
-          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 \
-            --output "$SNAPSHOT_DIR/kanjivg-20250816.xml.gz" "$KANJIVG_URL"
+      - name: Restore source snapshot
+        id: source-snapshot-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/kanji-content-snapshots/${{ inputs.snapshot_version }}
+          key: content-sources-v2-${{ runner.os }}-${{ inputs.snapshot_version }}-${{ hashFiles('scripts/prepare-content-snapshot.mjs') }}
 
-          gzip --test "$SNAPSHOT_DIR/JMdict.gz"
-          gzip --test "$SNAPSHOT_DIR/kanjidic2.xml.gz"
-          gzip --test "$SNAPSHOT_DIR/kanjivg-20250816.xml.gz"
+      - name: Prepare and verify source snapshot
+        run: >-
+          node scripts/prepare-content-snapshot.mjs
+          --snapshot-version "$SNAPSHOT_VERSION"
+          --cache-root "$RUNNER_TEMP/kanji-content-snapshots"
+          --github-env "$GITHUB_ENV"
+          --jmdict-url "$JMDICT_URL"
+          --kanjidic2-url "$KANJIDIC2_URL"
+          --kanjivg-url "$KANJIVG_URL"
+          --kanjivg-version "$KANJIVG_VERSION"
+          --expected-jmdict-archive-sha256 "$EXPECTED_JMDICT_ARCHIVE_SHA256"
+          --expected-kanjidic2-archive-sha256 "$EXPECTED_KANJIDIC2_ARCHIVE_SHA256"
+          --expected-kanjivg-archive-sha256 "$EXPECTED_KANJIVG_ARCHIVE_SHA256"
 
-      - name: Verify and unpack snapshot
-        run: |
-          verify_archive() {
-            local file="$1"
-            local expected="$2"
-            local actual
-            actual="$(sha256sum "$file" | cut -d ' ' -f 1)"
-
-            if [ -n "$expected" ] && [ "${actual,,}" != "${expected,,}" ]; then
-              echo "SHA-256 mismatch for $(basename "$file"): expected $expected, received $actual."
-              exit 1
-            fi
-          }
-
-          verify_archive "$SNAPSHOT_DIR/JMdict.gz" "$EXPECTED_JMDICT_ARCHIVE_SHA256"
-          verify_archive "$SNAPSHOT_DIR/kanjidic2.xml.gz" "$EXPECTED_KANJIDIC2_ARCHIVE_SHA256"
-          verify_archive "$SNAPSHOT_DIR/kanjivg-20250816.xml.gz" "$EXPECTED_KANJIVG_ARCHIVE_SHA256"
-
-          gzip --decompress --stdout "$SNAPSHOT_DIR/JMdict.gz" > "$SNAPSHOT_DIR/JMdict.xml"
-          gzip --decompress --stdout "$SNAPSHOT_DIR/kanjidic2.xml.gz" > "$SNAPSHOT_DIR/kanjidic2.xml"
-          gzip --decompress --stdout "$SNAPSHOT_DIR/kanjivg-20250816.xml.gz" > "$SNAPSHOT_DIR/kanjivg-20250816.xml"
-
-          echo "SOURCE_DOWNLOADED_AT=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
-          echo "JMDICT_ARCHIVE_SHA256=$(sha256sum "$SNAPSHOT_DIR/JMdict.gz" | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
-          echo "KANJIDIC2_ARCHIVE_SHA256=$(sha256sum "$SNAPSHOT_DIR/kanjidic2.xml.gz" | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
-          echo "KANJIVG_ARCHIVE_SHA256=$(sha256sum "$SNAPSHOT_DIR/kanjivg-20250816.xml.gz" | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
-          echo "JMDICT_CONTENT_SHA256=$(sha256sum "$SNAPSHOT_DIR/JMdict.xml" | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
-          echo "KANJIDIC2_CONTENT_SHA256=$(sha256sum "$SNAPSHOT_DIR/kanjidic2.xml" | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
-          echo "KANJIVG_CONTENT_SHA256=$(sha256sum "$SNAPSHOT_DIR/kanjivg-20250816.xml" | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
-
-      - name: Write reproducibility manifest
-        run: |
-          node <<'NODE'
-          const { writeFileSync } = require("node:fs");
-          const { join } = require("node:path");
-
-          const source = (name, url, archiveFile, contentFile, archiveSha256, contentSha256) => ({
-            name,
-            url,
-            archiveFile,
-            contentFile,
-            archiveSha256,
-            contentSha256,
-          });
-          const manifest = {
-            schemaVersion: 1,
-            snapshotVersion: process.env.SNAPSHOT_VERSION,
-            downloadedAt: process.env.SOURCE_DOWNLOADED_AT,
-            sources: [
-              source("JMdict", process.env.JMDICT_URL, "JMdict.gz", "JMdict.xml", process.env.JMDICT_ARCHIVE_SHA256, process.env.JMDICT_CONTENT_SHA256),
-              source("KANJIDIC2", process.env.KANJIDIC2_URL, "kanjidic2.xml.gz", "kanjidic2.xml", process.env.KANJIDIC2_ARCHIVE_SHA256, process.env.KANJIDIC2_CONTENT_SHA256),
-              source("KanjiVG", process.env.KANJIVG_URL, "kanjivg-20250816.xml.gz", "kanjivg-20250816.xml", process.env.KANJIVG_ARCHIVE_SHA256, process.env.KANJIVG_CONTENT_SHA256),
-            ],
-          };
-
-          writeFileSync(join(process.env.SNAPSHOT_DIR, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
-          NODE
+      - name: Save verified source snapshot
+        if: ${{ steps.source-snapshot-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/kanji-content-snapshots/${{ inputs.snapshot_version }}
+          key: ${{ steps.source-snapshot-cache.outputs.cache-primary-key }}
 
       - name: Install dependencies
         run: npm ci --include=dev
@@ -163,22 +122,22 @@ jobs:
 
       - name: Import KANJIDIC2
         run: >-
-          npm run import:kanjidic2 -- "$SNAPSHOT_DIR/kanjidic2.xml"
-          --source-downloaded-at "$SOURCE_DOWNLOADED_AT"
+          npm run import:kanjidic2 -- "$KANJIDIC2_CONTENT_PATH"
+          --source-downloaded-at "$KANJIDIC2_SOURCE_DOWNLOADED_AT"
           --checksum-sha256 "$KANJIDIC2_CONTENT_SHA256"
 
       - name: Import KanjiVG
         run: >-
-          npm run import:kanjivg -- "$SNAPSHOT_DIR/kanjivg-20250816.xml"
+          npm run import:kanjivg -- "$KANJIVG_CONTENT_PATH"
           --source-version "$KANJIVG_VERSION"
-          --source-downloaded-at "$SOURCE_DOWNLOADED_AT"
+          --source-downloaded-at "$KANJIVG_SOURCE_DOWNLOADED_AT"
           --checksum-sha256 "$KANJIVG_CONTENT_SHA256"
 
       - name: Import multilingual JMdict
         run: >-
-          npm run import:jmdict -- "$SNAPSHOT_DIR/JMdict.xml"
+          npm run import:jmdict -- "$JMDICT_CONTENT_PATH"
           --source-version "$SNAPSHOT_VERSION"
-          --source-downloaded-at "$SOURCE_DOWNLOADED_AT"
+          --source-downloaded-at "$JMDICT_SOURCE_DOWNLOADED_AT"
           --checksum-sha256 "$JMDICT_CONTENT_SHA256"
 
       - name: Verify full corpus and write database report

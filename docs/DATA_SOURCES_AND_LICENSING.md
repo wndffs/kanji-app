@@ -95,7 +95,7 @@ Implementation requirements:
 
 ## Raw dataset hygiene
 
-Full-size raw source dumps must not be committed. Keep downloaded files outside the repository, or in ignored local paths such as `data/raw/` while running CLI imports. Only small hand-authored or trimmed fixtures belong in `data/fixtures/`.
+Full-size raw source dumps must not be committed. Keep downloaded files outside the repository, or in ignored local paths such as `.cache/content-sources/` or `data/raw/` while running CLI imports. Only small hand-authored or trimmed fixtures belong in `data/fixtures/`.
 
 Docker build contexts must exclude raw dumps so production images cannot accidentally contain source archives, TSV dumps, XML dumps, or local downloads.
 
