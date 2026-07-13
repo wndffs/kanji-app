@@ -12,6 +12,7 @@ import {
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateListResponse,
   type AdminReviewQueueResponse,
+  type AdminUpdateItemRequest,
 } from "@kanji-srs/shared";
 
 const API_BASE_URL = "http://localhost:3001";
@@ -96,6 +97,39 @@ test.describe("admin curation", () => {
     await pagination.getByRole("button", { name: "Назад" }).click();
     await expect(queue).toContainText("Кандзи 一");
     await expect(pagination).toContainText("Страница 1");
+  });
+
+  test("admin advances after publishing the current review item", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await mockAdminApi(page);
+
+    await page.goto("/admin");
+
+    const queue = page.locator(".admin-queue");
+    const itemHeader = page.locator(".admin-item-header");
+    const pagination = page.getByTestId("admin-review-queue-pagination");
+
+    await expect(itemHeader).toContainText("Кандзи 一");
+    await page.getByRole("button", { name: "Опубликовать" }).click();
+
+    await expect(page.getByText("Материал сохранён. Открыт следующий материал.")).toBeVisible();
+    await expect(queue).toContainText("Кандзи 二");
+    await expect(queue).not.toContainText("Кандзи 一");
+    await expect(itemHeader).toContainText("Кандзи 二");
+    await expect(pagination).toContainText("Страница 1");
+    await expect(pagination.getByRole("button", { name: "Назад" })).toBeDisabled();
+  });
+
+  test("admin distinguishes a failed queue refresh from a successful save", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await mockAdminApi(page, { failQueueRefreshAfterItemSave: true });
+
+    await page.goto("/admin");
+    await page.getByRole("button", { name: "Опубликовать" }).click();
+
+    await expect(page.getByText("Материал сохранён.", { exact: true })).toBeVisible();
+    await expect(page.getByText(/Изменения сохранены, но очередь не обновилась/u)).toBeVisible();
+    await expect(page.locator(".admin-item-header")).toContainText("опубликовано");
   });
 
   test("admin can curate a candidate selected from the full curriculum plan", async ({ page }) => {
@@ -190,9 +224,13 @@ async function signIn(page: Page, role: "USER" | "ADMIN"): Promise<void> {
 
 async function mockAdminApi(
   page: Page,
-  options: { readonly enqueueConflictOnce?: boolean } = {},
+  options: {
+    readonly enqueueConflictOnce?: boolean;
+    readonly failQueueRefreshAfterItemSave?: boolean;
+  } = {},
 ): Promise<void> {
   let item = buildAdminItem();
+  let itemWasSaved = false;
   const secondItem = buildSecondAdminItem();
   const assignedPlanTargets = new Set<string>();
   let remainingEnqueueConflicts = options.enqueueConflictOnce === true ? 1 : 0;
@@ -221,29 +259,41 @@ async function mockAdminApi(
   ];
 
   await page.route(`${API_BASE_URL}/admin/items/review-queue**`, async (route) => {
+    if (options.failQueueRefreshAfterItemSave === true && itemWasSaved) {
+      await route.fulfill({ status: 503, json: { message: "Review queue unavailable." } });
+      return;
+    }
+
     const url = new URL(route.request().url());
     const cursor = url.searchParams.get("cursor");
-    const queueItem = cursor === null ? item : secondItem;
+    const requestedStatus = url.searchParams.get("status") ?? "needs-review";
+    const matchingItems = [item, secondItem].filter(
+      (queueItem) => queueItem.status === requestedStatus,
+    );
+    const queueItem = matchingItems[cursor === null ? 0 : 1];
     const response: AdminReviewQueueResponse = {
-      items: [
-        {
-          id: queueItem.id,
-          itemType: queueItem.itemType,
-          band: queueItem.band,
-          title: queueItem.title,
-          japanese: queueItem.japanese,
-          reading: queueItem.reading,
-          level: queueItem.level,
-          jlptLevel: queueItem.jlptLevel,
-          status: queueItem.status,
-          updatedAt: queueItem.updatedAt,
-          sourceNames: queueItem.attributions.map((source) => source.sourceName),
-          qualityIssues: queueItem.qualityIssues,
-        },
-      ],
+      items:
+        queueItem === undefined
+          ? []
+          : [
+              {
+                id: queueItem.id,
+                itemType: queueItem.itemType,
+                band: queueItem.band,
+                title: queueItem.title,
+                japanese: queueItem.japanese,
+                reading: queueItem.reading,
+                level: queueItem.level,
+                jlptLevel: queueItem.jlptLevel,
+                status: queueItem.status,
+                updatedAt: queueItem.updatedAt,
+                sourceNames: queueItem.attributions.map((source) => source.sourceName),
+                qualityIssues: queueItem.qualityIssues,
+              },
+            ],
       pagination: {
         limit: Number(url.searchParams.get("limit") ?? 20),
-        nextCursor: cursor === null ? "review-page-two" : null,
+        nextCursor: cursor === null && matchingItems.length > 1 ? "review-page-two" : null,
       },
     };
 
@@ -559,6 +609,22 @@ async function mockAdminApi(
   );
 
   await page.route(`${API_BASE_URL}/admin/items/${ITEM_ID}`, async (route) => {
+    if (route.request().method() === "PATCH") {
+      const body = route.request().postDataJSON() as AdminUpdateItemRequest;
+
+      item = {
+        ...item,
+        ...(body.status === undefined ? {} : { status: body.status }),
+        ...(body.band === undefined ? {} : { band: body.band }),
+        meanings: {
+          ru: body.meanings?.ru ?? item.meanings.ru,
+          en: body.meanings?.en ?? item.meanings.en,
+        },
+        updatedAt: "2026-06-22T09:45:00.000Z",
+      };
+      itemWasSaved = true;
+    }
+
     await route.fulfill({ json: item });
   });
 

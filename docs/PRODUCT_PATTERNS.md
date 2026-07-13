@@ -118,3 +118,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 36. Task 76 (completed): safely stage a versioned candidate-plan page for editorial review.
 37. Task 77 (completed): confirm, stage, and refresh candidate-plan pages in the admin workspace.
 38. Task 78 (completed): paginate the editorial review queue with stable cursors.
+39. Task 79 (completed): keep the editorial queue synchronized after curation saves.

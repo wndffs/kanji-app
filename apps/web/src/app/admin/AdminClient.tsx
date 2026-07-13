@@ -323,6 +323,68 @@ export function AdminClient() {
     }
   }
 
+  async function reconcileQueueAfterSave(
+    savedItem: AdminCurationItemDto,
+    savedMessage: string,
+  ): Promise<void> {
+    if (state.status !== "ready") {
+      return;
+    }
+
+    const token = state.token;
+    setPlanningRevision((previous) => previous + 1);
+
+    try {
+      const [queue, report] = await Promise.all([
+        getAdminReviewQueueWithFilters(token, {
+          ...toApiFilters(filters),
+          limit: ADMIN_REVIEW_QUEUE_PAGE_LIMIT,
+        }),
+        getAdminCompletenessReport(token),
+      ]);
+      const firstQueueItem = queue.items[0];
+      const nextItem =
+        firstQueueItem === undefined
+          ? null
+          : firstQueueItem.id === savedItem.id
+            ? savedItem
+            : await getAdminCurationItem(token, firstQueueItem.id);
+
+      syncDrafts(nextItem);
+      setState((current) =>
+        current.status === "ready"
+          ? {
+              ...current,
+              queue: queue.items,
+              queuePagination: queue.pagination,
+              report,
+              item: nextItem,
+            }
+          : current,
+      );
+      setQueueCursor(null);
+      setQueueCursorHistory([]);
+      setStatusMessage(
+        nextItem === null
+          ? `${savedMessage} Текущая очередь пуста.`
+          : nextItem.id === savedItem.id
+            ? savedMessage
+            : `${savedMessage} Открыт следующий материал.`,
+      );
+    } catch (error: unknown) {
+      syncDrafts(savedItem);
+      setState((current) =>
+        current.status === "ready" ? { ...current, item: savedItem } : current,
+      );
+      setStatusMessage(savedMessage);
+      setFormError(
+        error instanceof Error
+          ? `Изменения сохранены, но очередь не обновилась: ${error.message}`
+          : "Изменения сохранены, но очередь не обновилась. Обновите страницу.",
+      );
+    }
+  }
+
   async function handleSaveItem(
     event: FormEvent<HTMLFormElement> | null,
     nextStatus?: AdminContentStatus,
@@ -355,9 +417,7 @@ export function AdminClient() {
         ],
       });
 
-      syncDrafts(item);
-      setState({ ...state, item });
-      setStatusMessage("Материал сохранён.");
+      await reconcileQueueAfterSave(item, "Материал сохранён.");
     } catch (error: unknown) {
       setFormError(error instanceof Error ? error.message : "Не удалось сохранить материал.");
     } finally {
@@ -585,9 +645,7 @@ export function AdminClient() {
         })),
       });
 
-      syncDrafts(item);
-      setState({ ...state, item });
-      setStatusMessage("Ответы карточки сохранены.");
+      await reconcileQueueAfterSave(item, "Ответы карточки сохранены.");
     } catch (error: unknown) {
       setFormError(error instanceof Error ? error.message : "Не удалось сохранить ответы.");
     } finally {

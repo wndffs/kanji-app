@@ -121,6 +121,14 @@ forward or back. Staging a candidate-plan page refreshes the queue from its
 first page immediately, so newly created review work is actionable without a
 full browser reload.
 
+Saving item content, publication status, or card answers also reconciles the
+queue against its current filters. The workspace restarts from the first page,
+keeps the saved item open when it still matches, and otherwise advances to the
+next matching item or a clear empty state. Completeness and candidate-plan data
+refresh with the decision. A failed post-save refresh is reported separately
+from the already successful mutation so retrying cannot accidentally duplicate
+editorial work.
+
 ## Main lesson flow
 
 Component, kanji, vocabulary, and sentence lessons use small groups of at most
