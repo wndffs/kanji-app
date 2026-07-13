@@ -14,6 +14,7 @@
     "import:kanjidic2": "tsx src/cli/import-kanjidic2.ts",
     "import:kanjivg": "tsx src/cli/import-kanjivg.ts",
     "import:tatoeba": "tsx src/cli/import-tatoeba.ts",
+    "report:corpus": "tsx src/cli/report-corpus.ts",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests"

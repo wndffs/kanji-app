@@ -60,6 +60,16 @@ Published structured-course content must pass quality gates:
 The admin curriculum completeness report summarizes these gaps by band so expansion work can move
 from Foundation through N2 without requiring the full corpus upfront.
 
+## Course scale target
+
+The structured course target is 2,300 unique kanji and 8,000 unique vocabulary
+items, where a vocabulary item is one `Word` expression-and-reading pair. This
+exceeds WaniKani's advertised 2,000+ kanji and 6,000+ vocabulary scale while
+keeping an independent order and independent educational text. Full KANJIDIC2
+and JMdict imports are only candidate dictionaries; imported rows do not count
+toward this target until a published `LearningItem`, cards, bilingual curated
+meanings, and prerequisites exist.
+
 ## Main lesson flow
 
 Component, kanji, vocabulary, and sentence lessons use small groups of at most

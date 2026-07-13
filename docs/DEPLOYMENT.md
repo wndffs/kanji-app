@@ -185,6 +185,11 @@ inputs, provenance behavior, and retry rules are documented in
 deployment because the source data is large and changes independently of the
 application schema.
 
+The workflow verifies full-corpus minimums after import and uploads both a
+source manifest and a database count report. Treat the run as successful only
+when the report distinguishes a complete raw dictionary from the much smaller
+published course without failing its minimum checks.
+
 For a local fallback, apply the same migrations and seed from a trusted machine:
 
 ```bash

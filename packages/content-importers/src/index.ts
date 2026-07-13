@@ -10,6 +10,7 @@ export const supportedSourceFamilies: SupportedSourceFamily[] = [
 ];
 
 export * from "./checksum";
+export * from "./corpus-stats";
 export * from "./concurrency";
 export * from "./jmdict";
 export * from "./import-metadata";

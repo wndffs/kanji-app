@@ -28,6 +28,7 @@ npm run import:jmdict -- C:\data\JMdict.xml --source-version 2026-07
 npm run import:kanjidic2 -- C:\data\kanjidic2.xml --source-version 2026-06
 npm run import:kanjivg -- C:\data\kanjivg.xml --source-version 2026-06
 npm run import:tatoeba -- C:\data\sentences.tsv C:\data\links.tsv --source-version 2026-06
+npm run content:report -- --output C:\data\corpus-report.json
 ```
 
 The three XML import commands also accept reproducibility metadata:
@@ -91,10 +92,20 @@ To run it:
    inputs. The workflow aborts before touching the database if any archive has
    changed.
 
-Every run uploads a small `content-snapshot-...` artifact containing only
-`manifest.json`. The manifest records official URLs, download time, filenames,
-and SHA-256 values for both compressed archives and imported XML. Source archives
-are deleted from the runner and are never committed or uploaded as artifacts.
+Every run uploads a small `content-snapshot-...` artifact containing
+`manifest.json` and `corpus-report.json`. The manifest records official URLs,
+download time, filenames, SHA-256 values for both compressed archives and
+imported XML, and the post-import database report. Source archives are deleted
+from the runner and are never committed or uploaded as artifacts.
+
+The post-import report separates the raw dictionary from published learning
+content. `dictionary.kanji` and `dictionary.words` measure imported targets;
+`publishedCourse.kanji` and `publishedCourse.words` measure items learners can
+actually study. The staging workflow runs the report with `--require-full` and
+fails unless the database has at least 10,000 kanji, 10,000 imported stroke
+graphics, 100,000 words, 30,000 words with both Russian and English imported
+senses, and successful KANJIDIC2, KanjiVG, and JMdict import runs. These are
+completeness guards, not curriculum targets.
 
 EDRDG's current JMdict and KANJIDIC2 URLs are mutable daily distributions. An
 exact later replay therefore also requires retaining the original archives in
@@ -121,10 +132,12 @@ After a command finishes:
 
 1. Check the command JSON output for `importRunId`, `checksumSha256`, and
    `status`.
-2. Open the admin screen and inspect the Import runs list.
-3. Confirm the run shows source, license, source file name, checksum, stats,
+2. Run `npm run content:report -- --require-full` and record the raw dictionary
+   and published-course counts separately.
+3. Open the admin screen and inspect the Import runs list.
+4. Confirm the run shows source, license, source file name, checksum, stats,
    status, finished time, and any error text.
-4. Confirm `data/raw/` contains no tracked files except `.gitkeep`.
+5. Confirm `data/raw/` contains no tracked files except `.gitkeep`.
 
 If a future API-triggered import endpoint is added, it must be development-only
 or otherwise explicitly controlled. It must reject unsafe paths, path traversal,

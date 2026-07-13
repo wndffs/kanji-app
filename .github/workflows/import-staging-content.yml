@@ -152,14 +152,6 @@ jobs:
           writeFileSync(join(process.env.SNAPSHOT_DIR, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
           NODE
 
-      - name: Upload snapshot manifest
-        uses: actions/upload-artifact@v4
-        with:
-          name: content-snapshot-${{ inputs.snapshot_version }}-${{ github.run_id }}
-          path: ${{ env.SNAPSHOT_DIR }}/manifest.json
-          if-no-files-found: error
-          retention-days: 90
-
       - name: Install dependencies
         run: npm ci
 
@@ -188,6 +180,40 @@ jobs:
           --source-version "$SNAPSHOT_VERSION"
           --source-downloaded-at "$SOURCE_DOWNLOADED_AT"
           --checksum-sha256 "$JMDICT_CONTENT_SHA256"
+
+      - name: Verify full corpus and write database report
+        run: >-
+          npm run content:report --
+          --require-full
+          --output "$SNAPSHOT_DIR/corpus-report.json"
+
+      - name: Add database report to snapshot manifest
+        run: |
+          node <<'NODE'
+          const { readFileSync, writeFileSync } = require("node:fs");
+          const { join } = require("node:path");
+
+          const manifestPath = join(process.env.SNAPSHOT_DIR, "manifest.json");
+          const reportPath = join(process.env.SNAPSHOT_DIR, "corpus-report.json");
+          const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+          const database = JSON.parse(readFileSync(reportPath, "utf8"));
+
+          writeFileSync(
+            manifestPath,
+            `${JSON.stringify({ ...manifest, database }, null, 2)}\n`,
+          );
+          NODE
+
+      - name: Upload snapshot report
+        if: ${{ always() && env.SNAPSHOT_DIR != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: content-snapshot-${{ inputs.snapshot_version }}-${{ github.run_id }}
+          path: |
+            ${{ env.SNAPSHOT_DIR }}/manifest.json
+            ${{ env.SNAPSHOT_DIR }}/corpus-report.json
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Publish manifest in workflow summary
         if: ${{ always() && env.SNAPSHOT_DIR != '' }}

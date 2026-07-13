@@ -104,3 +104,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 22. Task 62 (completed): use a stable shuffled order for required lesson quizzes.
 23. Task 63 (completed): check lesson cards immediately and requeue missed cards.
 24. Task 64 (completed): distinguish alternative kanji readings and retry them without penalty.
+25. Task 65 (completed): verify full production corpus imports with database counts.
