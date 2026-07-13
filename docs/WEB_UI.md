@@ -15,6 +15,16 @@
 - `/settings`.
 - `/admin`.
 
+## Admin curriculum workflow
+
+The curriculum plan pages can open any selected kanji or vocabulary candidate
+in the bilingual curation workspace, including candidates outside the older
+ranked top-100 queue. The workspace loads imported RU/EN meanings, all source
+readings, license attribution, source record, import run, file version, and
+checksum on demand. Missing Russian or English learning content remains blank
+for explicit editorial input. Approval creates the normal needs-review course
+item and refreshes the current plan instead of publishing automatically.
+
 ## MVP review UX
 
 - Prompt area.

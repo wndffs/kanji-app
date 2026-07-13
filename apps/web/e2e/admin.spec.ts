@@ -7,6 +7,7 @@ import {
   type AdminCurriculumScaleReadinessDto,
   type AdminCurationItemDto,
   type AdminImportRunListResponse,
+  type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateListResponse,
   type AdminReviewQueueResponse,
 } from "@kanji-srs/shared";
@@ -74,6 +75,36 @@ test.describe("admin curation", () => {
     ).toBeVisible();
     await expect(review).toContainText("Кандидатов с русским и английским переводом пока нет.");
   });
+
+  test("admin can curate a candidate selected from the full curriculum plan", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await mockAdminApi(page);
+
+    await page.goto("/admin");
+
+    const candidatePlan = page.getByTestId("admin-candidate-plan");
+    await candidatePlan.getByRole("button", { name: "Проверить 一" }).click();
+
+    const review = page.getByTestId("admin-translation-review");
+    await expect(review.getByRole("heading", { name: "一" })).toBeVisible();
+    await expect(page.getByTestId("translation-meaning-ru")).toHaveValue("");
+    await expect(page.getByTestId("translation-meaning-en")).toHaveValue("one");
+    await expect(page.getByTestId("translation-accepted-en")).toHaveValue("one");
+    await expect(page.getByTestId("admin-translation-provenance")).toContainText("KANJIDIC2");
+    await expect(page.getByTestId("admin-translation-provenance")).toContainText("он: イチ");
+    await expect(page.getByTestId("admin-translation-provenance")).toContainText(
+      "sha256-kanjidic2",
+    );
+
+    await page.getByTestId("translation-meaning-ru").fill("один");
+    await page.getByTestId("translation-accepted-ru").fill("один\nединица");
+    await review.getByRole("button", { name: "Подтвердить перевод" }).click();
+
+    await expect(
+      page.getByText("Перевод подтверждён и добавлен в кураторскую очередь."),
+    ).toBeVisible();
+    await expect(candidatePlan.getByRole("button", { name: "Проверить 一" })).toHaveCount(0);
+  });
 });
 
 async function signIn(page: Page, role: "USER" | "ADMIN"): Promise<void> {
@@ -105,6 +136,7 @@ async function signIn(page: Page, role: "USER" | "ADMIN"): Promise<void> {
 
 async function mockAdminApi(page: Page): Promise<void> {
   let item = buildAdminItem();
+  const approvedPlanTargets = new Set<string>();
   let importedCandidates: AdminImportedCandidateListResponse["candidates"] = [
     {
       rank: 1,
@@ -241,6 +273,8 @@ async function mockAdminApi(page: Page): Promise<void> {
       return;
     }
 
+    const targetId = itemType === "kanji" ? "plan-kanji-one" : "plan-word-water";
+    const candidateApproved = approvedPlanTargets.has(`${itemType}:${targetId}`);
     const response: AdminCurriculumCandidatePlanResponse = {
       planVersion: "plan-version-one",
       generatedAt: "2026-07-13T12:01:00.000Z",
@@ -266,13 +300,13 @@ async function mockAdminApi(page: Page): Promise<void> {
         itemType,
         offset: 0,
         limit: 20,
-        total: itemType === "kanji" ? 2_298 : 7_996,
-        hasMore: true,
+        total: candidateApproved ? 0 : itemType === "kanji" ? 2_298 : 7_996,
+        hasMore: !candidateApproved,
       },
       candidates: [
         {
           selectionRank: 1,
-          targetId: itemType === "kanji" ? "plan-kanji-one" : "plan-word-water",
+          targetId,
           itemType,
           japanese: itemType === "kanji" ? "一" : "水",
           reading: itemType === "kanji" ? "いち" : "みず",
@@ -287,8 +321,8 @@ async function mockAdminApi(page: Page): Promise<void> {
             reading: true,
             strokeData: itemType === "kanji" ? true : null,
           },
-        },
-      ],
+        } satisfies AdminCurriculumCandidatePlanResponse["candidates"][number],
+      ].filter(() => !candidateApproved),
     };
 
     await route.fulfill({ json: response });
@@ -325,6 +359,41 @@ async function mockAdminApi(page: Page): Promise<void> {
 
     await route.fulfill({ json: response });
   });
+
+  await page.route(
+    `${API_BASE_URL}/admin/imported-candidates/kanji/plan-kanji-one`,
+    async (route) => {
+      const response: AdminImportedCandidateDetailsDto = {
+        targetId: "plan-kanji-one",
+        itemType: "kanji",
+        japanese: "一",
+        reading: "イチ",
+        readings: [
+          { text: "イチ", type: "on" },
+          { text: "ひと.つ", type: "kun" },
+        ],
+        meanings: { ru: [], en: ["one"] },
+        jlptLevel: "N5",
+        sourcePriority: 1,
+        schoolGrade: 1,
+        strokeCount: 1,
+        hasStrokeData: true,
+        source: {
+          name: "KANJIDIC2",
+          sourceRecordId: "4e00",
+          sourceUrl: "https://www.edrdg.org/wiki/index.php/KANJIDIC_Project",
+          licenseName: "EDRDG License",
+          attributionText: "KANJIDIC2 data from the Electronic Dictionary Research Group.",
+          importRunId: "import-run-kanjidic2",
+          sourceVersion: "2026-07",
+          sourceFileName: "kanjidic2.xml.gz",
+          checksumSha256: "sha256-kanjidic2",
+        },
+      };
+
+      await route.fulfill({ json: response });
+    },
+  );
 
   await page.route(
     `${API_BASE_URL}/admin/imported-candidates/approve-translation`,
@@ -376,6 +445,7 @@ async function mockAdminApi(page: Page): Promise<void> {
         ],
         updatedAt: "2026-06-22T09:40:00.000Z",
       };
+      approvedPlanTargets.add(`${body.targetType}:${body.targetId}`);
       importedCandidates = [];
 
       await route.fulfill({ json: item });

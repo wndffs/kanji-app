@@ -2162,6 +2162,34 @@ textarea:focus-visible {
   margin: 4px 0 0;
 }
 
+.admin-translation-provenance {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px 18px;
+  margin: 0;
+  border-bottom: 1px solid var(--surface-border);
+  padding-bottom: 12px;
+}
+
+.admin-translation-provenance div {
+  min-width: 0;
+}
+
+.admin-translation-provenance dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-translation-provenance dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-translation-attribution {
+  grid-column: 1 / -1;
+}
+
 .admin-translation-meta {
   display: grid;
   grid-template-columns: minmax(120px, 180px) minmax(100px, 140px) minmax(180px, max-content);
@@ -2517,11 +2545,15 @@ textarea:focus-visible {
   display: grid;
   grid-template-columns:
     58px minmax(80px, 0.7fr) minmax(100px, 1fr) 84px 80px minmax(170px, 1.3fr)
-    minmax(150px, 1fr);
+    minmax(150px, 1fr) 104px;
   align-items: center;
   gap: 10px;
   border-bottom: 1px solid var(--surface-border);
   padding: 9px 0;
+}
+
+.admin-plan-list li[data-selected="true"] {
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .admin-plan-list span,
@@ -2544,6 +2576,11 @@ textarea:focus-visible {
   font-size: 22px;
   font-weight: 850;
   line-height: 1.2;
+}
+
+.admin-plan-review {
+  min-width: 104px;
+  justify-self: end;
 }
 
 .admin-plan-error {
@@ -3205,7 +3242,7 @@ textarea:focus-visible {
   }
 
   .admin-plan-list li {
-    grid-template-columns: 52px minmax(100px, 1fr) minmax(100px, 1fr) 84px;
+    grid-template-columns: 52px minmax(100px, 1fr) minmax(100px, 1fr) 84px 104px;
   }
 
   .review-progress {
@@ -3325,6 +3362,11 @@ textarea:focus-visible {
   .admin-plan-list .admin-plan-rank {
     grid-column: 1;
     grid-row: 1;
+  }
+
+  .admin-plan-review {
+    width: min(100%, 220px);
+    justify-self: start;
   }
 
   .workload-panel > header {

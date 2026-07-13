@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  type AdminCurriculumCandidatePlanItemDto,
   type AdminCurriculumCandidatePlanResponse,
   type AdminCurriculumScaleReadinessDto,
   type CourseBand,
@@ -24,13 +25,31 @@ const EMPTY_RESOURCE = {
   error: null,
 } as const;
 
-export function CurriculumPlanningPanel({ token }: { readonly token: string }) {
+type CurriculumPlanningPanelProps = {
+  readonly token: string;
+  readonly disabled: boolean;
+  readonly refreshRevision: number;
+  readonly selectedCandidateKey: string | null;
+  readonly onReviewCandidate: (candidate: AdminCurriculumCandidatePlanItemDto) => Promise<void>;
+};
+
+export function CurriculumPlanningPanel({
+  token,
+  disabled,
+  refreshRevision,
+  selectedCandidateKey,
+  onReviewCandidate,
+}: CurriculumPlanningPanelProps) {
   const initializedToken = useRef<string | null>(null);
+  const initializedRevision = useRef<number | null>(null);
+  const currentItemType = useRef<"kanji" | "word">("kanji");
   const [readiness, setReadiness] =
     useState<ResourceState<AdminCurriculumScaleReadinessDto>>(EMPTY_RESOURCE);
   const [candidatePlan, setCandidatePlan] =
     useState<ResourceState<AdminCurriculumCandidatePlanResponse>>(EMPTY_RESOURCE);
   const [itemType, setItemType] = useState<"kanji" | "word">("kanji");
+  const [loadingCandidateKey, setLoadingCandidateKey] = useState<string | null>(null);
+  const [candidateSelectionError, setCandidateSelectionError] = useState<string | null>(null);
 
   const loadReadiness = useCallback(async (accessToken: string) => {
     setReadiness((previous) => ({ status: "loading", data: previous.data, error: null }));
@@ -63,7 +82,9 @@ export function CurriculumPlanningPanel({ token }: { readonly token: string }) {
       offset: number,
       planVersion?: string,
     ) => {
+      currentItemType.current = nextItemType;
       setItemType(nextItemType);
+      setCandidateSelectionError(null);
       setCandidatePlan((previous) => ({
         status: "loading",
         data: previous.data?.page.itemType === nextItemType ? previous.data : null,
@@ -102,16 +123,37 @@ export function CurriculumPlanningPanel({ token }: { readonly token: string }) {
   );
 
   useEffect(() => {
-    if (initializedToken.current === token) {
+    if (initializedToken.current === token && initializedRevision.current === refreshRevision) {
       return;
     }
 
+    const tokenChanged = initializedToken.current !== token;
     initializedToken.current = token;
+    initializedRevision.current = refreshRevision;
     void loadReadiness(token);
-    void loadCandidatePage(token, "kanji", 0);
-  }, [loadCandidatePage, loadReadiness, token]);
+    void loadCandidatePage(token, tokenChanged ? "kanji" : currentItemType.current, 0);
+  }, [loadCandidatePage, loadReadiness, refreshRevision, token]);
 
   const plan = candidatePlan.data;
+
+  async function handleReviewCandidate(
+    candidate: AdminCurriculumCandidatePlanItemDto,
+  ): Promise<void> {
+    const candidateKey = `${candidate.itemType}:${candidate.targetId}`;
+
+    setLoadingCandidateKey(candidateKey);
+    setCandidateSelectionError(null);
+
+    try {
+      await onReviewCandidate(candidate);
+    } catch (error: unknown) {
+      setCandidateSelectionError(
+        error instanceof Error ? error.message : "Не удалось открыть исходные данные кандидата.",
+      );
+    } finally {
+      setLoadingCandidateKey(null);
+    }
+  }
 
   return (
     <section className="panel admin-curriculum-planning" aria-label="Масштаб учебного корпуса">
@@ -216,6 +258,12 @@ export function CurriculumPlanningPanel({ token }: { readonly token: string }) {
           </div>
         )}
 
+        {candidateSelectionError === null ? null : (
+          <p className="form-error" data-testid="admin-plan-candidate-error">
+            {candidateSelectionError}
+          </p>
+        )}
+
         {plan === null ? (
           <p className="muted" aria-live="polite">
             {candidatePlan.status === "loading"
@@ -267,7 +315,12 @@ export function CurriculumPlanningPanel({ token }: { readonly token: string }) {
             ) : (
               <ol className="admin-plan-list">
                 {plan.candidates.map((candidate) => (
-                  <li key={`${candidate.itemType}:${candidate.targetId}`}>
+                  <li
+                    data-selected={
+                      selectedCandidateKey === `${candidate.itemType}:${candidate.targetId}`
+                    }
+                    key={`${candidate.itemType}:${candidate.targetId}`}
+                  >
                     <span className="admin-plan-rank">#{candidate.selectionRank}</span>
                     <span className="admin-plan-japanese">{candidate.japanese}</span>
                     <span>{candidate.reading ?? "без чтения"}</span>
@@ -280,6 +333,21 @@ export function CurriculumPlanningPanel({ token }: { readonly token: string }) {
                         ? ""
                         : ` · Кандзи: ${candidate.prerequisiteKanji.join("、")}`}
                     </small>
+                    <button
+                      aria-label={`Проверить ${candidate.japanese}`}
+                      className="secondary-action admin-plan-review"
+                      disabled={
+                        disabled ||
+                        candidatePlan.status === "loading" ||
+                        loadingCandidateKey !== null
+                      }
+                      onClick={() => void handleReviewCandidate(candidate)}
+                      type="button"
+                    >
+                      {loadingCandidateKey === `${candidate.itemType}:${candidate.targetId}`
+                        ? "Загрузка..."
+                        : "Проверить"}
+                    </button>
                   </li>
                 ))}
               </ol>

@@ -5,6 +5,7 @@ import {
   type AdminCurriculumCompletenessReportDto,
   type AdminCurriculumScaleReadinessDto,
   type AdminImportRunListResponse,
+  type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateListResponse,
   type AdminPromoteCandidateRequest,
   type AdminReviewQueueFilters,
@@ -253,6 +254,17 @@ export function getAdminImportedCandidates(
   token: string,
 ): Promise<AdminImportedCandidateListResponse> {
   return apiRequest<AdminImportedCandidateListResponse>("/admin/imported-candidates", { token });
+}
+
+export function getAdminImportedCandidateDetails(
+  token: string,
+  targetType: AdminImportedCandidateDetailsDto["itemType"],
+  targetId: string,
+): Promise<AdminImportedCandidateDetailsDto> {
+  return apiRequest<AdminImportedCandidateDetailsDto>(
+    `/admin/imported-candidates/${encodeURIComponent(targetType)}/${encodeURIComponent(targetId)}`,
+    { token },
+  );
 }
 
 export function getAdminCompletenessReport(
