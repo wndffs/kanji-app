@@ -121,6 +121,57 @@ describe("OverridesService", () => {
     });
   });
 
+  it("diagnoses a real kanji reading that is not accepted by this card", async () => {
+    const { repository, service } = createHarness();
+
+    await expect(
+      service.validateAnswerForUser({
+        userId: "owner",
+        cardId: "card-reading",
+        answerKind: "reading",
+        answer: "ヒト",
+      }),
+    ).resolves.toMatchObject({
+      accepted: false,
+      result: "wrong",
+      relatedAnswer: "ひと",
+    });
+    expect(repository.kanjiReadingLookupCount).toBe(1);
+  });
+
+  it("does not load alternative readings after an accepted answer", async () => {
+    const { repository, service } = createHarness();
+
+    await expect(
+      service.validateAnswerForUser({
+        userId: "owner",
+        cardId: "card-reading",
+        answerKind: "reading",
+        answer: "いち",
+      }),
+    ).resolves.toMatchObject({ accepted: true, relatedAnswer: null });
+    expect(repository.kanjiReadingLookupCount).toBe(0);
+  });
+
+  it("recognizes the stem and full form of a dotted KANJIDIC2 reading", async () => {
+    const { service } = createHarness();
+
+    for (const answer of ["た", "たべる"]) {
+      await expect(
+        service.validateAnswerForUser({
+          userId: "owner",
+          cardId: "card-reading",
+          answerKind: "reading",
+          answer,
+        }),
+      ).resolves.toMatchObject({
+        accepted: false,
+        result: "wrong",
+        relatedAnswer: "た.べる",
+      });
+    }
+  });
+
   it("saves a private item mnemonic with audit timestamps", async () => {
     const { service } = createHarness();
 
@@ -178,6 +229,7 @@ describe("OverridesService", () => {
 });
 
 class InMemoryOverridesRepository extends OverridesRepository {
+  kanjiReadingLookupCount = 0;
   private readonly cards = new Map<string, CardAnswerValidationRecord>([
     [
       "card-meaning",
@@ -188,6 +240,16 @@ class InMemoryOverridesRepository extends OverridesRepository {
         blockedAnswers: ["line"],
       },
     ],
+    [
+      "card-reading",
+      {
+        cardId: "card-reading",
+        answerKind: "reading",
+        acceptedAnswers: ["いち"],
+        blockedAnswers: [],
+        kanjiTargetId: "kanji-one",
+      },
+    ],
   ]);
   private readonly acceptedAnswers = new Map<string, UserAcceptedAnswerRecord>();
   private readonly mnemonics = new Map<string, UserMnemonicRecord>();
@@ -195,6 +257,11 @@ class InMemoryOverridesRepository extends OverridesRepository {
 
   async findCardForValidation(cardId: string): Promise<CardAnswerValidationRecord | null> {
     return this.cards.get(cardId) ?? null;
+  }
+
+  async listKanjiReadings(kanjiId: string): Promise<readonly string[]> {
+    this.kanjiReadingLookupCount += 1;
+    return kanjiId === "kanji-one" ? ["いち", "ひと", "た.べる"] : [];
   }
 
   async listAcceptedAnswers(

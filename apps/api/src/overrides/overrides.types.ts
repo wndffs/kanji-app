@@ -37,6 +37,7 @@ export type CardAnswerValidationRecord = {
   readonly answerKind: JapaneseAnswerKind;
   readonly acceptedAnswers: readonly string[];
   readonly blockedAnswers: readonly string[];
+  readonly kanjiTargetId?: string | null;
 };
 
 export type UserAcceptedAnswerRecord = {
@@ -81,7 +82,9 @@ export type UpsertPrivateMnemonicInput = {
   readonly body: string;
 };
 
-export type CardAnswerValidationResult = AnswerValidationResult;
+export type CardAnswerValidationResult = AnswerValidationResult & {
+  readonly relatedAnswer?: string | null;
+};
 
 export type ListOverridesResponse = {
   readonly overrides: readonly UserOverrideDto[];

@@ -259,6 +259,7 @@ export class LessonsService {
           result: validation.result,
           normalizedAnswer: validation.normalizedAnswer,
           expected: getExpectedAnswers(card, displayMode),
+          diagnostic: toAnswerDiagnostic(validation.relatedAnswer),
         };
       }),
     );
@@ -355,6 +356,7 @@ export class LessonsService {
       result: validation.result,
       normalizedAnswer: validation.normalizedAnswer,
       expected: getExpectedAnswers(card, displayMode),
+      diagnostic: toAnswerDiagnostic(validation.relatedAnswer),
     };
   }
 
@@ -888,6 +890,12 @@ function getExpectedAnswers(
     isPrimary: answer.isPrimary,
     sourceKind: answer.sourceKind,
   }));
+}
+
+function toAnswerDiagnostic(relatedAnswer?: string | null) {
+  return relatedAnswer === undefined || relatedAnswer === null
+    ? null
+    : ({ kind: "alternative-reading", matchedAnswer: relatedAnswer } as const);
 }
 
 function getInitialStage(srsSystem: SrsSystemRecord): SrsSystemRecord["stages"][number] {

@@ -126,6 +126,37 @@ describe("ReviewsService", () => {
     });
   });
 
+  it("explains when a wrong answer is another known kanji reading", async () => {
+    const overridesService = {
+      validateAnswerForUser: async () => ({
+        ...validateAnswer({
+          answerKind: "reading",
+          answer: "ひと",
+          acceptedAnswers: ["いち"],
+        }),
+        relatedAnswer: "ひと",
+      }),
+    } as unknown as OverridesService;
+    const { service } = createHarness(overridesService);
+    const session = await service.startSession(createUser("owner"));
+
+    await expect(
+      service.submitAnswer(session.session.id, createUser("owner"), {
+        cardId: "card-meaning",
+        answer: "ひと",
+        answerType: "meaning",
+        answeredAt: NOW.toISOString(),
+      }),
+    ).resolves.toMatchObject({
+      accepted: false,
+      result: "wrong",
+      feedback: {
+        message: "Это существующее чтение кандзи, но эта карточка ожидает другое чтение.",
+        diagnostic: { kind: "alternative-reading", matchedAnswer: "ひと" },
+      },
+    });
+  });
+
   it("accepts a user private override", async () => {
     const { service } = createHarness();
     const session = await service.startSession(createUser("owner"));
@@ -514,16 +545,17 @@ class FakeOverridesService {
   }
 }
 
-function createHarness(): {
+function createHarness(overridesService?: OverridesService): {
   readonly repository: InMemoryReviewsRepository;
   readonly service: ReviewsService;
 } {
   const repository = new InMemoryReviewsRepository();
-  const overridesService = new FakeOverridesService(repository) as unknown as OverridesService;
+  const activeOverridesService =
+    overridesService ?? (new FakeOverridesService(repository) as unknown as OverridesService);
 
   return {
     repository,
-    service: new ReviewsService(repository, overridesService),
+    service: new ReviewsService(repository, activeOverridesService),
   };
 }
 

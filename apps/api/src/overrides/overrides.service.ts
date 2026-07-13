@@ -142,7 +142,7 @@ export class OverridesService {
       input.cardId,
     );
 
-    return validateAnswer({
+    const validation = validateAnswer({
       answerKind: input.answerKind,
       answer: input.answer,
       acceptedAnswers: card.acceptedAnswers,
@@ -151,7 +151,46 @@ export class OverridesService {
         .filter((override) => override.overrideType === toOverrideType(input.answerKind))
         .map((override) => override.text),
     });
+
+    const relatedAnswer =
+      validation.result === "wrong" &&
+      input.answerKind === "reading" &&
+      card.kanjiTargetId !== undefined &&
+      card.kanjiTargetId !== null
+        ? findAlternativeReading(
+            input.answer,
+            await this.overridesRepository.listKanjiReadings(card.kanjiTargetId),
+          )
+        : null;
+
+    return {
+      ...validation,
+      relatedAnswer,
+    };
   }
+}
+
+function findAlternativeReading(
+  answer: string,
+  alternativeReadings: readonly string[],
+): string | null {
+  const normalizedAnswer = normalizeJapaneseReading(answer);
+
+  for (const reading of alternativeReadings) {
+    const [stem = ""] = reading.split(".", 1);
+    const candidates = [reading.replace(/[.-]/gu, ""), stem];
+
+    if (
+      candidates.some(
+        (candidate) =>
+          candidate.length > 0 && normalizeJapaneseReading(candidate) === normalizedAnswer,
+      )
+    ) {
+      return reading;
+    }
+  }
+
+  return null;
 }
 
 function parseAddAcceptedAnswerRequest(body: unknown): Required<AddAcceptedAnswerRequest> {

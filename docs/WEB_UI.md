@@ -51,6 +51,8 @@
   id, and keep the same remaining-item order after reload.
 - Check each quiz card immediately, pause on explicit feedback, and move a
   failed card behind the remaining cards before retrying it.
+- Distinguish an alternative kanji reading from an unrelated wrong answer while
+  still showing the reading expected by the current card.
 - Add to SRS.
 
 ## Mobile requirements

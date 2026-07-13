@@ -97,6 +97,12 @@ and return behind the remaining cards. An item enters the interval-based SRS
 only after all of its
 lesson cards pass; incomplete or failed attempts create no SRS progress.
 
+For kanji reading cards, a rejected answer is also compared with the kanji's
+other dictionary readings. An exact normalized match is explained as another
+valid reading rather than a generic error, but remains wrong for the current
+card. KANJIDIC2 dotted kunyomi can match either their stem or full reading for
+this diagnostic only.
+
 ## Kana curriculum
 
 Kana is a separate character-learning track and does not use `LearningCard` or

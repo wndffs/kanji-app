@@ -257,6 +257,7 @@ export type ReviewAnswerResponse = {
     readonly message: string;
     readonly expected: readonly LocalizedTextDto[];
     readonly blockedReason?: string | null;
+    readonly diagnostic?: AnswerDiagnosticDto | null;
   };
   readonly previousSrs: SrsStateSummaryDto;
   readonly nextSrs: SrsStateSummaryDto;
@@ -361,6 +362,12 @@ export type LessonAnswerFeedbackDto = {
   readonly result: "correct" | "typo" | "blocked" | "wrong";
   readonly normalizedAnswer: string;
   readonly expected: readonly LocalizedTextDto[];
+  readonly diagnostic?: AnswerDiagnosticDto | null;
+};
+
+export type AnswerDiagnosticDto = {
+  readonly kind: "alternative-reading";
+  readonly matchedAnswer: string;
 };
 
 export type CheckLessonAnswerRequestDto = {

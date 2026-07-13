@@ -122,9 +122,10 @@ export class ReviewsService {
       normalizedAnswer: validation.normalizedAnswer,
       matchedAnswer: validation.matchedAnswer,
       feedback: {
-        message: getFeedbackMessage(validation.result),
+        message: getFeedbackMessage(validation.result, validation.relatedAnswer),
         expected: toExpectedAnswersForDisplay(target, displayMode),
         blockedReason: getBlockedReason(target, validation.matchedAnswer),
+        diagnostic: toAnswerDiagnostic(validation.relatedAnswer),
       },
     };
   }
@@ -208,6 +209,7 @@ export class ReviewsService {
                 matchedAnswer: validation.matchedAnswer,
                 matchSource: validation.matchSource,
                 distance: validation.distance,
+                relatedAnswer: validation.relatedAnswer ?? null,
               },
         scheduling: {
           action: scheduling.details.action,
@@ -224,9 +226,10 @@ export class ReviewsService {
       normalizedAnswer,
       matchedAnswer: validation?.matchedAnswer ?? null,
       feedback: {
-        message: getFeedbackMessage(responseResult),
+        message: getFeedbackMessage(responseResult, validation?.relatedAnswer),
         expected: toExpectedAnswers(target),
         blockedReason: getBlockedReason(target, validation?.matchedAnswer ?? null),
+        diagnostic: toAnswerDiagnostic(validation?.relatedAnswer),
       },
       previousSrs: toSrsSummary(target.state, target.stages),
       nextSrs: toSrsSummary(
@@ -494,7 +497,11 @@ function getBlockedReason(target: ReviewQueueRecord, matchedAnswer: string | nul
   return target.card.blockedAnswers.find((answer) => answer.text === matchedAnswer)?.reason ?? null;
 }
 
-function getFeedbackMessage(result: ReviewAnswerResultType): string {
+function getFeedbackMessage(result: ReviewAnswerResultType, relatedAnswer?: string | null): string {
+  if (result === "wrong" && relatedAnswer !== undefined && relatedAnswer !== null) {
+    return "Это существующее чтение кандзи, но эта карточка ожидает другое чтение.";
+  }
+
   switch (result) {
     case "correct":
       return "Ответ принят.";
@@ -509,6 +516,12 @@ function getFeedbackMessage(result: ReviewAnswerResultType): string {
     default:
       return "Ответ не принят.";
   }
+}
+
+function toAnswerDiagnostic(relatedAnswer?: string | null) {
+  return relatedAnswer === undefined || relatedAnswer === null
+    ? null
+    : ({ kind: "alternative-reading", matchedAnswer: relatedAnswer } as const);
 }
 
 function addDays(date: Date, days: number): Date {

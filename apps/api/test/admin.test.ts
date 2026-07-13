@@ -735,6 +735,10 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
     };
   }
 
+  async listKanjiReadings(): Promise<readonly string[]> {
+    return [];
+  }
+
   async listAcceptedAnswers(): Promise<readonly UserAcceptedAnswerRecord[]> {
     return [];
   }

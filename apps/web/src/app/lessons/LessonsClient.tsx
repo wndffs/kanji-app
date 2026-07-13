@@ -1274,11 +1274,7 @@ function LessonQuizView({
       {feedback === null ? null : (
         <section className="lesson-quiz-result" aria-label="Результат проверки" role="alert">
           <h2>{formatLessonQuizResult(feedback)}</h2>
-          <p>
-            {feedback.accepted
-              ? "Ответ принят. Продолжите к следующей карточке."
-              : "Карточка вернётся в конец очереди. Сначала ответьте на оставшиеся вопросы."}
-          </p>
+          <p>{formatLessonQuizExplanation(feedback)}</p>
           {feedback.result === "correct" ? null : (
             <>
               <strong>Допустимые ответы</strong>
@@ -1509,6 +1505,10 @@ function formatAnswerType(answerType: CardAnswerType): string {
 }
 
 function formatLessonQuizResult(feedback: CompleteLessonItemResponse["answers"][number]): string {
+  if (feedback.diagnostic?.kind === "alternative-reading") {
+    return "Это другое чтение этого кандзи";
+  }
+
   switch (feedback.result) {
     case "correct":
       return "Верно";
@@ -1519,6 +1519,18 @@ function formatLessonQuizResult(feedback: CompleteLessonItemResponse["answers"][
     case "wrong":
       return "Попробуйте ещё раз позже";
   }
+}
+
+function formatLessonQuizExplanation(
+  feedback: CompleteLessonItemResponse["answers"][number],
+): string {
+  if (feedback.diagnostic?.kind === "alternative-reading") {
+    return "Чтение существует, но эта карточка проверяет другое. Карточка вернётся в конец очереди.";
+  }
+
+  return feedback.accepted
+    ? "Ответ принят. Продолжите к следующей карточке."
+    : "Карточка вернётся в конец очереди. Сначала ответьте на оставшиеся вопросы.";
 }
 
 function formatLocale(locale: ContentLocale): string {

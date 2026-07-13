@@ -102,23 +102,26 @@ test.describe("lesson session", () => {
 
     await expect(page.getByRole("heading", { name: "Обязательная проверка" })).toBeVisible();
     await expect(page.getByLabel("Ваше чтение")).toBeFocused();
-    await page.getByLabel("Ваше чтение").fill("いち");
+    await page.getByLabel("Ваше чтение").fill("ひと");
     await page.keyboard.press("Enter");
 
-    await expect(page.getByRole("heading", { name: "Верно" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Продолжить" })).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(page.getByLabel("Ваше значение")).toBeFocused();
-    await page.getByLabel("Ваше значение").fill("не один");
-    await page.keyboard.press("Enter");
-
-    await expect(page.getByRole("alert", { name: "Результат проверки" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Попробуйте ещё раз позже" })).toBeVisible();
-    await expect(page.getByText("один")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Это другое чтение этого кандзи" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/Чтение существует, но эта карточка проверяет другое/),
+    ).toBeVisible();
+    await expect(page.getByText("いち")).toBeVisible();
     await expect(page.getByRole("button", { name: "Продолжить" })).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(page.getByLabel("Ваше значение")).toBeFocused();
     await page.getByLabel("Ваше значение").fill("один");
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("heading", { name: "Верно" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Продолжить" })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page.getByLabel("Ваше чтение")).toBeFocused();
+    await page.getByLabel("Ваше чтение").fill("いち");
     await page.keyboard.press("Enter");
     await expect(page.getByRole("heading", { name: "Верно" })).toBeVisible();
     await page.keyboard.press("Enter");
@@ -332,12 +335,23 @@ async function mockLessonApi(page: Page): Promise<void> {
     const failedAnswer = failedLessonItemResponse.answers.find(
       (answer) => answer.cardId === body.cardId,
     );
+    const alternativeReadingAnswer =
+      body.cardId === "card-kanji-one-reading" && body.answer === "ひと"
+        ? {
+            ...acceptedAnswer,
+            accepted: false,
+            result: "wrong" as const,
+            normalizedAnswer: "ひと",
+            diagnostic: { kind: "alternative-reading" as const, matchedAnswer: "ひと" },
+          }
+        : null;
 
     await route.fulfill({
       json:
-        body.cardId === "card-kanji-one-meaning" && body.answer !== "один"
+        alternativeReadingAnswer ??
+        (body.cardId === "card-kanji-one-meaning" && body.answer !== "один"
           ? failedAnswer
-          : acceptedAnswer,
+          : acceptedAnswer),
     });
   });
 

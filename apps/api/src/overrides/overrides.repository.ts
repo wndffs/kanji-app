@@ -11,6 +11,7 @@ import {
 
 export abstract class OverridesRepository {
   abstract findCardForValidation(cardId: string): Promise<CardAnswerValidationRecord | null>;
+  abstract listKanjiReadings(kanjiId: string): Promise<readonly string[]>;
   abstract listAcceptedAnswers(
     userId: string,
     cardId: string,
@@ -68,6 +69,12 @@ export class PrismaOverridesRepository extends OverridesRepository {
       include: {
         answers: true,
         blockedAnswers: true,
+        learningItem: {
+          select: {
+            targetId: true,
+            targetType: true,
+          },
+        },
       },
     });
 
@@ -80,7 +87,21 @@ export class PrismaOverridesRepository extends OverridesRepository {
       answerKind: card.answerType === "READING" ? "reading" : "meaning",
       acceptedAnswers: card.answers.map((answer) => answer.text),
       blockedAnswers: card.blockedAnswers.map((answer) => answer.text),
+      kanjiTargetId:
+        card.answerType === "READING" && card.learningItem.targetType === "KANJI"
+          ? card.learningItem.targetId
+          : null,
     };
+  }
+
+  async listKanjiReadings(kanjiId: string): Promise<readonly string[]> {
+    const readings = await this.prisma.db.kanjiReading.findMany({
+      where: { kanjiId },
+      select: { reading: true },
+      orderBy: [{ priority: "desc" }, { reading: "asc" }],
+    });
+
+    return readings.map((reading) => reading.reading);
   }
 
   async listAcceptedAnswers(

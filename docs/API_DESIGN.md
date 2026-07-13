@@ -180,6 +180,11 @@ feedback with the result, correct answers, blocked-answer reason if relevant,
 and previous/next SRS summaries. Answers can be submitted only to the current
 user's active review session.
 
+When a rejected reading matches another KANJIDIC2 reading of the same kanji,
+lesson, review, and practice feedback identify it as an alternative reading.
+The diagnostic does not accept the answer and does not change its normal wrong
+answer SRS consequence.
+
 ### Items
 
 - `GET /items/:id`
