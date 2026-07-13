@@ -14,6 +14,7 @@ import {
   type AdminImportedCandidateDetailsDto,
   type AdminReviewQueueFilters,
   type AdminReviewQueueItemDto,
+  type AdminReviewQueueResponse,
   SUPPORTED_COURSE_BANDS,
   type CourseBand,
 } from "@kanji-srs/shared";
@@ -44,6 +45,7 @@ type AdminState =
       readonly status: "ready";
       readonly token: string;
       readonly queue: readonly AdminReviewQueueItemDto[];
+      readonly queuePagination: AdminReviewQueueResponse["pagination"];
       readonly importedCandidates: readonly AdminImportedCandidateDto[];
       readonly importRuns: readonly AdminImportRunSummaryDto[];
       readonly report: AdminCurriculumCompletenessReportDto;
@@ -109,6 +111,8 @@ export function AdminClient() {
   const [translationDetails, setTranslationDetails] =
     useState<AdminImportedCandidateDetailsDto | null>(null);
   const [planningRevision, setPlanningRevision] = useState(0);
+  const [queueCursor, setQueueCursor] = useState<string | null>(null);
+  const [queueCursorHistory, setQueueCursorHistory] = useState<readonly (string | null)[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -143,7 +147,10 @@ export function AdminClient() {
 
     try {
       const [queue, importRuns, importedCandidates, report] = await Promise.all([
-        getAdminReviewQueueWithFilters(session.token, toApiFilters(filters)),
+        getAdminReviewQueueWithFilters(session.token, {
+          ...toApiFilters(filters),
+          limit: ADMIN_REVIEW_QUEUE_PAGE_LIMIT,
+        }),
         getAdminImportRuns(session.token),
         getAdminImportedCandidates(session.token),
         getAdminCompletenessReport(session.token),
@@ -165,11 +172,14 @@ export function AdminClient() {
         status: "ready",
         token: session.token,
         queue: queue.items,
+        queuePagination: queue.pagination,
         importedCandidates: importedCandidates.candidates,
         importRuns: importRuns.importRuns,
         report,
         item: firstItem,
       });
+      setQueueCursor(null);
+      setQueueCursorHistory([]);
     } catch (error: unknown) {
       if (error instanceof ApiError && error.status === 401) {
         clearStoredSession();
@@ -220,6 +230,78 @@ export function AdminClient() {
       ? translationDetails
       : null;
   const activeTranslationSource = activeTranslationDetails ?? activeTranslationCandidate;
+
+  async function handleQueuePage(
+    nextCursor: string | null,
+    direction: "next" | "previous",
+  ): Promise<void> {
+    if (state.status !== "ready" || savingKey !== null) {
+      return;
+    }
+
+    setSavingKey("queue-page");
+    setFormError(null);
+    setStatusMessage(null);
+
+    try {
+      const queue = await getAdminReviewQueueWithFilters(state.token, {
+        ...toApiFilters(filters),
+        limit: ADMIN_REVIEW_QUEUE_PAGE_LIMIT,
+        ...(nextCursor === null ? {} : { cursor: nextCursor }),
+      });
+      const firstItem =
+        queue.items.length === 0
+          ? null
+          : await getAdminCurationItem(state.token, queue.items[0].id);
+
+      syncDrafts(firstItem);
+      setState({
+        ...state,
+        queue: queue.items,
+        queuePagination: queue.pagination,
+        item: firstItem,
+      });
+      setQueueCursor(nextCursor);
+      setQueueCursorHistory((previous) =>
+        direction === "next" ? [...previous, queueCursor] : previous.slice(0, -1),
+      );
+    } catch (error: unknown) {
+      setFormError(error instanceof Error ? error.message : "Не удалось открыть страницу очереди.");
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  async function refreshQueueFromStart(): Promise<void> {
+    if (state.status !== "ready") {
+      return;
+    }
+
+    try {
+      const queue = await getAdminReviewQueueWithFilters(state.token, {
+        ...toApiFilters(filters),
+        limit: ADMIN_REVIEW_QUEUE_PAGE_LIMIT,
+      });
+      const firstItem =
+        queue.items.length === 0
+          ? null
+          : await getAdminCurationItem(state.token, queue.items[0].id);
+
+      syncDrafts(firstItem);
+      setState({
+        ...state,
+        queue: queue.items,
+        queuePagination: queue.pagination,
+        item: firstItem,
+      });
+      setQueueCursor(null);
+      setQueueCursorHistory([]);
+    } catch (error: unknown) {
+      setFormError(
+        error instanceof Error ? error.message : "Не удалось обновить очередь проверки.",
+      );
+    }
+  }
 
   async function handleSelectItem(itemId: string): Promise<void> {
     if (state.status !== "ready" || savingKey !== null) {
@@ -318,7 +400,10 @@ export function AdminClient() {
         level,
       });
       const [queue, importedCandidates, report] = await Promise.all([
-        getAdminReviewQueueWithFilters(state.token, toApiFilters(filters)),
+        getAdminReviewQueueWithFilters(state.token, {
+          ...toApiFilters(filters),
+          limit: ADMIN_REVIEW_QUEUE_PAGE_LIMIT,
+        }),
         getAdminImportedCandidates(state.token),
         getAdminCompletenessReport(state.token),
       ]);
@@ -327,11 +412,14 @@ export function AdminClient() {
       setState({
         ...state,
         queue: queue.items,
+        queuePagination: queue.pagination,
         importedCandidates: importedCandidates.candidates,
         report,
         item,
       });
       setPromoteDraft(EMPTY_PROMOTE_DRAFT);
+      setQueueCursor(null);
+      setQueueCursorHistory([]);
       setPlanningRevision((previous) => previous + 1);
       setStatusMessage("Кандидат добавлен в кураторскую очередь.");
     } catch (error: unknown) {
@@ -429,7 +517,10 @@ export function AdminClient() {
         acceptedAnswers: { ru: acceptedRu, en: acceptedEn },
       });
       const [queue, importedCandidates, report] = await Promise.all([
-        getAdminReviewQueueWithFilters(state.token, toApiFilters(filters)),
+        getAdminReviewQueueWithFilters(state.token, {
+          ...toApiFilters(filters),
+          limit: ADMIN_REVIEW_QUEUE_PAGE_LIMIT,
+        }),
         getAdminImportedCandidates(state.token),
         getAdminCompletenessReport(state.token),
       ]);
@@ -445,11 +536,14 @@ export function AdminClient() {
       setState({
         ...state,
         queue: queue.items,
+        queuePagination: queue.pagination,
         importedCandidates: importedCandidates.candidates,
         report,
         item,
       });
       setPlanningRevision((previous) => previous + 1);
+      setQueueCursor(null);
+      setQueueCursorHistory([]);
       setStatusMessage("Перевод подтверждён и добавлен в кураторскую очередь.");
     } catch (error: unknown) {
       setFormError(error instanceof Error ? error.message : "Не удалось подтвердить перевод.");
@@ -715,6 +809,7 @@ export function AdminClient() {
       <CurriculumPlanningPanel
         disabled={savingKey !== null}
         key={state.token}
+        onQueueChanged={refreshQueueFromStart}
         onReviewCandidate={handleReviewPlannedCandidate}
         refreshRevision={planningRevision}
         selectedCandidateKey={
@@ -972,6 +1067,40 @@ export function AdminClient() {
               ))}
             </ul>
           )}
+
+          <div
+            aria-label="Навигация по очереди проверки"
+            className="admin-queue-pagination"
+            data-testid="admin-review-queue-pagination"
+          >
+            <span>
+              Страница {queueCursorHistory.length + 1} · Материалов: {state.queue.length}
+            </span>
+            <div className="action-row">
+              <button
+                className="secondary-action"
+                disabled={queueCursorHistory.length === 0 || savingKey !== null}
+                onClick={() => void handleQueuePage(queueCursorHistory.at(-1) ?? null, "previous")}
+                type="button"
+              >
+                Назад
+              </button>
+              <button
+                className="secondary-action"
+                disabled={state.queuePagination.nextCursor === null || savingKey !== null}
+                onClick={() => {
+                  const nextCursor = state.queuePagination.nextCursor;
+
+                  if (nextCursor !== null) {
+                    void handleQueuePage(nextCursor, "next");
+                  }
+                }}
+                type="button"
+              >
+                Далее
+              </button>
+            </div>
+          </div>
 
           <div className="admin-import-runs">
             <h2>Import runs</h2>
@@ -1418,6 +1547,8 @@ export function AdminClient() {
     }));
   }
 }
+
+const ADMIN_REVIEW_QUEUE_PAGE_LIMIT = 20;
 
 const DEFAULT_FILTERS: AdminFilters = {
   band: "",

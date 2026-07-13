@@ -114,6 +114,13 @@ fresh first page after success. If the retained plan version expires, the UI
 refreshes the shortlist and asks the admin to confirm the new page rather than
 silently submitting changed candidates.
 
+The resulting editorial queue is cursor-paginated rather than capped at the
+first 50 rows. Pages preserve the active quality filters, use a deterministic
+updated-time and id order, and open the first material when the admin moves
+forward or back. Staging a candidate-plan page refreshes the queue from its
+first page immediately, so newly created review work is actionable without a
+full browser reload.
+
 ## Main lesson flow
 
 Component, kanji, vocabulary, and sentence lessons use small groups of at most

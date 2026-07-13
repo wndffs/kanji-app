@@ -639,6 +639,10 @@ export type AdminReviewQueueItemDto = {
 
 export type AdminReviewQueueResponse = {
   readonly items: readonly AdminReviewQueueItemDto[];
+  readonly pagination: {
+    readonly limit: number;
+    readonly nextCursor: string | null;
+  };
 };
 
 export type AdminReviewQueueFilters = {
@@ -647,6 +651,8 @@ export type AdminReviewQueueFilters = {
   readonly status?: AdminContentStatus;
   readonly missingAcceptedAnswers?: boolean;
   readonly missingMnemonics?: boolean;
+  readonly cursor?: string;
+  readonly limit?: number;
 };
 
 export type AdminImportedCandidateReasonCode =

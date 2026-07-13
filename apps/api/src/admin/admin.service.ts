@@ -54,6 +54,8 @@ const MAX_BLOCKED_REASON_LENGTH = 500;
 const MAX_TEXT_BODY_LENGTH = 4_000;
 const DEFAULT_CANDIDATE_PLAN_PAGE_LIMIT = 50;
 const MAX_CANDIDATE_PLAN_PAGE_LIMIT = 100;
+const DEFAULT_REVIEW_QUEUE_PAGE_LIMIT = 20;
+const MAX_REVIEW_QUEUE_PAGE_LIMIT = 50;
 
 @Injectable()
 export class AdminService {
@@ -93,9 +95,14 @@ export class AdminService {
 
   async listReviewItems(query: unknown = {}): Promise<AdminReviewQueueResponse> {
     const filters = parseReviewQueueFilters(query);
+    const page = await this.adminRepository.listReviewItems(filters);
 
     return {
-      items: await this.adminRepository.listReviewItems(filters),
+      items: page.items,
+      pagination: {
+        limit: filters.limit,
+        nextCursor: page.nextCursor === null ? null : encodeReviewQueueCursor(page.nextCursor),
+      },
     };
   }
 
@@ -330,7 +337,47 @@ function parseReviewQueueFilters(query: unknown): NormalizedAdminReviewQueueFilt
     ...(record.missingMnemonics === undefined
       ? {}
       : { missingMnemonics: parseBooleanQuery(record.missingMnemonics, "missingMnemonics") }),
+    cursor:
+      record.cursor === undefined || record.cursor === ""
+        ? null
+        : parseReviewQueueCursor(record.cursor),
+    limit: parseBoundedNonNegativeInteger(
+      record.limit,
+      "limit",
+      DEFAULT_REVIEW_QUEUE_PAGE_LIMIT,
+      MAX_REVIEW_QUEUE_PAGE_LIMIT,
+      1,
+    ),
   };
+}
+
+function parseReviewQueueCursor(value: unknown): NormalizedAdminReviewQueueFilters["cursor"] {
+  const encoded = parseRequiredString(value, "cursor", { maxLength: 512 });
+
+  try {
+    const decoded = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as unknown;
+    const record = parseRecord(decoded, "cursor");
+    const updatedAtText = parseRequiredString(record.updatedAt, "cursor.updatedAt", {
+      maxLength: 40,
+    });
+    const id = parseRequiredString(record.id, "cursor.id", { maxLength: 80 });
+    const updatedAt = new Date(updatedAtText);
+
+    if (Number.isNaN(updatedAt.getTime())) {
+      throw new Error("Invalid cursor date.");
+    }
+
+    return { updatedAt, id };
+  } catch {
+    throw new BadRequestException("cursor is invalid or expired.");
+  }
+}
+
+function encodeReviewQueueCursor(cursor: NonNullable<NormalizedAdminReviewQueueFilters["cursor"]>) {
+  return Buffer.from(
+    JSON.stringify({ updatedAt: cursor.updatedAt.toISOString(), id: cursor.id }),
+    "utf8",
+  ).toString("base64url");
 }
 
 function parseCandidatePlanFilters(query: unknown): NormalizedAdminCandidatePlanFilters {

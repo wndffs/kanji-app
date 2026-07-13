@@ -363,6 +363,14 @@ This staging action does not copy imported meanings into authored content,
 create cards, add dependencies or levels, or publish anything. An expired plan
 version follows the same `409 Conflict` behavior as paginated reads.
 
+`GET /admin/items/review-queue` uses stable keyset pagination ordered by
+`updatedAt DESC, id ASC`. `limit` defaults to 20 and is bounded to 50; a response
+contains the page plus an opaque `nextCursor`, or `null` when no later matching
+item exists. Band, status, JLPT, missing-answer, and missing-mnemonic filters are
+applied before a page is returned. The endpoint intentionally does not expose a
+potentially expensive exact total. Invalid cursors return `400 Bad Request`, and
+clients must reset the cursor when filters change.
+
 ## API rules
 
 - Keep endpoints stable and typed.

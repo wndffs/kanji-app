@@ -78,6 +78,26 @@ test.describe("admin curation", () => {
     await expect(review).toContainText("Кандидатов с русским и английским переводом пока нет.");
   });
 
+  test("admin pages through the review queue without duplicate items", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await mockAdminApi(page);
+
+    await page.goto("/admin");
+
+    const queue = page.locator(".admin-queue");
+    const pagination = page.getByTestId("admin-review-queue-pagination");
+
+    await expect(queue).toContainText("Кандзи 一");
+    await pagination.getByRole("button", { name: "Далее" }).click();
+    await expect(queue).toContainText("Кандзи 二");
+    await expect(queue).not.toContainText("Кандзи 一");
+    await expect(pagination).toContainText("Страница 2");
+
+    await pagination.getByRole("button", { name: "Назад" }).click();
+    await expect(queue).toContainText("Кандзи 一");
+    await expect(pagination).toContainText("Страница 1");
+  });
+
   test("admin can curate a candidate selected from the full curriculum plan", async ({ page }) => {
     await signIn(page, "ADMIN");
     await mockAdminApi(page);
@@ -173,6 +193,7 @@ async function mockAdminApi(
   options: { readonly enqueueConflictOnce?: boolean } = {},
 ): Promise<void> {
   let item = buildAdminItem();
+  const secondItem = buildSecondAdminItem();
   const assignedPlanTargets = new Set<string>();
   let remainingEnqueueConflicts = options.enqueueConflictOnce === true ? 1 : 0;
   let importedCandidates: AdminImportedCandidateListResponse["candidates"] = [
@@ -200,23 +221,30 @@ async function mockAdminApi(
   ];
 
   await page.route(`${API_BASE_URL}/admin/items/review-queue**`, async (route) => {
+    const url = new URL(route.request().url());
+    const cursor = url.searchParams.get("cursor");
+    const queueItem = cursor === null ? item : secondItem;
     const response: AdminReviewQueueResponse = {
       items: [
         {
-          id: item.id,
-          itemType: item.itemType,
-          band: item.band,
-          title: item.title,
-          japanese: item.japanese,
-          reading: item.reading,
-          level: item.level,
-          jlptLevel: item.jlptLevel,
-          status: item.status,
-          updatedAt: item.updatedAt,
-          sourceNames: item.attributions.map((source) => source.sourceName),
-          qualityIssues: item.qualityIssues,
+          id: queueItem.id,
+          itemType: queueItem.itemType,
+          band: queueItem.band,
+          title: queueItem.title,
+          japanese: queueItem.japanese,
+          reading: queueItem.reading,
+          level: queueItem.level,
+          jlptLevel: queueItem.jlptLevel,
+          status: queueItem.status,
+          updatedAt: queueItem.updatedAt,
+          sourceNames: queueItem.attributions.map((source) => source.sourceName),
+          qualityIssues: queueItem.qualityIssues,
         },
       ],
+      pagination: {
+        limit: Number(url.searchParams.get("limit") ?? 20),
+        nextCursor: cursor === null ? "review-page-two" : null,
+      },
     };
 
     await route.fulfill({ json: response });
@@ -534,6 +562,10 @@ async function mockAdminApi(
     await route.fulfill({ json: item });
   });
 
+  await page.route(`${API_BASE_URL}/admin/items/${secondItem.id}`, async (route) => {
+    await route.fulfill({ json: secondItem });
+  });
+
   await page.route(`${API_BASE_URL}/admin/cards/${CARD_ID}/answers`, async (route) => {
     const body = route.request().postDataJSON() as {
       readonly acceptedAnswers: readonly {
@@ -697,5 +729,17 @@ function buildAdminItem(): AdminCurationItemDto {
         dependencyItemId: null,
       },
     ],
+  };
+}
+
+function buildSecondAdminItem(): AdminCurationItemDto {
+  return {
+    ...buildAdminItem(),
+    id: "item-kanji-two",
+    title: "Кандзи 二",
+    japanese: "二",
+    reading: "に",
+    updatedAt: "2026-06-22T07:00:00.000Z",
+    cards: [],
   };
 }

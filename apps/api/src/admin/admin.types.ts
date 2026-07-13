@@ -5,6 +5,7 @@ import {
   type AdminEnqueueCandidatePlanResponse,
   type AdminPromoteCandidateRequest,
   type AdminReviewQueueFilters,
+  type AdminReviewQueueItemDto,
   type AdminUpdateCardAnswersRequest,
   type AdminUpdateItemRequest,
   type CardAnswerType,
@@ -46,7 +47,23 @@ export type NormalizedAdminItemCurationInput = {
   readonly mnemonics?: readonly NormalizedAdminTextInput[];
 };
 
-export type NormalizedAdminReviewQueueFilters = AdminReviewQueueFilters;
+export type AdminReviewQueueCursor = {
+  readonly updatedAt: Date;
+  readonly id: string;
+};
+
+export type NormalizedAdminReviewQueueFilters = Omit<
+  AdminReviewQueueFilters,
+  "cursor" | "limit"
+> & {
+  readonly cursor: AdminReviewQueueCursor | null;
+  readonly limit: number;
+};
+
+export type AdminReviewQueuePageResult = {
+  readonly items: readonly AdminReviewQueueItemDto[];
+  readonly nextCursor: AdminReviewQueueCursor | null;
+};
 
 export type NormalizedAdminCandidatePlanFilters = {
   readonly itemType: "kanji" | "word";

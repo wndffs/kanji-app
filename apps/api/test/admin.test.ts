@@ -6,8 +6,6 @@ import {
   type AdminImportRunSummaryDto,
   type AdminImportedCandidateDto,
   type AdminImportedCandidateDetailsDto,
-  type AdminReviewQueueFilters,
-  type AdminReviewQueueItemDto,
 } from "@kanji-srs/shared";
 
 import { AdminRepository, PrismaAdminRepository } from "../src/admin/admin.repository";
@@ -23,9 +21,11 @@ import {
 import {
   type AdminCandidatePlanEnqueueItemInput,
   type AdminCandidatePlanEnqueueResult,
+  type AdminReviewQueuePageResult,
   type NormalizedAdminApproveImportedTranslationInput,
   type NormalizedAdminItemCurationInput,
   type NormalizedAdminPromoteCandidateInput,
+  type NormalizedAdminReviewQueueFilters,
 } from "../src/admin/admin.types";
 import { type OverridesRepository } from "../src/overrides/overrides.repository";
 import { OverridesService } from "../src/overrides/overrides.service";
@@ -108,6 +108,7 @@ describe("AdminService", () => {
       ]),
     );
     expect(response.items.every((item) => item.status === "needs-review")).toBe(true);
+    expect(response.pagination).toEqual({ limit: 20, nextCursor: null });
   });
 
   it("filters admin review queue by band and missing data", async () => {
@@ -132,7 +133,32 @@ describe("AdminService", () => {
           ]),
         }),
       ],
+      pagination: { limit: 20, nextCursor: null },
     });
+  });
+
+  it("paginates the review queue with opaque stable cursors", async () => {
+    const adminService = new AdminService(new InMemoryAdminRepository());
+    const firstPage = await adminService.listReviewItems({ limit: "1" });
+
+    expect(firstPage.items).toHaveLength(1);
+    expect(firstPage.pagination.limit).toBe(1);
+    expect(firstPage.pagination.nextCursor).toEqual(expect.any(String));
+
+    const secondPage = await adminService.listReviewItems({
+      limit: "1",
+      cursor: firstPage.pagination.nextCursor,
+    });
+
+    expect(secondPage.items).toHaveLength(1);
+    expect(secondPage.items[0]?.id).not.toBe(firstPage.items[0]?.id);
+    expect(secondPage.pagination).toEqual({ limit: 1, nextCursor: null });
+    await expect(adminService.listReviewItems({ cursor: "not-a-cursor" })).rejects.toThrow(
+      "cursor is invalid or expired.",
+    );
+    await expect(adminService.listReviewItems({ limit: "51" })).rejects.toThrow(
+      "limit must be an integer from 1 to 50.",
+    );
   });
 
   it("rejects publishing incomplete cards through quality gates", async () => {
@@ -973,9 +999,9 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
   }
 
   async listReviewItems(
-    filters: AdminReviewQueueFilters = {},
-  ): Promise<readonly AdminReviewQueueItemDto[]> {
-    return this.items
+    filters: NormalizedAdminReviewQueueFilters = { cursor: null, limit: 20 },
+  ): Promise<AdminReviewQueuePageResult> {
+    const filteredItems = this.items
       .map(applyQualityIssues)
       .filter((item) => (filters.status ?? "needs-review") === item.status)
       .filter((item) => filters.band === undefined || item.band === filters.band)
@@ -992,7 +1018,26 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
             (issue) => issue.code === "missing-ru-mnemonic" || issue.code === "missing-en-mnemonic",
           ),
       )
-      .map((item) => ({
+      .sort(
+        (left, right) =>
+          right.updatedAt.localeCompare(left.updatedAt) || left.id.localeCompare(right.id),
+      )
+      .filter((item) => {
+        if (filters.cursor === null) {
+          return true;
+        }
+
+        const updatedAt = new Date(item.updatedAt).getTime();
+        const cursorUpdatedAt = filters.cursor.updatedAt.getTime();
+        return (
+          updatedAt < cursorUpdatedAt ||
+          (updatedAt === cursorUpdatedAt && item.id > filters.cursor.id)
+        );
+      });
+    const pageItems = filteredItems.slice(0, filters.limit);
+
+    return {
+      items: pageItems.map((item) => ({
         id: item.id,
         itemType: item.itemType,
         band: item.band,
@@ -1005,7 +1050,15 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
         updatedAt: item.updatedAt,
         sourceNames: item.attributions.map((source) => source.sourceName),
         qualityIssues: item.qualityIssues,
-      }));
+      })),
+      nextCursor:
+        filteredItems.length > filters.limit && pageItems.length > 0
+          ? {
+              updatedAt: new Date(pageItems[pageItems.length - 1]!.updatedAt),
+              id: pageItems[pageItems.length - 1]!.id,
+            }
+          : null,
+    };
   }
 
   async findCurationItem(itemId: string): Promise<AdminCurationItemDto | null> {

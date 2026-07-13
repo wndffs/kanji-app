@@ -117,3 +117,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 35. Task 75 (completed): allow reviewed RU/EN curation when an imported locale is missing.
 36. Task 76 (completed): safely stage a versioned candidate-plan page for editorial review.
 37. Task 77 (completed): confirm, stage, and refresh candidate-plan pages in the admin workspace.
+38. Task 78 (completed): paginate the editorial review queue with stable cursors.

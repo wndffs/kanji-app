@@ -5,6 +5,7 @@ import {
   apiRequest,
   createTextDeck,
   enqueueAdminCandidatePlan,
+  getAdminReviewQueueWithFilters,
   searchItems,
   updateDeckStatus,
 } from "../src/lib/api-client";
@@ -201,5 +202,27 @@ describe("apiRequest", () => {
     expect(capturedInit?.method).toBe("POST");
     expect((capturedInit?.headers as Headers).get("Authorization")).toBe("Bearer token-1");
     expect(capturedInit?.body).toBe(JSON.stringify(input));
+  });
+
+  it("requests a bounded admin review-queue cursor page", async () => {
+    let capturedInput: RequestInfo | URL | null = null;
+    const fetchImpl: typeof fetch = async (input) => {
+      capturedInput = input;
+      return new Response(
+        JSON.stringify({ items: [], pagination: { limit: 20, nextCursor: null } }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    };
+
+    await expect(
+      getAdminReviewQueueWithFilters(
+        "token-1",
+        { status: "needs-review", cursor: "next-page", limit: 20 },
+        fetchImpl,
+      ),
+    ).resolves.toEqual({ items: [], pagination: { limit: 20, nextCursor: null } });
+    expect(capturedInput).toBe(
+      "http://localhost:3001/admin/items/review-queue?status=needs-review&cursor=next-page&limit=20",
+    );
   });
 });

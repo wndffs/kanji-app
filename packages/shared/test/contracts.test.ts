@@ -241,6 +241,7 @@ describe("shared DTO contracts", () => {
           ],
         },
       ],
+      pagination: { limit: 20, nextCursor: "next-page" },
     };
     const report: AdminCurriculumCompletenessReportDto = {
       generatedAt: "2026-06-24T10:00:00.000Z",

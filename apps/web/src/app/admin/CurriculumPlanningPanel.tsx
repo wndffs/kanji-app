@@ -35,6 +35,7 @@ type CurriculumPlanningPanelProps = {
   readonly disabled: boolean;
   readonly refreshRevision: number;
   readonly selectedCandidateKey: string | null;
+  readonly onQueueChanged: () => Promise<void>;
   readonly onReviewCandidate: (candidate: AdminCurriculumCandidatePlanItemDto) => Promise<void>;
 };
 
@@ -43,6 +44,7 @@ export function CurriculumPlanningPanel({
   disabled,
   refreshRevision,
   selectedCandidateKey,
+  onQueueChanged,
   onReviewCandidate,
 }: CurriculumPlanningPanelProps) {
   const initializedToken = useRef<string | null>(null);
@@ -201,6 +203,7 @@ export function CurriculumPlanningPanel({
       await Promise.all([
         loadReadiness(token),
         loadCandidatePage(token, currentPlan.page.itemType, 0),
+        onQueueChanged(),
       ]);
     } catch (error: unknown) {
       if (initializedToken.current !== token) {

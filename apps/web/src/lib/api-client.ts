@@ -232,6 +232,7 @@ export function getAdminReviewQueue(token: string): Promise<AdminReviewQueueResp
 export function getAdminReviewQueueWithFilters(
   token: string,
   filters: AdminReviewQueueFilters,
+  fetchImpl?: typeof fetch,
 ): Promise<AdminReviewQueueResponse> {
   const params = new URLSearchParams();
 
@@ -244,7 +245,7 @@ export function getAdminReviewQueueWithFilters(
   const query = params.toString();
   return apiRequest<AdminReviewQueueResponse>(
     `/admin/items/review-queue${query === "" ? "" : `?${query}`}`,
-    { token },
+    { token, fetchImpl },
   );
 }
 

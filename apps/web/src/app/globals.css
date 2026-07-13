@@ -2006,7 +2006,7 @@ textarea:focus-visible {
   list-style: none;
 }
 
-.admin-queue button {
+.admin-queue > ul > li > button {
   width: 100%;
   display: grid;
   gap: 4px;
@@ -2019,7 +2019,7 @@ textarea:focus-visible {
   cursor: pointer;
 }
 
-.admin-queue button[aria-current="true"] {
+.admin-queue > ul > li > button[aria-current="true"] {
   border-color: var(--accent);
   background: var(--surface-strong);
 }
@@ -2033,6 +2033,19 @@ textarea:focus-visible {
 .admin-queue span,
 .admin-queue small {
   color: var(--muted);
+}
+
+.admin-queue-pagination {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--surface-border);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.admin-queue-pagination > span {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .admin-import-runs {

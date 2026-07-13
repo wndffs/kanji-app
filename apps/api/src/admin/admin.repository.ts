@@ -38,6 +38,8 @@ import {
 import {
   type AdminCandidatePlanEnqueueItemInput,
   type AdminCandidatePlanEnqueueResult,
+  type AdminReviewQueueCursor,
+  type AdminReviewQueuePageResult,
   type NormalizedAdminCardAnswersInput,
   type NormalizedAdminApproveImportedTranslationInput,
   type NormalizedAdminItemCurationInput,
@@ -55,7 +57,7 @@ export abstract class AdminRepository {
   ): Promise<AdminImportedCandidateDetailsDto | null>;
   abstract listReviewItems(
     filters: NormalizedAdminReviewQueueFilters,
-  ): Promise<readonly AdminReviewQueueItemDto[]>;
+  ): Promise<AdminReviewQueuePageResult>;
   abstract getCompletenessReport(): Promise<AdminCurriculumCompletenessReportDto>;
   abstract getScaleReadiness(): Promise<AdminCurriculumScaleReadinessDto>;
   abstract getCandidatePlanVersion(): Promise<string>;
@@ -305,6 +307,7 @@ const IMPORTED_CANDIDATE_QUERY_LIMIT = 500;
 const IMPORTED_CANDIDATE_RESPONSE_LIMIT = 100;
 const CURRICULUM_KANJI_CANDIDATE_POOL_LIMIT = 5_000;
 const CURRICULUM_WORD_CANDIDATE_POOL_LIMIT = 40_000;
+const ADMIN_REVIEW_QUEUE_SCAN_LIMIT = 100;
 
 @Injectable()
 export class PrismaAdminRepository extends AdminRepository {
@@ -833,63 +836,101 @@ export class PrismaAdminRepository extends AdminRepository {
 
   async listReviewItems(
     filters: NormalizedAdminReviewQueueFilters,
-  ): Promise<readonly AdminReviewQueueItemDto[]> {
-    const items = (await this.prisma.db.learningItem.findMany({
-      where: {
-        status: filters.status === undefined ? "NEEDS_REVIEW" : toPrismaStatus(filters.status),
-        ...(filters.band === undefined ? {} : { curriculumBand: toPrismaBand(filters.band) }),
-      },
-      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-      take: 200,
-      include: this.itemInclude(),
-    })) as unknown as readonly LearningItemRow[];
+  ): Promise<AdminReviewQueuePageResult> {
+    const matches: {
+      readonly item: AdminReviewQueueItemDto;
+      readonly cursor: AdminReviewQueueCursor;
+    }[] = [];
+    let scanCursor = filters.cursor;
 
-    const summaries: AdminReviewQueueItemDto[] = [];
+    while (matches.length <= filters.limit) {
+      const items = (await this.prisma.db.learningItem.findMany({
+        where: {
+          status: filters.status === undefined ? "NEEDS_REVIEW" : toPrismaStatus(filters.status),
+          ...(filters.band === undefined ? {} : { curriculumBand: toPrismaBand(filters.band) }),
+          ...(scanCursor === null
+            ? {}
+            : {
+                OR: [
+                  { updatedAt: { lt: scanCursor.updatedAt } },
+                  { updatedAt: scanCursor.updatedAt, id: { gt: scanCursor.id } },
+                ],
+              }),
+        },
+        orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+        take: ADMIN_REVIEW_QUEUE_SCAN_LIMIT,
+        include: this.itemInclude(),
+      })) as unknown as readonly LearningItemRow[];
 
-    for (const item of items) {
-      const curationItem = await this.toCurationItem(item);
-
-      if (filters.jlptLevel !== undefined && curationItem.jlptLevel !== filters.jlptLevel) {
-        continue;
-      }
-
-      if (
-        filters.missingAcceptedAnswers === true &&
-        !curationItem.qualityIssues.some((issue) => issue.code === "missing-accepted-answer")
-      ) {
-        continue;
-      }
-
-      if (
-        filters.missingMnemonics === true &&
-        !curationItem.qualityIssues.some(
-          (issue) => issue.code === "missing-ru-mnemonic" || issue.code === "missing-en-mnemonic",
-        )
-      ) {
-        continue;
-      }
-
-      summaries.push({
-        id: item.id,
-        itemType: toItemKind(item.kind),
-        title: item.title,
-        band: curationItem.band,
-        japanese: curationItem.japanese,
-        reading: curationItem.reading,
-        level: item.levelHint,
-        jlptLevel: curationItem.jlptLevel,
-        status: toApiStatus(item.status),
-        updatedAt: item.updatedAt.toISOString(),
-        sourceNames: curationItem.attributions.map((source) => source.sourceName),
-        qualityIssues: curationItem.qualityIssues,
-      });
-
-      if (summaries.length >= 50) {
+      if (items.length === 0) {
         break;
       }
+
+      for (const item of items) {
+        const curationItem = await this.toCurationItem(item);
+
+        if (filters.jlptLevel !== undefined && curationItem.jlptLevel !== filters.jlptLevel) {
+          continue;
+        }
+
+        if (
+          filters.missingAcceptedAnswers === true &&
+          !curationItem.qualityIssues.some((issue) => issue.code === "missing-accepted-answer")
+        ) {
+          continue;
+        }
+
+        if (
+          filters.missingMnemonics === true &&
+          !curationItem.qualityIssues.some(
+            (issue) => issue.code === "missing-ru-mnemonic" || issue.code === "missing-en-mnemonic",
+          )
+        ) {
+          continue;
+        }
+
+        matches.push({
+          item: {
+            id: item.id,
+            itemType: toItemKind(item.kind),
+            title: item.title,
+            band: curationItem.band,
+            japanese: curationItem.japanese,
+            reading: curationItem.reading,
+            level: item.levelHint,
+            jlptLevel: curationItem.jlptLevel,
+            status: toApiStatus(item.status),
+            updatedAt: item.updatedAt.toISOString(),
+            sourceNames: curationItem.attributions.map((source) => source.sourceName),
+            qualityIssues: curationItem.qualityIssues,
+          },
+          cursor: { updatedAt: item.updatedAt, id: item.id },
+        });
+
+        if (matches.length > filters.limit) {
+          break;
+        }
+      }
+
+      if (matches.length > filters.limit || items.length < ADMIN_REVIEW_QUEUE_SCAN_LIMIT) {
+        break;
+      }
+
+      const lastItem = items.at(-1);
+
+      if (lastItem === undefined) {
+        break;
+      }
+
+      scanCursor = { updatedAt: lastItem.updatedAt, id: lastItem.id };
     }
 
-    return summaries;
+    const pageMatches = matches.slice(0, filters.limit);
+
+    return {
+      items: pageMatches.map(({ item }) => item),
+      nextCursor: matches.length > filters.limit ? (pageMatches.at(-1)?.cursor ?? null) : null,
+    };
   }
 
   async getCompletenessReport(): Promise<AdminCurriculumCompletenessReportDto> {
