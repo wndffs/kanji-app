@@ -1,6 +1,6 @@
 import { verifySha256 } from "./import-metadata";
 import { forEachConcurrent } from "./concurrency";
-import { executeTrackedImport } from "./import-run";
+import { executeTrackedImport, findSuccessfulImportRun, type ImportRunLookup } from "./import-run";
 import { decodeXml, extractAttributedElements, extractElements, extractRequiredText } from "./xml";
 
 export type JmDictGlossDto = {
@@ -91,7 +91,7 @@ export type JmDictImportDatabase = {
       readonly create: Record<string, unknown>;
     }): Promise<{ readonly id: string }>;
   };
-  readonly importRun: {
+  readonly importRun: ImportRunLookup & {
     upsert(args: {
       readonly where: {
         readonly dataSourceId_checksumSha256: {
@@ -246,6 +246,28 @@ export async function importJmDictXml(
       notes: "Japanese word dictionary source. Raw glosses stay in the imported layer.",
     },
   });
+  const completedImportRun = await findSuccessfulImportRun(
+    db.importRun,
+    dataSource.id,
+    checksumSha256,
+  );
+
+  if (completedImportRun !== null) {
+    return {
+      licenseId: license.id,
+      dataSourceId: dataSource.id,
+      importRunId: completedImportRun.id,
+      checksumSha256,
+      status: "SUCCESS",
+      entryCount: parsed.entries.length,
+      wordCount,
+      glossCount: parsed.glossCount,
+      importedGlossCount,
+      unsupportedGlossCount: parsed.unsupportedGlossCount,
+      importedRecordCount: parsed.entries.length,
+    };
+  }
+
   const importRun = await db.importRun.upsert({
     where: {
       dataSourceId_checksumSha256: {

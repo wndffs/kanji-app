@@ -78,6 +78,7 @@ describe("JMdict importer", () => {
 
     expect(db.importRuns.size).toBe(1);
     expect(db.importedRecords.size).toBe(3);
+    expect(db.importedRecordUpsertCount).toBe(3);
     expect(db.wordRows.size).toBe(5);
     expect(db.senseRows.size).toBe(12);
     expect([...db.senseRows.values()]).not.toEqual(
@@ -146,6 +147,7 @@ class InMemoryJmDictDb implements JmDictImportDatabase {
   readonly importedRecords = new Map<string, Record<string, unknown>>();
   readonly wordRows = new Map<string, Record<string, unknown>>();
   readonly senseRows = new Map<string, Record<string, unknown>>();
+  importedRecordUpsertCount = 0;
   private nextId = 1;
 
   readonly license = {
@@ -161,6 +163,20 @@ class InMemoryJmDictDb implements JmDictImportDatabase {
   };
 
   readonly importRun = {
+    findUnique: async (args: Parameters<JmDictImportDatabase["importRun"]["findUnique"]>[0]) => {
+      const key = [
+        args.where.dataSourceId_checksumSha256.dataSourceId,
+        args.where.dataSourceId_checksumSha256.checksumSha256,
+      ].join(":");
+      const row = this.importRuns.get(key);
+
+      return row === undefined
+        ? null
+        : {
+            id: String(row.id),
+            status: row.status as "PENDING" | "SUCCESS" | "FAILED",
+          };
+    },
     upsert: async (args: Parameters<JmDictImportDatabase["importRun"]["upsert"]>[0]) => {
       const key = [
         args.where.dataSourceId_checksumSha256.dataSourceId,
@@ -176,6 +192,7 @@ class InMemoryJmDictDb implements JmDictImportDatabase {
 
   readonly importedRecord = {
     upsert: async (args: Parameters<JmDictImportDatabase["importedRecord"]["upsert"]>[0]) => {
+      this.importedRecordUpsertCount += 1;
       const key = [
         args.where.importRunId_recordType_sourceRecordId.importRunId,
         args.where.importRunId_recordType_sourceRecordId.recordType,

@@ -1,6 +1,6 @@
 import { verifySha256 } from "./import-metadata";
 import { forEachConcurrent } from "./concurrency";
-import { executeTrackedImport } from "./import-run";
+import { executeTrackedImport, findSuccessfulImportRun, type ImportRunLookup } from "./import-run";
 import {
   extractAttributedElements,
   extractElements,
@@ -80,7 +80,7 @@ export type KanjiDic2ImportDatabase = {
       readonly create: Record<string, unknown>;
     }): Promise<{ readonly id: string }>;
   };
-  readonly importRun: {
+  readonly importRun: ImportRunLookup & {
     upsert(args: {
       readonly where: {
         readonly dataSourceId_checksumSha256: {
@@ -223,6 +223,24 @@ export async function importKanjiDic2Xml(
       notes: "Kanji metadata source. Raw imported meanings are not curated lesson copy.",
     },
   });
+  const completedImportRun = await findSuccessfulImportRun(
+    db.importRun,
+    dataSource.id,
+    checksumSha256,
+  );
+
+  if (completedImportRun !== null) {
+    return {
+      licenseId: license.id,
+      dataSourceId: dataSource.id,
+      importRunId: completedImportRun.id,
+      checksumSha256,
+      status: "SUCCESS",
+      characterCount: parsed.characters.length,
+      importedRecordCount: parsed.characters.length,
+    };
+  }
+
   const importRun = await db.importRun.upsert({
     where: {
       dataSourceId_checksumSha256: {

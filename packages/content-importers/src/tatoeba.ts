@@ -1,4 +1,5 @@
 import { calculateSha256 } from "./checksum";
+import { executeTrackedImport, findSuccessfulImportRun, type ImportRunLookup } from "./import-run";
 
 export type TatoebaLanguage = "jpn" | "rus" | "eng";
 
@@ -78,7 +79,7 @@ export type TatoebaImportDatabase = {
       readonly create: Record<string, unknown>;
     }): Promise<{ readonly id: string }>;
   };
-  readonly importRun: {
+  readonly importRun: ImportRunLookup & {
     upsert(args: {
       readonly where: {
         readonly dataSourceId_checksumSha256: {
@@ -89,6 +90,10 @@ export type TatoebaImportDatabase = {
       readonly update: Record<string, unknown>;
       readonly create: Record<string, unknown>;
     }): Promise<{ readonly id: string }>;
+    update(args: {
+      readonly where: { readonly id: string };
+      readonly data: Record<string, unknown>;
+    }): Promise<unknown>;
   };
   readonly importedRecord: {
     upsert(args: {
@@ -236,6 +241,29 @@ export async function importTatoebaFiles(
       notes: "Sentence and translation-link source. Audio is intentionally excluded.",
     },
   });
+  const completedImportRun = await findSuccessfulImportRun(
+    db.importRun,
+    dataSource.id,
+    checksumSha256,
+  );
+
+  if (completedImportRun !== null) {
+    return {
+      licenseId: license.id,
+      dataSourceId: dataSource.id,
+      importRunId: completedImportRun.id,
+      checksumSha256,
+      status: "SUCCESS",
+      sentenceCount: parsed.sentences.length,
+      importedRecordCount: parsed.sentences.length,
+      rejectedCount: parsed.rejected.length,
+    };
+  }
+
+  const statsJson = {
+    sentences: parsed.sentences.length,
+    rejected: parsed.rejected.length,
+  };
   const importRun = await db.importRun.upsert({
     where: {
       dataSourceId_checksumSha256: {
@@ -246,12 +274,10 @@ export async function importTatoebaFiles(
     update: {
       sourceVersion,
       sourceFileName: options.sourceFileName,
-      finishedAt: new Date(),
-      status: "SUCCESS",
-      statsJson: {
-        sentences: parsed.sentences.length,
-        rejected: parsed.rejected.length,
-      },
+      startedAt: new Date(),
+      finishedAt: null,
+      status: "PENDING",
+      statsJson: null,
       errorText: null,
     },
     create: {
@@ -259,65 +285,62 @@ export async function importTatoebaFiles(
       sourceVersion,
       sourceFileName: options.sourceFileName,
       checksumSha256,
-      finishedAt: new Date(),
-      status: "SUCCESS",
-      statsJson: {
-        sentences: parsed.sentences.length,
-        rejected: parsed.rejected.length,
-      },
+      status: "PENDING",
       errorText: null,
     },
   });
 
-  for (const sentence of parsed.sentences) {
-    await db.importedRecord.upsert({
-      where: {
-        importRunId_recordType_sourceRecordId: {
+  await executeTrackedImport(db.importRun, importRun.id, statsJson, async () => {
+    for (const sentence of parsed.sentences) {
+      await db.importedRecord.upsert({
+        where: {
+          importRunId_recordType_sourceRecordId: {
+            importRunId: importRun.id,
+            recordType: "TATOEBA_SENTENCE",
+            sourceRecordId: sentence.sourceRecordId,
+          },
+        },
+        update: {
+          rawJson: sentence.raw,
+        },
+        create: {
           importRunId: importRun.id,
           recordType: "TATOEBA_SENTENCE",
           sourceRecordId: sentence.sourceRecordId,
+          rawJson: sentence.raw,
         },
-      },
-      update: {
-        rawJson: sentence.raw,
-      },
-      create: {
-        importRunId: importRun.id,
-        recordType: "TATOEBA_SENTENCE",
-        sourceRecordId: sentence.sourceRecordId,
-        rawJson: sentence.raw,
-      },
-    });
+      });
 
-    await db.sentence.upsert({
-      where: {
-        dataSourceId_sourceId: {
+      await db.sentence.upsert({
+        where: {
+          dataSourceId_sourceId: {
+            dataSourceId: dataSource.id,
+            sourceId: sentence.sourceRecordId,
+          },
+        },
+        update: {
+          japaneseText: sentence.japaneseText,
+          readingText: null,
+          translationRu: sentence.translationRu,
+          translationEn: sentence.translationEn,
           dataSourceId: dataSource.id,
-          sourceId: sentence.sourceRecordId,
+          licenseId: license.id,
         },
-      },
-      update: {
-        japaneseText: sentence.japaneseText,
-        readingText: null,
-        translationRu: sentence.translationRu,
-        translationEn: sentence.translationEn,
-        dataSourceId: dataSource.id,
-        licenseId: license.id,
-      },
-      create: {
-        japaneseText: sentence.japaneseText,
-        readingText: null,
-        translationRu: sentence.translationRu,
-        translationEn: sentence.translationEn,
-        difficulty: null,
-        sourceId: sentence.sourceRecordId,
-        dataSourceId: dataSource.id,
-        licenseId: license.id,
-      },
-    });
+        create: {
+          japaneseText: sentence.japaneseText,
+          readingText: null,
+          translationRu: sentence.translationRu,
+          translationEn: sentence.translationEn,
+          difficulty: null,
+          sourceId: sentence.sourceRecordId,
+          dataSourceId: dataSource.id,
+          licenseId: license.id,
+        },
+      });
 
-    // TODO: Link imported sentences to known words after a tokenizer/matcher API exists.
-  }
+      // TODO: Link imported sentences to known words after a tokenizer/matcher API exists.
+    }
+  });
 
   return {
     licenseId: license.id,

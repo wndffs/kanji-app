@@ -71,6 +71,7 @@ describe("KANJIDIC2 importer", () => {
 
     expect(db.importRuns.size).toBe(1);
     expect(db.importedRecords.size).toBe(3);
+    expect(db.importedRecordUpsertCount).toBe(3);
     expect(db.kanjiRows.size).toBe(3);
     expect(db.readingRows.size).toBe(8);
     expect(db.meaningRows.size).toBe(5);
@@ -84,6 +85,21 @@ describe("KANJIDIC2 importer", () => {
     expect(
       [...db.kanjiRows.values()].every((row) => row.kanjidicImportedRecordId !== undefined),
     ).toBe(true);
+  });
+
+  it("retries a failed run with the same checksum", async () => {
+    const db = new InMemoryKanjiDic2Db();
+
+    await importKanjiDic2Xml(db, fixtureXml, { sourceFileName: "kanjidic2-small.xml" });
+    const run = [...db.importRuns.values()][0];
+
+    expect(run).toBeDefined();
+    run!.status = "FAILED";
+
+    await importKanjiDic2Xml(db, fixtureXml, { sourceFileName: "kanjidic2-small.xml" });
+
+    expect(db.importedRecordUpsertCount).toBe(6);
+    expect([...db.importRuns.values()][0]).toMatchObject({ status: "SUCCESS", errorText: null });
   });
 
   it("records import run checksum and success status", async () => {
@@ -126,6 +142,7 @@ class InMemoryKanjiDic2Db implements KanjiDic2ImportDatabase {
   readonly kanjiRows = new Map<string, Record<string, unknown>>();
   readonly readingRows = new Map<string, Record<string, unknown>>();
   readonly meaningRows = new Map<string, Record<string, unknown>>();
+  importedRecordUpsertCount = 0;
   private nextId = 1;
 
   readonly license = {
@@ -141,6 +158,20 @@ class InMemoryKanjiDic2Db implements KanjiDic2ImportDatabase {
   };
 
   readonly importRun = {
+    findUnique: async (args: Parameters<KanjiDic2ImportDatabase["importRun"]["findUnique"]>[0]) => {
+      const key = [
+        args.where.dataSourceId_checksumSha256.dataSourceId,
+        args.where.dataSourceId_checksumSha256.checksumSha256,
+      ].join(":");
+      const row = this.importRuns.get(key);
+
+      return row === undefined
+        ? null
+        : {
+            id: String(row.id),
+            status: row.status as "PENDING" | "SUCCESS" | "FAILED",
+          };
+    },
     upsert: async (args: Parameters<KanjiDic2ImportDatabase["importRun"]["upsert"]>[0]) => {
       const key = [
         args.where.dataSourceId_checksumSha256.dataSourceId,
@@ -156,6 +187,7 @@ class InMemoryKanjiDic2Db implements KanjiDic2ImportDatabase {
 
   readonly importedRecord = {
     upsert: async (args: Parameters<KanjiDic2ImportDatabase["importedRecord"]["upsert"]>[0]) => {
+      this.importedRecordUpsertCount += 1;
       const key = [
         args.where.importRunId_recordType_sourceRecordId.importRunId,
         args.where.importRunId_recordType_sourceRecordId.recordType,

@@ -95,6 +95,7 @@ describe("Tatoeba importer", () => {
     expect(second.importRunId).toBe(first.importRunId);
     expect(db.importRuns.size).toBe(1);
     expect(db.importedRecords.size).toBe(2);
+    expect(db.importedRecordUpsertCount).toBe(2);
     expect(db.sentenceRows.size).toBe(2);
     expect([...db.dataSources.values()][0]).toMatchObject({
       name: "Tatoeba",
@@ -121,6 +122,32 @@ describe("Tatoeba importer", () => {
         ],
       },
     });
+  });
+
+  it("marks a failed write and retries it with the same checksum", async () => {
+    const db = new InMemoryTatoebaDb();
+    const checksum = calculateSha256(`${sentencesTsv}\n${linksTsv}`);
+    const options = {
+      sourceFileName: "tatoeba-sentences-small.tsv+tatoeba-links-small.tsv",
+      checksumSha256: checksum,
+      maxTextLength: 16,
+    } as const;
+
+    db.failNextSentenceWrite = true;
+
+    await expect(importTatoebaFiles(db, sentencesTsv, linksTsv, options)).rejects.toThrow(
+      "Simulated sentence write failure.",
+    );
+    expect([...db.importRuns.values()][0]).toMatchObject({
+      status: "FAILED",
+      errorText: "Simulated sentence write failure.",
+    });
+
+    const result = await importTatoebaFiles(db, sentencesTsv, linksTsv, options);
+
+    expect(result.status).toBe("SUCCESS");
+    expect([...db.importRuns.values()][0]).toMatchObject({ status: "SUCCESS", errorText: null });
+    expect(db.sentenceRows.size).toBe(2);
   });
 
   it("retains sentence/link provenance without importing audio metadata", async () => {
@@ -157,6 +184,8 @@ class InMemoryTatoebaDb implements TatoebaImportDatabase {
   readonly importRuns = new Map<string, Record<string, unknown>>();
   readonly importedRecords = new Map<string, Record<string, unknown>>();
   readonly sentenceRows = new Map<string, Record<string, unknown>>();
+  importedRecordUpsertCount = 0;
+  failNextSentenceWrite = false;
   private nextId = 1;
 
   readonly license = {
@@ -172,6 +201,20 @@ class InMemoryTatoebaDb implements TatoebaImportDatabase {
   };
 
   readonly importRun = {
+    findUnique: async (args: Parameters<TatoebaImportDatabase["importRun"]["findUnique"]>[0]) => {
+      const key = [
+        args.where.dataSourceId_checksumSha256.dataSourceId,
+        args.where.dataSourceId_checksumSha256.checksumSha256,
+      ].join(":");
+      const row = this.importRuns.get(key);
+
+      return row === undefined
+        ? null
+        : {
+            id: String(row.id),
+            status: row.status as "PENDING" | "SUCCESS" | "FAILED",
+          };
+    },
     upsert: async (args: Parameters<TatoebaImportDatabase["importRun"]["upsert"]>[0]) => {
       const key = [
         args.where.dataSourceId_checksumSha256.dataSourceId,
@@ -180,10 +223,14 @@ class InMemoryTatoebaDb implements TatoebaImportDatabase {
 
       return this.upsert(this.importRuns, key, args.update, args.create);
     },
+    update: async (args: Parameters<TatoebaImportDatabase["importRun"]["update"]>[0]) => {
+      this.updateById(this.importRuns, args.where.id, args.data);
+    },
   };
 
   readonly importedRecord = {
     upsert: async (args: Parameters<TatoebaImportDatabase["importedRecord"]["upsert"]>[0]) => {
+      this.importedRecordUpsertCount += 1;
       const key = [
         args.where.importRunId_recordType_sourceRecordId.importRunId,
         args.where.importRunId_recordType_sourceRecordId.recordType,
@@ -196,6 +243,11 @@ class InMemoryTatoebaDb implements TatoebaImportDatabase {
 
   readonly sentence = {
     upsert: async (args: Parameters<TatoebaImportDatabase["sentence"]["upsert"]>[0]) => {
+      if (this.failNextSentenceWrite) {
+        this.failNextSentenceWrite = false;
+        throw new Error("Simulated sentence write failure.");
+      }
+
       const key = [
         args.where.dataSourceId_sourceId.dataSourceId,
         args.where.dataSourceId_sourceId.sourceId,
@@ -223,5 +275,19 @@ class InMemoryTatoebaDb implements TatoebaImportDatabase {
     rows.set(key, row);
 
     return { id: String(row.id) };
+  }
+
+  private updateById(
+    rows: Map<string, Record<string, unknown>>,
+    id: string,
+    data: Record<string, unknown>,
+  ): void {
+    const row = [...rows.values()].find((candidate) => candidate.id === id);
+
+    if (row === undefined) {
+      throw new Error(`Missing row ${id}.`);
+    }
+
+    Object.assign(row, data);
   }
 }

@@ -105,3 +105,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 23. Task 63 (completed): check lesson cards immediately and requeue missed cards.
 24. Task 64 (completed): distinguish alternative kanji readings and retry them without penalty.
 25. Task 65 (completed): verify full production corpus imports with database counts.
+26. Task 66 (completed): resume corpus imports without rewriting sources whose checksum already succeeded.

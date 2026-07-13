@@ -1,6 +1,6 @@
 import { verifySha256 } from "./import-metadata";
 import { forEachConcurrent } from "./concurrency";
-import { executeTrackedImport } from "./import-run";
+import { executeTrackedImport, findSuccessfulImportRun, type ImportRunLookup } from "./import-run";
 import {
   extractOpeningTagAttributes,
   extractSelfClosingElements,
@@ -61,7 +61,7 @@ export type KanjiVgImportDatabase = {
       readonly create: Record<string, unknown>;
     }): Promise<{ readonly id: string }>;
   };
-  readonly importRun: {
+  readonly importRun: ImportRunLookup & {
     upsert(args: {
       readonly where: {
         readonly dataSourceId_checksumSha256: {
@@ -178,6 +178,24 @@ export async function importKanjiVgXml(
       notes: "Kanji stroke path source. Component grouping remains source-attributed data.",
     },
   });
+  const completedImportRun = await findSuccessfulImportRun(
+    db.importRun,
+    dataSource.id,
+    checksumSha256,
+  );
+
+  if (completedImportRun !== null) {
+    return {
+      licenseId: license.id,
+      dataSourceId: dataSource.id,
+      importRunId: completedImportRun.id,
+      checksumSha256,
+      status: "SUCCESS",
+      characterCount: parsed.characters.length,
+      importedRecordCount: parsed.characters.length,
+    };
+  }
+
   const importRun = await db.importRun.upsert({
     where: {
       dataSourceId_checksumSha256: {

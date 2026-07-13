@@ -5,6 +5,39 @@ export type ImportRunUpdater = {
   }): Promise<unknown>;
 };
 
+export type ImportRunLookup = {
+  findUnique(args: {
+    readonly where: {
+      readonly dataSourceId_checksumSha256: {
+        readonly dataSourceId: string;
+        readonly checksumSha256: string;
+      };
+    };
+    readonly select: { readonly id: true; readonly status: true };
+  }): Promise<{
+    readonly id: string;
+    readonly status: "PENDING" | "SUCCESS" | "FAILED";
+  } | null>;
+};
+
+export async function findSuccessfulImportRun(
+  importRun: ImportRunLookup,
+  dataSourceId: string,
+  checksumSha256: string,
+): Promise<{ readonly id: string } | null> {
+  const existing = await importRun.findUnique({
+    where: {
+      dataSourceId_checksumSha256: {
+        dataSourceId,
+        checksumSha256,
+      },
+    },
+    select: { id: true, status: true },
+  });
+
+  return existing?.status === "SUCCESS" ? { id: existing.id } : null;
+}
+
 export async function executeTrackedImport(
   importRun: ImportRunUpdater,
   importRunId: string,
