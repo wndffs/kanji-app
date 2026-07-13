@@ -908,6 +908,10 @@ textarea:focus-visible {
   border-color: rgba(24, 115, 95, 0.38);
 }
 
+.feedback-panel-neutral {
+  border-color: rgba(31, 103, 145, 0.42);
+}
+
 .feedback-header h2 {
   font-size: 22px;
   line-height: 1.2;

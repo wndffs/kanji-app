@@ -112,16 +112,16 @@ test.describe("lesson session", () => {
       page.getByText(/Чтение существует, но эта карточка проверяет другое/),
     ).toBeVisible();
     await expect(page.getByText("いち")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Продолжить" })).toBeFocused();
+    await expect(page.getByRole("button", { name: "Ответить снова" })).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(page.getByLabel("Ваше значение")).toBeFocused();
-    await page.getByLabel("Ваше значение").fill("один");
+    await expect(page.getByLabel("Ваше чтение")).toBeFocused();
+    await page.getByLabel("Ваше чтение").fill("いち");
     await page.keyboard.press("Enter");
     await expect(page.getByRole("heading", { name: "Верно" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Продолжить" })).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(page.getByLabel("Ваше чтение")).toBeFocused();
-    await page.getByLabel("Ваше чтение").fill("いち");
+    await expect(page.getByLabel("Ваше значение")).toBeFocused();
+    await page.getByLabel("Ваше значение").fill("один");
     await page.keyboard.press("Enter");
     await expect(page.getByRole("heading", { name: "Верно" })).toBeVisible();
     await page.keyboard.press("Enter");

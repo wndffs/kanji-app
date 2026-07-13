@@ -103,4 +103,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 21. Task 61 (completed): safely abandon an active lesson without rolling back SRS progress.
 22. Task 62 (completed): use a stable shuffled order for required lesson quizzes.
 23. Task 63 (completed): check lesson cards immediately and requeue missed cards.
-24. Task 64 (completed): distinguish alternative kanji readings in answer feedback.
+24. Task 64 (completed): distinguish alternative kanji readings and retry them without penalty.

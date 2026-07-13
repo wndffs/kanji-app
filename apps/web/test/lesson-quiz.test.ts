@@ -61,6 +61,17 @@ describe("advanceLessonQuizCardQueue", () => {
 
     expect(advanceLessonQuizCardQueue(queue, createFeedback("card-two", true))).toBe(queue);
   });
+
+  it("keeps an alternative reading on the current card for a neutral retry", () => {
+    const queue = ["card-one", "card-two"];
+
+    expect(
+      advanceLessonQuizCardQueue(queue, {
+        ...createFeedback("card-one", false),
+        diagnostic: { kind: "alternative-reading", matchedAnswer: "ひと" },
+      }),
+    ).toBe(queue);
+  });
 });
 
 function createLesson(id: string): LessonQueueItem {

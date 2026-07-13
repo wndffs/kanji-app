@@ -182,8 +182,8 @@ user's active review session.
 
 When a rejected reading matches another KANJIDIC2 reading of the same kanji,
 lesson, review, and practice feedback identify it as an alternative reading.
-The diagnostic does not accept the answer and does not change its normal wrong
-answer SRS consequence.
+The diagnostic requests another answer without recording a review attempt,
+changing SRS state, or incrementing practice errors.
 
 ### Items
 

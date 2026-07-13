@@ -99,9 +99,9 @@ lesson cards pass; incomplete or failed attempts create no SRS progress.
 
 For kanji reading cards, a rejected answer is also compared with the kanji's
 other dictionary readings. An exact normalized match is explained as another
-valid reading rather than a generic error, but remains wrong for the current
-card. KANJIDIC2 dotted kunyomi can match either their stem or full reading for
-this diagnostic only.
+valid reading rather than a generic error. The learner retries the same card
+without an SRS penalty or a recorded mistake. KANJIDIC2 dotted kunyomi can match
+either their stem or full reading for this diagnostic only.
 
 ## Kana curriculum
 

@@ -52,7 +52,8 @@
 - Check each quiz card immediately, pause on explicit feedback, and move a
   failed card behind the remaining cards before retrying it.
 - Distinguish an alternative kanji reading from an unrelated wrong answer while
-  still showing the reading expected by the current card.
+  still showing the reading expected by the current card. Retry it immediately
+  without advancing the queue or counting an error.
 - Add to SRS.
 
 ## Mobile requirements

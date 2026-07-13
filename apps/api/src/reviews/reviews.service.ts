@@ -121,6 +121,7 @@ export class ReviewsService {
       result: validation.result,
       normalizedAnswer: validation.normalizedAnswer,
       matchedAnswer: validation.matchedAnswer,
+      retry: validation.relatedAnswer !== undefined && validation.relatedAnswer !== null,
       feedback: {
         message: getFeedbackMessage(validation.result, validation.relatedAnswer),
         expected: toExpectedAnswersForDisplay(target, displayMode),
@@ -161,6 +162,28 @@ export class ReviewsService {
             answerKind: request.answerType,
             answer: request.answer,
           });
+
+    if (validation?.relatedAnswer !== undefined && validation.relatedAnswer !== null) {
+      const srs = toSrsSummary(target.state, target.stages);
+
+      return {
+        cardId: target.card.id,
+        accepted: false,
+        result: "wrong",
+        normalizedAnswer: validation.normalizedAnswer,
+        matchedAnswer: null,
+        retry: true,
+        feedback: {
+          message: getFeedbackMessage("wrong", validation.relatedAnswer),
+          expected: toExpectedAnswers(target),
+          blockedReason: null,
+          diagnostic: toAnswerDiagnostic(validation.relatedAnswer),
+        },
+        previousSrs: srs,
+        nextSrs: srs,
+      };
+    }
+
     const responseResult = getResponseResult(request, validation?.result ?? "wrong");
     const recordedResult = getSrsResult(responseResult);
     const normalizedAnswer =
@@ -225,6 +248,7 @@ export class ReviewsService {
       result: responseResult,
       normalizedAnswer,
       matchedAnswer: validation?.matchedAnswer ?? null,
+      retry: false,
       feedback: {
         message: getFeedbackMessage(responseResult, validation?.relatedAnswer),
         expected: toExpectedAnswers(target),

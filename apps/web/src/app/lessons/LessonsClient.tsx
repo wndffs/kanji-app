@@ -1267,7 +1267,13 @@ function LessonQuizView({
           ref={actionRef}
           type="submit"
         >
-          {isCompleting ? "Проверяю..." : feedback === null ? "Проверить" : "Продолжить"}
+          {isCompleting
+            ? "Проверяю..."
+            : feedback === null
+              ? "Проверить"
+              : feedback.diagnostic?.kind === "alternative-reading"
+                ? "Ответить снова"
+                : "Продолжить"}
         </button>
       </form>
 

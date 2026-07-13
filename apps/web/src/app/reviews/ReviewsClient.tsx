@@ -199,11 +199,13 @@ export function ReviewsClient() {
       });
 
       setFeedback(response);
-      setProgress((previous) => ({
-        answered: previous.answered + 1,
-        accepted: previous.accepted + (response.accepted ? 1 : 0),
-        missed: previous.missed + (response.accepted ? 0 : 1),
-      }));
+      if (!response.retry) {
+        setProgress((previous) => ({
+          answered: previous.answered + 1,
+          accepted: previous.accepted + (response.accepted ? 1 : 0),
+          missed: previous.missed + (response.accepted ? 0 : 1),
+        }));
+      }
     } catch (error: unknown) {
       setSessionError(error instanceof Error ? error.message : "Не удалось отправить ответ.");
       answerInputRef.current?.focus();
@@ -219,6 +221,13 @@ export function ReviewsClient() {
 
     const nextIndex = currentIndex + 1;
     setSessionError(null);
+
+    if (feedback.retry) {
+      setAnswer("");
+      setFeedback(null);
+      setFormError(null);
+      return;
+    }
 
     if (nextIndex < queueState.queue.length) {
       setCurrentIndex(nextIndex);
@@ -554,11 +563,19 @@ function FeedbackPanel({
   return (
     <section
       aria-label="Результат ответа"
-      className={isAccepted ? "feedback-panel feedback-panel-success" : "feedback-panel"}
+      className={
+        feedback.retry
+          ? "feedback-panel feedback-panel-neutral"
+          : isAccepted
+            ? "feedback-panel feedback-panel-success"
+            : "feedback-panel"
+      }
     >
       <div className="feedback-header">
         <div>
-          <span className="eyebrow">{formatResult(feedback.result)}</span>
+          <span className="eyebrow">
+            {feedback.retry ? "Другое чтение" : formatResult(feedback.result)}
+          </span>
           <h2>{feedback.feedback.message}</h2>
         </div>
         <button
@@ -568,7 +585,7 @@ function FeedbackPanel({
           ref={continueButtonRef}
           type="button"
         >
-          {isContinuing ? "Завершаю..." : "Дальше"}
+          {isContinuing ? "Завершаю..." : feedback.retry ? "Ответить снова" : "Дальше"}
         </button>
       </div>
 

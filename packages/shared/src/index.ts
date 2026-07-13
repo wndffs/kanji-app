@@ -253,6 +253,7 @@ export type ReviewAnswerResponse = {
   readonly result: ReviewAnswerResultType;
   readonly normalizedAnswer: string;
   readonly matchedAnswer: string | null;
+  readonly retry?: boolean;
   readonly feedback: {
     readonly message: string;
     readonly expected: readonly LocalizedTextDto[];

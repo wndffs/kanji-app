@@ -137,7 +137,7 @@ describe("ReviewsService", () => {
         relatedAnswer: "ひと",
       }),
     } as unknown as OverridesService;
-    const { service } = createHarness(overridesService);
+    const { repository, service } = createHarness(overridesService);
     const session = await service.startSession(createUser("owner"));
 
     await expect(
@@ -150,10 +150,18 @@ describe("ReviewsService", () => {
     ).resolves.toMatchObject({
       accepted: false,
       result: "wrong",
+      retry: true,
+      previousSrs: { stageIndex: 1 },
+      nextSrs: { stageIndex: 1 },
       feedback: {
         message: "Это существующее чтение кандзи, но эта карточка ожидает другое чтение.",
         diagnostic: { kind: "alternative-reading", matchedAnswer: "ひと" },
       },
+    });
+    expect(repository.recordedAnswers).toEqual([]);
+    expect(repository.getState("state-due")).toMatchObject({
+      stageIndex: 1,
+      wrongCount: 0,
     });
   });
 
@@ -336,6 +344,36 @@ describe("ReviewsService", () => {
       accepted: true,
       result: "correct",
       feedback: { message: "Ответ принят." },
+    });
+    expect(repository.recordedAnswers).toEqual([]);
+    expect(repository.getState("state-burned")).toEqual(previousState);
+  });
+
+  it("keeps an alternative reading as a neutral retry in optional practice", async () => {
+    const overridesService = {
+      validateAnswerForUser: async () => ({
+        ...validateAnswer({
+          answerKind: "reading",
+          answer: "ひと",
+          acceptedAnswers: ["いち"],
+        }),
+        relatedAnswer: "ひと",
+      }),
+    } as unknown as OverridesService;
+    const { repository, service } = createHarness(overridesService);
+    const previousState = { ...repository.getState("state-burned") };
+
+    await expect(
+      service.submitPracticeAnswer(createUser("owner"), {
+        cardId: "card-burned",
+        answer: "ひと",
+        answerType: "meaning",
+      }),
+    ).resolves.toMatchObject({
+      accepted: false,
+      result: "wrong",
+      retry: true,
+      feedback: { diagnostic: { kind: "alternative-reading", matchedAnswer: "ひと" } },
     });
     expect(repository.recordedAnswers).toEqual([]);
     expect(repository.getState("state-burned")).toEqual(previousState);

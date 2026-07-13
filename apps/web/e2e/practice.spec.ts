@@ -45,6 +45,30 @@ test.describe("optional practice", () => {
     await expect(page.getByText("Практика завершена")).toBeVisible();
     await expect(page.getByText("Ошибок")).toBeVisible();
   });
+
+  test("retries an alternative kanji reading without counting a practice error", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockPracticeApi(page);
+
+    await page.goto("/practice");
+    await page.getByRole("button", { name: "Начать практику" }).click();
+    const answerInput = page.getByLabel("Введите значение");
+    await answerInput.fill("ひと");
+    await page.keyboard.press("Enter");
+
+    const feedback = page.getByRole("region", { name: "Результат ответа" });
+    await expect(feedback.getByText("Другое чтение", { exact: true })).toBeVisible();
+    await expect(feedback).toHaveClass(/feedback-panel-neutral/);
+    await page.getByRole("button", { name: "Ответить снова" }).click();
+
+    await expect(answerInput).toBeFocused();
+    await expect(answerInput).toHaveValue("");
+    await expect(page.getByText("Верно: 0")).toBeVisible();
+    await expect(page.getByText("Ошибок: 0")).toBeVisible();
+    await expect(page.getByText("Практика завершена")).toBeHidden();
+  });
 });
 
 async function signIn(page: Page): Promise<void> {
@@ -82,12 +106,27 @@ async function mockPracticeApi(page: Page): Promise<void> {
   });
 
   await page.route(`${API_BASE_URL}/reviews/practice/answer`, async (route) => {
-    expect(route.request().postDataJSON()).toEqual({
-      cardId: "card-study-meaning",
-      answer: "wrong answer",
-      answerType: "meaning",
+    const body = route.request().postDataJSON() as {
+      readonly answer: string;
+      readonly answerType: string;
+      readonly cardId: string;
+    };
+    expect(body).toMatchObject({ cardId: "card-study-meaning", answerType: "meaning" });
+    await route.fulfill({
+      json:
+        body.answer === "ひと"
+          ? {
+              ...practiceAnswer,
+              normalizedAnswer: "ひと",
+              retry: true,
+              feedback: {
+                ...practiceAnswer.feedback,
+                message: "Это существующее чтение кандзи, но эта карточка ожидает другое чтение.",
+                diagnostic: { kind: "alternative-reading", matchedAnswer: "ひと" },
+              },
+            }
+          : practiceAnswer,
     });
-    await route.fulfill({ json: practiceAnswer });
   });
 }
 

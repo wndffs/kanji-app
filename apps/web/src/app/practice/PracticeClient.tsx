@@ -159,6 +159,12 @@ export function PracticeClient() {
       return;
     }
 
+    if (feedback.retry) {
+      setAnswer("");
+      setFeedback(null);
+      return;
+    }
+
     const nextProgress = {
       answered: progress.answered + 1,
       accepted: progress.accepted + (feedback.accepted ? 1 : 0),
@@ -334,12 +340,20 @@ export function PracticeClient() {
         </form>
       ) : (
         <section
-          className={feedback.accepted ? "feedback-panel feedback-panel-success" : "feedback-panel"}
+          className={
+            feedback.retry
+              ? "feedback-panel feedback-panel-neutral"
+              : feedback.accepted
+                ? "feedback-panel feedback-panel-success"
+                : "feedback-panel"
+          }
           aria-label="Результат ответа"
         >
           <div className="feedback-header">
             <div>
-              <span className="eyebrow">{formatResult(feedback.result)}</span>
+              <span className="eyebrow">
+                {feedback.retry ? "Другое чтение" : formatResult(feedback.result)}
+              </span>
               <h2>{feedback.feedback.message}</h2>
             </div>
             <button
@@ -348,7 +362,7 @@ export function PracticeClient() {
               ref={continueButtonRef}
               type="button"
             >
-              Дальше
+              {feedback.retry ? "Ответить снова" : "Дальше"}
             </button>
           </div>
           <div className="feedback-grid">

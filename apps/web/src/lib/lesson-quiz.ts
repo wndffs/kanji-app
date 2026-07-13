@@ -22,6 +22,10 @@ export function advanceLessonQuizCardQueue(
     return pendingCardIds;
   }
 
+  if (feedback.diagnostic?.kind === "alternative-reading") {
+    return pendingCardIds;
+  }
+
   return feedback.accepted
     ? pendingCardIds.slice(1)
     : [...pendingCardIds.slice(1), feedback.cardId];

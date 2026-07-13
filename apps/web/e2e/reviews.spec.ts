@@ -58,6 +58,28 @@ test.describe("review session", () => {
     await expect(page.getByText("солнце")).toBeVisible();
   });
 
+  test("retries an alternative kanji reading without advancing the review", async ({ page }) => {
+    await signIn(page);
+    await mockReviewApi(page);
+
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение" }).click();
+    const answerInput = page.getByLabel("Ответ значением");
+    await answerInput.fill("ひと");
+    await page.keyboard.press("Enter");
+
+    const feedback = page.getByRole("region", { name: "Результат ответа" });
+    await expect(feedback.getByText("Другое чтение", { exact: true })).toBeVisible();
+    await expect(feedback).toHaveClass(/feedback-panel-neutral/);
+    await expect(page.getByRole("button", { name: "Ответить снова" })).toBeFocused();
+    await page.keyboard.press("Enter");
+
+    await expect(answerInput).toBeFocused();
+    await expect(answerInput).toHaveValue("");
+    await expect(page.getByText("1 из 1")).toBeVisible();
+    await expect(page.getByText("Сессия завершена.")).toBeHidden();
+  });
+
   test("filters expected meanings by English display mode", async ({ page }) => {
     await signIn(page, "en");
     await mockReviewApi(page);
@@ -273,13 +295,27 @@ async function mockReviewApi(
       cardId: body.cardId,
     });
 
+    const response = createAnswerResponse({
+      answer,
+      accepted,
+      item,
+      result: accepted ? "correct" : "wrong",
+    });
+
     await route.fulfill({
-      json: createAnswerResponse({
-        answer,
-        accepted,
-        item,
-        result: accepted ? "correct" : "wrong",
-      }),
+      json:
+        answer === "ひと"
+          ? {
+              ...response,
+              retry: true,
+              feedback: {
+                ...response.feedback,
+                message: "Это существующее чтение кандзи, но эта карточка ожидает другое чтение.",
+                diagnostic: { kind: "alternative-reading", matchedAnswer: "ひと" },
+              },
+              nextSrs: item.srs,
+            }
+          : response,
     });
   });
 
