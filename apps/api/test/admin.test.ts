@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   type AdminCurationItemDto,
+  type AdminCurriculumScaleReadinessDto,
   type AdminImportRunSummaryDto,
   type AdminImportedCandidateDto,
   type AdminReviewQueueFilters,
@@ -166,6 +167,28 @@ describe("AdminService", () => {
       missingMnemonics: 1,
       missingAttribution: 1,
       invalidDependencies: 1,
+    });
+  });
+
+  it("reports progress toward the full kanji and vocabulary course targets", async () => {
+    const adminService = new AdminService(new InMemoryAdminRepository());
+
+    await expect(adminService.getScaleReadiness()).resolves.toEqual({
+      generatedAt: "2026-07-13T10:00:00.000Z",
+      items: [
+        expect.objectContaining({
+          itemType: "kanji",
+          targetItems: 2_300,
+          publishedItems: 2,
+          capacityShortfall: 0,
+        }),
+        expect.objectContaining({
+          itemType: "word",
+          targetItems: 8_000,
+          publishedItems: 1,
+          capacityShortfall: 500,
+        }),
+      ],
     });
   });
 
@@ -530,6 +553,50 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
 
   async getCompletenessReport() {
     return buildCurriculumCompletenessReport(this.items, new Date("2026-06-22T09:30:00.000Z"));
+  }
+
+  async getScaleReadiness(): Promise<AdminCurriculumScaleReadinessDto> {
+    return {
+      generatedAt: "2026-07-13T10:00:00.000Z",
+      items: [
+        {
+          itemType: "kanji",
+          targetItems: 2_300,
+          publishedItems: 2,
+          inCurationItems: 1,
+          importedCandidates: 2_500,
+          remainingToPublish: 2_298,
+          candidatesNeeded: 2_297,
+          fillableCandidateSlots: 2_297,
+          capacityShortfall: 0,
+          candidateCoverage: {
+            withReading: 2_490,
+            withRussianMeaning: 10,
+            withEnglishMeaning: 2_500,
+            withBilingualMeanings: 10,
+            withStrokeData: 2_450,
+          },
+        },
+        {
+          itemType: "word",
+          targetItems: 8_000,
+          publishedItems: 1,
+          inCurationItems: 499,
+          importedCandidates: 7_000,
+          remainingToPublish: 7_999,
+          candidatesNeeded: 7_500,
+          fillableCandidateSlots: 7_000,
+          capacityShortfall: 500,
+          candidateCoverage: {
+            withReading: 7_000,
+            withRussianMeaning: 6_500,
+            withEnglishMeaning: 7_000,
+            withBilingualMeanings: 6_500,
+            withStrokeData: null,
+          },
+        },
+      ],
+    };
   }
 
   async promoteImportedCandidate(

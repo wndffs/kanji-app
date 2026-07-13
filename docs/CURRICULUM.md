@@ -70,6 +70,11 @@ and JMdict imports are only candidate dictionaries; imported rows do not count
 toward this target until a published `LearningItem`, cards, bilingual curated
 meanings, and prerequisites exist.
 
+The admin scale-readiness report keeps this distinction measurable. It reports
+the remaining publication gap, work already in curation, unassigned imported
+candidate capacity, and the raw candidates' RU/EN, reading, and stroke-data
+coverage. It does not promote or publish dictionary rows automatically.
+
 ## Main lesson flow
 
 Component, kanji, vocabulary, and sentence lessons use small groups of at most

@@ -849,6 +849,35 @@ export type AdminCurriculumCompletenessReportDto = {
   readonly bands: readonly AdminCurriculumBandCompletenessDto[];
 };
 
+export const CURRICULUM_SCALE_TARGETS = {
+  kanji: 2_300,
+  word: 8_000,
+} as const;
+
+export type AdminCurriculumScaleItemReadinessDto = {
+  readonly itemType: "kanji" | "word";
+  readonly targetItems: number;
+  readonly publishedItems: number;
+  readonly inCurationItems: number;
+  readonly importedCandidates: number;
+  readonly remainingToPublish: number;
+  readonly candidatesNeeded: number;
+  readonly fillableCandidateSlots: number;
+  readonly capacityShortfall: number;
+  readonly candidateCoverage: {
+    readonly withReading: number;
+    readonly withRussianMeaning: number;
+    readonly withEnglishMeaning: number;
+    readonly withBilingualMeanings: number;
+    readonly withStrokeData: number | null;
+  };
+};
+
+export type AdminCurriculumScaleReadinessDto = {
+  readonly generatedAt: string;
+  readonly items: readonly AdminCurriculumScaleItemReadinessDto[];
+};
+
 export type AdminUpdateCardAnswersRequest = {
   readonly acceptedAnswers: readonly {
     readonly locale: ContentLocale;

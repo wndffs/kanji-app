@@ -53,6 +53,11 @@ export class AdminController {
     return this.adminService.getCompletenessReport();
   }
 
+  @Get("curriculum/scale-readiness")
+  getScaleReadiness() {
+    return this.adminService.getScaleReadiness();
+  }
+
   @Get("items/:itemId")
   getCurationItem(@Param("itemId") itemId: string) {
     return this.adminService.getCurationItem(itemId);

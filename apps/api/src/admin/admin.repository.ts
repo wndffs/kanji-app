@@ -3,6 +3,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import {
   type AdminContentStatus,
   type AdminCurriculumCompletenessReportDto,
+  type AdminCurriculumScaleReadinessDto,
   type AdminCurationCardDto,
   type AdminCurationItemDto,
   type AdminCurationTextDto,
@@ -15,11 +16,13 @@ import {
   type CourseBand,
   type ItemKind,
   type SourceAttributionDto,
+  CURRICULUM_SCALE_TARGETS,
 } from "@kanji-srs/shared";
 import { normalizeJapaneseReading } from "@kanji-srs/japanese";
 
 import { PrismaService } from "../database/prisma.service";
 import { applyQualityIssues, buildCurriculumCompletenessReport } from "./curriculum-quality";
+import { buildCurriculumScaleReadiness } from "./curriculum-scale-readiness";
 import {
   type ImportedCandidateRankingInput,
   rankImportedCandidates,
@@ -40,6 +43,7 @@ export abstract class AdminRepository {
     filters: NormalizedAdminReviewQueueFilters,
   ): Promise<readonly AdminReviewQueueItemDto[]>;
   abstract getCompletenessReport(): Promise<AdminCurriculumCompletenessReportDto>;
+  abstract getScaleReadiness(): Promise<AdminCurriculumScaleReadinessDto>;
   abstract findCurationItem(itemId: string): Promise<AdminCurationItemDto | null>;
   abstract findItemByCardId(cardId: string): Promise<AdminCurationItemDto | null>;
   abstract promoteImportedCandidate(
@@ -314,6 +318,132 @@ export class PrismaAdminRepository extends AdminRepository {
     ];
 
     return rankImportedCandidates(candidates, IMPORTED_CANDIDATE_RESPONSE_LIMIT);
+  }
+
+  async getScaleReadiness(): Promise<AdminCurriculumScaleReadinessDto> {
+    const assignedTargets = await this.prisma.db.learningItem.findMany({
+      where: { targetType: { in: ["KANJI", "WORD"] } },
+      select: { targetType: true, targetId: true },
+    });
+    const assignedKanjiIds = assignedTargets
+      .filter((target) => target.targetType === "KANJI")
+      .map((target) => target.targetId);
+    const assignedWordIds = assignedTargets
+      .filter((target) => target.targetType === "WORD")
+      .map((target) => target.targetId);
+    const unassignedKanjiWhere = {
+      kanjidicImportedRecordId: { not: null },
+      ...(assignedKanjiIds.length === 0 ? {} : { id: { notIn: assignedKanjiIds } }),
+    };
+    const unassignedWordWhere = {
+      jmdictImportedRecordId: { not: null },
+      ...(assignedWordIds.length === 0 ? {} : { id: { notIn: assignedWordIds } }),
+    };
+    const [
+      publishedKanji,
+      curatedKanji,
+      importedKanji,
+      kanjiWithReading,
+      kanjiWithRussianMeaning,
+      kanjiWithEnglishMeaning,
+      kanjiWithBilingualMeanings,
+      kanjiWithStrokeData,
+      publishedWords,
+      curatedWords,
+      importedWords,
+      wordsWithReading,
+      wordsWithRussianMeaning,
+      wordsWithEnglishMeaning,
+      wordsWithBilingualMeanings,
+    ] = await Promise.all([
+      this.prisma.db.learningItem.count({
+        where: { targetType: "KANJI", status: "PUBLISHED" },
+      }),
+      this.prisma.db.learningItem.count({
+        where: { targetType: "KANJI", status: { in: ["DRAFT", "NEEDS_REVIEW"] } },
+      }),
+      this.prisma.db.kanji.count({ where: unassignedKanjiWhere }),
+      this.prisma.db.kanji.count({
+        where: { ...unassignedKanjiWhere, readings: { some: {} } },
+      }),
+      this.prisma.db.kanji.count({
+        where: { ...unassignedKanjiWhere, meanings: { some: { locale: "ru-RU" } } },
+      }),
+      this.prisma.db.kanji.count({
+        where: { ...unassignedKanjiWhere, meanings: { some: { locale: "en-US" } } },
+      }),
+      this.prisma.db.kanji.count({
+        where: {
+          ...unassignedKanjiWhere,
+          AND: [
+            { meanings: { some: { locale: "ru-RU" } } },
+            { meanings: { some: { locale: "en-US" } } },
+          ],
+        },
+      }),
+      this.prisma.db.kanji.count({
+        where: { ...unassignedKanjiWhere, strokeGraphic: { isNot: null } },
+      }),
+      this.prisma.db.learningItem.count({
+        where: { targetType: "WORD", status: "PUBLISHED" },
+      }),
+      this.prisma.db.learningItem.count({
+        where: { targetType: "WORD", status: { in: ["DRAFT", "NEEDS_REVIEW"] } },
+      }),
+      this.prisma.db.word.count({ where: unassignedWordWhere }),
+      this.prisma.db.word.count({
+        where: { ...unassignedWordWhere, reading: { not: "" } },
+      }),
+      this.prisma.db.word.count({
+        where: { ...unassignedWordWhere, senses: { some: { locale: "ru-RU" } } },
+      }),
+      this.prisma.db.word.count({
+        where: { ...unassignedWordWhere, senses: { some: { locale: "en-US" } } },
+      }),
+      this.prisma.db.word.count({
+        where: {
+          ...unassignedWordWhere,
+          AND: [
+            { senses: { some: { locale: "ru-RU" } } },
+            { senses: { some: { locale: "en-US" } } },
+          ],
+        },
+      }),
+    ]);
+
+    return buildCurriculumScaleReadiness(
+      [
+        {
+          itemType: "kanji",
+          targetItems: CURRICULUM_SCALE_TARGETS.kanji,
+          publishedItems: publishedKanji,
+          inCurationItems: curatedKanji,
+          importedCandidates: importedKanji,
+          candidateCoverage: {
+            withReading: kanjiWithReading,
+            withRussianMeaning: kanjiWithRussianMeaning,
+            withEnglishMeaning: kanjiWithEnglishMeaning,
+            withBilingualMeanings: kanjiWithBilingualMeanings,
+            withStrokeData: kanjiWithStrokeData,
+          },
+        },
+        {
+          itemType: "word",
+          targetItems: CURRICULUM_SCALE_TARGETS.word,
+          publishedItems: publishedWords,
+          inCurationItems: curatedWords,
+          importedCandidates: importedWords,
+          candidateCoverage: {
+            withReading: wordsWithReading,
+            withRussianMeaning: wordsWithRussianMeaning,
+            withEnglishMeaning: wordsWithEnglishMeaning,
+            withBilingualMeanings: wordsWithBilingualMeanings,
+            withStrokeData: null,
+          },
+        },
+      ],
+      new Date(),
+    );
   }
 
   async listReviewItems(

@@ -263,6 +263,8 @@ in-progress session.
 - `GET /admin/imported-candidates`
 - `POST /admin/imported-candidates/promote`
 - `POST /admin/imported-candidates/approve-translation`
+- `GET /admin/curriculum/completeness`
+- `GET /admin/curriculum/scale-readiness`
 - `GET /admin/items/review-queue`
 - `PATCH /admin/items/:id`
 - `PATCH /admin/cards/:id/answers`
@@ -304,6 +306,14 @@ No reject action is exposed because rejected-candidate state is not yet stored.
 Kanji meaning uniqueness includes `sourceKind`, allowing an imported meaning
 and its separately reviewed project-authored counterpart to retain identical
 wording without collapsing provenance.
+
+`GET /admin/curriculum/scale-readiness` measures the imported corpus against
+the independent course targets of 2,300 kanji and 8,000 expression-and-reading
+word pairs. It separates published items, active curation work, and unassigned
+import candidates. The report also exposes reading, Russian meaning, English
+meaning, bilingual meaning, and kanji stroke coverage. Candidate capacity is
+not publication readiness: every selected item must still pass the curriculum
+quality gates and receive an independent level and prerequisite path.
 
 ## API rules
 

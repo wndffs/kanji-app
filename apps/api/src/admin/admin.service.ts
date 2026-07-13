@@ -4,6 +4,7 @@ import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese"
 import {
   type AdminContentStatus,
   type AdminCurriculumCompletenessReportDto,
+  type AdminCurriculumScaleReadinessDto,
   type AdminCurationItemDto,
   type AdminImportRunListResponse,
   type AdminImportedCandidateListResponse,
@@ -62,6 +63,10 @@ export class AdminService {
 
   async getCompletenessReport(): Promise<AdminCurriculumCompletenessReportDto> {
     return this.adminRepository.getCompletenessReport();
+  }
+
+  async getScaleReadiness(): Promise<AdminCurriculumScaleReadinessDto> {
+    return this.adminRepository.getScaleReadiness();
   }
 
   async getCurationItem(itemId: string): Promise<AdminCurationItemDto> {
