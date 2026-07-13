@@ -4,6 +4,8 @@ import {
   type AdminCurriculumCandidatePlanResponse,
   type AdminCurriculumCompletenessReportDto,
   type AdminCurriculumScaleReadinessDto,
+  type AdminEnqueueCandidatePlanRequest,
+  type AdminEnqueueCandidatePlanResponse,
   type AdminImportRunListResponse,
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateListResponse,
@@ -308,6 +310,19 @@ export function getAdminCandidatePlan(
     `/admin/curriculum/candidate-plan?${params.toString()}`,
     { token },
   );
+}
+
+export function enqueueAdminCandidatePlan(
+  token: string,
+  input: AdminEnqueueCandidatePlanRequest,
+  fetchImpl?: typeof fetch,
+): Promise<AdminEnqueueCandidatePlanResponse> {
+  return apiRequest<AdminEnqueueCandidatePlanResponse>("/admin/curriculum/candidate-plan/enqueue", {
+    method: "POST",
+    token,
+    body: input,
+    fetchImpl,
+  });
 }
 
 export function getAdminCurationItem(token: string, itemId: string): Promise<AdminCurationItemDto> {

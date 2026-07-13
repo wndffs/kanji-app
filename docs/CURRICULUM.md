@@ -107,6 +107,13 @@ idempotent and preserves any existing editorial work. Staging creates only
 cards, mnemonics, dependencies, levels, and publication still require the
 normal explicit curation workflow.
 
+The admin planning workspace exposes this staging operation for the currently
+visible page only. It requires confirmation, keeps keyboard focus inside the
+confirmation dialog, reports created and previously queued counts, and loads a
+fresh first page after success. If the retained plan version expires, the UI
+refreshes the shortlist and asks the admin to confirm the new page rather than
+silently submitting changed candidates.
+
 ## Main lesson flow
 
 Component, kanji, vocabulary, and sentence lessons use small groups of at most

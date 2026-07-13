@@ -6,6 +6,8 @@ import {
   type AdminCurriculumCompletenessReportDto,
   type AdminCurriculumScaleReadinessDto,
   type AdminCurationItemDto,
+  type AdminEnqueueCandidatePlanRequest,
+  type AdminEnqueueCandidatePlanResponse,
   type AdminImportRunListResponse,
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateListResponse,
@@ -105,6 +107,38 @@ test.describe("admin curation", () => {
     ).toBeVisible();
     await expect(candidatePlan.getByRole("button", { name: "Проверить 一" })).toHaveCount(0);
   });
+
+  test("admin confirms and retries staging the current candidate page", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await mockAdminApi(page, { enqueueConflictOnce: true });
+
+    await page.goto("/admin");
+
+    const candidatePlan = page.getByTestId("admin-candidate-plan");
+    const enqueuePage = page.getByTestId("admin-plan-enqueue-page");
+
+    await enqueuePage.click();
+    const confirmation = page.getByRole("dialog", { name: "Добавить страницу в очередь?" });
+    await expect(confirmation).toContainText("Кандидатов на странице: 1");
+    await expect(confirmation).toContainText("карточки и переводы автоматически не создаются");
+    const cancelEnqueue = confirmation.getByRole("button", { name: "Отмена" });
+    await expect(cancelEnqueue).toBeFocused();
+    await cancelEnqueue.click();
+    await expect(confirmation).toHaveCount(0);
+
+    await enqueuePage.click();
+    await confirmation.getByRole("button", { name: "Добавить в очередь", exact: true }).click();
+    await expect(page.getByTestId("admin-plan-enqueue-error")).toContainText("План изменился");
+    await expect(candidatePlan).toContainText("一");
+
+    await enqueuePage.click();
+    await confirmation.getByRole("button", { name: "Добавить в очередь", exact: true }).click();
+    await expect(page.getByTestId("admin-plan-enqueue-success")).toHaveText(
+      "Добавлено в очередь: 1. Уже находились в очереди: 0.",
+    );
+    await expect(candidatePlan).toContainText("На этой странице кандидатов нет.");
+    await expect(enqueuePage).toHaveCount(0);
+  });
 });
 
 async function signIn(page: Page, role: "USER" | "ADMIN"): Promise<void> {
@@ -134,9 +168,13 @@ async function signIn(page: Page, role: "USER" | "ADMIN"): Promise<void> {
   );
 }
 
-async function mockAdminApi(page: Page): Promise<void> {
+async function mockAdminApi(
+  page: Page,
+  options: { readonly enqueueConflictOnce?: boolean } = {},
+): Promise<void> {
   let item = buildAdminItem();
-  const approvedPlanTargets = new Set<string>();
+  const assignedPlanTargets = new Set<string>();
+  let remainingEnqueueConflicts = options.enqueueConflictOnce === true ? 1 : 0;
   let importedCandidates: AdminImportedCandidateListResponse["candidates"] = [
     {
       rank: 1,
@@ -266,6 +304,46 @@ async function mockAdminApi(page: Page): Promise<void> {
 
   await page.route(`${API_BASE_URL}/admin/curriculum/candidate-plan**`, async (route) => {
     const url = new URL(route.request().url());
+
+    if (route.request().method() === "POST" && url.pathname.endsWith("/enqueue")) {
+      if (remainingEnqueueConflicts > 0) {
+        remainingEnqueueConflicts -= 1;
+        await route.fulfill({ status: 409, json: { message: "Candidate plan data changed." } });
+        return;
+      }
+
+      const body = route.request().postDataJSON() as AdminEnqueueCandidatePlanRequest;
+      let enqueuedCount = 0;
+      let alreadyQueuedCount = 0;
+
+      for (const candidate of body.candidates) {
+        const targetKey = `${candidate.itemType}:${candidate.targetId}`;
+
+        if (assignedPlanTargets.has(targetKey)) {
+          alreadyQueuedCount += 1;
+        } else {
+          assignedPlanTargets.add(targetKey);
+          enqueuedCount += 1;
+        }
+      }
+
+      const response: AdminEnqueueCandidatePlanResponse = {
+        planVersion: body.planVersion,
+        requestedCount: body.candidates.length,
+        enqueuedCount,
+        alreadyQueuedCount,
+        items: body.candidates.map((candidate) => ({
+          learningItemId: `item-${candidate.targetId}`,
+          targetId: candidate.targetId,
+          itemType: candidate.itemType,
+          status: "needs-review",
+        })),
+      };
+
+      await route.fulfill({ json: response });
+      return;
+    }
+
     const itemType = url.searchParams.get("itemType") === "word" ? "word" : "kanji";
 
     if (itemType === "word" && url.searchParams.get("planVersion") !== "plan-version-one") {
@@ -274,7 +352,7 @@ async function mockAdminApi(page: Page): Promise<void> {
     }
 
     const targetId = itemType === "kanji" ? "plan-kanji-one" : "plan-word-water";
-    const candidateApproved = approvedPlanTargets.has(`${itemType}:${targetId}`);
+    const candidateAssigned = assignedPlanTargets.has(`${itemType}:${targetId}`);
     const response: AdminCurriculumCandidatePlanResponse = {
       planVersion: "plan-version-one",
       generatedAt: "2026-07-13T12:01:00.000Z",
@@ -300,8 +378,8 @@ async function mockAdminApi(page: Page): Promise<void> {
         itemType,
         offset: 0,
         limit: 20,
-        total: candidateApproved ? 0 : itemType === "kanji" ? 2_298 : 7_996,
-        hasMore: !candidateApproved,
+        total: candidateAssigned ? 0 : itemType === "kanji" ? 2_298 : 7_996,
+        hasMore: !candidateAssigned,
       },
       candidates: [
         {
@@ -322,7 +400,7 @@ async function mockAdminApi(page: Page): Promise<void> {
             strokeData: itemType === "kanji" ? true : null,
           },
         } satisfies AdminCurriculumCandidatePlanResponse["candidates"][number],
-      ].filter(() => !candidateApproved),
+      ].filter(() => !candidateAssigned),
     };
 
     await route.fulfill({ json: response });
@@ -445,7 +523,7 @@ async function mockAdminApi(page: Page): Promise<void> {
         ],
         updatedAt: "2026-06-22T09:40:00.000Z",
       };
-      approvedPlanTargets.add(`${body.targetType}:${body.targetId}`);
+      assignedPlanTargets.add(`${body.targetType}:${body.targetId}`);
       importedCandidates = [];
 
       await route.fulfill({ json: item });

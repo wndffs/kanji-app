@@ -2533,6 +2533,28 @@ textarea:focus-visible {
   color: var(--foreground);
 }
 
+.admin-plan-batch-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-plan-batch-action > div {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-plan-batch-action span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.admin-plan-enqueue-dialog h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
 .admin-plan-list {
   display: grid;
   margin: 0;
@@ -3338,6 +3360,16 @@ textarea:focus-visible {
   }
 
   .admin-plan-segment {
+    width: 100%;
+  }
+
+  .admin-plan-batch-action {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-plan-batch-action .primary-action,
+  .admin-plan-enqueue-dialog .secondary-action {
     width: 100%;
   }
 

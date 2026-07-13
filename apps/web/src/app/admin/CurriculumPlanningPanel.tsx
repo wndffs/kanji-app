@@ -9,7 +9,12 @@ import {
   type CourseBand,
 } from "@kanji-srs/shared";
 
-import { ApiError, getAdminCandidatePlan, getAdminScaleReadiness } from "../../lib/api-client";
+import {
+  ApiError,
+  enqueueAdminCandidatePlan,
+  getAdminCandidatePlan,
+  getAdminScaleReadiness,
+} from "../../lib/api-client";
 
 const CANDIDATE_PAGE_LIMIT = 20;
 
@@ -50,6 +55,10 @@ export function CurriculumPlanningPanel({
   const [itemType, setItemType] = useState<"kanji" | "word">("kanji");
   const [loadingCandidateKey, setLoadingCandidateKey] = useState<string | null>(null);
   const [candidateSelectionError, setCandidateSelectionError] = useState<string | null>(null);
+  const [enqueuePageKey, setEnqueuePageKey] = useState<string | null>(null);
+  const [enqueueStatus, setEnqueueStatus] = useState<"idle" | "submitting">("idle");
+  const [enqueueError, setEnqueueError] = useState<string | null>(null);
+  const [enqueueFeedback, setEnqueueFeedback] = useState<string | null>(null);
 
   const loadReadiness = useCallback(async (accessToken: string) => {
     setReadiness((previous) => ({ status: "loading", data: previous.data, error: null }));
@@ -135,6 +144,8 @@ export function CurriculumPlanningPanel({
   }, [loadCandidatePage, loadReadiness, refreshRevision, token]);
 
   const plan = candidatePlan.data;
+  const currentPageKey = plan === null ? null : candidatePlanPageKey(plan);
+  const confirmingEnqueue = currentPageKey !== null && enqueuePageKey === currentPageKey;
 
   async function handleReviewCandidate(
     candidate: AdminCurriculumCandidatePlanItemDto,
@@ -155,6 +166,68 @@ export function CurriculumPlanningPanel({
     }
   }
 
+  function openEnqueueConfirmation(): void {
+    if (currentPageKey === null) {
+      return;
+    }
+
+    setEnqueueError(null);
+    setEnqueueFeedback(null);
+    setEnqueuePageKey(currentPageKey);
+  }
+
+  async function handleEnqueueCurrentPage(
+    currentPlan: AdminCurriculumCandidatePlanResponse,
+  ): Promise<void> {
+    setEnqueueStatus("submitting");
+    setEnqueueError(null);
+    setEnqueueFeedback(null);
+
+    try {
+      const result = await enqueueAdminCandidatePlan(token, {
+        planVersion: currentPlan.planVersion,
+        candidates: currentPlan.candidates.map((candidate) => ({
+          itemType: candidate.itemType,
+          targetId: candidate.targetId,
+        })),
+      });
+
+      if (initializedToken.current !== token) {
+        return;
+      }
+
+      setEnqueuePageKey(null);
+      setEnqueueFeedback(formatEnqueueResult(result.enqueuedCount, result.alreadyQueuedCount));
+      await Promise.all([
+        loadReadiness(token),
+        loadCandidatePage(token, currentPlan.page.itemType, 0),
+      ]);
+    } catch (error: unknown) {
+      if (initializedToken.current !== token) {
+        return;
+      }
+
+      const snapshotExpired = error instanceof ApiError && error.status === 409;
+
+      setEnqueueError(
+        snapshotExpired
+          ? "План изменился. Список кандидатов обновлён, повторите постановку страницы."
+          : error instanceof Error
+            ? error.message
+            : "Не удалось добавить страницу в очередь проверки.",
+      );
+
+      if (snapshotExpired) {
+        setEnqueuePageKey(null);
+        await loadCandidatePage(token, currentPlan.page.itemType, 0);
+      }
+    } finally {
+      if (initializedToken.current === token) {
+        setEnqueueStatus("idle");
+      }
+    }
+  }
+
   return (
     <section className="panel admin-curriculum-planning" aria-label="Масштаб учебного корпуса">
       <header className="admin-planning-header">
@@ -164,7 +237,11 @@ export function CurriculumPlanningPanel({
         </div>
         <button
           className="secondary-action"
-          disabled={readiness.status === "loading" || candidatePlan.status === "loading"}
+          disabled={
+            readiness.status === "loading" ||
+            candidatePlan.status === "loading" ||
+            enqueueStatus === "submitting"
+          }
           onClick={() => {
             void loadReadiness(token);
             void loadCandidatePage(token, itemType, 0);
@@ -228,7 +305,7 @@ export function CurriculumPlanningPanel({
           <div className="admin-plan-segment" aria-label="Тип кандидатов" role="group">
             <button
               aria-pressed={itemType === "kanji"}
-              disabled={candidatePlan.status === "loading"}
+              disabled={candidatePlan.status === "loading" || enqueueStatus === "submitting"}
               onClick={() => void loadCandidatePage(token, "kanji", 0, plan?.planVersion)}
               type="button"
             >
@@ -236,7 +313,7 @@ export function CurriculumPlanningPanel({
             </button>
             <button
               aria-pressed={itemType === "word"}
-              disabled={candidatePlan.status === "loading"}
+              disabled={candidatePlan.status === "loading" || enqueueStatus === "submitting"}
               onClick={() => void loadCandidatePage(token, "word", 0, plan?.planVersion)}
               type="button"
             >
@@ -261,6 +338,23 @@ export function CurriculumPlanningPanel({
         {candidateSelectionError === null ? null : (
           <p className="form-error" data-testid="admin-plan-candidate-error">
             {candidateSelectionError}
+          </p>
+        )}
+
+        {enqueueError === null || confirmingEnqueue ? null : (
+          <p className="form-error" data-testid="admin-plan-enqueue-error" role="alert">
+            {enqueueError}
+          </p>
+        )}
+
+        {enqueueFeedback === null ? null : (
+          <p
+            aria-live="polite"
+            className="success-text"
+            data-testid="admin-plan-enqueue-success"
+            role="status"
+          >
+            {enqueueFeedback}
           </p>
         )}
 
@@ -313,44 +407,70 @@ export function CurriculumPlanningPanel({
             {plan.candidates.length === 0 ? (
               <p className="muted">На этой странице кандидатов нет.</p>
             ) : (
-              <ol className="admin-plan-list">
-                {plan.candidates.map((candidate) => (
-                  <li
-                    data-selected={
-                      selectedCandidateKey === `${candidate.itemType}:${candidate.targetId}`
+              <>
+                <div className="admin-plan-batch-action">
+                  <div>
+                    <strong>Текущая страница</strong>
+                    <span>
+                      {formatNumber(plan.candidates.length)} из {formatNumber(plan.page.total)}
+                    </span>
+                  </div>
+                  <button
+                    className="primary-action"
+                    data-testid="admin-plan-enqueue-page"
+                    disabled={
+                      disabled ||
+                      candidatePlan.status === "loading" ||
+                      loadingCandidateKey !== null ||
+                      enqueueStatus === "submitting"
                     }
-                    key={`${candidate.itemType}:${candidate.targetId}`}
+                    onClick={openEnqueueConfirmation}
+                    type="button"
                   >
-                    <span className="admin-plan-rank">#{candidate.selectionRank}</span>
-                    <span className="admin-plan-japanese">{candidate.japanese}</span>
-                    <span>{candidate.reading ?? "без чтения"}</span>
-                    <span>{formatBand(candidate.suggestedBand)}</span>
-                    <span>score {candidate.score}</span>
-                    <small>{formatCoverage(candidate.coverage)}</small>
-                    <small>
-                      {candidate.sourceName}
-                      {candidate.prerequisiteKanji.length === 0
-                        ? ""
-                        : ` · Кандзи: ${candidate.prerequisiteKanji.join("、")}`}
-                    </small>
-                    <button
-                      aria-label={`Проверить ${candidate.japanese}`}
-                      className="secondary-action admin-plan-review"
-                      disabled={
-                        disabled ||
-                        candidatePlan.status === "loading" ||
-                        loadingCandidateKey !== null
+                    Добавить страницу в очередь
+                  </button>
+                </div>
+
+                <ol className="admin-plan-list">
+                  {plan.candidates.map((candidate) => (
+                    <li
+                      data-selected={
+                        selectedCandidateKey === `${candidate.itemType}:${candidate.targetId}`
                       }
-                      onClick={() => void handleReviewCandidate(candidate)}
-                      type="button"
+                      key={`${candidate.itemType}:${candidate.targetId}`}
                     >
-                      {loadingCandidateKey === `${candidate.itemType}:${candidate.targetId}`
-                        ? "Загрузка..."
-                        : "Проверить"}
-                    </button>
-                  </li>
-                ))}
-              </ol>
+                      <span className="admin-plan-rank">#{candidate.selectionRank}</span>
+                      <span className="admin-plan-japanese">{candidate.japanese}</span>
+                      <span>{candidate.reading ?? "без чтения"}</span>
+                      <span>{formatBand(candidate.suggestedBand)}</span>
+                      <span>score {candidate.score}</span>
+                      <small>{formatCoverage(candidate.coverage)}</small>
+                      <small>
+                        {candidate.sourceName}
+                        {candidate.prerequisiteKanji.length === 0
+                          ? ""
+                          : ` · Кандзи: ${candidate.prerequisiteKanji.join("、")}`}
+                      </small>
+                      <button
+                        aria-label={`Проверить ${candidate.japanese}`}
+                        className="secondary-action admin-plan-review"
+                        disabled={
+                          disabled ||
+                          candidatePlan.status === "loading" ||
+                          loadingCandidateKey !== null ||
+                          enqueueStatus === "submitting"
+                        }
+                        onClick={() => void handleReviewCandidate(candidate)}
+                        type="button"
+                      >
+                        {loadingCandidateKey === `${candidate.itemType}:${candidate.targetId}`
+                          ? "Загрузка..."
+                          : "Проверить"}
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              </>
             )}
 
             <div className="admin-plan-pagination">
@@ -360,7 +480,11 @@ export function CurriculumPlanningPanel({
               <div className="action-row">
                 <button
                   className="secondary-action"
-                  disabled={plan.page.offset === 0 || candidatePlan.status === "loading"}
+                  disabled={
+                    plan.page.offset === 0 ||
+                    candidatePlan.status === "loading" ||
+                    enqueueStatus === "submitting"
+                  }
                   onClick={() =>
                     void loadCandidatePage(
                       token,
@@ -375,7 +499,11 @@ export function CurriculumPlanningPanel({
                 </button>
                 <button
                   className="secondary-action"
-                  disabled={!plan.page.hasMore || candidatePlan.status === "loading"}
+                  disabled={
+                    !plan.page.hasMore ||
+                    candidatePlan.status === "loading" ||
+                    enqueueStatus === "submitting"
+                  }
                   onClick={() =>
                     void loadCandidatePage(
                       token,
@@ -392,9 +520,124 @@ export function CurriculumPlanningPanel({
             </div>
           </>
         )}
+
+        {confirmingEnqueue && plan !== null ? (
+          <CandidatePageEnqueueDialog
+            busy={enqueueStatus === "submitting"}
+            count={plan.candidates.length}
+            error={enqueueError}
+            onCancel={() => {
+              setEnqueueError(null);
+              setEnqueuePageKey(null);
+            }}
+            onConfirm={() => void handleEnqueueCurrentPage(plan)}
+          />
+        ) : null}
       </div>
     </section>
   );
+}
+
+function CandidatePageEnqueueDialog({
+  busy,
+  count,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  readonly busy: boolean;
+  readonly count: number;
+  readonly error: string | null;
+  readonly onCancel: () => void;
+  readonly onConfirm: () => void;
+}) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    cancelRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !busy) {
+        onCancel();
+        return;
+      }
+
+      if (event.key !== "Tab" || dialogRef.current === null) {
+        return;
+      }
+
+      const buttons = [
+        ...dialogRef.current.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
+      ];
+      const firstButton = buttons[0];
+      const lastButton = buttons.at(-1);
+
+      if (firstButton === undefined || lastButton === undefined) {
+        return;
+      }
+
+      if (event.shiftKey && document.activeElement === firstButton) {
+        event.preventDefault();
+        lastButton.focus();
+      } else if (!event.shiftKey && document.activeElement === lastButton) {
+        event.preventDefault();
+        firstButton.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [busy, onCancel]);
+
+  return (
+    <div className="dialog-backdrop">
+      <section
+        aria-describedby="candidate-page-enqueue-description"
+        aria-labelledby="candidate-page-enqueue-title"
+        aria-modal="true"
+        className="confirmation-dialog admin-plan-enqueue-dialog"
+        ref={dialogRef}
+        role="dialog"
+      >
+        <h2 id="candidate-page-enqueue-title">Добавить страницу в очередь?</h2>
+        <p id="candidate-page-enqueue-description">
+          Кандидатов на странице: {formatNumber(count)}. Будут созданы только материалы со статусом
+          «Нужна проверка». Существующая редакторская работа не изменится, карточки и переводы
+          автоматически не создаются.
+        </p>
+        {error === null ? null : (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="dialog-actions">
+          <button
+            className="secondary-action"
+            disabled={busy}
+            onClick={onCancel}
+            ref={cancelRef}
+            type="button"
+          >
+            Отмена
+          </button>
+          <button className="primary-action" disabled={busy} onClick={onConfirm} type="button">
+            {busy ? "Добавляю..." : "Добавить в очередь"}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function candidatePlanPageKey(plan: AdminCurriculumCandidatePlanResponse): string {
+  return `${plan.planVersion}:${plan.page.itemType}:${plan.page.offset}`;
+}
+
+function formatEnqueueResult(enqueuedCount: number, alreadyQueuedCount: number): string {
+  return `Добавлено в очередь: ${formatNumber(enqueuedCount)}. Уже находились в очереди: ${formatNumber(alreadyQueuedCount)}.`;
 }
 
 function formatItemType(itemType: "kanji" | "word"): string {

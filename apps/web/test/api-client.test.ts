@@ -4,6 +4,7 @@ import {
   ApiError,
   apiRequest,
   createTextDeck,
+  enqueueAdminCandidatePlan,
   searchItems,
   updateDeckStatus,
 } from "../src/lib/api-client";
@@ -160,5 +161,45 @@ describe("apiRequest", () => {
     expect(capturedInput).toBe("http://localhost:3001/search?q=school");
     expect(capturedInit?.method).toBe("GET");
     expect((capturedInit?.headers as Headers).get("Authorization")).toBe("Bearer token-1");
+  });
+
+  it("enqueues an exact candidate-plan page through the typed API client", async () => {
+    let capturedInput: RequestInfo | URL | null = null;
+    let capturedInit: RequestInit | undefined;
+    const fetchImpl: typeof fetch = async (input, init) => {
+      capturedInput = input;
+      capturedInit = init;
+
+      return new Response(
+        JSON.stringify({
+          planVersion: "plan-version-one",
+          requestedCount: 1,
+          enqueuedCount: 1,
+          alreadyQueuedCount: 0,
+          items: [
+            {
+              learningItemId: "learning-item-one",
+              targetId: "plan-kanji-one",
+              itemType: "kanji",
+              status: "needs-review",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    };
+    const input = {
+      planVersion: "plan-version-one",
+      candidates: [{ itemType: "kanji" as const, targetId: "plan-kanji-one" }],
+    };
+
+    await expect(enqueueAdminCandidatePlan("token-1", input, fetchImpl)).resolves.toMatchObject({
+      enqueuedCount: 1,
+      alreadyQueuedCount: 0,
+    });
+    expect(capturedInput).toBe("http://localhost:3001/admin/curriculum/candidate-plan/enqueue");
+    expect(capturedInit?.method).toBe("POST");
+    expect((capturedInit?.headers as Headers).get("Authorization")).toBe("Bearer token-1");
+    expect(capturedInit?.body).toBe(JSON.stringify(input));
   });
 });
