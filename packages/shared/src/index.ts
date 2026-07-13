@@ -688,6 +688,37 @@ export type AdminImportedCandidateListResponse = {
   readonly candidates: readonly AdminImportedCandidateDto[];
 };
 
+export type AdminImportedCandidateDetailsDto = {
+  readonly targetId: string;
+  readonly itemType: "kanji" | "word";
+  readonly japanese: string;
+  readonly reading: string | null;
+  readonly readings: readonly {
+    readonly text: string;
+    readonly type: "on" | "kun" | "nanori" | "other" | "word";
+  }[];
+  readonly meanings: {
+    readonly ru: readonly string[];
+    readonly en: readonly string[];
+  };
+  readonly jlptLevel: "N5" | "N4" | "N3" | "N2" | null;
+  readonly sourcePriority: number | null;
+  readonly schoolGrade: number | null;
+  readonly strokeCount: number | null;
+  readonly hasStrokeData: boolean | null;
+  readonly source: {
+    readonly name: "KANJIDIC2" | "JMdict";
+    readonly sourceRecordId: string;
+    readonly sourceUrl: string | null;
+    readonly licenseName: string;
+    readonly attributionText: string;
+    readonly importRunId: string;
+    readonly sourceVersion: string | null;
+    readonly sourceFileName: string;
+    readonly checksumSha256: string;
+  };
+};
+
 export type AdminQualityIssueDto = {
   readonly code: AdminQualityIssueCode;
   readonly message: string;

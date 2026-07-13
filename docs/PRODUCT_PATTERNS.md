@@ -112,3 +112,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 30. Task 70 (completed): build an independent prerequisite-safe candidate plan for full course scale.
 31. Task 71 (completed): cache versioned candidate plans for stable, inexpensive pagination.
 32. Task 72 (completed): expose corpus readiness and versioned candidate pages in the admin workspace.
+33. Task 73 (completed): expose traceable bilingual source details for every planned candidate.

@@ -86,6 +86,13 @@ an import or editorial update from silently shifting later pages while an
 admin is inspecting the shortlist. Expired versions require a fresh first
 page; they never fall back to a differently ordered plan.
 
+Each planned target can be inspected on demand without expanding the planning
+response or relying on the older top-100 candidate queue. The detail read keeps
+all imported Russian and English meanings and readings visible alongside the
+exact source record and import checksum. This remains raw editorial evidence;
+it does not create cards or turn imported wording into project-authored course
+content.
+
 ## Main lesson flow
 
 Component, kanji, vocabulary, and sentence lessons use small groups of at most

@@ -11,6 +11,7 @@ import {
   type AdminCurationTextDto,
   type AdminImportRunSummaryDto,
   type AdminImportedCandidateDto,
+  type AdminImportedCandidateDetailsDto,
   type AdminReviewQueueItemDto,
   type CardAnswerType,
   type CardPromptType,
@@ -45,6 +46,10 @@ import {
 export abstract class AdminRepository {
   abstract listImportRuns(): Promise<readonly AdminImportRunSummaryDto[]>;
   abstract listImportedCandidates(): Promise<readonly AdminImportedCandidateDto[]>;
+  abstract findImportedCandidateDetails(
+    targetType: AdminImportedCandidateDetailsDto["itemType"],
+    targetId: string,
+  ): Promise<AdminImportedCandidateDetailsDto | null>;
   abstract listReviewItems(
     filters: NormalizedAdminReviewQueueFilters,
   ): Promise<readonly AdminReviewQueueItemDto[]>;
@@ -209,6 +214,50 @@ type ImportedWordCandidateRow = {
   readonly importedRecord: ImportedCandidateSourceRow | null;
 };
 
+type ImportedCandidateDetailsSourceRow = {
+  readonly sourceRecordId: string;
+  readonly importRun: {
+    readonly id: string;
+    readonly sourceVersion: string | null;
+    readonly sourceFileName: string;
+    readonly checksumSha256: string;
+    readonly dataSource: {
+      readonly name: string;
+      readonly homepageUrl: string | null;
+      readonly attributionText: string;
+      readonly license: {
+        readonly name: string;
+      };
+    };
+  };
+};
+
+type ImportedKanjiDetailsRow = {
+  readonly id: string;
+  readonly character: string;
+  readonly strokeCount: number | null;
+  readonly grade: number | null;
+  readonly jlptLevel: number | null;
+  readonly frequencyRank: number | null;
+  readonly readings: readonly {
+    readonly reading: string;
+    readonly readingType: string;
+  }[];
+  readonly meanings: readonly { readonly locale: string; readonly meaning: string }[];
+  readonly strokeGraphic: { readonly id: string } | null;
+  readonly importedRecord: ImportedCandidateDetailsSourceRow | null;
+};
+
+type ImportedWordDetailsRow = {
+  readonly id: string;
+  readonly expression: string;
+  readonly reading: string;
+  readonly commonnessRank: number | null;
+  readonly jlptLevel: number | null;
+  readonly senses: readonly { readonly locale: string; readonly meaning: string }[];
+  readonly importedRecord: ImportedCandidateDetailsSourceRow | null;
+};
+
 type CandidatePlanKanjiRow = {
   readonly id: string;
   readonly character: string;
@@ -303,7 +352,10 @@ export class PrismaAdminRepository extends AdminRepository {
             take: 3,
           },
           meanings: {
-            where: { locale: { in: ["ru-RU", "en-US"] } },
+            where: {
+              locale: { in: ["ru-RU", "en-US"] },
+              sourceKind: "IMPORTED",
+            },
             orderBy: [{ locale: "asc" }, { isPrimary: "desc" }, { meaning: "asc" }],
           },
           strokeGraphic: { select: { id: true } },
@@ -327,7 +379,10 @@ export class PrismaAdminRepository extends AdminRepository {
         take: IMPORTED_CANDIDATE_QUERY_LIMIT,
         include: {
           senses: {
-            where: { locale: { in: ["ru-RU", "en-US"] } },
+            where: {
+              locale: { in: ["ru-RU", "en-US"] },
+              sourceKind: "IMPORTED",
+            },
             orderBy: [{ locale: "asc" }, { meaning: "asc" }],
           },
           importedRecord: {
@@ -348,6 +403,103 @@ export class PrismaAdminRepository extends AdminRepository {
     ];
 
     return rankImportedCandidates(candidates, IMPORTED_CANDIDATE_RESPONSE_LIMIT);
+  }
+
+  async findImportedCandidateDetails(
+    targetType: AdminImportedCandidateDetailsDto["itemType"],
+    targetId: string,
+  ): Promise<AdminImportedCandidateDetailsDto | null> {
+    if (targetType === "kanji") {
+      const row = (await this.prisma.db.kanji.findFirst({
+        where: { id: targetId, kanjidicImportedRecordId: { not: null } },
+        select: {
+          id: true,
+          character: true,
+          strokeCount: true,
+          grade: true,
+          jlptLevel: true,
+          frequencyRank: true,
+          readings: {
+            orderBy: [{ priority: "asc" }, { reading: "asc" }],
+            select: { reading: true, readingType: true },
+          },
+          meanings: {
+            where: {
+              locale: { in: ["ru-RU", "en-US"] },
+              sourceKind: "IMPORTED",
+            },
+            orderBy: [{ locale: "asc" }, { isPrimary: "desc" }, { meaning: "asc" }],
+            select: { locale: true, meaning: true },
+          },
+          strokeGraphic: { select: { id: true } },
+          importedRecord: {
+            select: {
+              sourceRecordId: true,
+              importRun: {
+                select: {
+                  id: true,
+                  sourceVersion: true,
+                  sourceFileName: true,
+                  checksumSha256: true,
+                  dataSource: {
+                    select: {
+                      name: true,
+                      homepageUrl: true,
+                      attributionText: true,
+                      license: { select: { name: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      })) as unknown as ImportedKanjiDetailsRow | null;
+
+      return row === null ? null : toImportedKanjiDetails(row);
+    }
+
+    const row = (await this.prisma.db.word.findFirst({
+      where: { id: targetId, jmdictImportedRecordId: { not: null } },
+      select: {
+        id: true,
+        expression: true,
+        reading: true,
+        commonnessRank: true,
+        jlptLevel: true,
+        senses: {
+          where: {
+            locale: { in: ["ru-RU", "en-US"] },
+            sourceKind: "IMPORTED",
+          },
+          orderBy: [{ locale: "asc" }, { meaning: "asc" }],
+          select: { locale: true, meaning: true },
+        },
+        importedRecord: {
+          select: {
+            sourceRecordId: true,
+            importRun: {
+              select: {
+                id: true,
+                sourceVersion: true,
+                sourceFileName: true,
+                checksumSha256: true,
+                dataSource: {
+                  select: {
+                    name: true,
+                    homepageUrl: true,
+                    attributionText: true,
+                    license: { select: { name: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    })) as unknown as ImportedWordDetailsRow | null;
+
+    return row === null ? null : toImportedWordDetails(row);
   }
 
   async getScaleReadiness(): Promise<AdminCurriculumScaleReadinessDto> {
@@ -1797,6 +1949,112 @@ function toWordCandidate(row: ImportedWordCandidateRow): ImportedCandidateRankin
     schoolGrade: null,
     hasStrokeData: false,
     sourceName: assertCandidateSource(row.importedRecord, "JMdict"),
+  };
+}
+
+function toImportedKanjiDetails(row: ImportedKanjiDetailsRow): AdminImportedCandidateDetailsDto {
+  const readings = row.readings
+    .map((reading) => ({
+      text: reading.reading.trim(),
+      type: toImportedReadingType(reading.readingType),
+    }))
+    .filter((reading) => reading.text !== "");
+
+  return {
+    targetId: row.id,
+    itemType: "kanji",
+    japanese: row.character,
+    reading: readings[0]?.text ?? null,
+    readings,
+    meanings: pickImportedDetailsMeanings(row.meanings),
+    jlptLevel: formatImportedKanjiJlptLevel(row.jlptLevel),
+    sourcePriority: row.frequencyRank,
+    schoolGrade: row.grade,
+    strokeCount: row.strokeCount,
+    hasStrokeData: row.strokeGraphic !== null,
+    source: toImportedCandidateDetailsSource(row.importedRecord, "KANJIDIC2"),
+  };
+}
+
+function toImportedWordDetails(row: ImportedWordDetailsRow): AdminImportedCandidateDetailsDto {
+  const reading = row.reading.trim();
+
+  return {
+    targetId: row.id,
+    itemType: "word",
+    japanese: row.expression,
+    reading: reading === "" ? null : reading,
+    readings: reading === "" ? [] : [{ text: reading, type: "word" }],
+    meanings: pickImportedDetailsMeanings(row.senses),
+    jlptLevel: formatCurrentJlptLevel(row.jlptLevel),
+    sourcePriority: normalizeStoredWordRank(row.commonnessRank),
+    schoolGrade: null,
+    strokeCount: null,
+    hasStrokeData: null,
+    source: toImportedCandidateDetailsSource(row.importedRecord, "JMdict"),
+  };
+}
+
+function toImportedReadingType(
+  value: string,
+): AdminImportedCandidateDetailsDto["readings"][number]["type"] {
+  switch (value) {
+    case "ONYOMI":
+      return "on";
+    case "KUNYOMI":
+      return "kun";
+    case "NANORI":
+      return "nanori";
+    default:
+      return "other";
+  }
+}
+
+function pickImportedDetailsMeanings(
+  rows: readonly { readonly locale: string; readonly meaning: string }[],
+): AdminImportedCandidateDetailsDto["meanings"] {
+  return {
+    ru: uniqueMeaningsForLocale(rows, "ru-RU"),
+    en: uniqueMeaningsForLocale(rows, "en-US"),
+  };
+}
+
+function uniqueMeaningsForLocale(
+  rows: readonly { readonly locale: string; readonly meaning: string }[],
+  locale: "ru-RU" | "en-US",
+): readonly string[] {
+  return [
+    ...new Set(
+      rows
+        .filter((row) => row.locale === locale)
+        .map((row) => row.meaning.trim())
+        .filter((meaning) => meaning !== ""),
+    ),
+  ];
+}
+
+function toImportedCandidateDetailsSource(
+  importedRecord: ImportedCandidateDetailsSourceRow | null,
+  expected: AdminImportedCandidateDetailsDto["source"]["name"],
+): AdminImportedCandidateDetailsDto["source"] {
+  const source = importedRecord?.importRun.dataSource;
+
+  if (importedRecord === null || source?.name !== expected) {
+    throw new Error(
+      `Imported candidate source mismatch: expected ${expected}, received ${source?.name}.`,
+    );
+  }
+
+  return {
+    name: expected,
+    sourceRecordId: importedRecord.sourceRecordId,
+    sourceUrl: source.homepageUrl,
+    licenseName: source.license.name,
+    attributionText: source.attributionText,
+    importRunId: importedRecord.importRun.id,
+    sourceVersion: importedRecord.importRun.sourceVersion,
+    sourceFileName: importedRecord.importRun.sourceFileName,
+    checksumSha256: importedRecord.importRun.checksumSha256,
   };
 }
 

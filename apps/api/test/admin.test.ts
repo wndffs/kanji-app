@@ -1,15 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   type AdminCurationItemDto,
   type AdminCurriculumScaleReadinessDto,
   type AdminImportRunSummaryDto,
   type AdminImportedCandidateDto,
+  type AdminImportedCandidateDetailsDto,
   type AdminReviewQueueFilters,
   type AdminReviewQueueItemDto,
 } from "@kanji-srs/shared";
 
-import { AdminRepository } from "../src/admin/admin.repository";
+import { AdminRepository, PrismaAdminRepository } from "../src/admin/admin.repository";
 import { AdminService } from "../src/admin/admin.service";
 import {
   buildCurriculumCandidatePlan,
@@ -299,6 +300,120 @@ describe("AdminService", () => {
     });
   });
 
+  it("returns traceable bilingual details for one import-derived candidate", async () => {
+    const adminService = new AdminService(new InMemoryAdminRepository());
+
+    await expect(
+      adminService.getImportedCandidateDetails("word", "target-imported-word"),
+    ).resolves.toEqual({
+      targetId: "target-imported-word",
+      itemType: "word",
+      japanese: "水",
+      reading: "みず",
+      readings: [{ text: "みず", type: "word" }],
+      meanings: { ru: ["вода"], en: ["water"] },
+      jlptLevel: null,
+      sourcePriority: 1_000,
+      schoolGrade: null,
+      strokeCount: null,
+      hasStrokeData: null,
+      source: {
+        name: "JMdict",
+        sourceRecordId: "jmdict-1",
+        sourceUrl: "https://www.edrdg.org/jmdict/j_jmdict.html",
+        licenseName: "EDRDG License",
+        attributionText: "EDRDG dictionary data.",
+        importRunId: "import-run-jmdict",
+        sourceVersion: "2026-06",
+        sourceFileName: "JMdict_e.gz",
+        checksumSha256: "sha256-jmdict",
+      },
+    });
+  });
+
+  it("maps kanji source details without leaking unsupported meaning locales", async () => {
+    const findFirst = vi.fn().mockResolvedValue({
+      id: "kanji-one",
+      character: "一",
+      strokeCount: 1,
+      grade: 1,
+      jlptLevel: 4,
+      frequencyRank: 2,
+      readings: [
+        { reading: "イチ", readingType: "ONYOMI" },
+        { reading: "ひと.つ", readingType: "KUNYOMI" },
+      ],
+      meanings: [
+        { locale: "en-US", meaning: "one" },
+        { locale: "fr-FR", meaning: "un" },
+        { locale: "ru-RU", meaning: "один" },
+      ],
+      strokeGraphic: { id: "stroke-one" },
+      importedRecord: {
+        sourceRecordId: "4e00",
+        importRun: {
+          id: "run-kanjidic2",
+          sourceVersion: "2026-07",
+          sourceFileName: "kanjidic2.xml.gz",
+          checksumSha256: "sha256-kanjidic2",
+          dataSource: {
+            name: "KANJIDIC2",
+            homepageUrl: "https://www.edrdg.org/wiki/index.php/KANJIDIC_Project",
+            attributionText: "KANJIDIC2 data.",
+            license: { name: "EDRDG License" },
+          },
+        },
+      },
+    });
+    const repository = new PrismaAdminRepository({
+      db: { kanji: { findFirst } },
+    } as never);
+
+    await expect(repository.findImportedCandidateDetails("kanji", "kanji-one")).resolves.toEqual(
+      expect.objectContaining({
+        itemType: "kanji",
+        reading: "イチ",
+        readings: [
+          { text: "イチ", type: "on" },
+          { text: "ひと.つ", type: "kun" },
+        ],
+        meanings: { ru: ["один"], en: ["one"] },
+        jlptLevel: "N5",
+        schoolGrade: 1,
+        strokeCount: 1,
+        hasStrokeData: true,
+        source: expect.objectContaining({
+          name: "KANJIDIC2",
+          sourceRecordId: "4e00",
+          checksumSha256: "sha256-kanjidic2",
+        }),
+      }),
+    );
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          meanings: expect.objectContaining({
+            where: {
+              locale: { in: ["ru-RU", "en-US"] },
+              sourceKind: "IMPORTED",
+            },
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("validates and rejects missing imported candidate details", async () => {
+    const adminService = new AdminService(new InMemoryAdminRepository());
+
+    await expect(
+      adminService.getImportedCandidateDetails("sentence", "target-imported-word"),
+    ).rejects.toThrow("targetType must be kanji or word.");
+    await expect(
+      adminService.getImportedCandidateDetails("word", "missing-target"),
+    ).rejects.toThrow("Import-derived target not found.");
+  });
+
   it("approves bilingual imported meanings into authored cards", async () => {
     const repository = new InMemoryAdminRepository();
     const adminService = new AdminService(repository);
@@ -573,6 +688,40 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
 
   async listImportedCandidates(): Promise<readonly AdminImportedCandidateDto[]> {
     return this.importedCandidates;
+  }
+
+  async findImportedCandidateDetails(
+    targetType: AdminImportedCandidateDetailsDto["itemType"],
+    targetId: string,
+  ): Promise<AdminImportedCandidateDetailsDto | null> {
+    if (targetType !== "word" || targetId !== "target-imported-word") {
+      return null;
+    }
+
+    return {
+      targetId,
+      itemType: "word",
+      japanese: "水",
+      reading: "みず",
+      readings: [{ text: "みず", type: "word" }],
+      meanings: { ru: ["вода"], en: ["water"] },
+      jlptLevel: null,
+      sourcePriority: 1_000,
+      schoolGrade: null,
+      strokeCount: null,
+      hasStrokeData: null,
+      source: {
+        name: "JMdict",
+        sourceRecordId: "jmdict-1",
+        sourceUrl: "https://www.edrdg.org/jmdict/j_jmdict.html",
+        licenseName: "EDRDG License",
+        attributionText: "EDRDG dictionary data.",
+        importRunId: "import-run-jmdict",
+        sourceVersion: "2026-06",
+        sourceFileName: "JMdict_e.gz",
+        checksumSha256: "sha256-jmdict",
+      },
+    };
   }
 
   async listReviewItems(

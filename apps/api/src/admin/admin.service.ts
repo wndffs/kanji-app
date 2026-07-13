@@ -14,6 +14,7 @@ import {
   type AdminCurriculumScaleReadinessDto,
   type AdminCurationItemDto,
   type AdminImportRunListResponse,
+  type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateListResponse,
   type AdminReviewQueueResponse,
   type AdminUpdateItemRequest,
@@ -67,6 +68,24 @@ export class AdminService {
     return {
       candidates: await this.adminRepository.listImportedCandidates(),
     };
+  }
+
+  async getImportedCandidateDetails(
+    targetType: unknown,
+    targetId: unknown,
+  ): Promise<AdminImportedCandidateDetailsDto> {
+    const parsedTargetType = parseImportedCandidateTargetType(targetType);
+    const parsedTargetId = parseRequiredString(targetId, "targetId", { maxLength: 80 });
+    const candidate = await this.adminRepository.findImportedCandidateDetails(
+      parsedTargetType,
+      parsedTargetId,
+    );
+
+    if (candidate === null) {
+      throw new NotFoundException("Import-derived target not found.");
+    }
+
+    return candidate;
   }
 
   async listReviewItems(query: unknown = {}): Promise<AdminReviewQueueResponse> {
@@ -328,7 +347,7 @@ function parseApproveImportedTranslationRequest(
   body: unknown,
 ): NormalizedAdminApproveImportedTranslationInput {
   const record = parseRecord(body, "Request body");
-  const targetType = parseImportedTranslationTargetType(record.targetType);
+  const targetType = parseImportedCandidateTargetType(record.targetType);
   const meanings = parseRecord(record.meanings, "meanings");
   const answers = parseRecord(record.acceptedAnswers, "acceptedAnswers");
 
@@ -392,7 +411,7 @@ function parseAcceptedMeaningAnswers(
   return uniqueAnswers.map((answer, index) => ({ ...answer, isPrimary: index === 0 }));
 }
 
-function parseImportedTranslationTargetType(
+function parseImportedCandidateTargetType(
   value: unknown,
 ): NormalizedAdminApproveImportedTranslationInput["targetType"] {
   if (value === "kanji" || value === "word") {

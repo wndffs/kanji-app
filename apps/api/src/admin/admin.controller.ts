@@ -48,6 +48,14 @@ export class AdminController {
     return this.adminService.listImportedCandidates();
   }
 
+  @Get("imported-candidates/:targetType/:targetId")
+  getImportedCandidateDetails(
+    @Param("targetType") targetType: string,
+    @Param("targetId") targetId: string,
+  ) {
+    return this.adminService.getImportedCandidateDetails(targetType, targetId);
+  }
+
   @Get("curriculum/completeness")
   getCompletenessReport() {
     return this.adminService.getCompletenessReport();

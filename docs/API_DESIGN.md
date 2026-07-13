@@ -261,6 +261,7 @@ in-progress session.
 
 - `GET /admin/import-runs`
 - `GET /admin/imported-candidates`
+- `GET /admin/imported-candidates/:targetType/:targetId`
 - `POST /admin/imported-candidates/promote`
 - `POST /admin/imported-candidates/approve-translation`
 - `GET /admin/curriculum/completeness`
@@ -293,6 +294,15 @@ uses the legacy four-level JLPT field, so candidate
 suggestions map legacy 4 to N5, 3 to N4, 2 to N2, and leave legacy 1 outside the
 current N5-N2 course scope. These mappings must remain visible as ranking
 heuristics and must not be presented as official modern JLPT assignments.
+
+`GET /admin/imported-candidates/:targetType/:targetId` retrieves one
+import-derived `kanji` or `word` directly by its plan target id, so source
+inspection is not limited to the ranked top 100. It returns every stored
+Russian and English meaning, all typed kanji readings or the word reading,
+source priority metadata, stroke availability, and provenance through the
+source record, license, attribution, import run, source version, file name, and
+checksum. Other meaning locales are excluded. The endpoint is read-only and
+does not imply that the row is curated, approved, or published.
 
 The admin translation-review workspace uses the ranked candidates that contain
 both Russian and English imported meanings. It never displays or persists
