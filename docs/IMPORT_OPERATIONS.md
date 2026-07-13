@@ -58,6 +58,12 @@ When `--checksum-sha256` is present, the command verifies the XML before making
 database changes. The checksum is normalized to lowercase and must contain 64
 hexadecimal characters.
 
+Long-running import commands write throttled progress to `stderr` in the form
+`[import:JMdict] 42000/210000 (20.0%)`. The final machine-readable result remains
+the JSON object on `stdout`. Progress advances only after a complete source
+record has been written and is emitted at roughly one-percent intervals, plus
+the exact start and completion states.
+
 Use the full multilingual `JMdict.gz` distribution and decompress it outside the repository.
 The English-only `JMdict_e.gz` file cannot populate Russian word senses. The importer stores
 English (`eng`/`en`) and Russian (`rus`/`ru`) glosses as normalized word senses. Other languages

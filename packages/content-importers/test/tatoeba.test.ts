@@ -150,6 +150,26 @@ describe("Tatoeba importer", () => {
     expect(db.sentenceRows.size).toBe(2);
   });
 
+  it("tracks a progress reporter failure as a failed import run", async () => {
+    const db = new InMemoryTatoebaDb();
+
+    await expect(
+      importTatoebaFiles(db, sentencesTsv, linksTsv, {
+        sourceFileName: "tatoeba-sentences-small.tsv+tatoeba-links-small.tsv",
+        maxTextLength: 16,
+        onProgress: () => {
+          throw new Error("Simulated progress reporter failure.");
+        },
+      }),
+    ).rejects.toThrow("Simulated progress reporter failure.");
+
+    expect([...db.importRuns.values()][0]).toMatchObject({
+      status: "FAILED",
+      errorText: "Simulated progress reporter failure.",
+    });
+    expect(db.importedRecords.size).toBe(0);
+  });
+
   it("retains sentence/link provenance without importing audio metadata", async () => {
     const db = new InMemoryTatoebaDb();
 

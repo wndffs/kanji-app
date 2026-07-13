@@ -5,6 +5,7 @@ import { PrismaClient } from "@kanji-srs/db";
 
 import { importJmDictXml, type JmDictImportDatabase } from "../jmdict";
 import { readImportMetadata } from "./import-options";
+import { writeImportProgress } from "./import-progress";
 
 const args = process.argv.slice(2);
 const filePath = args.find((arg) => !arg.startsWith("--"));
@@ -23,6 +24,7 @@ if (filePath === undefined) {
     const xml = await readFile(absolutePath, "utf8");
     const result = await importJmDictXml(prisma as unknown as JmDictImportDatabase, xml, {
       sourceFileName: basename(absolutePath),
+      onProgress: writeImportProgress,
       ...metadata,
     });
 

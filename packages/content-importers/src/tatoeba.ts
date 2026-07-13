@@ -1,5 +1,6 @@
 import { calculateSha256 } from "./checksum";
 import { executeTrackedImport, findSuccessfulImportRun, type ImportRunLookup } from "./import-run";
+import { createContentImportProgressTracker, type ContentImportProgressCallback } from "./progress";
 
 export type TatoebaLanguage = "jpn" | "rus" | "eng";
 
@@ -51,6 +52,7 @@ export type TatoebaImportOptions = TatoebaParseOptions & {
   readonly sourceFileName: string;
   readonly sourceVersion?: string | null;
   readonly checksumSha256?: string;
+  readonly onProgress?: ContentImportProgressCallback;
 };
 
 export type TatoebaImportResult = {
@@ -289,8 +291,13 @@ export async function importTatoebaFiles(
       errorText: null,
     },
   });
-
   await executeTrackedImport(db.importRun, importRun.id, statsJson, async () => {
+    const progress = createContentImportProgressTracker(
+      "Tatoeba",
+      parsed.sentences.length,
+      options.onProgress,
+    );
+
     for (const sentence of parsed.sentences) {
       await db.importedRecord.upsert({
         where: {
@@ -337,6 +344,7 @@ export async function importTatoebaFiles(
           licenseId: license.id,
         },
       });
+      progress.advance();
 
       // TODO: Link imported sentences to known words after a tokenizer/matcher API exists.
     }

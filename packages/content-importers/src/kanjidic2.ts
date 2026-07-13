@@ -1,6 +1,7 @@
 import { verifySha256 } from "./import-metadata";
 import { forEachConcurrent } from "./concurrency";
 import { executeTrackedImport, findSuccessfulImportRun, type ImportRunLookup } from "./import-run";
+import { createContentImportProgressTracker, type ContentImportProgressCallback } from "./progress";
 import {
   extractAttributedElements,
   extractElements,
@@ -53,6 +54,7 @@ export type KanjiDic2ImportOptions = {
   readonly sourceVersion?: string | null;
   readonly sourceDownloadedAt?: Date | null;
   readonly checksumSha256?: string;
+  readonly onProgress?: ContentImportProgressCallback;
 };
 
 export type KanjiDic2ImportResult = {
@@ -268,8 +270,13 @@ export async function importKanjiDic2Xml(
       errorText: null,
     },
   });
-
   await executeTrackedImport(db.importRun, importRun.id, statsJson, async () => {
+    const progress = createContentImportProgressTracker(
+      "KANJIDIC2",
+      parsed.characters.length,
+      options.onProgress,
+    );
+
     await forEachConcurrent(parsed.characters, IMPORT_WRITE_CONCURRENCY, async (character) => {
       const importedRecord = await db.importedRecord.upsert({
         where: {
@@ -355,6 +362,8 @@ export async function importKanjiDic2Xml(
           },
         });
       }
+
+      progress.advance();
     });
   });
 

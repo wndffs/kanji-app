@@ -5,6 +5,7 @@ import { PrismaClient } from "@kanji-srs/db";
 
 import { importKanjiDic2Xml, type KanjiDic2ImportDatabase } from "../kanjidic2";
 import { readImportMetadata } from "./import-options";
+import { writeImportProgress } from "./import-progress";
 
 const args = process.argv.slice(2);
 const filePath = args.find((arg) => !arg.startsWith("--"));
@@ -23,6 +24,7 @@ if (filePath === undefined) {
     const xml = await readFile(absolutePath, "utf8");
     const result = await importKanjiDic2Xml(prisma as unknown as KanjiDic2ImportDatabase, xml, {
       sourceFileName: basename(absolutePath),
+      onProgress: writeImportProgress,
       ...metadata,
     });
 

@@ -72,13 +72,21 @@ describe("JMdict importer", () => {
 
   it("writes DB records idempotently", async () => {
     const db = new InMemoryJmDictDb();
+    const progress: string[] = [];
+    const options = {
+      sourceFileName: "jmdict-small.xml",
+      onProgress: (value: { readonly completed: number; readonly total: number }) => {
+        progress.push(`${value.completed}/${value.total}`);
+      },
+    };
 
-    await importJmDictXml(db, fixtureXml, { sourceFileName: "jmdict-small.xml" });
-    await importJmDictXml(db, fixtureXml, { sourceFileName: "jmdict-small.xml" });
+    await importJmDictXml(db, fixtureXml, options);
+    await importJmDictXml(db, fixtureXml, options);
 
     expect(db.importRuns.size).toBe(1);
     expect(db.importedRecords.size).toBe(3);
     expect(db.importedRecordUpsertCount).toBe(3);
+    expect(progress).toEqual(["0/3", "1/3", "2/3", "3/3"]);
     expect(db.wordRows.size).toBe(5);
     expect(db.senseRows.size).toBe(12);
     expect([...db.senseRows.values()]).not.toEqual(

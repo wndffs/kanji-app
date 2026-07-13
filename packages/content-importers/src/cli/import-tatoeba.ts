@@ -4,6 +4,7 @@ import { basename, resolve } from "node:path";
 import { PrismaClient } from "@kanji-srs/db";
 
 import { importTatoebaFiles, type TatoebaImportDatabase } from "../tatoeba";
+import { writeImportProgress } from "./import-progress";
 
 const args = process.argv.slice(2);
 const filePaths = readPositionalArgs(args);
@@ -32,6 +33,7 @@ if (filePaths.length < 2) {
         sourceFileName: `${basename(sentencesPath)}+${basename(linksPath)}`,
         sourceVersion,
         maxTextLength,
+        onProgress: writeImportProgress,
       },
     );
 
