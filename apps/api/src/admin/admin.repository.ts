@@ -22,6 +22,10 @@ import { normalizeJapaneseReading } from "@kanji-srs/japanese";
 
 import { PrismaService } from "../database/prisma.service";
 import { applyQualityIssues, buildCurriculumCompletenessReport } from "./curriculum-quality";
+import {
+  buildCurriculumCandidatePlan,
+  type CurriculumCandidatePlan,
+} from "./curriculum-candidate-plan";
 import { buildCurriculumScaleReadiness } from "./curriculum-scale-readiness";
 import {
   type ImportedCandidateRankingInput,
@@ -44,6 +48,7 @@ export abstract class AdminRepository {
   ): Promise<readonly AdminReviewQueueItemDto[]>;
   abstract getCompletenessReport(): Promise<AdminCurriculumCompletenessReportDto>;
   abstract getScaleReadiness(): Promise<AdminCurriculumScaleReadinessDto>;
+  abstract getCandidatePlan(): Promise<CurriculumCandidatePlan>;
   abstract findCurationItem(itemId: string): Promise<AdminCurationItemDto | null>;
   abstract findItemByCardId(cardId: string): Promise<AdminCurationItemDto | null>;
   abstract promoteImportedCandidate(
@@ -201,6 +206,26 @@ type ImportedWordCandidateRow = {
   readonly importedRecord: ImportedCandidateSourceRow | null;
 };
 
+type CandidatePlanKanjiRow = {
+  readonly id: string;
+  readonly character: string;
+  readonly frequencyRank: number | null;
+  readonly grade: number | null;
+  readonly jlptLevel: number | null;
+  readonly readings: readonly { readonly reading: string }[];
+  readonly meanings: readonly { readonly locale: string }[];
+  readonly strokeGraphic: { readonly id: string } | null;
+};
+
+type CandidatePlanWordRow = {
+  readonly id: string;
+  readonly expression: string;
+  readonly reading: string;
+  readonly commonnessRank: number | null;
+  readonly jlptLevel: number | null;
+  readonly senses: readonly { readonly locale: string }[];
+};
+
 type PrismaAdminWriteClient = Pick<
   PrismaService["db"],
   "component" | "kanjiMeaning" | "wordSense" | "sentence" | "hint" | "mnemonic"
@@ -220,6 +245,8 @@ const PROJECT_AUTHORED_ATTRIBUTION: SourceAttributionDto = {
 };
 const IMPORTED_CANDIDATE_QUERY_LIMIT = 500;
 const IMPORTED_CANDIDATE_RESPONSE_LIMIT = 100;
+const CURRICULUM_KANJI_CANDIDATE_POOL_LIMIT = 5_000;
+const CURRICULUM_WORD_CANDIDATE_POOL_LIMIT = 40_000;
 
 @Injectable()
 export class PrismaAdminRepository extends AdminRepository {
@@ -444,6 +471,100 @@ export class PrismaAdminRepository extends AdminRepository {
       ],
       new Date(),
     );
+  }
+
+  async getCandidatePlan(): Promise<CurriculumCandidatePlan> {
+    const assignedTargets = await this.prisma.db.learningItem.findMany({
+      where: { targetType: { in: ["KANJI", "WORD"] } },
+      select: { targetType: true, targetId: true, status: true },
+    });
+    const assignedKanjiIds = assignedTargets
+      .filter((target) => target.targetType === "KANJI")
+      .map((target) => target.targetId);
+    const assignedWordIds = assignedTargets
+      .filter((target) => target.targetType === "WORD")
+      .map((target) => target.targetId);
+    const activeTargets = assignedTargets.filter((target) => target.status !== "ARCHIVED");
+    const activeKanjiIds = activeTargets
+      .filter((target) => target.targetType === "KANJI")
+      .map((target) => target.targetId);
+    const unassignedKanjiWhere = {
+      kanjidicImportedRecordId: { not: null },
+      ...(assignedKanjiIds.length === 0 ? {} : { id: { notIn: assignedKanjiIds } }),
+    };
+    const unassignedWordWhere = {
+      jmdictImportedRecordId: { not: null },
+      ...(assignedWordIds.length === 0 ? {} : { id: { notIn: assignedWordIds } }),
+    };
+    const [existingKanjiRows, importedKanjiCount, importedWordCount, kanjiRows, wordRows] =
+      await Promise.all([
+        activeKanjiIds.length === 0
+          ? Promise.resolve([])
+          : this.prisma.db.kanji.findMany({
+              where: { id: { in: activeKanjiIds } },
+              select: { character: true },
+            }),
+        this.prisma.db.kanji.count({ where: unassignedKanjiWhere }),
+        this.prisma.db.word.count({ where: unassignedWordWhere }),
+        this.prisma.db.kanji.findMany({
+          where: unassignedKanjiWhere,
+          orderBy: [{ frequencyRank: "asc" }, { grade: "asc" }, { character: "asc" }],
+          take: CURRICULUM_KANJI_CANDIDATE_POOL_LIMIT,
+          select: {
+            id: true,
+            character: true,
+            frequencyRank: true,
+            grade: true,
+            jlptLevel: true,
+            readings: {
+              orderBy: [{ priority: "asc" }, { reading: "asc" }],
+              take: 1,
+              select: { reading: true },
+            },
+            meanings: {
+              where: { locale: { in: ["ru-RU", "en-US"] } },
+              distinct: ["locale"],
+              select: { locale: true },
+            },
+            strokeGraphic: { select: { id: true } },
+          },
+        }),
+        this.prisma.db.word.findMany({
+          where: unassignedWordWhere,
+          orderBy: [{ commonnessRank: "asc" }, { expression: "asc" }, { reading: "asc" }],
+          take: CURRICULUM_WORD_CANDIDATE_POOL_LIMIT,
+          select: {
+            id: true,
+            expression: true,
+            reading: true,
+            commonnessRank: true,
+            jlptLevel: true,
+            senses: {
+              where: { locale: { in: ["ru-RU", "en-US"] } },
+              distinct: ["locale"],
+              select: { locale: true },
+            },
+          },
+        }),
+      ]);
+
+    return buildCurriculumCandidatePlan({
+      existingItems: {
+        kanji: activeTargets.filter((target) => target.targetType === "KANJI").length,
+        word: activeTargets.filter((target) => target.targetType === "WORD").length,
+      },
+      existingKanji: existingKanjiRows.map((row) => row.character),
+      candidates: [
+        ...(kanjiRows as unknown as readonly CandidatePlanKanjiRow[]).map(
+          toCandidatePlanKanjiInput,
+        ),
+        ...(wordRows as unknown as readonly CandidatePlanWordRow[]).map(toCandidatePlanWordInput),
+      ],
+      poolTruncated: {
+        kanji: importedKanjiCount > kanjiRows.length,
+        word: importedWordCount > wordRows.length,
+      },
+    });
   }
 
   async listReviewItems(
@@ -1630,6 +1751,45 @@ function toWordCandidate(row: ImportedWordCandidateRow): ImportedCandidateRankin
     schoolGrade: null,
     hasStrokeData: false,
     sourceName: assertCandidateSource(row.importedRecord, "JMdict"),
+  };
+}
+
+function toCandidatePlanKanjiInput(row: CandidatePlanKanjiRow): ImportedCandidateRankingInput {
+  return {
+    targetId: row.id,
+    itemType: "kanji",
+    japanese: row.character,
+    reading: row.readings[0]?.reading ?? null,
+    meanings: candidateCoverageMeanings(row.meanings),
+    jlptLevel: formatImportedKanjiJlptLevel(row.jlptLevel),
+    sourcePriority: row.frequencyRank,
+    schoolGrade: row.grade,
+    hasStrokeData: row.strokeGraphic !== null,
+    sourceName: "KANJIDIC2",
+  };
+}
+
+function toCandidatePlanWordInput(row: CandidatePlanWordRow): ImportedCandidateRankingInput {
+  return {
+    targetId: row.id,
+    itemType: "word",
+    japanese: row.expression,
+    reading: row.reading.trim() === "" ? null : row.reading,
+    meanings: candidateCoverageMeanings(row.senses),
+    jlptLevel: formatCurrentJlptLevel(row.jlptLevel),
+    sourcePriority: normalizeStoredWordRank(row.commonnessRank),
+    schoolGrade: null,
+    hasStrokeData: false,
+    sourceName: "JMdict",
+  };
+}
+
+function candidateCoverageMeanings(
+  rows: readonly { readonly locale: string }[],
+): ImportedCandidateRankingInput["meanings"] {
+  return {
+    ru: rows.some((row) => row.locale === "ru-RU") ? ["available"] : [],
+    en: rows.some((row) => row.locale === "en-US") ? ["available"] : [],
   };
 }
 

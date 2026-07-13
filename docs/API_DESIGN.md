@@ -265,6 +265,7 @@ in-progress session.
 - `POST /admin/imported-candidates/approve-translation`
 - `GET /admin/curriculum/completeness`
 - `GET /admin/curriculum/scale-readiness`
+- `GET /admin/curriculum/candidate-plan`
 - `GET /admin/items/review-queue`
 - `PATCH /admin/items/:id`
 - `PATCH /admin/cards/:id/answers`
@@ -314,6 +315,20 @@ import candidates. The report also exposes reading, Russian meaning, English
 meaning, bilingual meaning, and kanji stroke coverage. Candidate capacity is
 not publication readiness: every selected item must still pass the curriculum
 quality gates and receive an independent level and prerequisite path.
+
+`GET /admin/curriculum/candidate-plan` applies the versioned independent
+frequency-and-prerequisite policy to active course work plus unassigned source
+rows. It ranks kanji and vocabulary separately, fills only the remaining
+2,300/8,000 target slots, and excludes a word when one of its kanji is absent
+from both the active course and selected kanji plan. The response includes a
+band summary and one page selected with `itemType=kanji|word`, `offset`, and a
+maximum `limit` of 100.
+
+Planning reads lightweight, source-ordered pools capped at 5,000 kanji and
+40,000 words. `poolTruncated` makes that bound explicit. Selection remains an
+editorial shortlist: it neither creates `LearningItem` rows nor supplies the
+bilingual authored explanations, mnemonics, cards, levels, and dependencies
+required for publication.
 
 ## API rules
 

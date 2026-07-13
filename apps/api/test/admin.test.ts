@@ -12,6 +12,10 @@ import {
 import { AdminRepository } from "../src/admin/admin.repository";
 import { AdminService } from "../src/admin/admin.service";
 import {
+  buildCurriculumCandidatePlan,
+  type CurriculumCandidatePlan,
+} from "../src/admin/curriculum-candidate-plan";
+import {
   applyQualityIssues,
   buildCurriculumCompletenessReport,
 } from "../src/admin/curriculum-quality";
@@ -190,6 +194,31 @@ describe("AdminService", () => {
         }),
       ],
     });
+  });
+
+  it("returns bounded pages from the deterministic curriculum candidate plan", async () => {
+    const adminService = new AdminService(new InMemoryAdminRepository());
+
+    await expect(
+      adminService.getCandidatePlan({ itemType: "word", offset: "1", limit: "1" }),
+    ).resolves.toMatchObject({
+      summary: {
+        policyVersion: "independent-frequency-prerequisites-v1",
+        selectedItems: { kanji: 0, word: 2 },
+      },
+      page: {
+        itemType: "word",
+        offset: 1,
+        limit: 1,
+        total: 2,
+        hasMore: false,
+      },
+      candidates: [{ selectionRank: 2, targetId: "plan-word-two" }],
+    });
+
+    await expect(adminService.getCandidatePlan({ limit: "101" })).rejects.toThrow(
+      "limit must be an integer from 1 to 100.",
+    );
   });
 
   it("promotes an import-derived target into a curated learning item", async () => {
@@ -597,6 +626,40 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
         },
       ],
     };
+  }
+
+  async getCandidatePlan(): Promise<CurriculumCandidatePlan> {
+    return buildCurriculumCandidatePlan({
+      existingItems: { kanji: 2_300, word: 7_998 },
+      existingKanji: [],
+      poolTruncated: { kanji: true, word: true },
+      candidates: [
+        {
+          targetId: "plan-word-two",
+          itemType: "word",
+          japanese: "ありがとう",
+          reading: "ありがとう",
+          meanings: { ru: ["спасибо"], en: ["thank you"] },
+          jlptLevel: null,
+          sourcePriority: 2_000,
+          schoolGrade: null,
+          hasStrokeData: false,
+          sourceName: "JMdict",
+        },
+        {
+          targetId: "plan-word-one",
+          itemType: "word",
+          japanese: "はい",
+          reading: "はい",
+          meanings: { ru: ["да"], en: ["yes"] },
+          jlptLevel: null,
+          sourcePriority: 1_000,
+          schoolGrade: null,
+          hasStrokeData: false,
+          sourceName: "JMdict",
+        },
+      ],
+    });
   }
 
   async promoteImportedCandidate(

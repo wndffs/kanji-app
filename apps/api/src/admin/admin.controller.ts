@@ -58,6 +58,11 @@ export class AdminController {
     return this.adminService.getScaleReadiness();
   }
 
+  @Get("curriculum/candidate-plan")
+  getCandidatePlan(@Query() query: Record<string, unknown>) {
+    return this.adminService.getCandidatePlan(query);
+  }
+
   @Get("items/:itemId")
   getCurationItem(@Param("itemId") itemId: string) {
     return this.adminService.getCurationItem(itemId);

@@ -46,6 +46,12 @@ export type NormalizedAdminItemCurationInput = {
 
 export type NormalizedAdminReviewQueueFilters = AdminReviewQueueFilters;
 
+export type NormalizedAdminCandidatePlanFilters = {
+  readonly itemType: "kanji" | "word";
+  readonly offset: number;
+  readonly limit: number;
+};
+
 export type NormalizedAdminPromoteCandidateInput = {
   readonly targetType: ItemKind;
   readonly targetId: string;

@@ -878,6 +878,55 @@ export type AdminCurriculumScaleReadinessDto = {
   readonly items: readonly AdminCurriculumScaleItemReadinessDto[];
 };
 
+export type AdminCurriculumCandidatePlanItemDto = {
+  readonly selectionRank: number;
+  readonly targetId: string;
+  readonly itemType: "kanji" | "word";
+  readonly japanese: string;
+  readonly reading: string | null;
+  readonly score: number;
+  readonly sourcePriority: number | null;
+  readonly sourceName: "KANJIDIC2" | "JMdict";
+  readonly suggestedBand: CourseBand;
+  readonly prerequisiteKanji: readonly string[];
+  readonly coverage: {
+    readonly russianMeaning: boolean;
+    readonly englishMeaning: boolean;
+    readonly reading: boolean;
+    readonly strokeData: boolean | null;
+  };
+};
+
+export type AdminCurriculumCandidatePlanSummaryDto = {
+  readonly policyVersion: "independent-frequency-prerequisites-v1";
+  readonly targetItems: Readonly<Record<"kanji" | "word", number>>;
+  readonly existingItems: Readonly<Record<"kanji" | "word", number>>;
+  readonly candidateSlots: Readonly<Record<"kanji" | "word", number>>;
+  readonly candidatePool: Readonly<Record<"kanji" | "word", number>>;
+  readonly poolTruncated: Readonly<Record<"kanji" | "word", boolean>>;
+  readonly selectedItems: Readonly<Record<"kanji" | "word", number>>;
+  readonly unfilledSlots: Readonly<Record<"kanji" | "word", number>>;
+  readonly excludedWordsMissingKanji: number;
+  readonly bands: readonly {
+    readonly band: CourseBand;
+    readonly kanjiItems: number;
+    readonly wordItems: number;
+  }[];
+};
+
+export type AdminCurriculumCandidatePlanResponse = {
+  readonly generatedAt: string;
+  readonly summary: AdminCurriculumCandidatePlanSummaryDto;
+  readonly page: {
+    readonly itemType: "kanji" | "word";
+    readonly offset: number;
+    readonly limit: number;
+    readonly total: number;
+    readonly hasMore: boolean;
+  };
+  readonly candidates: readonly AdminCurriculumCandidatePlanItemDto[];
+};
+
 export type AdminUpdateCardAnswersRequest = {
   readonly acceptedAnswers: readonly {
     readonly locale: ContentLocale;

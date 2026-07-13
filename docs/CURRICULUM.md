@@ -75,6 +75,12 @@ the remaining publication gap, work already in curation, unassigned imported
 candidate capacity, and the raw candidates' RU/EN, reading, and stroke-data
 coverage. It does not promote or publish dictionary rows automatically.
 
+The candidate plan uses a project-owned, versioned ordering policy rather than
+another product's levels. It ranks kanji and words from source metadata, then
+admits a word only when every kanji in its written form is already active or
+selected by the same plan. The plan is paginated editorial input, not an
+automatic curriculum or a substitute for bilingual curation.
+
 ## Main lesson flow
 
 Component, kanji, vocabulary, and sentence lessons use small groups of at most

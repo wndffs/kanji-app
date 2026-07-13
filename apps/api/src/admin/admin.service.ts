@@ -3,6 +3,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from "@nes
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
 import {
   type AdminContentStatus,
+  type AdminCurriculumCandidatePlanResponse,
   type AdminCurriculumCompletenessReportDto,
   type AdminCurriculumScaleReadinessDto,
   type AdminCurationItemDto,
@@ -25,6 +26,7 @@ import {
 import {
   type NormalizedAdminCardAnswersInput,
   type NormalizedAdminApproveImportedTranslationInput,
+  type NormalizedAdminCandidatePlanFilters,
   type NormalizedAdminItemCurationInput,
   type NormalizedAdminPromoteCandidateInput,
   type NormalizedAdminReviewQueueFilters,
@@ -36,6 +38,8 @@ const MAX_ANSWER_LENGTH = 120;
 const MAX_ACCEPTED_ANSWERS_PER_LOCALE = 20;
 const MAX_BLOCKED_REASON_LENGTH = 500;
 const MAX_TEXT_BODY_LENGTH = 4_000;
+const DEFAULT_CANDIDATE_PLAN_PAGE_LIMIT = 50;
+const MAX_CANDIDATE_PLAN_PAGE_LIMIT = 100;
 
 @Injectable()
 export class AdminService {
@@ -67,6 +71,24 @@ export class AdminService {
 
   async getScaleReadiness(): Promise<AdminCurriculumScaleReadinessDto> {
     return this.adminRepository.getScaleReadiness();
+  }
+
+  async getCandidatePlan(query: unknown = {}): Promise<AdminCurriculumCandidatePlanResponse> {
+    const filters = parseCandidatePlanFilters(query);
+    const plan = await this.adminRepository.getCandidatePlan();
+    const candidates = plan.candidates[filters.itemType];
+    const pageCandidates = candidates.slice(filters.offset, filters.offset + filters.limit);
+
+    return {
+      generatedAt: new Date().toISOString(),
+      summary: plan.summary,
+      page: {
+        ...filters,
+        total: candidates.length,
+        hasMore: filters.offset + pageCandidates.length < candidates.length,
+      },
+      candidates: pageCandidates,
+    };
   }
 
   async getCurationItem(itemId: string): Promise<AdminCurationItemDto> {
@@ -176,6 +198,28 @@ function parseReviewQueueFilters(query: unknown): NormalizedAdminReviewQueueFilt
     ...(record.missingMnemonics === undefined
       ? {}
       : { missingMnemonics: parseBooleanQuery(record.missingMnemonics, "missingMnemonics") }),
+  };
+}
+
+function parseCandidatePlanFilters(query: unknown): NormalizedAdminCandidatePlanFilters {
+  const record =
+    typeof query === "object" && query !== null ? (query as Record<string, unknown>) : {};
+  const itemType = record.itemType ?? "kanji";
+
+  if (itemType !== "kanji" && itemType !== "word") {
+    throw new BadRequestException("itemType must be kanji or word.");
+  }
+
+  return {
+    itemType,
+    offset: parseBoundedNonNegativeInteger(record.offset, "offset", 0, Number.MAX_SAFE_INTEGER),
+    limit: parseBoundedNonNegativeInteger(
+      record.limit,
+      "limit",
+      DEFAULT_CANDIDATE_PLAN_PAGE_LIMIT,
+      MAX_CANDIDATE_PLAN_PAGE_LIMIT,
+      1,
+    ),
   };
 }
 
@@ -415,6 +459,26 @@ function parseOptionalPositiveInteger(value: unknown, label: string): number | n
 
   if (!Number.isInteger(parsed) || parsed <= 0) {
     throw new BadRequestException(`${label} must be a positive integer.`);
+  }
+
+  return parsed;
+}
+
+function parseBoundedNonNegativeInteger(
+  value: unknown,
+  label: string,
+  defaultValue: number,
+  maximum: number,
+  minimum = 0,
+): number {
+  if (value === undefined || value === null || value === "") {
+    return defaultValue;
+  }
+
+  const parsed = typeof value === "number" ? value : Number(value);
+
+  if (!Number.isInteger(parsed) || parsed < minimum || parsed > maximum) {
+    throw new BadRequestException(`${label} must be an integer from ${minimum} to ${maximum}.`);
   }
 
   return parsed;
