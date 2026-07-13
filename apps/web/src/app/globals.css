@@ -2371,6 +2371,197 @@ textarea:focus-visible {
   font-weight: 850;
 }
 
+.admin-curriculum-planning {
+  display: grid;
+  gap: 22px;
+}
+
+.admin-planning-header,
+.admin-candidate-plan-heading,
+.admin-plan-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-planning-header h2,
+.admin-readiness h3,
+.admin-candidate-plan h3 {
+  margin: 0;
+}
+
+.admin-readiness,
+.admin-candidate-plan {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.admin-readiness {
+  border-bottom: 1px solid var(--surface-border);
+  padding-bottom: 20px;
+}
+
+.admin-table-scroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.admin-planning-table {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.admin-planning-table th,
+.admin-planning-table td {
+  border-bottom: 1px solid var(--surface-border);
+  padding: 9px 10px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.admin-planning-table th:first-child,
+.admin-planning-table td:first-child {
+  padding-left: 0;
+  text-align: left;
+}
+
+.admin-planning-table thead th {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.admin-plan-segment {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(92px, 1fr));
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.admin-plan-segment button {
+  min-height: 38px;
+  border: 0;
+  border-left: 1px solid var(--surface-border);
+  background: transparent;
+  color: var(--muted);
+  padding: 7px 12px;
+  font: inherit;
+  font-weight: 800;
+}
+
+.admin-plan-segment button:first-child {
+  border-left: 0;
+}
+
+.admin-plan-segment button[aria-pressed="true"] {
+  background: var(--surface-strong);
+  color: var(--foreground);
+}
+
+.admin-plan-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+}
+
+.admin-plan-summary div {
+  min-width: 0;
+  border-left: 1px solid var(--surface-border);
+  padding: 4px 14px;
+}
+
+.admin-plan-summary div:first-child {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.admin-plan-summary dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.admin-plan-summary dd {
+  margin: 4px 0 0;
+  font-size: 20px;
+  font-weight: 850;
+}
+
+.admin-plan-bands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  border-block: 1px solid var(--surface-border);
+  padding-block: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.admin-plan-bands strong {
+  color: var(--foreground);
+}
+
+.admin-plan-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-plan-list li {
+  min-width: 0;
+  display: grid;
+  grid-template-columns:
+    58px minmax(80px, 0.7fr) minmax(100px, 1fr) 84px 80px minmax(170px, 1.3fr)
+    minmax(150px, 1fr);
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--surface-border);
+  padding: 9px 0;
+}
+
+.admin-plan-list span,
+.admin-plan-list small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-plan-list small {
+  color: var(--muted);
+}
+
+.admin-plan-rank {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-plan-japanese {
+  font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Sans", sans-serif;
+  font-size: 22px;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.admin-plan-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-plan-error .form-error {
+  margin: 0;
+}
+
+.admin-plan-pagination > span {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .quality-list li,
 .dependency-list li {
   display: grid;
@@ -3008,6 +3199,15 @@ textarea:focus-visible {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .admin-plan-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px 0;
+  }
+
+  .admin-plan-list li {
+    grid-template-columns: 52px minmax(100px, 1fr) minmax(100px, 1fr) 84px;
+  }
+
   .review-progress {
     justify-content: start;
   }
@@ -3090,6 +3290,41 @@ textarea:focus-visible {
   .review-queue-grid,
   .review-answer-bar {
     grid-template-columns: 1fr;
+  }
+
+  .admin-planning-header,
+  .admin-candidate-plan-heading,
+  .admin-plan-pagination,
+  .admin-plan-error {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-plan-segment {
+    width: 100%;
+  }
+
+  .admin-plan-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-plan-summary div:nth-child(odd) {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .admin-plan-list li {
+    grid-template-columns: 48px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .admin-plan-list li > * {
+    grid-column: 2;
+  }
+
+  .admin-plan-list .admin-plan-rank {
+    grid-column: 1;
+    grid-row: 1;
   }
 
   .workload-panel > header {

@@ -29,6 +29,7 @@ import {
   updateAdminItem,
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
+import { CurriculumPlanningPanel } from "./CurriculumPlanningPanel";
 
 type AdminState =
   | { readonly status: "checking" }
@@ -661,6 +662,8 @@ export function AdminClient() {
           ))}
         </div>
       </section>
+
+      <CurriculumPlanningPanel key={state.token} token={state.token} />
 
       <section className="panel admin-translation-review" data-testid="admin-translation-review">
         <div className="admin-translation-review-heading">

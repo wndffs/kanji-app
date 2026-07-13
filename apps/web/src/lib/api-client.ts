@@ -1,7 +1,9 @@
 import {
   type AdminApproveImportedTranslationRequest,
   type AdminCurationItemDto,
+  type AdminCurriculumCandidatePlanResponse,
   type AdminCurriculumCompletenessReportDto,
+  type AdminCurriculumScaleReadinessDto,
   type AdminImportRunListResponse,
   type AdminImportedCandidateListResponse,
   type AdminPromoteCandidateRequest,
@@ -259,6 +261,41 @@ export function getAdminCompletenessReport(
   return apiRequest<AdminCurriculumCompletenessReportDto>("/admin/curriculum/completeness", {
     token,
   });
+}
+
+export function getAdminScaleReadiness(token: string): Promise<AdminCurriculumScaleReadinessDto> {
+  return apiRequest<AdminCurriculumScaleReadinessDto>("/admin/curriculum/scale-readiness", {
+    token,
+  });
+}
+
+export function getAdminCandidatePlan(
+  token: string,
+  query: {
+    readonly itemType: "kanji" | "word";
+    readonly offset?: number;
+    readonly limit?: number;
+    readonly planVersion?: string;
+  },
+): Promise<AdminCurriculumCandidatePlanResponse> {
+  const params = new URLSearchParams({ itemType: query.itemType });
+
+  if (query.offset !== undefined) {
+    params.set("offset", String(query.offset));
+  }
+
+  if (query.limit !== undefined) {
+    params.set("limit", String(query.limit));
+  }
+
+  if (query.planVersion !== undefined) {
+    params.set("planVersion", query.planVersion);
+  }
+
+  return apiRequest<AdminCurriculumCandidatePlanResponse>(
+    `/admin/curriculum/candidate-plan?${params.toString()}`,
+    { token },
+  );
 }
 
 export function getAdminCurationItem(token: string, itemId: string): Promise<AdminCurationItemDto> {

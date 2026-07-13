@@ -2,7 +2,9 @@ import { expect, type Page, test } from "@playwright/test";
 
 import {
   type AdminApproveImportedTranslationRequest,
+  type AdminCurriculumCandidatePlanResponse,
   type AdminCurriculumCompletenessReportDto,
+  type AdminCurriculumScaleReadinessDto,
   type AdminCurationItemDto,
   type AdminImportRunListResponse,
   type AdminImportedCandidateListResponse,
@@ -37,6 +39,11 @@ test.describe("admin curation", () => {
     await expect(page.getByTestId("admin-import-runs")).toContainText("sha256-test");
     await expect(page.getByTestId("admin-import-runs")).toContainText("items: 1");
     await expect(page.getByTestId("admin-import-runs")).toContainText("Parser failed.");
+    await expect(page.getByTestId("admin-scale-readiness")).toContainText(/2.?300/);
+    const candidatePlan = page.getByTestId("admin-candidate-plan");
+    await expect(candidatePlan).toContainText("一");
+    await candidatePlan.getByRole("button", { name: "Слова" }).click();
+    await expect(candidatePlan).toContainText("水");
     await expect(page.getByTestId("admin-imported-candidates")).toContainText("#1 · 100");
     await page.getByTestId("admin-imported-candidates").getByRole("button").click();
     await expect(page.getByLabel("Target ID")).toHaveValue("target-imported-word");
@@ -173,6 +180,114 @@ async function mockAdminApi(page: Page): Promise<void> {
         { band: "n4", ...emptyBand },
         { band: "n3", ...emptyBand },
         { band: "n2", ...emptyBand },
+      ],
+    };
+
+    await route.fulfill({ json: response });
+  });
+
+  await page.route(`${API_BASE_URL}/admin/curriculum/scale-readiness`, async (route) => {
+    const response: AdminCurriculumScaleReadinessDto = {
+      generatedAt: "2026-07-13T12:00:00.000Z",
+      items: [
+        {
+          itemType: "kanji",
+          targetItems: 2_300,
+          publishedItems: 2,
+          inCurationItems: 1,
+          importedCandidates: 12_000,
+          remainingToPublish: 2_298,
+          candidatesNeeded: 2_297,
+          fillableCandidateSlots: 2_297,
+          capacityShortfall: 0,
+          candidateCoverage: {
+            withReading: 11_900,
+            withRussianMeaning: 12,
+            withEnglishMeaning: 12_000,
+            withBilingualMeanings: 12,
+            withStrokeData: 11_800,
+          },
+        },
+        {
+          itemType: "word",
+          targetItems: 8_000,
+          publishedItems: 4,
+          inCurationItems: 2,
+          importedCandidates: 150_000,
+          remainingToPublish: 7_996,
+          candidatesNeeded: 7_994,
+          fillableCandidateSlots: 7_994,
+          capacityShortfall: 0,
+          candidateCoverage: {
+            withReading: 150_000,
+            withRussianMeaning: 140_000,
+            withEnglishMeaning: 150_000,
+            withBilingualMeanings: 140_000,
+            withStrokeData: null,
+          },
+        },
+      ],
+    };
+
+    await route.fulfill({ json: response });
+  });
+
+  await page.route(`${API_BASE_URL}/admin/curriculum/candidate-plan**`, async (route) => {
+    const url = new URL(route.request().url());
+    const itemType = url.searchParams.get("itemType") === "word" ? "word" : "kanji";
+
+    if (itemType === "word" && url.searchParams.get("planVersion") !== "plan-version-one") {
+      await route.fulfill({ status: 409, json: { message: "Candidate plan data changed." } });
+      return;
+    }
+
+    const response: AdminCurriculumCandidatePlanResponse = {
+      planVersion: "plan-version-one",
+      generatedAt: "2026-07-13T12:01:00.000Z",
+      summary: {
+        policyVersion: "independent-frequency-prerequisites-v1",
+        targetItems: { kanji: 2_300, word: 8_000 },
+        existingItems: { kanji: 2, word: 4 },
+        candidateSlots: { kanji: 2_298, word: 7_996 },
+        candidatePool: { kanji: 5_000, word: 40_000 },
+        poolTruncated: { kanji: true, word: true },
+        selectedItems: { kanji: 2_298, word: 7_996 },
+        unfilledSlots: { kanji: 0, word: 0 },
+        excludedWordsMissingKanji: 120,
+        bands: [
+          { band: "foundation", kanjiItems: 80, wordItems: 200 },
+          { band: "n5", kanjiItems: 120, wordItems: 1_500 },
+          { band: "n4", kanjiItems: 300, wordItems: 2_000 },
+          { band: "n3", kanjiItems: 700, wordItems: 2_500 },
+          { band: "n2", kanjiItems: 1_098, wordItems: 1_796 },
+        ],
+      },
+      page: {
+        itemType,
+        offset: 0,
+        limit: 20,
+        total: itemType === "kanji" ? 2_298 : 7_996,
+        hasMore: true,
+      },
+      candidates: [
+        {
+          selectionRank: 1,
+          targetId: itemType === "kanji" ? "plan-kanji-one" : "plan-word-water",
+          itemType,
+          japanese: itemType === "kanji" ? "一" : "水",
+          reading: itemType === "kanji" ? "いち" : "みず",
+          score: 100,
+          sourcePriority: 1,
+          sourceName: itemType === "kanji" ? "KANJIDIC2" : "JMdict",
+          suggestedBand: "n5",
+          prerequisiteKanji: itemType === "kanji" ? [] : ["水"],
+          coverage: {
+            russianMeaning: itemType === "word",
+            englishMeaning: true,
+            reading: true,
+            strokeData: itemType === "kanji" ? true : null,
+          },
+        },
       ],
     };
 

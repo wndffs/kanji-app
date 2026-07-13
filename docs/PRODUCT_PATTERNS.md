@@ -111,3 +111,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 29. Task 69 (completed): measure corpus readiness for the 2,300-kanji and 8,000-word course targets.
 30. Task 70 (completed): build an independent prerequisite-safe candidate plan for full course scale.
 31. Task 71 (completed): cache versioned candidate plans for stable, inexpensive pagination.
+32. Task 72 (completed): expose corpus readiness and versioned candidate pages in the admin workspace.
