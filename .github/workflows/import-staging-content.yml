@@ -40,7 +40,7 @@ jobs:
       EXPECTED_JMDICT_ARCHIVE_SHA256: ${{ inputs.expected_jmdict_archive_sha256 }}
       EXPECTED_KANJIDIC2_ARCHIVE_SHA256: ${{ inputs.expected_kanjidic2_archive_sha256 }}
       EXPECTED_KANJIVG_ARCHIVE_SHA256: ${{ inputs.expected_kanjivg_archive_sha256 }}
-      JMDICT_URL: https://ftp.edrdg.org/pub/Nihongo/JMdict.gz
+      JMDICT_URL: https://www.edrdg.org/pub/Nihongo/JMdict.gz
       KANJIDIC2_URL: https://www.edrdg.org/kanjidic/kanjidic2.xml.gz
       KANJIVG_URL: https://github.com/KanjiVG/kanjivg/releases/download/r20250816/kanjivg-20250816.xml.gz
       KANJIVG_VERSION: r20250816

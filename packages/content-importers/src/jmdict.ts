@@ -152,7 +152,7 @@ const JMDICT_LICENSE_NAME = "EDRDG JMdict license";
 const JMDICT_LICENSE_REFERENCE = "LicenseRef-JMdict-Multilingual";
 const JMDICT_SOURCE_NAME = "JMdict";
 const JMDICT_HOMEPAGE_URL = "https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project";
-const JMDICT_DOWNLOAD_URL = "https://ftp.edrdg.org/pub/Nihongo/JMdict.gz";
+const JMDICT_DOWNLOAD_URL = "https://www.edrdg.org/pub/Nihongo/JMdict.gz";
 const EDRDG_LICENSE_URL = "https://www.edrdg.org/edrdg/licence.html";
 const IMPORT_WRITE_CONCURRENCY = 8;
 

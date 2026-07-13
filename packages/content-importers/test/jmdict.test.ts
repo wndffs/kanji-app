@@ -133,6 +133,9 @@ describe("JMdict importer", () => {
       requiresAttribution: true,
       requiresShareAlike: true,
     });
+    expect([...db.dataSources.values()][0]).toMatchObject({
+      downloadUrl: "https://www.edrdg.org/pub/Nihongo/JMdict.gz",
+    });
   });
 });
 
