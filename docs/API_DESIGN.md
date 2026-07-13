@@ -304,13 +304,15 @@ source record, license, attribution, import run, source version, file name, and
 checksum. Other meaning locales are excluded. The endpoint is read-only and
 does not imply that the row is curated, approved, or published.
 
-The admin translation-review workspace uses the ranked candidates that contain
-both Russian and English imported meanings. It never displays or persists
-unsupported gloss languages. `POST /admin/imported-candidates/approve-translation`
-requires reviewed RU and EN learning meanings plus at least one accepted answer
-for each locale. In one transaction it creates or updates the `LearningItem`,
-stores the reviewed meanings as `PROJECT_AUTHORED`, creates a bilingual meaning
-card, and creates a reading card from the imported source reading when present.
+The admin translation-review workspace keeps the bilingual ranked shortlist as
+a quick queue and can also open any candidate from the full curriculum plan.
+It never displays or persists unsupported gloss languages. Missing imported RU
+or EN content remains blank for explicit editorial input and does not prevent
+approval. `POST /admin/imported-candidates/approve-translation` requires reviewed
+RU and EN learning meanings plus at least one accepted answer for each locale.
+In one transaction it creates or updates the `LearningItem`, stores the reviewed
+meanings as `PROJECT_AUTHORED`, creates a bilingual meaning card, and creates a
+reading card from the imported source reading when present.
 The original imported meanings remain unchanged and traceable. The resulting
 item stays in `needs-review` until the remaining quality gates are satisfied.
 No reject action is exposed because rejected-candidate state is not yet stored.

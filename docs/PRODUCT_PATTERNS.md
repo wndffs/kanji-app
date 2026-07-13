@@ -114,3 +114,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 32. Task 72 (completed): expose corpus readiness and versioned candidate pages in the admin workspace.
 33. Task 73 (completed): expose traceable bilingual source details for every planned candidate.
 34. Task 74 (completed): connect every planned candidate to the bilingual curation workspace.
+35. Task 75 (completed): allow reviewed RU/EN curation when an imported locale is missing.

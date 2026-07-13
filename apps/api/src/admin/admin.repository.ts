@@ -932,9 +932,9 @@ export class PrismaAdminRepository extends AdminRepository {
   async approveImportedTranslation(
     input: NormalizedAdminApproveImportedTranslationInput,
   ): Promise<AdminCurationItemDto | null> {
-    const source = await this.findImportedTranslationSource(input.targetType, input.targetId);
+    const source = await this.findImportedCandidateDetails(input.targetType, input.targetId);
 
-    if (source === null || !source.hasRussianMeaning || !source.hasEnglishMeaning) {
+    if (source === null) {
       return null;
     }
 
@@ -1000,7 +1000,7 @@ export class PrismaAdminRepository extends AdminRepository {
         })),
       });
 
-      const readings = uniqueNormalizedReadings(source.readings);
+      const readings = uniqueNormalizedReadings(source.readings.map((reading) => reading.text));
 
       if (readings.length > 0) {
         const readingCard = await db.learningCard.upsert({
@@ -1141,48 +1141,6 @@ export class PrismaAdminRepository extends AdminRepository {
         },
       },
     };
-  }
-
-  private async findImportedTranslationSource(
-    targetType: NormalizedAdminApproveImportedTranslationInput["targetType"],
-    targetId: string,
-  ): Promise<{
-    readonly readings: readonly string[];
-    readonly hasRussianMeaning: boolean;
-    readonly hasEnglishMeaning: boolean;
-  } | null> {
-    if (targetType === "kanji") {
-      const kanji = await this.prisma.db.kanji.findFirst({
-        where: { id: targetId, kanjidicImportedRecordId: { not: null } },
-        include: {
-          readings: { orderBy: [{ priority: "asc" }, { reading: "asc" }] },
-          meanings: { where: { sourceKind: "IMPORTED", locale: { in: ["ru-RU", "en-US"] } } },
-        },
-      });
-
-      return kanji === null
-        ? null
-        : {
-            readings: kanji.readings.map((reading) => reading.reading),
-            hasRussianMeaning: kanji.meanings.some((meaning) => meaning.locale === "ru-RU"),
-            hasEnglishMeaning: kanji.meanings.some((meaning) => meaning.locale === "en-US"),
-          };
-    }
-
-    const word = await this.prisma.db.word.findFirst({
-      where: { id: targetId, jmdictImportedRecordId: { not: null } },
-      include: {
-        senses: { where: { sourceKind: "IMPORTED", locale: { in: ["ru-RU", "en-US"] } } },
-      },
-    });
-
-    return word === null
-      ? null
-      : {
-          readings: word.reading.trim() === "" ? [] : [word.reading],
-          hasRussianMeaning: word.senses.some((sense) => sense.locale === "ru-RU"),
-          hasEnglishMeaning: word.senses.some((sense) => sense.locale === "en-US"),
-        };
   }
 
   private async toCurationItem(item: LearningItemRow): Promise<AdminCurationItemDto> {

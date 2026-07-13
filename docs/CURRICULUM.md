@@ -93,6 +93,12 @@ exact source record and import checksum. This remains raw editorial evidence;
 it does not create cards or turn imported wording into project-authored course
 content.
 
+A missing imported Russian or English gloss is a curation gap, not a reason to
+discard an otherwise valid source target. An admin may author the missing
+locale while approving the candidate, but both reviewed learning meanings and
+both accepted-answer sets remain mandatory. Those additions are stored only in
+the project-authored layer and do not modify or mislabel the imported record.
+
 ## Main lesson flow
 
 Component, kanji, vocabulary, and sentence lessons use small groups of at most

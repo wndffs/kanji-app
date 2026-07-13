@@ -448,6 +448,102 @@ describe("AdminService", () => {
     });
   });
 
+  it("authors a missing Russian locale for an import-derived kanji", async () => {
+    const transactionDb = {
+      learningItem: {
+        upsert: vi.fn().mockResolvedValue({ id: "item-planned-kanji" }),
+      },
+      kanjiMeaning: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        create: vi.fn().mockResolvedValue({}),
+      },
+      learningCard: {
+        upsert: vi
+          .fn()
+          .mockResolvedValueOnce({ id: "meaning-card" })
+          .mockResolvedValueOnce({ id: "reading-card" }),
+      },
+      learningAnswer: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        createMany: vi.fn().mockResolvedValue({ count: 2 }),
+      },
+    };
+    const transaction = vi.fn(async (callback: (db: typeof transactionDb) => Promise<string>) =>
+      callback(transactionDb),
+    );
+    const repository = new PrismaAdminRepository({ db: { $transaction: transaction } } as never);
+    const details: AdminImportedCandidateDetailsDto = {
+      targetId: "plan-kanji-one",
+      itemType: "kanji",
+      japanese: "一",
+      reading: "イチ",
+      readings: [{ text: "イチ", type: "on" }],
+      meanings: { ru: [], en: ["one"] },
+      jlptLevel: "N5",
+      sourcePriority: 1,
+      schoolGrade: 1,
+      strokeCount: 1,
+      hasStrokeData: true,
+      source: {
+        name: "KANJIDIC2",
+        sourceRecordId: "4e00",
+        sourceUrl: null,
+        licenseName: "EDRDG License",
+        attributionText: "KANJIDIC2 data.",
+        importRunId: "run-kanjidic2",
+        sourceVersion: "2026-07",
+        sourceFileName: "kanjidic2.xml.gz",
+        checksumSha256: "sha256-kanjidic2",
+      },
+    };
+    const approvedItem = { id: "item-planned-kanji" } as AdminCurationItemDto;
+    const detailsLookup = vi
+      .spyOn(repository, "findImportedCandidateDetails")
+      .mockResolvedValue(details);
+    vi.spyOn(repository, "findCurationItem").mockResolvedValue(approvedItem);
+
+    await expect(
+      repository.approveImportedTranslation({
+        targetType: "kanji",
+        targetId: details.targetId,
+        title: "Кандзи 一",
+        band: "n5",
+        level: null,
+        meanings: { ru: "один", en: "one" },
+        acceptedAnswers: [
+          {
+            locale: "ru-RU",
+            text: "один",
+            normalizedText: "один",
+            answerKind: "meaning",
+            isPrimary: true,
+          },
+          {
+            locale: "en-US",
+            text: "one",
+            normalizedText: "one",
+            answerKind: "meaning",
+            isPrimary: true,
+          },
+        ],
+      }),
+    ).resolves.toBe(approvedItem);
+
+    expect(detailsLookup).toHaveBeenCalledWith("kanji", details.targetId);
+    expect(transaction).toHaveBeenCalledOnce();
+    expect(transactionDb.kanjiMeaning.create).toHaveBeenCalledWith({
+      data: {
+        kanjiId: details.targetId,
+        locale: "ru-RU",
+        meaning: "один",
+        isPrimary: true,
+        sourceKind: "PROJECT_AUTHORED",
+      },
+    });
+    expect(transactionDb.kanjiMeaning.create).toHaveBeenCalledTimes(2);
+    expect(transactionDb.learningAnswer.createMany).toHaveBeenCalledTimes(2);
+  });
+
   it("requires non-empty RU and EN accepted answers for translation approval", async () => {
     const adminService = new AdminService(new InMemoryAdminRepository());
 

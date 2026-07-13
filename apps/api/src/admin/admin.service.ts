@@ -250,7 +250,7 @@ export class AdminService {
     const item = await this.adminRepository.approveImportedTranslation(request);
 
     if (item === null) {
-      throw new NotFoundException("Import-derived bilingual target not found.");
+      throw new NotFoundException("Import-derived target not found.");
     }
 
     return item;
