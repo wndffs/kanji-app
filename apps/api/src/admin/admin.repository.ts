@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { Inject, Injectable } from "@nestjs/common";
 
 import {
@@ -48,6 +50,7 @@ export abstract class AdminRepository {
   ): Promise<readonly AdminReviewQueueItemDto[]>;
   abstract getCompletenessReport(): Promise<AdminCurriculumCompletenessReportDto>;
   abstract getScaleReadiness(): Promise<AdminCurriculumScaleReadinessDto>;
+  abstract getCandidatePlanVersion(): Promise<string>;
   abstract getCandidatePlan(): Promise<CurriculumCandidatePlan>;
   abstract findCurationItem(itemId: string): Promise<AdminCurationItemDto | null>;
   abstract findItemByCardId(cardId: string): Promise<AdminCurationItemDto | null>;
@@ -565,6 +568,39 @@ export class PrismaAdminRepository extends AdminRepository {
         word: importedWordCount > wordRows.length,
       },
     });
+  }
+
+  async getCandidatePlanVersion(): Promise<string> {
+    const [learningItems, kanji, words, strokeGraphics] = await Promise.all([
+      this.prisma.db.learningItem.aggregate({
+        where: { targetType: { in: ["KANJI", "WORD"] } },
+        _count: { _all: true },
+        _max: { updatedAt: true },
+      }),
+      this.prisma.db.kanji.aggregate({
+        where: { kanjidicImportedRecordId: { not: null } },
+        _count: { _all: true },
+        _max: { updatedAt: true },
+      }),
+      this.prisma.db.word.aggregate({
+        where: { jmdictImportedRecordId: { not: null } },
+        _count: { _all: true },
+        _max: { updatedAt: true },
+      }),
+      this.prisma.db.kanjiStrokeGraphic.aggregate({
+        where: { importedRecordId: { not: null } },
+        _count: { _all: true },
+        _max: { updatedAt: true },
+      }),
+    ]);
+    const state = [
+      candidatePlanVersionPart("learning-items", learningItems),
+      candidatePlanVersionPart("kanji", kanji),
+      candidatePlanVersionPart("words", words),
+      candidatePlanVersionPart("strokes", strokeGraphics),
+    ].join("|");
+
+    return createHash("sha256").update(state).digest("hex");
   }
 
   async listReviewItems(
@@ -1722,6 +1758,16 @@ function toApiDependencyType(
 
 function formatJlptLevel(level: number | null): string | null {
   return level === null ? null : `N${level}`;
+}
+
+function candidatePlanVersionPart(
+  label: string,
+  aggregate: {
+    readonly _count: { readonly _all: number };
+    readonly _max: { readonly updatedAt: Date | null };
+  },
+): string {
+  return `${label}:${aggregate._count._all}:${aggregate._max.updatedAt?.toISOString() ?? "none"}`;
 }
 
 function toKanjiCandidate(row: ImportedKanjiCandidateRow): ImportedCandidateRankingInput {

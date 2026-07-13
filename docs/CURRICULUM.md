@@ -81,6 +81,11 @@ admits a word only when every kanji in its written form is already active or
 selected by the same plan. The plan is paginated editorial input, not an
 automatic curriculum or a substitute for bilingual curation.
 
+Pagination is bound to an opaque database-derived plan version. This prevents
+an import or editorial update from silently shifting later pages while an
+admin is inspecting the shortlist. Expired versions require a fresh first
+page; they never fall back to a differently ordered plan.
+
 ## Main lesson flow
 
 Component, kanji, vocabulary, and sentence lessons use small groups of at most

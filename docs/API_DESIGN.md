@@ -330,6 +330,14 @@ editorial shortlist: it neither creates `LearningItem` rows nor supplies the
 bilingual authored explanations, mnemonics, cards, levels, and dependencies
 required for publication.
 
+The first candidate-plan response returns an opaque `planVersion`. Subsequent
+pages should send it as a query parameter so their ordering remains attached to
+the same calculated snapshot. The API retains at most two recently used plans
+in process and deduplicates concurrent calculations for the same database
+version. A missing expired version or data changing during calculation returns
+`409 Conflict`; the client must restart from the first page. The cache is a
+performance aid only and is intentionally lost on service restart.
+
 ## API rules
 
 - Keep endpoints stable and typed.

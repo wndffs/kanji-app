@@ -1,4 +1,10 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
 import {
@@ -18,6 +24,10 @@ import {
 } from "@kanji-srs/shared";
 
 import { AdminRepository } from "./admin.repository";
+import {
+  CurriculumCandidatePlanCache,
+  type CurriculumCandidatePlanCacheEntry,
+} from "./curriculum-candidate-plan-cache";
 import {
   previewAdminCardAnswersUpdate,
   previewAdminItemUpdate,
@@ -43,6 +53,8 @@ const MAX_CANDIDATE_PLAN_PAGE_LIMIT = 100;
 
 @Injectable()
 export class AdminService {
+  private readonly candidatePlanCache = new CurriculumCandidatePlanCache();
+
   constructor(@Inject(AdminRepository) private readonly adminRepository: AdminRepository) {}
 
   async listImportRuns(): Promise<AdminImportRunListResponse> {
@@ -75,20 +87,67 @@ export class AdminService {
 
   async getCandidatePlan(query: unknown = {}): Promise<AdminCurriculumCandidatePlanResponse> {
     const filters = parseCandidatePlanFilters(query);
-    const plan = await this.adminRepository.getCandidatePlan();
-    const candidates = plan.candidates[filters.itemType];
+    const cached =
+      filters.planVersion === null ? null : this.candidatePlanCache.getCached(filters.planVersion);
+    let entry: CurriculumCandidatePlanCacheEntry;
+
+    if (cached !== null) {
+      entry = cached;
+    } else {
+      const currentVersion = await this.adminRepository.getCandidatePlanVersion();
+
+      if (filters.planVersion !== null && filters.planVersion !== currentVersion) {
+        throw candidatePlanConflict();
+      }
+
+      entry = await this.loadCandidatePlan(currentVersion, filters.planVersion === null);
+    }
+
+    const candidates = entry.plan.candidates[filters.itemType];
     const pageCandidates = candidates.slice(filters.offset, filters.offset + filters.limit);
 
     return {
-      generatedAt: new Date().toISOString(),
-      summary: plan.summary,
+      planVersion: entry.version,
+      generatedAt: entry.generatedAt,
+      summary: entry.plan.summary,
       page: {
-        ...filters,
+        itemType: filters.itemType,
+        offset: filters.offset,
+        limit: filters.limit,
         total: candidates.length,
         hasMore: filters.offset + pageCandidates.length < candidates.length,
       },
       candidates: pageCandidates,
     };
+  }
+
+  private async loadCandidatePlan(
+    version: string,
+    allowVersionRetry: boolean,
+  ): Promise<CurriculumCandidatePlanCacheEntry> {
+    try {
+      return await this.candidatePlanCache.getOrLoad(version, async () => {
+        const plan = await this.adminRepository.getCandidatePlan();
+        const confirmedVersion = await this.adminRepository.getCandidatePlanVersion();
+
+        if (confirmedVersion !== version) {
+          throw new CandidatePlanVersionChangedError();
+        }
+
+        return plan;
+      });
+    } catch (error) {
+      if (!(error instanceof CandidatePlanVersionChangedError)) {
+        throw error;
+      }
+
+      if (!allowVersionRetry) {
+        throw candidatePlanConflict();
+      }
+
+      const refreshedVersion = await this.adminRepository.getCandidatePlanVersion();
+      return this.loadCandidatePlan(refreshedVersion, false);
+    }
   }
 
   async getCurationItem(itemId: string): Promise<AdminCurationItemDto> {
@@ -179,6 +238,14 @@ export class AdminService {
   }
 }
 
+class CandidatePlanVersionChangedError extends Error {}
+
+function candidatePlanConflict(): ConflictException {
+  return new ConflictException(
+    "Candidate plan data changed. Restart pagination from the first page.",
+  );
+}
+
 function parseReviewQueueFilters(query: unknown): NormalizedAdminReviewQueueFilters {
   const record =
     typeof query === "object" && query !== null ? (query as Record<string, unknown>) : {};
@@ -220,6 +287,10 @@ function parseCandidatePlanFilters(query: unknown): NormalizedAdminCandidatePlan
       MAX_CANDIDATE_PLAN_PAGE_LIMIT,
       1,
     ),
+    planVersion:
+      record.planVersion === undefined
+        ? null
+        : parseRequiredString(record.planVersion, "planVersion", { maxLength: 128 }),
   };
 }
 

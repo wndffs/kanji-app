@@ -915,6 +915,7 @@ export type AdminCurriculumCandidatePlanSummaryDto = {
 };
 
 export type AdminCurriculumCandidatePlanResponse = {
+  readonly planVersion: string;
   readonly generatedAt: string;
   readonly summary: AdminCurriculumCandidatePlanSummaryDto;
   readonly page: {

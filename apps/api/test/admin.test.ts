@@ -197,28 +197,64 @@ describe("AdminService", () => {
   });
 
   it("returns bounded pages from the deterministic curriculum candidate plan", async () => {
-    const adminService = new AdminService(new InMemoryAdminRepository());
+    const repository = new InMemoryAdminRepository();
+    const adminService = new AdminService(repository);
 
-    await expect(
-      adminService.getCandidatePlan({ itemType: "word", offset: "1", limit: "1" }),
-    ).resolves.toMatchObject({
+    const firstPage = await adminService.getCandidatePlan({ itemType: "word", limit: "1" });
+
+    expect(firstPage).toMatchObject({
+      planVersion: "candidate-plan-version-one",
       summary: {
         policyVersion: "independent-frequency-prerequisites-v1",
         selectedItems: { kanji: 0, word: 2 },
       },
       page: {
         itemType: "word",
-        offset: 1,
+        offset: 0,
         limit: 1,
         total: 2,
-        hasMore: false,
+        hasMore: true,
       },
+      candidates: [{ selectionRank: 1, targetId: "plan-word-one" }],
+    });
+
+    await expect(
+      adminService.getCandidatePlan({
+        itemType: "word",
+        offset: "1",
+        limit: "1",
+        planVersion: firstPage.planVersion,
+      }),
+    ).resolves.toMatchObject({
+      planVersion: firstPage.planVersion,
+      generatedAt: firstPage.generatedAt,
+      page: { offset: 1, hasMore: false },
       candidates: [{ selectionRank: 2, targetId: "plan-word-two" }],
     });
+    expect(repository.candidatePlanReads).toBe(1);
 
     await expect(adminService.getCandidatePlan({ limit: "101" })).rejects.toThrow(
       "limit must be an integer from 1 to 100.",
     );
+    await expect(adminService.getCandidatePlan({ planVersion: "expired-version" })).rejects.toThrow(
+      "Candidate plan data changed",
+    );
+  });
+
+  it("recalculates a candidate plan once when its database version changes during loading", async () => {
+    const repository = new InMemoryAdminRepository();
+    repository.candidatePlanVersionResponses.push(
+      "candidate-plan-version-one",
+      "candidate-plan-version-two",
+      "candidate-plan-version-two",
+      "candidate-plan-version-two",
+    );
+    const adminService = new AdminService(repository);
+
+    await expect(adminService.getCandidatePlan()).resolves.toMatchObject({
+      planVersion: "candidate-plan-version-two",
+    });
+    expect(repository.candidatePlanReads).toBe(2);
   });
 
   it("promotes an import-derived target into a curated learning item", async () => {
@@ -340,6 +376,9 @@ describe("AdminService", () => {
 });
 
 class InMemoryAdminRepository extends AdminRepository implements OverridesRepository {
+  candidatePlanReads = 0;
+  readonly candidatePlanVersionResponses: string[] = [];
+
   private readonly importedCandidates: readonly AdminImportedCandidateDto[] = [
     {
       rank: 1,
@@ -629,6 +668,8 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
   }
 
   async getCandidatePlan(): Promise<CurriculumCandidatePlan> {
+    this.candidatePlanReads += 1;
+
     return buildCurriculumCandidatePlan({
       existingItems: { kanji: 2_300, word: 7_998 },
       existingKanji: [],
@@ -660,6 +701,10 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
         },
       ],
     });
+  }
+
+  async getCandidatePlanVersion(): Promise<string> {
+    return this.candidatePlanVersionResponses.shift() ?? "candidate-plan-version-one";
   }
 
   async promoteImportedCandidate(

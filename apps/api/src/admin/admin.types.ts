@@ -50,6 +50,7 @@ export type NormalizedAdminCandidatePlanFilters = {
   readonly itemType: "kanji" | "word";
   readonly offset: number;
   readonly limit: number;
+  readonly planVersion: string | null;
 };
 
 export type NormalizedAdminPromoteCandidateInput = {
