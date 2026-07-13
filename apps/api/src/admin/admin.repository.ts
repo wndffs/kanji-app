@@ -12,6 +12,7 @@ import {
   type AdminImportRunSummaryDto,
   type AdminImportedCandidateDto,
   type AdminImportedCandidateDetailsDto,
+  type AdminImportedCandidateRejectionDto,
   type AdminReviewQueueItemDto,
   type CardAnswerType,
   type CardPromptType,
@@ -38,10 +39,12 @@ import {
 import {
   type AdminCandidatePlanEnqueueItemInput,
   type AdminCandidatePlanEnqueueResult,
+  type AdminImportedCandidateTargetInput,
   type AdminReviewQueueCursor,
   type AdminReviewQueuePageResult,
   type NormalizedAdminCardAnswersInput,
   type NormalizedAdminApproveImportedTranslationInput,
+  type NormalizedAdminRejectImportedCandidateInput,
   type NormalizedAdminItemCurationInput,
   type NormalizedAdminPromoteCandidateInput,
   type NormalizedAdminReviewQueueFilters,
@@ -55,6 +58,16 @@ export abstract class AdminRepository {
     targetType: AdminImportedCandidateDetailsDto["itemType"],
     targetId: string,
   ): Promise<AdminImportedCandidateDetailsDto | null>;
+  abstract listImportedCandidateRejections(): Promise<
+    readonly AdminImportedCandidateRejectionDto[]
+  >;
+  abstract findRejectedCandidateKeys(
+    candidates: readonly AdminImportedCandidateTargetInput[],
+  ): Promise<readonly string[]>;
+  abstract rejectImportedCandidate(
+    input: NormalizedAdminRejectImportedCandidateInput,
+  ): Promise<AdminImportedCandidateRejectionDto | null>;
+  abstract restoreImportedCandidate(input: AdminImportedCandidateTargetInput): Promise<boolean>;
   abstract listReviewItems(
     filters: NormalizedAdminReviewQueueFilters,
   ): Promise<AdminReviewQueuePageResult>;
@@ -286,6 +299,17 @@ type CandidatePlanWordRow = {
   readonly senses: readonly { readonly locale: string }[];
 };
 
+type ImportedCandidateRejectionRow = {
+  readonly id: string;
+  readonly targetType: string;
+  readonly targetId: string;
+  readonly reason: string;
+  readonly note: string | null;
+  readonly rejectedByUserId: string | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
 type PrismaAdminWriteClient = Pick<
   PrismaService["db"],
   "component" | "kanjiMeaning" | "wordSense" | "sentence" | "hint" | "mnemonic"
@@ -336,22 +360,127 @@ export class PrismaAdminRepository extends AdminRepository {
     return runs.map((run) => toImportRunSummary(run, run._count.records));
   }
 
-  async listImportedCandidates(): Promise<readonly AdminImportedCandidateDto[]> {
-    const promotedTargets = await this.prisma.db.learningItem.findMany({
-      where: { targetType: { in: ["KANJI", "WORD"] } },
+  async listImportedCandidateRejections(): Promise<readonly AdminImportedCandidateRejectionDto[]> {
+    const rows = (await this.prisma.db.importedCandidateRejection.findMany({
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+    })) as unknown as readonly ImportedCandidateRejectionRow[];
+
+    return rows.map(toImportedCandidateRejectionDto);
+  }
+
+  async findRejectedCandidateKeys(
+    candidates: readonly AdminImportedCandidateTargetInput[],
+  ): Promise<readonly string[]> {
+    if (candidates.length === 0) {
+      return [];
+    }
+
+    const rows = await this.prisma.db.importedCandidateRejection.findMany({
+      where: {
+        OR: candidates.map((candidate) => ({
+          targetType: toPrismaImportedCandidateTargetType(candidate.itemType),
+          targetId: candidate.targetId,
+        })),
+      },
       select: { targetType: true, targetId: true },
     });
+
+    return rows.map((row) =>
+      importedCandidateKey(toApiImportedCandidateTargetType(row.targetType), row.targetId),
+    );
+  }
+
+  async rejectImportedCandidate(
+    input: NormalizedAdminRejectImportedCandidateInput,
+  ): Promise<AdminImportedCandidateRejectionDto | null> {
+    const targetType = toPrismaImportedCandidateTargetType(input.itemType);
+    const [targetExists, learningItem] = await Promise.all([
+      input.itemType === "kanji"
+        ? this.prisma.db.kanji.count({
+            where: { id: input.targetId, kanjidicImportedRecordId: { not: null } },
+          })
+        : this.prisma.db.word.count({
+            where: { id: input.targetId, jmdictImportedRecordId: { not: null } },
+          }),
+      this.prisma.db.learningItem.findUnique({
+        where: {
+          targetType_targetId: {
+            targetType,
+            targetId: input.targetId,
+          },
+        },
+        select: { id: true },
+      }),
+    ]);
+
+    if (targetExists === 0 || learningItem !== null) {
+      return null;
+    }
+
+    const row = (await this.prisma.db.importedCandidateRejection.upsert({
+      where: {
+        targetType_targetId: {
+          targetType,
+          targetId: input.targetId,
+        },
+      },
+      update: {
+        reason: toPrismaImportedCandidateRejectionReason(input.reason),
+        note: input.note,
+        rejectedByUserId: input.rejectedByUserId,
+      },
+      create: {
+        targetType,
+        targetId: input.targetId,
+        reason: toPrismaImportedCandidateRejectionReason(input.reason),
+        note: input.note,
+        rejectedByUserId: input.rejectedByUserId,
+      },
+    })) as unknown as ImportedCandidateRejectionRow;
+
+    return toImportedCandidateRejectionDto(row);
+  }
+
+  async restoreImportedCandidate(input: AdminImportedCandidateTargetInput): Promise<boolean> {
+    const result = await this.prisma.db.importedCandidateRejection.deleteMany({
+      where: {
+        targetType: toPrismaImportedCandidateTargetType(input.itemType),
+        targetId: input.targetId,
+      },
+    });
+
+    return result.count > 0;
+  }
+
+  async listImportedCandidates(): Promise<readonly AdminImportedCandidateDto[]> {
+    const [promotedTargets, rejectedTargets] = await Promise.all([
+      this.prisma.db.learningItem.findMany({
+        where: { targetType: { in: ["KANJI", "WORD"] } },
+        select: { targetType: true, targetId: true },
+      }),
+      this.prisma.db.importedCandidateRejection.findMany({
+        select: { targetType: true, targetId: true },
+      }),
+    ]);
     const promotedKanjiIds = promotedTargets
       .filter((target) => target.targetType === "KANJI")
       .map((target) => target.targetId);
     const promotedWordIds = promotedTargets
       .filter((target) => target.targetType === "WORD")
       .map((target) => target.targetId);
+    const rejectedKanjiIds = rejectedTargets
+      .filter((target) => target.targetType === "KANJI")
+      .map((target) => target.targetId);
+    const rejectedWordIds = rejectedTargets
+      .filter((target) => target.targetType === "WORD")
+      .map((target) => target.targetId);
+    const excludedKanjiIds = [...new Set([...promotedKanjiIds, ...rejectedKanjiIds])];
+    const excludedWordIds = [...new Set([...promotedWordIds, ...rejectedWordIds])];
     const [kanjiRows, wordRows] = await Promise.all([
       this.prisma.db.kanji.findMany({
         where: {
           kanjidicImportedRecordId: { not: null },
-          ...(promotedKanjiIds.length === 0 ? {} : { id: { notIn: promotedKanjiIds } }),
+          ...(excludedKanjiIds.length === 0 ? {} : { id: { notIn: excludedKanjiIds } }),
         },
         orderBy: [{ frequencyRank: "asc" }, { grade: "asc" }, { character: "asc" }],
         take: IMPORTED_CANDIDATE_QUERY_LIMIT,
@@ -382,7 +511,7 @@ export class PrismaAdminRepository extends AdminRepository {
       this.prisma.db.word.findMany({
         where: {
           jmdictImportedRecordId: { not: null },
-          ...(promotedWordIds.length === 0 ? {} : { id: { notIn: promotedWordIds } }),
+          ...(excludedWordIds.length === 0 ? {} : { id: { notIn: excludedWordIds } }),
         },
         orderBy: [{ commonnessRank: "asc" }, { expression: "asc" }, { reading: "asc" }],
         take: IMPORTED_CANDIDATE_QUERY_LIMIT,
@@ -512,23 +641,36 @@ export class PrismaAdminRepository extends AdminRepository {
   }
 
   async getScaleReadiness(): Promise<AdminCurriculumScaleReadinessDto> {
-    const assignedTargets = await this.prisma.db.learningItem.findMany({
-      where: { targetType: { in: ["KANJI", "WORD"] } },
-      select: { targetType: true, targetId: true },
-    });
+    const [assignedTargets, rejectedTargets] = await Promise.all([
+      this.prisma.db.learningItem.findMany({
+        where: { targetType: { in: ["KANJI", "WORD"] } },
+        select: { targetType: true, targetId: true },
+      }),
+      this.prisma.db.importedCandidateRejection.findMany({
+        select: { targetType: true, targetId: true },
+      }),
+    ]);
     const assignedKanjiIds = assignedTargets
       .filter((target) => target.targetType === "KANJI")
       .map((target) => target.targetId);
     const assignedWordIds = assignedTargets
       .filter((target) => target.targetType === "WORD")
       .map((target) => target.targetId);
+    const rejectedKanjiIds = rejectedTargets
+      .filter((target) => target.targetType === "KANJI")
+      .map((target) => target.targetId);
+    const rejectedWordIds = rejectedTargets
+      .filter((target) => target.targetType === "WORD")
+      .map((target) => target.targetId);
+    const unavailableKanjiIds = [...new Set([...assignedKanjiIds, ...rejectedKanjiIds])];
+    const unavailableWordIds = [...new Set([...assignedWordIds, ...rejectedWordIds])];
     const unassignedKanjiWhere = {
       kanjidicImportedRecordId: { not: null },
-      ...(assignedKanjiIds.length === 0 ? {} : { id: { notIn: assignedKanjiIds } }),
+      ...(unavailableKanjiIds.length === 0 ? {} : { id: { notIn: unavailableKanjiIds } }),
     };
     const unassignedWordWhere = {
       jmdictImportedRecordId: { not: null },
-      ...(assignedWordIds.length === 0 ? {} : { id: { notIn: assignedWordIds } }),
+      ...(unavailableWordIds.length === 0 ? {} : { id: { notIn: unavailableWordIds } }),
     };
     const [
       publishedKanji,
@@ -638,27 +780,40 @@ export class PrismaAdminRepository extends AdminRepository {
   }
 
   async getCandidatePlan(): Promise<CurriculumCandidatePlan> {
-    const assignedTargets = await this.prisma.db.learningItem.findMany({
-      where: { targetType: { in: ["KANJI", "WORD"] } },
-      select: { targetType: true, targetId: true, status: true },
-    });
+    const [assignedTargets, rejectedTargets] = await Promise.all([
+      this.prisma.db.learningItem.findMany({
+        where: { targetType: { in: ["KANJI", "WORD"] } },
+        select: { targetType: true, targetId: true, status: true },
+      }),
+      this.prisma.db.importedCandidateRejection.findMany({
+        select: { targetType: true, targetId: true },
+      }),
+    ]);
     const assignedKanjiIds = assignedTargets
       .filter((target) => target.targetType === "KANJI")
       .map((target) => target.targetId);
     const assignedWordIds = assignedTargets
       .filter((target) => target.targetType === "WORD")
       .map((target) => target.targetId);
+    const rejectedKanjiIds = rejectedTargets
+      .filter((target) => target.targetType === "KANJI")
+      .map((target) => target.targetId);
+    const rejectedWordIds = rejectedTargets
+      .filter((target) => target.targetType === "WORD")
+      .map((target) => target.targetId);
+    const unavailableKanjiIds = [...new Set([...assignedKanjiIds, ...rejectedKanjiIds])];
+    const unavailableWordIds = [...new Set([...assignedWordIds, ...rejectedWordIds])];
     const activeTargets = assignedTargets.filter((target) => target.status !== "ARCHIVED");
     const activeKanjiIds = activeTargets
       .filter((target) => target.targetType === "KANJI")
       .map((target) => target.targetId);
     const unassignedKanjiWhere = {
       kanjidicImportedRecordId: { not: null },
-      ...(assignedKanjiIds.length === 0 ? {} : { id: { notIn: assignedKanjiIds } }),
+      ...(unavailableKanjiIds.length === 0 ? {} : { id: { notIn: unavailableKanjiIds } }),
     };
     const unassignedWordWhere = {
       jmdictImportedRecordId: { not: null },
-      ...(assignedWordIds.length === 0 ? {} : { id: { notIn: assignedWordIds } }),
+      ...(unavailableWordIds.length === 0 ? {} : { id: { notIn: unavailableWordIds } }),
     };
     const [existingKanjiRows, importedKanjiCount, importedWordCount, kanjiRows, wordRows] =
       await Promise.all([
@@ -732,9 +887,13 @@ export class PrismaAdminRepository extends AdminRepository {
   }
 
   async getCandidatePlanVersion(): Promise<string> {
-    const [learningItems, kanji, words, strokeGraphics] = await Promise.all([
+    const [learningItems, rejections, kanji, words, strokeGraphics] = await Promise.all([
       this.prisma.db.learningItem.aggregate({
         where: { targetType: { in: ["KANJI", "WORD"] } },
+        _count: { _all: true },
+        _max: { updatedAt: true },
+      }),
+      this.prisma.db.importedCandidateRejection.aggregate({
         _count: { _all: true },
         _max: { updatedAt: true },
       }),
@@ -757,6 +916,7 @@ export class PrismaAdminRepository extends AdminRepository {
     const state = [
       `policy:${CURRICULUM_CANDIDATE_POLICY_VERSION}`,
       candidatePlanVersionPart("learning-items", learningItems),
+      candidatePlanVersionPart("candidate-rejections", rejections),
       candidatePlanVersionPart("kanji", kanji),
       candidatePlanVersionPart("words", words),
       candidatePlanVersionPart("strokes", strokeGraphics),
@@ -1786,6 +1946,77 @@ function toApiStatus(status: string): AdminContentStatus {
 
 function candidatePlanItemKey(targetType: string, targetId: string): string {
   return `${targetType}:${targetId}`;
+}
+
+function importedCandidateKey(itemType: "kanji" | "word", targetId: string): string {
+  return `${itemType}:${targetId}`;
+}
+
+function toImportedCandidateRejectionDto(
+  row: ImportedCandidateRejectionRow,
+): AdminImportedCandidateRejectionDto {
+  return {
+    id: row.id,
+    targetType: toApiImportedCandidateTargetType(row.targetType),
+    targetId: row.targetId,
+    reason: toApiImportedCandidateRejectionReason(row.reason),
+    note: row.note,
+    rejectedByUserId: row.rejectedByUserId,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toApiImportedCandidateTargetType(value: string): "kanji" | "word" {
+  if (value === "KANJI") {
+    return "kanji";
+  }
+
+  if (value === "WORD") {
+    return "word";
+  }
+
+  throw new Error(`Unsupported imported candidate target type: ${value}`);
+}
+
+function toPrismaImportedCandidateTargetType(value: "kanji" | "word"): "KANJI" | "WORD" {
+  return value === "kanji" ? "KANJI" : "WORD";
+}
+
+function toApiImportedCandidateRejectionReason(
+  value: string,
+): AdminImportedCandidateRejectionDto["reason"] {
+  switch (value) {
+    case "DUPLICATE":
+      return "duplicate";
+    case "OUT_OF_SCOPE":
+      return "out-of-scope";
+    case "DATA_QUALITY":
+      return "data-quality";
+    case "LOW_EDUCATIONAL_VALUE":
+      return "low-educational-value";
+    case "OTHER":
+      return "other";
+    default:
+      throw new Error(`Unsupported imported candidate rejection reason: ${value}`);
+  }
+}
+
+function toPrismaImportedCandidateRejectionReason(
+  value: AdminImportedCandidateRejectionDto["reason"],
+): "DUPLICATE" | "OUT_OF_SCOPE" | "DATA_QUALITY" | "LOW_EDUCATIONAL_VALUE" | "OTHER" {
+  switch (value) {
+    case "duplicate":
+      return "DUPLICATE";
+    case "out-of-scope":
+      return "OUT_OF_SCOPE";
+    case "data-quality":
+      return "DATA_QUALITY";
+    case "low-educational-value":
+      return "LOW_EDUCATIONAL_VALUE";
+    case "other":
+      return "OTHER";
+  }
 }
 
 function toPrismaStatus(status: AdminContentStatus) {

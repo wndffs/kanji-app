@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ADMIN_IMPORTED_CANDIDATE_REJECTION_REASONS,
   DEFAULT_TRANSLATION_DISPLAY_MODE,
   SUPPORTED_CONTENT_LOCALES,
   SUPPORTED_COURSE_BANDS,
@@ -14,6 +15,7 @@ import {
   type ActiveLessonSessionResponse,
   type DashboardDto,
   type AdminImportRunListResponse,
+  type AdminImportedCandidateRejectionListResponse,
   type DeckDetailsDto,
   type LearningCardDto,
   type LessonQueueItem,
@@ -213,6 +215,32 @@ describe("shared DTO contracts", () => {
       ],
     };
 
+    expect(JSON.parse(JSON.stringify(response))).toEqual(response);
+  });
+
+  it("keeps imported candidate rejection reasons bounded and serializable", () => {
+    const response: AdminImportedCandidateRejectionListResponse = {
+      rejections: [
+        {
+          id: "rejection-1",
+          targetType: "word",
+          targetId: "word-1",
+          reason: "data-quality",
+          note: "Source row needs correction.",
+          rejectedByUserId: "admin-1",
+          createdAt: "2026-07-13T16:00:00.000Z",
+          updatedAt: "2026-07-13T16:00:00.000Z",
+        },
+      ],
+    };
+
+    expect(ADMIN_IMPORTED_CANDIDATE_REJECTION_REASONS).toEqual([
+      "duplicate",
+      "out-of-scope",
+      "data-quality",
+      "low-educational-value",
+      "other",
+    ]);
     expect(JSON.parse(JSON.stringify(response))).toEqual(response);
   });
 

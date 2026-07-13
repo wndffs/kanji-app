@@ -1,12 +1,14 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   Param,
   Patch,
   Post,
   Query,
+  Put,
   UseGuards,
 } from "@nestjs/common";
 
@@ -46,6 +48,29 @@ export class AdminController {
   @Get("imported-candidates")
   listImportedCandidates() {
     return this.adminService.listImportedCandidates();
+  }
+
+  @Get("imported-candidates/rejections")
+  listImportedCandidateRejections() {
+    return this.adminService.listImportedCandidateRejections();
+  }
+
+  @Put("imported-candidates/:targetType/:targetId/rejection")
+  rejectImportedCandidate(
+    @CurrentUser() user: CurrentUserDto,
+    @Param("targetType") targetType: string,
+    @Param("targetId") targetId: string,
+    @Body() body: unknown,
+  ) {
+    return this.adminService.rejectImportedCandidate(user.id, targetType, targetId, body);
+  }
+
+  @Delete("imported-candidates/:targetType/:targetId/rejection")
+  restoreImportedCandidate(
+    @Param("targetType") targetType: string,
+    @Param("targetId") targetId: string,
+  ) {
+    return this.adminService.restoreImportedCandidate(targetType, targetId);
   }
 
   @Get("imported-candidates/:targetType/:targetId")

@@ -4,6 +4,7 @@ import {
   type AdminEnqueueCandidatePlanRequest,
   type AdminEnqueueCandidatePlanResponse,
   type AdminPromoteCandidateRequest,
+  type AdminRejectImportedCandidateRequest,
   type AdminReviewQueueFilters,
   type AdminReviewQueueItemDto,
   type AdminUpdateCardAnswersRequest,
@@ -85,6 +86,17 @@ export type AdminCandidatePlanEnqueueResult = Omit<
   AdminEnqueueCandidatePlanResponse,
   "planVersion"
 >;
+
+export type AdminImportedCandidateTargetInput = {
+  readonly itemType: "kanji" | "word";
+  readonly targetId: string;
+};
+
+export type NormalizedAdminRejectImportedCandidateInput = AdminImportedCandidateTargetInput & {
+  readonly reason: AdminRejectImportedCandidateRequest["reason"];
+  readonly note: string | null;
+  readonly rejectedByUserId: string;
+};
 
 export type NormalizedAdminPromoteCandidateInput = {
   readonly targetType: ItemKind;

@@ -61,6 +61,19 @@ enum ContentStatus {
   ARCHIVED
 }
 
+enum ImportedCandidateTargetType {
+  KANJI
+  WORD
+}
+
+enum ImportedCandidateRejectionReason {
+  DUPLICATE
+  OUT_OF_SCOPE
+  DATA_QUALITY
+  LOW_EDUCATIONAL_VALUE
+  OTHER
+}
+
 enum CardType {
   LESSON
   REVIEW
@@ -233,6 +246,22 @@ model ImportedRecord {
   @@unique([importRunId, recordType, sourceRecordId])
   @@index([sourceRecordId])
   @@index([recordType])
+}
+
+model ImportedCandidateRejection {
+  id               String                           @id @default(uuid()) @db.Uuid
+  targetType       ImportedCandidateTargetType
+  targetId         String                           @db.Uuid
+  reason           ImportedCandidateRejectionReason
+  note             String?
+  rejectedByUserId String?                          @db.Uuid
+  createdAt        DateTime                         @default(now())
+  updatedAt        DateTime                         @updatedAt
+  rejectedByUser   User?                            @relation(fields: [rejectedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([targetType, targetId])
+  @@index([targetType, updatedAt])
+  @@index([rejectedByUserId])
 }
 
 model Component {
@@ -528,21 +557,22 @@ model Dependency {
 }
 
 model User {
-  id             String             @id @default(uuid()) @db.Uuid
-  email          String             @unique
-  passwordHash   String
-  displayName    String?
-  role           UserRole           @default(USER)
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  settings       UserSettings?
-  itemOverrides  UserItemOverride[]
-  mnemonics      UserMnemonic[]
-  enrollments    UserEnrollment[]
-  decks          Deck[]
-  srsStates      UserSrsState[]
-  reviewSessions ReviewSession[]
-  kanaProgress   UserKanaProgress[]
+  id                  String                       @id @default(uuid()) @db.Uuid
+  email               String                       @unique
+  passwordHash        String
+  displayName         String?
+  role                UserRole                     @default(USER)
+  createdAt           DateTime                     @default(now())
+  updatedAt           DateTime                     @updatedAt
+  settings            UserSettings?
+  itemOverrides       UserItemOverride[]
+  mnemonics           UserMnemonic[]
+  enrollments         UserEnrollment[]
+  decks               Deck[]
+  srsStates           UserSrsState[]
+  reviewSessions      ReviewSession[]
+  kanaProgress        UserKanaProgress[]
+  candidateRejections ImportedCandidateRejection[]
 
   @@index([role])
 }

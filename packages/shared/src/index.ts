@@ -694,6 +694,43 @@ export type AdminImportedCandidateListResponse = {
   readonly candidates: readonly AdminImportedCandidateDto[];
 };
 
+export const ADMIN_IMPORTED_CANDIDATE_REJECTION_REASONS = [
+  "duplicate",
+  "out-of-scope",
+  "data-quality",
+  "low-educational-value",
+  "other",
+] as const;
+
+export type AdminImportedCandidateRejectionReason =
+  (typeof ADMIN_IMPORTED_CANDIDATE_REJECTION_REASONS)[number];
+
+export type AdminImportedCandidateRejectionDto = {
+  readonly id: string;
+  readonly targetType: "kanji" | "word";
+  readonly targetId: string;
+  readonly reason: AdminImportedCandidateRejectionReason;
+  readonly note: string | null;
+  readonly rejectedByUserId: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+};
+
+export type AdminImportedCandidateRejectionListResponse = {
+  readonly rejections: readonly AdminImportedCandidateRejectionDto[];
+};
+
+export type AdminRejectImportedCandidateRequest = {
+  readonly reason: AdminImportedCandidateRejectionReason;
+  readonly note?: string | null;
+};
+
+export type AdminRestoreImportedCandidateResponse = {
+  readonly targetType: "kanji" | "word";
+  readonly targetId: string;
+  readonly restored: boolean;
+};
+
 export type AdminImportedCandidateDetailsDto = {
   readonly targetId: string;
   readonly itemType: "kanji" | "word";

@@ -129,6 +129,13 @@ refresh with the decision. A failed post-save refresh is reported separately
 from the already successful mutation so retrying cannot accidentally duplicate
 editorial work.
 
+An imported kanji or word can be rejected without manufacturing an archived
+course item. The reversible rejection records a constrained reason, optional
+note, timestamp, and admin user, then removes the target from ranked candidate
+lists, scale capacity, and newly generated plans. Reject and restore decisions
+change the plan version. A stale retained plan remains inspectable but cannot
+stage, promote, or approve a target that is currently rejected.
+
 ## Main lesson flow
 
 Component, kanji, vocabulary, and sentence lessons use small groups of at most

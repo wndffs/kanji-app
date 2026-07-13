@@ -8,6 +8,14 @@
 - `ImportedRecord`: id, importRunId, sourceRecordId, recordType, rawJson.
 - Imported target rows keep exact provenance with nullable `ImportedRecord` links in addition to source-record IDs. These links should be filled by importers as they are upgraded.
 
+## Editorial planning layer
+
+- `ImportedCandidateRejection`: id, targetType, targetId, reason, note,
+  rejectedByUserId, createdAt, updatedAt. It records a reversible admin decision
+  about an imported kanji or word without creating a `LearningItem` or changing
+  the source row. The target pair is unique, reasons are constrained, and the
+  rejecting user is retained for audit when available.
+
 ## Linguistic graph
 
 - `Component`: id, symbol, displayNameRu/displayNameEn, shapeDescriptionRu/shapeDescriptionEn,
@@ -33,7 +41,7 @@
 
 ## User layer
 
-- `User`: id, email, passwordHash, displayName, role, createdAt.
+- `User`: id, email, passwordHash, displayName, role, createdAt, candidateRejections.
 - `UserSettings`: id, userId, locale, translationDisplayMode, timezone, dailyLessonLimit, reviewBudget, strictMode.
 - `UserItemOverride`: id, userId, learningCardId, overrideType, text, normalizedText, note, createdAt, updatedAt.
 - `UserMnemonic`: id, userId, learningItemId, mnemonicType, body, createdAt, updatedAt.

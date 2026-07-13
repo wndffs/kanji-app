@@ -261,6 +261,9 @@ in-progress session.
 
 - `GET /admin/import-runs`
 - `GET /admin/imported-candidates`
+- `GET /admin/imported-candidates/rejections`
+- `PUT /admin/imported-candidates/:targetType/:targetId/rejection`
+- `DELETE /admin/imported-candidates/:targetType/:targetId/rejection`
 - `GET /admin/imported-candidates/:targetType/:targetId`
 - `POST /admin/imported-candidates/promote`
 - `POST /admin/imported-candidates/approve-translation`
@@ -316,15 +319,23 @@ meanings as `PROJECT_AUTHORED`, creates a bilingual meaning card, and creates a
 reading card from the imported source reading when present.
 The original imported meanings remain unchanged and traceable. The resulting
 item stays in `needs-review` until the remaining quality gates are satisfied.
-No reject action is exposed because rejected-candidate state is not yet stored.
 Kanji meaning uniqueness includes `sourceKind`, allowing an imported meaning
 and its separately reviewed project-authored counterpart to retain identical
 wording without collapsing provenance.
 
+`PUT /admin/imported-candidates/:targetType/:targetId/rejection` stores an
+idempotent, admin-attributed editorial decision with one of `duplicate`,
+`out-of-scope`, `data-quality`, `low-educational-value`, or `other` and an
+optional 500-character note. The source target must exist and must not already
+have a `LearningItem`. `GET /admin/imported-candidates/rejections` returns the
+stored decisions in latest-updated order, and `DELETE` restores a target
+idempotently. Rejection never deletes or modifies imported dictionary data.
+
 `GET /admin/curriculum/scale-readiness` measures the imported corpus against
 the independent course targets of 2,300 kanji and 8,000 expression-and-reading
-word pairs. It separates published items, active curation work, and unassigned
-import candidates. The report also exposes reading, Russian meaning, English
+word pairs. It separates published items, active curation work, and eligible
+unassigned import candidates; rejected targets do not count as available
+capacity. The report also exposes reading, Russian meaning, English
 meaning, bilingual meaning, and kanji stroke coverage. Candidate capacity is
 not publication readiness: every selected item must still pass the curriculum
 quality gates and receive an independent level and prerequisite path.
@@ -335,7 +346,8 @@ rows. It ranks kanji and vocabulary separately, fills only the remaining
 2,300/8,000 target slots, and excludes a word when one of its kanji is absent
 from both the active course and selected kanji plan. The response includes a
 band summary and one page selected with `itemType=kanji|word`, `offset`, and a
-maximum `limit` of 100.
+maximum `limit` of 100. Rejected targets are excluded before pool limits and
+ranking are applied.
 
 Planning reads lightweight, source-ordered pools capped at 5,000 kanji and
 40,000 words. `poolTruncated` makes that bound explicit. Selection remains an
@@ -350,7 +362,8 @@ most two recently used plans in process and deduplicates concurrent calculations
 for the same version. A missing expired version or data changing during
 calculation returns `409 Conflict`; the client must restart from the first page.
 The cache is a performance aid only and is intentionally lost on service
-restart.
+restart. Rejection count and latest update time participate in the version, so
+fresh plans reflect every reject or restore decision.
 
 `POST /admin/curriculum/candidate-plan/enqueue` accepts the exact `planVersion`
 and from 1 to 100 unique `{ itemType, targetId }` pairs from that snapshot. The
@@ -361,7 +374,10 @@ returns requested, created, and already-queued counts in request order. Existing
 curation rows and statuses are never overwritten, so an exact retry is safe.
 This staging action does not copy imported meanings into authored content,
 create cards, add dependencies or levels, or publish anything. An expired plan
-version follows the same `409 Conflict` behavior as paginated reads.
+version follows the same `409 Conflict` behavior as paginated reads. A retained
+older snapshot may still be inspected, but staging, promotion, and translation
+approval recheck rejection state and return `409 Conflict` until the target is
+restored.
 
 `GET /admin/items/review-queue` uses stable keyset pagination ordered by
 `updatedAt DESC, id ASC`. `limit` defaults to 20 and is bounded to 50; a response

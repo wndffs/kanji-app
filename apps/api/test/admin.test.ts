@@ -6,6 +6,7 @@ import {
   type AdminImportRunSummaryDto,
   type AdminImportedCandidateDto,
   type AdminImportedCandidateDetailsDto,
+  type AdminImportedCandidateRejectionDto,
 } from "@kanji-srs/shared";
 
 import { AdminRepository, PrismaAdminRepository } from "../src/admin/admin.repository";
@@ -21,10 +22,12 @@ import {
 import {
   type AdminCandidatePlanEnqueueItemInput,
   type AdminCandidatePlanEnqueueResult,
+  type AdminImportedCandidateTargetInput,
   type AdminReviewQueuePageResult,
   type NormalizedAdminApproveImportedTranslationInput,
   type NormalizedAdminItemCurationInput,
   type NormalizedAdminPromoteCandidateInput,
+  type NormalizedAdminRejectImportedCandidateInput,
   type NormalizedAdminReviewQueueFilters,
 } from "../src/admin/admin.types";
 import { type OverridesRepository } from "../src/overrides/overrides.repository";
@@ -435,6 +438,76 @@ describe("AdminService", () => {
     });
   });
 
+  it("persists and restores an audited candidate rejection through Prisma", async () => {
+    const wordCount = vi.fn().mockResolvedValue(1);
+    const findLearningItem = vi.fn().mockResolvedValue(null);
+    const rejectionRow = {
+      id: "rejection-1",
+      targetType: "WORD",
+      targetId: "word-1",
+      reason: "DATA_QUALITY",
+      note: "Broken source gloss.",
+      rejectedByUserId: "admin-1",
+      createdAt: new Date("2026-07-13T16:00:00.000Z"),
+      updatedAt: new Date("2026-07-13T16:00:00.000Z"),
+    };
+    const upsertRejection = vi.fn().mockResolvedValue(rejectionRow);
+    const deleteRejection = vi.fn().mockResolvedValue({ count: 1 });
+    const repository = new PrismaAdminRepository({
+      db: {
+        word: { count: wordCount },
+        learningItem: { findUnique: findLearningItem },
+        importedCandidateRejection: {
+          upsert: upsertRejection,
+          deleteMany: deleteRejection,
+        },
+      },
+    } as never);
+
+    await expect(
+      repository.rejectImportedCandidate({
+        itemType: "word",
+        targetId: "word-1",
+        reason: "data-quality",
+        note: "Broken source gloss.",
+        rejectedByUserId: "admin-1",
+      }),
+    ).resolves.toEqual({
+      id: "rejection-1",
+      targetType: "word",
+      targetId: "word-1",
+      reason: "data-quality",
+      note: "Broken source gloss.",
+      rejectedByUserId: "admin-1",
+      createdAt: "2026-07-13T16:00:00.000Z",
+      updatedAt: "2026-07-13T16:00:00.000Z",
+    });
+    expect(wordCount).toHaveBeenCalledWith({
+      where: { id: "word-1", jmdictImportedRecordId: { not: null } },
+    });
+    expect(upsertRejection).toHaveBeenCalledWith({
+      where: { targetType_targetId: { targetType: "WORD", targetId: "word-1" } },
+      update: {
+        reason: "DATA_QUALITY",
+        note: "Broken source gloss.",
+        rejectedByUserId: "admin-1",
+      },
+      create: {
+        targetType: "WORD",
+        targetId: "word-1",
+        reason: "DATA_QUALITY",
+        note: "Broken source gloss.",
+        rejectedByUserId: "admin-1",
+      },
+    });
+    await expect(
+      repository.restoreImportedCandidate({ itemType: "word", targetId: "word-1" }),
+    ).resolves.toBe(true);
+    expect(deleteRejection).toHaveBeenCalledWith({
+      where: { targetType: "WORD", targetId: "word-1" },
+    });
+  });
+
   it("promotes an import-derived target into a curated learning item", async () => {
     const repository = new InMemoryAdminRepository();
     const adminService = new AdminService(repository);
@@ -475,6 +548,94 @@ describe("AdminService", () => {
         }),
       ],
     });
+  });
+
+  it("persists and restores an imported candidate rejection", async () => {
+    const repository = new InMemoryAdminRepository();
+    const adminService = new AdminService(repository);
+
+    await expect(
+      adminService.rejectImportedCandidate("admin-1", "word", "target-imported-word", {
+        reason: "data-quality",
+        note: "Dictionary row needs correction.",
+      }),
+    ).resolves.toMatchObject({
+      targetType: "word",
+      targetId: "target-imported-word",
+      reason: "data-quality",
+      note: "Dictionary row needs correction.",
+      rejectedByUserId: "admin-1",
+    });
+    await expect(adminService.listImportedCandidates()).resolves.toEqual({ candidates: [] });
+    await expect(adminService.listImportedCandidateRejections()).resolves.toEqual({
+      rejections: [expect.objectContaining({ targetId: "target-imported-word" })],
+    });
+    await expect(
+      adminService.promoteImportedCandidate({
+        targetType: "word",
+        targetId: "target-imported-word",
+        title: "Rejected word",
+        band: "n5",
+      }),
+    ).rejects.toThrow("Candidate word:target-imported-word was rejected");
+
+    await expect(
+      adminService.restoreImportedCandidate("word", "target-imported-word"),
+    ).resolves.toEqual({
+      targetType: "word",
+      targetId: "target-imported-word",
+      restored: true,
+    });
+    await expect(
+      adminService.restoreImportedCandidate("word", "target-imported-word"),
+    ).resolves.toEqual({
+      targetType: "word",
+      targetId: "target-imported-word",
+      restored: false,
+    });
+    await expect(adminService.listImportedCandidates()).resolves.toEqual({
+      candidates: [expect.objectContaining({ targetId: "target-imported-word" })],
+    });
+  });
+
+  it("excludes a rejection from fresh plans and blocks staging an older snapshot", async () => {
+    const repository = new InMemoryAdminRepository();
+    const adminService = new AdminService(repository);
+    const originalPlan = await adminService.getCandidatePlan({ itemType: "word", limit: "2" });
+
+    await adminService.rejectImportedCandidate("admin-1", "word", "plan-word-one", {
+      reason: "low-educational-value",
+    });
+
+    await expect(
+      adminService.enqueueCandidatePlan({
+        planVersion: originalPlan.planVersion,
+        candidates: [{ itemType: "word", targetId: "plan-word-one" }],
+      }),
+    ).rejects.toThrow("Candidate word:plan-word-one was rejected");
+    await expect(adminService.getCandidatePlan({ itemType: "word", limit: "2" })).resolves.toEqual(
+      expect.objectContaining({
+        planVersion: "candidate-plan-version-two",
+        page: expect.objectContaining({ total: 1 }),
+        candidates: [expect.objectContaining({ targetId: "plan-word-two" })],
+      }),
+    );
+  });
+
+  it("validates imported candidate rejection reasons and notes", async () => {
+    const adminService = new AdminService(new InMemoryAdminRepository());
+
+    await expect(
+      adminService.rejectImportedCandidate("admin-1", "word", "target-imported-word", {
+        reason: "not-a-reason",
+      }),
+    ).rejects.toThrow("reason must be duplicate, out-of-scope, data-quality");
+    await expect(
+      adminService.rejectImportedCandidate("admin-1", "word", "target-imported-word", {
+        reason: "other",
+        note: "x".repeat(501),
+      }),
+    ).rejects.toThrow("note is too long.");
   });
 
   it("returns traceable bilingual details for one import-derived candidate", async () => {
@@ -767,6 +928,8 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
   candidatePlanReads = 0;
   readonly candidatePlanVersionResponses: string[] = [];
   readonly enqueuedCandidateBatches: (readonly AdminCandidatePlanEnqueueItemInput[])[] = [];
+  private rejectionRevision = 0;
+  private readonly candidateRejections = new Map<string, AdminImportedCandidateRejectionDto>();
 
   private readonly importedCandidates: readonly AdminImportedCandidateDto[] = [
     {
@@ -961,14 +1124,19 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
   }
 
   async listImportedCandidates(): Promise<readonly AdminImportedCandidateDto[]> {
-    return this.importedCandidates;
+    return this.importedCandidates.filter(
+      (candidate) => !this.candidateRejections.has(`${candidate.itemType}:${candidate.targetId}`),
+    );
   }
 
   async findImportedCandidateDetails(
     targetType: AdminImportedCandidateDetailsDto["itemType"],
     targetId: string,
   ): Promise<AdminImportedCandidateDetailsDto | null> {
-    if (targetType !== "word" || targetId !== "target-imported-word") {
+    if (
+      targetType !== "word" ||
+      !["target-imported-word", "plan-word-one", "plan-word-two"].includes(targetId)
+    ) {
       return null;
     }
 
@@ -996,6 +1164,60 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
         checksumSha256: "sha256-jmdict",
       },
     };
+  }
+
+  async listImportedCandidateRejections(): Promise<readonly AdminImportedCandidateRejectionDto[]> {
+    return [...this.candidateRejections.values()].sort(
+      (left, right) =>
+        right.updatedAt.localeCompare(left.updatedAt) || left.id.localeCompare(right.id),
+    );
+  }
+
+  async findRejectedCandidateKeys(
+    candidates: readonly AdminImportedCandidateTargetInput[],
+  ): Promise<readonly string[]> {
+    return candidates
+      .map((candidate) => `${candidate.itemType}:${candidate.targetId}`)
+      .filter((key) => this.candidateRejections.has(key));
+  }
+
+  async rejectImportedCandidate(
+    input: NormalizedAdminRejectImportedCandidateInput,
+  ): Promise<AdminImportedCandidateRejectionDto | null> {
+    const source = await this.findImportedCandidateDetails(input.itemType, input.targetId);
+    const assigned = this.items.some((item) => item.id === `item-${input.targetId}`);
+
+    if (source === null || assigned) {
+      return null;
+    }
+
+    this.rejectionRevision += 1;
+    const key = `${input.itemType}:${input.targetId}`;
+    const existing = this.candidateRejections.get(key);
+    const updatedAt = new Date(Date.UTC(2026, 6, 13, 16, 0, this.rejectionRevision)).toISOString();
+    const rejection: AdminImportedCandidateRejectionDto = {
+      id: existing?.id ?? `rejection-${input.targetId}`,
+      targetType: input.itemType,
+      targetId: input.targetId,
+      reason: input.reason,
+      note: input.note,
+      rejectedByUserId: input.rejectedByUserId,
+      createdAt: existing?.createdAt ?? updatedAt,
+      updatedAt,
+    };
+
+    this.candidateRejections.set(key, rejection);
+    return rejection;
+  }
+
+  async restoreImportedCandidate(input: AdminImportedCandidateTargetInput): Promise<boolean> {
+    const restored = this.candidateRejections.delete(`${input.itemType}:${input.targetId}`);
+
+    if (restored) {
+      this.rejectionRevision += 1;
+    }
+
+    return restored;
   }
 
   async listReviewItems(
@@ -1127,7 +1349,7 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
       candidates: [
         {
           targetId: "plan-word-two",
-          itemType: "word",
+          itemType: "word" as const,
           japanese: "ありがとう",
           reading: "ありがとう",
           meanings: { ru: ["спасибо"], en: ["thank you"] },
@@ -1135,11 +1357,11 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
           sourcePriority: 2_000,
           schoolGrade: null,
           hasStrokeData: false,
-          sourceName: "JMdict",
+          sourceName: "JMdict" as const,
         },
         {
           targetId: "plan-word-one",
-          itemType: "word",
+          itemType: "word" as const,
           japanese: "はい",
           reading: "はい",
           meanings: { ru: ["да"], en: ["yes"] },
@@ -1147,14 +1369,28 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
           sourcePriority: 1_000,
           schoolGrade: null,
           hasStrokeData: false,
-          sourceName: "JMdict",
+          sourceName: "JMdict" as const,
         },
-      ],
+      ].filter(
+        (candidate) => !this.candidateRejections.has(`${candidate.itemType}:${candidate.targetId}`),
+      ),
     });
   }
 
   async getCandidatePlanVersion(): Promise<string> {
-    return this.candidatePlanVersionResponses.shift() ?? "candidate-plan-version-one";
+    const queuedVersion = this.candidatePlanVersionResponses.shift();
+
+    if (queuedVersion !== undefined) {
+      return queuedVersion;
+    }
+
+    if (this.rejectionRevision === 0) {
+      return "candidate-plan-version-one";
+    }
+
+    return this.rejectionRevision === 1
+      ? "candidate-plan-version-two"
+      : `candidate-plan-version-${this.rejectionRevision + 1}`;
   }
 
   async enqueueCandidatePlanCandidates(

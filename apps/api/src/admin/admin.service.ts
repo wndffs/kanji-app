@@ -18,11 +18,15 @@ import {
   type AdminImportRunListResponse,
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateListResponse,
+  type AdminImportedCandidateRejectionDto,
+  type AdminImportedCandidateRejectionListResponse,
+  type AdminRestoreImportedCandidateResponse,
   type AdminReviewQueueResponse,
   type AdminUpdateItemRequest,
   type CardAnswerType,
   type ContentLocale,
   type CourseBand,
+  ADMIN_IMPORTED_CANDIDATE_REJECTION_REASONS,
   isCourseBand,
 } from "@kanji-srs/shared";
 
@@ -43,6 +47,7 @@ import {
   type NormalizedAdminCandidatePlanFilters,
   type NormalizedAdminItemCurationInput,
   type NormalizedAdminPromoteCandidateInput,
+  type NormalizedAdminRejectImportedCandidateInput,
   type NormalizedAdminReviewQueueFilters,
   type NormalizedAdminTextInput,
 } from "./admin.types";
@@ -51,6 +56,7 @@ const MAX_MEANING_LENGTH = 240;
 const MAX_ANSWER_LENGTH = 120;
 const MAX_ACCEPTED_ANSWERS_PER_LOCALE = 20;
 const MAX_BLOCKED_REASON_LENGTH = 500;
+const MAX_CANDIDATE_REJECTION_NOTE_LENGTH = 500;
 const MAX_TEXT_BODY_LENGTH = 4_000;
 const DEFAULT_CANDIDATE_PLAN_PAGE_LIMIT = 50;
 const MAX_CANDIDATE_PLAN_PAGE_LIMIT = 100;
@@ -91,6 +97,57 @@ export class AdminService {
     }
 
     return candidate;
+  }
+
+  async listImportedCandidateRejections(): Promise<AdminImportedCandidateRejectionListResponse> {
+    return {
+      rejections: await this.adminRepository.listImportedCandidateRejections(),
+    };
+  }
+
+  async rejectImportedCandidate(
+    rejectedByUserId: unknown,
+    targetType: unknown,
+    targetId: unknown,
+    body: unknown,
+  ): Promise<AdminImportedCandidateRejectionDto> {
+    const itemType = parseImportedCandidateTargetType(targetType);
+    const parsedTargetId = parseRequiredString(targetId, "targetId", { maxLength: 80 });
+    const input = parseRejectImportedCandidateRequest(body, {
+      itemType,
+      targetId: parsedTargetId,
+      rejectedByUserId: parseRequiredString(rejectedByUserId, "rejectedByUserId", {
+        maxLength: 80,
+      }),
+    });
+
+    await this.getImportedCandidateDetails(itemType, parsedTargetId);
+    const rejection = await this.adminRepository.rejectImportedCandidate(input);
+
+    if (rejection === null) {
+      throw new ConflictException(
+        "Import-derived candidate is already assigned to the curriculum and cannot be rejected.",
+      );
+    }
+
+    return rejection;
+  }
+
+  async restoreImportedCandidate(
+    targetType: unknown,
+    targetId: unknown,
+  ): Promise<AdminRestoreImportedCandidateResponse> {
+    const itemType = parseImportedCandidateTargetType(targetType);
+    const parsedTargetId = parseRequiredString(targetId, "targetId", { maxLength: 80 });
+
+    return {
+      targetType: itemType,
+      targetId: parsedTargetId,
+      restored: await this.adminRepository.restoreImportedCandidate({
+        itemType,
+        targetId: parsedTargetId,
+      }),
+    };
   }
 
   async listReviewItems(query: unknown = {}): Promise<AdminReviewQueueResponse> {
@@ -138,6 +195,7 @@ export class AdminService {
 
   async enqueueCandidatePlan(body: unknown): Promise<AdminEnqueueCandidatePlanResponse> {
     const request = parseCandidatePlanEnqueueRequest(body);
+    await this.assertCandidatesNotRejected(request.candidates);
     const entry = await this.resolveCandidatePlan(request.planVersion);
     const candidatesByKey = new Map<string, AdminCurriculumCandidatePlanItemDto>();
 
@@ -191,6 +249,21 @@ export class AdminService {
     }
 
     return this.loadCandidatePlan(currentVersion, requestedVersion === null);
+  }
+
+  private async assertCandidatesNotRejected(
+    candidates: readonly { readonly itemType: "kanji" | "word"; readonly targetId: string }[],
+  ): Promise<void> {
+    const rejectedKeys = new Set(await this.adminRepository.findRejectedCandidateKeys(candidates));
+    const rejectedCandidate = candidates.find((candidate) =>
+      rejectedKeys.has(candidatePlanTargetKey(candidate)),
+    );
+
+    if (rejectedCandidate !== undefined) {
+      throw new ConflictException(
+        `Candidate ${candidatePlanTargetKey(rejectedCandidate)} was rejected. Restore it before curation.`,
+      );
+    }
   }
 
   private async loadCandidatePlan(
@@ -289,6 +362,13 @@ export class AdminService {
 
   async promoteImportedCandidate(body: unknown): Promise<AdminCurationItemDto> {
     const request = parsePromoteCandidateRequest(body);
+
+    if (request.targetType === "kanji" || request.targetType === "word") {
+      await this.assertCandidatesNotRejected([
+        { itemType: request.targetType, targetId: request.targetId },
+      ]);
+    }
+
     const item = await this.adminRepository.promoteImportedCandidate(request);
 
     if (item === null) {
@@ -300,6 +380,9 @@ export class AdminService {
 
   async approveImportedTranslation(body: unknown): Promise<AdminCurationItemDto> {
     const request = parseApproveImportedTranslationRequest(body);
+    await this.assertCandidatesNotRejected([
+      { itemType: request.targetType, targetId: request.targetId },
+    ]);
     const item = await this.adminRepository.approveImportedTranslation(request);
 
     if (item === null) {
@@ -441,6 +524,33 @@ function parseCandidatePlanEnqueueRequest(body: unknown): NormalizedAdminCandida
   return {
     planVersion: parseRequiredString(record.planVersion, "planVersion", { maxLength: 128 }),
     candidates,
+  };
+}
+
+function parseRejectImportedCandidateRequest(
+  body: unknown,
+  target: Pick<
+    NormalizedAdminRejectImportedCandidateInput,
+    "itemType" | "targetId" | "rejectedByUserId"
+  >,
+): NormalizedAdminRejectImportedCandidateInput {
+  const record = parseRecord(body, "Request body");
+  const reason = ADMIN_IMPORTED_CANDIDATE_REJECTION_REASONS.find(
+    (candidate) => candidate === record.reason,
+  );
+
+  if (reason === undefined) {
+    throw new BadRequestException(
+      `reason must be ${ADMIN_IMPORTED_CANDIDATE_REJECTION_REASONS.join(", ")}.`,
+    );
+  }
+
+  return {
+    ...target,
+    reason,
+    note: parseOptionalString(record.note, "note", {
+      maxLength: MAX_CANDIDATE_REJECTION_NOTE_LENGTH,
+    }),
   };
 }
 
