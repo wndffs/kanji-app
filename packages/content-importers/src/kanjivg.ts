@@ -272,14 +272,16 @@ type StrokePathGroup = {
 };
 
 function extractStrokePathGroups(xml: string): readonly StrokePathGroup[] {
-  const pattern = /<g\b([^>]*)>/gu;
+  const pattern = /<(?:g|kanji)\b([^>]*)>/gu;
   const codepoints = new Set<string>();
   let match: RegExpExecArray | null;
 
   while ((match = pattern.exec(xml)) !== null) {
     const attributes = parseXmlAttributes(match[1] ?? "");
     const groupId = attributes.id ?? "";
-    const codepoint = groupId.match(/^kvg:StrokePaths_([0-9a-fA-F]+)$/u)?.[1];
+    const codepoint =
+      groupId.match(/^kvg:StrokePaths_([0-9a-fA-F]+)$/u)?.[1] ??
+      groupId.match(/^kvg:kanji_([0-9a-fA-F]+)$/u)?.[1];
 
     if (codepoint !== undefined) {
       codepoints.add(codepoint.toLowerCase());
@@ -287,7 +289,7 @@ function extractStrokePathGroups(xml: string): readonly StrokePathGroup[] {
   }
 
   if (codepoints.size === 0) {
-    throw new Error("KanjiVG SVG does not contain a kvg:StrokePaths group.");
+    throw new Error("KanjiVG XML does not contain a recognized character group.");
   }
 
   const paths = extractSelfClosingElements(xml, "path");

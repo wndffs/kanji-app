@@ -38,12 +38,20 @@ describe("KanjiVG importer", () => {
   });
 
   it("parses the official combined release format", () => {
-    const combinedXml = fixtureXml
-      .replace(/<svg[^>]*>/u, '<kanjivg xmlns:kvg="http://kanjivg.tagaini.net">')
-      .replace(
-        "</svg>",
-        '<g id="kvg:StrokePaths_04e8c"><path id="kvg:04e8c-s1" d="M1,1" /><path id="kvg:04e8c-s2" d="M2,2" /></g></kanjivg>',
-      );
+    const combinedXml = `<?xml version="1.0" encoding="UTF-8"?>
+<kanjivg xmlns:kvg='http://kanjivg.tagaini.net'>
+  <kanji id="kvg:kanji_04e00">
+    <g id="kvg:04e00" kvg:element="一">
+      <path id="kvg:04e00-s1" kvg:type="㇐" d="M18,54 C34,52 72,52 91,54" />
+    </g>
+  </kanji>
+  <kanji id="kvg:kanji_04e8c">
+    <g id="kvg:04e8c" kvg:element="二">
+      <path id="kvg:04e8c-s1" d="M1,1" />
+      <path id="kvg:04e8c-s2" d="M2,2" />
+    </g>
+  </kanji>
+</kanjivg>`;
 
     expect(parseKanjiVgXml(combinedXml).characters).toMatchObject([
       {
