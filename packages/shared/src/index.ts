@@ -959,6 +959,27 @@ export type AdminCurriculumCandidatePlanResponse = {
   readonly candidates: readonly AdminCurriculumCandidatePlanItemDto[];
 };
 
+export type AdminEnqueueCandidatePlanRequest = {
+  readonly planVersion: string;
+  readonly candidates: readonly {
+    readonly targetId: string;
+    readonly itemType: "kanji" | "word";
+  }[];
+};
+
+export type AdminEnqueueCandidatePlanResponse = {
+  readonly planVersion: string;
+  readonly requestedCount: number;
+  readonly enqueuedCount: number;
+  readonly alreadyQueuedCount: number;
+  readonly items: readonly {
+    readonly learningItemId: string;
+    readonly targetId: string;
+    readonly itemType: "kanji" | "word";
+    readonly status: AdminContentStatus;
+  }[];
+};
+
 export type AdminUpdateCardAnswersRequest = {
   readonly acceptedAnswers: readonly {
     readonly locale: ContentLocale;

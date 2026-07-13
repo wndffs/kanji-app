@@ -21,6 +21,8 @@ import {
   buildCurriculumCompletenessReport,
 } from "../src/admin/curriculum-quality";
 import {
+  type AdminCandidatePlanEnqueueItemInput,
+  type AdminCandidatePlanEnqueueResult,
   type NormalizedAdminApproveImportedTranslationInput,
   type NormalizedAdminItemCurationInput,
   type NormalizedAdminPromoteCandidateInput,
@@ -256,6 +258,155 @@ describe("AdminService", () => {
       planVersion: "candidate-plan-version-two",
     });
     expect(repository.candidatePlanReads).toBe(2);
+  });
+
+  it("enqueues candidates from an exact cached plan using server-owned metadata", async () => {
+    const repository = new InMemoryAdminRepository();
+    const adminService = new AdminService(repository);
+    const page = await adminService.getCandidatePlan({ itemType: "word", limit: "1" });
+    const candidate = page.candidates[0];
+
+    if (candidate === undefined) {
+      throw new Error("Expected a candidate-plan item.");
+    }
+
+    await expect(
+      adminService.enqueueCandidatePlan({
+        planVersion: page.planVersion,
+        candidates: [{ itemType: candidate.itemType, targetId: candidate.targetId }],
+      }),
+    ).resolves.toEqual({
+      planVersion: page.planVersion,
+      requestedCount: 1,
+      enqueuedCount: 1,
+      alreadyQueuedCount: 0,
+      items: [
+        {
+          learningItemId: `item-${candidate.targetId}`,
+          targetId: candidate.targetId,
+          itemType: "word",
+          status: "needs-review",
+        },
+      ],
+    });
+    expect(repository.enqueuedCandidateBatches).toEqual([
+      [
+        {
+          targetId: candidate.targetId,
+          itemType: candidate.itemType,
+          title: `Слово ${candidate.japanese}`,
+          band: candidate.suggestedBand,
+        },
+      ],
+    ]);
+    expect(repository.candidatePlanReads).toBe(1);
+  });
+
+  it("rejects duplicate and out-of-plan enqueue targets", async () => {
+    const repository = new InMemoryAdminRepository();
+    const adminService = new AdminService(repository);
+    const page = await adminService.getCandidatePlan({ itemType: "word", limit: "1" });
+    const candidate = page.candidates[0];
+
+    if (candidate === undefined) {
+      throw new Error("Expected a candidate-plan item.");
+    }
+
+    await expect(
+      adminService.enqueueCandidatePlan({
+        planVersion: page.planVersion,
+        candidates: [
+          { itemType: candidate.itemType, targetId: candidate.targetId },
+          { itemType: candidate.itemType, targetId: candidate.targetId },
+        ],
+      }),
+    ).rejects.toThrow(`candidates contains duplicate target word:${candidate.targetId}.`);
+    await expect(
+      adminService.enqueueCandidatePlan({
+        planVersion: page.planVersion,
+        candidates: [{ itemType: "word", targetId: "not-in-plan" }],
+      }),
+    ).rejects.toThrow(`is not part of candidate plan ${page.planVersion}.`);
+    await expect(
+      adminService.enqueueCandidatePlan({
+        planVersion: "expired-version",
+        candidates: [{ itemType: candidate.itemType, targetId: candidate.targetId }],
+      }),
+    ).rejects.toThrow("Candidate plan data changed");
+    await expect(
+      adminService.enqueueCandidatePlan({ planVersion: page.planVersion, candidates: [] }),
+    ).rejects.toThrow("candidates must contain from 1 to 100 items.");
+    expect(repository.enqueuedCandidateBatches).toHaveLength(0);
+  });
+
+  it("enqueues only missing learning items without overwriting existing curation", async () => {
+    const existingItem = {
+      id: "existing-learning-item",
+      targetType: "KANJI",
+      targetId: "existing-kanji",
+      status: "PUBLISHED",
+    };
+    const newItem = {
+      id: "new-learning-item",
+      targetType: "WORD",
+      targetId: "new-word",
+      status: "NEEDS_REVIEW",
+    };
+    const findMany = vi
+      .fn()
+      .mockResolvedValueOnce([existingItem])
+      .mockResolvedValueOnce([existingItem, newItem]);
+    const createMany = vi.fn().mockResolvedValue({ count: 1 });
+    const transactionDb = { learningItem: { findMany, createMany } };
+    const transaction = vi.fn(
+      async (callback: (db: typeof transactionDb) => Promise<AdminCandidatePlanEnqueueResult>) =>
+        callback(transactionDb),
+    );
+    const repository = new PrismaAdminRepository({ db: { $transaction: transaction } } as never);
+
+    await expect(
+      repository.enqueueCandidatePlanCandidates([
+        {
+          itemType: "kanji",
+          targetId: "existing-kanji",
+          title: "Кандзи 一",
+          band: "foundation",
+        },
+        { itemType: "word", targetId: "new-word", title: "Слово 水", band: "n5" },
+      ]),
+    ).resolves.toEqual({
+      requestedCount: 2,
+      enqueuedCount: 1,
+      alreadyQueuedCount: 1,
+      items: [
+        {
+          learningItemId: existingItem.id,
+          targetId: existingItem.targetId,
+          itemType: "kanji",
+          status: "published",
+        },
+        {
+          learningItemId: newItem.id,
+          targetId: newItem.targetId,
+          itemType: "word",
+          status: "needs-review",
+        },
+      ],
+    });
+    expect(createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          kind: "WORD",
+          targetType: "WORD",
+          targetId: "new-word",
+          title: "Слово 水",
+          levelHint: null,
+          curriculumBand: "N5",
+          status: "NEEDS_REVIEW",
+        },
+      ],
+      skipDuplicates: true,
+    });
   });
 
   it("promotes an import-derived target into a curated learning item", async () => {
@@ -589,6 +740,7 @@ describe("AdminService", () => {
 class InMemoryAdminRepository extends AdminRepository implements OverridesRepository {
   candidatePlanReads = 0;
   readonly candidatePlanVersionResponses: string[] = [];
+  readonly enqueuedCandidateBatches: (readonly AdminCandidatePlanEnqueueItemInput[])[] = [];
 
   private readonly importedCandidates: readonly AdminImportedCandidateDto[] = [
     {
@@ -950,6 +1102,24 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
 
   async getCandidatePlanVersion(): Promise<string> {
     return this.candidatePlanVersionResponses.shift() ?? "candidate-plan-version-one";
+  }
+
+  async enqueueCandidatePlanCandidates(
+    candidates: readonly AdminCandidatePlanEnqueueItemInput[],
+  ): Promise<AdminCandidatePlanEnqueueResult> {
+    this.enqueuedCandidateBatches.push(candidates);
+
+    return {
+      requestedCount: candidates.length,
+      enqueuedCount: candidates.length,
+      alreadyQueuedCount: 0,
+      items: candidates.map((candidate) => ({
+        learningItemId: `item-${candidate.targetId}`,
+        targetId: candidate.targetId,
+        itemType: candidate.itemType,
+        status: "needs-review",
+      })),
+    };
   }
 
   async promoteImportedCandidate(

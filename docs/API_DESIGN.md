@@ -267,6 +267,7 @@ in-progress session.
 - `GET /admin/curriculum/completeness`
 - `GET /admin/curriculum/scale-readiness`
 - `GET /admin/curriculum/candidate-plan`
+- `POST /admin/curriculum/candidate-plan/enqueue`
 - `GET /admin/items/review-queue`
 - `PATCH /admin/items/:id`
 - `PATCH /admin/cards/:id/answers`
@@ -342,13 +343,25 @@ editorial shortlist: it neither creates `LearningItem` rows nor supplies the
 bilingual authored explanations, mnemonics, cards, levels, and dependencies
 required for publication.
 
-The first candidate-plan response returns an opaque `planVersion`. Subsequent
-pages should send it as a query parameter so their ordering remains attached to
-the same calculated snapshot. The API retains at most two recently used plans
-in process and deduplicates concurrent calculations for the same database
-version. A missing expired version or data changing during calculation returns
-`409 Conflict`; the client must restart from the first page. The cache is a
-performance aid only and is intentionally lost on service restart.
+The first candidate-plan response returns an opaque policy-and-database-derived
+`planVersion`. Subsequent pages should send it as a query parameter so their
+ordering remains attached to the same calculated snapshot. The API retains at
+most two recently used plans in process and deduplicates concurrent calculations
+for the same version. A missing expired version or data changing during
+calculation returns `409 Conflict`; the client must restart from the first page.
+The cache is a performance aid only and is intentionally lost on service
+restart.
+
+`POST /admin/curriculum/candidate-plan/enqueue` accepts the exact `planVersion`
+and from 1 to 100 unique `{ itemType, targetId }` pairs from that snapshot. The
+server rejects targets outside the plan and derives their title and curriculum
+band from the server-owned plan instead of trusting client metadata. In one
+transaction it creates only missing `LearningItem` rows in `needs-review` and
+returns requested, created, and already-queued counts in request order. Existing
+curation rows and statuses are never overwritten, so an exact retry is safe.
+This staging action does not copy imported meanings into authored content,
+create cards, add dependencies or levels, or publish anything. An expired plan
+version follows the same `409 Conflict` behavior as paginated reads.
 
 ## API rules
 

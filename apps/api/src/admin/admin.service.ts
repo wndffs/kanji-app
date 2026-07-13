@@ -9,10 +9,12 @@ import {
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
 import {
   type AdminContentStatus,
+  type AdminCurriculumCandidatePlanItemDto,
   type AdminCurriculumCandidatePlanResponse,
   type AdminCurriculumCompletenessReportDto,
   type AdminCurriculumScaleReadinessDto,
   type AdminCurationItemDto,
+  type AdminEnqueueCandidatePlanResponse,
   type AdminImportRunListResponse,
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateListResponse,
@@ -37,6 +39,7 @@ import {
 import {
   type NormalizedAdminCardAnswersInput,
   type NormalizedAdminApproveImportedTranslationInput,
+  type NormalizedAdminCandidatePlanEnqueueInput,
   type NormalizedAdminCandidatePlanFilters,
   type NormalizedAdminItemCurationInput,
   type NormalizedAdminPromoteCandidateInput,
@@ -106,21 +109,7 @@ export class AdminService {
 
   async getCandidatePlan(query: unknown = {}): Promise<AdminCurriculumCandidatePlanResponse> {
     const filters = parseCandidatePlanFilters(query);
-    const cached =
-      filters.planVersion === null ? null : this.candidatePlanCache.getCached(filters.planVersion);
-    let entry: CurriculumCandidatePlanCacheEntry;
-
-    if (cached !== null) {
-      entry = cached;
-    } else {
-      const currentVersion = await this.adminRepository.getCandidatePlanVersion();
-
-      if (filters.planVersion !== null && filters.planVersion !== currentVersion) {
-        throw candidatePlanConflict();
-      }
-
-      entry = await this.loadCandidatePlan(currentVersion, filters.planVersion === null);
-    }
+    const entry = await this.resolveCandidatePlan(filters.planVersion);
 
     const candidates = entry.plan.candidates[filters.itemType];
     const pageCandidates = candidates.slice(filters.offset, filters.offset + filters.limit);
@@ -138,6 +127,63 @@ export class AdminService {
       },
       candidates: pageCandidates,
     };
+  }
+
+  async enqueueCandidatePlan(body: unknown): Promise<AdminEnqueueCandidatePlanResponse> {
+    const request = parseCandidatePlanEnqueueRequest(body);
+    const entry = await this.resolveCandidatePlan(request.planVersion);
+    const candidatesByKey = new Map<string, AdminCurriculumCandidatePlanItemDto>();
+
+    for (const itemType of ["kanji", "word"] as const) {
+      for (const candidate of entry.plan.candidates[itemType]) {
+        candidatesByKey.set(candidatePlanTargetKey(candidate), candidate);
+      }
+    }
+
+    const candidates = request.candidates.map((requestedCandidate, index) => {
+      const candidate = candidatesByKey.get(candidatePlanTargetKey(requestedCandidate));
+
+      if (candidate === undefined) {
+        throw new BadRequestException(
+          `candidates[${index}] is not part of candidate plan ${entry.version}.`,
+        );
+      }
+
+      return {
+        targetId: candidate.targetId,
+        itemType: candidate.itemType,
+        title:
+          candidate.itemType === "kanji"
+            ? `Кандзи ${candidate.japanese}`
+            : `Слово ${candidate.japanese}`,
+        band: candidate.suggestedBand,
+      };
+    });
+    const result = await this.adminRepository.enqueueCandidatePlanCandidates(candidates);
+
+    return {
+      planVersion: entry.version,
+      ...result,
+    };
+  }
+
+  private async resolveCandidatePlan(
+    requestedVersion: string | null,
+  ): Promise<CurriculumCandidatePlanCacheEntry> {
+    const cached =
+      requestedVersion === null ? null : this.candidatePlanCache.getCached(requestedVersion);
+
+    if (cached !== null) {
+      return cached;
+    }
+
+    const currentVersion = await this.adminRepository.getCandidatePlanVersion();
+
+    if (requestedVersion !== null && requestedVersion !== currentVersion) {
+      throw candidatePlanConflict();
+    }
+
+    return this.loadCandidatePlan(currentVersion, requestedVersion === null);
   }
 
   private async loadCandidatePlan(
@@ -313,6 +359,51 @@ function parseCandidatePlanFilters(query: unknown): NormalizedAdminCandidatePlan
   };
 }
 
+function parseCandidatePlanEnqueueRequest(body: unknown): NormalizedAdminCandidatePlanEnqueueInput {
+  const record = parseRecord(body, "Request body");
+  const candidateValues = parseArray(record.candidates, "candidates");
+
+  if (candidateValues.length < 1 || candidateValues.length > MAX_CANDIDATE_PLAN_PAGE_LIMIT) {
+    throw new BadRequestException(
+      `candidates must contain from 1 to ${MAX_CANDIDATE_PLAN_PAGE_LIMIT} items.`,
+    );
+  }
+
+  const targetKeys = new Set<string>();
+  const candidates = candidateValues.map((value, index) => {
+    const candidate = parseRecord(value, `candidates[${index}]`);
+    const parsed = {
+      targetId: parseRequiredString(candidate.targetId, `candidates[${index}].targetId`, {
+        maxLength: 80,
+      }),
+      itemType: parseImportedCandidateTargetType(
+        candidate.itemType,
+        `candidates[${index}].itemType`,
+      ),
+    };
+    const targetKey = candidatePlanTargetKey(parsed);
+
+    if (targetKeys.has(targetKey)) {
+      throw new BadRequestException(`candidates contains duplicate target ${targetKey}.`);
+    }
+
+    targetKeys.add(targetKey);
+    return parsed;
+  });
+
+  return {
+    planVersion: parseRequiredString(record.planVersion, "planVersion", { maxLength: 128 }),
+    candidates,
+  };
+}
+
+function candidatePlanTargetKey(candidate: {
+  readonly itemType: "kanji" | "word";
+  readonly targetId: string;
+}): string {
+  return `${candidate.itemType}:${candidate.targetId}`;
+}
+
 function parseUpdateItemRequest(body: unknown): NormalizedAdminItemCurationInput {
   const record = parseRecord(body, "Request body");
   const status = parseOptionalStatus(record.status);
@@ -413,12 +504,13 @@ function parseAcceptedMeaningAnswers(
 
 function parseImportedCandidateTargetType(
   value: unknown,
+  label = "targetType",
 ): NormalizedAdminApproveImportedTranslationInput["targetType"] {
   if (value === "kanji" || value === "word") {
     return value;
   }
 
-  throw new BadRequestException("targetType must be kanji or word.");
+  throw new BadRequestException(`${label} must be kanji or word.`);
 }
 
 function parseUpdateCardAnswersRequest(body: unknown): NormalizedAdminCardAnswersInput {

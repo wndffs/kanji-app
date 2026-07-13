@@ -115,3 +115,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 33. Task 73 (completed): expose traceable bilingual source details for every planned candidate.
 34. Task 74 (completed): connect every planned candidate to the bilingual curation workspace.
 35. Task 75 (completed): allow reviewed RU/EN curation when an imported locale is missing.
+36. Task 76 (completed): safely stage a versioned candidate-plan page for editorial review.

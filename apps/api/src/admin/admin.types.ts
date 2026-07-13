@@ -1,6 +1,8 @@
 import {
   type AdminApproveImportedTranslationRequest,
   type AdminContentStatus,
+  type AdminEnqueueCandidatePlanRequest,
+  type AdminEnqueueCandidatePlanResponse,
   type AdminPromoteCandidateRequest,
   type AdminReviewQueueFilters,
   type AdminUpdateCardAnswersRequest,
@@ -52,6 +54,20 @@ export type NormalizedAdminCandidatePlanFilters = {
   readonly limit: number;
   readonly planVersion: string | null;
 };
+
+export type NormalizedAdminCandidatePlanEnqueueInput = AdminEnqueueCandidatePlanRequest;
+
+export type AdminCandidatePlanEnqueueItemInput = {
+  readonly targetId: string;
+  readonly itemType: "kanji" | "word";
+  readonly title: string;
+  readonly band: CourseBand;
+};
+
+export type AdminCandidatePlanEnqueueResult = Omit<
+  AdminEnqueueCandidatePlanResponse,
+  "planVersion"
+>;
 
 export type NormalizedAdminPromoteCandidateInput = {
   readonly targetType: ItemKind;

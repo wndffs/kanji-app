@@ -71,6 +71,11 @@ export class AdminController {
     return this.adminService.getCandidatePlan(query);
   }
 
+  @Post("curriculum/candidate-plan/enqueue")
+  enqueueCandidatePlan(@Body() body: unknown) {
+    return this.adminService.enqueueCandidatePlan(body);
+  }
+
   @Get("items/:itemId")
   getCurationItem(@Param("itemId") itemId: string) {
     return this.adminService.getCurationItem(itemId);

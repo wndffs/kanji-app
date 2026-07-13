@@ -27,6 +27,7 @@ import { PrismaService } from "../database/prisma.service";
 import { applyQualityIssues, buildCurriculumCompletenessReport } from "./curriculum-quality";
 import {
   buildCurriculumCandidatePlan,
+  CURRICULUM_CANDIDATE_POLICY_VERSION,
   type CurriculumCandidatePlan,
 } from "./curriculum-candidate-plan";
 import { buildCurriculumScaleReadiness } from "./curriculum-scale-readiness";
@@ -35,6 +36,8 @@ import {
   rankImportedCandidates,
 } from "./imported-candidate-ranking";
 import {
+  type AdminCandidatePlanEnqueueItemInput,
+  type AdminCandidatePlanEnqueueResult,
   type NormalizedAdminCardAnswersInput,
   type NormalizedAdminApproveImportedTranslationInput,
   type NormalizedAdminItemCurationInput,
@@ -57,6 +60,9 @@ export abstract class AdminRepository {
   abstract getScaleReadiness(): Promise<AdminCurriculumScaleReadinessDto>;
   abstract getCandidatePlanVersion(): Promise<string>;
   abstract getCandidatePlan(): Promise<CurriculumCandidatePlan>;
+  abstract enqueueCandidatePlanCandidates(
+    candidates: readonly AdminCandidatePlanEnqueueItemInput[],
+  ): Promise<AdminCandidatePlanEnqueueResult>;
   abstract findCurationItem(itemId: string): Promise<AdminCurationItemDto | null>;
   abstract findItemByCardId(cardId: string): Promise<AdminCurationItemDto | null>;
   abstract promoteImportedCandidate(
@@ -746,6 +752,7 @@ export class PrismaAdminRepository extends AdminRepository {
       }),
     ]);
     const state = [
+      `policy:${CURRICULUM_CANDIDATE_POLICY_VERSION}`,
       candidatePlanVersionPart("learning-items", learningItems),
       candidatePlanVersionPart("kanji", kanji),
       candidatePlanVersionPart("words", words),
@@ -753,6 +760,75 @@ export class PrismaAdminRepository extends AdminRepository {
     ].join("|");
 
     return createHash("sha256").update(state).digest("hex");
+  }
+
+  async enqueueCandidatePlanCandidates(
+    candidates: readonly AdminCandidatePlanEnqueueItemInput[],
+  ): Promise<AdminCandidatePlanEnqueueResult> {
+    return this.prisma.db.$transaction(async (db) => {
+      const targetConditions = candidates.map((candidate) => ({
+        targetType: toPrismaTargetType(candidate.itemType),
+        targetId: candidate.targetId,
+      }));
+      const existingItems = await db.learningItem.findMany({
+        where: { OR: targetConditions },
+        select: { targetType: true, targetId: true },
+      });
+      const existingTargetKeys = new Set(
+        existingItems.map((item) => candidatePlanItemKey(item.targetType, item.targetId)),
+      );
+      const missingCandidates = candidates.filter(
+        (candidate) =>
+          !existingTargetKeys.has(
+            candidatePlanItemKey(toPrismaTargetType(candidate.itemType), candidate.targetId),
+          ),
+      );
+      const created =
+        missingCandidates.length === 0
+          ? { count: 0 }
+          : await db.learningItem.createMany({
+              data: missingCandidates.map((candidate) => ({
+                kind: toPrismaItemKind(candidate.itemType),
+                targetType: toPrismaTargetType(candidate.itemType),
+                targetId: candidate.targetId,
+                title: candidate.title,
+                levelHint: null,
+                curriculumBand: toPrismaBand(candidate.band),
+                status: "NEEDS_REVIEW" as const,
+              })),
+              skipDuplicates: true,
+            });
+      const queuedItems = await db.learningItem.findMany({
+        where: { OR: targetConditions },
+        select: { id: true, targetType: true, targetId: true, status: true },
+      });
+      const queuedItemsByKey = new Map(
+        queuedItems.map((item) => [candidatePlanItemKey(item.targetType, item.targetId), item]),
+      );
+
+      return {
+        requestedCount: candidates.length,
+        enqueuedCount: created.count,
+        alreadyQueuedCount: candidates.length - created.count,
+        items: candidates.map((candidate) => {
+          const targetType = toPrismaTargetType(candidate.itemType);
+          const item = queuedItemsByKey.get(candidatePlanItemKey(targetType, candidate.targetId));
+
+          if (item === undefined) {
+            throw new Error(
+              `Queued candidate ${candidate.itemType}:${candidate.targetId} not found.`,
+            );
+          }
+
+          return {
+            learningItemId: item.id,
+            targetId: candidate.targetId,
+            itemType: candidate.itemType,
+            status: toApiStatus(item.status),
+          };
+        }),
+      };
+    });
   }
 
   async listReviewItems(
@@ -1667,6 +1743,10 @@ function toApiStatus(status: string): AdminContentStatus {
   }
 }
 
+function candidatePlanItemKey(targetType: string, targetId: string): string {
+  return `${targetType}:${targetId}`;
+}
+
 function toPrismaStatus(status: AdminContentStatus) {
   switch (status) {
     case "draft":
@@ -1794,7 +1874,7 @@ function toItemKind(kind: string): ItemKind {
   }
 }
 
-function toPrismaItemKind(kind: ItemKind) {
+function toPrismaItemKind(kind: ItemKind): "COMPONENT" | "KANJI" | "WORD" | "SENTENCE" {
   switch (kind) {
     case "component":
       return "COMPONENT";
@@ -1807,7 +1887,7 @@ function toPrismaItemKind(kind: ItemKind) {
   }
 }
 
-function toPrismaTargetType(kind: ItemKind) {
+function toPrismaTargetType(kind: ItemKind): "COMPONENT" | "KANJI" | "WORD" | "SENTENCE" {
   return toPrismaItemKind(kind);
 }
 

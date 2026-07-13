@@ -99,6 +99,14 @@ locale while approving the candidate, but both reviewed learning meanings and
 both accepted-answer sets remain mandatory. Those additions are stored only in
 the project-authored layer and do not modify or mislabel the imported record.
 
+An admin may stage one bounded page of a retained candidate-plan snapshot into
+the curation queue. The server verifies every target against that exact plan and
+uses its suggested band, while a database uniqueness constraint makes retries
+idempotent and preserves any existing editorial work. Staging creates only
+`needs-review` learning items. Bilingual meanings, accepted answers, reading
+cards, mnemonics, dependencies, levels, and publication still require the
+normal explicit curation workflow.
+
 ## Main lesson flow
 
 Component, kanji, vocabulary, and sentence lessons use small groups of at most
