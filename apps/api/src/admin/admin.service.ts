@@ -689,7 +689,54 @@ function parseApproveImportedTranslationRequest(
       ...parseAcceptedMeaningAnswers(answers.ru, "acceptedAnswers.ru", "ru-RU"),
       ...parseAcceptedMeaningAnswers(answers.en, "acceptedAnswers.en", "en-US"),
     ],
+    acceptedReadings: parseAcceptedReadings(record.acceptedReadings),
   };
+}
+
+function parseAcceptedReadings(
+  value: unknown,
+): readonly NormalizedAdminApproveImportedTranslationInput["acceptedReadings"][number][] {
+  const normalized = new Set<string>();
+  const values = parseArray(value, "acceptedReadings");
+
+  if (values.length > MAX_ACCEPTED_ANSWERS_PER_LOCALE) {
+    throw new BadRequestException(
+      `acceptedReadings must contain at most ${MAX_ACCEPTED_ANSWERS_PER_LOCALE} answers.`,
+    );
+  }
+
+  const answers = values.map((answer, index) => {
+    const text = parseRequiredString(answer, `acceptedReadings[${index}]`, {
+      maxLength: MAX_ANSWER_LENGTH,
+    });
+    const normalizedText = normalizeJapaneseReading(text);
+
+    if (normalizedText === "") {
+      throw new BadRequestException(`acceptedReadings[${index}] is empty after normalization.`);
+    }
+
+    return {
+      locale: "ru-RU" as const,
+      text,
+      normalizedText,
+      answerKind: "reading" as const,
+    };
+  });
+
+  if (answers.length === 0) {
+    throw new BadRequestException("acceptedReadings must contain at least one answer.");
+  }
+
+  const uniqueAnswers = answers.filter((answer) => {
+    if (normalized.has(answer.normalizedText)) {
+      return false;
+    }
+
+    normalized.add(answer.normalizedText);
+    return true;
+  });
+
+  return uniqueAnswers.map((answer, index) => ({ ...answer, isPrimary: index === 0 }));
 }
 
 function parseAcceptedMeaningAnswers(

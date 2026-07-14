@@ -98,6 +98,9 @@ discard an otherwise valid source target. An admin may author the missing
 locale while approving the candidate, but both reviewed learning meanings and
 both accepted-answer sets remain mandatory. Those additions are stored only in
 the project-authored layer and do not modify or mislabel the imported record.
+Imported readings are evidence rather than accepted course answers. The admin
+reviews a primary reading and any additional accepted readings explicitly;
+only that ordered, normalized set becomes project-authored reading-card data.
 
 An admin may stage a selected subset of one bounded page from a retained
 candidate-plan snapshot into the curation queue. The server verifies every

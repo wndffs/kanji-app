@@ -313,10 +313,12 @@ a quick queue and can also open any candidate from the full curriculum plan.
 It never displays or persists unsupported gloss languages. Missing imported RU
 or EN content remains blank for explicit editorial input and does not prevent
 approval. `POST /admin/imported-candidates/approve-translation` requires reviewed
-RU and EN learning meanings plus at least one accepted answer for each locale.
-In one transaction it creates or updates the `LearningItem`, stores the reviewed
-meanings as `PROJECT_AUTHORED`, creates a bilingual meaning card, and creates a
-reading card from the imported source reading when present.
+RU and EN learning meanings, at least one accepted answer for each locale, and
+at least one explicitly reviewed reading. Reading answers are kana-normalized,
+deduplicated, and retain request order with the first answer marked primary. In
+one transaction the endpoint creates or updates the `LearningItem`, stores the
+reviewed meanings as `PROJECT_AUTHORED`, creates a bilingual meaning card, and
+creates a reading card only from those reviewed reading answers.
 The original imported meanings remain unchanged and traceable. The resulting
 item stays in `needs-review` until the remaining quality gates are satisfied.
 Kanji meaning uniqueness includes `sourceKind`, allowing an imported meaning

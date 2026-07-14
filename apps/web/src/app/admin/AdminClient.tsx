@@ -107,6 +107,7 @@ type TranslationReviewDraft = {
   readonly meaningEn: string;
   readonly acceptedRu: string;
   readonly acceptedEn: string;
+  readonly acceptedReadings: string;
 };
 
 export function AdminClient() {
@@ -562,6 +563,7 @@ export function AdminClient() {
     const level = levelText === "" ? null : Number(levelText);
     const acceptedRu = splitLines(translationDraft.acceptedRu);
     const acceptedEn = splitLines(translationDraft.acceptedEn);
+    const acceptedReadings = splitLines(translationDraft.acceptedReadings);
 
     if (level !== null && (!Number.isInteger(level) || level <= 0)) {
       setFormError("Уровень должен быть положительным целым числом.");
@@ -570,6 +572,11 @@ export function AdminClient() {
 
     if (acceptedRu.length === 0 || acceptedEn.length === 0) {
       setFormError("Добавьте хотя бы один принятый ответ на русском и английском.");
+      return;
+    }
+
+    if (acceptedReadings.length === 0) {
+      setFormError("Добавьте хотя бы одно проверенное чтение.");
       return;
     }
 
@@ -589,6 +596,7 @@ export function AdminClient() {
           en: translationDraft.meaningEn.trim(),
         },
         acceptedAnswers: { ru: acceptedRu, en: acceptedEn },
+        acceptedReadings,
       });
       const [queue, importedCandidates, report] = await Promise.all([
         getAdminReviewQueueWithFilters(state.token, {
@@ -1232,6 +1240,19 @@ export function AdminClient() {
                 </label>
               </div>
 
+              <label className="admin-translation-readings">
+                Принятые чтения · первое основное
+                <textarea
+                  data-testid="translation-accepted-readings"
+                  onChange={(event) => {
+                    const acceptedReadings = event.currentTarget.value;
+                    setTranslationDraft((previous) => ({ ...previous, acceptedReadings }));
+                  }}
+                  required
+                  value={translationDraft.acceptedReadings}
+                />
+              </label>
+
               <div className="admin-translation-meta">
                 <label>
                   Band
@@ -1836,6 +1857,7 @@ const EMPTY_TRANSLATION_REVIEW_DRAFT: TranslationReviewDraft = {
   meaningEn: "",
   acceptedRu: "",
   acceptedEn: "",
+  acceptedReadings: "",
 };
 
 function isBilingualCandidate(candidate: AdminImportedCandidateDto): boolean {
@@ -1855,6 +1877,7 @@ function buildTranslationReviewDraftFromCandidate(
     meaningEn: candidate.meanings.en[0] ?? "",
     acceptedRu: candidate.meanings.ru.join("\n"),
     acceptedEn: candidate.meanings.en.join("\n"),
+    acceptedReadings: candidate.reading ?? "",
   };
 }
 
@@ -1872,6 +1895,7 @@ function buildTranslationReviewDraftFromDetails(
     meaningEn: details.meanings.en[0] ?? "",
     acceptedRu: details.meanings.ru.join("\n"),
     acceptedEn: details.meanings.en.join("\n"),
+    acceptedReadings: details.reading ?? details.readings[0]?.text ?? "",
   };
 }
 

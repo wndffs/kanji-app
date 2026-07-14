@@ -124,3 +124,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 42. Task 82 (completed): search the full versioned candidate plan from the admin workspace.
 43. Task 83 (completed): filter the versioned candidate plan by course band and data coverage.
 44. Task 84 (completed): selectively stage candidates from a filtered plan page.
+45. Task 85 (completed): explicitly curate accepted readings before creating reading cards.

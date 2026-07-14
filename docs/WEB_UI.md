@@ -22,8 +22,10 @@ in the bilingual curation workspace, including candidates outside the older
 ranked top-100 queue. The workspace loads imported RU/EN meanings, all source
 readings, license attribution, source record, import run, file version, and
 checksum on demand. Missing Russian or English learning content remains blank
-for explicit editorial input. Approval creates the normal needs-review course
-item and refreshes the current plan instead of publishing automatically.
+for explicit editorial input. The form separately shows all source readings
+and requires the accepted reading set, with the first line treated as the
+primary taught reading. Approval creates the normal needs-review course item
+and refreshes the current plan instead of publishing automatically.
 After an item or card save, the queue restarts from its first cursor page under
 the active filters. It keeps the saved item selected when it still matches and
 otherwise opens the next available item, while a post-save refresh failure is

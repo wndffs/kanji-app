@@ -121,6 +121,7 @@ export type NormalizedAdminApproveImportedTranslationInput = {
     readonly en: string;
   };
   readonly acceptedAnswers: readonly NormalizedAdminAcceptedAnswerInput[];
+  readonly acceptedReadings: readonly NormalizedAdminAcceptedAnswerInput[];
 };
 
 export type RawAdminCardAnswersInput = AdminUpdateCardAnswersRequest;

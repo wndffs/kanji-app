@@ -72,6 +72,7 @@ test.describe("admin curation", () => {
     await expect(review).toContainText("Import EN");
     await expect(page.getByTestId("translation-meaning-ru")).toHaveValue("вода");
     await expect(page.getByTestId("translation-meaning-en")).toHaveValue("water");
+    await expect(page.getByTestId("translation-accepted-readings")).toHaveValue("みず");
     await page.getByTestId("translation-accepted-ru").fill("вода\nводы");
     await page.getByRole("button", { name: "Подтвердить перевод" }).click();
 
@@ -229,6 +230,8 @@ test.describe("admin curation", () => {
     await expect(page.getByTestId("translation-accepted-en")).toHaveValue("one");
     await expect(page.getByTestId("admin-translation-provenance")).toContainText("KANJIDIC2");
     await expect(page.getByTestId("admin-translation-provenance")).toContainText("он: イチ");
+    await expect(page.getByTestId("admin-translation-provenance")).toContainText("кун: ひと.つ");
+    await expect(page.getByTestId("translation-accepted-readings")).toHaveValue("イチ");
     await expect(page.getByTestId("admin-translation-provenance")).toContainText(
       "sha256-kanjidic2",
     );
@@ -787,6 +790,7 @@ async function mockAdminApi(
     async (route) => {
       const body = route.request().postDataJSON() as AdminApproveImportedTranslationRequest;
       const meaningCardId = "card-imported-word-meaning";
+      const readingCardId = "card-imported-word-reading";
 
       item = {
         ...item,
@@ -827,6 +831,24 @@ async function mockAdminApi(
                 isPrimary: index === 0,
               })),
             ],
+            blockedAnswers: [],
+          },
+          {
+            id: readingCardId,
+            promptType: "reading",
+            answerType: "reading",
+            locale: "ru-RU",
+            sortOrder: 2,
+            updatedAt: "2026-06-22T09:40:00.000Z",
+            acceptedAnswers: body.acceptedReadings.map((text, index) => ({
+              id: `answer-reading-${index}`,
+              cardId: readingCardId,
+              locale: "ru-RU" as const,
+              text,
+              normalizedText: text,
+              answerKind: "reading" as const,
+              isPrimary: index === 0,
+            })),
             blockedAnswers: [],
           },
         ],

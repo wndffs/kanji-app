@@ -112,7 +112,7 @@ Attribution is currently represented by `DataSource.attributionText`, `License`,
 
 Every imported entity should be traceable back to its source, license, checksum, source file, source version/date, downloaded date when known, and import run. Imported target rows should point to the exact `ImportedRecord` that produced them, not only to a source-record string.
 
-Global accepted and blocked answers are curated learning content. They must carry provenance such as `sourceKind=PROJECT_AUTHORED` and must not be silently derived from raw imported glosses without curation.
+Global accepted and blocked answers are curated learning content. They must carry provenance such as `sourceKind=PROJECT_AUTHORED` and must not be silently derived from raw imported glosses or readings without curation. Imported readings remain visible as source evidence; only an explicitly reviewed subset may become accepted reading answers.
 
 ## WaniKani boundary
 

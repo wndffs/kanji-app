@@ -906,6 +906,7 @@ export type AdminApproveImportedTranslationRequest = {
     readonly ru: readonly string[];
     readonly en: readonly string[];
   };
+  readonly acceptedReadings: readonly string[];
 };
 
 export type AdminCurriculumBandCompletenessDto = {

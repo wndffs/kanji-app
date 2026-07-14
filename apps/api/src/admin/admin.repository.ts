@@ -23,8 +23,6 @@ import {
   type SourceAttributionDto,
   CURRICULUM_SCALE_TARGETS,
 } from "@kanji-srs/shared";
-import { normalizeJapaneseReading } from "@kanji-srs/japanese";
-
 import { PrismaService } from "../database/prisma.service";
 import { applyQualityIssues, buildCurriculumCompletenessReport } from "./curriculum-quality";
 import {
@@ -1332,42 +1330,38 @@ export class PrismaAdminRepository extends AdminRepository {
         })),
       });
 
-      const readings = uniqueNormalizedReadings(source.readings.map((reading) => reading.text));
-
-      if (readings.length > 0) {
-        const readingCard = await db.learningCard.upsert({
-          where: {
-            learningItemId_promptType_answerType_locale: {
-              learningItemId: item.id,
-              promptType: "READING",
-              answerType: "READING",
-              locale: "ru-RU",
-            },
-          },
-          update: { cardType: "REVIEW", sortOrder: 2 },
-          create: {
+      const readingCard = await db.learningCard.upsert({
+        where: {
+          learningItemId_promptType_answerType_locale: {
             learningItemId: item.id,
-            cardType: "REVIEW",
             promptType: "READING",
             answerType: "READING",
             locale: "ru-RU",
-            sortOrder: 2,
           },
-        });
+        },
+        update: { cardType: "REVIEW", sortOrder: 2 },
+        create: {
+          learningItemId: item.id,
+          cardType: "REVIEW",
+          promptType: "READING",
+          answerType: "READING",
+          locale: "ru-RU",
+          sortOrder: 2,
+        },
+      });
 
-        await db.learningAnswer.deleteMany({ where: { learningCardId: readingCard.id } });
-        await db.learningAnswer.createMany({
-          data: readings.map((reading, index) => ({
-            learningCardId: readingCard.id,
-            text: reading.text,
-            normalizedText: reading.normalizedText,
-            answerKind: "READING",
-            locale: "ru-RU",
-            isPrimary: index === 0,
-            sourceKind: "PROJECT_AUTHORED",
-          })),
-        });
-      }
+      await db.learningAnswer.deleteMany({ where: { learningCardId: readingCard.id } });
+      await db.learningAnswer.createMany({
+        data: input.acceptedReadings.map((reading) => ({
+          learningCardId: readingCard.id,
+          text: reading.text,
+          normalizedText: reading.normalizedText,
+          answerKind: "READING",
+          locale: reading.locale,
+          isPrimary: reading.isPrimary,
+          sourceKind: "PROJECT_AUTHORED",
+        })),
+      });
 
       return item.id;
     });
@@ -2460,27 +2454,6 @@ function candidateCoverageMeanings(
     ru: rows.some((row) => row.locale === "ru-RU") ? ["available"] : [],
     en: rows.some((row) => row.locale === "en-US") ? ["available"] : [],
   };
-}
-
-function uniqueNormalizedReadings(
-  readings: readonly string[],
-): readonly { readonly text: string; readonly normalizedText: string }[] {
-  const normalized = new Set<string>();
-  const result: { text: string; normalizedText: string }[] = [];
-
-  for (const value of readings) {
-    const text = value.trim();
-    const normalizedText = normalizeJapaneseReading(text);
-
-    if (normalizedText === "" || normalized.has(normalizedText)) {
-      continue;
-    }
-
-    normalized.add(normalizedText);
-    result.push({ text, normalizedText });
-  }
-
-  return result;
 }
 
 function pickCandidateMeanings(

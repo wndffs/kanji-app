@@ -873,6 +873,7 @@ describe("AdminService", () => {
         level: 6,
         meanings: { ru: "вода", en: "water" },
         acceptedAnswers: { ru: ["Вода"], en: ["Water"] },
+        acceptedReadings: ["ミズ", "みず"],
       }),
     ).resolves.toMatchObject({
       itemType: "word",
@@ -888,7 +889,7 @@ describe("AdminService", () => {
         },
         {
           answerType: "reading",
-          acceptedAnswers: [{ text: "みず", normalizedText: "みず" }],
+          acceptedAnswers: [{ text: "ミズ", normalizedText: "みず", isPrimary: true }],
         },
       ],
     });
@@ -972,6 +973,15 @@ describe("AdminService", () => {
             isPrimary: true,
           },
         ],
+        acceptedReadings: [
+          {
+            locale: "ru-RU",
+            text: "イチ",
+            normalizedText: "いち",
+            answerKind: "reading",
+            isPrimary: true,
+          },
+        ],
       }),
     ).resolves.toBe(approvedItem);
 
@@ -988,6 +998,19 @@ describe("AdminService", () => {
     });
     expect(transactionDb.kanjiMeaning.create).toHaveBeenCalledTimes(2);
     expect(transactionDb.learningAnswer.createMany).toHaveBeenCalledTimes(2);
+    expect(transactionDb.learningAnswer.createMany).toHaveBeenLastCalledWith({
+      data: [
+        {
+          learningCardId: "reading-card",
+          text: "イチ",
+          normalizedText: "いち",
+          answerKind: "READING",
+          locale: "ru-RU",
+          isPrimary: true,
+          sourceKind: "PROJECT_AUTHORED",
+        },
+      ],
+    });
   });
 
   it("requires non-empty RU and EN accepted answers for translation approval", async () => {
@@ -1001,8 +1024,25 @@ describe("AdminService", () => {
         band: "n5",
         meanings: { ru: "вода", en: "water" },
         acceptedAnswers: { ru: ["вода"], en: [] },
+        acceptedReadings: ["みず"],
       }),
     ).rejects.toThrow("acceptedAnswers.en must contain at least one answer");
+  });
+
+  it("requires explicitly reviewed readings for translation approval", async () => {
+    const adminService = new AdminService(new InMemoryAdminRepository());
+
+    await expect(
+      adminService.approveImportedTranslation({
+        targetType: "word",
+        targetId: "target-imported-word",
+        title: "Слово 水",
+        band: "n5",
+        meanings: { ru: "вода", en: "water" },
+        acceptedAnswers: { ru: ["вода"], en: ["water"] },
+        acceptedReadings: [],
+      }),
+    ).rejects.toThrow("acceptedReadings must contain at least one answer");
   });
 
   it("lists import runs with status, checksum, stats, and errors", async () => {
@@ -1620,15 +1660,11 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
           sortOrder: 2,
           updatedAt: "2026-06-22T09:25:00.000Z",
           acceptedAnswers: [
-            {
-              id: "approved-reading",
+            ...input.acceptedReadings.map((answer, index) => ({
+              id: `approved-reading-${index}`,
               cardId: readingCardId,
-              locale: "ru-RU",
-              text: "みず",
-              normalizedText: "みず",
-              answerKind: "reading",
-              isPrimary: true,
-            },
+              ...answer,
+            })),
           ],
           blockedAnswers: [],
         },
