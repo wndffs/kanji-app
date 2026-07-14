@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   type AdminCurriculumCandidatePlanItemDto,
@@ -50,11 +50,13 @@ export function CurriculumPlanningPanel({
   const initializedToken = useRef<string | null>(null);
   const initializedRevision = useRef<number | null>(null);
   const currentItemType = useRef<"kanji" | "word">("kanji");
+  const currentSearch = useRef<string | null>(null);
   const [readiness, setReadiness] =
     useState<ResourceState<AdminCurriculumScaleReadinessDto>>(EMPTY_RESOURCE);
   const [candidatePlan, setCandidatePlan] =
     useState<ResourceState<AdminCurriculumCandidatePlanResponse>>(EMPTY_RESOURCE);
   const [itemType, setItemType] = useState<"kanji" | "word">("kanji");
+  const [searchDraft, setSearchDraft] = useState("");
   const [loadingCandidateKey, setLoadingCandidateKey] = useState<string | null>(null);
   const [candidateSelectionError, setCandidateSelectionError] = useState<string | null>(null);
   const [enqueuePageKey, setEnqueuePageKey] = useState<string | null>(null);
@@ -92,13 +94,18 @@ export function CurriculumPlanningPanel({
       nextItemType: "kanji" | "word",
       offset: number,
       planVersion?: string,
+      search: string | null = currentSearch.current,
     ) => {
       currentItemType.current = nextItemType;
+      currentSearch.current = search;
       setItemType(nextItemType);
       setCandidateSelectionError(null);
       setCandidatePlan((previous) => ({
         status: "loading",
-        data: previous.data?.page.itemType === nextItemType ? previous.data : null,
+        data:
+          previous.data?.page.itemType === nextItemType && previous.data.page.search === search
+            ? previous.data
+            : null,
         error: null,
       }));
 
@@ -108,6 +115,7 @@ export function CurriculumPlanningPanel({
           offset,
           limit: CANDIDATE_PAGE_LIMIT,
           ...(planVersion === undefined ? {} : { planVersion }),
+          ...(search === null ? {} : { search }),
         });
 
         if (initializedToken.current !== accessToken) {
@@ -141,6 +149,12 @@ export function CurriculumPlanningPanel({
     const tokenChanged = initializedToken.current !== token;
     initializedToken.current = token;
     initializedRevision.current = refreshRevision;
+
+    if (tokenChanged) {
+      currentSearch.current = null;
+      setSearchDraft("");
+    }
+
     void loadReadiness(token);
     void loadCandidatePage(token, tokenChanged ? "kanji" : currentItemType.current, 0);
   }, [loadCandidatePage, loadReadiness, refreshRevision, token]);
@@ -148,6 +162,27 @@ export function CurriculumPlanningPanel({
   const plan = candidatePlan.data;
   const currentPageKey = plan === null ? null : candidatePlanPageKey(plan);
   const confirmingEnqueue = currentPageKey !== null && enqueuePageKey === currentPageKey;
+
+  function handleSearch(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    const search = searchDraft.trim() || null;
+
+    currentSearch.current = search;
+    setSearchDraft(search ?? "");
+    setEnqueuePageKey(null);
+    setEnqueueError(null);
+    setEnqueueFeedback(null);
+    void loadCandidatePage(token, itemType, 0, plan?.planVersion, search);
+  }
+
+  function clearSearch(): void {
+    currentSearch.current = null;
+    setSearchDraft("");
+    setEnqueuePageKey(null);
+    setEnqueueError(null);
+    setEnqueueFeedback(null);
+    void loadCandidatePage(token, itemType, 0, plan?.planVersion, null);
+  }
 
   async function handleReviewCandidate(
     candidate: AdminCurriculumCandidatePlanItemDto,
@@ -325,6 +360,53 @@ export function CurriculumPlanningPanel({
           </div>
         </div>
 
+        <form className="admin-plan-search" onSubmit={handleSearch} role="search">
+          <label htmlFor="admin-candidate-plan-search">Поиск в плане</label>
+          <div>
+            <input
+              disabled={
+                disabled ||
+                candidatePlan.status === "loading" ||
+                loadingCandidateKey !== null ||
+                enqueueStatus === "submitting"
+              }
+              id="admin-candidate-plan-search"
+              maxLength={80}
+              onChange={(event) => setSearchDraft(event.currentTarget.value)}
+              placeholder="Кандзи, слово, чтение или target ID"
+              type="search"
+              value={searchDraft}
+            />
+            <button
+              className="primary-action"
+              disabled={
+                disabled ||
+                candidatePlan.status === "loading" ||
+                loadingCandidateKey !== null ||
+                enqueueStatus === "submitting"
+              }
+              type="submit"
+            >
+              Найти
+            </button>
+            {searchDraft === "" && (plan?.page.search ?? null) === null ? null : (
+              <button
+                className="secondary-action"
+                disabled={
+                  disabled ||
+                  candidatePlan.status === "loading" ||
+                  loadingCandidateKey !== null ||
+                  enqueueStatus === "submitting"
+                }
+                onClick={clearSearch}
+                type="button"
+              >
+                Сбросить
+              </button>
+            )}
+          </div>
+        </form>
+
         {candidatePlan.error === null ? null : (
           <div className="admin-plan-error">
             <p className="form-error">{candidatePlan.error}</p>
@@ -408,7 +490,11 @@ export function CurriculumPlanningPanel({
             </div>
 
             {plan.candidates.length === 0 ? (
-              <p className="muted">На этой странице кандидатов нет.</p>
+              <p className="muted">
+                {plan.page.search === null
+                  ? "На этой странице кандидатов нет."
+                  : `По запросу «${plan.page.search}» кандидаты не найдены.`}
+              </p>
             ) : (
               <>
                 <div className="admin-plan-batch-action">
@@ -494,6 +580,7 @@ export function CurriculumPlanningPanel({
                       itemType,
                       Math.max(0, plan.page.offset - plan.page.limit),
                       plan.planVersion,
+                      plan.page.search,
                     )
                   }
                   type="button"
@@ -513,6 +600,7 @@ export function CurriculumPlanningPanel({
                       itemType,
                       plan.page.offset + plan.page.limit,
                       plan.planVersion,
+                      plan.page.search,
                     )
                   }
                   type="button"
@@ -636,7 +724,7 @@ function CandidatePageEnqueueDialog({
 }
 
 function candidatePlanPageKey(plan: AdminCurriculumCandidatePlanResponse): string {
-  return `${plan.planVersion}:${plan.page.itemType}:${plan.page.offset}`;
+  return JSON.stringify([plan.planVersion, plan.page.itemType, plan.page.search, plan.page.offset]);
 }
 
 function formatEnqueueResult(enqueuedCount: number, alreadyQueuedCount: number): string {

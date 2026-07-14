@@ -141,6 +141,14 @@ The label and reading are resolved when the rejection list is read; they are not
 duplicated into the audit record. Restoring a target removes only the rejection
 decision and immediately recalculates the visible candidate queues and plan.
 
+Candidate-plan search runs against the complete retained plan snapshot before
+pagination, rather than filtering only the visible page. It matches Japanese
+writing, normalized hiragana/katakana readings, and exact source target ids.
+Search does not recalculate or reorder the curriculum: original selection ranks,
+the plan version, prerequisite decisions, and summary counts remain stable. A
+filtered page can therefore be inspected or staged under the same stale-plan
+and rejection protections as an unfiltered page.
+
 ## Main lesson flow
 
 Component, kanji, vocabulary, and sentence lessons use small groups of at most

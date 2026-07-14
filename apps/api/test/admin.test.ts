@@ -266,8 +266,24 @@ describe("AdminService", () => {
     });
     expect(repository.candidatePlanReads).toBe(1);
 
+    await expect(
+      adminService.getCandidatePlan({
+        itemType: "word",
+        search: "アリガトウ",
+        planVersion: firstPage.planVersion,
+      }),
+    ).resolves.toMatchObject({
+      planVersion: firstPage.planVersion,
+      page: { itemType: "word", search: "アリガトウ", offset: 0, total: 1, hasMore: false },
+      candidates: [{ selectionRank: 2, targetId: "plan-word-two", reading: "ありがとう" }],
+    });
+    expect(repository.candidatePlanReads).toBe(1);
+
     await expect(adminService.getCandidatePlan({ limit: "101" })).rejects.toThrow(
       "limit must be an integer from 1 to 100.",
+    );
+    await expect(adminService.getCandidatePlan({ search: "x".repeat(81) })).rejects.toThrow(
+      "search is too long.",
     );
     await expect(adminService.getCandidatePlan({ planVersion: "expired-version" })).rejects.toThrow(
       "Candidate plan data changed",

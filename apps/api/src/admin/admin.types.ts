@@ -68,6 +68,7 @@ export type AdminReviewQueuePageResult = {
 
 export type NormalizedAdminCandidatePlanFilters = {
   readonly itemType: "kanji" | "word";
+  readonly search: string | null;
   readonly offset: number;
   readonly limit: number;
   readonly planVersion: string | null;

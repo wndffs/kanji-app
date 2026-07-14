@@ -121,3 +121,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 39. Task 79 (completed): keep the editorial queue synchronized after curation saves.
 40. Task 80 (completed): persist reversible imported-candidate rejection decisions.
 41. Task 81 (completed): manage candidate rejection and restoration in the admin workspace.
+42. Task 82 (completed): search the full versioned candidate plan from the admin workspace.

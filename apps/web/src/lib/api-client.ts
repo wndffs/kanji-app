@@ -330,7 +330,9 @@ export function getAdminCandidatePlan(
     readonly offset?: number;
     readonly limit?: number;
     readonly planVersion?: string;
+    readonly search?: string;
   },
+  fetchImpl?: typeof fetch,
 ): Promise<AdminCurriculumCandidatePlanResponse> {
   const params = new URLSearchParams({ itemType: query.itemType });
 
@@ -346,9 +348,13 @@ export function getAdminCandidatePlan(
     params.set("planVersion", query.planVersion);
   }
 
+  if (query.search !== undefined) {
+    params.set("search", query.search);
+  }
+
   return apiRequest<AdminCurriculumCandidatePlanResponse>(
     `/admin/curriculum/candidate-plan?${params.toString()}`,
-    { token },
+    { token, fetchImpl },
   );
 }
 

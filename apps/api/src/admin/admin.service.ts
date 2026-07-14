@@ -60,6 +60,7 @@ const MAX_CANDIDATE_REJECTION_NOTE_LENGTH = 500;
 const MAX_TEXT_BODY_LENGTH = 4_000;
 const DEFAULT_CANDIDATE_PLAN_PAGE_LIMIT = 50;
 const MAX_CANDIDATE_PLAN_PAGE_LIMIT = 100;
+const MAX_CANDIDATE_PLAN_SEARCH_LENGTH = 80;
 const DEFAULT_REVIEW_QUEUE_PAGE_LIMIT = 20;
 const MAX_REVIEW_QUEUE_PAGE_LIMIT = 50;
 
@@ -174,8 +175,13 @@ export class AdminService {
   async getCandidatePlan(query: unknown = {}): Promise<AdminCurriculumCandidatePlanResponse> {
     const filters = parseCandidatePlanFilters(query);
     const entry = await this.resolveCandidatePlan(filters.planVersion);
-
-    const candidates = entry.plan.candidates[filters.itemType];
+    const candidateSearch = filters.search;
+    const candidates =
+      candidateSearch === null
+        ? entry.plan.candidates[filters.itemType]
+        : entry.plan.candidates[filters.itemType].filter((candidate) =>
+            matchesCandidatePlanSearch(candidate, candidateSearch),
+          );
     const pageCandidates = candidates.slice(filters.offset, filters.offset + filters.limit);
 
     return {
@@ -184,6 +190,7 @@ export class AdminService {
       summary: entry.plan.summary,
       page: {
         itemType: filters.itemType,
+        search: filters.search,
         offset: filters.offset,
         limit: filters.limit,
         total: candidates.length,
@@ -472,8 +479,13 @@ function parseCandidatePlanFilters(query: unknown): NormalizedAdminCandidatePlan
     throw new BadRequestException("itemType must be kanji or word.");
   }
 
+  const search = parseOptionalString(record.search, "search", {
+    maxLength: MAX_CANDIDATE_PLAN_SEARCH_LENGTH,
+  });
+
   return {
     itemType,
+    search: search === "" ? null : search,
     offset: parseBoundedNonNegativeInteger(record.offset, "offset", 0, Number.MAX_SAFE_INTEGER),
     limit: parseBoundedNonNegativeInteger(
       record.limit,
@@ -487,6 +499,22 @@ function parseCandidatePlanFilters(query: unknown): NormalizedAdminCandidatePlan
         ? null
         : parseRequiredString(record.planVersion, "planVersion", { maxLength: 128 }),
   };
+}
+
+function matchesCandidatePlanSearch(
+  candidate: AdminCurriculumCandidatePlanItemDto,
+  search: string,
+): boolean {
+  const normalizedSearch = normalizeJapaneseReading(search);
+  const normalizedJapanese = normalizeJapaneseReading(candidate.japanese);
+  const normalizedReading =
+    candidate.reading === null ? null : normalizeJapaneseReading(candidate.reading);
+
+  return (
+    normalizedJapanese.includes(normalizedSearch) ||
+    normalizedReading?.includes(normalizedSearch) === true ||
+    candidate.targetId === search
+  );
 }
 
 function parseCandidatePlanEnqueueRequest(body: unknown): NormalizedAdminCandidatePlanEnqueueInput {

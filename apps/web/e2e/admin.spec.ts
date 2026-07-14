@@ -164,6 +164,27 @@ test.describe("admin curation", () => {
     await expect(page.locator(".admin-item-header")).toContainText("опубликовано");
   });
 
+  test("admin searches the full candidate plan across item types", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await mockAdminApi(page);
+
+    await page.goto("/admin");
+
+    const candidatePlan = page.getByTestId("admin-candidate-plan");
+    const search = candidatePlan.getByLabel("Поиск в плане");
+    await search.fill("水");
+    await candidatePlan.getByRole("button", { name: "Найти" }).click();
+    await expect(candidatePlan).toContainText("По запросу «水» кандидаты не найдены.");
+
+    await candidatePlan.getByRole("button", { name: "Слова" }).click();
+    await expect(search).toHaveValue("水");
+    await expect(candidatePlan.getByRole("button", { name: "Проверить 水" })).toBeVisible();
+
+    await candidatePlan.getByRole("button", { name: "Сбросить" }).click();
+    await expect(search).toHaveValue("");
+    await expect(candidatePlan).toContainText(/1–1 из 7.?996/u);
+  });
+
   test("admin can curate a candidate selected from the full curriculum plan", async ({ page }) => {
     await signIn(page, "ADMIN");
     await mockAdminApi(page);
@@ -455,6 +476,7 @@ async function mockAdminApi(
     }
 
     const itemType = url.searchParams.get("itemType") === "word" ? "word" : "kanji";
+    const search = url.searchParams.get("search")?.trim() || null;
 
     if (itemType === "word" && url.searchParams.get("planVersion") !== "plan-version-one") {
       await route.fulfill({ status: 409, json: { message: "Candidate plan data changed." } });
@@ -463,6 +485,30 @@ async function mockAdminApi(
 
     const targetId = itemType === "kanji" ? "plan-kanji-one" : "plan-word-water";
     const candidateAssigned = assignedPlanTargets.has(`${itemType}:${targetId}`);
+    const candidate: AdminCurriculumCandidatePlanResponse["candidates"][number] = {
+      selectionRank: 1,
+      targetId,
+      itemType,
+      japanese: itemType === "kanji" ? "一" : "水",
+      reading: itemType === "kanji" ? "いち" : "みず",
+      score: 100,
+      sourcePriority: 1,
+      sourceName: itemType === "kanji" ? "KANJIDIC2" : "JMdict",
+      suggestedBand: "n5",
+      prerequisiteKanji: itemType === "kanji" ? [] : ["水"],
+      coverage: {
+        russianMeaning: itemType === "word",
+        englishMeaning: true,
+        reading: true,
+        strokeData: itemType === "kanji" ? true : null,
+      },
+    };
+    const candidateMatches =
+      search === null ||
+      candidate.japanese.includes(search) ||
+      candidate.reading?.includes(search) === true ||
+      candidate.targetId.includes(search);
+    const candidateVisible = !candidateAssigned && candidateMatches;
     const response: AdminCurriculumCandidatePlanResponse = {
       planVersion: "plan-version-one",
       generatedAt: "2026-07-13T12:01:00.000Z",
@@ -486,31 +532,19 @@ async function mockAdminApi(
       },
       page: {
         itemType,
+        search,
         offset: 0,
         limit: 20,
-        total: candidateAssigned ? 0 : itemType === "kanji" ? 2_298 : 7_996,
-        hasMore: !candidateAssigned,
+        total: candidateVisible
+          ? search === null
+            ? itemType === "kanji"
+              ? 2_298
+              : 7_996
+            : 1
+          : 0,
+        hasMore: search === null && candidateVisible,
       },
-      candidates: [
-        {
-          selectionRank: 1,
-          targetId,
-          itemType,
-          japanese: itemType === "kanji" ? "一" : "水",
-          reading: itemType === "kanji" ? "いち" : "みず",
-          score: 100,
-          sourcePriority: 1,
-          sourceName: itemType === "kanji" ? "KANJIDIC2" : "JMdict",
-          suggestedBand: "n5",
-          prerequisiteKanji: itemType === "kanji" ? [] : ["水"],
-          coverage: {
-            russianMeaning: itemType === "word",
-            englishMeaning: true,
-            reading: true,
-            strokeData: itemType === "kanji" ? true : null,
-          },
-        } satisfies AdminCurriculumCandidatePlanResponse["candidates"][number],
-      ].filter(() => !candidateAssigned),
+      candidates: candidateVisible ? [candidate] : [],
     };
 
     await route.fulfill({ json: response });

@@ -34,6 +34,11 @@ Rejected targets disappear from active candidate queues immediately and remain
 visible in a dated decision list with their Japanese text, reading, reason, and
 a restore action. Restoration refreshes the candidate queues and plan without
 requiring a browser reload.
+The full candidate-plan panel searches its retained snapshot by Japanese text,
+kana reading, or target id before pagination. The active query survives item
+type switches, page navigation, and plan refreshes, while reset returns to the
+unfiltered versioned plan. Empty search results are distinct from an exhausted
+unfiltered page.
 
 ## MVP review UX
 

@@ -999,6 +999,7 @@ export type AdminCurriculumCandidatePlanResponse = {
   readonly summary: AdminCurriculumCandidatePlanSummaryDto;
   readonly page: {
     readonly itemType: "kanji" | "word";
+    readonly search: string | null;
     readonly offset: number;
     readonly limit: number;
     readonly total: number;

@@ -5,6 +5,7 @@ import {
   apiRequest,
   createTextDeck,
   enqueueAdminCandidatePlan,
+  getAdminCandidatePlan,
   getAdminImportedCandidateRejections,
   getAdminReviewQueueWithFilters,
   rejectAdminImportedCandidate,
@@ -226,6 +227,43 @@ describe("apiRequest", () => {
     ).resolves.toEqual({ items: [], pagination: { limit: 20, nextCursor: null } });
     expect(capturedInput).toBe(
       "http://localhost:3001/admin/items/review-queue?status=needs-review&cursor=next-page&limit=20",
+    );
+  });
+
+  it("encodes a stable candidate-plan search request", async () => {
+    let capturedInput: RequestInfo | URL | null = null;
+    const fetchImpl: typeof fetch = async (input) => {
+      capturedInput = input;
+      return Response.json({
+        planVersion: "plan-version-one",
+        generatedAt: "2026-07-14T08:00:00.000Z",
+        summary: {},
+        page: {
+          itemType: "kanji",
+          search: "イチ",
+          offset: 0,
+          limit: 20,
+          total: 1,
+          hasMore: false,
+        },
+        candidates: [],
+      });
+    };
+
+    await getAdminCandidatePlan(
+      "token-1",
+      {
+        itemType: "kanji",
+        offset: 0,
+        limit: 20,
+        planVersion: "plan-version-one",
+        search: "イチ",
+      },
+      fetchImpl,
+    );
+
+    expect(capturedInput).toBe(
+      "http://localhost:3001/admin/curriculum/candidate-plan?itemType=kanji&offset=0&limit=20&planVersion=plan-version-one&search=%E3%82%A4%E3%83%81",
     );
   });
 
