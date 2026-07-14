@@ -5,7 +5,10 @@ import {
   apiRequest,
   createTextDeck,
   enqueueAdminCandidatePlan,
+  getAdminImportedCandidateRejections,
   getAdminReviewQueueWithFilters,
+  rejectAdminImportedCandidate,
+  restoreAdminImportedCandidate,
   searchItems,
   updateDeckStatus,
 } from "../src/lib/api-client";
@@ -224,5 +227,49 @@ describe("apiRequest", () => {
     expect(capturedInput).toBe(
       "http://localhost:3001/admin/items/review-queue?status=needs-review&cursor=next-page&limit=20",
     );
+  });
+
+  it("lists, rejects, and restores imported candidates through typed admin routes", async () => {
+    const requests: { readonly input: string; readonly init: RequestInit | undefined }[] = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      requests.push({ input: String(input), init });
+
+      if (init?.method === "PUT") {
+        return Response.json({
+          id: "rejection-1",
+          targetType: "word",
+          targetId: "word/one",
+          reason: "data-quality",
+          note: "Broken source row.",
+          rejectedByUserId: "admin-1",
+          createdAt: "2026-07-14T08:00:00.000Z",
+          updatedAt: "2026-07-14T08:00:00.000Z",
+        });
+      }
+
+      if (init?.method === "DELETE") {
+        return Response.json({ targetType: "word", targetId: "word/one", restored: true });
+      }
+
+      return Response.json({ rejections: [] });
+    };
+    const rejectionInput = { reason: "data-quality" as const, note: "Broken source row." };
+
+    await expect(getAdminImportedCandidateRejections("token-1", fetchImpl)).resolves.toEqual({
+      rejections: [],
+    });
+    await expect(
+      rejectAdminImportedCandidate("token-1", "word", "word/one", rejectionInput, fetchImpl),
+    ).resolves.toMatchObject({ reason: "data-quality", note: "Broken source row." });
+    await expect(
+      restoreAdminImportedCandidate("token-1", "word", "word/one", fetchImpl),
+    ).resolves.toEqual({ targetType: "word", targetId: "word/one", restored: true });
+
+    expect(requests.map((request) => [request.input, request.init?.method ?? "GET"])).toEqual([
+      ["http://localhost:3001/admin/imported-candidates/rejections", "GET"],
+      ["http://localhost:3001/admin/imported-candidates/word/word%2Fone/rejection", "PUT"],
+      ["http://localhost:3001/admin/imported-candidates/word/word%2Fone/rejection", "DELETE"],
+    ]);
+    expect(requests[1]?.init?.body).toBe(JSON.stringify(rejectionInput));
   });
 });

@@ -12,6 +12,9 @@ import {
   type AdminImportRunSummaryDto,
   type AdminImportedCandidateDto,
   type AdminImportedCandidateDetailsDto,
+  type AdminImportedCandidateRejectionDto,
+  type AdminImportedCandidateRejectionListItemDto,
+  type AdminImportedCandidateRejectionReason,
   type AdminReviewQueueFilters,
   type AdminReviewQueueItemDto,
   type AdminReviewQueueResponse,
@@ -27,12 +30,19 @@ import {
   getAdminImportRuns,
   getAdminImportedCandidateDetails,
   getAdminImportedCandidates,
+  getAdminImportedCandidateRejections,
   getAdminReviewQueueWithFilters,
   promoteAdminImportedCandidate,
+  rejectAdminImportedCandidate,
+  restoreAdminImportedCandidate,
   updateAdminCardAnswers,
   updateAdminItem,
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
+import {
+  CandidateRejectionControls,
+  type CandidateRejectionTarget,
+} from "./CandidateRejectionControls";
 import { CurriculumPlanningPanel } from "./CurriculumPlanningPanel";
 
 type AdminState =
@@ -47,6 +57,7 @@ type AdminState =
       readonly queue: readonly AdminReviewQueueItemDto[];
       readonly queuePagination: AdminReviewQueueResponse["pagination"];
       readonly importedCandidates: readonly AdminImportedCandidateDto[];
+      readonly candidateRejections: readonly AdminImportedCandidateRejectionListItemDto[];
       readonly importRuns: readonly AdminImportRunSummaryDto[];
       readonly report: AdminCurriculumCompletenessReportDto;
       readonly item: AdminCurationItemDto | null;
@@ -146,15 +157,17 @@ export function AdminClient() {
     setStatusMessage(null);
 
     try {
-      const [queue, importRuns, importedCandidates, report] = await Promise.all([
-        getAdminReviewQueueWithFilters(session.token, {
-          ...toApiFilters(filters),
-          limit: ADMIN_REVIEW_QUEUE_PAGE_LIMIT,
-        }),
-        getAdminImportRuns(session.token),
-        getAdminImportedCandidates(session.token),
-        getAdminCompletenessReport(session.token),
-      ]);
+      const [queue, importRuns, importedCandidates, candidateRejections, report] =
+        await Promise.all([
+          getAdminReviewQueueWithFilters(session.token, {
+            ...toApiFilters(filters),
+            limit: ADMIN_REVIEW_QUEUE_PAGE_LIMIT,
+          }),
+          getAdminImportRuns(session.token),
+          getAdminImportedCandidates(session.token),
+          getAdminImportedCandidateRejections(session.token),
+          getAdminCompletenessReport(session.token),
+        ]);
       const firstItem =
         queue.items.length === 0
           ? null
@@ -174,6 +187,7 @@ export function AdminClient() {
         queue: queue.items,
         queuePagination: queue.pagination,
         importedCandidates: importedCandidates.candidates,
+        candidateRejections: candidateRejections.rejections,
         importRuns: importRuns.importRuns,
         report,
         item: firstItem,
@@ -607,6 +621,163 @@ export function AdminClient() {
       setStatusMessage("Перевод подтверждён и добавлен в кураторскую очередь.");
     } catch (error: unknown) {
       setFormError(error instanceof Error ? error.message : "Не удалось подтвердить перевод.");
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  async function handleRejectCandidate(
+    candidate: CandidateRejectionTarget,
+    reason: AdminImportedCandidateRejectionReason,
+    note: string | null,
+  ): Promise<boolean> {
+    if (state.status !== "ready" || savingKey !== null) {
+      return false;
+    }
+
+    setSavingKey("candidate-rejection");
+    setFormError(null);
+    setStatusMessage(null);
+
+    let rejection: AdminImportedCandidateRejectionDto;
+
+    try {
+      rejection = await rejectAdminImportedCandidate(
+        state.token,
+        candidate.itemType,
+        candidate.targetId,
+        { reason, note },
+      );
+    } catch (error: unknown) {
+      setFormError(error instanceof Error ? error.message : "Не удалось отклонить кандидата.");
+      setSavingKey(null);
+      return false;
+    }
+
+    const remainingCandidates = state.importedCandidates.filter(
+      (item) => item.itemType !== candidate.itemType || item.targetId !== candidate.targetId,
+    );
+    const nextCandidate = remainingCandidates.find(isBilingualCandidate);
+    const localRejection: AdminImportedCandidateRejectionListItemDto = {
+      ...rejection,
+      japanese: candidate.japanese,
+      reading: candidate.reading,
+    };
+
+    setState({
+      ...state,
+      importedCandidates: remainingCandidates,
+      candidateRejections: [
+        localRejection,
+        ...state.candidateRejections.filter((item) => item.id !== localRejection.id),
+      ],
+    });
+    setTranslationDetails(null);
+    setTranslationDraft(
+      nextCandidate === undefined
+        ? EMPTY_TRANSLATION_REVIEW_DRAFT
+        : buildTranslationReviewDraftFromCandidate(nextCandidate),
+    );
+    setPlanningRevision((previous) => previous + 1);
+    setStatusMessage(`Кандидат ${candidate.japanese} отклонён и исключён из новых планов.`);
+
+    try {
+      const [importedCandidates, candidateRejections] = await Promise.all([
+        getAdminImportedCandidates(state.token),
+        getAdminImportedCandidateRejections(state.token),
+      ]);
+      const refreshedNextCandidate = importedCandidates.candidates.find(isBilingualCandidate);
+
+      setState((current) =>
+        current.status === "ready"
+          ? {
+              ...current,
+              importedCandidates: importedCandidates.candidates,
+              candidateRejections: candidateRejections.rejections,
+            }
+          : current,
+      );
+      setTranslationDraft(
+        refreshedNextCandidate === undefined
+          ? EMPTY_TRANSLATION_REVIEW_DRAFT
+          : buildTranslationReviewDraftFromCandidate(refreshedNextCandidate),
+      );
+    } catch (error: unknown) {
+      setFormError(
+        `Решение сохранено, но списки не обновились: ${error instanceof Error ? error.message : "неизвестная ошибка"}`,
+      );
+    } finally {
+      setSavingKey(null);
+    }
+
+    return true;
+  }
+
+  async function handleRestoreCandidate(
+    rejection: AdminImportedCandidateRejectionListItemDto,
+  ): Promise<void> {
+    if (state.status !== "ready" || savingKey !== null) {
+      return;
+    }
+
+    setSavingKey(`candidate-restore:${rejection.id}`);
+    setFormError(null);
+    setStatusMessage(null);
+
+    try {
+      const result = await restoreAdminImportedCandidate(
+        state.token,
+        rejection.targetType,
+        rejection.targetId,
+      );
+
+      setState((current) =>
+        current.status === "ready"
+          ? {
+              ...current,
+              candidateRejections: current.candidateRejections.filter(
+                (item) => item.id !== rejection.id,
+              ),
+            }
+          : current,
+      );
+      setPlanningRevision((previous) => previous + 1);
+      setStatusMessage(
+        result.restored
+          ? `Кандидат ${rejection.japanese ?? rejection.targetId} восстановлен.`
+          : "Кандидат уже был восстановлен.",
+      );
+
+      try {
+        const [importedCandidates, candidateRejections] = await Promise.all([
+          getAdminImportedCandidates(state.token),
+          getAdminImportedCandidateRejections(state.token),
+        ]);
+
+        setState((current) =>
+          current.status === "ready"
+            ? {
+                ...current,
+                importedCandidates: importedCandidates.candidates,
+                candidateRejections: candidateRejections.rejections,
+              }
+            : current,
+        );
+
+        if (translationDraft.targetId === "") {
+          const nextCandidate = importedCandidates.candidates.find(isBilingualCandidate);
+
+          if (nextCandidate !== undefined) {
+            setTranslationDraft(buildTranslationReviewDraftFromCandidate(nextCandidate));
+          }
+        }
+      } catch (error: unknown) {
+        setFormError(
+          `Кандидат восстановлен, но списки не обновились: ${error instanceof Error ? error.message : "неизвестная ошибка"}`,
+        );
+      }
+    } catch (error: unknown) {
+      setFormError(error instanceof Error ? error.message : "Не удалось восстановить кандидата.");
     } finally {
       setSavingKey(null);
     }
@@ -1096,6 +1267,19 @@ export function AdminClient() {
             </form>
           </div>
         )}
+
+        <CandidateRejectionControls
+          candidate={activeTranslationSource}
+          disabled={savingKey !== null}
+          onReject={handleRejectCandidate}
+          onRestore={handleRestoreCandidate}
+          rejections={state.candidateRejections}
+          restoringId={
+            savingKey?.startsWith("candidate-restore:") === true
+              ? savingKey.slice("candidate-restore:".length)
+              : null
+          }
+        />
       </section>
 
       <div className="admin-layout">

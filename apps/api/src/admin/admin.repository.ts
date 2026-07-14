@@ -13,6 +13,7 @@ import {
   type AdminImportedCandidateDto,
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateRejectionDto,
+  type AdminImportedCandidateRejectionListItemDto,
   type AdminReviewQueueItemDto,
   type CardAnswerType,
   type CardPromptType,
@@ -59,7 +60,7 @@ export abstract class AdminRepository {
     targetId: string,
   ): Promise<AdminImportedCandidateDetailsDto | null>;
   abstract listImportedCandidateRejections(): Promise<
-    readonly AdminImportedCandidateRejectionDto[]
+    readonly AdminImportedCandidateRejectionListItemDto[]
   >;
   abstract findRejectedCandidateKeys(
     candidates: readonly AdminImportedCandidateTargetInput[],
@@ -360,12 +361,66 @@ export class PrismaAdminRepository extends AdminRepository {
     return runs.map((run) => toImportRunSummary(run, run._count.records));
   }
 
-  async listImportedCandidateRejections(): Promise<readonly AdminImportedCandidateRejectionDto[]> {
+  async listImportedCandidateRejections(): Promise<
+    readonly AdminImportedCandidateRejectionListItemDto[]
+  > {
     const rows = (await this.prisma.db.importedCandidateRejection.findMany({
       orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
     })) as unknown as readonly ImportedCandidateRejectionRow[];
 
-    return rows.map(toImportedCandidateRejectionDto);
+    const kanjiIds = rows.filter((row) => row.targetType === "KANJI").map((row) => row.targetId);
+    const wordIds = rows.filter((row) => row.targetType === "WORD").map((row) => row.targetId);
+    const [kanjiRows, wordRows] = await Promise.all([
+      kanjiIds.length === 0
+        ? []
+        : this.prisma.db.kanji.findMany({
+            where: { id: { in: kanjiIds } },
+            select: {
+              id: true,
+              character: true,
+              readings: {
+                orderBy: [{ priority: "asc" }, { reading: "asc" }],
+                take: 1,
+                select: { reading: true },
+              },
+            },
+          }),
+      wordIds.length === 0
+        ? []
+        : this.prisma.db.word.findMany({
+            where: { id: { in: wordIds } },
+            select: { id: true, expression: true, reading: true },
+          }),
+    ]);
+    const targets = new Map<string, { readonly japanese: string; readonly reading: string | null }>(
+      [
+        ...kanjiRows.map(
+          (kanji) =>
+            [
+              importedCandidateKey("kanji", kanji.id),
+              { japanese: kanji.character, reading: kanji.readings[0]?.reading ?? null },
+            ] as const,
+        ),
+        ...wordRows.map(
+          (word) =>
+            [
+              importedCandidateKey("word", word.id),
+              { japanese: word.expression, reading: word.reading },
+            ] as const,
+        ),
+      ],
+    );
+
+    return rows.map((row) => {
+      const rejection = toImportedCandidateRejectionDto(row);
+      const target = targets.get(importedCandidateKey(rejection.targetType, rejection.targetId));
+
+      return {
+        ...rejection,
+        japanese: target?.japanese ?? null,
+        reading: target?.reading ?? null,
+      };
+    });
   }
 
   async findRejectedCandidateKeys(

@@ -225,6 +225,8 @@ describe("shared DTO contracts", () => {
           id: "rejection-1",
           targetType: "word",
           targetId: "word-1",
+          japanese: "水",
+          reading: "みず",
           reason: "data-quality",
           note: "Source row needs correction.",
           rejectedByUserId: "admin-1",

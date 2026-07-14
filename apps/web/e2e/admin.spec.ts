@@ -11,6 +11,8 @@ import {
   type AdminImportRunListResponse,
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateListResponse,
+  type AdminImportedCandidateRejectionListResponse,
+  type AdminRejectImportedCandidateRequest,
   type AdminReviewQueueResponse,
   type AdminUpdateItemRequest,
 } from "@kanji-srs/shared";
@@ -77,6 +79,36 @@ test.describe("admin curation", () => {
       page.getByText("Перевод подтверждён и добавлен в кураторскую очередь."),
     ).toBeVisible();
     await expect(review).toContainText("Кандидатов с русским и английским переводом пока нет.");
+  });
+
+  test("admin can reject and restore an imported candidate", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await mockAdminApi(page);
+
+    await page.goto("/admin");
+
+    const review = page.getByTestId("admin-translation-review");
+    const decisions = page.getByTestId("admin-candidate-decisions");
+    await decisions.getByRole("button", { name: "Отклонить кандидата" }).click();
+
+    const dialog = page.getByRole("dialog", { name: "Отклонить кандидата?" });
+    await expect(dialog).toContainText("水 · みず");
+    await expect(dialog.getByRole("button", { name: "Отмена" })).toBeFocused();
+    await dialog.getByLabel("Причина").selectOption("data-quality");
+    await dialog.getByLabel(/Заметка/).fill("Проверить русский перевод.");
+    await dialog.getByRole("button", { name: "Отклонить", exact: true }).click();
+
+    await expect(dialog).toHaveCount(0);
+    await expect(review).toContainText("Кандидатов с русским и английским переводом пока нет.");
+    await expect(decisions).toContainText("Проблема исходных данных");
+    await expect(decisions).toContainText("Проверить русский перевод.");
+    await expect(decisions).toContainText("水");
+
+    await decisions.getByRole("button", { name: "Восстановить" }).click();
+
+    await expect(decisions).toContainText("Отклонённых кандидатов нет.");
+    await expect(review).toContainText("Импорт RU");
+    await expect(review).toContainText("вода");
   });
 
   test("admin pages through the review queue without duplicate items", async ({ page }) => {
@@ -234,29 +266,29 @@ async function mockAdminApi(
   const secondItem = buildSecondAdminItem();
   const assignedPlanTargets = new Set<string>();
   let remainingEnqueueConflicts = options.enqueueConflictOnce === true ? 1 : 0;
-  let importedCandidates: AdminImportedCandidateListResponse["candidates"] = [
-    {
-      rank: 1,
-      score: 100,
-      targetId: "target-imported-word",
-      itemType: "word",
-      japanese: "水",
-      reading: "みず",
-      meanings: { ru: ["вода"], en: ["water"] },
-      jlptLevel: null,
-      sourcePriority: 1_000,
-      sourceName: "JMdict",
-      suggestedBand: "n5",
-      suggestedTitle: "Слово 水",
-      reasons: [
-        { code: "source-priority", points: 55 },
-        { code: "ru-coverage", points: 15 },
-        { code: "en-coverage", points: 15 },
-        { code: "reading", points: 10 },
-        { code: "kanji-orthography", points: 5 },
-      ],
-    },
-  ];
+  const importedCandidate: AdminImportedCandidateListResponse["candidates"][number] = {
+    rank: 1,
+    score: 100,
+    targetId: "target-imported-word",
+    itemType: "word",
+    japanese: "水",
+    reading: "みず",
+    meanings: { ru: ["вода"], en: ["water"] },
+    jlptLevel: null,
+    sourcePriority: 1_000,
+    sourceName: "JMdict",
+    suggestedBand: "n5",
+    suggestedTitle: "Слово 水",
+    reasons: [
+      { code: "source-priority", points: 55 },
+      { code: "ru-coverage", points: 15 },
+      { code: "en-coverage", points: 15 },
+      { code: "reading", points: 10 },
+      { code: "kanji-orthography", points: 5 },
+    ],
+  };
+  let importedCandidates: AdminImportedCandidateListResponse["candidates"] = [importedCandidate];
+  let candidateRejections: AdminImportedCandidateRejectionListResponse["rejections"] = [];
 
   await page.route(`${API_BASE_URL}/admin/items/review-queue**`, async (route) => {
     if (options.failQueueRefreshAfterItemSave === true && itemWasSaved) {
@@ -514,6 +546,74 @@ async function mockAdminApi(
     };
 
     await route.fulfill({ json: response });
+  });
+
+  await page.route(`${API_BASE_URL}/admin/imported-candidates/rejections`, async (route) => {
+    const response: AdminImportedCandidateRejectionListResponse = {
+      rejections: candidateRejections,
+    };
+
+    await route.fulfill({ json: response });
+  });
+
+  await page.route(`${API_BASE_URL}/admin/imported-candidates/**/rejection`, async (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname.split("/");
+    const targetType = path.at(-3) === "kanji" ? "kanji" : "word";
+    const targetId = path.at(-2) ?? "";
+
+    if (route.request().method() === "PUT") {
+      const body = route.request().postDataJSON() as AdminRejectImportedCandidateRequest;
+      const now = "2026-07-14T08:00:00.000Z";
+      const source = importedCandidates.find(
+        (candidate) => candidate.itemType === targetType && candidate.targetId === targetId,
+      );
+
+      candidateRejections = [
+        {
+          id: `rejection-${targetId}`,
+          targetType,
+          targetId,
+          japanese: source?.japanese ?? null,
+          reading: source?.reading ?? null,
+          reason: body.reason,
+          note: body.note ?? null,
+          rejectedByUserId: "admin-1",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ];
+      importedCandidates = importedCandidates.filter(
+        (candidate) => candidate.itemType !== targetType || candidate.targetId !== targetId,
+      );
+
+      const saved = candidateRejections[0]!;
+      await route.fulfill({
+        json: {
+          id: saved.id,
+          targetType: saved.targetType,
+          targetId: saved.targetId,
+          reason: saved.reason,
+          note: saved.note,
+          rejectedByUserId: saved.rejectedByUserId,
+          createdAt: saved.createdAt,
+          updatedAt: saved.updatedAt,
+        },
+      });
+      return;
+    }
+
+    candidateRejections = candidateRejections.filter(
+      (rejection) => rejection.targetType !== targetType || rejection.targetId !== targetId,
+    );
+
+    if (
+      !importedCandidates.some((candidate) => candidate.targetId === importedCandidate.targetId)
+    ) {
+      importedCandidates = [importedCandidate, ...importedCandidates];
+    }
+
+    await route.fulfill({ json: { targetType, targetId, restored: true } });
   });
 
   await page.route(

@@ -716,8 +716,13 @@ export type AdminImportedCandidateRejectionDto = {
   readonly updatedAt: string;
 };
 
+export type AdminImportedCandidateRejectionListItemDto = AdminImportedCandidateRejectionDto & {
+  readonly japanese: string | null;
+  readonly reading: string | null;
+};
+
 export type AdminImportedCandidateRejectionListResponse = {
-  readonly rejections: readonly AdminImportedCandidateRejectionDto[];
+  readonly rejections: readonly AdminImportedCandidateRejectionListItemDto[];
 };
 
 export type AdminRejectImportedCandidateRequest = {

@@ -135,6 +135,11 @@ note, timestamp, and admin user, then removes the target from ranked candidate
 lists, scale capacity, and newly generated plans. Reject and restore decisions
 change the plan version. A stale retained plan remains inspectable but cannot
 stage, promote, or approve a target that is currently rejected.
+The admin workspace exposes this decision through a destructive confirmation
+dialog and shows the current dictionary label rather than an opaque target id.
+The label and reading are resolved when the rejection list is read; they are not
+duplicated into the audit record. Restoring a target removes only the rejection
+decision and immediately recalculates the visible candidate queues and plan.
 
 ## Main lesson flow
 

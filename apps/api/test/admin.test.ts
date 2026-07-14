@@ -7,6 +7,7 @@ import {
   type AdminImportedCandidateDto,
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateRejectionDto,
+  type AdminImportedCandidateRejectionListItemDto,
 } from "@kanji-srs/shared";
 
 import { AdminRepository, PrismaAdminRepository } from "../src/admin/admin.repository";
@@ -506,6 +507,63 @@ describe("AdminService", () => {
     expect(deleteRejection).toHaveBeenCalledWith({
       where: { targetType: "WORD", targetId: "word-1" },
     });
+  });
+
+  it("resolves rejected candidate labels from current dictionary rows", async () => {
+    const listRejections = vi.fn().mockResolvedValue([
+      {
+        id: "rejection-kanji",
+        targetType: "KANJI",
+        targetId: "kanji-1",
+        reason: "OUT_OF_SCOPE",
+        note: null,
+        rejectedByUserId: "admin-1",
+        createdAt: new Date("2026-07-14T08:00:00.000Z"),
+        updatedAt: new Date("2026-07-14T08:00:00.000Z"),
+      },
+      {
+        id: "rejection-word",
+        targetType: "WORD",
+        targetId: "word-1",
+        reason: "DATA_QUALITY",
+        note: "Check the source row.",
+        rejectedByUserId: "admin-1",
+        createdAt: new Date("2026-07-14T07:00:00.000Z"),
+        updatedAt: new Date("2026-07-14T07:00:00.000Z"),
+      },
+    ]);
+    const listKanji = vi
+      .fn()
+      .mockResolvedValue([{ id: "kanji-1", character: "一", readings: [{ reading: "いち" }] }]);
+    const listWords = vi
+      .fn()
+      .mockResolvedValue([{ id: "word-1", expression: "水", reading: "みず" }]);
+    const repository = new PrismaAdminRepository({
+      db: {
+        importedCandidateRejection: { findMany: listRejections },
+        kanji: { findMany: listKanji },
+        word: { findMany: listWords },
+      },
+    } as never);
+
+    await expect(repository.listImportedCandidateRejections()).resolves.toEqual([
+      expect.objectContaining({
+        id: "rejection-kanji",
+        japanese: "一",
+        reading: "いち",
+      }),
+      expect.objectContaining({
+        id: "rejection-word",
+        japanese: "水",
+        reading: "みず",
+      }),
+    ]);
+    expect(listKanji).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: ["kanji-1"] } } }),
+    );
+    expect(listWords).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: ["word-1"] } } }),
+    );
   });
 
   it("promotes an import-derived target into a curated learning item", async () => {
@@ -1166,8 +1224,25 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
     };
   }
 
-  async listImportedCandidateRejections(): Promise<readonly AdminImportedCandidateRejectionDto[]> {
-    return [...this.candidateRejections.values()].sort(
+  async listImportedCandidateRejections(): Promise<
+    readonly AdminImportedCandidateRejectionListItemDto[]
+  > {
+    const rejections = await Promise.all(
+      [...this.candidateRejections.values()].map(async (rejection) => {
+        const target = await this.findImportedCandidateDetails(
+          rejection.targetType,
+          rejection.targetId,
+        );
+
+        return {
+          ...rejection,
+          japanese: target?.japanese ?? null,
+          reading: target?.reading ?? null,
+        };
+      }),
+    );
+
+    return rejections.sort(
       (left, right) =>
         right.updatedAt.localeCompare(left.updatedAt) || left.id.localeCompare(right.id),
     );

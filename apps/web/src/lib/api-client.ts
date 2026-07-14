@@ -9,7 +9,11 @@ import {
   type AdminImportRunListResponse,
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateListResponse,
+  type AdminImportedCandidateRejectionDto,
+  type AdminImportedCandidateRejectionListResponse,
   type AdminPromoteCandidateRequest,
+  type AdminRejectImportedCandidateRequest,
+  type AdminRestoreImportedCandidateResponse,
   type AdminReviewQueueFilters,
   type AdminReviewQueueResponse,
   type AdminUpdateCardAnswersRequest,
@@ -267,6 +271,41 @@ export function getAdminImportedCandidateDetails(
   return apiRequest<AdminImportedCandidateDetailsDto>(
     `/admin/imported-candidates/${encodeURIComponent(targetType)}/${encodeURIComponent(targetId)}`,
     { token },
+  );
+}
+
+export function getAdminImportedCandidateRejections(
+  token: string,
+  fetchImpl?: typeof fetch,
+): Promise<AdminImportedCandidateRejectionListResponse> {
+  return apiRequest<AdminImportedCandidateRejectionListResponse>(
+    "/admin/imported-candidates/rejections",
+    { token, fetchImpl },
+  );
+}
+
+export function rejectAdminImportedCandidate(
+  token: string,
+  targetType: "kanji" | "word",
+  targetId: string,
+  input: AdminRejectImportedCandidateRequest,
+  fetchImpl?: typeof fetch,
+): Promise<AdminImportedCandidateRejectionDto> {
+  return apiRequest<AdminImportedCandidateRejectionDto>(
+    `/admin/imported-candidates/${encodeURIComponent(targetType)}/${encodeURIComponent(targetId)}/rejection`,
+    { method: "PUT", token, body: input, fetchImpl },
+  );
+}
+
+export function restoreAdminImportedCandidate(
+  token: string,
+  targetType: "kanji" | "word",
+  targetId: string,
+  fetchImpl?: typeof fetch,
+): Promise<AdminRestoreImportedCandidateResponse> {
+  return apiRequest<AdminRestoreImportedCandidateResponse>(
+    `/admin/imported-candidates/${encodeURIComponent(targetType)}/${encodeURIComponent(targetId)}/rejection`,
+    { method: "DELETE", token, fetchImpl },
   );
 }
 

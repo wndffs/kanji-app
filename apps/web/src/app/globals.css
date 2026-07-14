@@ -2210,6 +2210,106 @@ textarea:focus-visible {
   gap: 12px;
 }
 
+.admin-candidate-decisions {
+  display: grid;
+  gap: 14px;
+  border-top: 1px solid var(--surface-border);
+  padding-top: 18px;
+}
+
+.admin-candidate-decisions-heading,
+.admin-candidate-rejection-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-candidate-decisions-heading h3,
+.admin-candidate-rejection-list-heading h4 {
+  margin: 0;
+}
+
+.admin-candidate-rejection-list-heading {
+  justify-content: flex-start;
+  border-top: 1px solid var(--surface-border);
+  padding-top: 14px;
+}
+
+.admin-candidate-rejection-list-heading strong {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-candidate-rejection-list {
+  max-height: 360px;
+  display: grid;
+  align-content: start;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-candidate-rejection-list li {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.65fr) minmax(180px, 1.4fr) minmax(110px, auto) auto;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--surface-border);
+  padding: 12px 0;
+}
+
+.admin-candidate-rejection-list li:first-child {
+  border-top: 0;
+}
+
+.admin-candidate-rejection-list li > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.admin-candidate-rejection-list li span,
+.admin-candidate-rejection-list time {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.admin-candidate-rejection-target strong {
+  font-size: 22px;
+}
+
+.admin-candidate-rejection-dialog label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.admin-candidate-rejection-dialog label > span {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-candidate-rejection-dialog select,
+.admin-candidate-rejection-dialog textarea {
+  width: 100%;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 9px 11px;
+  font: inherit;
+}
+
+.admin-candidate-rejection-dialog textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
 .admin-candidate-ranking {
   display: grid;
   gap: 10px;
@@ -3366,6 +3466,7 @@ textarea:focus-visible {
 
   .admin-planning-header,
   .admin-candidate-plan-heading,
+  .admin-candidate-decisions-heading,
   .admin-plan-pagination,
   .admin-plan-error {
     align-items: stretch;
@@ -3412,6 +3513,19 @@ textarea:focus-visible {
   .admin-plan-review {
     width: min(100%, 220px);
     justify-self: start;
+  }
+
+  .admin-candidate-decisions-heading .danger-action {
+    width: 100%;
+  }
+
+  .admin-candidate-rejection-list li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .admin-candidate-rejection-list li > div,
+  .admin-candidate-rejection-list li > time {
+    grid-column: 1 / -1;
   }
 
   .workload-panel > header {

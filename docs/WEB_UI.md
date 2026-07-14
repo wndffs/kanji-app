@@ -28,6 +28,12 @@ After an item or card save, the queue restarts from its first cursor page under
 the active filters. It keeps the saved item selected when it still matches and
 otherwise opens the next available item, while a post-save refresh failure is
 shown separately from the successful write.
+The same workspace can reject the currently inspected imported candidate only
+after an explicit confirmation with a constrained reason and optional note.
+Rejected targets disappear from active candidate queues immediately and remain
+visible in a dated decision list with their Japanese text, reading, reason, and
+a restore action. Restoration refreshes the candidate queues and plan without
+requiring a browser reload.
 
 ## MVP review UX
 
