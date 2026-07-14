@@ -66,6 +66,7 @@ export function CurriculumPlanningPanel({
   const initializedRevision = useRef<number | null>(null);
   const currentItemType = useRef<"kanji" | "word">("kanji");
   const currentFilters = useRef<CandidatePlanViewFilters>(EMPTY_CANDIDATE_PLAN_FILTERS);
+  const selectPageRef = useRef<HTMLInputElement>(null);
   const [readiness, setReadiness] =
     useState<ResourceState<AdminCurriculumScaleReadinessDto>>(EMPTY_RESOURCE);
   const [candidatePlan, setCandidatePlan] =
@@ -76,6 +77,7 @@ export function CurriculumPlanningPanel({
   const [coverageFilter, setCoverageFilter] = useState<"" | AdminCandidatePlanCoverageFilter>("");
   const [loadingCandidateKey, setLoadingCandidateKey] = useState<string | null>(null);
   const [candidateSelectionError, setCandidateSelectionError] = useState<string | null>(null);
+  const [selectedCandidateKeys, setSelectedCandidateKeys] = useState<readonly string[]>([]);
   const [enqueuePageKey, setEnqueuePageKey] = useState<string | null>(null);
   const [enqueueStatus, setEnqueueStatus] = useState<"idle" | "submitting">("idle");
   const [enqueueError, setEnqueueError] = useState<string | null>(null);
@@ -117,6 +119,7 @@ export function CurriculumPlanningPanel({
       currentFilters.current = filters;
       setItemType(nextItemType);
       setCandidateSelectionError(null);
+      setEnqueuePageKey(null);
       setCandidatePlan((previous) => ({
         status: "loading",
         data:
@@ -143,6 +146,7 @@ export function CurriculumPlanningPanel({
         }
 
         setCandidatePlan({ status: "ready", data, error: null });
+        setSelectedCandidateKeys(data.candidates.map(candidatePlanItemKey));
       } catch (error: unknown) {
         if (initializedToken.current !== accessToken) {
           return;
@@ -182,8 +186,27 @@ export function CurriculumPlanningPanel({
   }, [loadCandidatePage, loadReadiness, refreshRevision, token]);
 
   const plan = candidatePlan.data;
-  const currentPageKey = plan === null ? null : candidatePlanPageKey(plan);
-  const confirmingEnqueue = currentPageKey !== null && enqueuePageKey === currentPageKey;
+  const selectedCandidateKeySet = new Set(selectedCandidateKeys);
+  const selectedCandidates =
+    plan?.candidates.filter((candidate) =>
+      selectedCandidateKeySet.has(candidatePlanItemKey(candidate)),
+    ) ?? [];
+  const allPageCandidatesSelected =
+    plan !== null &&
+    plan.candidates.length > 0 &&
+    selectedCandidates.length === plan.candidates.length;
+  const currentSelectionKey =
+    plan === null || selectedCandidates.length === 0
+      ? null
+      : candidatePlanSelectionKey(plan, selectedCandidates);
+  const confirmingEnqueue = currentSelectionKey !== null && enqueuePageKey === currentSelectionKey;
+
+  useEffect(() => {
+    if (selectPageRef.current !== null) {
+      selectPageRef.current.indeterminate =
+        selectedCandidates.length > 0 && !allPageCandidatesSelected;
+    }
+  }, [allPageCandidatesSelected, selectedCandidates.length]);
 
   function handleSearch(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -233,18 +256,48 @@ export function CurriculumPlanningPanel({
   }
 
   function openEnqueueConfirmation(): void {
-    if (currentPageKey === null) {
+    if (currentSelectionKey === null) {
       return;
     }
 
     setEnqueueError(null);
     setEnqueueFeedback(null);
-    setEnqueuePageKey(currentPageKey);
+    setEnqueuePageKey(currentSelectionKey);
   }
 
-  async function handleEnqueueCurrentPage(
+  function toggleCandidateSelection(
+    candidate: AdminCurriculumCandidatePlanItemDto,
+    checked: boolean,
+  ): void {
+    const candidateKey = candidatePlanItemKey(candidate);
+
+    setSelectedCandidateKeys((current) =>
+      checked
+        ? current.includes(candidateKey)
+          ? current
+          : [...current, candidateKey]
+        : current.filter((key) => key !== candidateKey),
+    );
+    setEnqueuePageKey(null);
+    setEnqueueError(null);
+  }
+
+  function togglePageSelection(checked: boolean): void {
+    setSelectedCandidateKeys(
+      checked && plan !== null ? plan.candidates.map(candidatePlanItemKey) : [],
+    );
+    setEnqueuePageKey(null);
+    setEnqueueError(null);
+  }
+
+  async function handleEnqueueSelectedCandidates(
     currentPlan: AdminCurriculumCandidatePlanResponse,
+    candidates: readonly AdminCurriculumCandidatePlanItemDto[],
   ): Promise<void> {
+    if (candidates.length === 0) {
+      return;
+    }
+
     setEnqueueStatus("submitting");
     setEnqueueError(null);
     setEnqueueFeedback(null);
@@ -252,7 +305,7 @@ export function CurriculumPlanningPanel({
     try {
       const result = await enqueueAdminCandidatePlan(token, {
         planVersion: currentPlan.planVersion,
-        candidates: currentPlan.candidates.map((candidate) => ({
+        candidates: candidates.map((candidate) => ({
           itemType: candidate.itemType,
           targetId: candidate.targetId,
         })),
@@ -278,10 +331,10 @@ export function CurriculumPlanningPanel({
 
       setEnqueueError(
         snapshotExpired
-          ? "План изменился. Список кандидатов обновлён, повторите постановку страницы."
+          ? "План изменился. Список кандидатов обновлён, повторите постановку выбранных материалов."
           : error instanceof Error
             ? error.message
-            : "Не удалось добавить страницу в очередь проверки.",
+            : "Не удалось добавить выбранные материалы в очередь проверки.",
       );
 
       if (snapshotExpired) {
@@ -577,9 +630,26 @@ export function CurriculumPlanningPanel({
               <>
                 <div className="admin-plan-batch-action">
                   <div>
-                    <strong>Текущая страница</strong>
+                    <label className="checkbox-row admin-plan-select-page">
+                      <input
+                        aria-label="Выбрать всю страницу"
+                        checked={allPageCandidatesSelected}
+                        disabled={
+                          disabled ||
+                          candidatePlan.status === "loading" ||
+                          loadingCandidateKey !== null ||
+                          enqueueStatus === "submitting"
+                        }
+                        onChange={(event) => togglePageSelection(event.currentTarget.checked)}
+                        ref={selectPageRef}
+                        type="checkbox"
+                      />
+                      <strong>Выбрать всю страницу</strong>
+                    </label>
                     <span>
-                      {formatNumber(plan.candidates.length)} из {formatNumber(plan.page.total)}
+                      Выбрано {formatNumber(selectedCandidates.length)} из{" "}
+                      {formatNumber(plan.candidates.length)}
+                      {" · "}Всего найдено: {formatNumber(plan.page.total)}
                     </span>
                   </div>
                   <button
@@ -587,6 +657,7 @@ export function CurriculumPlanningPanel({
                     data-testid="admin-plan-enqueue-page"
                     disabled={
                       disabled ||
+                      selectedCandidates.length === 0 ||
                       candidatePlan.status === "loading" ||
                       loadingCandidateKey !== null ||
                       enqueueStatus === "submitting"
@@ -594,7 +665,7 @@ export function CurriculumPlanningPanel({
                     onClick={openEnqueueConfirmation}
                     type="button"
                   >
-                    Добавить страницу в очередь
+                    Добавить выбранное в очередь
                   </button>
                 </div>
 
@@ -606,6 +677,22 @@ export function CurriculumPlanningPanel({
                       }
                       key={`${candidate.itemType}:${candidate.targetId}`}
                     >
+                      <label className="admin-plan-select-candidate">
+                        <input
+                          aria-label={`Выбрать ${candidate.japanese}`}
+                          checked={selectedCandidateKeySet.has(candidatePlanItemKey(candidate))}
+                          disabled={
+                            disabled ||
+                            candidatePlan.status === "loading" ||
+                            loadingCandidateKey !== null ||
+                            enqueueStatus === "submitting"
+                          }
+                          onChange={(event) =>
+                            toggleCandidateSelection(candidate, event.currentTarget.checked)
+                          }
+                          type="checkbox"
+                        />
+                      </label>
                       <span className="admin-plan-rank">#{candidate.selectionRank}</span>
                       <span className="admin-plan-japanese">{candidate.japanese}</span>
                       <span>{candidate.reading ?? "без чтения"}</span>
@@ -693,13 +780,13 @@ export function CurriculumPlanningPanel({
         {confirmingEnqueue && plan !== null ? (
           <CandidatePageEnqueueDialog
             busy={enqueueStatus === "submitting"}
-            count={plan.candidates.length}
+            count={selectedCandidates.length}
             error={enqueueError}
             onCancel={() => {
               setEnqueueError(null);
               setEnqueuePageKey(null);
             }}
-            onConfirm={() => void handleEnqueueCurrentPage(plan)}
+            onConfirm={() => void handleEnqueueSelectedCandidates(plan, selectedCandidates)}
           />
         ) : null}
       </div>
@@ -771,9 +858,9 @@ function CandidatePageEnqueueDialog({
         ref={dialogRef}
         role="dialog"
       >
-        <h2 id="candidate-page-enqueue-title">Добавить страницу в очередь?</h2>
+        <h2 id="candidate-page-enqueue-title">Добавить выбранное в очередь?</h2>
         <p id="candidate-page-enqueue-description">
-          Кандидатов на странице: {formatNumber(count)}. Будут созданы только материалы со статусом
+          Выбрано кандидатов: {formatNumber(count)}. Будут созданы только материалы со статусом
           «Нужна проверка». Существующая редакторская работа не изменится, карточки и переводы
           автоматически не создаются.
         </p>
@@ -810,6 +897,17 @@ function candidatePlanPageKey(plan: AdminCurriculumCandidatePlanResponse): strin
     plan.page.coverage,
     plan.page.offset,
   ]);
+}
+
+function candidatePlanSelectionKey(
+  plan: AdminCurriculumCandidatePlanResponse,
+  candidates: readonly AdminCurriculumCandidatePlanItemDto[],
+): string {
+  return JSON.stringify([candidatePlanPageKey(plan), candidates.map(candidatePlanItemKey)]);
+}
+
+function candidatePlanItemKey(candidate: AdminCurriculumCandidatePlanItemDto): string {
+  return `${candidate.itemType}:${candidate.targetId}`;
 }
 
 function sameCandidatePlanFilters(

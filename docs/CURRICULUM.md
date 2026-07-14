@@ -99,20 +99,22 @@ locale while approving the candidate, but both reviewed learning meanings and
 both accepted-answer sets remain mandatory. Those additions are stored only in
 the project-authored layer and do not modify or mislabel the imported record.
 
-An admin may stage one bounded page of a retained candidate-plan snapshot into
-the curation queue. The server verifies every target against that exact plan and
-uses its suggested band, while a database uniqueness constraint makes retries
-idempotent and preserves any existing editorial work. Staging creates only
-`needs-review` learning items. Bilingual meanings, accepted answers, reading
-cards, mnemonics, dependencies, levels, and publication still require the
-normal explicit curation workflow.
+An admin may stage a selected subset of one bounded page from a retained
+candidate-plan snapshot into the curation queue. The server verifies every
+target against that exact plan and uses its suggested band, while a database
+uniqueness constraint makes retries idempotent and preserves any existing
+editorial work. Staging creates only `needs-review` learning items. Bilingual
+meanings, accepted answers, reading cards, mnemonics, dependencies, levels, and
+publication still require the normal explicit curation workflow.
 
-The admin planning workspace exposes this staging operation for the currently
-visible page only. It requires confirmation, keeps keyboard focus inside the
-confirmation dialog, reports created and previously queued counts, and loads a
-fresh first page after success. If the retained plan version expires, the UI
-refreshes the shortlist and asks the admin to confirm the new page rather than
-silently submitting changed candidates.
+The admin planning workspace exposes this staging operation for selected
+candidates on the currently visible page only. A new page starts fully selected
+for fast batch work, while page-level and row-level checkboxes allow a precise
+subset. Confirmation is bound to the exact page and selected target ids, keeps
+keyboard focus inside the dialog, reports created and previously queued counts,
+and loads a fresh first page after success. If the retained plan version
+expires, the UI refreshes the shortlist and asks the admin to confirm the new
+selection rather than silently submitting changed candidates.
 
 The resulting editorial queue is cursor-paginated rather than capped at the
 first 50 rows. Pages preserve the active quality filters, use a deterministic

@@ -253,8 +253,8 @@ test.describe("admin curation", () => {
     const enqueuePage = page.getByTestId("admin-plan-enqueue-page");
 
     await enqueuePage.click();
-    const confirmation = page.getByRole("dialog", { name: "Добавить страницу в очередь?" });
-    await expect(confirmation).toContainText("Кандидатов на странице: 1");
+    const confirmation = page.getByRole("dialog", { name: "Добавить выбранное в очередь?" });
+    await expect(confirmation).toContainText("Выбрано кандидатов: 1");
     await expect(confirmation).toContainText("карточки и переводы автоматически не создаются");
     const cancelEnqueue = confirmation.getByRole("button", { name: "Отмена" });
     await expect(cancelEnqueue).toBeFocused();
@@ -273,6 +273,46 @@ test.describe("admin curation", () => {
     );
     await expect(candidatePlan).toContainText("На этой странице кандидатов нет.");
     await expect(enqueuePage).toHaveCount(0);
+  });
+
+  test("admin stages only selected candidates from the current plan page", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await mockAdminApi(page, { multiplePlanCandidates: true });
+
+    await page.goto("/admin");
+
+    const candidatePlan = page.getByTestId("admin-candidate-plan");
+    const firstCandidate = candidatePlan.getByRole("checkbox", { name: "Выбрать 一" });
+    const secondCandidate = candidatePlan.getByRole("checkbox", { name: "Выбрать 二" });
+    const selectPage = candidatePlan.getByRole("checkbox", { name: "Выбрать всю страницу" });
+
+    await expect(firstCandidate).toBeChecked();
+    await expect(secondCandidate).toBeChecked();
+    await expect(selectPage).toBeChecked();
+
+    await selectPage.uncheck();
+    await expect(firstCandidate).not.toBeChecked();
+    await expect(secondCandidate).not.toBeChecked();
+    await expect(candidatePlan.getByTestId("admin-plan-enqueue-page")).toBeDisabled();
+
+    await selectPage.check();
+    await expect(firstCandidate).toBeChecked();
+    await expect(secondCandidate).toBeChecked();
+
+    await secondCandidate.uncheck();
+    await expect(selectPage).not.toBeChecked();
+    await expect(candidatePlan).toContainText("Выбрано 1 из 2");
+
+    await candidatePlan.getByTestId("admin-plan-enqueue-page").click();
+    const confirmation = page.getByRole("dialog", { name: "Добавить выбранное в очередь?" });
+    await expect(confirmation).toContainText("Выбрано кандидатов: 1");
+    await confirmation.getByRole("button", { name: "Добавить в очередь", exact: true }).click();
+
+    await expect(page.getByTestId("admin-plan-enqueue-success")).toContainText(
+      "Добавлено в очередь: 1",
+    );
+    await expect(firstCandidate).toHaveCount(0);
+    await expect(candidatePlan.getByRole("checkbox", { name: "Выбрать 二" })).toBeChecked();
   });
 });
 
@@ -308,6 +348,7 @@ async function mockAdminApi(
   options: {
     readonly enqueueConflictOnce?: boolean;
     readonly failQueueRefreshAfterItemSave?: boolean;
+    readonly multiplePlanCandidates?: boolean;
   } = {},
 ): Promise<void> {
   let item = buildAdminItem();
@@ -518,11 +559,9 @@ async function mockAdminApi(
       return;
     }
 
-    const targetId = itemType === "kanji" ? "plan-kanji-one" : "plan-word-water";
-    const candidateAssigned = assignedPlanTargets.has(`${itemType}:${targetId}`);
     const candidate: AdminCurriculumCandidatePlanResponse["candidates"][number] = {
       selectionRank: 1,
-      targetId,
+      targetId: itemType === "kanji" ? "plan-kanji-one" : "plan-word-water",
       itemType,
       japanese: itemType === "kanji" ? "一" : "水",
       reading: itemType === "kanji" ? "いち" : "みず",
@@ -538,17 +577,32 @@ async function mockAdminApi(
         strokeData: itemType === "kanji" ? true : null,
       },
     };
-    const candidateMatches =
-      search === null ||
-      candidate.japanese.includes(search) ||
-      candidate.reading?.includes(search) === true ||
-      candidate.targetId === search;
+    const candidates = [
+      candidate,
+      ...(itemType === "kanji" && options.multiplePlanCandidates === true
+        ? [
+            {
+              ...candidate,
+              selectionRank: 2,
+              targetId: "plan-kanji-two",
+              japanese: "二",
+              reading: "に",
+              score: 99,
+            },
+          ]
+        : []),
+    ];
     const candidateFiltersActive = search !== null || band !== null || coverage !== null;
-    const candidateVisible =
-      !candidateAssigned &&
-      candidateMatches &&
-      (band === null || candidate.suggestedBand === band) &&
-      matchesCandidatePlanCoverage(candidate, coverage);
+    const visibleCandidates = candidates.filter(
+      (currentCandidate) =>
+        !assignedPlanTargets.has(`${currentCandidate.itemType}:${currentCandidate.targetId}`) &&
+        (search === null ||
+          currentCandidate.japanese.includes(search) ||
+          currentCandidate.reading?.includes(search) === true ||
+          currentCandidate.targetId === search) &&
+        (band === null || currentCandidate.suggestedBand === band) &&
+        matchesCandidatePlanCoverage(currentCandidate, coverage),
+    );
     const response: AdminCurriculumCandidatePlanResponse = {
       planVersion: "plan-version-one",
       generatedAt: "2026-07-13T12:01:00.000Z",
@@ -577,16 +631,17 @@ async function mockAdminApi(
         coverage,
         offset: 0,
         limit: 20,
-        total: candidateVisible
-          ? candidateFiltersActive
-            ? 1
-            : itemType === "kanji"
-              ? 2_298
-              : 7_996
-          : 0,
-        hasMore: !candidateFiltersActive && candidateVisible,
+        total:
+          visibleCandidates.length > 0
+            ? candidateFiltersActive
+              ? visibleCandidates.length
+              : itemType === "kanji"
+                ? 2_298
+                : 7_996
+            : 0,
+        hasMore: !candidateFiltersActive && visibleCandidates.length > 0,
       },
-      candidates: candidateVisible ? [candidate] : [],
+      candidates: visibleCandidates,
     };
 
     await route.fulfill({ json: response });

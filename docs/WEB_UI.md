@@ -43,6 +43,10 @@ Course-band and data-coverage selects share the same explicit apply/reset flow.
 Applied filters survive item-type switches, pagination, plan refreshes, and
 staging refreshes. The panel distinguishes a filtered empty result from a plan
 with no remaining candidates.
+Each loaded candidate page starts fully selected. Page and row checkboxes let
+the admin narrow the batch, show the selected count before staging, and disable
+the action for an empty selection. The confirmation dialog and request use that
+exact selected subset; unselected candidates remain in the plan after refresh.
 
 ## MVP review UX
 
