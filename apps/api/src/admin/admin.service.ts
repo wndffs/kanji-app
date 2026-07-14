@@ -8,6 +8,8 @@ import {
 
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
 import {
+  ADMIN_CANDIDATE_PLAN_COVERAGE_FILTERS,
+  type AdminCandidatePlanCoverageFilter,
   type AdminContentStatus,
   type AdminCurriculumCandidatePlanItemDto,
   type AdminCurriculumCandidatePlanResponse,
@@ -176,12 +178,17 @@ export class AdminService {
     const filters = parseCandidatePlanFilters(query);
     const entry = await this.resolveCandidatePlan(filters.planVersion);
     const candidateSearch = filters.search;
-    const candidates =
-      candidateSearch === null
-        ? entry.plan.candidates[filters.itemType]
-        : entry.plan.candidates[filters.itemType].filter((candidate) =>
-            matchesCandidatePlanSearch(candidate, candidateSearch),
-          );
+    const hasCandidateFilters =
+      candidateSearch !== null || filters.band !== null || filters.coverage !== null;
+    const candidates = !hasCandidateFilters
+      ? entry.plan.candidates[filters.itemType]
+      : entry.plan.candidates[filters.itemType].filter(
+          (candidate) =>
+            (candidateSearch === null || matchesCandidatePlanSearch(candidate, candidateSearch)) &&
+            (filters.band === null || candidate.suggestedBand === filters.band) &&
+            (filters.coverage === null ||
+              matchesCandidatePlanCoverage(candidate, filters.coverage)),
+        );
     const pageCandidates = candidates.slice(filters.offset, filters.offset + filters.limit);
 
     return {
@@ -191,6 +198,8 @@ export class AdminService {
       page: {
         itemType: filters.itemType,
         search: filters.search,
+        band: filters.band,
+        coverage: filters.coverage,
         offset: filters.offset,
         limit: filters.limit,
         total: candidates.length,
@@ -482,10 +491,18 @@ function parseCandidatePlanFilters(query: unknown): NormalizedAdminCandidatePlan
   const search = parseOptionalString(record.search, "search", {
     maxLength: MAX_CANDIDATE_PLAN_SEARCH_LENGTH,
   });
+  const band =
+    record.band === undefined || record.band === "" ? null : parseCourseBand(record.band, "band");
+  const coverage =
+    record.coverage === undefined || record.coverage === ""
+      ? null
+      : parseCandidatePlanCoverageFilter(record.coverage);
 
   return {
     itemType,
     search: search === "" ? null : search,
+    band,
+    coverage,
     offset: parseBoundedNonNegativeInteger(record.offset, "offset", 0, Number.MAX_SAFE_INTEGER),
     limit: parseBoundedNonNegativeInteger(
       record.limit,
@@ -499,6 +516,19 @@ function parseCandidatePlanFilters(query: unknown): NormalizedAdminCandidatePlan
         ? null
         : parseRequiredString(record.planVersion, "planVersion", { maxLength: 128 }),
   };
+}
+
+function parseCandidatePlanCoverageFilter(value: unknown): AdminCandidatePlanCoverageFilter {
+  if (
+    typeof value === "string" &&
+    (ADMIN_CANDIDATE_PLAN_COVERAGE_FILTERS as readonly string[]).includes(value)
+  ) {
+    return value as AdminCandidatePlanCoverageFilter;
+  }
+
+  throw new BadRequestException(
+    `coverage must be ${ADMIN_CANDIDATE_PLAN_COVERAGE_FILTERS.join(", ")}.`,
+  );
 }
 
 function matchesCandidatePlanSearch(
@@ -515,6 +545,24 @@ function matchesCandidatePlanSearch(
     normalizedReading?.includes(normalizedSearch) === true ||
     candidate.targetId === search
   );
+}
+
+function matchesCandidatePlanCoverage(
+  candidate: AdminCurriculumCandidatePlanItemDto,
+  coverage: AdminCandidatePlanCoverageFilter,
+): boolean {
+  switch (coverage) {
+    case "bilingual":
+      return candidate.coverage.russianMeaning && candidate.coverage.englishMeaning;
+    case "missing-russian":
+      return !candidate.coverage.russianMeaning;
+    case "missing-english":
+      return !candidate.coverage.englishMeaning;
+    case "missing-reading":
+      return !candidate.coverage.reading;
+    case "missing-stroke-data":
+      return candidate.coverage.strokeData === false;
+  }
 }
 
 function parseCandidatePlanEnqueueRequest(body: unknown): NormalizedAdminCandidatePlanEnqueueInput {

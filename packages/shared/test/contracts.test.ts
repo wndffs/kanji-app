@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ADMIN_CANDIDATE_PLAN_COVERAGE_FILTERS,
   ADMIN_IMPORTED_CANDIDATE_REJECTION_REASONS,
   DEFAULT_TRANSLATION_DISPLAY_MODE,
   SUPPORTED_CONTENT_LOCALES,
@@ -244,6 +245,16 @@ describe("shared DTO contracts", () => {
       "other",
     ]);
     expect(JSON.parse(JSON.stringify(response))).toEqual(response);
+  });
+
+  it("keeps candidate-plan coverage filters bounded", () => {
+    expect(ADMIN_CANDIDATE_PLAN_COVERAGE_FILTERS).toEqual([
+      "bilingual",
+      "missing-russian",
+      "missing-english",
+      "missing-reading",
+      "missing-stroke-data",
+    ]);
   });
 
   it("keeps admin curriculum review and completeness DTOs serializable", () => {

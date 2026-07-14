@@ -122,3 +122,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 40. Task 80 (completed): persist reversible imported-candidate rejection decisions.
 41. Task 81 (completed): manage candidate rejection and restoration in the admin workspace.
 42. Task 82 (completed): search the full versioned candidate plan from the admin workspace.
+43. Task 83 (completed): filter the versioned candidate plan by course band and data coverage.

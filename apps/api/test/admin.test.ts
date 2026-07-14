@@ -279,11 +279,45 @@ describe("AdminService", () => {
     });
     expect(repository.candidatePlanReads).toBe(1);
 
+    await expect(
+      adminService.getCandidatePlan({
+        itemType: "word",
+        band: "n5",
+        coverage: "missing-russian",
+        planVersion: firstPage.planVersion,
+      }),
+    ).resolves.toMatchObject({
+      planVersion: firstPage.planVersion,
+      page: {
+        itemType: "word",
+        search: null,
+        band: "n5",
+        coverage: "missing-russian",
+        total: 1,
+      },
+      candidates: [{ selectionRank: 2, targetId: "plan-word-two" }],
+    });
+    expect(repository.candidatePlanReads).toBe(1);
+
+    await expect(
+      adminService.getCandidatePlan({
+        itemType: "word",
+        coverage: "missing-stroke-data",
+        planVersion: firstPage.planVersion,
+      }),
+    ).resolves.toMatchObject({
+      page: { coverage: "missing-stroke-data", total: 0 },
+      candidates: [],
+    });
+
     await expect(adminService.getCandidatePlan({ limit: "101" })).rejects.toThrow(
       "limit must be an integer from 1 to 100.",
     );
     await expect(adminService.getCandidatePlan({ search: "x".repeat(81) })).rejects.toThrow(
       "search is too long.",
+    );
+    await expect(adminService.getCandidatePlan({ coverage: "unknown" })).rejects.toThrow(
+      "coverage must be bilingual, missing-russian",
     );
     await expect(adminService.getCandidatePlan({ planVersion: "expired-version" })).rejects.toThrow(
       "Candidate plan data changed",
@@ -1443,7 +1477,7 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
           itemType: "word" as const,
           japanese: "ありがとう",
           reading: "ありがとう",
-          meanings: { ru: ["спасибо"], en: ["thank you"] },
+          meanings: { ru: [], en: ["thank you"] },
           jlptLevel: null,
           sourcePriority: 2_000,
           schoolGrade: null,

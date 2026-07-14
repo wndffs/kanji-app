@@ -1,4 +1,5 @@
 import {
+  type AdminCandidatePlanCoverageFilter,
   type AdminApproveImportedTranslationRequest,
   type AdminContentStatus,
   type AdminEnqueueCandidatePlanRequest,
@@ -69,6 +70,8 @@ export type AdminReviewQueuePageResult = {
 export type NormalizedAdminCandidatePlanFilters = {
   readonly itemType: "kanji" | "word";
   readonly search: string | null;
+  readonly band: CourseBand | null;
+  readonly coverage: AdminCandidatePlanCoverageFilter | null;
   readonly offset: number;
   readonly limit: number;
   readonly planVersion: string | null;

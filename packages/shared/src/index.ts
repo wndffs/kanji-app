@@ -993,6 +993,17 @@ export type AdminCurriculumCandidatePlanSummaryDto = {
   }[];
 };
 
+export const ADMIN_CANDIDATE_PLAN_COVERAGE_FILTERS = [
+  "bilingual",
+  "missing-russian",
+  "missing-english",
+  "missing-reading",
+  "missing-stroke-data",
+] as const;
+
+export type AdminCandidatePlanCoverageFilter =
+  (typeof ADMIN_CANDIDATE_PLAN_COVERAGE_FILTERS)[number];
+
 export type AdminCurriculumCandidatePlanResponse = {
   readonly planVersion: string;
   readonly generatedAt: string;
@@ -1000,6 +1011,8 @@ export type AdminCurriculumCandidatePlanResponse = {
   readonly page: {
     readonly itemType: "kanji" | "word";
     readonly search: string | null;
+    readonly band: CourseBand | null;
+    readonly coverage: AdminCandidatePlanCoverageFilter | null;
     readonly offset: number;
     readonly limit: number;
     readonly total: number;

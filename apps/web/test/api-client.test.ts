@@ -230,7 +230,7 @@ describe("apiRequest", () => {
     );
   });
 
-  it("encodes a stable candidate-plan search request", async () => {
+  it("encodes stable candidate-plan search and coverage filters", async () => {
     let capturedInput: RequestInfo | URL | null = null;
     const fetchImpl: typeof fetch = async (input) => {
       capturedInput = input;
@@ -241,6 +241,8 @@ describe("apiRequest", () => {
         page: {
           itemType: "kanji",
           search: "イチ",
+          band: "n5",
+          coverage: "missing-russian",
           offset: 0,
           limit: 20,
           total: 1,
@@ -258,12 +260,14 @@ describe("apiRequest", () => {
         limit: 20,
         planVersion: "plan-version-one",
         search: "イチ",
+        band: "n5",
+        coverage: "missing-russian",
       },
       fetchImpl,
     );
 
     expect(capturedInput).toBe(
-      "http://localhost:3001/admin/curriculum/candidate-plan?itemType=kanji&offset=0&limit=20&planVersion=plan-version-one&search=%E3%82%A4%E3%83%81",
+      "http://localhost:3001/admin/curriculum/candidate-plan?itemType=kanji&offset=0&limit=20&planVersion=plan-version-one&search=%E3%82%A4%E3%83%81&band=n5&coverage=missing-russian",
     );
   });
 

@@ -1,4 +1,5 @@
 import {
+  type AdminCandidatePlanCoverageFilter,
   type AdminApproveImportedTranslationRequest,
   type AdminCurationItemDto,
   type AdminCurriculumCandidatePlanResponse,
@@ -24,6 +25,7 @@ import {
   type CheckLessonAnswerRequestDto,
   type CheckLessonAnswerResponse,
   type ContentLocale,
+  type CourseBand,
   type CompleteLessonItemRequestDto,
   type DashboardDto,
   type CompleteLessonItemResponse,
@@ -331,6 +333,8 @@ export function getAdminCandidatePlan(
     readonly limit?: number;
     readonly planVersion?: string;
     readonly search?: string;
+    readonly band?: CourseBand;
+    readonly coverage?: AdminCandidatePlanCoverageFilter;
   },
   fetchImpl?: typeof fetch,
 ): Promise<AdminCurriculumCandidatePlanResponse> {
@@ -350,6 +354,14 @@ export function getAdminCandidatePlan(
 
   if (query.search !== undefined) {
     params.set("search", query.search);
+  }
+
+  if (query.band !== undefined) {
+    params.set("band", query.band);
+  }
+
+  if (query.coverage !== undefined) {
+    params.set("coverage", query.coverage);
   }
 
   return apiRequest<AdminCurriculumCandidatePlanResponse>(

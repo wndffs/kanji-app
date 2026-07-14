@@ -173,7 +173,7 @@ test.describe("admin curation", () => {
     const candidatePlan = page.getByTestId("admin-candidate-plan");
     const search = candidatePlan.getByLabel("Поиск в плане");
     await search.fill("水");
-    await candidatePlan.getByRole("button", { name: "Найти" }).click();
+    await candidatePlan.getByRole("button", { name: "Применить" }).click();
     await expect(candidatePlan).toContainText("По запросу «水» кандидаты не найдены.");
 
     await candidatePlan.getByRole("button", { name: "Слова" }).click();
@@ -183,6 +183,34 @@ test.describe("admin curation", () => {
     await candidatePlan.getByRole("button", { name: "Сбросить" }).click();
     await expect(search).toHaveValue("");
     await expect(candidatePlan).toContainText(/1–1 из 7.?996/u);
+  });
+
+  test("admin filters the full candidate plan by band and data coverage", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await mockAdminApi(page);
+
+    await page.goto("/admin");
+
+    const candidatePlan = page.getByTestId("admin-candidate-plan");
+    const band = candidatePlan.getByLabel("Диапазон курса");
+    const coverage = candidatePlan.getByLabel("Покрытие данных");
+    await band.selectOption("n5");
+    await coverage.selectOption("missing-russian");
+    await candidatePlan.getByRole("button", { name: "Применить" }).click();
+    await expect(candidatePlan.getByRole("button", { name: "Проверить 一" })).toBeVisible();
+
+    await candidatePlan.getByRole("button", { name: "Слова" }).click();
+    await expect(band).toHaveValue("n5");
+    await expect(coverage).toHaveValue("missing-russian");
+    await expect(candidatePlan).toContainText("По выбранным фильтрам кандидаты не найдены.");
+
+    await coverage.selectOption("bilingual");
+    await candidatePlan.getByRole("button", { name: "Применить" }).click();
+    await expect(candidatePlan.getByRole("button", { name: "Проверить 水" })).toBeVisible();
+
+    await candidatePlan.getByRole("button", { name: "Сбросить" }).click();
+    await expect(band).toHaveValue("");
+    await expect(coverage).toHaveValue("");
   });
 
   test("admin can curate a candidate selected from the full curriculum plan", async ({ page }) => {
@@ -477,6 +505,13 @@ async function mockAdminApi(
 
     const itemType = url.searchParams.get("itemType") === "word" ? "word" : "kanji";
     const search = url.searchParams.get("search")?.trim() || null;
+    const band =
+      (url.searchParams.get("band") as AdminCurriculumCandidatePlanResponse["page"]["band"]) ??
+      null;
+    const coverage =
+      (url.searchParams.get(
+        "coverage",
+      ) as AdminCurriculumCandidatePlanResponse["page"]["coverage"]) ?? null;
 
     if (itemType === "word" && url.searchParams.get("planVersion") !== "plan-version-one") {
       await route.fulfill({ status: 409, json: { message: "Candidate plan data changed." } });
@@ -507,8 +542,13 @@ async function mockAdminApi(
       search === null ||
       candidate.japanese.includes(search) ||
       candidate.reading?.includes(search) === true ||
-      candidate.targetId.includes(search);
-    const candidateVisible = !candidateAssigned && candidateMatches;
+      candidate.targetId === search;
+    const candidateFiltersActive = search !== null || band !== null || coverage !== null;
+    const candidateVisible =
+      !candidateAssigned &&
+      candidateMatches &&
+      (band === null || candidate.suggestedBand === band) &&
+      matchesCandidatePlanCoverage(candidate, coverage);
     const response: AdminCurriculumCandidatePlanResponse = {
       planVersion: "plan-version-one",
       generatedAt: "2026-07-13T12:01:00.000Z",
@@ -533,16 +573,18 @@ async function mockAdminApi(
       page: {
         itemType,
         search,
+        band,
+        coverage,
         offset: 0,
         limit: 20,
         total: candidateVisible
-          ? search === null
-            ? itemType === "kanji"
+          ? candidateFiltersActive
+            ? 1
+            : itemType === "kanji"
               ? 2_298
               : 7_996
-            : 1
           : 0,
-        hasMore: search === null && candidateVisible,
+        hasMore: !candidateFiltersActive && candidateVisible,
       },
       candidates: candidateVisible ? [candidate] : [],
     };
@@ -811,6 +853,26 @@ async function mockAdminApi(
 
     await route.fulfill({ json: item });
   });
+}
+
+function matchesCandidatePlanCoverage(
+  candidate: AdminCurriculumCandidatePlanResponse["candidates"][number],
+  coverage: AdminCurriculumCandidatePlanResponse["page"]["coverage"],
+): boolean {
+  switch (coverage) {
+    case null:
+      return true;
+    case "bilingual":
+      return candidate.coverage.russianMeaning && candidate.coverage.englishMeaning;
+    case "missing-russian":
+      return !candidate.coverage.russianMeaning;
+    case "missing-english":
+      return !candidate.coverage.englishMeaning;
+    case "missing-reading":
+      return !candidate.coverage.reading;
+    case "missing-stroke-data":
+      return candidate.coverage.strokeData === false;
+  }
 }
 
 function buildAdminItem(): AdminCurationItemDto {

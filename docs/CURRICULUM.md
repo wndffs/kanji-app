@@ -148,6 +148,12 @@ Search does not recalculate or reorder the curriculum: original selection ranks,
 the plan version, prerequisite decisions, and summary counts remain stable. A
 filtered page can therefore be inspected or staged under the same stale-plan
 and rejection protections as an unfiltered page.
+The same snapshot can be narrowed by one course band and one coverage state:
+bilingual RU/EN, missing Russian, missing English, missing reading, or missing
+kanji stroke data. Coverage filters use the plan's existing source facts and do
+not treat word rows, where stroke data are not applicable, as missing stroke
+data. Search, band, and coverage combine before pagination and remain part of
+the confirmed page identity used for staging.
 
 ## Main lesson flow
 

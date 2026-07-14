@@ -39,6 +39,10 @@ kana reading, or target id before pagination. The active query survives item
 type switches, page navigation, and plan refreshes, while reset returns to the
 unfiltered versioned plan. Empty search results are distinct from an exhausted
 unfiltered page.
+Course-band and data-coverage selects share the same explicit apply/reset flow.
+Applied filters survive item-type switches, pagination, plan refreshes, and
+staging refreshes. The panel distinguishes a filtered empty result from a plan
+with no remaining candidates.
 
 ## MVP review UX
 

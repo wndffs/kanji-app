@@ -3,9 +3,12 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  ADMIN_CANDIDATE_PLAN_COVERAGE_FILTERS,
+  type AdminCandidatePlanCoverageFilter,
   type AdminCurriculumCandidatePlanItemDto,
   type AdminCurriculumCandidatePlanResponse,
   type AdminCurriculumScaleReadinessDto,
+  SUPPORTED_COURSE_BANDS,
   type CourseBand,
 } from "@kanji-srs/shared";
 
@@ -39,6 +42,18 @@ type CurriculumPlanningPanelProps = {
   readonly onReviewCandidate: (candidate: AdminCurriculumCandidatePlanItemDto) => Promise<void>;
 };
 
+type CandidatePlanViewFilters = {
+  readonly search: string | null;
+  readonly band: CourseBand | null;
+  readonly coverage: AdminCandidatePlanCoverageFilter | null;
+};
+
+const EMPTY_CANDIDATE_PLAN_FILTERS: CandidatePlanViewFilters = {
+  search: null,
+  band: null,
+  coverage: null,
+};
+
 export function CurriculumPlanningPanel({
   token,
   disabled,
@@ -50,13 +65,15 @@ export function CurriculumPlanningPanel({
   const initializedToken = useRef<string | null>(null);
   const initializedRevision = useRef<number | null>(null);
   const currentItemType = useRef<"kanji" | "word">("kanji");
-  const currentSearch = useRef<string | null>(null);
+  const currentFilters = useRef<CandidatePlanViewFilters>(EMPTY_CANDIDATE_PLAN_FILTERS);
   const [readiness, setReadiness] =
     useState<ResourceState<AdminCurriculumScaleReadinessDto>>(EMPTY_RESOURCE);
   const [candidatePlan, setCandidatePlan] =
     useState<ResourceState<AdminCurriculumCandidatePlanResponse>>(EMPTY_RESOURCE);
   const [itemType, setItemType] = useState<"kanji" | "word">("kanji");
   const [searchDraft, setSearchDraft] = useState("");
+  const [bandFilter, setBandFilter] = useState<"" | CourseBand>("");
+  const [coverageFilter, setCoverageFilter] = useState<"" | AdminCandidatePlanCoverageFilter>("");
   const [loadingCandidateKey, setLoadingCandidateKey] = useState<string | null>(null);
   const [candidateSelectionError, setCandidateSelectionError] = useState<string | null>(null);
   const [enqueuePageKey, setEnqueuePageKey] = useState<string | null>(null);
@@ -94,16 +111,17 @@ export function CurriculumPlanningPanel({
       nextItemType: "kanji" | "word",
       offset: number,
       planVersion?: string,
-      search: string | null = currentSearch.current,
+      filters: CandidatePlanViewFilters = currentFilters.current,
     ) => {
       currentItemType.current = nextItemType;
-      currentSearch.current = search;
+      currentFilters.current = filters;
       setItemType(nextItemType);
       setCandidateSelectionError(null);
       setCandidatePlan((previous) => ({
         status: "loading",
         data:
-          previous.data?.page.itemType === nextItemType && previous.data.page.search === search
+          previous.data?.page.itemType === nextItemType &&
+          sameCandidatePlanFilters(previous.data.page, filters)
             ? previous.data
             : null,
         error: null,
@@ -115,7 +133,9 @@ export function CurriculumPlanningPanel({
           offset,
           limit: CANDIDATE_PAGE_LIMIT,
           ...(planVersion === undefined ? {} : { planVersion }),
-          ...(search === null ? {} : { search }),
+          ...(filters.search === null ? {} : { search: filters.search }),
+          ...(filters.band === null ? {} : { band: filters.band }),
+          ...(filters.coverage === null ? {} : { coverage: filters.coverage }),
         });
 
         if (initializedToken.current !== accessToken) {
@@ -151,8 +171,10 @@ export function CurriculumPlanningPanel({
     initializedRevision.current = refreshRevision;
 
     if (tokenChanged) {
-      currentSearch.current = null;
+      currentFilters.current = EMPTY_CANDIDATE_PLAN_FILTERS;
       setSearchDraft("");
+      setBandFilter("");
+      setCoverageFilter("");
     }
 
     void loadReadiness(token);
@@ -166,22 +188,29 @@ export function CurriculumPlanningPanel({
   function handleSearch(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     const search = searchDraft.trim() || null;
+    const filters: CandidatePlanViewFilters = {
+      search,
+      band: bandFilter === "" ? null : bandFilter,
+      coverage: coverageFilter === "" ? null : coverageFilter,
+    };
 
-    currentSearch.current = search;
+    currentFilters.current = filters;
     setSearchDraft(search ?? "");
     setEnqueuePageKey(null);
     setEnqueueError(null);
     setEnqueueFeedback(null);
-    void loadCandidatePage(token, itemType, 0, plan?.planVersion, search);
+    void loadCandidatePage(token, itemType, 0, plan?.planVersion, filters);
   }
 
   function clearSearch(): void {
-    currentSearch.current = null;
+    currentFilters.current = EMPTY_CANDIDATE_PLAN_FILTERS;
     setSearchDraft("");
+    setBandFilter("");
+    setCoverageFilter("");
     setEnqueuePageKey(null);
     setEnqueueError(null);
     setEnqueueFeedback(null);
-    void loadCandidatePage(token, itemType, 0, plan?.planVersion, null);
+    void loadCandidatePage(token, itemType, 0, plan?.planVersion, EMPTY_CANDIDATE_PLAN_FILTERS);
   }
 
   async function handleReviewCandidate(
@@ -361,22 +390,70 @@ export function CurriculumPlanningPanel({
         </div>
 
         <form className="admin-plan-search" onSubmit={handleSearch} role="search">
-          <label htmlFor="admin-candidate-plan-search">Поиск в плане</label>
-          <div>
-            <input
-              disabled={
-                disabled ||
-                candidatePlan.status === "loading" ||
-                loadingCandidateKey !== null ||
-                enqueueStatus === "submitting"
-              }
-              id="admin-candidate-plan-search"
-              maxLength={80}
-              onChange={(event) => setSearchDraft(event.currentTarget.value)}
-              placeholder="Кандзи, слово, чтение или target ID"
-              type="search"
-              value={searchDraft}
-            />
+          <div className="admin-plan-filter-grid">
+            <label htmlFor="admin-candidate-plan-search">
+              Поиск в плане
+              <input
+                disabled={
+                  disabled ||
+                  candidatePlan.status === "loading" ||
+                  loadingCandidateKey !== null ||
+                  enqueueStatus === "submitting"
+                }
+                id="admin-candidate-plan-search"
+                maxLength={80}
+                onChange={(event) => setSearchDraft(event.currentTarget.value)}
+                placeholder="Кандзи, слово, чтение или target ID"
+                type="search"
+                value={searchDraft}
+              />
+            </label>
+            <label>
+              Диапазон курса
+              <select
+                disabled={
+                  disabled ||
+                  candidatePlan.status === "loading" ||
+                  loadingCandidateKey !== null ||
+                  enqueueStatus === "submitting"
+                }
+                onChange={(event) => setBandFilter(event.currentTarget.value as "" | CourseBand)}
+                value={bandFilter}
+              >
+                <option value="">Все</option>
+                {SUPPORTED_COURSE_BANDS.map((band) => (
+                  <option key={band} value={band}>
+                    {formatBand(band)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Покрытие данных
+              <select
+                disabled={
+                  disabled ||
+                  candidatePlan.status === "loading" ||
+                  loadingCandidateKey !== null ||
+                  enqueueStatus === "submitting"
+                }
+                onChange={(event) =>
+                  setCoverageFilter(
+                    event.currentTarget.value as "" | AdminCandidatePlanCoverageFilter,
+                  )
+                }
+                value={coverageFilter}
+              >
+                <option value="">Любое</option>
+                {ADMIN_CANDIDATE_PLAN_COVERAGE_FILTERS.map((coverage) => (
+                  <option key={coverage} value={coverage}>
+                    {formatCoverageFilter(coverage)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="admin-plan-filter-actions">
             <button
               className="primary-action"
               disabled={
@@ -387,9 +464,14 @@ export function CurriculumPlanningPanel({
               }
               type="submit"
             >
-              Найти
+              Применить
             </button>
-            {searchDraft === "" && (plan?.page.search ?? null) === null ? null : (
+            {searchDraft === "" &&
+            bandFilter === "" &&
+            coverageFilter === "" &&
+            (plan?.page.search ?? null) === null &&
+            (plan?.page.band ?? null) === null &&
+            (plan?.page.coverage ?? null) === null ? null : (
               <button
                 className="secondary-action"
                 disabled={
@@ -490,11 +572,7 @@ export function CurriculumPlanningPanel({
             </div>
 
             {plan.candidates.length === 0 ? (
-              <p className="muted">
-                {plan.page.search === null
-                  ? "На этой странице кандидатов нет."
-                  : `По запросу «${plan.page.search}» кандидаты не найдены.`}
-              </p>
+              <p className="muted">{formatEmptyCandidatePage(plan)}</p>
             ) : (
               <>
                 <div className="admin-plan-batch-action">
@@ -580,7 +658,7 @@ export function CurriculumPlanningPanel({
                       itemType,
                       Math.max(0, plan.page.offset - plan.page.limit),
                       plan.planVersion,
-                      plan.page.search,
+                      candidatePlanFiltersFromPage(plan),
                     )
                   }
                   type="button"
@@ -600,7 +678,7 @@ export function CurriculumPlanningPanel({
                       itemType,
                       plan.page.offset + plan.page.limit,
                       plan.planVersion,
-                      plan.page.search,
+                      candidatePlanFiltersFromPage(plan),
                     )
                   }
                   type="button"
@@ -724,7 +802,47 @@ function CandidatePageEnqueueDialog({
 }
 
 function candidatePlanPageKey(plan: AdminCurriculumCandidatePlanResponse): string {
-  return JSON.stringify([plan.planVersion, plan.page.itemType, plan.page.search, plan.page.offset]);
+  return JSON.stringify([
+    plan.planVersion,
+    plan.page.itemType,
+    plan.page.search,
+    plan.page.band,
+    plan.page.coverage,
+    plan.page.offset,
+  ]);
+}
+
+function sameCandidatePlanFilters(
+  page: AdminCurriculumCandidatePlanResponse["page"],
+  filters: CandidatePlanViewFilters,
+): boolean {
+  return (
+    page.search === filters.search &&
+    page.band === filters.band &&
+    page.coverage === filters.coverage
+  );
+}
+
+function candidatePlanFiltersFromPage(
+  plan: AdminCurriculumCandidatePlanResponse,
+): CandidatePlanViewFilters {
+  return {
+    search: plan.page.search,
+    band: plan.page.band,
+    coverage: plan.page.coverage,
+  };
+}
+
+function formatEmptyCandidatePage(plan: AdminCurriculumCandidatePlanResponse): string {
+  if (plan.page.search !== null) {
+    return `По запросу «${plan.page.search}» кандидаты не найдены.`;
+  }
+
+  if (plan.page.band !== null || plan.page.coverage !== null) {
+    return "По выбранным фильтрам кандидаты не найдены.";
+  }
+
+  return "На этой странице кандидатов нет.";
 }
 
 function formatEnqueueResult(enqueuedCount: number, alreadyQueuedCount: number): string {
@@ -754,6 +872,21 @@ function formatCoverage(
   ]
     .filter((value): value is string => value !== null)
     .join(" · ");
+}
+
+function formatCoverageFilter(coverage: AdminCandidatePlanCoverageFilter): string {
+  switch (coverage) {
+    case "bilingual":
+      return "Есть RU + EN";
+    case "missing-russian":
+      return "Нет русского значения";
+    case "missing-english":
+      return "Нет английского значения";
+    case "missing-reading":
+      return "Нет чтения";
+    case "missing-stroke-data":
+      return "Нет порядка черт";
+  }
 }
 
 function formatPageRange(plan: AdminCurriculumCandidatePlanResponse): string {
