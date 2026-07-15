@@ -10,6 +10,7 @@ import {
   getAdminCourseAllocationPreview,
   getAdminCoursePlacements,
   getAdminImportedCandidateRejections,
+  getAdminMainCoursePublicationReadiness,
   getAdminPrerequisiteCandidates,
   getAdminReviewQueueWithFilters,
   rejectAdminImportedCandidate,
@@ -409,5 +410,26 @@ describe("apiRequest", () => {
     expect(capturedInput).toBe("http://localhost:3001/admin/curriculum/main-course/allocation");
     expect(capturedInit?.method).toBe("POST");
     expect(capturedInit?.body).toBe(JSON.stringify(request));
+  });
+
+  it("loads the main-course publication readiness audit", async () => {
+    let capturedInput = "";
+    const fetchImpl: typeof fetch = async (input) => {
+      capturedInput = String(input);
+      return Response.json({
+        policyVersion: "main-course-publication-readiness-v1",
+        readyToPublish: false,
+      });
+    };
+
+    await expect(
+      getAdminMainCoursePublicationReadiness("token-1", fetchImpl),
+    ).resolves.toMatchObject({
+      policyVersion: "main-course-publication-readiness-v1",
+      readyToPublish: false,
+    });
+    expect(capturedInput).toBe(
+      "http://localhost:3001/admin/curriculum/main-course/publication-readiness",
+    );
   });
 });

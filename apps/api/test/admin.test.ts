@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  type AdminMainCoursePublicationReadinessResponse,
   type AdminApplyCourseAllocationResponse,
   type AdminCurationItemDto,
   type AdminCourseAllocationPreviewResponse,
@@ -13,6 +14,7 @@ import {
   type AdminImportedCandidateRejectionListItemDto,
   type AdminPrerequisiteCandidateListResponse,
 } from "@kanji-srs/shared";
+import { buildMainCourseBlueprint } from "@kanji-srs/db";
 
 import {
   AdminRepository,
@@ -369,6 +371,16 @@ describe("AdminService", () => {
         planVersion: "course-allocation:test-plan",
       }),
     ).rejects.toThrow("Resolve all allocation conflicts");
+  });
+
+  it("returns the main-course publication readiness audit", async () => {
+    await expect(
+      new AdminService(new InMemoryAdminRepository()).getMainCoursePublicationReadiness(),
+    ).resolves.toMatchObject({
+      policyVersion: "main-course-publication-readiness-v1",
+      readyToPublish: false,
+      summary: { blockedChecks: 2 },
+    });
   });
 
   it("returns bounded pages from the deterministic curriculum candidate plan", async () => {
@@ -1507,6 +1519,75 @@ describe("AdminService", () => {
     ).rejects.toBeInstanceOf(CourseAllocationPlanChangedError);
   });
 
+  it("audits the seeded main course with aggregate placement counts", async () => {
+    const blueprint = buildMainCourseBlueprint();
+    const allocationCourse = {
+      id: "course-main",
+      slug: blueprint.course.slug,
+      titleRu: blueprint.course.titleRu,
+      status: "DRAFT",
+      levels: blueprint.levels.map((level) => ({
+        id: `level-${level.levelNumber}`,
+        levelNumber: level.levelNumber,
+        band: level.band,
+      })),
+    };
+    const readinessCourse = {
+      ...allocationCourse,
+      descriptionRu: blueprint.course.descriptionRu,
+      targetLevel: blueprint.course.targetLevel,
+      band: blueprint.course.band,
+      courseType: "STRUCTURED",
+      levels: blueprint.levels.map((level) => ({
+        levelNumber: level.levelNumber,
+        band: level.band,
+        titleRu: level.titleRu,
+        descriptionRu: level.descriptionRu,
+        _count: { items: 1 },
+      })),
+    };
+    const course = {
+      findUnique: vi
+        .fn()
+        .mockResolvedValueOnce(allocationCourse)
+        .mockResolvedValueOnce(readinessCourse),
+    };
+    const learningItem = {
+      findMany: vi.fn().mockResolvedValue([
+        {
+          id: "component-one",
+          title: "Компонент один",
+          kind: "COMPONENT",
+          curriculumBand: "FOUNDATION",
+          levelHint: 1,
+          dependencies: [],
+          courseLevelItems: [{ courseLevel: { levelNumber: 1 } }],
+        },
+      ]),
+      count: vi
+        .fn()
+        .mockResolvedValueOnce(2_300)
+        .mockResolvedValueOnce(8_000)
+        .mockResolvedValueOnce(1),
+    };
+    const courseLevelItem = { count: vi.fn().mockResolvedValue(0) };
+    const repository = new PrismaAdminRepository({
+      db: { course, learningItem, courseLevelItem },
+    } as never);
+
+    await expect(repository.getMainCoursePublicationReadiness()).resolves.toMatchObject({
+      readyToPublish: true,
+      summary: { passedChecks: 8, blockedChecks: 0 },
+    });
+    expect(courseLevelItem.count).toHaveBeenCalledWith({
+      where: {
+        courseLevel: { courseId: "course-main" },
+        learningItem: { status: { not: "PUBLISHED" } },
+      },
+    });
+    expect(learningItem.count).toHaveBeenCalledTimes(3);
+  });
+
   it("requires non-empty RU and EN accepted answers for translation approval", async () => {
     const adminService = new AdminService(new InMemoryAdminRepository());
 
@@ -2129,6 +2210,41 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
           proposedPlacements: 0,
         },
       },
+    };
+  }
+
+  async getMainCoursePublicationReadiness(): Promise<AdminMainCoursePublicationReadinessResponse> {
+    return {
+      policyVersion: "main-course-publication-readiness-v1",
+      readinessVersion: "main-course-readiness:test",
+      allocationPlanVersion: "course-allocation:test-plan",
+      generatedAt: "2026-07-15T12:00:00.000Z",
+      readyToPublish: false,
+      course: {
+        id: "course-main",
+        slug: "japanese-ru-n2",
+        title: "Основной курс",
+        status: "draft",
+      },
+      summary: { passedChecks: 6, blockedChecks: 2 },
+      checks: [
+        {
+          code: "kanji-target",
+          passed: false,
+          title: "Цель по кандзи",
+          message: "В основном курсе размещено кандзи: 2 из 2300.",
+          current: 2,
+          required: 2_300,
+        },
+        {
+          code: "word-target",
+          passed: false,
+          title: "Цель по словам",
+          message: "В основном курсе размещено слов: 1 из 8000.",
+          current: 1,
+          required: 8_000,
+        },
+      ],
     };
   }
 

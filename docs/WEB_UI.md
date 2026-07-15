@@ -43,6 +43,11 @@ Applying requires a keyboard-accessible confirmation, preserves every existing
 placement, reports the number of additions, and refreshes the preview. If the
 version changed, the stale confirmation is rejected and the panel reloads the
 current calculation before another attempt.
+Below allocation, the publication-readiness panel presents the eight server
+checks as a compact pass/blocker list with current and required counts. It
+updates after allocation or curation changes and makes the 2,300-kanji and
+8,000-word gaps explicit. The panel is deliberately read-only; publishing and
+learner migration require later, separately confirmed workflows.
 After an item or card save, the queue restarts from its first cursor page under
 the active filters. It keeps the saved item selected when it still matches and
 otherwise opens the next available item, while a post-save refresh failure is

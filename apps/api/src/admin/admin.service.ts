@@ -25,6 +25,7 @@ import {
   type AdminImportedCandidateListResponse,
   type AdminImportedCandidateRejectionDto,
   type AdminImportedCandidateRejectionListResponse,
+  type AdminMainCoursePublicationReadinessResponse,
   type AdminPrerequisiteCandidateListResponse,
   type AdminRestoreImportedCandidateResponse,
   type AdminReviewQueueResponse,
@@ -232,6 +233,18 @@ export class AdminService {
 
       throw error;
     }
+  }
+
+  async getMainCoursePublicationReadiness(): Promise<AdminMainCoursePublicationReadinessResponse> {
+    const readiness = await this.adminRepository.getMainCoursePublicationReadiness();
+
+    if (readiness === null) {
+      throw new NotFoundException(
+        "Main structured course not found. Run the current database seed first.",
+      );
+    }
+
+    return readiness;
   }
 
   async getCandidatePlan(query: unknown = {}): Promise<AdminCurriculumCandidatePlanResponse> {

@@ -101,6 +101,11 @@ export class AdminController {
     return this.adminService.applyCourseAllocation(body);
   }
 
+  @Get("curriculum/main-course/publication-readiness")
+  getMainCoursePublicationReadiness() {
+    return this.adminService.getMainCoursePublicationReadiness();
+  }
+
   @Get("curriculum/candidate-plan")
   getCandidatePlan(@Query() query: Record<string, unknown>) {
     return this.adminService.getCandidatePlan(query);

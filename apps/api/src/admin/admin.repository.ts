@@ -17,6 +17,7 @@ import {
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateRejectionDto,
   type AdminImportedCandidateRejectionListItemDto,
+  type AdminMainCoursePublicationReadinessResponse,
   type AdminPrerequisiteCandidateDto,
   type AdminPrerequisiteCandidateListResponse,
   type AdminReviewQueueItemDto,
@@ -45,6 +46,7 @@ import {
   type ImportedCandidateRankingInput,
   rankImportedCandidates,
 } from "./imported-candidate-ranking";
+import { buildMainCoursePublicationReadiness } from "./main-course-publication-readiness";
 import {
   type AdminCandidatePlanEnqueueItemInput,
   type AdminCandidatePlanEnqueueResult,
@@ -88,6 +90,7 @@ export abstract class AdminRepository {
   abstract applyCourseAllocation(
     planVersion: string,
   ): Promise<AdminApplyCourseAllocationResponse | null>;
+  abstract getMainCoursePublicationReadiness(): Promise<AdminMainCoursePublicationReadinessResponse | null>;
   abstract getCandidatePlanVersion(): Promise<string>;
   abstract getCandidatePlan(): Promise<CurriculumCandidatePlan>;
   abstract enqueueCandidatePlanCandidates(
@@ -968,6 +971,116 @@ export class PrismaAdminRepository extends AdminRepository {
     }
 
     return { ...result, preview };
+  }
+
+  async getMainCoursePublicationReadiness(): Promise<AdminMainCoursePublicationReadinessResponse | null> {
+    const input = await this.loadCourseAllocationInput(this.prisma.db);
+
+    if (input === null) {
+      return null;
+    }
+
+    const allocation = buildCourseAllocationPreview(input, {
+      previewLimit: Number.MAX_SAFE_INTEGER,
+    });
+    const [course, stalePlacements, placedKanji, placedWords, initialLessonItems] =
+      await Promise.all([
+        this.prisma.db.course.findUnique({
+          where: { id: input.course.id },
+          select: {
+            id: true,
+            slug: true,
+            titleRu: true,
+            descriptionRu: true,
+            targetLevel: true,
+            band: true,
+            courseType: true,
+            status: true,
+            levels: {
+              select: {
+                levelNumber: true,
+                band: true,
+                titleRu: true,
+                descriptionRu: true,
+                _count: {
+                  select: {
+                    items: { where: { learningItem: { status: "PUBLISHED" } } },
+                  },
+                },
+              },
+              orderBy: { levelNumber: "asc" },
+            },
+          },
+        }),
+        this.prisma.db.courseLevelItem.count({
+          where: {
+            courseLevel: { courseId: input.course.id },
+            learningItem: { status: { not: "PUBLISHED" } },
+          },
+        }),
+        this.prisma.db.learningItem.count({
+          where: {
+            kind: "KANJI",
+            status: "PUBLISHED",
+            courseLevelItems: { some: { courseLevel: { courseId: input.course.id } } },
+          },
+        }),
+        this.prisma.db.learningItem.count({
+          where: {
+            kind: "WORD",
+            status: "PUBLISHED",
+            courseLevelItems: { some: { courseLevel: { courseId: input.course.id } } },
+          },
+        }),
+        this.prisma.db.learningItem.count({
+          where: {
+            status: "PUBLISHED",
+            cards: { some: {} },
+            dependencies: { none: { dependencyType: "PREREQUISITE" } },
+            courseLevelItems: {
+              some: {
+                courseLevel: { courseId: input.course.id, levelNumber: 1 },
+              },
+            },
+          },
+        }),
+      ]);
+
+    if (course === null) {
+      return null;
+    }
+
+    return buildMainCoursePublicationReadiness({
+      course: {
+        id: course.id,
+        slug: course.slug,
+        title: course.titleRu,
+        description: course.descriptionRu,
+        targetLevel: course.targetLevel,
+        band: toApiBand(course.band),
+        courseType: toApiCourseType(course.courseType),
+        status: toApiStatus(course.status),
+      },
+      levels: course.levels.map((level) => ({
+        levelNumber: level.levelNumber,
+        band: toApiBand(level.band),
+        title: level.titleRu,
+        description: level.descriptionRu,
+        publishedItems: level._count.items,
+      })),
+      allocation: {
+        planVersion: allocation.planVersion,
+        publishedItems: allocation.summary.publishedItems,
+        existingPlacements: allocation.summary.existingPlacements,
+        proposedPlacements: allocation.summary.proposedPlacements,
+        blockedItems: allocation.summary.blockedItems,
+        issueCount: allocation.issues.length,
+      },
+      stalePlacements,
+      placedKanji,
+      placedWords,
+      initialLessonItems,
+    });
   }
 
   private async loadCourseAllocationInput(

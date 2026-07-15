@@ -1075,6 +1075,44 @@ export type AdminApplyCourseAllocationResponse = {
   readonly preview: AdminCourseAllocationPreviewResponse;
 };
 
+export type AdminMainCourseReadinessCheckCode =
+  | "course-state"
+  | "course-blueprint"
+  | "allocation-complete"
+  | "published-placements-only"
+  | "levels-populated"
+  | "initial-lesson"
+  | "kanji-target"
+  | "word-target";
+
+export type AdminMainCourseReadinessCheckDto = {
+  readonly code: AdminMainCourseReadinessCheckCode;
+  readonly passed: boolean;
+  readonly title: string;
+  readonly message: string;
+  readonly current: number | null;
+  readonly required: number | null;
+};
+
+export type AdminMainCoursePublicationReadinessResponse = {
+  readonly policyVersion: "main-course-publication-readiness-v1";
+  readonly readinessVersion: string;
+  readonly allocationPlanVersion: string;
+  readonly generatedAt: string;
+  readonly readyToPublish: boolean;
+  readonly course: {
+    readonly id: string;
+    readonly slug: string;
+    readonly title: string;
+    readonly status: AdminContentStatus;
+  };
+  readonly summary: {
+    readonly passedChecks: number;
+    readonly blockedChecks: number;
+  };
+  readonly checks: readonly AdminMainCourseReadinessCheckDto[];
+};
+
 export type AdminCurriculumCandidatePlanItemDto = {
   readonly selectionRank: number;
   readonly targetId: string;

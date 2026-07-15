@@ -16,6 +16,7 @@ import {
   type AdminImportedCandidateListResponse,
   type AdminImportedCandidateRejectionDto,
   type AdminImportedCandidateRejectionListResponse,
+  type AdminMainCoursePublicationReadinessResponse,
   type AdminPromoteCandidateRequest,
   type AdminPrerequisiteCandidateListResponse,
   type AdminRejectImportedCandidateRequest,
@@ -355,6 +356,16 @@ export function applyAdminCourseAllocation(
       body: input,
       fetchImpl,
     },
+  );
+}
+
+export function getAdminMainCoursePublicationReadiness(
+  token: string,
+  fetchImpl?: typeof fetch,
+): Promise<AdminMainCoursePublicationReadinessResponse> {
+  return apiRequest<AdminMainCoursePublicationReadinessResponse>(
+    "/admin/curriculum/main-course/publication-readiness",
+    { token, fetchImpl },
   );
 }
 

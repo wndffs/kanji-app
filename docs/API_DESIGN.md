@@ -271,6 +271,7 @@ in-progress session.
 - `GET /admin/curriculum/scale-readiness`
 - `GET /admin/curriculum/main-course/allocation-preview`
 - `POST /admin/curriculum/main-course/allocation`
+- `GET /admin/curriculum/main-course/publication-readiness`
 - `GET /admin/curriculum/candidate-plan`
 - `POST /admin/curriculum/candidate-plan/enqueue`
 - `GET /admin/items/review-queue`
@@ -368,6 +369,17 @@ Conflict`, preserves existing placements, and appends proposed items after the
 current highest `sortOrder` in each level. The response reports the number of
 created placements and includes a fresh read-only preview. Repeating an old
 confirmation cannot silently apply a newer calculation.
+
+`GET /admin/curriculum/main-course/publication-readiness` applies the read-only,
+versioned `main-course-publication-readiness-v1` policy. It verifies the
+project-owned 60-level blueprint, complete conflict-free allocation, absence of
+non-published placements, at least one published item in every level, and an
+initial level-one item with a card and no prerequisites. Scale checks count
+unique published placements in this course, not raw dictionary rows or global
+content: the full N2 course requires at least 2,300 kanji and 8,000 vocabulary
+items. The opaque `readinessVersion` excludes generation time but changes when
+any audited input changes. This endpoint never changes course status or user
+enrollments.
 
 `GET /admin/curriculum/candidate-plan` applies the versioned independent
 frequency-and-prerequisite policy to active course work plus unassigned source

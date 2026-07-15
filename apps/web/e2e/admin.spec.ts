@@ -16,6 +16,7 @@ import {
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateListResponse,
   type AdminImportedCandidateRejectionListResponse,
+  type AdminMainCoursePublicationReadinessResponse,
   type AdminPrerequisiteCandidateListResponse,
   type AdminRejectImportedCandidateRequest,
   type AdminReviewQueueResponse,
@@ -399,6 +400,20 @@ test.describe("admin curation", () => {
     await expect(applyButton).toHaveText("Применить 0");
     await expect(applyButton).toBeDisabled();
   });
+
+  test("admin sees the main-course publication blockers", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await mockAdminApi(page);
+
+    await page.goto("/admin");
+
+    const readiness = page.getByTestId("admin-course-publication-readiness");
+    await expect(readiness).toContainText("Готовность к публикации");
+    await expect(readiness).toContainText("Пройдено проверок: 6 из 8");
+    await expect(readiness).toContainText(/2.?300/);
+    await expect(readiness).toContainText(/8.?000/);
+    await expect(readiness.getByText("Блокер")).toHaveCount(2);
+  });
 });
 
 async function signIn(page: Page, role: "USER" | "ADMIN"): Promise<void> {
@@ -707,6 +722,48 @@ async function mockAdminApi(
 
     await route.fulfill({ json: response });
   });
+
+  await page.route(
+    `${API_BASE_URL}/admin/curriculum/main-course/publication-readiness`,
+    async (route) => {
+      const response: AdminMainCoursePublicationReadinessResponse = {
+        policyVersion: "main-course-publication-readiness-v1",
+        readinessVersion: "main-course-readiness:test",
+        allocationPlanVersion: allocationApplied
+          ? "course-allocation:applied-plan"
+          : "course-allocation:test-plan",
+        generatedAt: "2026-07-15T12:00:00.000Z",
+        readyToPublish: false,
+        course: {
+          id: "course-main",
+          slug: "japanese-ru-n2",
+          title: "Японский: кандзи и лексика до N2",
+          status: "draft",
+        },
+        summary: { passedChecks: 6, blockedChecks: 2 },
+        checks: [
+          readinessCheck("course-state", "Состояние курса"),
+          readinessCheck("course-blueprint", "Blueprint 60 уровней", 60, 60),
+          readinessCheck("allocation-complete", "Распределение завершено", 3, 3),
+          readinessCheck("published-placements-only", "Только опубликованные материалы", 0, 0),
+          readinessCheck("levels-populated", "Заполнены все уровни", 60, 60),
+          readinessCheck("initial-lesson", "Доступен первый урок", 1, 1),
+          {
+            ...readinessCheck("kanji-target", "Цель по кандзи", 2, 2_300),
+            passed: false,
+            message: "В основном курсе размещено кандзи: 2 из 2300.",
+          },
+          {
+            ...readinessCheck("word-target", "Цель по словам", 1, 8_000),
+            passed: false,
+            message: "В основном курсе размещено слов: 1 из 8000.",
+          },
+        ],
+      };
+
+      await route.fulfill({ json: response });
+    },
+  );
 
   await page.route(`${API_BASE_URL}/admin/curriculum/candidate-plan**`, async (route) => {
     const url = new URL(route.request().url());
@@ -1278,6 +1335,22 @@ function matchesCandidatePlanCoverage(
     case "missing-stroke-data":
       return candidate.coverage.strokeData === false;
   }
+}
+
+function readinessCheck(
+  code: AdminMainCoursePublicationReadinessResponse["checks"][number]["code"],
+  title: string,
+  current: number | null = null,
+  required: number | null = null,
+): AdminMainCoursePublicationReadinessResponse["checks"][number] {
+  return {
+    code,
+    passed: true,
+    title,
+    message: "Проверка пройдена.",
+    current,
+    required,
+  };
 }
 
 function buildAdminItem(): AdminCurationItemDto {
