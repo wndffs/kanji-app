@@ -1041,6 +1041,7 @@ export type AdminCourseAllocationBandSummaryDto = {
 
 export type AdminCourseAllocationPreviewResponse = {
   readonly policyVersion: "balanced-prerequisite-levels-v1";
+  readonly planVersion: string;
   readonly generatedAt: string;
   readonly maxItemsPerLevel: number;
   readonly course: {
@@ -1061,6 +1062,17 @@ export type AdminCourseAllocationPreviewResponse = {
   readonly issues: readonly AdminCourseAllocationIssueDto[];
   readonly itemsTruncated: boolean;
   readonly issuesTruncated: boolean;
+};
+
+export type AdminApplyCourseAllocationRequest = {
+  readonly planVersion: string;
+};
+
+export type AdminApplyCourseAllocationResponse = {
+  readonly appliedPlanVersion: string;
+  readonly appliedAt: string;
+  readonly createdPlacements: number;
+  readonly preview: AdminCourseAllocationPreviewResponse;
 };
 
 export type AdminCurriculumCandidatePlanItemDto = {

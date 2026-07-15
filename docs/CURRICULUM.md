@@ -92,9 +92,12 @@ only published learning items, keeps editorial placements fixed, uses a valid
 level hint when possible, and recursively resolves prerequisites before their
 dependants. New items without a usable hint go to the least occupied eligible
 level in their band, with a 220-item planning ceiling per level. The preview is
-read-only: missing bands, prerequisite conflicts, cycles, capacity gaps, and
-unsafe existing placements must be reviewed before a later confirmed apply
-operation can write course rows.
+read-only and versioned: missing bands, prerequisite conflicts, cycles,
+capacity gaps, and unsafe existing placements must be reviewed before its
+confirmed apply operation can write course rows. Apply recalculates the full
+plan in a serializable transaction, rejects stale confirmations or any blocker,
+keeps all existing placements, and appends only the proposed rows to each
+level's current ordering.
 
 The admin scale-readiness report keeps this distinction measurable. It reports
 the remaining publication gap, work already in curation, unassigned imported

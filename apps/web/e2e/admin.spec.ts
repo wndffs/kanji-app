@@ -1,6 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 
 import {
+  type AdminApplyCourseAllocationRequest,
+  type AdminApplyCourseAllocationResponse,
   type AdminApproveImportedTranslationRequest,
   type AdminCoursePlacementListResponse,
   type AdminCourseAllocationPreviewResponse,
@@ -375,6 +377,28 @@ test.describe("admin curation", () => {
     await expect(firstCandidate).toHaveCount(0);
     await expect(candidatePlan.getByRole("checkbox", { name: "Выбрать 二" })).toBeChecked();
   });
+
+  test("admin confirms and applies the current course allocation", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await mockAdminApi(page);
+
+    await page.goto("/admin");
+
+    const panel = page.getByTestId("admin-course-allocation");
+    const applyButton = panel.getByTestId("admin-apply-course-allocation");
+    await expect(applyButton).toHaveText("Применить 2");
+    await applyButton.click();
+
+    const confirmation = page.getByRole("dialog", { name: "Применить распределение?" });
+    await expect(confirmation).toContainText("Будет создано размещений: 2");
+    await expect(confirmation.getByRole("button", { name: "Отмена" })).toBeFocused();
+    await confirmation.getByRole("button", { name: "Применить", exact: true }).click();
+
+    await expect(page.getByText("Распределение применено. Создано размещений: 2.")).toBeVisible();
+    await expect(panel).toContainText("Предложено");
+    await expect(applyButton).toHaveText("Применить 0");
+    await expect(applyButton).toBeDisabled();
+  });
 });
 
 async function signIn(page: Page, role: "USER" | "ADMIN"): Promise<void> {
@@ -419,6 +443,7 @@ async function mockAdminApi(
   };
   let itemWasSaved = false;
   let coursePlacementLevelId = "course-level-1";
+  let allocationApplied = false;
   const secondItem = buildSecondAdminItem();
   const assignedPlanTargets = new Set<string>();
   let remainingEnqueueConflicts = options.enqueueConflictOnce === true ? 1 : 0;
@@ -573,6 +598,9 @@ async function mockAdminApi(
     async (route) => {
       const response: AdminCourseAllocationPreviewResponse = {
         policyVersion: "balanced-prerequisite-levels-v1",
+        planVersion: allocationApplied
+          ? "course-allocation:applied-plan"
+          : "course-allocation:test-plan",
         generatedAt: "2026-07-15T10:00:00.000Z",
         maxItemsPerLevel: 220,
         course: {
@@ -584,8 +612,8 @@ async function mockAdminApi(
         },
         summary: {
           publishedItems: 3,
-          existingPlacements: 1,
-          proposedPlacements: 2,
+          existingPlacements: allocationApplied ? 3 : 1,
+          proposedPlacements: allocationApplied ? 0 : 2,
           blockedItems: 0,
         },
         bands: [
@@ -593,8 +621,8 @@ async function mockAdminApi(
             band: "foundation",
             levelCount: 5,
             publishedItems: 3,
-            existingPlacements: 1,
-            proposedPlacements: 2,
+            existingPlacements: allocationApplied ? 3 : 1,
+            proposedPlacements: allocationApplied ? 0 : 2,
             blockedItems: 0,
           },
         ],
@@ -606,7 +634,7 @@ async function mockAdminApi(
             band: "foundation",
             levelNumber: 2,
             prerequisiteLevelFloor: 1,
-            placement: "balanced",
+            placement: allocationApplied ? "existing" : "balanced",
           },
         ],
         issues: [],
@@ -617,6 +645,68 @@ async function mockAdminApi(
       await route.fulfill({ json: response });
     },
   );
+
+  await page.route(`${API_BASE_URL}/admin/curriculum/main-course/allocation`, async (route) => {
+    const body = route.request().postDataJSON() as AdminApplyCourseAllocationRequest;
+
+    if (body.planVersion !== "course-allocation:test-plan" || allocationApplied) {
+      await route.fulfill({ status: 409, json: { message: "Allocation preview changed." } });
+      return;
+    }
+
+    allocationApplied = true;
+    const preview: AdminCourseAllocationPreviewResponse = {
+      policyVersion: "balanced-prerequisite-levels-v1",
+      planVersion: "course-allocation:applied-plan",
+      generatedAt: "2026-07-15T10:01:00.000Z",
+      maxItemsPerLevel: 220,
+      course: {
+        id: "course-main",
+        slug: "japanese-ru-n2",
+        title: "Основной курс",
+        status: "draft",
+        levelCount: 60,
+      },
+      summary: {
+        publishedItems: 3,
+        existingPlacements: 3,
+        proposedPlacements: 0,
+        blockedItems: 0,
+      },
+      bands: [
+        {
+          band: "foundation",
+          levelCount: 5,
+          publishedItems: 3,
+          existingPlacements: 3,
+          proposedPlacements: 0,
+          blockedItems: 0,
+        },
+      ],
+      items: [
+        {
+          learningItemId: ITEM_ID,
+          title: "Кандзи 一",
+          itemType: "kanji",
+          band: "foundation",
+          levelNumber: 2,
+          prerequisiteLevelFloor: 1,
+          placement: "existing",
+        },
+      ],
+      issues: [],
+      itemsTruncated: false,
+      issuesTruncated: false,
+    };
+    const response: AdminApplyCourseAllocationResponse = {
+      appliedPlanVersion: body.planVersion,
+      appliedAt: "2026-07-15T10:01:00.000Z",
+      createdPlacements: 2,
+      preview,
+    };
+
+    await route.fulfill({ json: response });
+  });
 
   await page.route(`${API_BASE_URL}/admin/curriculum/candidate-plan**`, async (route) => {
     const url = new URL(route.request().url());

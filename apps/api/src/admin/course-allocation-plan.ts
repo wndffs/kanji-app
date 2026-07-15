@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import {
   type AdminContentStatus,
   type AdminCourseAllocationIssueDto,
@@ -326,6 +328,7 @@ export function buildCourseAllocationPreview(
 
   return {
     policyVersion: COURSE_ALLOCATION_POLICY_VERSION,
+    planVersion: buildCourseAllocationPlanVersion(input, maxItemsPerLevel),
     generatedAt: (options.now ?? new Date()).toISOString(),
     maxItemsPerLevel,
     course: {
@@ -356,6 +359,40 @@ export function buildCourseAllocationPreview(
     itemsTruncated: allAllocations.length > previewLimit,
     issuesTruncated: sortedIssues.length > previewLimit,
   };
+}
+
+function buildCourseAllocationPlanVersion(
+  input: CourseAllocationPlanInput,
+  maxItemsPerLevel = COURSE_ALLOCATION_MAX_ITEMS_PER_LEVEL,
+): string {
+  const payload = {
+    policyVersion: COURSE_ALLOCATION_POLICY_VERSION,
+    maxItemsPerLevel,
+    course: input.course,
+    levels: [...input.levels]
+      .sort(
+        (left, right) => left.levelNumber - right.levelNumber || left.id.localeCompare(right.id),
+      )
+      .map((level) => ({
+        id: level.id,
+        levelNumber: level.levelNumber,
+        band: level.band,
+      })),
+    items: [...input.items]
+      .sort((left, right) => left.id.localeCompare(right.id))
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        itemType: item.itemType,
+        band: item.band,
+        levelHint: item.levelHint,
+        prerequisiteItemIds: [...item.prerequisiteItemIds].sort(),
+        currentLevelNumbers: [...item.currentLevelNumbers].sort((left, right) => left - right),
+      })),
+  };
+  const checksum = createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+
+  return `course-allocation:${checksum}`;
 }
 
 function compareAllocationItems(

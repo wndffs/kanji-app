@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ApiError,
   apiRequest,
+  applyAdminCourseAllocation,
   createTextDeck,
   enqueueAdminCandidatePlan,
   getAdminCandidatePlan,
@@ -388,5 +389,25 @@ describe("apiRequest", () => {
       "http://localhost:3001/admin/curriculum/main-course/allocation-preview",
     );
     expect(capturedMethod).toBe("GET");
+  });
+
+  it("posts the confirmed main-course allocation version", async () => {
+    let capturedInput = "";
+    let capturedInit: RequestInit | undefined;
+    const fetchImpl: typeof fetch = async (input, init) => {
+      capturedInput = String(input);
+      capturedInit = init;
+      return Response.json({
+        appliedPlanVersion: "course-allocation:test-plan",
+        createdPlacements: 2,
+      });
+    };
+    const request = { planVersion: "course-allocation:test-plan" };
+
+    await applyAdminCourseAllocation("token-1", request, fetchImpl);
+
+    expect(capturedInput).toBe("http://localhost:3001/admin/curriculum/main-course/allocation");
+    expect(capturedInit?.method).toBe("POST");
+    expect(capturedInit?.body).toBe(JSON.stringify(request));
   });
 });

@@ -38,8 +38,11 @@ control remains read-only until the material is published.
 The admin planning area includes a read-only main-course allocation preview.
 It shows complete totals and per-band counts, then bounded assignment and
 conflict tables. Existing and proposed placements are visually distinguished;
-the panel has no apply action until the server-side confirmation workflow is
-implemented.
+the apply action is available only for a non-empty plan without conflicts.
+Applying requires a keyboard-accessible confirmation, preserves every existing
+placement, reports the number of additions, and refreshes the preview. If the
+version changed, the stale confirmation is rejected and the panel reloads the
+current calculation before another attempt.
 After an item or card save, the queue restarts from its first cursor page under
 the active filters. It keeps the saved item selected when it still matches and
 otherwise opens the next available item, while a post-save refresh failure is

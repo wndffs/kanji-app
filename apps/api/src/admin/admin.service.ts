@@ -9,6 +9,7 @@ import {
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
 import {
   ADMIN_CANDIDATE_PLAN_COVERAGE_FILTERS,
+  type AdminApplyCourseAllocationResponse,
   type AdminCandidatePlanCoverageFilter,
   type AdminContentStatus,
   type AdminCourseAllocationPreviewResponse,
@@ -37,6 +38,8 @@ import {
 
 import {
   AdminRepository,
+  CourseAllocationBlockedError,
+  CourseAllocationPlanChangedError,
   CoursePlacementItemNotPublishedError,
   CoursePlacementSelectionChangedError,
   PrerequisiteSelectionChangedError,
@@ -196,6 +199,39 @@ export class AdminService {
     }
 
     return preview;
+  }
+
+  async applyCourseAllocation(body: unknown): Promise<AdminApplyCourseAllocationResponse> {
+    const record = parseRecord(body, "Request body");
+    const planVersion = parseRequiredString(record.planVersion, "planVersion", {
+      maxLength: 128,
+    });
+
+    try {
+      const result = await this.adminRepository.applyCourseAllocation(planVersion);
+
+      if (result === null) {
+        throw new NotFoundException(
+          "Main structured course not found. Run the current database seed first.",
+        );
+      }
+
+      return result;
+    } catch (error: unknown) {
+      if (error instanceof CourseAllocationPlanChangedError) {
+        throw new ConflictException(
+          "Allocation preview changed. Refresh the preview and confirm the current plan.",
+        );
+      }
+
+      if (error instanceof CourseAllocationBlockedError) {
+        throw new ConflictException(
+          "Resolve all allocation conflicts before applying the course plan.",
+        );
+      }
+
+      throw error;
+    }
   }
 
   async getCandidatePlan(query: unknown = {}): Promise<AdminCurriculumCandidatePlanResponse> {

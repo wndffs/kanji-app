@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  type AdminApplyCourseAllocationResponse,
   type AdminCurationItemDto,
   type AdminCourseAllocationPreviewResponse,
   type AdminCoursePlacementListResponse,
@@ -15,6 +16,8 @@ import {
 
 import {
   AdminRepository,
+  CourseAllocationBlockedError,
+  CourseAllocationPlanChangedError,
   CoursePlacementItemNotPublishedError,
   PrismaAdminRepository,
 } from "../src/admin/admin.repository";
@@ -338,6 +341,34 @@ describe("AdminService", () => {
       course: { slug: "japanese-ru-n2", levelCount: 60 },
       summary: { publishedItems: 3, existingPlacements: 1, proposedPlacements: 2 },
     });
+  });
+
+  it("applies only the currently confirmed course allocation preview", async () => {
+    const repository = new InMemoryAdminRepository();
+    const adminService = new AdminService(repository);
+
+    await expect(
+      adminService.applyCourseAllocation({ planVersion: "course-allocation:test-plan" }),
+    ).resolves.toMatchObject({
+      appliedPlanVersion: "course-allocation:test-plan",
+      createdPlacements: 2,
+      preview: { summary: { existingPlacements: 3, proposedPlacements: 0 } },
+    });
+
+    await expect(
+      adminService.applyCourseAllocation({ planVersion: "course-allocation:stale" }),
+    ).rejects.toThrow("Allocation preview changed");
+  });
+
+  it("rejects allocation apply requests while the preview has blockers", async () => {
+    const repository = new InMemoryAdminRepository();
+    repository.courseAllocationBlocked = true;
+
+    await expect(
+      new AdminService(repository).applyCourseAllocation({
+        planVersion: "course-allocation:test-plan",
+      }),
+    ).rejects.toThrow("Resolve all allocation conflicts");
   });
 
   it("returns bounded pages from the deterministic curriculum candidate plan", async () => {
@@ -1359,6 +1390,123 @@ describe("AdminService", () => {
     );
   });
 
+  it("appends confirmed allocation items without changing existing placements", async () => {
+    let applied = false;
+    const course = {
+      findUnique: vi.fn().mockResolvedValue({
+        id: "course-main",
+        slug: "japanese-ru-n2",
+        titleRu: "Основной курс",
+        status: "DRAFT",
+        levels: [
+          { id: "level-1", levelNumber: 1, band: "FOUNDATION" },
+          { id: "level-2", levelNumber: 2, band: "FOUNDATION" },
+        ],
+      }),
+    };
+    const learningItem = {
+      findMany: vi.fn().mockImplementation(() =>
+        Promise.resolve([
+          {
+            id: "component-one",
+            title: "Компонент один",
+            kind: "COMPONENT",
+            curriculumBand: "FOUNDATION",
+            levelHint: 1,
+            dependencies: [],
+            courseLevelItems: [{ courseLevel: { levelNumber: 1 } }],
+          },
+          {
+            id: "kanji-one",
+            title: "Кандзи один",
+            kind: "KANJI",
+            curriculumBand: "FOUNDATION",
+            levelHint: 2,
+            dependencies: [{ prerequisiteItemId: "component-one" }],
+            courseLevelItems: applied ? [{ courseLevel: { levelNumber: 2 } }] : [],
+          },
+        ]),
+      ),
+    };
+    const courseLevelItem = {
+      findFirst: vi.fn().mockResolvedValue({ sortOrder: 4 }),
+      createMany: vi.fn().mockImplementation(() => {
+        applied = true;
+        return Promise.resolve({ count: 1 });
+      }),
+    };
+    const transactionDb = { course, learningItem, courseLevelItem };
+    const transaction = vi.fn(async (callback: (db: typeof transactionDb) => Promise<unknown>) =>
+      callback(transactionDb),
+    );
+    const repository = new PrismaAdminRepository({
+      db: { course, learningItem, courseLevelItem, $transaction: transaction },
+    } as never);
+    const preview = await repository.getCourseAllocationPreview();
+
+    const result = await repository.applyCourseAllocation(preview!.planVersion);
+
+    expect(result).toMatchObject({
+      appliedPlanVersion: preview!.planVersion,
+      createdPlacements: 1,
+      preview: { summary: { existingPlacements: 2, proposedPlacements: 0 } },
+    });
+    expect(courseLevelItem.createMany).toHaveBeenCalledWith({
+      data: [{ courseLevelId: "level-2", learningItemId: "kanji-one", sortOrder: 5 }],
+    });
+    expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: "Serializable",
+    });
+  });
+
+  it("does not write an allocation when its confirmation version is stale", async () => {
+    const course = {
+      findUnique: vi.fn().mockResolvedValue({
+        id: "course-main",
+        slug: "japanese-ru-n2",
+        titleRu: "Основной курс",
+        status: "DRAFT",
+        levels: [{ id: "level-1", levelNumber: 1, band: "FOUNDATION" }],
+      }),
+    };
+    const learningItem = {
+      findMany: vi.fn().mockResolvedValue([
+        {
+          id: "component-one",
+          title: "Компонент один",
+          kind: "COMPONENT",
+          curriculumBand: "FOUNDATION",
+          levelHint: 1,
+          dependencies: [],
+          courseLevelItems: [],
+        },
+      ]),
+    };
+    const courseLevelItem = {
+      findFirst: vi.fn(),
+      createMany: vi.fn(),
+    };
+    const transactionDb = { course, learningItem, courseLevelItem };
+    const transaction = vi.fn(async (callback: (db: typeof transactionDb) => Promise<unknown>) =>
+      callback(transactionDb),
+    );
+    const repository = new PrismaAdminRepository({ db: { $transaction: transaction } } as never);
+
+    await expect(
+      repository.applyCourseAllocation("course-allocation:stale"),
+    ).rejects.toBeInstanceOf(CourseAllocationPlanChangedError);
+    expect(courseLevelItem.createMany).not.toHaveBeenCalled();
+  });
+
+  it("returns a stale-plan conflict for concurrent allocation writes", async () => {
+    const transaction = vi.fn().mockRejectedValue({ code: "P2034" });
+    const repository = new PrismaAdminRepository({ db: { $transaction: transaction } } as never);
+
+    await expect(
+      repository.applyCourseAllocation("course-allocation:test-plan"),
+    ).rejects.toBeInstanceOf(CourseAllocationPlanChangedError);
+  });
+
   it("requires non-empty RU and EN accepted answers for translation approval", async () => {
     const adminService = new AdminService(new InMemoryAdminRepository());
 
@@ -1420,6 +1568,7 @@ describe("AdminService", () => {
 
 class InMemoryAdminRepository extends AdminRepository implements OverridesRepository {
   candidatePlanReads = 0;
+  courseAllocationBlocked = false;
   readonly candidatePlanVersionResponses: string[] = [];
   readonly enqueuedCandidateBatches: (readonly AdminCandidatePlanEnqueueItemInput[])[] = [];
   private rejectionRevision = 0;
@@ -1932,6 +2081,7 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
   async getCourseAllocationPreview(): Promise<AdminCourseAllocationPreviewResponse> {
     return {
       policyVersion: "balanced-prerequisite-levels-v1",
+      planVersion: "course-allocation:test-plan",
       generatedAt: "2026-07-15T10:00:00.000Z",
       maxItemsPerLevel: 220,
       course: {
@@ -1952,6 +2102,33 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
       issues: [],
       itemsTruncated: false,
       issuesTruncated: false,
+    };
+  }
+
+  async applyCourseAllocation(planVersion: string): Promise<AdminApplyCourseAllocationResponse> {
+    if (planVersion !== "course-allocation:test-plan") {
+      throw new CourseAllocationPlanChangedError();
+    }
+
+    if (this.courseAllocationBlocked) {
+      throw new CourseAllocationBlockedError();
+    }
+
+    const preview = await this.getCourseAllocationPreview();
+
+    return {
+      appliedPlanVersion: planVersion,
+      appliedAt: "2026-07-15T10:01:00.000Z",
+      createdPlacements: 2,
+      preview: {
+        ...preview,
+        planVersion: "course-allocation:applied-plan",
+        summary: {
+          ...preview.summary,
+          existingPlacements: 3,
+          proposedPlacements: 0,
+        },
+      },
     };
   }
 

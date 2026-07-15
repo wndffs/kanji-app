@@ -270,6 +270,7 @@ in-progress session.
 - `GET /admin/curriculum/completeness`
 - `GET /admin/curriculum/scale-readiness`
 - `GET /admin/curriculum/main-course/allocation-preview`
+- `POST /admin/curriculum/main-course/allocation`
 - `GET /admin/curriculum/candidate-plan`
 - `POST /admin/curriculum/candidate-plan/enqueue`
 - `GET /admin/items/review-queue`
@@ -356,7 +357,17 @@ across levels in the same band with a 220-item level capacity. Missing bands,
 unpublished or blocked prerequisites, cycles, exhausted capacity, duplicate
 placements, and unsafe existing order are reported instead of being written.
 Assignment and issue samples are independently capped at 100 rows; summary and
-band counts cover the complete calculation.
+band counts cover the complete calculation. Every response includes an opaque,
+deterministic `planVersion` derived from the complete allocation input rather
+than the bounded samples or generation time.
+
+`POST /admin/curriculum/main-course/allocation` accepts that `planVersion` only
+after explicit admin confirmation. A serializable transaction recalculates the
+complete plan, rejects stale versions and every reported blocker with `409
+Conflict`, preserves existing placements, and appends proposed items after the
+current highest `sortOrder` in each level. The response reports the number of
+created placements and includes a fresh read-only preview. Repeating an old
+confirmation cannot silently apply a newer calculation.
 
 `GET /admin/curriculum/candidate-plan` applies the versioned independent
 frequency-and-prerequisite policy to active course work plus unassigned source

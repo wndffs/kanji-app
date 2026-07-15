@@ -1,5 +1,7 @@
 import {
   type AdminCandidatePlanCoverageFilter,
+  type AdminApplyCourseAllocationRequest,
+  type AdminApplyCourseAllocationResponse,
   type AdminApproveImportedTranslationRequest,
   type AdminCoursePlacementListResponse,
   type AdminCourseAllocationPreviewResponse,
@@ -337,6 +339,22 @@ export function getAdminCourseAllocationPreview(
   return apiRequest<AdminCourseAllocationPreviewResponse>(
     "/admin/curriculum/main-course/allocation-preview",
     { token, fetchImpl },
+  );
+}
+
+export function applyAdminCourseAllocation(
+  token: string,
+  input: AdminApplyCourseAllocationRequest,
+  fetchImpl?: typeof fetch,
+): Promise<AdminApplyCourseAllocationResponse> {
+  return apiRequest<AdminApplyCourseAllocationResponse>(
+    "/admin/curriculum/main-course/allocation",
+    {
+      method: "POST",
+      token,
+      body: input,
+      fetchImpl,
+    },
   );
 }
 

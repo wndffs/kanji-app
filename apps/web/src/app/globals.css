@@ -2614,6 +2614,25 @@ textarea:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+.admin-allocation-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-block: 1px solid var(--surface-border);
+  padding: 14px 0;
+}
+
+.admin-allocation-action > div {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-allocation-action span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .admin-allocation-band-table {
   min-width: 680px;
 }
@@ -3687,6 +3706,11 @@ textarea:focus-visible {
 
   .admin-allocation-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-allocation-action {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .admin-plan-filter-actions .primary-action,

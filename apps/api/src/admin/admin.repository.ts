@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 
 import {
+  type AdminApplyCourseAllocationResponse,
   type AdminContentStatus,
   type AdminCourseAllocationPreviewResponse,
   type AdminCoursePlacementListResponse,
@@ -27,8 +28,12 @@ import {
   type SourceAttributionDto,
   CURRICULUM_SCALE_TARGETS,
 } from "@kanji-srs/shared";
+import { type Prisma } from "@kanji-srs/db";
 import { PrismaService } from "../database/prisma.service";
-import { buildCourseAllocationPreview } from "./course-allocation-plan";
+import {
+  buildCourseAllocationPreview,
+  type CourseAllocationPlanInput,
+} from "./course-allocation-plan";
 import { applyQualityIssues, buildCurriculumCompletenessReport } from "./curriculum-quality";
 import {
   buildCurriculumCandidatePlan,
@@ -80,6 +85,9 @@ export abstract class AdminRepository {
   abstract getCompletenessReport(): Promise<AdminCurriculumCompletenessReportDto>;
   abstract getScaleReadiness(): Promise<AdminCurriculumScaleReadinessDto>;
   abstract getCourseAllocationPreview(): Promise<AdminCourseAllocationPreviewResponse | null>;
+  abstract applyCourseAllocation(
+    planVersion: string,
+  ): Promise<AdminApplyCourseAllocationResponse | null>;
   abstract getCandidatePlanVersion(): Promise<string>;
   abstract getCandidatePlan(): Promise<CurriculumCandidatePlan>;
   abstract enqueueCandidatePlanCandidates(
@@ -118,6 +126,10 @@ export abstract class AdminRepository {
 export class PrerequisiteSelectionChangedError extends Error {}
 export class CoursePlacementSelectionChangedError extends Error {}
 export class CoursePlacementItemNotPublishedError extends Error {}
+export class CourseAllocationPlanChangedError extends Error {}
+export class CourseAllocationBlockedError extends Error {}
+
+type CourseAllocationReadDatabase = Pick<Prisma.TransactionClient, "course" | "learningItem">;
 
 type LearningItemRow = {
   readonly id: string;
@@ -857,7 +869,111 @@ export class PrismaAdminRepository extends AdminRepository {
   }
 
   async getCourseAllocationPreview(): Promise<AdminCourseAllocationPreviewResponse | null> {
-    const course = await this.prisma.db.course.findUnique({
+    const input = await this.loadCourseAllocationInput(this.prisma.db);
+
+    return input === null ? null : buildCourseAllocationPreview(input);
+  }
+
+  async applyCourseAllocation(
+    planVersion: string,
+  ): Promise<AdminApplyCourseAllocationResponse | null> {
+    const result = await this.prisma.db
+      .$transaction(
+        async (db) => {
+          const input = await this.loadCourseAllocationInput(db);
+
+          if (input === null) {
+            return null;
+          }
+
+          const preview = buildCourseAllocationPreview(input, {
+            previewLimit: Number.MAX_SAFE_INTEGER,
+          });
+
+          if (preview.planVersion !== planVersion) {
+            throw new CourseAllocationPlanChangedError();
+          }
+
+          if (preview.course.status === "archived" || preview.issues.length > 0) {
+            throw new CourseAllocationBlockedError();
+          }
+
+          const levelIdByNumber = new Map(
+            input.levels.map((level) => [level.levelNumber, level.id]),
+          );
+          const proposedByLevel = new Map<number, typeof preview.items>();
+
+          for (const item of preview.items) {
+            if (item.placement === "existing") {
+              continue;
+            }
+
+            const proposedItems = proposedByLevel.get(item.levelNumber) ?? [];
+            proposedByLevel.set(item.levelNumber, [...proposedItems, item]);
+          }
+
+          const placements: Prisma.CourseLevelItemCreateManyInput[] = [];
+
+          for (const [levelNumber, items] of proposedByLevel) {
+            const courseLevelId = levelIdByNumber.get(levelNumber);
+
+            if (courseLevelId === undefined) {
+              throw new CourseAllocationBlockedError();
+            }
+
+            const lastPlacement = await db.courseLevelItem.findFirst({
+              where: { courseLevelId },
+              select: { sortOrder: true },
+              orderBy: { sortOrder: "desc" },
+            });
+            const firstSortOrder = (lastPlacement?.sortOrder ?? -1) + 1;
+
+            placements.push(
+              ...items.map((item, index) => ({
+                courseLevelId,
+                learningItemId: item.learningItemId,
+                sortOrder: firstSortOrder + index,
+              })),
+            );
+          }
+
+          if (placements.length > 0) {
+            await db.courseLevelItem.createMany({ data: placements });
+          }
+
+          return {
+            appliedAt: new Date().toISOString(),
+            appliedPlanVersion: preview.planVersion,
+            createdPlacements: placements.length,
+          };
+        },
+        { isolationLevel: "Serializable" },
+      )
+      .catch((error: unknown) => {
+        if (isConcurrentCourseAllocationWrite(error)) {
+          throw new CourseAllocationPlanChangedError();
+        }
+
+        throw error;
+      });
+
+    if (result === null) {
+      return null;
+    }
+
+    const preview = await this.getCourseAllocationPreview();
+
+    if (preview === null) {
+      throw new CourseAllocationPlanChangedError();
+    }
+
+    return { ...result, preview };
+  }
+
+  private async loadCourseAllocationInput(
+    db: CourseAllocationReadDatabase,
+  ): Promise<CourseAllocationPlanInput | null> {
+    const course = await db.course.findUnique({
       where: { slug: "japanese-ru-n2" },
       select: {
         id: true,
@@ -875,7 +991,7 @@ export class PrismaAdminRepository extends AdminRepository {
       return null;
     }
 
-    const items = await this.prisma.db.learningItem.findMany({
+    const items = await db.learningItem.findMany({
       where: { status: "PUBLISHED" },
       select: {
         id: true,
@@ -897,7 +1013,7 @@ export class PrismaAdminRepository extends AdminRepository {
       orderBy: [{ kind: "asc" }, { levelHint: "asc" }, { title: "asc" }, { id: "asc" }],
     });
 
-    return buildCourseAllocationPreview({
+    return {
       course: {
         id: course.id,
         slug: course.slug,
@@ -920,7 +1036,7 @@ export class PrismaAdminRepository extends AdminRepository {
           (placement) => placement.courseLevel.levelNumber,
         ),
       })),
-    });
+    };
   }
 
   async getCandidatePlan(): Promise<CurriculumCandidatePlan> {
@@ -2392,6 +2508,15 @@ async function upsertMnemonics(
       },
     });
   }
+}
+
+function isConcurrentCourseAllocationWrite(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error.code === "P2002" || error.code === "P2034")
+  );
 }
 
 function toApiStatus(status: string): AdminContentStatus {

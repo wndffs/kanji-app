@@ -129,3 +129,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 47. Task 87 (completed): place published curated items into course levels safely.
 48. Task 88 (completed): seed a non-destructive 60-level structured course shell.
 49. Task 89 (completed): preview balanced prerequisite-safe allocation across course levels.
+50. Task 90 (completed): transactionally apply an explicitly confirmed, versioned course allocation.

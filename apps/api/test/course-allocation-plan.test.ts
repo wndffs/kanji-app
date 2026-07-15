@@ -81,6 +81,28 @@ describe("course allocation plan", () => {
     ]);
   });
 
+  it("versions the allocation inputs independently of preview time and truncation", () => {
+    const input = createInput({
+      levels: [{ id: "level-1", levelNumber: 1, band: "foundation" }],
+      items: [createItem({ id: "component", itemType: "component" })],
+    });
+    const first = buildCourseAllocationPreview(input, {
+      now: new Date("2026-07-15T10:00:00.000Z"),
+      previewLimit: 1,
+    });
+    const second = buildCourseAllocationPreview(input, {
+      now: new Date("2026-07-16T10:00:00.000Z"),
+      previewLimit: 100,
+    });
+    const changed = buildCourseAllocationPreview({
+      ...input,
+      items: [{ ...input.items[0]!, levelHint: 1 }],
+    });
+
+    expect(first.planVersion).toBe(second.planVersion);
+    expect(changed.planVersion).not.toBe(first.planVersion);
+  });
+
   it("reports blocking prerequisites, missing bands, and unsafe existing placements", () => {
     const preview = buildCourseAllocationPreview(
       createInput({

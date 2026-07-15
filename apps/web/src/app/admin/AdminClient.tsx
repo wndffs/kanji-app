@@ -1102,7 +1102,15 @@ export function AdminClient() {
         token={state.token}
       />
 
-      <CourseAllocationPanel refreshRevision={planningRevision} token={state.token} />
+      <CourseAllocationPanel
+        disabled={savingKey !== null}
+        onApplied={(createdPlacements) => {
+          setStatusMessage(`Распределение применено. Создано размещений: ${createdPlacements}.`);
+          setPlanningRevision((previous) => previous + 1);
+        }}
+        refreshRevision={planningRevision}
+        token={state.token}
+      />
 
       <section
         className="panel admin-translation-review"

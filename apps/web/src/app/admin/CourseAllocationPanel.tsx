@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   type AdminContentStatus,
@@ -10,11 +10,13 @@ import {
   type ItemKind,
 } from "@kanji-srs/shared";
 
-import { getAdminCourseAllocationPreview } from "../../lib/api-client";
+import { applyAdminCourseAllocation, getAdminCourseAllocationPreview } from "../../lib/api-client";
 
 type CourseAllocationPanelProps = {
   readonly token: string;
   readonly refreshRevision: number;
+  readonly disabled: boolean;
+  readonly onApplied: (createdPlacements: number) => void;
 };
 
 type AllocationState =
@@ -22,13 +24,23 @@ type AllocationState =
   | { readonly status: "error"; readonly message: string }
   | { readonly status: "ready"; readonly preview: AdminCourseAllocationPreviewResponse };
 
-export function CourseAllocationPanel({ token, refreshRevision }: CourseAllocationPanelProps) {
+export function CourseAllocationPanel({
+  token,
+  refreshRevision,
+  disabled,
+  onApplied,
+}: CourseAllocationPanelProps) {
   const [state, setState] = useState<AllocationState>({ status: "loading" });
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
 
     setState({ status: "loading" });
+    setConfirmationOpen(false);
+    setApplyError(null);
 
     void getAdminCourseAllocationPreview(token)
       .then((preview) => {
@@ -50,6 +62,39 @@ export function CourseAllocationPanel({ token, refreshRevision }: CourseAllocati
     };
   }, [refreshRevision, token]);
 
+  async function handleApply(): Promise<void> {
+    if (state.status !== "ready" || applying || disabled) {
+      return;
+    }
+
+    setApplying(true);
+    setApplyError(null);
+
+    try {
+      const response = await applyAdminCourseAllocation(token, {
+        planVersion: state.preview.planVersion,
+      });
+
+      setState({ status: "ready", preview: response.preview });
+      setConfirmationOpen(false);
+      onApplied(response.createdPlacements);
+    } catch (error: unknown) {
+      setConfirmationOpen(false);
+      setApplyError(
+        error instanceof Error ? error.message : "Не удалось применить распределение курса.",
+      );
+
+      try {
+        const preview = await getAdminCourseAllocationPreview(token);
+        setState({ status: "ready", preview });
+      } catch {
+        // Keep the last valid preview visible when a refresh is temporarily unavailable.
+      }
+    } finally {
+      setApplying(false);
+    }
+  }
+
   if (state.status === "loading") {
     return (
       <section className="panel" data-testid="admin-course-allocation">
@@ -70,6 +115,12 @@ export function CourseAllocationPanel({ token, refreshRevision }: CourseAllocati
   }
 
   const { preview } = state;
+  const canApply =
+    !disabled &&
+    !applying &&
+    preview.course.status !== "archived" &&
+    preview.summary.proposedPlacements > 0 &&
+    preview.issues.length === 0;
 
   return (
     <section className="panel admin-course-allocation" data-testid="admin-course-allocation">
@@ -107,6 +158,30 @@ export function CourseAllocationPanel({ token, refreshRevision }: CourseAllocati
           <dd>{preview.maxItemsPerLevel}</dd>
         </div>
       </dl>
+
+      <div className="admin-allocation-action">
+        <div>
+          <strong>Подтверждённое применение</strong>
+          <span>Добавятся только новые размещения. Уже закреплённые материалы не изменятся.</span>
+        </div>
+        <button
+          className="primary-action"
+          data-testid="admin-apply-course-allocation"
+          disabled={!canApply}
+          onClick={() => {
+            setApplyError(null);
+            setConfirmationOpen(true);
+          }}
+          type="button"
+        >
+          Применить {preview.summary.proposedPlacements}
+        </button>
+      </div>
+      {applyError === null ? null : (
+        <p className="form-error" role="alert">
+          {applyError}
+        </p>
+      )}
 
       <div className="admin-table-scroll">
         <table className="admin-planning-table admin-allocation-band-table">
@@ -179,7 +254,101 @@ export function CourseAllocationPanel({ token, refreshRevision }: CourseAllocati
         </table>
       </div>
       {preview.itemsTruncated ? <p className="muted">Показаны первые 100 назначений.</p> : null}
+      {confirmationOpen ? (
+        <CourseAllocationConfirmationDialog
+          busy={applying}
+          count={preview.summary.proposedPlacements}
+          onCancel={() => setConfirmationOpen(false)}
+          onConfirm={() => void handleApply()}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function CourseAllocationConfirmationDialog({
+  busy,
+  count,
+  onCancel,
+  onConfirm,
+}: {
+  readonly busy: boolean;
+  readonly count: number;
+  readonly onCancel: () => void;
+  readonly onConfirm: () => void;
+}) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    cancelRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !busy) {
+        onCancel();
+        return;
+      }
+
+      if (event.key !== "Tab" || dialogRef.current === null) {
+        return;
+      }
+
+      const buttons = [
+        ...dialogRef.current.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
+      ];
+      const firstButton = buttons[0];
+      const lastButton = buttons.at(-1);
+
+      if (firstButton === undefined || lastButton === undefined) {
+        return;
+      }
+
+      if (event.shiftKey && document.activeElement === firstButton) {
+        event.preventDefault();
+        lastButton.focus();
+      } else if (!event.shiftKey && document.activeElement === lastButton) {
+        event.preventDefault();
+        firstButton.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [busy, onCancel]);
+
+  return (
+    <div className="dialog-backdrop">
+      <section
+        aria-describedby="course-allocation-confirmation-description"
+        aria-labelledby="course-allocation-confirmation-title"
+        aria-modal="true"
+        className="confirmation-dialog"
+        ref={dialogRef}
+        role="dialog"
+      >
+        <h2 id="course-allocation-confirmation-title">Применить распределение?</h2>
+        <p id="course-allocation-confirmation-description">
+          Будет создано размещений: {count}. Операция добавит материалы в рассчитанные уровни и
+          сохранит все существующие размещения без изменений.
+        </p>
+        <div className="dialog-actions">
+          <button
+            className="secondary-action"
+            disabled={busy}
+            onClick={onCancel}
+            ref={cancelRef}
+            type="button"
+          >
+            Отмена
+          </button>
+          <button className="primary-action" disabled={busy} onClick={onConfirm} type="button">
+            {busy ? "Применяю..." : "Применить"}
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
