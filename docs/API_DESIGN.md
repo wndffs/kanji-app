@@ -274,6 +274,8 @@ in-progress session.
 - `GET /admin/items/review-queue`
 - `GET /admin/items/:id/prerequisite-candidates`
 - `PUT /admin/items/:id/prerequisites`
+- `GET /admin/items/:id/course-placements`
+- `PUT /admin/items/:id/course-placements`
 - `PATCH /admin/items/:id`
 - `PATCH /admin/cards/:id/answers`
 
@@ -400,6 +402,15 @@ item. Existing prerequisite links remain visible even when no longer inferred.
 preserves other dependency types, rejects duplicate, self, unrelated, or
 unpublished selections, and stores an optional positive SRS threshold. A
 transaction rechecks publication immediately before replacing the links.
+
+`GET /admin/items/:id/course-placements` lists the non-archived structured and
+demo course levels available to the item, including its current level and sort
+position. `PUT /admin/items/:id/course-placements` accepts at most one level per
+course and only for a published learning item. Existing positions are retained;
+a newly selected item is appended to the level with the normal level-order
+unlock policy. The transaction rechecks item status and course availability.
+Learner lesson and dashboard queries independently exclude unpublished items
+even when a stale `CourseLevelItem` relation exists.
 
 ## API rules
 

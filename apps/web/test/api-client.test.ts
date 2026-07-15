@@ -6,6 +6,7 @@ import {
   createTextDeck,
   enqueueAdminCandidatePlan,
   getAdminCandidatePlan,
+  getAdminCoursePlacements,
   getAdminImportedCandidateRejections,
   getAdminPrerequisiteCandidates,
   getAdminReviewQueueWithFilters,
@@ -13,6 +14,7 @@ import {
   restoreAdminImportedCandidate,
   searchItems,
   updateDeckStatus,
+  updateAdminCoursePlacements,
   updateAdminPrerequisites,
 } from "../src/lib/api-client";
 
@@ -340,6 +342,27 @@ describe("apiRequest", () => {
     expect(requests.map(({ input, init }) => [input, init?.method ?? "GET"])).toEqual([
       ["http://localhost:3001/admin/items/item%2Fone/prerequisite-candidates", "GET"],
       ["http://localhost:3001/admin/items/item%2Fone/prerequisites", "PUT"],
+    ]);
+    expect(requests[1]?.init?.body).toBe(JSON.stringify(request));
+  });
+
+  it("loads and replaces course placements through encoded admin item routes", async () => {
+    const requests: { readonly input: string; readonly init: RequestInit | undefined }[] = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      requests.push({ input: String(input), init });
+      return Response.json({ itemId: "item/one", levels: [] });
+    };
+    const request = { courseLevelIds: ["level-2"] };
+
+    await expect(getAdminCoursePlacements("token-1", "item/one", fetchImpl)).resolves.toEqual({
+      itemId: "item/one",
+      levels: [],
+    });
+    await updateAdminCoursePlacements("token-1", "item/one", request, fetchImpl);
+
+    expect(requests.map(({ input, init }) => [input, init?.method ?? "GET"])).toEqual([
+      ["http://localhost:3001/admin/items/item%2Fone/course-placements", "GET"],
+      ["http://localhost:3001/admin/items/item%2Fone/course-placements", "PUT"],
     ]);
     expect(requests[1]?.init?.body).toBe(JSON.stringify(request));
   });

@@ -126,3 +126,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 44. Task 84 (completed): selectively stage candidates from a filtered plan page.
 45. Task 85 (completed): explicitly curate accepted readings before creating reading cards.
 46. Task 86 (completed): curate inferred component and kanji prerequisite links.
+47. Task 87 (completed): place published curated items into course levels safely.

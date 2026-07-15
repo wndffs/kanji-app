@@ -111,9 +111,19 @@ export class AdminController {
     return this.adminService.getPrerequisiteCandidates(itemId);
   }
 
+  @Get("items/:itemId/course-placements")
+  getCoursePlacements(@Param("itemId") itemId: string) {
+    return this.adminService.getCoursePlacements(itemId);
+  }
+
   @Put("items/:itemId/prerequisites")
   updatePrerequisites(@Param("itemId") itemId: string, @Body() body: unknown) {
     return this.adminService.updatePrerequisites(itemId, body);
+  }
+
+  @Put("items/:itemId/course-placements")
+  updateCoursePlacements(@Param("itemId") itemId: string, @Body() body: unknown) {
+    return this.adminService.updateCoursePlacements(itemId, body);
   }
 
   @Patch("items/:itemId")

@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SRS_STAGES } from "@kanji-srs/srs";
 
 import { type CurrentUserDto } from "../src/auth/auth.types";
-import { DashboardRepository } from "../src/dashboard/dashboard.repository";
+import {
+  DashboardRepository,
+  PrismaDashboardRepository,
+} from "../src/dashboard/dashboard.repository";
 import { DashboardService } from "../src/dashboard/dashboard.service";
 import {
   type DashboardCourseProgressRecord,
@@ -17,6 +20,35 @@ import {
 
 const NOW = new Date("2026-06-18T09:00:00.000Z");
 const RECENT_SINCE = "2026-06-11T09:00:00.000Z";
+
+describe("PrismaDashboardRepository", () => {
+  it("excludes unpublished course items from availability and progress", async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const findFirst = vi.fn().mockResolvedValue(null);
+    const repository = new PrismaDashboardRepository({
+      db: { userEnrollment: { findMany, findFirst } },
+    } as never);
+
+    await repository.listLessonAvailabilityItems("user-1");
+    await repository.findCurrentCourseProgress("user-1");
+
+    for (const query of [findMany.mock.calls[0]?.[0], findFirst.mock.calls[0]?.[0]]) {
+      expect(query).toMatchObject({
+        include: {
+          course: {
+            include: {
+              levels: {
+                include: {
+                  items: { where: { learningItem: { status: "PUBLISHED" } } },
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+  });
+});
 
 describe("DashboardService", () => {
   beforeEach(() => {

@@ -1,6 +1,7 @@
 import {
   type AdminCandidatePlanCoverageFilter,
   type AdminApproveImportedTranslationRequest,
+  type AdminCoursePlacementListResponse,
   type AdminCurationItemDto,
   type AdminCurriculumCandidatePlanResponse,
   type AdminCurriculumCompletenessReportDto,
@@ -19,6 +20,7 @@ import {
   type AdminReviewQueueFilters,
   type AdminReviewQueueResponse,
   type AdminUpdateCardAnswersRequest,
+  type AdminUpdateCoursePlacementsRequest,
   type AdminUpdateItemRequest,
   type AdminUpdatePrerequisitesRequest,
   type ActiveLessonSessionResponse,
@@ -408,6 +410,29 @@ export function updateAdminPrerequisites(
 ): Promise<AdminCurationItemDto> {
   return apiRequest<AdminCurationItemDto>(
     `/admin/items/${encodeURIComponent(itemId)}/prerequisites`,
+    { method: "PUT", token, body: input, fetchImpl },
+  );
+}
+
+export function getAdminCoursePlacements(
+  token: string,
+  itemId: string,
+  fetchImpl?: typeof fetch,
+): Promise<AdminCoursePlacementListResponse> {
+  return apiRequest<AdminCoursePlacementListResponse>(
+    `/admin/items/${encodeURIComponent(itemId)}/course-placements`,
+    { token, fetchImpl },
+  );
+}
+
+export function updateAdminCoursePlacements(
+  token: string,
+  itemId: string,
+  input: AdminUpdateCoursePlacementsRequest,
+  fetchImpl?: typeof fetch,
+): Promise<AdminCoursePlacementListResponse> {
+  return apiRequest<AdminCoursePlacementListResponse>(
+    `/admin/items/${encodeURIComponent(itemId)}/course-placements`,
     { method: "PUT", token, body: input, fetchImpl },
   );
 }

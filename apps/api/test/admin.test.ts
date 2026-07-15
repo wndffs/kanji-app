@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   type AdminCurationItemDto,
+  type AdminCoursePlacementListResponse,
   type AdminCurriculumScaleReadinessDto,
   type AdminImportRunSummaryDto,
   type AdminImportedCandidateDto,
@@ -11,7 +12,11 @@ import {
   type AdminPrerequisiteCandidateListResponse,
 } from "@kanji-srs/shared";
 
-import { AdminRepository, PrismaAdminRepository } from "../src/admin/admin.repository";
+import {
+  AdminRepository,
+  CoursePlacementItemNotPublishedError,
+  PrismaAdminRepository,
+} from "../src/admin/admin.repository";
 import { AdminService } from "../src/admin/admin.service";
 import {
   buildCurriculumCandidatePlan,
@@ -184,6 +189,37 @@ describe("AdminService", () => {
         },
       ],
     });
+  });
+
+  it("places only published items at one level per course", async () => {
+    const repository = new InMemoryAdminRepository();
+    const adminService = new AdminService(repository);
+
+    await expect(
+      adminService.updateCoursePlacements("item-kanji-one", {
+        courseLevelIds: ["course-level-1"],
+      }),
+    ).rejects.toThrow("Publish the learning item before placing it in a course");
+
+    await repository.updateItemCuration("item-kanji-one", { status: "published" });
+
+    await expect(
+      adminService.updateCoursePlacements("item-kanji-one", {
+        courseLevelIds: ["course-level-2"],
+      }),
+    ).resolves.toMatchObject({
+      itemId: "item-kanji-one",
+      levels: [
+        { courseLevelId: "course-level-1", selected: false, sortOrder: null },
+        { courseLevelId: "course-level-2", selected: true, sortOrder: 3 },
+      ],
+    });
+
+    await expect(
+      adminService.updateCoursePlacements("item-kanji-one", {
+        courseLevelIds: ["course-level-1", "course-level-2"],
+      }),
+    ).rejects.toThrow("Select at most one level for course");
   });
 
   it("rejects duplicate and unavailable prerequisite selections", async () => {
@@ -1189,6 +1225,85 @@ describe("AdminService", () => {
     });
   });
 
+  it("appends a new course placement and removes the previous level in one transaction", async () => {
+    const outerLearningItem = {
+      findUnique: vi
+        .fn()
+        .mockResolvedValueOnce({ id: "item-kanji-one" })
+        .mockResolvedValueOnce({
+          id: "item-kanji-one",
+          courseLevelItems: [{ courseLevelId: "course-level-2", sortOrder: 8 }],
+        }),
+    };
+    const outerCourseLevel = {
+      findMany: vi.fn().mockResolvedValue([
+        {
+          id: "course-level-2",
+          levelNumber: 2,
+          titleRu: "Первые кандзи",
+          band: "FOUNDATION",
+          course: {
+            id: "course-main",
+            titleRu: "Основной курс",
+            status: "PUBLISHED",
+            courseType: "STRUCTURED",
+          },
+        },
+      ]),
+    };
+    const transactionDb = {
+      learningItem: {
+        findUnique: vi.fn().mockResolvedValue({
+          status: "PUBLISHED",
+          courseLevelItems: [{ courseLevelId: "course-level-1" }],
+        }),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      courseLevel: {
+        findMany: vi.fn().mockResolvedValue([{ id: "course-level-2", courseId: "course-main" }]),
+      },
+      courseLevelItem: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findFirst: vi.fn().mockResolvedValue({ sortOrder: 7 }),
+        create: vi.fn().mockResolvedValue({}),
+      },
+    };
+    const transaction = vi.fn(async (callback: (db: typeof transactionDb) => Promise<void>) =>
+      callback(transactionDb),
+    );
+    const repository = new PrismaAdminRepository({
+      db: {
+        learningItem: outerLearningItem,
+        courseLevel: outerCourseLevel,
+        $transaction: transaction,
+      },
+    } as never);
+
+    await expect(
+      repository.replaceCoursePlacements("item-kanji-one", {
+        courseLevelIds: ["course-level-2"],
+      }),
+    ).resolves.toMatchObject({
+      itemId: "item-kanji-one",
+      levels: [{ courseLevelId: "course-level-2", selected: true, sortOrder: 8 }],
+    });
+    expect(transactionDb.courseLevelItem.deleteMany).toHaveBeenCalledWith({
+      where: {
+        learningItemId: "item-kanji-one",
+        courseLevel: { course: { courseType: { in: ["STRUCTURED", "DEMO"] } } },
+        courseLevelId: { notIn: ["course-level-2"] },
+      },
+    });
+    expect(transactionDb.courseLevelItem.create).toHaveBeenCalledWith({
+      data: {
+        courseLevelId: "course-level-2",
+        learningItemId: "item-kanji-one",
+        sortOrder: 8,
+        unlockPolicyJson: { policy: "level-order" },
+      },
+    });
+  });
+
   it("requires non-empty RU and EN accepted answers for translation approval", async () => {
     const adminService = new AdminService(new InMemoryAdminRepository());
 
@@ -1254,6 +1369,7 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
   readonly enqueuedCandidateBatches: (readonly AdminCandidatePlanEnqueueItemInput[])[] = [];
   private rejectionRevision = 0;
   private readonly candidateRejections = new Map<string, AdminImportedCandidateRejectionDto>();
+  private coursePlacementLevelId: string | null = null;
 
   private readonly importedCandidates: readonly AdminImportedCandidateDto[] = [
     {
@@ -1670,6 +1786,42 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
     };
   }
 
+  async listCoursePlacements(itemId: string): Promise<AdminCoursePlacementListResponse | null> {
+    if (!this.items.some((item) => item.id === itemId)) {
+      return null;
+    }
+
+    return {
+      itemId,
+      levels: [
+        {
+          courseId: "course-main",
+          courseTitle: "Основной курс",
+          courseStatus: "published",
+          courseType: "structured",
+          courseLevelId: "course-level-1",
+          levelNumber: 1,
+          levelTitle: "Основа",
+          band: "foundation",
+          selected: this.coursePlacementLevelId === "course-level-1",
+          sortOrder: this.coursePlacementLevelId === "course-level-1" ? 5 : null,
+        },
+        {
+          courseId: "course-main",
+          courseTitle: "Основной курс",
+          courseStatus: "published",
+          courseType: "structured",
+          courseLevelId: "course-level-2",
+          levelNumber: 2,
+          levelTitle: "Первые кандзи",
+          band: "foundation",
+          selected: this.coursePlacementLevelId === "course-level-2",
+          sortOrder: this.coursePlacementLevelId === "course-level-2" ? 3 : null,
+        },
+      ],
+    };
+  }
+
   async findItemByCardId(cardId: string): Promise<AdminCurationItemDto | null> {
     return this.items.find((item) => item.cards.some((card) => card.id === cardId)) ?? null;
   }
@@ -1968,6 +2120,24 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
     this.items = this.items.map((candidate) => (candidate.id === itemId ? nextItem : candidate));
 
     return nextItem;
+  }
+
+  async replaceCoursePlacements(
+    itemId: string,
+    input: Parameters<AdminRepository["replaceCoursePlacements"]>[1],
+  ): Promise<AdminCoursePlacementListResponse | null> {
+    const item = this.items.find((candidate) => candidate.id === itemId);
+
+    if (item === undefined) {
+      return null;
+    }
+
+    if (item.status !== "published") {
+      throw new CoursePlacementItemNotPublishedError();
+    }
+
+    this.coursePlacementLevelId = input.courseLevelIds[0] ?? null;
+    return this.listCoursePlacements(itemId);
   }
 
   async updateCardAnswers(

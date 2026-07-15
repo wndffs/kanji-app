@@ -2,6 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 
 import {
   type AdminApproveImportedTranslationRequest,
+  type AdminCoursePlacementListResponse,
   type AdminCurriculumCandidatePlanResponse,
   type AdminCurriculumCompletenessReportDto,
   type AdminCurriculumScaleReadinessDto,
@@ -16,6 +17,7 @@ import {
   type AdminRejectImportedCandidateRequest,
   type AdminReviewQueueResponse,
   type AdminUpdateItemRequest,
+  type AdminUpdateCoursePlacementsRequest,
   type AdminUpdatePrerequisitesRequest,
 } from "@kanji-srs/shared";
 
@@ -88,6 +90,27 @@ test.describe("admin curation", () => {
     await expect(
       editor.getByRole("spinbutton", { name: "Порог SRS для Компонент линия" }),
     ).toHaveValue("2");
+  });
+
+  test("admin places a published item in one level per course", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await mockAdminApi(page, { publishedItem: true });
+
+    await page.goto("/admin");
+    await page
+      .getByRole("region", { name: "Фильтры учебной программы" })
+      .getByLabel("Статус")
+      .selectOption("published");
+
+    const editor = page.getByTestId("admin-course-placement");
+    const level = editor.getByRole("combobox", { name: "Уровень курса Основной курс" });
+
+    await expect(level).toHaveValue("course-level-1");
+    await level.selectOption("course-level-2");
+    await editor.getByRole("button", { name: "Сохранить размещение" }).click();
+
+    await expect(page.getByText("Размещение в курсе сохранено.")).toBeVisible();
+    await expect(level).toHaveValue("course-level-2");
   });
 
   test("admin can approve the next bilingual imported translation", async ({ page }) => {
@@ -381,10 +404,15 @@ async function mockAdminApi(
     readonly enqueueConflictOnce?: boolean;
     readonly failQueueRefreshAfterItemSave?: boolean;
     readonly multiplePlanCandidates?: boolean;
+    readonly publishedItem?: boolean;
   } = {},
 ): Promise<void> {
-  let item = buildAdminItem();
+  let item: AdminCurationItemDto = {
+    ...buildAdminItem(),
+    ...(options.publishedItem === true ? { status: "published" } : {}),
+  };
   let itemWasSaved = false;
+  let coursePlacementLevelId = "course-level-1";
   const secondItem = buildSecondAdminItem();
   const assignedPlanTargets = new Set<string>();
   let remainingEnqueueConflicts = options.enqueueConflictOnce === true ? 1 : 0;
@@ -966,6 +994,53 @@ async function mockAdminApi(
     };
 
     await route.fulfill({ json: item });
+  });
+
+  await page.route(`${API_BASE_URL}/admin/items/*/course-placements`, async (route) => {
+    const path = new URL(route.request().url()).pathname.split("/");
+    const itemId = decodeURIComponent(path.at(-2) ?? "");
+
+    if (itemId !== item.id) {
+      await route.fulfill({ status: 404, json: { message: "Learning item not found." } });
+      return;
+    }
+
+    if (route.request().method() === "PUT") {
+      const body = route.request().postDataJSON() as AdminUpdateCoursePlacementsRequest;
+      coursePlacementLevelId = body.courseLevelIds[0] ?? "";
+    }
+
+    const response: AdminCoursePlacementListResponse = {
+      itemId,
+      levels: [
+        {
+          courseId: "course-main",
+          courseTitle: "Основной курс",
+          courseStatus: "published",
+          courseType: "structured",
+          courseLevelId: "course-level-1",
+          levelNumber: 1,
+          levelTitle: "Основа",
+          band: "foundation",
+          selected: coursePlacementLevelId === "course-level-1",
+          sortOrder: coursePlacementLevelId === "course-level-1" ? 5 : null,
+        },
+        {
+          courseId: "course-main",
+          courseTitle: "Основной курс",
+          courseStatus: "published",
+          courseType: "structured",
+          courseLevelId: "course-level-2",
+          levelNumber: 2,
+          levelTitle: "Первые кандзи",
+          band: "foundation",
+          selected: coursePlacementLevelId === "course-level-2",
+          sortOrder: coursePlacementLevelId === "course-level-2" ? 8 : null,
+        },
+      ],
+    };
+
+    await route.fulfill({ json: response });
   });
 
   await page.route(`${API_BASE_URL}/admin/items/${ITEM_ID}`, async (route) => {

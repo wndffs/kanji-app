@@ -48,6 +48,12 @@ Each curated course, course level, and learning item can be assigned to one of t
 dictionary or sentence candidates stay import-derived until an admin promotes the target into a curated
 learning item with a band, title, and optional level hint.
 
+Publication and course placement are separate editorial steps. A published
+learning item can be placed at one level in each structured or demo course; a
+new placement is appended after the current level contents. Draft,
+needs-review, archived, and stale linked items are excluded from learner lesson
+availability and course progress.
+
 Published structured-course content must pass quality gates:
 
 - every card has at least one accepted answer;

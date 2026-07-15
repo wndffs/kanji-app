@@ -31,6 +31,10 @@ components inferred for kanji and published kanji inferred from word spelling,
 keeps current links selected, and allows an optional numeric SRS threshold.
 Saving replaces the selected prerequisite set and uses the normal queue and
 completeness reconciliation flow.
+Published items also expose a course-placement editor grouped by course. Each
+course offers one selected level or an unassigned state; saving preserves an
+existing position and appends a new placement to the selected level. The
+control remains read-only until the material is published.
 After an item or card save, the queue restarts from its first cursor page under
 the active filters. It keeps the saved item selected when it still matches and
 otherwise opens the next available item, while a post-save refresh failure is

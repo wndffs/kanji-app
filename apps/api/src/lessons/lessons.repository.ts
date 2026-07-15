@@ -255,6 +255,7 @@ export class PrismaLessonsRepository extends LessonsRepository {
               orderBy: { levelNumber: "asc" },
               include: {
                 items: {
+                  where: { learningItem: { status: "PUBLISHED" } },
                   orderBy: { sortOrder: "asc" },
                   include: {
                     learningItem: {

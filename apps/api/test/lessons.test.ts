@@ -7,6 +7,7 @@ import {
   groupLessonHints,
   groupLessonMnemonics,
   LessonsRepository,
+  PrismaLessonsRepository,
 } from "../src/lessons/lessons.repository";
 import { LessonsService } from "../src/lessons/lessons.service";
 import type { OverridesService } from "../src/overrides/overrides.service";
@@ -24,6 +25,35 @@ import {
 } from "../src/lessons/lessons.types";
 
 const NOW = new Date("2026-06-18T09:00:00.000Z");
+
+describe("PrismaLessonsRepository", () => {
+  it("excludes unpublished course items from lesson availability", async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const repository = new PrismaLessonsRepository({
+      db: { userEnrollment: { findMany } },
+    } as never);
+
+    await repository.listCourseLessonItems("user-1");
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: {
+          course: {
+            include: {
+              levels: expect.objectContaining({
+                include: {
+                  items: expect.objectContaining({
+                    where: { learningItem: { status: "PUBLISHED" } },
+                  }),
+                },
+              }),
+            },
+          },
+        },
+      }),
+    );
+  });
+});
 
 describe("lesson memory grouping", () => {
   it("keeps mnemonic purposes and only the latest curated locale version", () => {

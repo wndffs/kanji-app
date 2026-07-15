@@ -200,6 +200,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
               orderBy: { levelNumber: "asc" },
               include: {
                 items: {
+                  where: { learningItem: { status: "PUBLISHED" } },
                   orderBy: { sortOrder: "asc" },
                   include: {
                     learningItem: {
@@ -459,6 +460,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
               orderBy: { levelNumber: "asc" },
               include: {
                 items: {
+                  where: { learningItem: { status: "PUBLISHED" } },
                   orderBy: { sortOrder: "asc" },
                   include: {
                     learningItem: {

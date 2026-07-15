@@ -2824,9 +2824,31 @@ textarea:focus-visible {
 }
 
 .admin-prerequisite-editor,
-.admin-prerequisite-editor form {
+.admin-prerequisite-editor form,
+.admin-course-placement,
+.admin-course-placement form {
   display: grid;
   gap: 14px;
+}
+
+.admin-course-placement-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-course-placement-list label,
+.admin-course-placement-list label > span {
+  display: grid;
+  gap: 5px;
+}
+
+.admin-course-placement-list small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.admin-course-placement-list select {
+  width: 100%;
 }
 
 .admin-prerequisite-heading {

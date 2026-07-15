@@ -11,6 +11,7 @@ import {
   ADMIN_CANDIDATE_PLAN_COVERAGE_FILTERS,
   type AdminCandidatePlanCoverageFilter,
   type AdminContentStatus,
+  type AdminCoursePlacementListResponse,
   type AdminCurriculumCandidatePlanItemDto,
   type AdminCurriculumCandidatePlanResponse,
   type AdminCurriculumCompletenessReportDto,
@@ -33,7 +34,12 @@ import {
   isCourseBand,
 } from "@kanji-srs/shared";
 
-import { AdminRepository, PrerequisiteSelectionChangedError } from "./admin.repository";
+import {
+  AdminRepository,
+  CoursePlacementItemNotPublishedError,
+  CoursePlacementSelectionChangedError,
+  PrerequisiteSelectionChangedError,
+} from "./admin.repository";
 import {
   CurriculumCandidatePlanCache,
   type CurriculumCandidatePlanCacheEntry,
@@ -53,6 +59,7 @@ import {
   type NormalizedAdminRejectImportedCandidateInput,
   type NormalizedAdminReviewQueueFilters,
   type NormalizedAdminTextInput,
+  type NormalizedAdminUpdateCoursePlacementsInput,
   type NormalizedAdminUpdatePrerequisitesInput,
 } from "./admin.types";
 
@@ -68,6 +75,7 @@ const MAX_CANDIDATE_PLAN_SEARCH_LENGTH = 80;
 const DEFAULT_REVIEW_QUEUE_PAGE_LIMIT = 20;
 const MAX_REVIEW_QUEUE_PAGE_LIMIT = 50;
 const MAX_PREREQUISITES = 50;
+const MAX_COURSE_PLACEMENTS = 10;
 
 @Injectable()
 export class AdminService {
@@ -334,6 +342,16 @@ export class AdminService {
     return result;
   }
 
+  async getCoursePlacements(itemId: string): Promise<AdminCoursePlacementListResponse> {
+    const result = await this.adminRepository.listCoursePlacements(itemId);
+
+    if (result === null) {
+      throw new NotFoundException("Learning item not found.");
+    }
+
+    return result;
+  }
+
   async updatePrerequisites(itemId: string, body: unknown): Promise<AdminCurationItemDto> {
     const request = parseUpdatePrerequisitesRequest(body);
     const [current, available] = await Promise.all([
@@ -396,6 +414,58 @@ export class AdminService {
         throw new ConflictException(
           "Prerequisite availability changed. Refresh the candidates and try again.",
         );
+      }
+
+      throw error;
+    }
+  }
+
+  async updateCoursePlacements(
+    itemId: string,
+    body: unknown,
+  ): Promise<AdminCoursePlacementListResponse> {
+    const request = parseUpdateCoursePlacementsRequest(body);
+    const [current, available] = await Promise.all([
+      this.getCurationItem(itemId),
+      this.getCoursePlacements(itemId),
+    ]);
+
+    if (current.status !== "published") {
+      throw new ConflictException("Publish the learning item before placing it in a course.");
+    }
+
+    const levels = new Map(available.levels.map((level) => [level.courseLevelId, level]));
+    const selectedCourseIds = new Set<string>();
+
+    for (const courseLevelId of request.courseLevelIds) {
+      const level = levels.get(courseLevelId);
+
+      if (level === undefined) {
+        throw new BadRequestException(`Course level ${courseLevelId} is not available.`);
+      }
+
+      if (selectedCourseIds.has(level.courseId)) {
+        throw new BadRequestException(`Select at most one level for course ${level.courseTitle}.`);
+      }
+
+      selectedCourseIds.add(level.courseId);
+    }
+
+    try {
+      const result = await this.adminRepository.replaceCoursePlacements(itemId, request);
+
+      if (result === null) {
+        throw new NotFoundException("Learning item not found.");
+      }
+
+      return result;
+    } catch (error) {
+      if (error instanceof CoursePlacementItemNotPublishedError) {
+        throw new ConflictException("The learning item is no longer published. Refresh and retry.");
+      }
+
+      if (error instanceof CoursePlacementSelectionChangedError) {
+        throw new ConflictException("Course levels changed. Refresh the list and try again.");
       }
 
       throw error;
@@ -768,6 +838,29 @@ function parseUpdatePrerequisitesRequest(body: unknown): NormalizedAdminUpdatePr
   });
 
   return { prerequisites };
+}
+
+function parseUpdateCoursePlacementsRequest(
+  body: unknown,
+): NormalizedAdminUpdateCoursePlacementsInput {
+  const record = parseRecord(body, "Request body");
+  const values = parseArray(record.courseLevelIds, "courseLevelIds");
+
+  if (values.length > MAX_COURSE_PLACEMENTS) {
+    throw new BadRequestException(
+      `courseLevelIds must contain at most ${MAX_COURSE_PLACEMENTS} items.`,
+    );
+  }
+
+  const courseLevelIds = values.map((value, index) =>
+    parseRequiredString(value, `courseLevelIds[${index}]`, { maxLength: 80 }),
+  );
+
+  if (new Set(courseLevelIds).size !== courseLevelIds.length) {
+    throw new BadRequestException("courseLevelIds must not contain duplicates.");
+  }
+
+  return { courseLevelIds };
 }
 
 function parsePromoteCandidateRequest(body: unknown): NormalizedAdminPromoteCandidateInput {

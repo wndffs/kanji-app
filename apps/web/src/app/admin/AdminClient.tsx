@@ -5,6 +5,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } fro
 
 import {
   type AdminContentStatus,
+  type AdminCoursePlacementListResponse,
   type AdminCurriculumCompletenessReportDto,
   type AdminCurriculumCandidatePlanItemDto,
   type AdminCurationCardDto,
@@ -19,6 +20,7 @@ import {
   type AdminReviewQueueItemDto,
   type AdminReviewQueueResponse,
   type AdminUpdatePrerequisitesRequest,
+  type AdminUpdateCoursePlacementsRequest,
   SUPPORTED_COURSE_BANDS,
   type CourseBand,
 } from "@kanji-srs/shared";
@@ -37,6 +39,7 @@ import {
   rejectAdminImportedCandidate,
   restoreAdminImportedCandidate,
   updateAdminCardAnswers,
+  updateAdminCoursePlacements,
   updateAdminItem,
   updateAdminPrerequisites,
 } from "../../lib/api-client";
@@ -46,6 +49,7 @@ import {
   type CandidateRejectionTarget,
 } from "./CandidateRejectionControls";
 import { CurriculumPlanningPanel } from "./CurriculumPlanningPanel";
+import { CoursePlacementEditor } from "./CoursePlacementEditor";
 import { PrerequisiteEditor } from "./PrerequisiteEditor";
 
 type AdminState =
@@ -455,6 +459,26 @@ export function AdminClient() {
     try {
       const item = await updateAdminPrerequisites(state.token, state.item.id, request);
       await reconcileQueueAfterSave(item, "Предварительные связи сохранены.");
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  async function handleSaveCoursePlacements(
+    request: AdminUpdateCoursePlacementsRequest,
+  ): Promise<AdminCoursePlacementListResponse> {
+    if (state.status !== "ready" || state.item === null || savingKey !== null) {
+      throw new Error("Редактор размещения сейчас недоступен.");
+    }
+
+    setSavingKey("course-placements");
+    setFormError(null);
+    setStatusMessage(null);
+
+    try {
+      const placements = await updateAdminCoursePlacements(state.token, state.item.id, request);
+      setStatusMessage("Размещение в курсе сохранено.");
+      return placements;
     } finally {
       setSavingKey(null);
     }
@@ -1744,6 +1768,13 @@ export function AdminClient() {
                 disabled={savingKey !== null}
                 item={activeItem}
                 onSave={handleSavePrerequisites}
+                token={state.token}
+              />
+
+              <CoursePlacementEditor
+                disabled={savingKey !== null}
+                item={activeItem}
+                onSave={handleSaveCoursePlacements}
                 token={state.token}
               />
 

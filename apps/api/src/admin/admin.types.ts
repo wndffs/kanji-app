@@ -6,6 +6,7 @@ import {
   type AdminEnqueueCandidatePlanResponse,
   type AdminPromoteCandidateRequest,
   type AdminUpdatePrerequisitesRequest,
+  type AdminUpdateCoursePlacementsRequest,
   type AdminRejectImportedCandidateRequest,
   type AdminReviewQueueFilters,
   type AdminReviewQueueItemDto,
@@ -58,6 +59,8 @@ export type NormalizedAdminPrerequisiteInput = {
 export type NormalizedAdminUpdatePrerequisitesInput = {
   readonly prerequisites: readonly NormalizedAdminPrerequisiteInput[];
 };
+
+export type NormalizedAdminUpdateCoursePlacementsInput = AdminUpdateCoursePlacementsRequest;
 
 export type AdminReviewQueueCursor = {
   readonly updatedAt: Date;
@@ -139,3 +142,4 @@ export type RawAdminItemCurationInput = AdminUpdateItemRequest;
 export type RawAdminPromoteCandidateInput = AdminPromoteCandidateRequest;
 export type RawAdminApproveImportedTranslationInput = AdminApproveImportedTranslationRequest;
 export type RawAdminUpdatePrerequisitesInput = AdminUpdatePrerequisitesRequest;
+export type RawAdminUpdateCoursePlacementsInput = AdminUpdateCoursePlacementsRequest;

@@ -805,6 +805,28 @@ export type AdminUpdatePrerequisitesRequest = {
   }[];
 };
 
+export type AdminCourseLevelOptionDto = {
+  readonly courseId: string;
+  readonly courseTitle: string;
+  readonly courseStatus: AdminContentStatus;
+  readonly courseType: "structured" | "demo";
+  readonly courseLevelId: string;
+  readonly levelNumber: number;
+  readonly levelTitle: string;
+  readonly band: CourseBand;
+  readonly selected: boolean;
+  readonly sortOrder: number | null;
+};
+
+export type AdminCoursePlacementListResponse = {
+  readonly itemId: string;
+  readonly levels: readonly AdminCourseLevelOptionDto[];
+};
+
+export type AdminUpdateCoursePlacementsRequest = {
+  readonly courseLevelIds: readonly string[];
+};
+
 export type AdminCurationAnswerDto = {
   readonly id: string;
   readonly cardId: string;

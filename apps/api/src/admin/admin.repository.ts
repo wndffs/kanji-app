@@ -4,6 +4,7 @@ import { Inject, Injectable } from "@nestjs/common";
 
 import {
   type AdminContentStatus,
+  type AdminCoursePlacementListResponse,
   type AdminCurriculumCompletenessReportDto,
   type AdminCurriculumScaleReadinessDto,
   type AdminCurationCardDto,
@@ -49,6 +50,7 @@ import {
   type NormalizedAdminItemCurationInput,
   type NormalizedAdminPromoteCandidateInput,
   type NormalizedAdminUpdatePrerequisitesInput,
+  type NormalizedAdminUpdateCoursePlacementsInput,
   type NormalizedAdminReviewQueueFilters,
   type NormalizedAdminTextInput,
 } from "./admin.types";
@@ -84,6 +86,7 @@ export abstract class AdminRepository {
   abstract listPrerequisiteCandidates(
     itemId: string,
   ): Promise<AdminPrerequisiteCandidateListResponse | null>;
+  abstract listCoursePlacements(itemId: string): Promise<AdminCoursePlacementListResponse | null>;
   abstract findItemByCardId(cardId: string): Promise<AdminCurationItemDto | null>;
   abstract promoteImportedCandidate(
     input: NormalizedAdminPromoteCandidateInput,
@@ -99,6 +102,10 @@ export abstract class AdminRepository {
     itemId: string,
     input: NormalizedAdminUpdatePrerequisitesInput,
   ): Promise<AdminCurationItemDto | null>;
+  abstract replaceCoursePlacements(
+    itemId: string,
+    input: NormalizedAdminUpdateCoursePlacementsInput,
+  ): Promise<AdminCoursePlacementListResponse | null>;
   abstract updateCardAnswers(
     cardId: string,
     input: NormalizedAdminCardAnswersInput,
@@ -106,6 +113,8 @@ export abstract class AdminRepository {
 }
 
 export class PrerequisiteSelectionChangedError extends Error {}
+export class CoursePlacementSelectionChangedError extends Error {}
+export class CoursePlacementItemNotPublishedError extends Error {}
 
 type LearningItemRow = {
   readonly id: string;
@@ -1291,6 +1300,65 @@ export class PrismaAdminRepository extends AdminRepository {
     };
   }
 
+  async listCoursePlacements(itemId: string): Promise<AdminCoursePlacementListResponse | null> {
+    const item = await this.prisma.db.learningItem.findUnique({
+      where: { id: itemId },
+      select: {
+        id: true,
+        courseLevelItems: {
+          select: { courseLevelId: true, sortOrder: true },
+        },
+      },
+    });
+
+    if (item === null) {
+      return null;
+    }
+
+    const levels = await this.prisma.db.courseLevel.findMany({
+      where: {
+        course: {
+          status: { not: "ARCHIVED" },
+          courseType: { in: ["STRUCTURED", "DEMO"] },
+        },
+      },
+      select: {
+        id: true,
+        levelNumber: true,
+        titleRu: true,
+        band: true,
+        course: {
+          select: {
+            id: true,
+            titleRu: true,
+            status: true,
+            courseType: true,
+          },
+        },
+      },
+      orderBy: [{ courseId: "asc" }, { levelNumber: "asc" }],
+    });
+    const placements = new Map(
+      item.courseLevelItems.map((placement) => [placement.courseLevelId, placement.sortOrder]),
+    );
+
+    return {
+      itemId: item.id,
+      levels: levels.map((level) => ({
+        courseId: level.course.id,
+        courseTitle: level.course.titleRu,
+        courseStatus: toApiStatus(level.course.status),
+        courseType: toApiCourseType(level.course.courseType),
+        courseLevelId: level.id,
+        levelNumber: level.levelNumber,
+        levelTitle: level.titleRu,
+        band: toApiBand(level.band),
+        selected: placements.has(level.id),
+        sortOrder: placements.get(level.id) ?? null,
+      })),
+    };
+  }
+
   async findItemByCardId(cardId: string): Promise<AdminCurationItemDto | null> {
     const card = await this.prisma.db.learningCard.findUnique({
       where: { id: cardId },
@@ -1395,6 +1463,107 @@ export class PrismaAdminRepository extends AdminRepository {
     });
 
     return this.findCurationItem(item.id);
+  }
+
+  async replaceCoursePlacements(
+    itemId: string,
+    input: NormalizedAdminUpdateCoursePlacementsInput,
+  ): Promise<AdminCoursePlacementListResponse | null> {
+    const item = await this.prisma.db.learningItem.findUnique({
+      where: { id: itemId },
+      select: { id: true },
+    });
+
+    if (item === null) {
+      return null;
+    }
+
+    await this.prisma.db.$transaction(async (db) => {
+      const currentItem = await db.learningItem.findUnique({
+        where: { id: item.id },
+        select: {
+          status: true,
+          courseLevelItems: {
+            where: {
+              courseLevel: { course: { courseType: { in: ["STRUCTURED", "DEMO"] } } },
+            },
+            select: { courseLevelId: true },
+          },
+        },
+      });
+
+      if (currentItem === null) {
+        throw new CoursePlacementSelectionChangedError();
+      }
+
+      if (currentItem.status !== "PUBLISHED") {
+        throw new CoursePlacementItemNotPublishedError();
+      }
+
+      const selectedLevels =
+        input.courseLevelIds.length === 0
+          ? []
+          : await db.courseLevel.findMany({
+              where: {
+                id: { in: [...input.courseLevelIds] },
+                course: {
+                  status: { not: "ARCHIVED" },
+                  courseType: { in: ["STRUCTURED", "DEMO"] },
+                },
+              },
+              select: { id: true, courseId: true },
+            });
+      const selectedCourseIds = new Set(selectedLevels.map((level) => level.courseId));
+
+      if (
+        selectedLevels.length !== input.courseLevelIds.length ||
+        selectedCourseIds.size !== selectedLevels.length
+      ) {
+        throw new CoursePlacementSelectionChangedError();
+      }
+
+      await db.courseLevelItem.deleteMany({
+        where: {
+          learningItemId: item.id,
+          courseLevel: { course: { courseType: { in: ["STRUCTURED", "DEMO"] } } },
+          ...(input.courseLevelIds.length === 0
+            ? {}
+            : { courseLevelId: { notIn: [...input.courseLevelIds] } }),
+        },
+      });
+
+      const existingLevelIds = new Set(
+        currentItem.courseLevelItems.map((placement) => placement.courseLevelId),
+      );
+
+      for (const level of selectedLevels) {
+        if (existingLevelIds.has(level.id)) {
+          continue;
+        }
+
+        const lastPlacement = await db.courseLevelItem.findFirst({
+          where: { courseLevelId: level.id },
+          select: { sortOrder: true },
+          orderBy: { sortOrder: "desc" },
+        });
+
+        await db.courseLevelItem.create({
+          data: {
+            courseLevelId: level.id,
+            learningItemId: item.id,
+            sortOrder: (lastPlacement?.sortOrder ?? 0) + 1,
+            unlockPolicyJson: { policy: "level-order" },
+          },
+        });
+      }
+
+      await db.learningItem.update({
+        where: { id: item.id },
+        data: { updatedAt: new Date() },
+      });
+    });
+
+    return this.listCoursePlacements(item.id);
   }
 
   async promoteImportedCandidate(
@@ -2170,6 +2339,18 @@ function toApiStatus(status: string): AdminContentStatus {
   }
 }
 
+function toApiCourseType(courseType: string): "structured" | "demo" {
+  if (courseType === "STRUCTURED") {
+    return "structured";
+  }
+
+  if (courseType === "DEMO") {
+    return "demo";
+  }
+
+  throw new Error(`Unsupported admin course type: ${courseType}`);
+}
+
 function candidatePlanItemKey(targetType: string, targetId: string): string {
   return `${targetType}:${targetId}`;
 }
@@ -2277,6 +2458,16 @@ function toApiBandOrNull(value: string | null): CourseBand | null {
     default:
       throw new Error(`Unsupported course band: ${value}`);
   }
+}
+
+function toApiBand(value: string): CourseBand {
+  const band = toApiBandOrNull(value);
+
+  if (band === null) {
+    throw new Error("Course level band cannot be null.");
+  }
+
+  return band;
 }
 
 function toPrismaBand(band: CourseBand) {
