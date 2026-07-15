@@ -272,6 +272,7 @@ in-progress session.
 - `GET /admin/curriculum/main-course/allocation-preview`
 - `POST /admin/curriculum/main-course/allocation`
 - `GET /admin/curriculum/main-course/publication-readiness`
+- `POST /admin/curriculum/main-course/publication`
 - `GET /admin/curriculum/candidate-plan`
 - `POST /admin/curriculum/candidate-plan/enqueue`
 - `GET /admin/items/review-queue`
@@ -380,6 +381,15 @@ content: the full N2 course requires at least 2,300 kanji and 8,000 vocabulary
 items. The opaque `readinessVersion` excludes generation time but changes when
 any audited input changes. This endpoint never changes course status or user
 enrollments.
+
+`POST /admin/curriculum/main-course/publication` accepts only the opaque
+`readinessVersion` returned by that audit. A serializable transaction
+recalculates the complete audit, rejects stale versions and any remaining
+blocker with `409 Conflict`, and changes only the main course status to
+`PUBLISHED`. The response contains the applied version and a fresh audit from
+the same transaction. Publishing is idempotent for an already published course
+with its current version. It never creates, updates, or removes user
+enrollments, SRS state, lesson sessions, or review schedules.
 
 `GET /admin/curriculum/candidate-plan` applies the versioned independent
 frequency-and-prerequisite policy to active course work plus unassigned source

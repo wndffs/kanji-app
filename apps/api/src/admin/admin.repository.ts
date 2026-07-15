@@ -18,6 +18,7 @@ import {
   type AdminImportedCandidateRejectionDto,
   type AdminImportedCandidateRejectionListItemDto,
   type AdminMainCoursePublicationReadinessResponse,
+  type AdminPublishMainCourseResponse,
   type AdminPrerequisiteCandidateDto,
   type AdminPrerequisiteCandidateListResponse,
   type AdminReviewQueueItemDto,
@@ -91,6 +92,9 @@ export abstract class AdminRepository {
     planVersion: string,
   ): Promise<AdminApplyCourseAllocationResponse | null>;
   abstract getMainCoursePublicationReadiness(): Promise<AdminMainCoursePublicationReadinessResponse | null>;
+  abstract publishMainCourse(
+    readinessVersion: string,
+  ): Promise<AdminPublishMainCourseResponse | null>;
   abstract getCandidatePlanVersion(): Promise<string>;
   abstract getCandidatePlan(): Promise<CurriculumCandidatePlan>;
   abstract enqueueCandidatePlanCandidates(
@@ -131,8 +135,14 @@ export class CoursePlacementSelectionChangedError extends Error {}
 export class CoursePlacementItemNotPublishedError extends Error {}
 export class CourseAllocationPlanChangedError extends Error {}
 export class CourseAllocationBlockedError extends Error {}
+export class MainCourseReadinessChangedError extends Error {}
+export class MainCoursePublicationBlockedError extends Error {}
 
 type CourseAllocationReadDatabase = Pick<Prisma.TransactionClient, "course" | "learningItem">;
+type MainCoursePublicationDatabase = Pick<
+  Prisma.TransactionClient,
+  "course" | "learningItem" | "courseLevelItem"
+>;
 
 type LearningItemRow = {
   readonly id: string;
@@ -953,7 +963,7 @@ export class PrismaAdminRepository extends AdminRepository {
         { isolationLevel: "Serializable" },
       )
       .catch((error: unknown) => {
-        if (isConcurrentCourseAllocationWrite(error)) {
+        if (isConcurrentAdminCourseWrite(error)) {
           throw new CourseAllocationPlanChangedError();
         }
 
@@ -974,7 +984,75 @@ export class PrismaAdminRepository extends AdminRepository {
   }
 
   async getMainCoursePublicationReadiness(): Promise<AdminMainCoursePublicationReadinessResponse | null> {
-    const input = await this.loadCourseAllocationInput(this.prisma.db);
+    return this.loadMainCoursePublicationReadiness(this.prisma.db);
+  }
+
+  async publishMainCourse(
+    readinessVersion: string,
+  ): Promise<AdminPublishMainCourseResponse | null> {
+    return this.prisma.db
+      .$transaction(
+        async (db) => {
+          const readiness = await this.loadMainCoursePublicationReadiness(db);
+
+          if (readiness === null) {
+            return null;
+          }
+
+          if (readiness.readinessVersion !== readinessVersion) {
+            throw new MainCourseReadinessChangedError();
+          }
+
+          if (!readiness.readyToPublish) {
+            throw new MainCoursePublicationBlockedError();
+          }
+
+          const statusChanged = readiness.course.status !== "published";
+
+          if (statusChanged) {
+            const currentStatus = readiness.course.status === "draft" ? "DRAFT" : "NEEDS_REVIEW";
+            const update = await db.course.updateMany({
+              where: { id: readiness.course.id, status: currentStatus },
+              data: { status: "PUBLISHED" },
+            });
+
+            if (update.count !== 1) {
+              throw new MainCourseReadinessChangedError();
+            }
+          }
+
+          const publishedReadiness = await this.loadMainCoursePublicationReadiness(db);
+
+          if (
+            publishedReadiness === null ||
+            publishedReadiness.course.status !== "published" ||
+            !publishedReadiness.readyToPublish
+          ) {
+            throw new MainCourseReadinessChangedError();
+          }
+
+          return {
+            appliedReadinessVersion: readiness.readinessVersion,
+            publishedAt: new Date().toISOString(),
+            statusChanged,
+            readiness: publishedReadiness,
+          };
+        },
+        { isolationLevel: "Serializable" },
+      )
+      .catch((error: unknown) => {
+        if (isConcurrentAdminCourseWrite(error)) {
+          throw new MainCourseReadinessChangedError();
+        }
+
+        throw error;
+      });
+  }
+
+  private async loadMainCoursePublicationReadiness(
+    db: MainCoursePublicationDatabase,
+  ): Promise<AdminMainCoursePublicationReadinessResponse | null> {
+    const input = await this.loadCourseAllocationInput(db);
 
     if (input === null) {
       return null;
@@ -985,7 +1063,7 @@ export class PrismaAdminRepository extends AdminRepository {
     });
     const [course, stalePlacements, placedKanji, placedWords, initialLessonItems] =
       await Promise.all([
-        this.prisma.db.course.findUnique({
+        db.course.findUnique({
           where: { id: input.course.id },
           select: {
             id: true,
@@ -1012,27 +1090,27 @@ export class PrismaAdminRepository extends AdminRepository {
             },
           },
         }),
-        this.prisma.db.courseLevelItem.count({
+        db.courseLevelItem.count({
           where: {
             courseLevel: { courseId: input.course.id },
             learningItem: { status: { not: "PUBLISHED" } },
           },
         }),
-        this.prisma.db.learningItem.count({
+        db.learningItem.count({
           where: {
             kind: "KANJI",
             status: "PUBLISHED",
             courseLevelItems: { some: { courseLevel: { courseId: input.course.id } } },
           },
         }),
-        this.prisma.db.learningItem.count({
+        db.learningItem.count({
           where: {
             kind: "WORD",
             status: "PUBLISHED",
             courseLevelItems: { some: { courseLevel: { courseId: input.course.id } } },
           },
         }),
-        this.prisma.db.learningItem.count({
+        db.learningItem.count({
           where: {
             status: "PUBLISHED",
             cards: { some: {} },
@@ -2623,7 +2701,7 @@ async function upsertMnemonics(
   }
 }
 
-function isConcurrentCourseAllocationWrite(error: unknown): boolean {
+function isConcurrentAdminCourseWrite(error: unknown): boolean {
   return (
     typeof error === "object" &&
     error !== null &&

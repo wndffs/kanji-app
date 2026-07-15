@@ -18,6 +18,8 @@ import {
   type AdminImportedCandidateRejectionListResponse,
   type AdminMainCoursePublicationReadinessResponse,
   type AdminPrerequisiteCandidateListResponse,
+  type AdminPublishMainCourseRequest,
+  type AdminPublishMainCourseResponse,
   type AdminRejectImportedCandidateRequest,
   type AdminReviewQueueResponse,
   type AdminUpdateItemRequest,
@@ -413,6 +415,31 @@ test.describe("admin curation", () => {
     await expect(readiness).toContainText(/2.?300/);
     await expect(readiness).toContainText(/8.?000/);
     await expect(readiness.getByText("Блокер")).toHaveCount(2);
+    await expect(readiness.getByTestId("admin-publish-main-course")).toBeDisabled();
+  });
+
+  test("admin confirms publication without changing learner enrollment", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await mockAdminApi(page, { mainCourseReadyToPublish: true });
+
+    await page.goto("/admin");
+
+    const readiness = page.getByTestId("admin-course-publication-readiness");
+    const publishButton = readiness.getByTestId("admin-publish-main-course");
+    await expect(readiness).toContainText("все проверки пройдены");
+    await expect(publishButton).toBeEnabled();
+    await publishButton.click();
+
+    const confirmation = page.getByRole("dialog", { name: "Опубликовать основной курс?" });
+    await expect(confirmation).toContainText("Пользователи не будут зачислены автоматически");
+    await expect(confirmation.getByRole("button", { name: "Отмена" })).toBeFocused();
+    await confirmation.getByRole("button", { name: "Опубликовать", exact: true }).click();
+
+    await expect(
+      page.getByText("Основной курс опубликован. Зачисления пользователей не изменены."),
+    ).toBeVisible();
+    await expect(publishButton).toHaveText("Курс опубликован");
+    await expect(publishButton).toBeDisabled();
   });
 });
 
@@ -448,6 +475,7 @@ async function mockAdminApi(
   options: {
     readonly enqueueConflictOnce?: boolean;
     readonly failQueueRefreshAfterItemSave?: boolean;
+    readonly mainCourseReadyToPublish?: boolean;
     readonly multiplePlanCandidates?: boolean;
     readonly publishedItem?: boolean;
   } = {},
@@ -459,6 +487,7 @@ async function mockAdminApi(
   let itemWasSaved = false;
   let coursePlacementLevelId = "course-level-1";
   let allocationApplied = false;
+  let mainCoursePublished = false;
   const secondItem = buildSecondAdminItem();
   const assignedPlanTargets = new Set<string>();
   let remainingEnqueueConflicts = options.enqueueConflictOnce === true ? 1 : 0;
@@ -726,44 +755,50 @@ async function mockAdminApi(
   await page.route(
     `${API_BASE_URL}/admin/curriculum/main-course/publication-readiness`,
     async (route) => {
-      const response: AdminMainCoursePublicationReadinessResponse = {
-        policyVersion: "main-course-publication-readiness-v1",
-        readinessVersion: "main-course-readiness:test",
-        allocationPlanVersion: allocationApplied
-          ? "course-allocation:applied-plan"
-          : "course-allocation:test-plan",
-        generatedAt: "2026-07-15T12:00:00.000Z",
-        readyToPublish: false,
-        course: {
-          id: "course-main",
-          slug: "japanese-ru-n2",
-          title: "Японский: кандзи и лексика до N2",
-          status: "draft",
-        },
-        summary: { passedChecks: 6, blockedChecks: 2 },
-        checks: [
-          readinessCheck("course-state", "Состояние курса"),
-          readinessCheck("course-blueprint", "Blueprint 60 уровней", 60, 60),
-          readinessCheck("allocation-complete", "Распределение завершено", 3, 3),
-          readinessCheck("published-placements-only", "Только опубликованные материалы", 0, 0),
-          readinessCheck("levels-populated", "Заполнены все уровни", 60, 60),
-          readinessCheck("initial-lesson", "Доступен первый урок", 1, 1),
-          {
-            ...readinessCheck("kanji-target", "Цель по кандзи", 2, 2_300),
-            passed: false,
-            message: "В основном курсе размещено кандзи: 2 из 2300.",
-          },
-          {
-            ...readinessCheck("word-target", "Цель по словам", 1, 8_000),
-            passed: false,
-            message: "В основном курсе размещено слов: 1 из 8000.",
-          },
-        ],
-      };
-
-      await route.fulfill({ json: response });
+      await route.fulfill({
+        json: buildMockPublicationReadiness({
+          allocationApplied,
+          published: mainCoursePublished,
+          readyToPublish: options.mainCourseReadyToPublish === true,
+        }),
+      });
     },
   );
+
+  await page.route(`${API_BASE_URL}/admin/curriculum/main-course/publication`, async (route) => {
+    const body = route.request().postDataJSON() as AdminPublishMainCourseRequest;
+    const currentReadiness = buildMockPublicationReadiness({
+      allocationApplied,
+      published: mainCoursePublished,
+      readyToPublish: options.mainCourseReadyToPublish === true,
+    });
+
+    if (
+      !currentReadiness.readyToPublish ||
+      body.readinessVersion !== currentReadiness.readinessVersion
+    ) {
+      await route.fulfill({
+        status: 409,
+        json: { message: "Publication readiness changed." },
+      });
+      return;
+    }
+
+    const statusChanged = !mainCoursePublished;
+    mainCoursePublished = true;
+    const response: AdminPublishMainCourseResponse = {
+      appliedReadinessVersion: body.readinessVersion,
+      publishedAt: "2026-07-15T12:01:00.000Z",
+      statusChanged,
+      readiness: buildMockPublicationReadiness({
+        allocationApplied,
+        published: mainCoursePublished,
+        readyToPublish: true,
+      }),
+    };
+
+    await route.fulfill({ json: response });
+  });
 
   await page.route(`${API_BASE_URL}/admin/curriculum/candidate-plan**`, async (route) => {
     const url = new URL(route.request().url());
@@ -1350,6 +1385,57 @@ function readinessCheck(
     message: "Проверка пройдена.",
     current,
     required,
+  };
+}
+
+function buildMockPublicationReadiness({
+  allocationApplied,
+  published,
+  readyToPublish,
+}: {
+  readonly allocationApplied: boolean;
+  readonly published: boolean;
+  readonly readyToPublish: boolean;
+}): AdminMainCoursePublicationReadinessResponse {
+  return {
+    policyVersion: "main-course-publication-readiness-v1",
+    readinessVersion: published ? "main-course-readiness:published" : "main-course-readiness:test",
+    allocationPlanVersion: allocationApplied
+      ? "course-allocation:applied-plan"
+      : "course-allocation:test-plan",
+    generatedAt: "2026-07-15T12:00:00.000Z",
+    readyToPublish,
+    course: {
+      id: "course-main",
+      slug: "japanese-ru-n2",
+      title: "Японский: кандзи и лексика до N2",
+      status: published ? "published" : "draft",
+    },
+    summary: readyToPublish
+      ? { passedChecks: 8, blockedChecks: 0 }
+      : { passedChecks: 6, blockedChecks: 2 },
+    checks: [
+      readinessCheck("course-state", "Состояние курса"),
+      readinessCheck("course-blueprint", "Blueprint 60 уровней", 60, 60),
+      readinessCheck("allocation-complete", "Распределение завершено", 3, 3),
+      readinessCheck("published-placements-only", "Только опубликованные материалы", 0, 0),
+      readinessCheck("levels-populated", "Заполнены все уровни", 60, 60),
+      readinessCheck("initial-lesson", "Доступен первый урок", 1, 1),
+      {
+        ...readinessCheck("kanji-target", "Цель по кандзи", readyToPublish ? 2_300 : 2, 2_300),
+        passed: readyToPublish,
+        message: readyToPublish
+          ? "В основном курсе размещено кандзи: 2300 из 2300."
+          : "В основном курсе размещено кандзи: 2 из 2300.",
+      },
+      {
+        ...readinessCheck("word-target", "Цель по словам", readyToPublish ? 8_000 : 1, 8_000),
+        passed: readyToPublish,
+        message: readyToPublish
+          ? "В основном курсе размещено слов: 8000 из 8000."
+          : "В основном курсе размещено слов: 1 из 8000.",
+      },
+    ],
   };
 }
 

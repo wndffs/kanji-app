@@ -17,6 +17,8 @@ import {
   type AdminImportedCandidateRejectionDto,
   type AdminImportedCandidateRejectionListResponse,
   type AdminMainCoursePublicationReadinessResponse,
+  type AdminPublishMainCourseRequest,
+  type AdminPublishMainCourseResponse,
   type AdminPromoteCandidateRequest,
   type AdminPrerequisiteCandidateListResponse,
   type AdminRejectImportedCandidateRequest,
@@ -367,6 +369,19 @@ export function getAdminMainCoursePublicationReadiness(
     "/admin/curriculum/main-course/publication-readiness",
     { token, fetchImpl },
   );
+}
+
+export function publishAdminMainCourse(
+  token: string,
+  input: AdminPublishMainCourseRequest,
+  fetchImpl?: typeof fetch,
+): Promise<AdminPublishMainCourseResponse> {
+  return apiRequest<AdminPublishMainCourseResponse>("/admin/curriculum/main-course/publication", {
+    method: "POST",
+    token,
+    body: input,
+    fetchImpl,
+  });
 }
 
 export function getAdminCandidatePlan(

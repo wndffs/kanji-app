@@ -13,6 +13,7 @@ import {
   getAdminMainCoursePublicationReadiness,
   getAdminPrerequisiteCandidates,
   getAdminReviewQueueWithFilters,
+  publishAdminMainCourse,
   rejectAdminImportedCandidate,
   restoreAdminImportedCandidate,
   searchItems,
@@ -431,5 +432,25 @@ describe("apiRequest", () => {
     expect(capturedInput).toBe(
       "http://localhost:3001/admin/curriculum/main-course/publication-readiness",
     );
+  });
+
+  it("posts the confirmed main-course readiness version for publication", async () => {
+    let capturedInput = "";
+    let capturedInit: RequestInit | undefined;
+    const fetchImpl: typeof fetch = async (input, init) => {
+      capturedInput = String(input);
+      capturedInit = init;
+      return Response.json({
+        appliedReadinessVersion: "main-course-readiness:test",
+        statusChanged: true,
+      });
+    };
+    const request = { readinessVersion: "main-course-readiness:test" };
+
+    await publishAdminMainCourse("token-1", request, fetchImpl);
+
+    expect(capturedInput).toBe("http://localhost:3001/admin/curriculum/main-course/publication");
+    expect(capturedInit?.method).toBe("POST");
+    expect(capturedInit?.body).toBe(JSON.stringify(request));
   });
 });

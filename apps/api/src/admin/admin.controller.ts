@@ -106,6 +106,11 @@ export class AdminController {
     return this.adminService.getMainCoursePublicationReadiness();
   }
 
+  @Post("curriculum/main-course/publication")
+  publishMainCourse(@Body() body: unknown) {
+    return this.adminService.publishMainCourse(body);
+  }
+
   @Get("curriculum/candidate-plan")
   getCandidatePlan(@Query() query: Record<string, unknown>) {
     return this.adminService.getCandidatePlan(query);

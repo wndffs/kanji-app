@@ -1113,6 +1113,17 @@ export type AdminMainCoursePublicationReadinessResponse = {
   readonly checks: readonly AdminMainCourseReadinessCheckDto[];
 };
 
+export type AdminPublishMainCourseRequest = {
+  readonly readinessVersion: string;
+};
+
+export type AdminPublishMainCourseResponse = {
+  readonly appliedReadinessVersion: string;
+  readonly publishedAt: string;
+  readonly statusChanged: boolean;
+  readonly readiness: AdminMainCoursePublicationReadinessResponse;
+};
+
 export type AdminCurriculumCandidatePlanItemDto = {
   readonly selectionRank: number;
   readonly targetId: string;

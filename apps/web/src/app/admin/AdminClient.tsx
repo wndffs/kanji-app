@@ -1113,7 +1113,19 @@ export function AdminClient() {
         token={state.token}
       />
 
-      <CoursePublicationReadinessPanel refreshRevision={planningRevision} token={state.token} />
+      <CoursePublicationReadinessPanel
+        disabled={savingKey !== null}
+        onPublished={(statusChanged) => {
+          setStatusMessage(
+            statusChanged
+              ? "Основной курс опубликован. Зачисления пользователей не изменены."
+              : "Основной курс уже был опубликован.",
+          );
+          setPlanningRevision((previous) => previous + 1);
+        }}
+        refreshRevision={planningRevision}
+        token={state.token}
+      />
 
       <section
         className="panel admin-translation-review"

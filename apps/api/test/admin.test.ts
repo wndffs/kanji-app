@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  type AdminMainCoursePublicationReadinessResponse,
   type AdminApplyCourseAllocationResponse,
   type AdminCurationItemDto,
   type AdminCourseAllocationPreviewResponse,
@@ -12,6 +11,8 @@ import {
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateRejectionDto,
   type AdminImportedCandidateRejectionListItemDto,
+  type AdminMainCoursePublicationReadinessResponse,
+  type AdminPublishMainCourseResponse,
   type AdminPrerequisiteCandidateListResponse,
 } from "@kanji-srs/shared";
 import { buildMainCourseBlueprint } from "@kanji-srs/db";
@@ -21,6 +22,8 @@ import {
   CourseAllocationBlockedError,
   CourseAllocationPlanChangedError,
   CoursePlacementItemNotPublishedError,
+  MainCoursePublicationBlockedError,
+  MainCourseReadinessChangedError,
   PrismaAdminRepository,
 } from "../src/admin/admin.repository";
 import { AdminService } from "../src/admin/admin.service";
@@ -381,6 +384,43 @@ describe("AdminService", () => {
       readyToPublish: false,
       summary: { blockedChecks: 2 },
     });
+  });
+
+  it("publishes only a ready main course with the confirmed readiness version", async () => {
+    const repository = new InMemoryAdminRepository();
+    const adminService = new AdminService(repository);
+    repository.mainCourseReadyToPublish = true;
+
+    const publication = await adminService.publishMainCourse({
+      readinessVersion: "main-course-readiness:test",
+    });
+
+    expect(publication).toMatchObject({
+      appliedReadinessVersion: "main-course-readiness:test",
+      statusChanged: true,
+      readiness: { readyToPublish: true, course: { status: "published" } },
+    });
+
+    await expect(
+      adminService.publishMainCourse({
+        readinessVersion: publication.readiness.readinessVersion,
+      }),
+    ).resolves.toMatchObject({
+      statusChanged: false,
+      readiness: { course: { status: "published" } },
+    });
+
+    await expect(
+      adminService.publishMainCourse({ readinessVersion: "main-course-readiness:test" }),
+    ).rejects.toThrow("Publication readiness changed");
+  });
+
+  it("rejects main-course publication while readiness has blockers", async () => {
+    await expect(
+      new AdminService(new InMemoryAdminRepository()).publishMainCourse({
+        readinessVersion: "main-course-readiness:test",
+      }),
+    ).rejects.toThrow("Resolve all publication-readiness blockers");
   });
 
   it("returns bounded pages from the deterministic curriculum candidate plan", async () => {
@@ -1519,13 +1559,16 @@ describe("AdminService", () => {
     ).rejects.toBeInstanceOf(CourseAllocationPlanChangedError);
   });
 
-  it("audits the seeded main course with aggregate placement counts", async () => {
+  it("audits and atomically publishes the seeded main course without changing enrollments", async () => {
     const blueprint = buildMainCourseBlueprint();
+    let courseStatus = "DRAFT";
     const allocationCourse = {
       id: "course-main",
       slug: blueprint.course.slug,
       titleRu: blueprint.course.titleRu,
-      status: "DRAFT",
+      get status() {
+        return courseStatus;
+      },
       levels: blueprint.levels.map((level) => ({
         id: `level-${level.levelNumber}`,
         levelNumber: level.levelNumber,
@@ -1538,6 +1581,9 @@ describe("AdminService", () => {
       targetLevel: blueprint.course.targetLevel,
       band: blueprint.course.band,
       courseType: "STRUCTURED",
+      get status() {
+        return courseStatus;
+      },
       levels: blueprint.levels.map((level) => ({
         levelNumber: level.levelNumber,
         band: level.band,
@@ -1547,10 +1593,13 @@ describe("AdminService", () => {
       })),
     };
     const course = {
-      findUnique: vi
-        .fn()
-        .mockResolvedValueOnce(allocationCourse)
-        .mockResolvedValueOnce(readinessCourse),
+      findUnique: vi.fn(async (query: { where: { id?: string } }) =>
+        query.where.id === undefined ? allocationCourse : readinessCourse,
+      ),
+      updateMany: vi.fn().mockImplementation(async () => {
+        courseStatus = "PUBLISHED";
+        return { count: 1 };
+      }),
     };
     const learningItem = {
       findMany: vi.fn().mockResolvedValue([
@@ -1564,18 +1613,28 @@ describe("AdminService", () => {
           courseLevelItems: [{ courseLevel: { levelNumber: 1 } }],
         },
       ]),
-      count: vi
-        .fn()
-        .mockResolvedValueOnce(2_300)
-        .mockResolvedValueOnce(8_000)
-        .mockResolvedValueOnce(1),
+      count: vi.fn(async (query: { where: { kind?: string } }) => {
+        if (query.where.kind === "KANJI") {
+          return 2_300;
+        }
+
+        return query.where.kind === "WORD" ? 8_000 : 1;
+      }),
     };
     const courseLevelItem = { count: vi.fn().mockResolvedValue(0) };
+    const userEnrollment = { updateMany: vi.fn() };
+    const transactionDatabase = { course, learningItem, courseLevelItem, userEnrollment };
+    const transaction = vi.fn(
+      async (callback: (database: typeof transactionDatabase) => Promise<unknown>) =>
+        callback(transactionDatabase),
+    );
     const repository = new PrismaAdminRepository({
-      db: { course, learningItem, courseLevelItem },
+      db: { ...transactionDatabase, $transaction: transaction },
     } as never);
 
-    await expect(repository.getMainCoursePublicationReadiness()).resolves.toMatchObject({
+    const readiness = await repository.getMainCoursePublicationReadiness();
+
+    expect(readiness).toMatchObject({
       readyToPublish: true,
       summary: { passedChecks: 8, blockedChecks: 0 },
     });
@@ -1586,6 +1645,29 @@ describe("AdminService", () => {
       },
     });
     expect(learningItem.count).toHaveBeenCalledTimes(3);
+
+    await expect(repository.publishMainCourse(readiness!.readinessVersion)).resolves.toMatchObject({
+      appliedReadinessVersion: readiness!.readinessVersion,
+      statusChanged: true,
+      readiness: { readyToPublish: true, course: { status: "published" } },
+    });
+    expect(course.updateMany).toHaveBeenCalledWith({
+      where: { id: "course-main", status: "DRAFT" },
+      data: { status: "PUBLISHED" },
+    });
+    expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: "Serializable",
+    });
+    expect(userEnrollment.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("returns a stale-readiness conflict for concurrent course publication writes", async () => {
+    const transaction = vi.fn().mockRejectedValue({ code: "P2034" });
+    const repository = new PrismaAdminRepository({ db: { $transaction: transaction } } as never);
+
+    await expect(repository.publishMainCourse("main-course-readiness:test")).rejects.toBeInstanceOf(
+      MainCourseReadinessChangedError,
+    );
   });
 
   it("requires non-empty RU and EN accepted answers for translation approval", async () => {
@@ -1650,6 +1732,8 @@ describe("AdminService", () => {
 class InMemoryAdminRepository extends AdminRepository implements OverridesRepository {
   candidatePlanReads = 0;
   courseAllocationBlocked = false;
+  mainCoursePublished = false;
+  mainCourseReadyToPublish = false;
   readonly candidatePlanVersionResponses: string[] = [];
   readonly enqueuedCandidateBatches: (readonly AdminCandidatePlanEnqueueItemInput[])[] = [];
   private rejectionRevision = 0;
@@ -2214,37 +2298,65 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
   }
 
   async getMainCoursePublicationReadiness(): Promise<AdminMainCoursePublicationReadinessResponse> {
+    const readyToPublish = this.mainCourseReadyToPublish;
+
     return {
       policyVersion: "main-course-publication-readiness-v1",
-      readinessVersion: "main-course-readiness:test",
+      readinessVersion: this.mainCoursePublished
+        ? "main-course-readiness:published"
+        : "main-course-readiness:test",
       allocationPlanVersion: "course-allocation:test-plan",
       generatedAt: "2026-07-15T12:00:00.000Z",
-      readyToPublish: false,
+      readyToPublish,
       course: {
         id: "course-main",
         slug: "japanese-ru-n2",
         title: "Основной курс",
-        status: "draft",
+        status: this.mainCoursePublished ? "published" : "draft",
       },
-      summary: { passedChecks: 6, blockedChecks: 2 },
+      summary: readyToPublish
+        ? { passedChecks: 8, blockedChecks: 0 }
+        : { passedChecks: 6, blockedChecks: 2 },
       checks: [
         {
           code: "kanji-target",
-          passed: false,
+          passed: readyToPublish,
           title: "Цель по кандзи",
           message: "В основном курсе размещено кандзи: 2 из 2300.",
-          current: 2,
+          current: readyToPublish ? 2_300 : 2,
           required: 2_300,
         },
         {
           code: "word-target",
-          passed: false,
+          passed: readyToPublish,
           title: "Цель по словам",
           message: "В основном курсе размещено слов: 1 из 8000.",
-          current: 1,
+          current: readyToPublish ? 8_000 : 1,
           required: 8_000,
         },
       ],
+    };
+  }
+
+  async publishMainCourse(readinessVersion: string): Promise<AdminPublishMainCourseResponse> {
+    const readiness = await this.getMainCoursePublicationReadiness();
+
+    if (readiness.readinessVersion !== readinessVersion) {
+      throw new MainCourseReadinessChangedError();
+    }
+
+    if (!readiness.readyToPublish) {
+      throw new MainCoursePublicationBlockedError();
+    }
+
+    const statusChanged = !this.mainCoursePublished;
+    this.mainCoursePublished = true;
+
+    return {
+      appliedReadinessVersion: readinessVersion,
+      publishedAt: "2026-07-15T12:01:00.000Z",
+      statusChanged,
+      readiness: await this.getMainCoursePublicationReadiness(),
     };
   }
 

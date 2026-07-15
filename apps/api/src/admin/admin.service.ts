@@ -26,6 +26,7 @@ import {
   type AdminImportedCandidateRejectionDto,
   type AdminImportedCandidateRejectionListResponse,
   type AdminMainCoursePublicationReadinessResponse,
+  type AdminPublishMainCourseResponse,
   type AdminPrerequisiteCandidateListResponse,
   type AdminRestoreImportedCandidateResponse,
   type AdminReviewQueueResponse,
@@ -43,6 +44,8 @@ import {
   CourseAllocationPlanChangedError,
   CoursePlacementItemNotPublishedError,
   CoursePlacementSelectionChangedError,
+  MainCoursePublicationBlockedError,
+  MainCourseReadinessChangedError,
   PrerequisiteSelectionChangedError,
 } from "./admin.repository";
 import {
@@ -245,6 +248,39 @@ export class AdminService {
     }
 
     return readiness;
+  }
+
+  async publishMainCourse(body: unknown): Promise<AdminPublishMainCourseResponse> {
+    const record = parseRecord(body, "Request body");
+    const readinessVersion = parseRequiredString(record.readinessVersion, "readinessVersion", {
+      maxLength: 128,
+    });
+
+    try {
+      const result = await this.adminRepository.publishMainCourse(readinessVersion);
+
+      if (result === null) {
+        throw new NotFoundException(
+          "Main structured course not found. Run the current database seed first.",
+        );
+      }
+
+      return result;
+    } catch (error: unknown) {
+      if (error instanceof MainCourseReadinessChangedError) {
+        throw new ConflictException(
+          "Publication readiness changed. Refresh the audit and confirm the current version.",
+        );
+      }
+
+      if (error instanceof MainCoursePublicationBlockedError) {
+        throw new ConflictException(
+          "Resolve all publication-readiness blockers before publishing the main course.",
+        );
+      }
+
+      throw error;
+    }
   }
 
   async getCandidatePlan(query: unknown = {}): Promise<AdminCurriculumCandidatePlanResponse> {

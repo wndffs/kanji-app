@@ -99,14 +99,17 @@ plan in a serializable transaction, rejects stale confirmations or any blocker,
 keeps all existing placements, and appends only the proposed rows to each
 level's current ordering.
 
-Publication readiness is a separate read-only audit. The first policy requires
+Publication readiness starts with a separate read-only audit. The first policy requires
 the exact project-owned 60-level blueprint, no allocation conflict or pending
 placement, no draft/review/archive row left inside a course level, every level
 to contain published content, and at least one immediately available card on
 level 1. It also treats 2,300 uniquely placed published kanji and 8,000 uniquely
-placed published words as blocking full-course targets. The report is versioned
-for a later confirmed publication command; calculating it does not publish the
-course or enroll learners.
+placed published words as blocking full-course targets. The confirmed
+publication command is bound to that report's opaque version and recalculates
+the audit inside the same serializable transaction that changes the course
+status. Calculating readiness does not publish the course. Confirming
+publication changes only the course status: enrollment, learner progress, SRS
+state, and review schedules remain separate and untouched.
 
 The admin scale-readiness report keeps this distinction measurable. It reports
 the remaining publication gap, work already in curation, unassigned imported

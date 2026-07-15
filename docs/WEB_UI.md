@@ -46,8 +46,11 @@ current calculation before another attempt.
 Below allocation, the publication-readiness panel presents the eight server
 checks as a compact pass/blocker list with current and required counts. It
 updates after allocation or curation changes and makes the 2,300-kanji and
-8,000-word gaps explicit. The panel is deliberately read-only; publishing and
-learner migration require later, separately confirmed workflows.
+8,000-word gaps explicit. Publication remains disabled until every check
+passes. The enabled action opens a keyboard-contained confirmation and sends
+the exact audited version; a stale version reloads before another attempt.
+Success marks the course published and states explicitly that no learner was
+enrolled or migrated and no existing progress changed.
 After an item or card save, the queue restarts from its first cursor page under
 the active filters. It keeps the saved item selected when it still matches and
 otherwise opens the next available item, while a post-save refresh failure is

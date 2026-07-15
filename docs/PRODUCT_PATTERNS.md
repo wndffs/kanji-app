@@ -131,3 +131,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 49. Task 89 (completed): preview balanced prerequisite-safe allocation across course levels.
 50. Task 90 (completed): transactionally apply an explicitly confirmed, versioned course allocation.
 51. Task 91 (completed): audit versioned full-course publication readiness without changing learner state.
+52. Task 92 (completed): publish only a readiness-approved main-course version without enrolling learners.
