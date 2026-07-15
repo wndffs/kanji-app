@@ -272,6 +272,8 @@ in-progress session.
 - `GET /admin/curriculum/candidate-plan`
 - `POST /admin/curriculum/candidate-plan/enqueue`
 - `GET /admin/items/review-queue`
+- `GET /admin/items/:id/prerequisite-candidates`
+- `PUT /admin/items/:id/prerequisites`
 - `PATCH /admin/items/:id`
 - `PATCH /admin/cards/:id/answers`
 
@@ -388,6 +390,16 @@ item exists. Band, status, JLPT, missing-answer, and missing-mnemonic filters ar
 applied before a page is returned. The endpoint intentionally does not expose a
 potentially expensive exact total. Invalid cursors return `400 Bad Request`, and
 clients must reset the cursor when filters change.
+
+`GET /admin/items/:id/prerequisite-candidates` derives structural editorial
+options without changing the item. For a kanji it resolves stored
+`KanjiComponent` links to published component learning items; for a word it
+resolves every Han character in the written form to a published kanji learning
+item. Existing prerequisite links remain visible even when no longer inferred.
+`PUT /admin/items/:id/prerequisites` replaces only `PREREQUISITE` dependencies,
+preserves other dependency types, rejects duplicate, self, unrelated, or
+unpublished selections, and stores an optional positive SRS threshold. A
+transaction rechecks publication immediately before replacing the links.
 
 ## API rules
 

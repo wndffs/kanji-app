@@ -8,6 +8,7 @@ import {
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateRejectionDto,
   type AdminImportedCandidateRejectionListItemDto,
+  type AdminPrerequisiteCandidateListResponse,
 } from "@kanji-srs/shared";
 
 import { AdminRepository, PrismaAdminRepository } from "../src/admin/admin.repository";
@@ -139,6 +140,69 @@ describe("AdminService", () => {
       ],
       pagination: { limit: 20, nextCursor: null },
     });
+  });
+
+  it("lists inferred prerequisites and replaces only the selected links", async () => {
+    const adminService = new AdminService(new InMemoryAdminRepository());
+
+    await expect(adminService.getPrerequisiteCandidates("item-kanji-one")).resolves.toEqual({
+      itemId: "item-kanji-one",
+      candidates: [
+        {
+          prerequisiteItemId: "item-component-one",
+          prerequisiteTitle: "Компонент 一",
+          prerequisiteItemType: "component",
+          prerequisiteStatus: "published",
+          selected: true,
+          requiredStage: 1,
+          suggestionReason: "component",
+        },
+        {
+          prerequisiteItemId: "item-component-line",
+          prerequisiteTitle: "Компонент линия",
+          prerequisiteItemType: "component",
+          prerequisiteStatus: "published",
+          selected: false,
+          requiredStage: null,
+          suggestionReason: "component",
+        },
+      ],
+    });
+
+    await expect(
+      adminService.updatePrerequisites("item-kanji-one", {
+        prerequisites: [{ prerequisiteItemId: "item-component-line", requiredStage: 2 }],
+      }),
+    ).resolves.toMatchObject({
+      dependencies: [
+        {
+          prerequisiteItemId: "item-component-line",
+          prerequisiteTitle: "Компонент линия",
+          prerequisiteStatus: "published",
+          dependencyType: "prerequisite",
+          requiredStage: 2,
+        },
+      ],
+    });
+  });
+
+  it("rejects duplicate and unavailable prerequisite selections", async () => {
+    const adminService = new AdminService(new InMemoryAdminRepository());
+
+    await expect(
+      adminService.updatePrerequisites("item-kanji-one", {
+        prerequisites: [
+          { prerequisiteItemId: "item-component-one" },
+          { prerequisiteItemId: "item-component-one" },
+        ],
+      }),
+    ).rejects.toThrow("Duplicate prerequisite: item-component-one");
+
+    await expect(
+      adminService.updatePrerequisites("item-kanji-one", {
+        prerequisites: [{ prerequisiteItemId: "item-unrelated" }],
+      }),
+    ).rejects.toThrow("is not available for this item");
   });
 
   it("paginates the review queue with opaque stable cursors", async () => {
@@ -1013,6 +1077,118 @@ describe("AdminService", () => {
     });
   });
 
+  it("derives published component prerequisites for a kanji curation item", async () => {
+    const learningItem = {
+      findUnique: vi.fn().mockResolvedValue({
+        id: "item-kanji-one",
+        targetType: "KANJI",
+        targetId: "kanji-one",
+        dependencies: [
+          {
+            requiredStage: 2,
+            prerequisiteItem: {
+              id: "item-component-one",
+              title: "Компонент один",
+              kind: "COMPONENT",
+              status: "PUBLISHED",
+            },
+          },
+        ],
+      }),
+      findMany: vi.fn().mockResolvedValue([
+        {
+          id: "item-component-line",
+          title: "Компонент линия",
+          kind: "COMPONENT",
+          status: "PUBLISHED",
+        },
+      ]),
+    };
+    const kanjiComponent = {
+      findMany: vi
+        .fn()
+        .mockResolvedValue([{ componentId: "component-one" }, { componentId: "component-line" }]),
+    };
+    const repository = new PrismaAdminRepository({
+      db: { learningItem, kanjiComponent },
+    } as never);
+
+    await expect(repository.listPrerequisiteCandidates("item-kanji-one")).resolves.toEqual({
+      itemId: "item-kanji-one",
+      candidates: [
+        {
+          prerequisiteItemId: "item-component-one",
+          prerequisiteTitle: "Компонент один",
+          prerequisiteItemType: "component",
+          prerequisiteStatus: "published",
+          selected: true,
+          requiredStage: 2,
+          suggestionReason: "existing",
+        },
+        {
+          prerequisiteItemId: "item-component-line",
+          prerequisiteTitle: "Компонент линия",
+          prerequisiteItemType: "component",
+          prerequisiteStatus: "published",
+          selected: false,
+          requiredStage: null,
+          suggestionReason: "component",
+        },
+      ],
+    });
+    expect(kanjiComponent.findMany).toHaveBeenCalledWith({
+      where: { kanjiId: "kanji-one" },
+      select: { componentId: true },
+      orderBy: { componentId: "asc" },
+    });
+  });
+
+  it("derives published kanji prerequisites from word orthography", async () => {
+    const learningItem = {
+      findUnique: vi.fn().mockResolvedValue({
+        id: "item-word-person",
+        targetType: "WORD",
+        targetId: "word-person",
+        dependencies: [],
+      }),
+      findMany: vi.fn().mockResolvedValue([
+        {
+          id: "item-kanji-person",
+          title: "Кандзи 人",
+          kind: "KANJI",
+          status: "PUBLISHED",
+        },
+      ]),
+    };
+    const word = { findUnique: vi.fn().mockResolvedValue({ expression: "一人かな" }) };
+    const kanji = {
+      findMany: vi.fn().mockResolvedValue([{ id: "kanji-one" }, { id: "kanji-person" }]),
+    };
+    const repository = new PrismaAdminRepository({
+      db: { learningItem, word, kanji },
+    } as never);
+
+    await expect(repository.listPrerequisiteCandidates("item-word-person")).resolves.toEqual({
+      itemId: "item-word-person",
+      candidates: [
+        {
+          prerequisiteItemId: "item-kanji-person",
+          prerequisiteTitle: "Кандзи 人",
+          prerequisiteItemType: "kanji",
+          prerequisiteStatus: "published",
+          selected: false,
+          requiredStage: null,
+          suggestionReason: "kanji",
+        },
+      ],
+    });
+    expect(kanji.findMany).toHaveBeenCalledWith({
+      where: { character: { in: ["一", "人"] } },
+      select: { id: true },
+      orderBy: { character: "asc" },
+    });
+  });
+
   it("requires non-empty RU and EN accepted answers for translation approval", async () => {
     const adminService = new AdminService(new InMemoryAdminRepository());
 
@@ -1452,6 +1628,48 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
     return this.items.find((item) => item.id === itemId) ?? null;
   }
 
+  async listPrerequisiteCandidates(
+    itemId: string,
+  ): Promise<AdminPrerequisiteCandidateListResponse | null> {
+    if (itemId !== "item-kanji-one") {
+      return this.items.some((item) => item.id === itemId) ? { itemId, candidates: [] } : null;
+    }
+
+    const item = this.items.find((candidate) => candidate.id === itemId)!;
+    const currentDependency = item.dependencies.find(
+      (dependency) => dependency.prerequisiteItemId === "item-component-one",
+    );
+
+    return {
+      itemId,
+      candidates: [
+        {
+          prerequisiteItemId: "item-component-one",
+          prerequisiteTitle: "Компонент 一",
+          prerequisiteItemType: "component",
+          prerequisiteStatus: "published",
+          selected: currentDependency !== undefined,
+          requiredStage: currentDependency?.requiredStage ?? null,
+          suggestionReason: "component",
+        },
+        {
+          prerequisiteItemId: "item-component-line",
+          prerequisiteTitle: "Компонент линия",
+          prerequisiteItemType: "component",
+          prerequisiteStatus: "published",
+          selected: item.dependencies.some(
+            (dependency) => dependency.prerequisiteItemId === "item-component-line",
+          ),
+          requiredStage:
+            item.dependencies.find(
+              (dependency) => dependency.prerequisiteItemId === "item-component-line",
+            )?.requiredStage ?? null,
+          suggestionReason: "component",
+        },
+      ],
+    };
+  }
+
   async findItemByCardId(cardId: string): Promise<AdminCurationItemDto | null> {
     return this.items.find((item) => item.cards.some((card) => card.id === cardId)) ?? null;
   }
@@ -1709,6 +1927,44 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
       },
       updatedAt: "2026-06-22T09:00:00.000Z",
     };
+    this.items = this.items.map((candidate) => (candidate.id === itemId ? nextItem : candidate));
+
+    return nextItem;
+  }
+
+  async replacePrerequisites(
+    itemId: string,
+    input: Parameters<AdminRepository["replacePrerequisites"]>[1],
+  ): Promise<AdminCurationItemDto | null> {
+    const item = this.items.find((candidate) => candidate.id === itemId);
+
+    if (item === undefined) {
+      return null;
+    }
+
+    const candidateList = await this.listPrerequisiteCandidates(itemId);
+    const candidateMap = new Map(
+      candidateList?.candidates.map((candidate) => [candidate.prerequisiteItemId, candidate]),
+    );
+    const nextItem = applyQualityIssues({
+      ...item,
+      updatedAt: "2026-06-22T09:15:00.000Z",
+      dependencies: [
+        ...item.dependencies.filter((dependency) => dependency.dependencyType !== "prerequisite"),
+        ...input.prerequisites.map((prerequisite, index) => {
+          const candidate = candidateMap.get(prerequisite.prerequisiteItemId)!;
+
+          return {
+            id: `dependency-${index}`,
+            prerequisiteItemId: candidate.prerequisiteItemId,
+            prerequisiteTitle: candidate.prerequisiteTitle,
+            prerequisiteStatus: candidate.prerequisiteStatus,
+            dependencyType: "prerequisite" as const,
+            requiredStage: prerequisite.requiredStage,
+          };
+        }),
+      ],
+    });
     this.items = this.items.map((candidate) => (candidate.id === itemId ? nextItem : candidate));
 
     return nextItem;

@@ -101,6 +101,11 @@ the project-authored layer and do not modify or mislabel the imported record.
 Imported readings are evidence rather than accepted course answers. The admin
 reviews a primary reading and any additional accepted readings explicitly;
 only that ordered, normalized set becomes project-authored reading-card data.
+Prerequisite curation follows the same explicit boundary. The admin workspace
+suggests published component items linked to a kanji and published kanji found
+in a word's orthography, but does not create links until the editor selects and
+saves them. Unpublished or unrelated targets cannot become new prerequisites;
+an optional positive stage threshold controls when the dependent item unlocks.
 
 An admin may stage a selected subset of one bounded page from a retained
 candidate-plan snapshot into the curation queue. The server verifies every

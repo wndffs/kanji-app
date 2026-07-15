@@ -783,6 +783,28 @@ export type AdminDependencyDto = {
   readonly requiredStage: number | null;
 };
 
+export type AdminPrerequisiteCandidateDto = {
+  readonly prerequisiteItemId: string;
+  readonly prerequisiteTitle: string;
+  readonly prerequisiteItemType: ItemKind;
+  readonly prerequisiteStatus: AdminContentStatus;
+  readonly selected: boolean;
+  readonly requiredStage: number | null;
+  readonly suggestionReason: "component" | "kanji" | "existing";
+};
+
+export type AdminPrerequisiteCandidateListResponse = {
+  readonly itemId: string;
+  readonly candidates: readonly AdminPrerequisiteCandidateDto[];
+};
+
+export type AdminUpdatePrerequisitesRequest = {
+  readonly prerequisites: readonly {
+    readonly prerequisiteItemId: string;
+    readonly requiredStage?: number | null;
+  }[];
+};
+
 export type AdminCurationAnswerDto = {
   readonly id: string;
   readonly cardId: string;

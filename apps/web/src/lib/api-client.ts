@@ -13,12 +13,14 @@ import {
   type AdminImportedCandidateRejectionDto,
   type AdminImportedCandidateRejectionListResponse,
   type AdminPromoteCandidateRequest,
+  type AdminPrerequisiteCandidateListResponse,
   type AdminRejectImportedCandidateRequest,
   type AdminRestoreImportedCandidateResponse,
   type AdminReviewQueueFilters,
   type AdminReviewQueueResponse,
   type AdminUpdateCardAnswersRequest,
   type AdminUpdateItemRequest,
+  type AdminUpdatePrerequisitesRequest,
   type ActiveLessonSessionResponse,
   type AppLocale,
   type CardAnswerType,
@@ -385,6 +387,29 @@ export function enqueueAdminCandidatePlan(
 
 export function getAdminCurationItem(token: string, itemId: string): Promise<AdminCurationItemDto> {
   return apiRequest<AdminCurationItemDto>(`/admin/items/${encodeURIComponent(itemId)}`, { token });
+}
+
+export function getAdminPrerequisiteCandidates(
+  token: string,
+  itemId: string,
+  fetchImpl?: typeof fetch,
+): Promise<AdminPrerequisiteCandidateListResponse> {
+  return apiRequest<AdminPrerequisiteCandidateListResponse>(
+    `/admin/items/${encodeURIComponent(itemId)}/prerequisite-candidates`,
+    { token, fetchImpl },
+  );
+}
+
+export function updateAdminPrerequisites(
+  token: string,
+  itemId: string,
+  input: AdminUpdatePrerequisitesRequest,
+  fetchImpl?: typeof fetch,
+): Promise<AdminCurationItemDto> {
+  return apiRequest<AdminCurationItemDto>(
+    `/admin/items/${encodeURIComponent(itemId)}/prerequisites`,
+    { method: "PUT", token, body: input, fetchImpl },
+  );
 }
 
 export function updateAdminItem(

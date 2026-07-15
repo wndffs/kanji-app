@@ -2823,6 +2823,71 @@ textarea:focus-visible {
   color: var(--muted);
 }
 
+.admin-prerequisite-editor,
+.admin-prerequisite-editor form {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-prerequisite-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-prerequisite-heading h2 {
+  margin: 0;
+}
+
+.admin-prerequisite-heading > strong {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-prerequisite-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-prerequisite-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px;
+  align-items: end;
+  gap: 16px;
+  border-bottom: 1px solid var(--surface-border);
+  padding-block: 10px;
+}
+
+.admin-prerequisite-list li:first-child {
+  padding-top: 0;
+}
+
+.admin-prerequisite-list .checkbox-row > span,
+.admin-prerequisite-list li > label:last-child {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-prerequisite-list small,
+.admin-prerequisite-list li > label:last-child {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.admin-prerequisite-list input[type="number"] {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 8px 10px;
+  font: inherit;
+}
+
 .admin-side-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3527,6 +3592,15 @@ textarea:focus-visible {
   .admin-plan-error {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .admin-prerequisite-heading {
+    align-items: flex-start;
+  }
+
+  .admin-prerequisite-list li {
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 
   .admin-plan-segment {

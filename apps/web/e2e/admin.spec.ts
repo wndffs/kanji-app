@@ -12,9 +12,11 @@ import {
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateListResponse,
   type AdminImportedCandidateRejectionListResponse,
+  type AdminPrerequisiteCandidateListResponse,
   type AdminRejectImportedCandidateRequest,
   type AdminReviewQueueResponse,
   type AdminUpdateItemRequest,
+  type AdminUpdatePrerequisitesRequest,
 } from "@kanji-srs/shared";
 
 const API_BASE_URL = "http://localhost:3001";
@@ -59,6 +61,33 @@ test.describe("admin curation", () => {
 
     await expect(page.getByText("Ответы карточки сохранены.")).toBeVisible();
     await expect(page.getByTestId("admin-accepted-en")).toHaveValue("single line");
+  });
+
+  test("admin replaces inferred prerequisite links", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await mockAdminApi(page);
+
+    await page.goto("/admin");
+
+    const editor = page.getByTestId("admin-prerequisite-editor");
+    const componentOne = editor.getByRole("checkbox", { name: "Связать Компонент один" });
+    const componentLine = editor.getByRole("checkbox", { name: "Связать Компонент линия" });
+
+    await expect(componentOne).toBeChecked();
+    await expect(componentLine).not.toBeChecked();
+    await componentOne.uncheck();
+    await componentLine.check();
+    await editor.getByRole("spinbutton", { name: "Порог SRS для Компонент линия" }).fill("2");
+    await editor.getByRole("button", { name: "Сохранить связи" }).click();
+
+    await expect(page.getByText("Предварительные связи сохранены.")).toBeVisible();
+    await expect(
+      editor.getByRole("checkbox", { name: "Связать Компонент один" }),
+    ).not.toBeChecked();
+    await expect(editor.getByRole("checkbox", { name: "Связать Компонент линия" })).toBeChecked();
+    await expect(
+      editor.getByRole("spinbutton", { name: "Порог SRS для Компонент линия" }),
+    ).toHaveValue("2");
   });
 
   test("admin can approve the next bilingual imported translation", async ({ page }) => {
@@ -860,6 +889,84 @@ async function mockAdminApi(
       await route.fulfill({ json: item });
     },
   );
+
+  await page.route(`${API_BASE_URL}/admin/items/*/prerequisite-candidates`, async (route) => {
+    const path = new URL(route.request().url()).pathname.split("/");
+    const itemId = decodeURIComponent(path.at(-2) ?? "");
+    const activeItem = itemId === item.id ? item : itemId === secondItem.id ? secondItem : null;
+
+    if (activeItem === null) {
+      await route.fulfill({ status: 404, json: { message: "Learning item not found." } });
+      return;
+    }
+
+    const candidates: AdminPrerequisiteCandidateListResponse["candidates"] =
+      activeItem.id === ITEM_ID
+        ? [
+            {
+              prerequisiteItemId: "item-component-one",
+              prerequisiteTitle: "Компонент один",
+              prerequisiteItemType: "component",
+              prerequisiteStatus: "published",
+              selected: activeItem.dependencies.some(
+                (dependency) => dependency.prerequisiteItemId === "item-component-one",
+              ),
+              requiredStage:
+                activeItem.dependencies.find(
+                  (dependency) => dependency.prerequisiteItemId === "item-component-one",
+                )?.requiredStage ?? null,
+              suggestionReason: "component",
+            },
+            {
+              prerequisiteItemId: "item-component-line",
+              prerequisiteTitle: "Компонент линия",
+              prerequisiteItemType: "component",
+              prerequisiteStatus: "published",
+              selected: activeItem.dependencies.some(
+                (dependency) => dependency.prerequisiteItemId === "item-component-line",
+              ),
+              requiredStage:
+                activeItem.dependencies.find(
+                  (dependency) => dependency.prerequisiteItemId === "item-component-line",
+                )?.requiredStage ?? null,
+              suggestionReason: "component",
+            },
+          ]
+        : [];
+
+    await route.fulfill({ json: { itemId, candidates } });
+  });
+
+  await page.route(`${API_BASE_URL}/admin/items/*/prerequisites`, async (route) => {
+    const path = new URL(route.request().url()).pathname.split("/");
+    const itemId = decodeURIComponent(path.at(-2) ?? "");
+
+    if (itemId !== item.id || route.request().method() !== "PUT") {
+      await route.fulfill({ status: 404, json: { message: "Learning item not found." } });
+      return;
+    }
+
+    const body = route.request().postDataJSON() as AdminUpdatePrerequisitesRequest;
+    const prerequisiteTitles = new Map([
+      ["item-component-one", "Компонент один"],
+      ["item-component-line", "Компонент линия"],
+    ]);
+    item = {
+      ...item,
+      dependencies: body.prerequisites.map((prerequisite, index) => ({
+        id: `dependency-${index}`,
+        prerequisiteItemId: prerequisite.prerequisiteItemId,
+        prerequisiteTitle:
+          prerequisiteTitles.get(prerequisite.prerequisiteItemId) ?? "Неизвестный prerequisite",
+        prerequisiteStatus: "published",
+        dependencyType: "prerequisite",
+        requiredStage: prerequisite.requiredStage ?? null,
+      })),
+      updatedAt: "2026-07-15T08:00:00.000Z",
+    };
+
+    await route.fulfill({ json: item });
+  });
 
   await page.route(`${API_BASE_URL}/admin/items/${ITEM_ID}`, async (route) => {
     if (route.request().method() === "PATCH") {

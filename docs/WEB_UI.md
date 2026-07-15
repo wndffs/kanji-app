@@ -26,6 +26,11 @@ for explicit editorial input. The form separately shows all source readings
 and requires the accepted reading set, with the first line treated as the
 primary taught reading. Approval creates the normal needs-review course item
 and refreshes the current plan instead of publishing automatically.
+The selected curation item also has a prerequisite editor. It lists published
+components inferred for kanji and published kanji inferred from word spelling,
+keeps current links selected, and allows an optional numeric SRS threshold.
+Saving replaces the selected prerequisite set and uses the normal queue and
+completeness reconciliation flow.
 After an item or card save, the queue restarts from its first cursor page under
 the active filters. It keeps the saved item selected when it still matches and
 otherwise opens the next available item, while a post-save refresh failure is

@@ -18,6 +18,7 @@ import {
   type AdminReviewQueueFilters,
   type AdminReviewQueueItemDto,
   type AdminReviewQueueResponse,
+  type AdminUpdatePrerequisitesRequest,
   SUPPORTED_COURSE_BANDS,
   type CourseBand,
 } from "@kanji-srs/shared";
@@ -37,6 +38,7 @@ import {
   restoreAdminImportedCandidate,
   updateAdminCardAnswers,
   updateAdminItem,
+  updateAdminPrerequisites,
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import {
@@ -44,6 +46,7 @@ import {
   type CandidateRejectionTarget,
 } from "./CandidateRejectionControls";
 import { CurriculumPlanningPanel } from "./CurriculumPlanningPanel";
+import { PrerequisiteEditor } from "./PrerequisiteEditor";
 
 type AdminState =
   | { readonly status: "checking" }
@@ -435,6 +438,23 @@ export function AdminClient() {
       await reconcileQueueAfterSave(item, "Материал сохранён.");
     } catch (error: unknown) {
       setFormError(error instanceof Error ? error.message : "Не удалось сохранить материал.");
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  async function handleSavePrerequisites(request: AdminUpdatePrerequisitesRequest): Promise<void> {
+    if (state.status !== "ready" || state.item === null || savingKey !== null) {
+      return;
+    }
+
+    setSavingKey("prerequisites");
+    setFormError(null);
+    setStatusMessage(null);
+
+    try {
+      const item = await updateAdminPrerequisites(state.token, state.item.id, request);
+      await reconcileQueueAfterSave(item, "Предварительные связи сохранены.");
     } finally {
       setSavingKey(null);
     }
@@ -1720,29 +1740,12 @@ export function AdminClient() {
                 )}
               </section>
 
-              <section className="panel">
-                <h2>Dependencies</h2>
-                {activeItem.dependencies.length === 0 ? (
-                  <p className="muted">No prerequisites are linked.</p>
-                ) : (
-                  <ul className="dependency-list">
-                    {activeItem.dependencies.map((dependency) => (
-                      <li key={dependency.id}>
-                        <strong>{dependency.prerequisiteTitle}</strong>
-                        <span>
-                          {formatDependencyType(dependency.dependencyType)} ·{" "}
-                          {formatStatus(dependency.prerequisiteStatus)}
-                        </span>
-                        <small>
-                          {dependency.requiredStage === null
-                            ? "No required SRS stage"
-                            : `Required SRS stage ${dependency.requiredStage}`}
-                        </small>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
+              <PrerequisiteEditor
+                disabled={savingKey !== null}
+                item={activeItem}
+                onSave={handleSavePrerequisites}
+                token={state.token}
+              />
 
               <section className="panel">
                 <h2>Источники</h2>
@@ -2056,19 +2059,6 @@ function formatQualityIssueCode(value: string): string {
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
-}
-
-function formatDependencyType(value: string): string {
-  switch (value) {
-    case "prerequisite":
-      return "Prerequisite";
-    case "related":
-      return "Related";
-    case "unlock":
-      return "Unlock";
-    default:
-      return value;
-  }
 }
 
 function formatItemType(value: string): string {

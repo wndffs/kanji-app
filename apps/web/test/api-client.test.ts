@@ -7,11 +7,13 @@ import {
   enqueueAdminCandidatePlan,
   getAdminCandidatePlan,
   getAdminImportedCandidateRejections,
+  getAdminPrerequisiteCandidates,
   getAdminReviewQueueWithFilters,
   rejectAdminImportedCandidate,
   restoreAdminImportedCandidate,
   searchItems,
   updateDeckStatus,
+  updateAdminPrerequisites,
 } from "../src/lib/api-client";
 
 describe("apiRequest", () => {
@@ -313,5 +315,32 @@ describe("apiRequest", () => {
       ["http://localhost:3001/admin/imported-candidates/word/word%2Fone/rejection", "DELETE"],
     ]);
     expect(requests[1]?.init?.body).toBe(JSON.stringify(rejectionInput));
+  });
+
+  it("loads and replaces prerequisites through encoded admin item routes", async () => {
+    const requests: { readonly input: string; readonly init: RequestInit | undefined }[] = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      requests.push({ input: String(input), init });
+
+      return Response.json(
+        init?.method === "PUT"
+          ? { id: "item/one", dependencies: [] }
+          : { itemId: "item/one", candidates: [] },
+      );
+    };
+    const request = {
+      prerequisites: [{ prerequisiteItemId: "component-1", requiredStage: 2 }],
+    };
+
+    await expect(getAdminPrerequisiteCandidates("token-1", "item/one", fetchImpl)).resolves.toEqual(
+      { itemId: "item/one", candidates: [] },
+    );
+    await updateAdminPrerequisites("token-1", "item/one", request, fetchImpl);
+
+    expect(requests.map(({ input, init }) => [input, init?.method ?? "GET"])).toEqual([
+      ["http://localhost:3001/admin/items/item%2Fone/prerequisite-candidates", "GET"],
+      ["http://localhost:3001/admin/items/item%2Fone/prerequisites", "PUT"],
+    ]);
+    expect(requests[1]?.init?.body).toBe(JSON.stringify(request));
   });
 });

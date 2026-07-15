@@ -106,6 +106,16 @@ export class AdminController {
     return this.adminService.getCurationItem(itemId);
   }
 
+  @Get("items/:itemId/prerequisite-candidates")
+  getPrerequisiteCandidates(@Param("itemId") itemId: string) {
+    return this.adminService.getPrerequisiteCandidates(itemId);
+  }
+
+  @Put("items/:itemId/prerequisites")
+  updatePrerequisites(@Param("itemId") itemId: string, @Body() body: unknown) {
+    return this.adminService.updatePrerequisites(itemId, body);
+  }
+
   @Patch("items/:itemId")
   updateItem(@Param("itemId") itemId: string, @Body() body: unknown) {
     return this.adminService.updateItem(itemId, body);

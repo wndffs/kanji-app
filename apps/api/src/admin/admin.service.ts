@@ -22,6 +22,7 @@ import {
   type AdminImportedCandidateListResponse,
   type AdminImportedCandidateRejectionDto,
   type AdminImportedCandidateRejectionListResponse,
+  type AdminPrerequisiteCandidateListResponse,
   type AdminRestoreImportedCandidateResponse,
   type AdminReviewQueueResponse,
   type AdminUpdateItemRequest,
@@ -32,7 +33,7 @@ import {
   isCourseBand,
 } from "@kanji-srs/shared";
 
-import { AdminRepository } from "./admin.repository";
+import { AdminRepository, PrerequisiteSelectionChangedError } from "./admin.repository";
 import {
   CurriculumCandidatePlanCache,
   type CurriculumCandidatePlanCacheEntry,
@@ -52,6 +53,7 @@ import {
   type NormalizedAdminRejectImportedCandidateInput,
   type NormalizedAdminReviewQueueFilters,
   type NormalizedAdminTextInput,
+  type NormalizedAdminUpdatePrerequisitesInput,
 } from "./admin.types";
 
 const MAX_MEANING_LENGTH = 240;
@@ -65,6 +67,7 @@ const MAX_CANDIDATE_PLAN_PAGE_LIMIT = 100;
 const MAX_CANDIDATE_PLAN_SEARCH_LENGTH = 80;
 const DEFAULT_REVIEW_QUEUE_PAGE_LIMIT = 20;
 const MAX_REVIEW_QUEUE_PAGE_LIMIT = 50;
+const MAX_PREREQUISITES = 50;
 
 @Injectable()
 export class AdminService {
@@ -319,6 +322,84 @@ export class AdminService {
     }
 
     return item;
+  }
+
+  async getPrerequisiteCandidates(itemId: string): Promise<AdminPrerequisiteCandidateListResponse> {
+    const result = await this.adminRepository.listPrerequisiteCandidates(itemId);
+
+    if (result === null) {
+      throw new NotFoundException("Learning item not found.");
+    }
+
+    return result;
+  }
+
+  async updatePrerequisites(itemId: string, body: unknown): Promise<AdminCurationItemDto> {
+    const request = parseUpdatePrerequisitesRequest(body);
+    const [current, available] = await Promise.all([
+      this.getCurationItem(itemId),
+      this.getPrerequisiteCandidates(itemId),
+    ]);
+    const candidates = new Map(
+      available.candidates.map((candidate) => [candidate.prerequisiteItemId, candidate]),
+    );
+
+    for (const prerequisite of request.prerequisites) {
+      const candidate = candidates.get(prerequisite.prerequisiteItemId);
+
+      if (candidate === undefined || candidate.prerequisiteItemId === current.id) {
+        throw new BadRequestException(
+          `Prerequisite ${prerequisite.prerequisiteItemId} is not available for this item.`,
+        );
+      }
+
+      if (candidate.prerequisiteStatus !== "published") {
+        throw new ConflictException(
+          `Prerequisite ${prerequisite.prerequisiteItemId} must be published first.`,
+        );
+      }
+    }
+
+    if (current.status === "published") {
+      assertPublishable({
+        ...current,
+        dependencies: [
+          ...current.dependencies.filter(
+            (dependency) => dependency.dependencyType !== "prerequisite",
+          ),
+          ...request.prerequisites.map((prerequisite, index) => {
+            const candidate = candidates.get(prerequisite.prerequisiteItemId)!;
+
+            return {
+              id: `preview-prerequisite-${index}`,
+              prerequisiteItemId: candidate.prerequisiteItemId,
+              prerequisiteTitle: candidate.prerequisiteTitle,
+              prerequisiteStatus: candidate.prerequisiteStatus,
+              dependencyType: "prerequisite" as const,
+              requiredStage: prerequisite.requiredStage,
+            };
+          }),
+        ],
+      });
+    }
+
+    try {
+      const item = await this.adminRepository.replacePrerequisites(itemId, request);
+
+      if (item === null) {
+        throw new NotFoundException("Learning item not found.");
+      }
+
+      return item;
+    } catch (error) {
+      if (error instanceof PrerequisiteSelectionChangedError) {
+        throw new ConflictException(
+          "Prerequisite availability changed. Refresh the candidates and try again.",
+        );
+      }
+
+      throw error;
+    }
   }
 
   async updateItem(itemId: string, body: unknown): Promise<AdminCurationItemDto> {
@@ -652,6 +733,41 @@ function parseUpdateItemRequest(body: unknown): NormalizedAdminItemCurationInput
       ? {}
       : { mnemonics: parseTextInputs(record.mnemonics, "mnemonic") }),
   };
+}
+
+function parseUpdatePrerequisitesRequest(body: unknown): NormalizedAdminUpdatePrerequisitesInput {
+  const record = parseRecord(body, "Request body");
+  const values = parseArray(record.prerequisites, "prerequisites");
+
+  if (values.length > MAX_PREREQUISITES) {
+    throw new BadRequestException(`prerequisites must contain at most ${MAX_PREREQUISITES} items.`);
+  }
+
+  const seen = new Set<string>();
+  const prerequisites = values.map((value, index) => {
+    const prerequisite = parseRecord(value, `prerequisites[${index}]`);
+    const prerequisiteItemId = parseRequiredString(
+      prerequisite.prerequisiteItemId,
+      `prerequisites[${index}].prerequisiteItemId`,
+      { maxLength: 80 },
+    );
+
+    if (seen.has(prerequisiteItemId)) {
+      throw new BadRequestException(`Duplicate prerequisite: ${prerequisiteItemId}.`);
+    }
+
+    seen.add(prerequisiteItemId);
+
+    return {
+      prerequisiteItemId,
+      requiredStage: parseOptionalPositiveInteger(
+        prerequisite.requiredStage,
+        `prerequisites[${index}].requiredStage`,
+      ),
+    };
+  });
+
+  return { prerequisites };
 }
 
 function parsePromoteCandidateRequest(body: unknown): NormalizedAdminPromoteCandidateInput {

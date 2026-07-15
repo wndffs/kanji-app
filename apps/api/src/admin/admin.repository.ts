@@ -14,6 +14,8 @@ import {
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateRejectionDto,
   type AdminImportedCandidateRejectionListItemDto,
+  type AdminPrerequisiteCandidateDto,
+  type AdminPrerequisiteCandidateListResponse,
   type AdminReviewQueueItemDto,
   type CardAnswerType,
   type CardPromptType,
@@ -46,6 +48,7 @@ import {
   type NormalizedAdminRejectImportedCandidateInput,
   type NormalizedAdminItemCurationInput,
   type NormalizedAdminPromoteCandidateInput,
+  type NormalizedAdminUpdatePrerequisitesInput,
   type NormalizedAdminReviewQueueFilters,
   type NormalizedAdminTextInput,
 } from "./admin.types";
@@ -78,6 +81,9 @@ export abstract class AdminRepository {
     candidates: readonly AdminCandidatePlanEnqueueItemInput[],
   ): Promise<AdminCandidatePlanEnqueueResult>;
   abstract findCurationItem(itemId: string): Promise<AdminCurationItemDto | null>;
+  abstract listPrerequisiteCandidates(
+    itemId: string,
+  ): Promise<AdminPrerequisiteCandidateListResponse | null>;
   abstract findItemByCardId(cardId: string): Promise<AdminCurationItemDto | null>;
   abstract promoteImportedCandidate(
     input: NormalizedAdminPromoteCandidateInput,
@@ -89,11 +95,17 @@ export abstract class AdminRepository {
     itemId: string,
     input: NormalizedAdminItemCurationInput,
   ): Promise<AdminCurationItemDto | null>;
+  abstract replacePrerequisites(
+    itemId: string,
+    input: NormalizedAdminUpdatePrerequisitesInput,
+  ): Promise<AdminCurationItemDto | null>;
   abstract updateCardAnswers(
     cardId: string,
     input: NormalizedAdminCardAnswersInput,
   ): Promise<AdminCurationItemDto | null>;
 }
+
+export class PrerequisiteSelectionChangedError extends Error {}
 
 type LearningItemRow = {
   readonly id: string;
@@ -1170,6 +1182,115 @@ export class PrismaAdminRepository extends AdminRepository {
     return item === null ? null : this.toCurationItem(item);
   }
 
+  async listPrerequisiteCandidates(
+    itemId: string,
+  ): Promise<AdminPrerequisiteCandidateListResponse | null> {
+    const item = await this.prisma.db.learningItem.findUnique({
+      where: { id: itemId },
+      select: {
+        id: true,
+        targetType: true,
+        targetId: true,
+        dependencies: {
+          where: { dependencyType: "PREREQUISITE" },
+          select: {
+            requiredStage: true,
+            prerequisiteItem: {
+              select: { id: true, title: true, kind: true, status: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (item === null) {
+      return null;
+    }
+
+    let targetType: "COMPONENT" | "KANJI" | null = null;
+    let targetIds: readonly string[] = [];
+    let suggestionReason: AdminPrerequisiteCandidateDto["suggestionReason"] = "existing";
+
+    if (item.targetType === "KANJI") {
+      const components = await this.prisma.db.kanjiComponent.findMany({
+        where: { kanjiId: item.targetId },
+        select: { componentId: true },
+        orderBy: { componentId: "asc" },
+      });
+      targetType = "COMPONENT";
+      targetIds = components.map((component) => component.componentId);
+      suggestionReason = "component";
+    } else if (item.targetType === "WORD") {
+      const word = await this.prisma.db.word.findUnique({
+        where: { id: item.targetId },
+        select: { expression: true },
+      });
+      const characters = word === null ? [] : extractKanjiCharacters(word.expression);
+      const kanji =
+        characters.length === 0
+          ? []
+          : await this.prisma.db.kanji.findMany({
+              where: { character: { in: [...characters] } },
+              select: { id: true },
+              orderBy: { character: "asc" },
+            });
+      targetType = "KANJI";
+      targetIds = kanji.map((candidate) => candidate.id);
+      suggestionReason = "kanji";
+    }
+
+    const inferredItems =
+      targetType === null || targetIds.length === 0
+        ? []
+        : await this.prisma.db.learningItem.findMany({
+            where: {
+              id: { not: item.id },
+              targetType,
+              targetId: { in: [...targetIds] },
+              status: "PUBLISHED",
+            },
+            select: { id: true, title: true, kind: true, status: true },
+            orderBy: [{ levelHint: "asc" }, { title: "asc" }, { id: "asc" }],
+          });
+    const candidates = new Map<string, AdminPrerequisiteCandidateDto>();
+
+    for (const inferred of inferredItems) {
+      candidates.set(inferred.id, {
+        prerequisiteItemId: inferred.id,
+        prerequisiteTitle: inferred.title,
+        prerequisiteItemType: toItemKind(inferred.kind),
+        prerequisiteStatus: toApiStatus(inferred.status),
+        selected: false,
+        requiredStage: null,
+        suggestionReason,
+      });
+    }
+
+    for (const dependency of item.dependencies) {
+      const prerequisite = dependency.prerequisiteItem;
+      const inferred = candidates.get(prerequisite.id);
+
+      candidates.set(prerequisite.id, {
+        prerequisiteItemId: prerequisite.id,
+        prerequisiteTitle: prerequisite.title,
+        prerequisiteItemType: toItemKind(prerequisite.kind),
+        prerequisiteStatus: toApiStatus(prerequisite.status),
+        selected: true,
+        requiredStage: dependency.requiredStage,
+        suggestionReason: inferred?.suggestionReason ?? "existing",
+      });
+    }
+
+    return {
+      itemId: item.id,
+      candidates: [...candidates.values()].sort(
+        (left, right) =>
+          Number(right.selected) - Number(left.selected) ||
+          left.prerequisiteTitle.localeCompare(right.prerequisiteTitle, "ru"),
+      ),
+    };
+  }
+
   async findItemByCardId(cardId: string): Promise<AdminCurationItemDto | null> {
     const card = await this.prisma.db.learningCard.findUnique({
       where: { id: cardId },
@@ -1218,6 +1339,62 @@ export class PrismaAdminRepository extends AdminRepository {
     });
 
     return this.findCurationItem(itemId);
+  }
+
+  async replacePrerequisites(
+    itemId: string,
+    input: NormalizedAdminUpdatePrerequisitesInput,
+  ): Promise<AdminCurationItemDto | null> {
+    const item = await this.prisma.db.learningItem.findUnique({
+      where: { id: itemId },
+      select: { id: true },
+    });
+
+    if (item === null) {
+      return null;
+    }
+
+    const prerequisiteIds = input.prerequisites.map(
+      (prerequisite) => prerequisite.prerequisiteItemId,
+    );
+
+    await this.prisma.db.$transaction(async (db) => {
+      const validPrerequisites =
+        prerequisiteIds.length === 0
+          ? 0
+          : await db.learningItem.count({
+              where: {
+                id: { in: prerequisiteIds, not: item.id },
+                status: "PUBLISHED",
+              },
+            });
+
+      if (validPrerequisites !== prerequisiteIds.length) {
+        throw new PrerequisiteSelectionChangedError();
+      }
+
+      await db.dependency.deleteMany({
+        where: { learningItemId: item.id, dependencyType: "PREREQUISITE" },
+      });
+
+      if (input.prerequisites.length > 0) {
+        await db.dependency.createMany({
+          data: input.prerequisites.map((prerequisite) => ({
+            learningItemId: item.id,
+            prerequisiteItemId: prerequisite.prerequisiteItemId,
+            dependencyType: "PREREQUISITE",
+            requiredStage: prerequisite.requiredStage,
+          })),
+        });
+      }
+
+      await db.learningItem.update({
+        where: { id: item.id },
+        data: { updatedAt: new Date() },
+      });
+    });
+
+    return this.findCurationItem(item.id);
   }
 
   async promoteImportedCandidate(
@@ -2454,6 +2631,10 @@ function candidateCoverageMeanings(
     ru: rows.some((row) => row.locale === "ru-RU") ? ["available"] : [],
     en: rows.some((row) => row.locale === "en-US") ? ["available"] : [],
   };
+}
+
+function extractKanjiCharacters(value: string): readonly string[] {
+  return [...new Set([...value.matchAll(/\p{Script=Han}/gu)].map((match) => match[0]))];
 }
 
 function pickCandidateMeanings(

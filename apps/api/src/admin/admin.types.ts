@@ -5,6 +5,7 @@ import {
   type AdminEnqueueCandidatePlanRequest,
   type AdminEnqueueCandidatePlanResponse,
   type AdminPromoteCandidateRequest,
+  type AdminUpdatePrerequisitesRequest,
   type AdminRejectImportedCandidateRequest,
   type AdminReviewQueueFilters,
   type AdminReviewQueueItemDto,
@@ -47,6 +48,15 @@ export type NormalizedAdminItemCurationInput = {
   readonly meanings?: NonNullable<AdminUpdateItemRequest["meanings"]>;
   readonly hints?: readonly NormalizedAdminTextInput[];
   readonly mnemonics?: readonly NormalizedAdminTextInput[];
+};
+
+export type NormalizedAdminPrerequisiteInput = {
+  readonly prerequisiteItemId: string;
+  readonly requiredStage: number | null;
+};
+
+export type NormalizedAdminUpdatePrerequisitesInput = {
+  readonly prerequisites: readonly NormalizedAdminPrerequisiteInput[];
 };
 
 export type AdminReviewQueueCursor = {
@@ -128,3 +138,4 @@ export type RawAdminCardAnswersInput = AdminUpdateCardAnswersRequest;
 export type RawAdminItemCurationInput = AdminUpdateItemRequest;
 export type RawAdminPromoteCandidateInput = AdminPromoteCandidateRequest;
 export type RawAdminApproveImportedTranslationInput = AdminApproveImportedTranslationRequest;
+export type RawAdminUpdatePrerequisitesInput = AdminUpdatePrerequisitesRequest;
