@@ -132,3 +132,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 50. Task 90 (completed): transactionally apply an explicitly confirmed, versioned course allocation.
 51. Task 91 (completed): audit versioned full-course publication readiness without changing learner state.
 52. Task 92 (completed): publish only a readiness-approved main-course version without enrolling learners.
+53. Task 93 (completed): preview a privacy-preserving add-only learner enrollment rollout without writes.

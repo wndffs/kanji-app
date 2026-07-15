@@ -1124,6 +1124,28 @@ export type AdminPublishMainCourseResponse = {
   readonly readiness: AdminMainCoursePublicationReadinessResponse;
 };
 
+export type AdminMainCourseEnrollmentRolloutPreviewResponse = {
+  readonly policyVersion: "main-course-enrollment-rollout-v1";
+  readonly rolloutVersion: string;
+  readonly readinessVersion: string;
+  readonly generatedAt: string;
+  readonly readyToApply: boolean;
+  readonly strategy: "add-only";
+  readonly course: {
+    readonly id: string;
+    readonly slug: string;
+    readonly title: string;
+    readonly status: AdminContentStatus;
+  };
+  readonly summary: {
+    readonly learnerAccounts: number;
+    readonly newEnrollments: number;
+    readonly existingActiveEnrollments: number;
+    readonly preservedInactiveEnrollments: number;
+    readonly activeStarterEnrollments: number;
+  };
+};
+
 export type AdminCurriculumCandidatePlanItemDto = {
   readonly selectionRank: number;
   readonly targetId: string;

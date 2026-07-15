@@ -18,6 +18,7 @@ import {
   type AdminImportedCandidateRejectionDto,
   type AdminImportedCandidateRejectionListItemDto,
   type AdminMainCoursePublicationReadinessResponse,
+  type AdminMainCourseEnrollmentRolloutPreviewResponse,
   type AdminPublishMainCourseResponse,
   type AdminPrerequisiteCandidateDto,
   type AdminPrerequisiteCandidateListResponse,
@@ -48,6 +49,10 @@ import {
   rankImportedCandidates,
 } from "./imported-candidate-ranking";
 import { buildMainCoursePublicationReadiness } from "./main-course-publication-readiness";
+import {
+  buildMainCourseEnrollmentRolloutPreview,
+  type EnrollmentRolloutStatus,
+} from "./main-course-enrollment-rollout";
 import {
   type AdminCandidatePlanEnqueueItemInput,
   type AdminCandidatePlanEnqueueResult,
@@ -95,6 +100,7 @@ export abstract class AdminRepository {
   abstract publishMainCourse(
     readinessVersion: string,
   ): Promise<AdminPublishMainCourseResponse | null>;
+  abstract getMainCourseEnrollmentRolloutPreview(): Promise<AdminMainCourseEnrollmentRolloutPreviewResponse | null>;
   abstract getCandidatePlanVersion(): Promise<string>;
   abstract getCandidatePlan(): Promise<CurriculumCandidatePlan>;
   abstract enqueueCandidatePlanCandidates(
@@ -143,6 +149,8 @@ type MainCoursePublicationDatabase = Pick<
   Prisma.TransactionClient,
   "course" | "learningItem" | "courseLevelItem"
 >;
+type MainCourseEnrollmentPreviewDatabase = MainCoursePublicationDatabase &
+  Pick<Prisma.TransactionClient, "user">;
 
 type LearningItemRow = {
   readonly id: string;
@@ -1047,6 +1055,52 @@ export class PrismaAdminRepository extends AdminRepository {
 
         throw error;
       });
+  }
+
+  async getMainCourseEnrollmentRolloutPreview(): Promise<AdminMainCourseEnrollmentRolloutPreviewResponse | null> {
+    return this.loadMainCourseEnrollmentRolloutPreview(this.prisma.db);
+  }
+
+  private async loadMainCourseEnrollmentRolloutPreview(
+    db: MainCourseEnrollmentPreviewDatabase,
+  ): Promise<AdminMainCourseEnrollmentRolloutPreviewResponse | null> {
+    const readiness = await this.loadMainCoursePublicationReadiness(db);
+
+    if (readiness === null) {
+      return null;
+    }
+
+    const learners = await db.user.findMany({
+      where: { role: "USER" },
+      select: {
+        id: true,
+        enrollments: {
+          where: {
+            course: { slug: { in: [readiness.course.slug, "starter-demo"] } },
+          },
+          select: {
+            status: true,
+            course: { select: { slug: true } },
+          },
+        },
+      },
+      orderBy: { id: "asc" },
+    });
+
+    return buildMainCourseEnrollmentRolloutPreview({
+      readiness,
+      learners: learners.map((learner) => ({
+        userId: learner.id,
+        mainCourseEnrollmentStatus: toEnrollmentRolloutStatus(
+          learner.enrollments.find((enrollment) => enrollment.course.slug === readiness.course.slug)
+            ?.status,
+        ),
+        starterCourseEnrollmentStatus: toEnrollmentRolloutStatus(
+          learner.enrollments.find((enrollment) => enrollment.course.slug === "starter-demo")
+            ?.status,
+        ),
+      })),
+    });
   }
 
   private async loadMainCoursePublicationReadiness(
@@ -2722,6 +2776,21 @@ function toApiStatus(status: string): AdminContentStatus {
       return "archived";
     default:
       throw new Error(`Unsupported content status: ${status}`);
+  }
+}
+
+function toEnrollmentRolloutStatus(status: string | undefined): EnrollmentRolloutStatus | null {
+  switch (status) {
+    case "ACTIVE":
+      return "active";
+    case "PAUSED":
+      return "paused";
+    case "COMPLETED":
+      return "completed";
+    case undefined:
+      return null;
+    default:
+      throw new Error(`Unsupported enrollment status: ${status}`);
   }
 }
 

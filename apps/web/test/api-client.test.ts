@@ -11,6 +11,7 @@ import {
   getAdminCoursePlacements,
   getAdminImportedCandidateRejections,
   getAdminMainCoursePublicationReadiness,
+  getAdminMainCourseEnrollmentRolloutPreview,
   getAdminPrerequisiteCandidates,
   getAdminReviewQueueWithFilters,
   publishAdminMainCourse,
@@ -452,5 +453,27 @@ describe("apiRequest", () => {
     expect(capturedInput).toBe("http://localhost:3001/admin/curriculum/main-course/publication");
     expect(capturedInit?.method).toBe("POST");
     expect(capturedInit?.body).toBe(JSON.stringify(request));
+  });
+
+  it("loads the read-only main-course enrollment rollout preview", async () => {
+    let capturedInput = "";
+    const fetchImpl: typeof fetch = async (input) => {
+      capturedInput = String(input);
+      return Response.json({
+        policyVersion: "main-course-enrollment-rollout-v1",
+        strategy: "add-only",
+        readyToApply: false,
+      });
+    };
+
+    await expect(
+      getAdminMainCourseEnrollmentRolloutPreview("token-1", fetchImpl),
+    ).resolves.toMatchObject({
+      policyVersion: "main-course-enrollment-rollout-v1",
+      strategy: "add-only",
+    });
+    expect(capturedInput).toBe(
+      "http://localhost:3001/admin/curriculum/main-course/enrollment-rollout-preview",
+    );
   });
 });

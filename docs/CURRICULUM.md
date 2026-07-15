@@ -111,6 +111,15 @@ status. Calculating readiness does not publish the course. Confirming
 publication changes only the course status: enrollment, learner progress, SRS
 state, and review schedules remain separate and untouched.
 
+Learner rollout begins with a separate add-only impact preview. It considers
+only learner accounts, preserves every existing main-course status, keeps the
+starter course active, and plans a new active main-course enrollment only when
+that user has no enrollment row for the course. The API returns aggregate
+counts without learner identities, while its opaque version hashes the full
+ordered learner and enrollment state plus current publication readiness. The
+preview itself performs no writes; applying it and changing registration
+defaults require later explicit decisions.
+
 The admin scale-readiness report keeps this distinction measurable. It reports
 the remaining publication gap, work already in curation, unassigned imported
 candidate capacity, and the raw candidates' RU/EN, reading, and stroke-data

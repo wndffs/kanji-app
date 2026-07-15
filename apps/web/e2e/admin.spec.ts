@@ -16,6 +16,7 @@ import {
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateListResponse,
   type AdminImportedCandidateRejectionListResponse,
+  type AdminMainCourseEnrollmentRolloutPreviewResponse,
   type AdminMainCoursePublicationReadinessResponse,
   type AdminPrerequisiteCandidateListResponse,
   type AdminPublishMainCourseRequest,
@@ -416,6 +417,9 @@ test.describe("admin curation", () => {
     await expect(readiness).toContainText(/8.?000/);
     await expect(readiness.getByText("Блокер")).toHaveCount(2);
     await expect(readiness.getByTestId("admin-publish-main-course")).toBeDisabled();
+    await expect(page.getByTestId("admin-course-enrollment-rollout")).toContainText(
+      "Переход заблокирован",
+    );
   });
 
   test("admin confirms publication without changing learner enrollment", async ({ page }) => {
@@ -440,6 +444,10 @@ test.describe("admin curation", () => {
     ).toBeVisible();
     await expect(publishButton).toHaveText("Курс опубликован");
     await expect(publishButton).toBeDisabled();
+    const rollout = page.getByTestId("admin-course-enrollment-rollout");
+    await expect(rollout).toContainText("Preview готов");
+    await expect(rollout).toContainText("Новые зачисления");
+    await expect(rollout).toContainText("Демо-курс");
   });
 });
 
@@ -799,6 +807,40 @@ async function mockAdminApi(
 
     await route.fulfill({ json: response });
   });
+
+  await page.route(
+    `${API_BASE_URL}/admin/curriculum/main-course/enrollment-rollout-preview`,
+    async (route) => {
+      const readyToApply = mainCoursePublished && options.mainCourseReadyToPublish === true;
+      const response: AdminMainCourseEnrollmentRolloutPreviewResponse = {
+        policyVersion: "main-course-enrollment-rollout-v1",
+        rolloutVersion: mainCoursePublished
+          ? "main-course-enrollment-rollout:published"
+          : "main-course-enrollment-rollout:draft",
+        readinessVersion: mainCoursePublished
+          ? "main-course-readiness:published"
+          : "main-course-readiness:test",
+        generatedAt: "2026-07-15T12:02:00.000Z",
+        readyToApply,
+        strategy: "add-only",
+        course: {
+          id: "course-main",
+          slug: "japanese-ru-n2",
+          title: "Японский: кандзи и лексика до N2",
+          status: mainCoursePublished ? "published" : "draft",
+        },
+        summary: {
+          learnerAccounts: 3,
+          newEnrollments: 2,
+          existingActiveEnrollments: 1,
+          preservedInactiveEnrollments: 0,
+          activeStarterEnrollments: 3,
+        },
+      };
+
+      await route.fulfill({ json: response });
+    },
+  );
 
   await page.route(`${API_BASE_URL}/admin/curriculum/candidate-plan**`, async (route) => {
     const url = new URL(route.request().url());

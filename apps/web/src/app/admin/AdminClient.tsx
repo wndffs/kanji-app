@@ -52,6 +52,7 @@ import { CurriculumPlanningPanel } from "./CurriculumPlanningPanel";
 import { CourseAllocationPanel } from "./CourseAllocationPanel";
 import { CoursePlacementEditor } from "./CoursePlacementEditor";
 import { CoursePublicationReadinessPanel } from "./CoursePublicationReadinessPanel";
+import { CourseEnrollmentRolloutPanel } from "./CourseEnrollmentRolloutPanel";
 import { PrerequisiteEditor } from "./PrerequisiteEditor";
 
 type AdminState =
@@ -1126,6 +1127,8 @@ export function AdminClient() {
         refreshRevision={planningRevision}
         token={state.token}
       />
+
+      <CourseEnrollmentRolloutPanel refreshRevision={planningRevision} token={state.token} />
 
       <section
         className="panel admin-translation-review"

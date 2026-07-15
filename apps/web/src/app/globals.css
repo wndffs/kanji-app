@@ -2581,11 +2581,13 @@ textarea:focus-visible {
 }
 
 .admin-course-allocation .admin-planning-header p,
+.admin-course-rollout .admin-planning-header p,
 .admin-course-allocation .admin-allocation-issues h3 {
   margin: 4px 0 0;
 }
 
-.admin-course-allocation .admin-planning-header > strong {
+.admin-course-allocation .admin-planning-header > strong,
+.admin-course-rollout .admin-planning-header > strong {
   font-size: 28px;
   font-variant-numeric: tabular-nums;
 }
@@ -2647,6 +2649,11 @@ textarea:focus-visible {
 }
 
 .admin-course-readiness {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-course-rollout {
   display: grid;
   gap: 18px;
 }

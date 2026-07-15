@@ -11,6 +11,7 @@ import {
   type AdminImportedCandidateDetailsDto,
   type AdminImportedCandidateRejectionDto,
   type AdminImportedCandidateRejectionListItemDto,
+  type AdminMainCourseEnrollmentRolloutPreviewResponse,
   type AdminMainCoursePublicationReadinessResponse,
   type AdminPublishMainCourseResponse,
   type AdminPrerequisiteCandidateListResponse,
@@ -421,6 +422,21 @@ describe("AdminService", () => {
         readinessVersion: "main-course-readiness:test",
       }),
     ).rejects.toThrow("Resolve all publication-readiness blockers");
+  });
+
+  it("returns a read-only add-only enrollment rollout preview", async () => {
+    const repository = new InMemoryAdminRepository();
+    repository.mainCourseReadyToPublish = true;
+    repository.mainCoursePublished = true;
+
+    await expect(
+      new AdminService(repository).getMainCourseEnrollmentRolloutPreview(),
+    ).resolves.toMatchObject({
+      policyVersion: "main-course-enrollment-rollout-v1",
+      readyToApply: true,
+      strategy: "add-only",
+      summary: { learnerAccounts: 3, newEnrollments: 2 },
+    });
   });
 
   it("returns bounded pages from the deterministic curriculum candidate plan", async () => {
@@ -1623,7 +1639,26 @@ describe("AdminService", () => {
     };
     const courseLevelItem = { count: vi.fn().mockResolvedValue(0) };
     const userEnrollment = { updateMany: vi.fn() };
-    const transactionDatabase = { course, learningItem, courseLevelItem, userEnrollment };
+    const user = {
+      findMany: vi.fn().mockResolvedValue([
+        {
+          id: "learner-new",
+          enrollments: [{ status: "ACTIVE", course: { slug: "starter-demo" } }],
+        },
+        {
+          id: "learner-active",
+          enrollments: [{ status: "ACTIVE", course: { slug: blueprint.course.slug } }],
+        },
+        {
+          id: "learner-paused",
+          enrollments: [
+            { status: "PAUSED", course: { slug: blueprint.course.slug } },
+            { status: "ACTIVE", course: { slug: "starter-demo" } },
+          ],
+        },
+      ]),
+    };
+    const transactionDatabase = { course, learningItem, courseLevelItem, user, userEnrollment };
     const transaction = vi.fn(
       async (callback: (database: typeof transactionDatabase) => Promise<unknown>) =>
         callback(transactionDatabase),
@@ -1657,6 +1692,34 @@ describe("AdminService", () => {
     });
     expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: "Serializable",
+    });
+    expect(userEnrollment.updateMany).not.toHaveBeenCalled();
+
+    await expect(repository.getMainCourseEnrollmentRolloutPreview()).resolves.toMatchObject({
+      readyToApply: true,
+      summary: {
+        learnerAccounts: 3,
+        newEnrollments: 1,
+        existingActiveEnrollments: 1,
+        preservedInactiveEnrollments: 1,
+        activeStarterEnrollments: 2,
+      },
+    });
+    expect(user.findMany).toHaveBeenCalledWith({
+      where: { role: "USER" },
+      select: {
+        id: true,
+        enrollments: {
+          where: {
+            course: { slug: { in: [blueprint.course.slug, "starter-demo"] } },
+          },
+          select: {
+            status: true,
+            course: { select: { slug: true } },
+          },
+        },
+      },
+      orderBy: { id: "asc" },
     });
     expect(userEnrollment.updateMany).not.toHaveBeenCalled();
   });
@@ -2357,6 +2420,27 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
       publishedAt: "2026-07-15T12:01:00.000Z",
       statusChanged,
       readiness: await this.getMainCoursePublicationReadiness(),
+    };
+  }
+
+  async getMainCourseEnrollmentRolloutPreview(): Promise<AdminMainCourseEnrollmentRolloutPreviewResponse> {
+    const readiness = await this.getMainCoursePublicationReadiness();
+
+    return {
+      policyVersion: "main-course-enrollment-rollout-v1",
+      rolloutVersion: `main-course-enrollment-rollout:${readiness.readinessVersion}`,
+      readinessVersion: readiness.readinessVersion,
+      generatedAt: "2026-07-15T12:02:00.000Z",
+      readyToApply: readiness.readyToPublish && readiness.course.status === "published",
+      strategy: "add-only",
+      course: readiness.course,
+      summary: {
+        learnerAccounts: 3,
+        newEnrollments: 2,
+        existingActiveEnrollments: 1,
+        preservedInactiveEnrollments: 0,
+        activeStarterEnrollments: 3,
+      },
     };
   }
 

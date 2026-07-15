@@ -111,6 +111,11 @@ export class AdminController {
     return this.adminService.publishMainCourse(body);
   }
 
+  @Get("curriculum/main-course/enrollment-rollout-preview")
+  getMainCourseEnrollmentRolloutPreview() {
+    return this.adminService.getMainCourseEnrollmentRolloutPreview();
+  }
+
   @Get("curriculum/candidate-plan")
   getCandidatePlan(@Query() query: Record<string, unknown>) {
     return this.adminService.getCandidatePlan(query);

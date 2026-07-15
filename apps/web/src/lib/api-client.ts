@@ -17,6 +17,7 @@ import {
   type AdminImportedCandidateRejectionDto,
   type AdminImportedCandidateRejectionListResponse,
   type AdminMainCoursePublicationReadinessResponse,
+  type AdminMainCourseEnrollmentRolloutPreviewResponse,
   type AdminPublishMainCourseRequest,
   type AdminPublishMainCourseResponse,
   type AdminPromoteCandidateRequest,
@@ -382,6 +383,16 @@ export function publishAdminMainCourse(
     body: input,
     fetchImpl,
   });
+}
+
+export function getAdminMainCourseEnrollmentRolloutPreview(
+  token: string,
+  fetchImpl?: typeof fetch,
+): Promise<AdminMainCourseEnrollmentRolloutPreviewResponse> {
+  return apiRequest<AdminMainCourseEnrollmentRolloutPreviewResponse>(
+    "/admin/curriculum/main-course/enrollment-rollout-preview",
+    { token, fetchImpl },
+  );
 }
 
 export function getAdminCandidatePlan(

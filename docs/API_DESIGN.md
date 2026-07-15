@@ -273,6 +273,7 @@ in-progress session.
 - `POST /admin/curriculum/main-course/allocation`
 - `GET /admin/curriculum/main-course/publication-readiness`
 - `POST /admin/curriculum/main-course/publication`
+- `GET /admin/curriculum/main-course/enrollment-rollout-preview`
 - `GET /admin/curriculum/candidate-plan`
 - `POST /admin/curriculum/candidate-plan/enqueue`
 - `GET /admin/items/review-queue`
@@ -390,6 +391,18 @@ blocker with `409 Conflict`, and changes only the main course status to
 the same transaction. Publishing is idempotent for an already published course
 with its current version. It never creates, updates, or removes user
 enrollments, SRS state, lesson sessions, or review schedules.
+
+`GET /admin/curriculum/main-course/enrollment-rollout-preview` calculates the
+read-only `main-course-enrollment-rollout-v1` add-only impact for learner
+accounts (`role=USER`). It requires the current publication-readiness audit and
+is apply-ready only while that audit passes and the course is published. The
+response exposes aggregate counts for missing main-course enrollments, existing
+active enrollments, preserved paused/completed enrollments, and active starter
+enrollments. User ids and account details are not returned. The opaque
+`rolloutVersion` still includes the complete ordered learner and enrollment
+state, so equal totals with different affected users cannot share a
+confirmation version. This endpoint performs no writes; rollout application
+and default enrollment changes require separate tasks.
 
 `GET /admin/curriculum/candidate-plan` applies the versioned independent
 frequency-and-prerequisite policy to active course work plus unassigned source

@@ -26,6 +26,7 @@ import {
   type AdminImportedCandidateRejectionDto,
   type AdminImportedCandidateRejectionListResponse,
   type AdminMainCoursePublicationReadinessResponse,
+  type AdminMainCourseEnrollmentRolloutPreviewResponse,
   type AdminPublishMainCourseResponse,
   type AdminPrerequisiteCandidateListResponse,
   type AdminRestoreImportedCandidateResponse,
@@ -281,6 +282,18 @@ export class AdminService {
 
       throw error;
     }
+  }
+
+  async getMainCourseEnrollmentRolloutPreview(): Promise<AdminMainCourseEnrollmentRolloutPreviewResponse> {
+    const preview = await this.adminRepository.getMainCourseEnrollmentRolloutPreview();
+
+    if (preview === null) {
+      throw new NotFoundException(
+        "Main structured course not found. Run the current database seed first.",
+      );
+    }
+
+    return preview;
   }
 
   async getCandidatePlan(query: unknown = {}): Promise<AdminCurriculumCandidatePlanResponse> {
