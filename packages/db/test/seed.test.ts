@@ -9,6 +9,11 @@ import {
   getInitialStarterLessonKeys,
   validateStarterCourseSeed,
 } from "../src/course-seed";
+import {
+  buildMainCourseBlueprint,
+  MAIN_COURSE_LEVEL_COUNT,
+  validateMainCourseBlueprint,
+} from "../src/main-course";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const seed = readFileSync(join(currentDir, "..", "prisma", "seed.ts"), "utf8");
@@ -30,6 +35,61 @@ describe("Prisma seed", () => {
       expect.arrayContaining(["COMPONENT", "KANJI", "WORD", "SENTENCE"]),
     );
     expect(starterSeed.items.every((item) => item.cards.length > 0)).toBe(true);
+  });
+
+  it("defines an independent 60-level structured course through N2", () => {
+    const mainCourse = buildMainCourseBlueprint();
+
+    expect(mainCourse.course).toMatchObject({
+      slug: "japanese-ru-n2",
+      targetLevel: "JLPT N2",
+      band: "FOUNDATION",
+    });
+    expect(mainCourse.levels).toHaveLength(MAIN_COURSE_LEVEL_COUNT);
+    expect(mainCourse.levels.map((level) => level.levelNumber)).toEqual(
+      Array.from({ length: MAIN_COURSE_LEVEL_COUNT }, (_, index) => index + 1),
+    );
+    expect(countLevelsByBand(mainCourse.levels)).toEqual({
+      FOUNDATION: 5,
+      N5: 10,
+      N4: 12,
+      N3: 16,
+      N2: 17,
+    });
+    expect(validateMainCourseBlueprint(mainCourse)).toEqual([]);
+  });
+
+  it("rejects gaps and band changes in the main course blueprint", () => {
+    const mainCourse = buildMainCourseBlueprint();
+    const invalidLevels = mainCourse.levels
+      .filter((level) => level.levelNumber !== 12)
+      .map((level) => (level.levelNumber === 6 ? { ...level, band: "N2" as const } : level));
+
+    expect(
+      validateMainCourseBlueprint({
+        ...mainCourse,
+        levels: invalidLevels,
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        `main course must contain ${MAIN_COURSE_LEVEL_COUNT} levels`,
+        "main course level 6 must use N5, received N2",
+        "main course level 12 is missing",
+      ]),
+    );
+  });
+
+  it("seeds the main course without deleting placements or demoting existing status", () => {
+    const functionStart = seed.indexOf("async function upsertMainCourseStructure");
+    const functionEnd = seed.indexOf("async function upsertDefaultSrsSystem", functionStart);
+    const mainCourseSeed = seed.slice(functionStart, functionEnd);
+
+    expect(seed).toContain("await upsertMainCourseStructure(mainCourse);");
+    expect(mainCourseSeed).toContain('courseType: "STRUCTURED"');
+    expect(mainCourseSeed).toContain('status: "DRAFT"');
+    expect(mainCourseSeed.match(/status: "DRAFT"/gu)).toHaveLength(1);
+    expect(mainCourseSeed).not.toContain("deleteMany");
+    expect(mainCourseSeed).not.toContain("courseLevelItem");
   });
 
   it("assigns starter levels and items to Foundation and N5 course bands", () => {
@@ -150,3 +210,15 @@ describe("Prisma seed", () => {
     ]);
   });
 });
+
+function countLevelsByBand(
+  levels: ReturnType<typeof buildMainCourseBlueprint>["levels"],
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+
+  for (const level of levels) {
+    counts[level.band] = (counts[level.band] ?? 0) + 1;
+  }
+
+  return counts;
+}

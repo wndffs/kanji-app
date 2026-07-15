@@ -76,6 +76,17 @@ and JMdict imports are only candidate dictionaries; imported rows do not count
 toward this target until a published `LearningItem`, cards, bilingual curated
 meanings, and prerequisites exist.
 
+The main course shell contains 60 project-owned levels. Their initial band
+allocation is Foundation 1-5, N5 6-15, N4 16-27, N3 28-43, and N2 44-60. These
+boundaries are planning capacity, not copied JLPT lists or another product's
+level order. The course is seeded as `DRAFT`; it remains separate from the
+published demo course until enough prerequisite-safe content has been placed
+and the enrollment transition is explicitly approved.
+
+The declarative blueprint owns course and level metadata only. Re-running the
+seed updates those fields without deleting `CourseLevelItem` placements and
+without changing an existing course status, so editorial work survives deploys.
+
 The admin scale-readiness report keeps this distinction measurable. It reports
 the remaining publication gap, work already in curation, unassigned imported
 candidate capacity, and the raw candidates' RU/EN, reading, and stroke-data

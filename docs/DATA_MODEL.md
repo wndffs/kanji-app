@@ -58,6 +58,11 @@
 - `Deck`: id, ownerUserId, title, deckType, sourceText, status.
 - `DeckItem`: id, deckId, learningItemId, sortOrder, reasonJson.
 
+The production-oriented `japanese-ru-n2` course is a validated 60-level
+`STRUCTURED` shell seeded in `DRAFT`. Its blueprint controls level numbers,
+bands, and Russian metadata but never reconciles or deletes `CourseLevelItem`
+rows; placements remain editorial data.
+
 ## SRS layer
 
 - `SrsSystem`: id, slug, title, configJson.

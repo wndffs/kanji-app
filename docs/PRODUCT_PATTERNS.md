@@ -127,3 +127,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 45. Task 85 (completed): explicitly curate accepted readings before creating reading cards.
 46. Task 86 (completed): curate inferred component and kanji prerequisite links.
 47. Task 87 (completed): place published curated items into course levels safely.
+48. Task 88 (completed): seed a non-destructive 60-level structured course shell.

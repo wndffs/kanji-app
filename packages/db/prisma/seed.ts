@@ -11,6 +11,11 @@ import {
   type StarterCourseSeedItem,
   type StarterCourseSeedText,
 } from "../src/course-seed";
+import {
+  buildMainCourseBlueprint,
+  type MainCourseBlueprint,
+  validateMainCourseBlueprint,
+} from "../src/main-course";
 
 const prisma = new PrismaClient();
 
@@ -23,9 +28,15 @@ const DEV_USER_PASSWORD_HASH =
 async function main(): Promise<void> {
   const seed = buildStarterCourseSeed();
   const validationIssues = validateStarterCourseSeed(seed);
+  const mainCourse = buildMainCourseBlueprint();
+  const mainCourseValidationIssues = validateMainCourseBlueprint(mainCourse);
 
   if (validationIssues.length > 0) {
     throw new Error(`Starter course seed is invalid: ${validationIssues.join("; ")}`);
+  }
+
+  if (mainCourseValidationIssues.length > 0) {
+    throw new Error(`Main course blueprint is invalid: ${mainCourseValidationIssues.join("; ")}`);
   }
 
   const license = await upsertProjectLicense();
@@ -58,6 +69,7 @@ async function main(): Promise<void> {
   await upsertLearningContent(seed, learningItemIds);
   const course = await upsertCourse(seed);
   await upsertCourseLevels(seed, course.id, learningItemIds);
+  await upsertMainCourseStructure(mainCourse);
   const srsSystem = await upsertDefaultSrsSystem();
   await upsertDefaultSrsStages(srsSystem.id);
 
@@ -595,6 +607,51 @@ async function upsertCourseLevels(
         },
       });
     }
+  }
+}
+
+async function upsertMainCourseStructure(blueprint: MainCourseBlueprint): Promise<void> {
+  const course = await prisma.course.upsert({
+    where: { slug: blueprint.course.slug },
+    update: {
+      titleRu: blueprint.course.titleRu,
+      descriptionRu: blueprint.course.descriptionRu,
+      targetLevel: blueprint.course.targetLevel,
+      band: blueprint.course.band,
+      courseType: "STRUCTURED",
+    },
+    create: {
+      slug: blueprint.course.slug,
+      titleRu: blueprint.course.titleRu,
+      descriptionRu: blueprint.course.descriptionRu,
+      targetLevel: blueprint.course.targetLevel,
+      band: blueprint.course.band,
+      courseType: "STRUCTURED",
+      status: "DRAFT",
+    },
+  });
+
+  for (const level of blueprint.levels) {
+    await prisma.courseLevel.upsert({
+      where: {
+        courseId_levelNumber: {
+          courseId: course.id,
+          levelNumber: level.levelNumber,
+        },
+      },
+      update: {
+        band: level.band,
+        titleRu: level.titleRu,
+        descriptionRu: level.descriptionRu,
+      },
+      create: {
+        courseId: course.id,
+        levelNumber: level.levelNumber,
+        band: level.band,
+        titleRu: level.titleRu,
+        descriptionRu: level.descriptionRu,
+      },
+    });
   }
 }
 

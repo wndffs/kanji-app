@@ -201,8 +201,11 @@ Remove-Item Env:DATABASE_URL
 Remove-Item Env:NODE_ENV
 ```
 
-The production seed creates project-authored starter content, SRS stages, and
-the starter course. It intentionally does not create a demo user.
+The production seed creates project-authored starter content, SRS stages, the
+published starter demo course, and the 60-level `japanese-ru-n2` structured
+course shell in `DRAFT`. Re-running it updates main-course level metadata but
+does not delete editorial placements or demote an existing course. It
+intentionally does not create a demo user.
 
 4. Create the Render API service from `render.yaml`.
    - The blueprint pins the service to Frankfurt to match the Neon region.
