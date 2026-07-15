@@ -49,6 +49,7 @@ import {
   type CandidateRejectionTarget,
 } from "./CandidateRejectionControls";
 import { CurriculumPlanningPanel } from "./CurriculumPlanningPanel";
+import { CourseAllocationPanel } from "./CourseAllocationPanel";
 import { CoursePlacementEditor } from "./CoursePlacementEditor";
 import { PrerequisiteEditor } from "./PrerequisiteEditor";
 
@@ -1100,6 +1101,8 @@ export function AdminClient() {
         }
         token={state.token}
       />
+
+      <CourseAllocationPanel refreshRevision={planningRevision} token={state.token} />
 
       <section
         className="panel admin-translation-review"

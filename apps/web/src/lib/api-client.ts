@@ -2,6 +2,7 @@ import {
   type AdminCandidatePlanCoverageFilter,
   type AdminApproveImportedTranslationRequest,
   type AdminCoursePlacementListResponse,
+  type AdminCourseAllocationPreviewResponse,
   type AdminCurationItemDto,
   type AdminCurriculumCandidatePlanResponse,
   type AdminCurriculumCompletenessReportDto,
@@ -327,6 +328,16 @@ export function getAdminScaleReadiness(token: string): Promise<AdminCurriculumSc
   return apiRequest<AdminCurriculumScaleReadinessDto>("/admin/curriculum/scale-readiness", {
     token,
   });
+}
+
+export function getAdminCourseAllocationPreview(
+  token: string,
+  fetchImpl?: typeof fetch,
+): Promise<AdminCourseAllocationPreviewResponse> {
+  return apiRequest<AdminCourseAllocationPreviewResponse>(
+    "/admin/curriculum/main-course/allocation-preview",
+    { token, fetchImpl },
+  );
 }
 
 export function getAdminCandidatePlan(

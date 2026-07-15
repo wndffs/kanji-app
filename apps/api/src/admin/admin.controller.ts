@@ -91,6 +91,11 @@ export class AdminController {
     return this.adminService.getScaleReadiness();
   }
 
+  @Get("curriculum/main-course/allocation-preview")
+  getCourseAllocationPreview() {
+    return this.adminService.getCourseAllocationPreview();
+  }
+
   @Get("curriculum/candidate-plan")
   getCandidatePlan(@Query() query: Record<string, unknown>) {
     return this.adminService.getCandidatePlan(query);

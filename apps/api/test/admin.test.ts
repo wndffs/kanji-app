@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   type AdminCurationItemDto,
+  type AdminCourseAllocationPreviewResponse,
   type AdminCoursePlacementListResponse,
   type AdminCurriculumScaleReadinessDto,
   type AdminImportRunSummaryDto,
@@ -326,6 +327,16 @@ describe("AdminService", () => {
           capacityShortfall: 500,
         }),
       ],
+    });
+  });
+
+  it("returns the read-only main-course allocation preview", async () => {
+    const adminService = new AdminService(new InMemoryAdminRepository());
+
+    await expect(adminService.getCourseAllocationPreview()).resolves.toMatchObject({
+      policyVersion: "balanced-prerequisite-levels-v1",
+      course: { slug: "japanese-ru-n2", levelCount: 60 },
+      summary: { publishedItems: 3, existingPlacements: 1, proposedPlacements: 2 },
     });
   });
 
@@ -1304,6 +1315,50 @@ describe("AdminService", () => {
     });
   });
 
+  it("builds the allocation preview from published items in the main course", async () => {
+    const course = {
+      findUnique: vi.fn().mockResolvedValue({
+        id: "course-main",
+        slug: "japanese-ru-n2",
+        titleRu: "Основной курс",
+        status: "DRAFT",
+        levels: [{ id: "level-1", levelNumber: 1, band: "FOUNDATION" }],
+      }),
+    };
+    const learningItem = {
+      findMany: vi.fn().mockResolvedValue([
+        {
+          id: "component-one",
+          title: "Компонент один",
+          kind: "COMPONENT",
+          curriculumBand: "FOUNDATION",
+          levelHint: 1,
+          dependencies: [],
+          courseLevelItems: [{ courseLevel: { levelNumber: 1 } }],
+        },
+      ]),
+    };
+    const repository = new PrismaAdminRepository({ db: { course, learningItem } } as never);
+
+    await expect(repository.getCourseAllocationPreview()).resolves.toMatchObject({
+      course: { id: "course-main", levelCount: 1 },
+      summary: { publishedItems: 1, existingPlacements: 1, proposedPlacements: 0 },
+    });
+    expect(course.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { slug: "japanese-ru-n2" } }),
+    );
+    expect(learningItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { status: "PUBLISHED" },
+        select: expect.objectContaining({
+          courseLevelItems: expect.objectContaining({
+            where: { courseLevel: { courseId: "course-main" } },
+          }),
+        }),
+      }),
+    );
+  });
+
   it("requires non-empty RU and EN accepted answers for translation approval", async () => {
     const adminService = new AdminService(new InMemoryAdminRepository());
 
@@ -1871,6 +1926,32 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
           },
         },
       ],
+    };
+  }
+
+  async getCourseAllocationPreview(): Promise<AdminCourseAllocationPreviewResponse> {
+    return {
+      policyVersion: "balanced-prerequisite-levels-v1",
+      generatedAt: "2026-07-15T10:00:00.000Z",
+      maxItemsPerLevel: 220,
+      course: {
+        id: "course-main",
+        slug: "japanese-ru-n2",
+        title: "Основной курс",
+        status: "draft",
+        levelCount: 60,
+      },
+      summary: {
+        publishedItems: 3,
+        existingPlacements: 1,
+        proposedPlacements: 2,
+        blockedItems: 0,
+      },
+      bands: [],
+      items: [],
+      issues: [],
+      itemsTruncated: false,
+      issuesTruncated: false,
     };
   }
 

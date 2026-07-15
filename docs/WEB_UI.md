@@ -35,6 +35,11 @@ Published items also expose a course-placement editor grouped by course. Each
 course offers one selected level or an unassigned state; saving preserves an
 existing position and appends a new placement to the selected level. The
 control remains read-only until the material is published.
+The admin planning area includes a read-only main-course allocation preview.
+It shows complete totals and per-band counts, then bounded assignment and
+conflict tables. Existing and proposed placements are visually distinguished;
+the panel has no apply action until the server-side confirmation workflow is
+implemented.
 After an item or card save, the queue restarts from its first cursor page under
 the active filters. It keeps the saved item selected when it still matches and
 otherwise opens the next available item, while a post-save refresh failure is

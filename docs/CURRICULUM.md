@@ -87,6 +87,15 @@ The declarative blueprint owns course and level metadata only. Re-running the
 seed updates those fields without deleting `CourseLevelItem` placements and
 without changing an existing course status, so editorial work survives deploys.
 
+The first allocation policy is `balanced-prerequisite-levels-v1`. It previews
+only published learning items, keeps editorial placements fixed, uses a valid
+level hint when possible, and recursively resolves prerequisites before their
+dependants. New items without a usable hint go to the least occupied eligible
+level in their band, with a 220-item planning ceiling per level. The preview is
+read-only: missing bands, prerequisite conflicts, cycles, capacity gaps, and
+unsafe existing placements must be reviewed before a later confirmed apply
+operation can write course rows.
+
 The admin scale-readiness report keeps this distinction measurable. It reports
 the remaining publication gap, work already in curation, unassigned imported
 candidate capacity, and the raw candidates' RU/EN, reading, and stroke-data

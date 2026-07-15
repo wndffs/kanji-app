@@ -269,6 +269,7 @@ in-progress session.
 - `POST /admin/imported-candidates/approve-translation`
 - `GET /admin/curriculum/completeness`
 - `GET /admin/curriculum/scale-readiness`
+- `GET /admin/curriculum/main-course/allocation-preview`
 - `GET /admin/curriculum/candidate-plan`
 - `POST /admin/curriculum/candidate-plan/enqueue`
 - `GET /admin/items/review-queue`
@@ -345,6 +346,17 @@ capacity. The report also exposes reading, Russian meaning, English
 meaning, bilingual meaning, and kanji stroke coverage. Candidate capacity is
 not publication readiness: every selected item must still pass the curriculum
 quality gates and receive an independent level and prerequisite path.
+
+`GET /admin/curriculum/main-course/allocation-preview` is a read-only,
+deterministic calculation for published learning items and the seeded
+`japanese-ru-n2` course. Policy `balanced-prerequisite-levels-v1` preserves
+existing placements, honours a valid `levelHint`, keeps every resolved
+prerequisite at or before its dependent item, and otherwise balances additions
+across levels in the same band with a 220-item level capacity. Missing bands,
+unpublished or blocked prerequisites, cycles, exhausted capacity, duplicate
+placements, and unsafe existing order are reported instead of being written.
+Assignment and issue samples are independently capped at 100 rows; summary and
+band counts cover the complete calculation.
 
 `GET /admin/curriculum/candidate-plan` applies the versioned independent
 frequency-and-prerequisite policy to active course work plus unassigned source

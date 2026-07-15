@@ -1002,6 +1002,67 @@ export type AdminCurriculumScaleReadinessDto = {
   readonly items: readonly AdminCurriculumScaleItemReadinessDto[];
 };
 
+export type AdminCourseAllocationIssueCode =
+  | "missing-band"
+  | "missing-prerequisite"
+  | "prerequisite-unavailable"
+  | "prerequisite-cycle"
+  | "prerequisite-after-band"
+  | "capacity-exhausted"
+  | "multiple-placements"
+  | "placement-band-mismatch"
+  | "placement-prerequisite-order";
+
+export type AdminCourseAllocationIssueDto = {
+  readonly learningItemId: string;
+  readonly title: string;
+  readonly code: AdminCourseAllocationIssueCode;
+  readonly message: string;
+};
+
+export type AdminCourseAllocationPreviewItemDto = {
+  readonly learningItemId: string;
+  readonly title: string;
+  readonly itemType: ItemKind;
+  readonly band: CourseBand | null;
+  readonly levelNumber: number;
+  readonly prerequisiteLevelFloor: number;
+  readonly placement: "existing" | "level-hint" | "balanced";
+};
+
+export type AdminCourseAllocationBandSummaryDto = {
+  readonly band: CourseBand;
+  readonly levelCount: number;
+  readonly publishedItems: number;
+  readonly existingPlacements: number;
+  readonly proposedPlacements: number;
+  readonly blockedItems: number;
+};
+
+export type AdminCourseAllocationPreviewResponse = {
+  readonly policyVersion: "balanced-prerequisite-levels-v1";
+  readonly generatedAt: string;
+  readonly maxItemsPerLevel: number;
+  readonly course: {
+    readonly id: string;
+    readonly slug: string;
+    readonly title: string;
+    readonly status: AdminContentStatus;
+    readonly levelCount: number;
+  };
+  readonly summary: {
+    readonly publishedItems: number;
+    readonly existingPlacements: number;
+    readonly proposedPlacements: number;
+    readonly blockedItems: number;
+  };
+  readonly bands: readonly AdminCourseAllocationBandSummaryDto[];
+  readonly items: readonly AdminCourseAllocationPreviewItemDto[];
+  readonly issues: readonly AdminCourseAllocationIssueDto[];
+  readonly itemsTruncated: boolean;
+  readonly issuesTruncated: boolean;
+};
+
 export type AdminCurriculumCandidatePlanItemDto = {
   readonly selectionRank: number;
   readonly targetId: string;

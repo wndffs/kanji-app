@@ -11,6 +11,7 @@ import {
   ADMIN_CANDIDATE_PLAN_COVERAGE_FILTERS,
   type AdminCandidatePlanCoverageFilter,
   type AdminContentStatus,
+  type AdminCourseAllocationPreviewResponse,
   type AdminCoursePlacementListResponse,
   type AdminCurriculumCandidatePlanItemDto,
   type AdminCurriculumCandidatePlanResponse,
@@ -183,6 +184,18 @@ export class AdminService {
 
   async getScaleReadiness(): Promise<AdminCurriculumScaleReadinessDto> {
     return this.adminRepository.getScaleReadiness();
+  }
+
+  async getCourseAllocationPreview(): Promise<AdminCourseAllocationPreviewResponse> {
+    const preview = await this.adminRepository.getCourseAllocationPreview();
+
+    if (preview === null) {
+      throw new NotFoundException(
+        "Main structured course not found. Run the current database seed first.",
+      );
+    }
+
+    return preview;
   }
 
   async getCandidatePlan(query: unknown = {}): Promise<AdminCurriculumCandidatePlanResponse> {

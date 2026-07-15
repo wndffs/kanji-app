@@ -6,6 +6,7 @@ import {
   createTextDeck,
   enqueueAdminCandidatePlan,
   getAdminCandidatePlan,
+  getAdminCourseAllocationPreview,
   getAdminCoursePlacements,
   getAdminImportedCandidateRejections,
   getAdminPrerequisiteCandidates,
@@ -365,5 +366,27 @@ describe("apiRequest", () => {
       ["http://localhost:3001/admin/items/item%2Fone/course-placements", "PUT"],
     ]);
     expect(requests[1]?.init?.body).toBe(JSON.stringify(request));
+  });
+
+  it("loads the read-only main-course allocation preview", async () => {
+    let capturedInput = "";
+    let capturedMethod = "";
+    const fetchImpl: typeof fetch = async (input, init) => {
+      capturedInput = String(input);
+      capturedMethod = init?.method ?? "GET";
+      return Response.json({
+        policyVersion: "balanced-prerequisite-levels-v1",
+        course: { slug: "japanese-ru-n2" },
+      });
+    };
+
+    await expect(getAdminCourseAllocationPreview("token-1", fetchImpl)).resolves.toMatchObject({
+      policyVersion: "balanced-prerequisite-levels-v1",
+      course: { slug: "japanese-ru-n2" },
+    });
+    expect(capturedInput).toBe(
+      "http://localhost:3001/admin/curriculum/main-course/allocation-preview",
+    );
+    expect(capturedMethod).toBe("GET");
   });
 });

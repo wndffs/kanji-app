@@ -3,6 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 import {
   type AdminApproveImportedTranslationRequest,
   type AdminCoursePlacementListResponse,
+  type AdminCourseAllocationPreviewResponse,
   type AdminCurriculumCandidatePlanResponse,
   type AdminCurriculumCompletenessReportDto,
   type AdminCurriculumScaleReadinessDto,
@@ -50,6 +51,11 @@ test.describe("admin curation", () => {
     await expect(page.getByTestId("admin-import-runs")).toContainText("items: 1");
     await expect(page.getByTestId("admin-import-runs")).toContainText("Parser failed.");
     await expect(page.getByTestId("admin-scale-readiness")).toContainText(/2.?300/);
+    await expect(page.getByTestId("admin-course-allocation")).toContainText(
+      "Распределение по уровням",
+    );
+    await expect(page.getByTestId("admin-course-allocation")).toContainText("60 уровней");
+    await expect(page.getByTestId("admin-course-allocation")).toContainText("Предложено");
     const candidatePlan = page.getByTestId("admin-candidate-plan");
     await expect(candidatePlan).toContainText("一");
     await candidatePlan.getByRole("button", { name: "Слова" }).click();
@@ -561,6 +567,56 @@ async function mockAdminApi(
 
     await route.fulfill({ json: response });
   });
+
+  await page.route(
+    `${API_BASE_URL}/admin/curriculum/main-course/allocation-preview`,
+    async (route) => {
+      const response: AdminCourseAllocationPreviewResponse = {
+        policyVersion: "balanced-prerequisite-levels-v1",
+        generatedAt: "2026-07-15T10:00:00.000Z",
+        maxItemsPerLevel: 220,
+        course: {
+          id: "course-main",
+          slug: "japanese-ru-n2",
+          title: "Основной курс",
+          status: "draft",
+          levelCount: 60,
+        },
+        summary: {
+          publishedItems: 3,
+          existingPlacements: 1,
+          proposedPlacements: 2,
+          blockedItems: 0,
+        },
+        bands: [
+          {
+            band: "foundation",
+            levelCount: 5,
+            publishedItems: 3,
+            existingPlacements: 1,
+            proposedPlacements: 2,
+            blockedItems: 0,
+          },
+        ],
+        items: [
+          {
+            learningItemId: ITEM_ID,
+            title: "Кандзи 一",
+            itemType: "kanji",
+            band: "foundation",
+            levelNumber: 2,
+            prerequisiteLevelFloor: 1,
+            placement: "balanced",
+          },
+        ],
+        issues: [],
+        itemsTruncated: false,
+        issuesTruncated: false,
+      };
+
+      await route.fulfill({ json: response });
+    },
+  );
 
   await page.route(`${API_BASE_URL}/admin/curriculum/candidate-plan**`, async (route) => {
     const url = new URL(route.request().url());

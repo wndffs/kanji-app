@@ -4,6 +4,7 @@ import { Inject, Injectable } from "@nestjs/common";
 
 import {
   type AdminContentStatus,
+  type AdminCourseAllocationPreviewResponse,
   type AdminCoursePlacementListResponse,
   type AdminCurriculumCompletenessReportDto,
   type AdminCurriculumScaleReadinessDto,
@@ -27,6 +28,7 @@ import {
   CURRICULUM_SCALE_TARGETS,
 } from "@kanji-srs/shared";
 import { PrismaService } from "../database/prisma.service";
+import { buildCourseAllocationPreview } from "./course-allocation-plan";
 import { applyQualityIssues, buildCurriculumCompletenessReport } from "./curriculum-quality";
 import {
   buildCurriculumCandidatePlan,
@@ -77,6 +79,7 @@ export abstract class AdminRepository {
   ): Promise<AdminReviewQueuePageResult>;
   abstract getCompletenessReport(): Promise<AdminCurriculumCompletenessReportDto>;
   abstract getScaleReadiness(): Promise<AdminCurriculumScaleReadinessDto>;
+  abstract getCourseAllocationPreview(): Promise<AdminCourseAllocationPreviewResponse | null>;
   abstract getCandidatePlanVersion(): Promise<string>;
   abstract getCandidatePlan(): Promise<CurriculumCandidatePlan>;
   abstract enqueueCandidatePlanCandidates(
@@ -851,6 +854,73 @@ export class PrismaAdminRepository extends AdminRepository {
       ],
       new Date(),
     );
+  }
+
+  async getCourseAllocationPreview(): Promise<AdminCourseAllocationPreviewResponse | null> {
+    const course = await this.prisma.db.course.findUnique({
+      where: { slug: "japanese-ru-n2" },
+      select: {
+        id: true,
+        slug: true,
+        titleRu: true,
+        status: true,
+        levels: {
+          select: { id: true, levelNumber: true, band: true },
+          orderBy: { levelNumber: "asc" },
+        },
+      },
+    });
+
+    if (course === null) {
+      return null;
+    }
+
+    const items = await this.prisma.db.learningItem.findMany({
+      where: { status: "PUBLISHED" },
+      select: {
+        id: true,
+        title: true,
+        kind: true,
+        curriculumBand: true,
+        levelHint: true,
+        dependencies: {
+          where: { dependencyType: "PREREQUISITE" },
+          select: { prerequisiteItemId: true },
+          orderBy: { prerequisiteItemId: "asc" },
+        },
+        courseLevelItems: {
+          where: { courseLevel: { courseId: course.id } },
+          select: { courseLevel: { select: { levelNumber: true } } },
+          orderBy: { courseLevel: { levelNumber: "asc" } },
+        },
+      },
+      orderBy: [{ kind: "asc" }, { levelHint: "asc" }, { title: "asc" }, { id: "asc" }],
+    });
+
+    return buildCourseAllocationPreview({
+      course: {
+        id: course.id,
+        slug: course.slug,
+        title: course.titleRu,
+        status: toApiStatus(course.status),
+      },
+      levels: course.levels.map((level) => ({
+        id: level.id,
+        levelNumber: level.levelNumber,
+        band: toApiBand(level.band),
+      })),
+      items: items.map((item) => ({
+        id: item.id,
+        title: item.title,
+        itemType: toItemKind(item.kind),
+        band: toApiBandOrNull(item.curriculumBand),
+        levelHint: item.levelHint,
+        prerequisiteItemIds: item.dependencies.map((dependency) => dependency.prerequisiteItemId),
+        currentLevelNumbers: item.courseLevelItems.map(
+          (placement) => placement.courseLevel.levelNumber,
+        ),
+      })),
+    });
   }
 
   async getCandidatePlan(): Promise<CurriculumCandidatePlan> {
