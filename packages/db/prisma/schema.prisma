@@ -598,6 +598,7 @@ model UserKanaProgress {
 model UserSettings {
   id                     String   @id @default(uuid()) @db.Uuid
   userId                 String   @unique @db.Uuid
+  currentCourseId        String?  @db.Uuid
   locale                 String   @default("ru-RU")
   translationDisplayMode String   @default("ru")
   timezone               String   @default("Europe/Moscow")
@@ -607,9 +608,11 @@ model UserSettings {
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
   user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentCourse          Course?  @relation("CurrentCourse", fields: [currentCourseId], references: [id], onDelete: SetNull)
 
   @@index([locale])
   @@index([translationDisplayMode])
+  @@index([currentCourseId])
 }
 
 model UserItemOverride {
@@ -676,6 +679,7 @@ model Course {
   updatedAt     DateTime         @updatedAt
   levels        CourseLevel[]
   enrollments   UserEnrollment[]
+  currentFor    UserSettings[]   @relation("CurrentCourse")
 
   @@index([status])
   @@index([targetLevel])

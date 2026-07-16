@@ -3,6 +3,7 @@ import { Module, type MiddlewareConsumer, type NestModule } from "@nestjs/common
 import { AdminModule } from "./admin/admin.module";
 import { AuthModule } from "./auth/auth.module";
 import { AppConfigModule } from "./config/app-config.module";
+import { CoursesModule } from "./courses/courses.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { DatabaseModule } from "./database/database.module";
 import { DecksModule } from "./decks/decks.module";
@@ -23,6 +24,7 @@ import { UsersModule } from "./users/users.module";
     HealthModule,
     AuthModule,
     UsersModule,
+    CoursesModule,
     AdminModule,
     ItemsModule,
     KanaModule,

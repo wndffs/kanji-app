@@ -45,6 +45,26 @@ export type UserOverrideKind =
 export type DeckStatus = "draft" | "active" | "archived";
 export const SUPPORTED_COURSE_BANDS = ["foundation", "n5", "n4", "n3", "n2"] as const;
 export type CourseBand = (typeof SUPPORTED_COURSE_BANDS)[number];
+export type CourseType = "structured" | "goal" | "demo";
+export type CourseEnrollmentStatus = "active" | "paused" | "completed";
+export type EnrolledCourseDto = {
+  readonly id: string;
+  readonly slug: string;
+  readonly title: string;
+  readonly description: string | null;
+  readonly targetLevel: string | null;
+  readonly band: CourseBand;
+  readonly courseType: CourseType;
+  readonly enrollmentStatus: CourseEnrollmentStatus;
+  readonly isCurrent: boolean;
+};
+export type CourseListResponse = {
+  readonly currentCourseId: string | null;
+  readonly courses: readonly EnrolledCourseDto[];
+};
+export type SelectCurrentCourseRequestDto = {
+  readonly courseId: string;
+};
 export type DeckItemReasonCode =
   | "appears-in-text"
   | "prerequisite-kanji"

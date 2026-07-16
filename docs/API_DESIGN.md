@@ -45,6 +45,20 @@ An absent or unpublished main course does not block registration or starter
 access. Default enrollment is add-only and does not overwrite an existing
 enrollment status if the operation is retried.
 
+### Courses
+
+- `GET /courses`
+- `PATCH /courses/current` with `courseId`
+
+`GET /courses` returns the authenticated learner's enrollments for published
+courses and identifies one current active course. A saved valid selection wins;
+otherwise the deterministic fallback is `japanese-ru-n2`, then `starter-demo`,
+then the earliest active published enrollment. Paused and completed enrollments
+remain visible but cannot become current. `PATCH /courses/current` persists only
+an owned active published enrollment and does not alter enrollment or SRS state.
+Changing course is rejected while a lesson session is active; selecting the
+already-current course is idempotent.
+
 ### Dashboard
 
 - `GET /dashboard`
@@ -61,8 +75,8 @@ enrollment status if the operation is retried.
 `GET /dashboard` returns a compact authenticated-user overview for the first
 screen. Review counts come from `UserSrsState`, available lesson count reuses
 the lesson-queue availability logic, course progress is based on started card
-states inside the active enrollment, and reports item and card percentages
-separately. Workload reuses the same forecast states and user-configured review
+states inside the current active enrollment, and reports item and card
+percentages separately. Workload reuses the same forecast states and user-configured review
 and lesson limits; it does not create an independent schedule. Forecast buckets
 use the user's timezone, and recent review stats aggregate review-session answers
 from the last seven days.
@@ -106,7 +120,8 @@ endpoint; the stroke SVG itself is not persisted in kana progress.
 - `POST /lessons/:sessionId/abandon`
 
 `GET /lessons/queue` returns new learning items for the authenticated user's
-active course enrollment. Availability uses the first incomplete course level,
+current active course enrollment. It never merges items from multiple active
+courses. Availability uses the first incomplete course level,
 item dependency thresholds, and the user's `dailyLessonLimit`. The response
 contains a recommended batch of at most five items in `items`, every currently
 eligible item within today's remaining limit in `availableItems`, plus

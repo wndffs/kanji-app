@@ -11,6 +11,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { PrismaService } from "../database/prisma.service";
+import { resolveCurrentCourseId } from "../courses/current-course";
 import {
   type CompleteLessonItemInput,
   type CompletedLessonItemRecord,
@@ -240,9 +241,16 @@ export class PrismaLessonsRepository extends LessonsRepository {
   }
 
   async listCourseLessonItems(userId: string): Promise<readonly CourseLessonItemRecord[]> {
+    const currentCourseId = await resolveCurrentCourseId(this.prisma.db, userId);
+
+    if (currentCourseId === null) {
+      return [];
+    }
+
     const enrollments = (await this.prisma.db.userEnrollment.findMany({
       where: {
         userId,
+        courseId: currentCourseId,
         status: "ACTIVE",
         course: {
           status: "PUBLISHED",

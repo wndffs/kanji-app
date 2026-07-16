@@ -42,7 +42,7 @@
 ## User layer
 
 - `User`: id, email, passwordHash, displayName, role, createdAt, candidateRejections.
-- `UserSettings`: id, userId, locale, translationDisplayMode, timezone, dailyLessonLimit, reviewBudget, strictMode.
+- `UserSettings`: id, userId, currentCourseId, locale, translationDisplayMode, timezone, dailyLessonLimit, reviewBudget, strictMode. `currentCourseId` is nullable and resolves only to an active published enrollment at read time.
 - `UserItemOverride`: id, userId, learningCardId, overrideType, text, normalizedText, note, createdAt, updatedAt.
 - `UserMnemonic`: id, userId, learningItemId, mnemonicType, body, createdAt, updatedAt.
 - `UserEnrollment`: id, userId, courseId, status, startedAt.

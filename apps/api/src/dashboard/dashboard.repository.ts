@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../database/prisma.service";
+import { resolveCurrentCourseId } from "../courses/current-course";
 import {
   type DashboardCourseProgressRecord,
   type DashboardLeechSignalRecord,
@@ -185,9 +186,16 @@ export class PrismaDashboardRepository extends DashboardRepository {
   }
 
   async listLessonAvailabilityItems(userId: string): Promise<readonly DashboardLessonItemRecord[]> {
+    const currentCourseId = await resolveCurrentCourseId(this.prisma.db, userId);
+
+    if (currentCourseId === null) {
+      return [];
+    }
+
     const enrollments = (await this.prisma.db.userEnrollment.findMany({
       where: {
         userId,
+        courseId: currentCourseId,
         status: "ACTIVE",
         course: {
           status: "PUBLISHED",
@@ -445,9 +453,16 @@ export class PrismaDashboardRepository extends DashboardRepository {
   }
 
   async findCurrentCourseProgress(userId: string): Promise<DashboardCourseProgressRecord | null> {
+    const currentCourseId = await resolveCurrentCourseId(this.prisma.db, userId);
+
+    if (currentCourseId === null) {
+      return null;
+    }
+
     const enrollment = (await this.prisma.db.userEnrollment.findFirst({
       where: {
         userId,
+        courseId: currentCourseId,
         status: "ACTIVE",
         course: {
           status: "PUBLISHED",

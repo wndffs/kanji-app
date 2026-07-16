@@ -128,6 +128,13 @@ publication gate. If the main course is missing or unpublished, registration
 continues with the starter course alone. Retried default enrollment is add-only
 and never reactivates an existing paused or completed enrollment.
 
+Learners with multiple active published enrollments have one current course for
+course lessons and dashboard progress. An explicit selection is persisted;
+until then, the main course is preferred over the starter course, followed by
+the earliest remaining active enrollment. Switching changes only this focus;
+it does not pause another course or modify SRS progress. An unfinished lesson
+must be finished or abandoned before switching.
+
 The admin scale-readiness report keeps this distinction measurable. It reports
 the remaining publication gap, work already in curation, unassigned imported
 candidate capacity, and the raw candidates' RU/EN, reading, and stroke-data

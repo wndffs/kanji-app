@@ -27,16 +27,30 @@ import {
 const NOW = new Date("2026-06-18T09:00:00.000Z");
 
 describe("PrismaLessonsRepository", () => {
-  it("excludes unpublished course items from lesson availability", async () => {
-    const findMany = vi.fn().mockResolvedValue([]);
+  it("loads published lesson items only from the resolved current course", async () => {
+    const findMany = vi
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          courseId: "course-main",
+          startedAt: NOW,
+          course: { slug: "japanese-ru-n2" },
+        },
+      ])
+      .mockResolvedValueOnce([]);
     const repository = new PrismaLessonsRepository({
-      db: { userEnrollment: { findMany } },
+      db: {
+        userSettings: { findUnique: vi.fn().mockResolvedValue({ currentCourseId: null }) },
+        userEnrollment: { findMany },
+      },
     } as never);
 
     await repository.listCourseLessonItems("user-1");
 
-    expect(findMany).toHaveBeenCalledWith(
+    expect(findMany).toHaveBeenNthCalledWith(
+      2,
       expect.objectContaining({
+        where: expect.objectContaining({ courseId: "course-main" }),
         include: {
           course: {
             include: {

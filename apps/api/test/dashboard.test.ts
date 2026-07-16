@@ -22,18 +22,31 @@ const NOW = new Date("2026-06-18T09:00:00.000Z");
 const RECENT_SINCE = "2026-06-11T09:00:00.000Z";
 
 describe("PrismaDashboardRepository", () => {
-  it("excludes unpublished course items from availability and progress", async () => {
-    const findMany = vi.fn().mockResolvedValue([]);
+  it("loads availability and progress only for the resolved published course", async () => {
+    const currentCourseEnrollment = {
+      courseId: "course-main",
+      startedAt: NOW,
+      course: { slug: "japanese-ru-n2" },
+    };
+    const findMany = vi
+      .fn()
+      .mockResolvedValueOnce([currentCourseEnrollment])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([currentCourseEnrollment]);
     const findFirst = vi.fn().mockResolvedValue(null);
     const repository = new PrismaDashboardRepository({
-      db: { userEnrollment: { findMany, findFirst } },
+      db: {
+        userSettings: { findUnique: vi.fn().mockResolvedValue({ currentCourseId: null }) },
+        userEnrollment: { findMany, findFirst },
+      },
     } as never);
 
     await repository.listLessonAvailabilityItems("user-1");
     await repository.findCurrentCourseProgress("user-1");
 
-    for (const query of [findMany.mock.calls[0]?.[0], findFirst.mock.calls[0]?.[0]]) {
+    for (const query of [findMany.mock.calls[1]?.[0], findFirst.mock.calls[0]?.[0]]) {
       expect(query).toMatchObject({
+        where: { courseId: "course-main" },
         include: {
           course: {
             include: {
