@@ -18,6 +18,10 @@ test.describe("dashboard smoke", () => {
   test("displays forecast bucket due counts", async ({ page }) => {
     await signIn(page);
 
+    await page.route(`${API_BASE_URL}/courses`, async (route) => {
+      await route.fulfill({ json: buildCourseList("course-1") });
+    });
+
     await page.route(`${API_BASE_URL}/dashboard`, async (route) => {
       await route.fulfill({
         json: {
@@ -155,12 +159,166 @@ test.describe("dashboard smoke", () => {
     await expect(page.getByRole("progressbar", { name: "Дневной лимит уроков 10%" })).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Материалы уровня 50%" })).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Карточки уровня 67%" })).toBeVisible();
+    await expect(page.getByLabel("Текущий курс")).toHaveValue("course-1");
     await expect(page.getByRole("main").getByRole("link", { name: "Практика" })).toHaveAttribute(
       "href",
       "/practice",
     );
   });
+
+  test("switches the current course and explains an active lesson conflict", async ({ page }) => {
+    await signIn(page);
+    let currentCourseId = "starter-course";
+
+    await page.route(`${API_BASE_URL}/courses`, async (route) => {
+      await route.fulfill({ json: buildCourseList(currentCourseId) });
+    });
+
+    await page.route(`${API_BASE_URL}/courses/current`, async (route) => {
+      const body = route.request().postDataJSON() as { readonly courseId?: string };
+
+      if (body.courseId === "starter-course") {
+        await route.fulfill({
+          status: 409,
+          json: { message: "Finish or abandon the active lesson before changing course." },
+        });
+        return;
+      }
+
+      currentCourseId = body.courseId ?? currentCourseId;
+      await route.fulfill({ json: buildCourseList(currentCourseId) });
+    });
+
+    await page.route(`${API_BASE_URL}/dashboard`, async (route) => {
+      await route.fulfill({
+        json: buildMinimalDashboard(currentCourseId, currentCourseTitle(currentCourseId)),
+      });
+    });
+
+    await page.goto("/dashboard");
+
+    const selector = page.getByLabel("Текущий курс");
+    await expect(selector).toHaveValue("starter-course");
+    await selector.selectOption("main-course");
+    await expect(selector).toHaveValue("main-course");
+    await expect(page.getByText("Выбран курс «Основной курс».")).toBeVisible();
+    await expect(page.locator(".course-progress > div").first()).toContainText("Основной курс");
+
+    await selector.selectOption("starter-course");
+    await expect(page.locator(".course-selector-error[role='alert']")).toContainText(
+      "Завершите или покиньте текущий урок перед сменой курса.",
+    );
+    await expect(page.getByRole("link", { name: "Открыть урок" })).toHaveAttribute(
+      "href",
+      "/lessons",
+    );
+    await expect(selector).toHaveValue("main-course");
+  });
 });
+
+function buildCourseList(currentCourseId: string) {
+  if (currentCourseId === "course-1") {
+    return {
+      currentCourseId,
+      courses: [
+        {
+          id: "course-1",
+          slug: "basic",
+          title: "Базовый курс",
+          description: null,
+          targetLevel: "N5",
+          band: "n5",
+          courseType: "structured",
+          enrollmentStatus: "active",
+          isCurrent: true,
+        },
+      ],
+    };
+  }
+
+  return {
+    currentCourseId,
+    courses: [
+      {
+        id: "starter-course",
+        slug: "starter-demo",
+        title: "Стартовый курс",
+        description: null,
+        targetLevel: "N5",
+        band: "foundation",
+        courseType: "demo",
+        enrollmentStatus: "active",
+        isCurrent: currentCourseId === "starter-course",
+      },
+      {
+        id: "main-course",
+        slug: "japanese-ru-n2",
+        title: "Основной курс",
+        description: null,
+        targetLevel: "N2",
+        band: "n2",
+        courseType: "structured",
+        enrollmentStatus: "active",
+        isCurrent: currentCourseId === "main-course",
+      },
+    ],
+  };
+}
+
+function currentCourseTitle(courseId: string): string {
+  return courseId === "main-course" ? "Основной курс" : "Стартовый курс";
+}
+
+function buildMinimalDashboard(courseId: string, courseTitle: string) {
+  return {
+    user: {
+      id: "user-1",
+      displayName: "Тестовый ученик",
+      locale: "ru-RU",
+      translationDisplayMode: "ru-en",
+      timezone: "Europe/Moscow",
+    },
+    counts: { dueReviews: 0, availableLessons: 1, burnedCards: 0, leechCandidates: 0 },
+    currentCourse: {
+      id: courseId,
+      title: courseTitle,
+      currentLevel: 1,
+      levelProgress: {
+        level: 1,
+        completedItems: 0,
+        totalItems: 1,
+        completedCards: 0,
+        totalCards: 2,
+        percent: 0,
+        cardPercent: 0,
+      },
+    },
+    workload: {
+      reviews: {
+        dueNow: 0,
+        next24Hours: 0,
+        laterThisWeek: 0,
+        budget: 100,
+        pressurePercent: 0,
+      },
+      lessons: { completedToday: 0, remainingToday: 20, dailyLimit: 20, percent: 0 },
+    },
+    reviewForecast: [],
+    leechCandidates: [],
+    recentReviewStats: {
+      since: "2026-07-09T00:00:00.000Z",
+      total: 0,
+      correct: 0,
+      wrong: 0,
+      typo: 0,
+      reveal: 0,
+      manualIgnore: 0,
+      resurrect: 0,
+      accuracy: null,
+    },
+    recentItems: [],
+  };
+}
 
 async function signIn(page: Page): Promise<void> {
   await page.addInitScript(

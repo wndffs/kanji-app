@@ -15,6 +15,17 @@
 - `/settings`.
 - `/admin`.
 
+## Dashboard course focus
+
+The course panel loads the learner's published enrollments independently from
+the rest of the dashboard. With multiple active courses, a labeled select
+persists the current course and then refreshes lesson availability and course
+progress. A course-list failure stays local to this panel. While a change is in
+flight the control is disabled and reports status through a polite live region.
+An active-lesson conflict keeps the previous selection and links directly to
+the lesson flow so the learner can finish or abandon it first. Paused and
+completed enrollments are not offered as selectable options.
+
 ## Admin curriculum workflow
 
 The curriculum plan pages can open any selected kanji or vocabulary candidate

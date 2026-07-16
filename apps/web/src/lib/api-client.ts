@@ -39,6 +39,7 @@ import {
   type CheckLessonAnswerResponse,
   type ContentLocale,
   type CourseBand,
+  type CourseListResponse,
   type CompleteLessonItemRequestDto,
   type DashboardDto,
   type CompleteLessonItemResponse,
@@ -62,6 +63,7 @@ import {
   type ReviewAnswerResponse,
   type ReviewQueueItem,
   type SearchResponseDto,
+  type SelectCurrentCourseRequestDto,
   type StartLessonSessionResponse,
   type StartLessonSessionRequestDto,
   type TranslationDisplayMode,
@@ -204,6 +206,21 @@ export function register(input: {
 
 export function getDashboard(token: string): Promise<DashboardDto> {
   return apiRequest<DashboardDto>("/dashboard", { token });
+}
+
+export function getCourses(token: string): Promise<CourseListResponse> {
+  return apiRequest<CourseListResponse>("/courses", { token });
+}
+
+export function selectCurrentCourse(
+  token: string,
+  input: SelectCurrentCourseRequestDto,
+): Promise<CourseListResponse> {
+  return apiRequest<CourseListResponse>("/courses/current", {
+    method: "PATCH",
+    token,
+    body: input,
+  });
 }
 
 export function getKanaAssessment(

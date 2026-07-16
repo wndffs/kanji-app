@@ -328,6 +328,58 @@ textarea:focus-visible {
   font-size: 14px;
 }
 
+.course-selector {
+  display: grid;
+  gap: 6px;
+}
+
+.course-selector label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.course-selector select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 0 12px;
+}
+
+.course-selector select:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.course-selector-feedback,
+.course-selector-status {
+  min-height: 20px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.course-selector-feedback span {
+  display: block;
+}
+
+.course-selector-error {
+  color: var(--danger);
+}
+
+.course-selector-error a {
+  color: var(--primary-strong);
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .progress-track {
   height: 12px;
   overflow: hidden;

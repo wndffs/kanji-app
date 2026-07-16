@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { type DashboardDto } from "@kanji-srs/shared";
+import { type CourseListResponse, type DashboardDto } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
-import { ApiError, getDashboard } from "../../lib/api-client";
+import { ApiError, getCourses, getDashboard, selectCurrentCourse } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import {
   formatAccuracy,
@@ -22,8 +22,23 @@ type DashboardState =
   | { readonly status: "ready"; readonly dashboard: DashboardDto }
   | { readonly status: "error"; readonly message: string };
 
+type ReadyCoursesState = {
+  readonly status: "ready";
+  readonly data: CourseListResponse;
+  readonly saving: boolean;
+  readonly message: string | null;
+  readonly error: string | null;
+  readonly activeLessonConflict: boolean;
+};
+
+type CoursesState =
+  | { readonly status: "loading" }
+  | { readonly status: "error"; readonly message: string }
+  | ReadyCoursesState;
+
 export function DashboardClient() {
   const [state, setState] = useState<DashboardState>({ status: "checking" });
+  const [coursesState, setCoursesState] = useState<CoursesState>({ status: "loading" });
 
   useEffect(() => {
     const session = readStoredSession();
@@ -35,6 +50,7 @@ export function DashboardClient() {
 
     let cancelled = false;
     setState({ status: "loading" });
+    setCoursesState({ status: "loading" });
 
     getDashboard(session.token)
       .then((dashboard) => {
@@ -56,6 +72,29 @@ export function DashboardClient() {
         setState({
           status: "error",
           message: error instanceof Error ? error.message : "Не удалось загрузить панель.",
+        });
+      });
+
+    getCourses(session.token)
+      .then((courses) => {
+        if (!cancelled) {
+          setCoursesState(createReadyCoursesState(courses));
+        }
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+
+        if (error instanceof ApiError && error.status === 401) {
+          clearStoredSession();
+          setState({ status: "unauthenticated" });
+          return;
+        }
+
+        setCoursesState({
+          status: "error",
+          message: error instanceof Error ? error.message : "Не удалось загрузить список курсов.",
         });
       });
 
@@ -114,10 +153,94 @@ export function DashboardClient() {
     );
   }
 
-  return <DashboardView dashboard={state.dashboard} />;
+  async function handleCourseChange(courseId: string): Promise<void> {
+    const session = readStoredSession();
+
+    if (session === null || coursesState.status !== "ready") {
+      return;
+    }
+
+    setCoursesState({
+      ...coursesState,
+      saving: true,
+      message: null,
+      error: null,
+      activeLessonConflict: false,
+    });
+
+    try {
+      const courses = await selectCurrentCourse(session.token, { courseId });
+      const selectedTitle = courses.courses.find(({ id }) => id === courses.currentCourseId)?.title;
+
+      setCoursesState({
+        ...createReadyCoursesState(courses),
+        message:
+          selectedTitle === undefined ? "Курс переключён." : `Выбран курс «${selectedTitle}».`,
+      });
+
+      try {
+        const dashboard = await getDashboard(session.token);
+        setState({ status: "ready", dashboard });
+      } catch (error: unknown) {
+        if (error instanceof ApiError && error.status === 401) {
+          clearStoredSession();
+          setState({ status: "unauthenticated" });
+          return;
+        }
+
+        setCoursesState((current) =>
+          current.status === "ready"
+            ? {
+                ...current,
+                message: null,
+                error: "Курс выбран, но прогресс не обновился. Перезагрузите страницу.",
+              }
+            : current,
+        );
+      }
+    } catch (error: unknown) {
+      if (error instanceof ApiError && error.status === 401) {
+        clearStoredSession();
+        setState({ status: "unauthenticated" });
+        return;
+      }
+
+      const activeLessonConflict = error instanceof ApiError && error.status === 409;
+      setCoursesState((current) =>
+        current.status === "ready"
+          ? {
+              ...current,
+              saving: false,
+              error: activeLessonConflict
+                ? "Завершите или покиньте текущий урок перед сменой курса."
+                : error instanceof Error
+                  ? error.message
+                  : "Не удалось переключить курс.",
+              activeLessonConflict,
+            }
+          : current,
+      );
+    }
+  }
+
+  return (
+    <DashboardView
+      coursesState={coursesState}
+      dashboard={state.dashboard}
+      onCourseChange={(courseId) => void handleCourseChange(courseId)}
+    />
+  );
 }
 
-function DashboardView({ dashboard }: { readonly dashboard: DashboardDto }) {
+function DashboardView({
+  coursesState,
+  dashboard,
+  onCourseChange,
+}: {
+  readonly coursesState: CoursesState;
+  readonly dashboard: DashboardDto;
+  readonly onCourseChange: (courseId: string) => void;
+}) {
   const course = dashboard.currentCourse;
 
   return (
@@ -155,6 +278,7 @@ function DashboardView({ dashboard }: { readonly dashboard: DashboardDto }) {
       <div className="dashboard-layout">
         <section className="panel">
           <h2>Курс</h2>
+          <CourseSelector coursesState={coursesState} onCourseChange={onCourseChange} />
           {course === null ? (
             <p className="muted">Активный курс не выбран.</p>
           ) : (
@@ -277,6 +401,75 @@ function DashboardView({ dashboard }: { readonly dashboard: DashboardDto }) {
       </div>
     </section>
   );
+}
+
+function CourseSelector({
+  coursesState,
+  onCourseChange,
+}: {
+  readonly coursesState: CoursesState;
+  readonly onCourseChange: (courseId: string) => void;
+}) {
+  if (coursesState.status === "loading") {
+    return <p className="muted course-selector-status">Загружаю доступные курсы.</p>;
+  }
+
+  if (coursesState.status === "error") {
+    return (
+      <p className="course-selector-status course-selector-error" role="alert">
+        {coursesState.message}
+      </p>
+    );
+  }
+
+  const activeCourses = coursesState.data.courses.filter(
+    ({ enrollmentStatus }) => enrollmentStatus === "active",
+  );
+
+  if (activeCourses.length === 0) {
+    return <p className="muted course-selector-status">Нет доступных опубликованных курсов.</p>;
+  }
+
+  return (
+    <div className="course-selector">
+      <label>
+        Текущий курс
+        <select
+          aria-busy={coursesState.saving}
+          disabled={coursesState.saving || activeCourses.length < 2}
+          onChange={(event) => onCourseChange(event.currentTarget.value)}
+          value={coursesState.data.currentCourseId ?? ""}
+        >
+          {activeCourses.map((course) => (
+            <option key={course.id} value={course.id}>
+              {course.title}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div aria-live="polite" className="course-selector-feedback">
+        {coursesState.saving ? <span>Переключаю курс.</span> : null}
+        {coursesState.message === null ? null : <span>{coursesState.message}</span>}
+        {coursesState.error === null ? null : (
+          <span className="course-selector-error" role="alert">
+            {coursesState.error}{" "}
+            {coursesState.activeLessonConflict ? <Link href="/lessons">Открыть урок</Link> : null}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function createReadyCoursesState(data: CourseListResponse): ReadyCoursesState {
+  return {
+    status: "ready",
+    data,
+    saving: false,
+    message: null,
+    error: null,
+    activeLessonConflict: false,
+  };
 }
 
 function WorkloadPanel({ workload }: { readonly workload: DashboardDto["workload"] }) {

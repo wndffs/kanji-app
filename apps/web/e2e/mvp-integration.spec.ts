@@ -198,6 +198,28 @@ async function mockMvpApi(page: Page): Promise<void> {
     await route.fulfill({ json: buildDashboard(state) });
   });
 
+  await page.route(`${API_BASE_URL}/courses`, async (route) => {
+    expectAuthorized(route);
+    await route.fulfill({
+      json: {
+        currentCourseId: "starter-course",
+        courses: [
+          {
+            id: "starter-course",
+            slug: "starter-demo",
+            title: "Стартовый MVP-курс",
+            description: null,
+            targetLevel: "N5",
+            band: "foundation",
+            courseType: "demo",
+            enrollmentStatus: "active",
+            isCurrent: true,
+          },
+        ],
+      },
+    });
+  });
+
   await page.route(`${API_BASE_URL}/lessons/active`, async (route) => {
     expectAuthorized(route);
     await route.fulfill({
