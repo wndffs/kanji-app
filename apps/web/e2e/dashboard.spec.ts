@@ -50,6 +50,32 @@ test.describe("dashboard smoke", () => {
               totalCards: 6,
               percent: 50,
               cardPercent: 67,
+              itemsByType: [
+                {
+                  itemType: "component",
+                  totalItems: 1,
+                  locked: 0,
+                  available: 0,
+                  inProgress: 0,
+                  burned: 1,
+                },
+                {
+                  itemType: "kanji",
+                  totalItems: 2,
+                  locked: 0,
+                  available: 1,
+                  inProgress: 1,
+                  burned: 0,
+                },
+                {
+                  itemType: "word",
+                  totalItems: 1,
+                  locked: 1,
+                  available: 0,
+                  inProgress: 0,
+                  burned: 0,
+                },
+              ],
             },
           },
           workload: {
@@ -186,6 +212,8 @@ test.describe("dashboard smoke", () => {
     await expect(page.getByRole("progressbar", { name: "Материалы уровня 50%" })).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Карточки уровня 67%" })).toBeVisible();
     await expect(page.getByLabel("Текущий курс")).toHaveValue("course-1");
+    await expect(page.getByTestId("level-progress-type")).toHaveCount(3);
+    await expect(page.getByTestId("level-progress-type").nth(1)).toContainText("Кандзи");
     await expect(page.getByRole("main").getByRole("link", { name: "Практика" })).toHaveAttribute(
       "href",
       "/practice",
@@ -317,6 +345,16 @@ function buildMinimalDashboard(courseId: string, courseTitle: string) {
         totalCards: 2,
         percent: 0,
         cardPercent: 0,
+        itemsByType: [
+          {
+            itemType: "kanji",
+            totalItems: 1,
+            locked: 0,
+            available: 1,
+            inProgress: 0,
+            burned: 0,
+          },
+        ],
       },
     },
     workload: {

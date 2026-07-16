@@ -61,6 +61,33 @@ describe("PrismaDashboardRepository", () => {
         },
       });
     }
+
+    expect(findFirst.mock.calls[0]?.[0]).toMatchObject({
+      include: {
+        course: {
+          include: {
+            levels: {
+              include: {
+                items: {
+                  include: {
+                    learningItem: {
+                      select: {
+                        kind: true,
+                        cards: {
+                          select: {
+                            srsStates: { select: { id: true, burnedAt: true } },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
   });
 
   it("aggregates the SRS spread by configured stage and item type", async () => {
@@ -289,6 +316,15 @@ describe("DashboardService", () => {
 
   it("returns current course and level progress after completed lessons", async () => {
     const { repository, service } = createHarness();
+    repository.setLessonItems([
+      createLessonItem("item-burned", 1),
+      createLessonItem("item-started", 2),
+      createLessonItem("item-open", 3),
+      {
+        ...createLessonItem("item-locked", 4),
+        dependencies: [{ prerequisiteItemId: "missing-prerequisite", requiredStage: 5 }],
+      },
+    ]);
     repository.setCourse({
       id: "course-demo",
       title: "Demo course",
@@ -297,14 +333,32 @@ describe("DashboardService", () => {
           levelNumber: 1,
           items: [
             {
+              id: "item-burned",
+              itemType: "component",
+              cardIds: ["card-burned"],
+              startedCardIds: ["card-burned"],
+              burnedCardIds: ["card-burned"],
+            },
+            {
               id: "item-started",
+              itemType: "kanji",
               cardIds: ["card-started-meaning", "card-started-reading"],
               startedCardIds: ["card-started-meaning", "card-started-reading"],
+              burnedCardIds: [],
             },
             {
               id: "item-open",
+              itemType: "word",
               cardIds: ["card-open"],
               startedCardIds: [],
+              burnedCardIds: [],
+            },
+            {
+              id: "item-locked",
+              itemType: "sentence",
+              cardIds: ["card-locked"],
+              startedCardIds: [],
+              burnedCardIds: [],
             },
           ],
         },
@@ -313,8 +367,10 @@ describe("DashboardService", () => {
           items: [
             {
               id: "item-next",
+              itemType: "kanji",
               cardIds: ["card-next"],
               startedCardIds: [],
+              burnedCardIds: [],
             },
           ],
         },
@@ -328,12 +384,46 @@ describe("DashboardService", () => {
         currentLevel: 1,
         levelProgress: {
           level: 1,
-          completedItems: 1,
-          totalItems: 2,
-          completedCards: 2,
-          totalCards: 3,
+          completedItems: 2,
+          totalItems: 4,
+          completedCards: 3,
+          totalCards: 5,
           percent: 50,
-          cardPercent: 67,
+          cardPercent: 60,
+          itemsByType: [
+            {
+              itemType: "component",
+              totalItems: 1,
+              locked: 0,
+              available: 0,
+              inProgress: 0,
+              burned: 1,
+            },
+            {
+              itemType: "kanji",
+              totalItems: 1,
+              locked: 0,
+              available: 0,
+              inProgress: 1,
+              burned: 0,
+            },
+            {
+              itemType: "word",
+              totalItems: 1,
+              locked: 0,
+              available: 1,
+              inProgress: 0,
+              burned: 0,
+            },
+            {
+              itemType: "sentence",
+              totalItems: 1,
+              locked: 1,
+              available: 0,
+              inProgress: 0,
+              burned: 0,
+            },
+          ],
         },
       },
     });

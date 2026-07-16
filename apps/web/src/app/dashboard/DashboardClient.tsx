@@ -321,6 +321,34 @@ function DashboardView({
                 {course.levelProgress.completedItems} из {course.levelProgress.totalItems} ·{" "}
                 {course.levelProgress.completedCards} карточек из {course.levelProgress.totalCards}
               </p>
+              {course.levelProgress.itemsByType.length === 0 ? null : (
+                <div className="level-progress-scroll">
+                  <table aria-label={`Состояния материалов уровня ${course.currentLevel}`}>
+                    <thead>
+                      <tr>
+                        <th scope="col">Тип</th>
+                        <th scope="col">Закрыто</th>
+                        <th scope="col">Уроки</th>
+                        <th scope="col">В SRS</th>
+                        <th scope="col">Закреплено</th>
+                        <th scope="col">Всего</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {course.levelProgress.itemsByType.map((row) => (
+                        <tr data-testid="level-progress-type" key={row.itemType}>
+                          <th scope="row">{formatItemType(row.itemType)}</th>
+                          <td>{row.locked}</td>
+                          <td>{row.available}</td>
+                          <td>{row.inProgress}</td>
+                          <td>{row.burned}</td>
+                          <td className="level-progress-total">{row.totalItems}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </section>

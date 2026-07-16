@@ -147,7 +147,7 @@ remaining sequence keeps functional and data work ahead of the final visual
 refresh:
 
 58. Task 98 (completed): show the current card spread by configured SRS stage and learning-item type.
-59. Task 99: break current-level progress down by item type and learning state.
+59. Task 99 (completed): break current-level progress down by item type and learning state.
 60. Task 100: populate recent mistakes, unlocks, and burned items with direct item and practice links.
 61. Task 101: aggregate daily study activity for streaks, completed reviews, and a calendar heat map.
 62. Task 102: persist dashboard widget visibility, ordering, and compact or expanded presentation.

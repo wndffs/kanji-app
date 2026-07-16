@@ -459,6 +459,16 @@ function buildDashboard(state: MvpApiState): DashboardDto {
         totalCards: 1,
         percent: state.lessonCompleted ? 100 : 0,
         cardPercent: state.lessonCompleted ? 100 : 0,
+        itemsByType: [
+          {
+            itemType: "component",
+            totalItems: 1,
+            locked: 0,
+            available: state.lessonCompleted ? 0 : 1,
+            inProgress: state.lessonCompleted ? 1 : 0,
+            burned: 0,
+          },
+        ],
       },
     },
     workload: {

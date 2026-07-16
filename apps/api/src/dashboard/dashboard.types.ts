@@ -47,8 +47,10 @@ export type DashboardLessonProgressRecord = {
 
 export type DashboardCourseItemProgressRecord = {
   readonly id: string;
+  readonly itemType: ItemKind;
   readonly cardIds: readonly string[];
   readonly startedCardIds: readonly string[];
+  readonly burnedCardIds: readonly string[];
 };
 
 export type DashboardCourseLevelProgressRecord = {

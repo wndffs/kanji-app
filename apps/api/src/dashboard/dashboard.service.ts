@@ -93,7 +93,10 @@ export class DashboardService {
         burnedCards,
         leechCandidates: leechCandidates.length,
       },
-      currentCourse: currentCourse === null ? null : toCurrentCourseDto(currentCourse),
+      currentCourse:
+        currentCourse === null
+          ? null
+          : toCurrentCourseDto(currentCourse, lessonItems, lessonProgress),
       workload: toWorkloadDto(user, lessonProgress, forecastStates, dueReviews, now),
       reviewForecast: toReviewForecastDto(forecastStates, now, user.settings.timezone),
       srsStageSpread: toSrsStageSpreadDto(srsStageSpread),
@@ -130,8 +133,13 @@ function sumItemTypeCards(
 
 function toCurrentCourseDto(
   course: DashboardCourseProgressRecord,
+  lessonItems: readonly DashboardLessonItemRecord[],
+  lessonProgress: readonly DashboardLessonProgressRecord[],
 ): NonNullable<DashboardDto["currentCourse"]> {
-  const levelProgress = findCurrentLevelProgress(course.levels);
+  const availableItemIds = new Set(
+    findAvailableLessonItems(lessonItems, lessonProgress).map((item) => item.id),
+  );
+  const levelProgress = findCurrentLevelProgress(course.levels, availableItemIds);
 
   return {
     id: course.id,
@@ -347,8 +355,9 @@ function readDatePart(
 
 function findCurrentLevelProgress(
   levels: readonly DashboardCourseLevelProgressRecord[],
+  availableItemIds: ReadonlySet<string>,
 ): DashboardLevelProgressDto {
-  const progressByLevel = levels.map(toLevelProgress);
+  const progressByLevel = levels.map((level) => toLevelProgress(level, availableItemIds));
   const currentLevel =
     progressByLevel.find(
       (level) => level.totalItems > 0 && level.completedItems < level.totalItems,
@@ -365,6 +374,7 @@ function findCurrentLevelProgress(
       totalCards: 0,
       percent: 0,
       cardPercent: 0,
+      itemsByType: [],
     }
   );
 }
@@ -383,7 +393,10 @@ function findLastLevelWithItems(
   return undefined;
 }
 
-function toLevelProgress(level: DashboardCourseLevelProgressRecord): DashboardLevelProgressDto {
+function toLevelProgress(
+  level: DashboardCourseLevelProgressRecord,
+  availableItemIds: ReadonlySet<string>,
+): DashboardLevelProgressDto {
   const lessonItems = level.items.filter((item) => item.cardIds.length > 0);
   const totalItems = lessonItems.length;
   const completedItems = lessonItems.filter(isCompletedLessonItem).length;
@@ -398,7 +411,53 @@ function toLevelProgress(level: DashboardCourseLevelProgressRecord): DashboardLe
     totalCards,
     percent: totalItems === 0 ? 0 : Math.round((completedItems / totalItems) * 100),
     cardPercent: totalCards === 0 ? 0 : Math.round((completedCards / totalCards) * 100),
+    itemsByType: toLevelItemTypeProgress(lessonItems, availableItemIds),
   };
+}
+
+function toLevelItemTypeProgress(
+  items: readonly DashboardCourseItemProgressRecord[],
+  availableItemIds: ReadonlySet<string>,
+): DashboardLevelProgressDto["itemsByType"] {
+  const itemTypes = ["component", "kanji", "word", "sentence"] as const;
+
+  return itemTypes.flatMap((itemType) => {
+    const matchingItems = items.filter((item) => item.itemType === itemType);
+
+    if (matchingItems.length === 0) {
+      return [];
+    }
+
+    const states = matchingItems.map((item) => getLevelItemState(item, availableItemIds));
+
+    return [
+      {
+        itemType,
+        totalItems: matchingItems.length,
+        locked: states.filter((state) => state === "locked").length,
+        available: states.filter((state) => state === "available").length,
+        inProgress: states.filter((state) => state === "inProgress").length,
+        burned: states.filter((state) => state === "burned").length,
+      },
+    ];
+  });
+}
+
+function getLevelItemState(
+  item: DashboardCourseItemProgressRecord,
+  availableItemIds: ReadonlySet<string>,
+): "locked" | "available" | "inProgress" | "burned" {
+  const burnedCardIds = new Set(item.burnedCardIds);
+
+  if (item.cardIds.every((cardId) => burnedCardIds.has(cardId))) {
+    return "burned";
+  }
+
+  if (item.startedCardIds.length > 0) {
+    return "inProgress";
+  }
+
+  return availableItemIds.has(item.id) ? "available" : "locked";
 }
 
 function toWorkloadDto(

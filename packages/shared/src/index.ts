@@ -439,6 +439,14 @@ export type DashboardLevelProgressDto = {
   readonly totalCards: number;
   readonly percent: number;
   readonly cardPercent: number;
+  readonly itemsByType: readonly {
+    readonly itemType: ItemKind;
+    readonly totalItems: number;
+    readonly locked: number;
+    readonly available: number;
+    readonly inProgress: number;
+    readonly burned: number;
+  }[];
 };
 
 export type DashboardWorkloadDto = {

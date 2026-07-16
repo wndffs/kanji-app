@@ -3,6 +3,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service";
 import { resolveCurrentCourseId } from "../courses/current-course";
 import {
+  type DashboardCourseItemProgressRecord,
   type DashboardCourseProgressRecord,
   type DashboardLeechSignalRecord,
   type DashboardLessonItemRecord,
@@ -144,6 +145,7 @@ type CourseLevelRow = {
 type CourseLevelItemRow = {
   readonly learningItem: {
     readonly id: string;
+    readonly kind: string;
     readonly cards: readonly CourseCardRow[];
   };
 };
@@ -152,6 +154,7 @@ type CourseCardRow = {
   readonly id: string;
   readonly srsStates: readonly {
     readonly id: string;
+    readonly burnedAt: Date | null;
   }[];
 };
 
@@ -549,12 +552,13 @@ export class PrismaDashboardRepository extends DashboardRepository {
                     learningItem: {
                       select: {
                         id: true,
+                        kind: true,
                         cards: {
                           select: {
                             id: true,
                             srsStates: {
                               where: { userId },
-                              select: { id: true },
+                              select: { id: true, burnedAt: true },
                             },
                           },
                           orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
@@ -582,9 +586,13 @@ export class PrismaDashboardRepository extends DashboardRepository {
         levelNumber: level.levelNumber,
         items: level.items.map((item) => ({
           id: item.learningItem.id,
+          itemType: toDashboardItemKind(item.learningItem.kind),
           cardIds: item.learningItem.cards.map((card) => card.id),
           startedCardIds: item.learningItem.cards
             .filter((card) => card.srsStates.length > 0)
+            .map((card) => card.id),
+          burnedCardIds: item.learningItem.cards
+            .filter((card) => card.srsStates.some((state) => state.burnedAt !== null))
             .map((card) => card.id),
         })),
       })),
@@ -808,6 +816,21 @@ function getSrsSpreadCount(
 
 function srsSpreadCountKey(srsSystemId: string, stageIndex: number, itemKind: string): string {
   return `${srsSystemId}:${stageIndex}:${itemKind}`;
+}
+
+function toDashboardItemKind(kind: string): DashboardCourseItemProgressRecord["itemType"] {
+  switch (kind) {
+    case "COMPONENT":
+      return "component";
+    case "KANJI":
+      return "kanji";
+    case "WORD":
+      return "word";
+    case "SENTENCE":
+      return "sentence";
+    default:
+      throw new Error(`Unsupported learning item kind: ${kind}`);
+  }
 }
 
 function countWrongLikeAnswers(answers: readonly LeechReviewAnswerRow[]): number {
