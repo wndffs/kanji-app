@@ -177,6 +177,7 @@ describe("shared DTO contracts", () => {
         },
       },
       reviewForecast: [],
+      srsStageSpread: [],
       leechCandidates: [],
       recentReviewStats: {
         since: "2026-06-11T09:00:00.000Z",

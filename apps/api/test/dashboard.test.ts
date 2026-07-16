@@ -16,6 +16,7 @@ import {
   type DashboardReviewResult,
   type DashboardReviewResultCountRecord,
   type DashboardSrsStateRecord,
+  type DashboardSrsStageSpreadRecord,
 } from "../src/dashboard/dashboard.types";
 
 const NOW = new Date("2026-06-18T09:00:00.000Z");
@@ -60,6 +61,54 @@ describe("PrismaDashboardRepository", () => {
         },
       });
     }
+  });
+
+  it("aggregates the SRS spread by configured stage and item type", async () => {
+    const groupBy = vi
+      .fn()
+      .mockResolvedValueOnce([{ srsSystemId: "srs-default", stageIndex: 1, _count: { _all: 2 } }])
+      .mockResolvedValueOnce([{ srsSystemId: "srs-default", stageIndex: 1, _count: { _all: 3 } }])
+      .mockResolvedValueOnce([{ srsSystemId: "srs-default", stageIndex: 9, _count: { _all: 4 } }])
+      .mockResolvedValueOnce([]);
+    const repository = new PrismaDashboardRepository({
+      db: {
+        srsSystem: {
+          findMany: vi.fn().mockResolvedValue([
+            {
+              id: "srs-default",
+              title: "Default SRS",
+              stages: [{ ...DEFAULT_SRS_STAGES[0] }, { ...DEFAULT_SRS_STAGES[8] }],
+            },
+          ]),
+        },
+        userSrsState: { groupBy },
+      },
+    } as never);
+
+    await expect(repository.listSrsStageSpread("user-1")).resolves.toEqual([
+      {
+        srsSystemId: "srs-default",
+        srsSystemTitle: "Default SRS",
+        stages: [
+          {
+            stageIndex: 1,
+            name: "Apprentice 1",
+            isBurned: false,
+            cardsByItemType: { component: 2, kanji: 3, word: 0, sentence: 0 },
+          },
+          {
+            stageIndex: 9,
+            name: "Burned",
+            isBurned: true,
+            cardsByItemType: { component: 0, kanji: 0, word: 4, sentence: 0 },
+          },
+        ],
+      },
+    ]);
+    expect(groupBy).toHaveBeenCalledTimes(4);
+    expect(groupBy.mock.calls[1]?.[0]).toMatchObject({
+      where: { userId: "user-1", learningCard: { learningItem: { kind: "KANJI" } } },
+    });
   });
 });
 
@@ -107,6 +156,7 @@ describe("DashboardService", () => {
         },
       },
       reviewForecast: [],
+      srsStageSpread: [],
       leechCandidates: [],
       recentReviewStats: {
         since: RECENT_SINCE,
@@ -181,6 +231,34 @@ describe("DashboardService", () => {
         percent: 0,
       },
     });
+    expect(dashboard.srsStageSpread).toEqual([
+      expect.objectContaining({
+        srsSystemId: "srs-default",
+        totalCards: 3,
+        stages: expect.arrayContaining([
+          expect.objectContaining({
+            stageIndex: 1,
+            totalCards: 2,
+            cardsByItemType: {
+              component: 0,
+              kanji: 2,
+              word: 0,
+              sentence: 0,
+            },
+          }),
+          expect.objectContaining({
+            stageIndex: 9,
+            totalCards: 1,
+            cardsByItemType: {
+              component: 0,
+              kanji: 1,
+              word: 0,
+              sentence: 0,
+            },
+          }),
+        ]),
+      }),
+    ]);
     expect(dashboard.leechCandidates).toEqual([
       expect.objectContaining({
         item: expect.objectContaining({
@@ -373,6 +451,36 @@ class InMemoryDashboardRepository extends DashboardRepository {
     );
   }
 
+  async listSrsStageSpread(userId: string): Promise<readonly DashboardSrsStageSpreadRecord[]> {
+    const states = this.states.filter((state) => state.userId === userId);
+    const systemIds = [...new Set(states.map((state) => state.srsSystemId))].sort();
+
+    return systemIds.map((srsSystemId) => {
+      const systemStates = states.filter((state) => state.srsSystemId === srsSystemId);
+      const stages = systemStates[0]?.stages ?? [];
+
+      return {
+        srsSystemId,
+        srsSystemTitle: "Default SRS",
+        stages: stages.map((stage) => {
+          const stageStates = systemStates.filter((state) => state.stageIndex === stage.stageIndex);
+
+          return {
+            stageIndex: stage.stageIndex,
+            name: stage.name,
+            isBurned: stage.isBurned ?? false,
+            cardsByItemType: {
+              component: countStatesByItemType(stageStates, "component"),
+              kanji: countStatesByItemType(stageStates, "kanji"),
+              word: countStatesByItemType(stageStates, "word"),
+              sentence: countStatesByItemType(stageStates, "sentence"),
+            },
+          };
+        }),
+      };
+    });
+  }
+
   async findCurrentCourseProgress(_userId: string): Promise<DashboardCourseProgressRecord | null> {
     return this.course;
   }
@@ -442,6 +550,13 @@ function createHarness(): {
     repository,
     service: new DashboardService(repository),
   };
+}
+
+function countStatesByItemType(
+  states: readonly InMemoryDashboardSrsStateRecord[],
+  itemType: DashboardLeechSignalRecord["item"]["itemType"],
+): number {
+  return states.filter((state) => state.item.itemType === itemType).length;
 }
 
 function createLessonItem(id: string, sortOrder: number): DashboardLessonItemRecord {

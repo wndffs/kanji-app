@@ -499,6 +499,7 @@ function buildDashboard(state: MvpApiState): DashboardDto {
       resurrect: 0,
       accuracy: state.reviewAnswered ? 1 : null,
     },
+    srsStageSpread: [],
     recentItems: state.lessonCompleted ? [buildStarterItemSummary(state)] : [],
   };
 }

@@ -34,6 +34,7 @@ import {
   type DashboardReviewResult,
   type DashboardReviewResultCountRecord,
   type DashboardSrsStateRecord,
+  type DashboardSrsStageSpreadRecord,
 } from "./dashboard.types";
 
 const FORECAST_HORIZON_DAYS = 7;
@@ -61,6 +62,7 @@ export class DashboardService {
       burnedCards,
       leechSignals,
       forecastStates,
+      srsStageSpread,
       currentCourse,
       recentReviewCounts,
     ] = await Promise.all([
@@ -70,6 +72,7 @@ export class DashboardService {
       this.dashboardRepository.countBurnedCards(user.id),
       this.dashboardRepository.listLeechSignals(user.id, leechSince),
       this.dashboardRepository.listForecastStates(user.id, forecastHorizonEnd),
+      this.dashboardRepository.listSrsStageSpread(user.id),
       this.dashboardRepository.findCurrentCourseProgress(user.id),
       this.dashboardRepository.countRecentReviewResults(user.id, recentSince, now),
     ]);
@@ -93,11 +96,36 @@ export class DashboardService {
       currentCourse: currentCourse === null ? null : toCurrentCourseDto(currentCourse),
       workload: toWorkloadDto(user, lessonProgress, forecastStates, dueReviews, now),
       reviewForecast: toReviewForecastDto(forecastStates, now, user.settings.timezone),
+      srsStageSpread: toSrsStageSpreadDto(srsStageSpread),
       leechCandidates: leechCandidates.slice(0, MAX_DASHBOARD_LEECH_CANDIDATES),
       recentReviewStats: toRecentReviewStatsDto(recentReviewCounts, recentSince),
       recentItems: [],
     };
   }
+}
+
+function toSrsStageSpreadDto(
+  systems: readonly DashboardSrsStageSpreadRecord[],
+): DashboardDto["srsStageSpread"] {
+  return systems.map((system) => {
+    const stages = system.stages.map((stage) => ({
+      ...stage,
+      totalCards: sumItemTypeCards(stage.cardsByItemType),
+    }));
+
+    return {
+      srsSystemId: system.srsSystemId,
+      srsSystemTitle: system.srsSystemTitle,
+      totalCards: stages.reduce((sum, stage) => sum + stage.totalCards, 0),
+      stages,
+    };
+  });
+}
+
+function sumItemTypeCards(
+  counts: DashboardSrsStageSpreadRecord["stages"][number]["cardsByItemType"],
+): number {
+  return counts.component + counts.kanji + counts.word + counts.sentence;
 }
 
 function toCurrentCourseDto(

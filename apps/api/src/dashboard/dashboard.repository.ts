@@ -10,6 +10,7 @@ import {
   type DashboardReviewResult,
   type DashboardReviewResultCountRecord,
   type DashboardSrsStateRecord,
+  type DashboardSrsStageSpreadRecord,
 } from "./dashboard.types";
 
 export abstract class DashboardRepository {
@@ -27,6 +28,7 @@ export abstract class DashboardRepository {
     userId: string,
     horizonEnd: Date,
   ): Promise<readonly DashboardSrsStateRecord[]>;
+  abstract listSrsStageSpread(userId: string): Promise<readonly DashboardSrsStageSpreadRecord[]>;
   abstract findCurrentCourseProgress(userId: string): Promise<DashboardCourseProgressRecord | null>;
   abstract countRecentReviewResults(
     userId: string,
@@ -75,6 +77,20 @@ type SrsStageRow = {
   readonly name: string;
   readonly intervalMinutes: number | null;
   readonly isBurned: boolean;
+};
+
+type SrsSpreadSystemRow = {
+  readonly id: string;
+  readonly title: string;
+  readonly stages: readonly SrsStageRow[];
+};
+
+type SrsSpreadCountRow = {
+  readonly srsSystemId: string;
+  readonly stageIndex: number;
+  readonly _count: {
+    readonly _all: number;
+  };
 };
 
 type LessonEnrollmentRow = {
@@ -452,6 +468,58 @@ export class PrismaDashboardRepository extends DashboardRepository {
     }));
   }
 
+  async listSrsStageSpread(userId: string): Promise<readonly DashboardSrsStageSpreadRecord[]> {
+    const [systems, componentCounts, kanjiCounts, wordCounts, sentenceCounts] = await Promise.all([
+      this.prisma.db.srsSystem.findMany({
+        where: {
+          states: {
+            some: { userId },
+          },
+        },
+        select: {
+          id: true,
+          title: true,
+          stages: {
+            select: {
+              stageIndex: true,
+              name: true,
+              intervalMinutes: true,
+              isBurned: true,
+            },
+            orderBy: { stageIndex: "asc" },
+          },
+        },
+        orderBy: [{ title: "asc" }, { id: "asc" }],
+      }),
+      this.countSrsStatesByItemKind(userId, "COMPONENT"),
+      this.countSrsStatesByItemKind(userId, "KANJI"),
+      this.countSrsStatesByItemKind(userId, "WORD"),
+      this.countSrsStatesByItemKind(userId, "SENTENCE"),
+    ]);
+    const counts = new Map<string, number>();
+
+    addSrsSpreadCounts(counts, componentCounts, "component");
+    addSrsSpreadCounts(counts, kanjiCounts, "kanji");
+    addSrsSpreadCounts(counts, wordCounts, "word");
+    addSrsSpreadCounts(counts, sentenceCounts, "sentence");
+
+    return (systems as readonly SrsSpreadSystemRow[]).map((system) => ({
+      srsSystemId: system.id,
+      srsSystemTitle: system.title,
+      stages: system.stages.map((stage) => ({
+        stageIndex: stage.stageIndex,
+        name: stage.name,
+        isBurned: stage.isBurned,
+        cardsByItemType: {
+          component: getSrsSpreadCount(counts, system.id, stage.stageIndex, "component"),
+          kanji: getSrsSpreadCount(counts, system.id, stage.stageIndex, "kanji"),
+          word: getSrsSpreadCount(counts, system.id, stage.stageIndex, "word"),
+          sentence: getSrsSpreadCount(counts, system.id, stage.stageIndex, "sentence"),
+        },
+      })),
+    }));
+  }
+
   async findCurrentCourseProgress(userId: string): Promise<DashboardCourseProgressRecord | null> {
     const currentCourseId = await resolveCurrentCourseId(this.prisma.db, userId);
 
@@ -549,6 +617,25 @@ export class PrismaDashboardRepository extends DashboardRepository {
       result: toDashboardReviewResult(row.result),
       count: row._count._all,
     }));
+  }
+
+  private async countSrsStatesByItemKind(
+    userId: string,
+    kind: "COMPONENT" | "KANJI" | "WORD" | "SENTENCE",
+  ): Promise<readonly SrsSpreadCountRow[]> {
+    const rows = await this.prisma.db.userSrsState.groupBy({
+      by: ["srsSystemId", "stageIndex"],
+      where: {
+        userId,
+        learningCard: {
+          learningItem: { kind },
+        },
+      },
+      _count: { _all: true },
+      orderBy: [{ srsSystemId: "asc" }, { stageIndex: "asc" }],
+    });
+
+    return rows;
   }
 
   private async toLeechItemRecord(
@@ -698,6 +785,29 @@ export class PrismaDashboardRepository extends DashboardRepository {
       jlptLevel: null,
     };
   }
+}
+
+function addSrsSpreadCounts(
+  target: Map<string, number>,
+  rows: readonly SrsSpreadCountRow[],
+  itemKind: "component" | "kanji" | "word" | "sentence",
+): void {
+  for (const row of rows) {
+    target.set(srsSpreadCountKey(row.srsSystemId, row.stageIndex, itemKind), row._count._all);
+  }
+}
+
+function getSrsSpreadCount(
+  counts: ReadonlyMap<string, number>,
+  srsSystemId: string,
+  stageIndex: number,
+  itemKind: "component" | "kanji" | "word" | "sentence",
+): number {
+  return counts.get(srsSpreadCountKey(srsSystemId, stageIndex, itemKind)) ?? 0;
+}
+
+function srsSpreadCountKey(srsSystemId: string, stageIndex: number, itemKind: string): string {
+  return `${srsSystemId}:${stageIndex}:${itemKind}`;
 }
 
 function countWrongLikeAnswers(answers: readonly LeechReviewAnswerRow[]): number {

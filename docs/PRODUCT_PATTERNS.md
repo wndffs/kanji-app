@@ -137,3 +137,46 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 55. Task 95 (completed): enroll new learners in the starter course and the published main course without overwriting existing enrollment status.
 56. Task 96 (completed): persist one current course and keep dashboard and lesson availability isolated to that enrollment.
 57. Task 97 (completed): switch the current active course from the dashboard with resilient loading and lesson-conflict feedback.
+
+## Viable-product roadmap after task 97
+
+The MVP and full-course publishing infrastructure are complete, but matching
+the usefulness of a mature daily learning product requires another pass over
+learner visibility, control, content completion, and presentation. The
+remaining sequence keeps functional and data work ahead of the final visual
+refresh:
+
+58. Task 98 (completed): show the current card spread by configured SRS stage and learning-item type.
+59. Task 99: break current-level progress down by item type and learning state.
+60. Task 100: populate recent mistakes, unlocks, and burned items with direct item and practice links.
+61. Task 101: aggregate daily study activity for streaks, completed reviews, and a calendar heat map.
+62. Task 102: persist dashboard widget visibility, ordering, and compact or expanded presentation.
+63. Task 103: persist lesson batch size, daily lesson pace, and interleaving preferences.
+64. Task 104: add review ordering presets without changing due dates or bypassing SRS rules.
+65. Task 105: add an end-of-review summary and clear per-answer SRS transition feedback.
+66. Task 106: resume optional practice queues and progress without changing scheduled SRS state.
+67. Task 107: add a vacation mode that shifts future availability without corrupting review history.
+68. Task 108: persist speech voice, speed, autoplay, and sound-feedback preferences.
+69. Task 109: persist lesson-only pronunciation aids for kana, furigana, and optional romaji.
+70. Task 110: guide a new learner through kana readiness, first lessons, and the first review cycle.
+71. Task 111: explain level completion, newly unlocked material, and the next prerequisite path.
+72. Task 112: add next review, SRS history, composition, vocabulary usage, and related-item navigation to item pages.
+73. Task 113: add side-by-side practice for visually or semantically confusable kanji.
+74. Task 114: build adaptive kana practice from weak symbols and repeatedly confused sounds.
+75. Task 115: unify Hiragana, Katakana, and Kanji progress in a character hub while keeping kana outside SRS.
+76. Task 116: add listening cards backed only by project-owned or legally reusable audio sources.
+77. Task 117: research and integrate optional pitch-accent data only after a compatible source and attribution policy are approved.
+78. Task 118: publish and verify bilingual curated coverage for at least 2,300 kanji and 8,000 vocabulary items.
+79. Task 119: automate editorial quality checks for readings, meanings, prerequisites, examples, and source traceability.
+80. Task 120: persist interface theme, density, motion, and study-surface display preferences.
+81. Task 121: apply an original visual design system and refresh the dashboard, lessons, reviews, characters, search, and item pages.
+82. Task 122: complete mobile, tablet, keyboard, screen-reader, contrast, and reduced-motion quality passes.
+83. Task 123: improve route performance, installability, offline-safe application shell behavior, and optional review reminders.
+84. Task 124: run production-scale migration, content, smoke, observability, backup, and deployment readiness checks.
+
+At task 124 the intended result is an independent Russian-first product with
+WaniKani-comparable structured kanji and vocabulary mechanics, a
+Duolingo-inspired but independently designed character-learning area, and
+first-class Russian, English, and combined card display. Similarity refers to
+coverage of proven learning workflows, not copied content, curriculum order,
+wording, or visual design.

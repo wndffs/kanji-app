@@ -475,6 +475,21 @@ export type DashboardLeechCandidateDto = {
   readonly leech: LeechScoreDto;
 };
 
+export type DashboardItemTypeCardCountsDto = Readonly<Record<ItemKind, number>>;
+
+export type DashboardSrsStageSpreadDto = {
+  readonly srsSystemId: string;
+  readonly srsSystemTitle: string;
+  readonly totalCards: number;
+  readonly stages: readonly {
+    readonly stageIndex: number;
+    readonly name: string;
+    readonly isBurned: boolean;
+    readonly totalCards: number;
+    readonly cardsByItemType: DashboardItemTypeCardCountsDto;
+  }[];
+};
+
 export type DashboardDto = {
   readonly user: {
     readonly id: string;
@@ -497,6 +512,7 @@ export type DashboardDto = {
   } | null;
   readonly workload: DashboardWorkloadDto;
   readonly reviewForecast: readonly ReviewForecastBucketDto[];
+  readonly srsStageSpread: readonly DashboardSrsStageSpreadDto[];
   readonly leechCandidates: readonly DashboardLeechCandidateDto[];
   readonly recentReviewStats: DashboardRecentReviewStatsDto;
   readonly recentItems: readonly ItemSummary[];

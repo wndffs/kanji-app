@@ -13,6 +13,17 @@ export type DashboardSrsStateRecord = {
   readonly stages: readonly SrsStage[];
 };
 
+export type DashboardSrsStageSpreadRecord = {
+  readonly srsSystemId: string;
+  readonly srsSystemTitle: string;
+  readonly stages: readonly {
+    readonly stageIndex: number;
+    readonly name: string;
+    readonly isBurned: boolean;
+    readonly cardsByItemType: Readonly<Record<ItemKind, number>>;
+  }[];
+};
+
 export type DashboardLessonDependencyRecord = {
   readonly prerequisiteItemId: string;
   readonly requiredStage: number;

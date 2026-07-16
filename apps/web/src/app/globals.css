@@ -481,6 +481,102 @@ textarea:focus-visible {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.srs-spread-panel {
+  gap: 18px;
+}
+
+.srs-spread-heading,
+.srs-spread-system-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.srs-spread-heading h2 {
+  margin-top: 4px;
+}
+
+.srs-spread-heading > strong {
+  font-size: 18px;
+}
+
+.srs-spread-system {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border-top: 1px solid var(--surface-border);
+  padding-top: 14px;
+}
+
+.srs-spread-system-heading h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.srs-spread-system-heading span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.srs-spread-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.srs-spread-scroll table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.srs-spread-scroll th,
+.srs-spread-scroll td {
+  border-bottom: 1px solid var(--surface-border);
+  padding: 10px 12px;
+  text-align: right;
+}
+
+.srs-spread-scroll th:first-child {
+  padding-left: 0;
+  text-align: left;
+}
+
+.srs-spread-scroll th:last-child,
+.srs-spread-scroll td:last-child {
+  padding-right: 0;
+}
+
+.srs-spread-scroll thead th {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.srs-spread-scroll tbody th {
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.srs-stage-marker {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.srs-stage-marker.is-burned {
+  background: var(--success);
+}
+
+.srs-spread-total {
+  font-weight: 850;
+}
+
 .forecast-list {
   display: grid;
   gap: 10px;

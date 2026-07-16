@@ -141,6 +141,29 @@ test.describe("dashboard smoke", () => {
             resurrect: 0,
             accuracy: null,
           },
+          srsStageSpread: [
+            {
+              srsSystemId: "srs-default",
+              srsSystemTitle: "Основная SRS",
+              totalCards: 5,
+              stages: [
+                {
+                  stageIndex: 1,
+                  name: "Apprentice 1",
+                  isBurned: false,
+                  totalCards: 4,
+                  cardsByItemType: { component: 1, kanji: 2, word: 1, sentence: 0 },
+                },
+                {
+                  stageIndex: 9,
+                  name: "Burned",
+                  isBurned: true,
+                  totalCards: 1,
+                  cardsByItemType: { component: 0, kanji: 0, word: 1, sentence: 0 },
+                },
+              ],
+            },
+          ],
           recentItems: [],
         },
       });
@@ -152,6 +175,9 @@ test.describe("dashboard smoke", () => {
     await expect(page.getByTestId("forecast-bucket").first()).toContainText("3");
     await expect(page.getByTestId("forecast-bucket").nth(1)).toContainText("16:00");
     await expect(page.getByTestId("forecast-bucket").nth(1)).toContainText("1");
+    await expect(page.getByTestId("srs-spread-stage")).toHaveCount(2);
+    await expect(page.getByTestId("srs-spread-stage").first()).toContainText("Ученик 1");
+    await expect(page.getByTestId("srs-spread-stage").last()).toContainText("Закреплено");
     await expect(page.locator(".leech-list")).toContainText("困");
     await expect(page.locator(".leech-list")).toContainText("29");
     await expect(page.getByRole("heading", { name: "Баланс нагрузки" })).toBeVisible();
@@ -316,6 +342,7 @@ function buildMinimalDashboard(courseId: string, courseTitle: string) {
       resurrect: 0,
       accuracy: null,
     },
+    srsStageSpread: [],
     recentItems: [],
   };
 }

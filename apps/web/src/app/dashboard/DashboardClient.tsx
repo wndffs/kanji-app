@@ -275,6 +275,8 @@ function DashboardView({
 
       <WorkloadPanel workload={dashboard.workload} />
 
+      <SrsStageSpreadPanel systems={dashboard.srsStageSpread} />
+
       <div className="dashboard-layout">
         <section className="panel">
           <h2>Курс</h2>
@@ -553,6 +555,86 @@ function WorkloadPanel({ workload }: { readonly workload: DashboardDto["workload
       </div>
     </section>
   );
+}
+
+function SrsStageSpreadPanel({ systems }: { readonly systems: DashboardDto["srsStageSpread"] }) {
+  return (
+    <section aria-labelledby="srs-spread-heading" className="panel srs-spread-panel">
+      <header className="srs-spread-heading">
+        <div>
+          <span className="eyebrow">Прогресс</span>
+          <h2 id="srs-spread-heading">Этапы SRS</h2>
+        </div>
+        <strong>{formatCount(sumSrsCards(systems), "карточка", "карточки", "карточек")}</strong>
+      </header>
+
+      {systems.length === 0 ? (
+        <p className="muted">Карточки появятся после первого завершённого урока.</p>
+      ) : (
+        systems.map((system) => (
+          <div className="srs-spread-system" key={system.srsSystemId}>
+            <div className="srs-spread-system-heading">
+              <h3>{system.srsSystemTitle}</h3>
+              <span>{system.totalCards}</span>
+            </div>
+            <div className="srs-spread-scroll">
+              <table aria-label={`Распределение карточек: ${system.srsSystemTitle}`}>
+                <thead>
+                  <tr>
+                    <th scope="col">Этап</th>
+                    <th scope="col">Компоненты</th>
+                    <th scope="col">Кандзи</th>
+                    <th scope="col">Слова</th>
+                    <th scope="col">Фразы</th>
+                    <th scope="col">Всего</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {system.stages.map((stage) => (
+                    <tr data-testid="srs-spread-stage" key={stage.stageIndex}>
+                      <th scope="row">
+                        <span
+                          className={
+                            stage.isBurned ? "srs-stage-marker is-burned" : "srs-stage-marker"
+                          }
+                        />
+                        {formatSrsStageName(stage.name)}
+                      </th>
+                      <td>{stage.cardsByItemType.component}</td>
+                      <td>{stage.cardsByItemType.kanji}</td>
+                      <td>{stage.cardsByItemType.word}</td>
+                      <td>{stage.cardsByItemType.sentence}</td>
+                      <td className="srs-spread-total">{stage.totalCards}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))
+      )}
+    </section>
+  );
+}
+
+function sumSrsCards(systems: DashboardDto["srsStageSpread"]): number {
+  return systems.reduce((sum, system) => sum + system.totalCards, 0);
+}
+
+function formatSrsStageName(name: string): string {
+  const labels: Readonly<Record<string, string>> = {
+    "Apprentice 1": "Ученик 1",
+    "Apprentice 2": "Ученик 2",
+    "Apprentice 3": "Ученик 3",
+    "Apprentice 4": "Ученик 4",
+    "Guru 1": "Знаток 1",
+    "Guru 2": "Знаток 2",
+    Master: "Мастер",
+    Enlightened: "Просветлённый",
+    Burned: "Закреплено",
+  };
+
+  return labels[name] ?? name;
 }
 
 function formatCandidateTranslation(candidate: DashboardDto["leechCandidates"][number]["item"]) {
