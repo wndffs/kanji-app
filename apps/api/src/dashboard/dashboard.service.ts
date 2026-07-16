@@ -31,6 +31,7 @@ import {
   type DashboardLeechSignalRecord,
   type DashboardLessonItemRecord,
   type DashboardLessonProgressRecord,
+  type DashboardRecentItemRecord,
   type DashboardReviewResult,
   type DashboardReviewResultCountRecord,
   type DashboardSrsStateRecord,
@@ -41,6 +42,8 @@ const FORECAST_HORIZON_DAYS = 7;
 const RECENT_REVIEW_STATS_DAYS = 7;
 const LEECH_RECENT_REVIEW_DAYS = 14;
 const MAX_DASHBOARD_LEECH_CANDIDATES = 5;
+const MAX_RECENT_ACTIVITY_ITEMS = 5;
+const RECENT_MISTAKE_DAYS = 30;
 const DEFAULT_DAILY_LESSON_LIMIT = 10;
 const DEFAULT_REVIEW_BUDGET = 100;
 
@@ -78,6 +81,20 @@ export class DashboardService {
     ]);
     const displayMode = user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE;
     const leechCandidates = toLeechCandidatesDto(leechSignals, displayMode);
+    const availableLessonItems = findAvailableLessonItems(lessonItems, lessonProgress);
+    const availableItemIds = new Set(availableLessonItems.map((item) => item.id));
+    const [recentMistakes, recentAvailableLessons, recentBurned] = await Promise.all([
+      this.dashboardRepository.listRecentMistakeItems(
+        user.id,
+        addDays(now, -RECENT_MISTAKE_DAYS),
+        MAX_RECENT_ACTIVITY_ITEMS,
+      ),
+      this.dashboardRepository.listAvailableLessonItems(
+        availableLessonItems.map((item) => item.id),
+        MAX_RECENT_ACTIVITY_ITEMS,
+      ),
+      this.dashboardRepository.listRecentBurnedItems(user.id, MAX_RECENT_ACTIVITY_ITEMS),
+    ]);
 
     return {
       user: {
@@ -94,15 +111,17 @@ export class DashboardService {
         leechCandidates: leechCandidates.length,
       },
       currentCourse:
-        currentCourse === null
-          ? null
-          : toCurrentCourseDto(currentCourse, lessonItems, lessonProgress),
+        currentCourse === null ? null : toCurrentCourseDto(currentCourse, availableItemIds),
       workload: toWorkloadDto(user, lessonProgress, forecastStates, dueReviews, now),
       reviewForecast: toReviewForecastDto(forecastStates, now, user.settings.timezone),
       srsStageSpread: toSrsStageSpreadDto(srsStageSpread),
       leechCandidates: leechCandidates.slice(0, MAX_DASHBOARD_LEECH_CANDIDATES),
       recentReviewStats: toRecentReviewStatsDto(recentReviewCounts, recentSince),
-      recentItems: [],
+      recentActivity: {
+        mistakes: toRecentItemsDto(recentMistakes, displayMode),
+        availableLessons: toRecentItemsDto(recentAvailableLessons, displayMode),
+        burned: toRecentItemsDto(recentBurned, displayMode),
+      },
     };
   }
 }
@@ -131,14 +150,47 @@ function sumItemTypeCards(
   return counts.component + counts.kanji + counts.word + counts.sentence;
 }
 
+function toRecentItemsDto(
+  records: readonly DashboardRecentItemRecord[],
+  displayMode: TranslationDisplayMode,
+): DashboardDto["recentActivity"]["mistakes"] {
+  return records.map((record) => {
+    const item = record.item;
+    const stage = record.srs?.stages.find(
+      (candidate) => candidate.stageIndex === record.srs?.stageIndex,
+    );
+
+    return {
+      occurredAt: record.occurredAt?.toISOString() ?? null,
+      item: {
+        id: item.id,
+        itemType: item.itemType,
+        slug: `${item.itemType}:${item.japanese}`,
+        japanese: item.japanese,
+        reading: item.reading,
+        translations: toTranslationBundle(item.translations, displayMode),
+        level: item.level,
+        jlptLevel: item.jlptLevel,
+        srs:
+          record.srs === null
+            ? null
+            : {
+                stageIndex: record.srs.stageIndex,
+                stageName: stage?.name ?? `Stage ${record.srs.stageIndex}`,
+                availableAt: record.srs.availableAt?.toISOString() ?? null,
+                burnedAt: record.srs.burnedAt?.toISOString() ?? null,
+                wrongCount: record.srs.wrongCount,
+                correctStreak: record.srs.correctStreak,
+              },
+      },
+    };
+  });
+}
+
 function toCurrentCourseDto(
   course: DashboardCourseProgressRecord,
-  lessonItems: readonly DashboardLessonItemRecord[],
-  lessonProgress: readonly DashboardLessonProgressRecord[],
+  availableItemIds: ReadonlySet<string>,
 ): NonNullable<DashboardDto["currentCourse"]> {
-  const availableItemIds = new Set(
-    findAvailableLessonItems(lessonItems, lessonProgress).map((item) => item.id),
-  );
   const levelProgress = findCurrentLevelProgress(course.levels, availableItemIds);
 
   return {

@@ -510,7 +510,13 @@ function buildDashboard(state: MvpApiState): DashboardDto {
       accuracy: state.reviewAnswered ? 1 : null,
     },
     srsStageSpread: [],
-    recentItems: state.lessonCompleted ? [buildStarterItemSummary(state)] : [],
+    recentActivity: {
+      mistakes: [],
+      availableLessons: state.lessonCompleted
+        ? []
+        : [{ occurredAt: null, item: buildStarterItemSummary(state) }],
+      burned: [],
+    },
   };
 }
 

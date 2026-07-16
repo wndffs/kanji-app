@@ -32,8 +32,12 @@ type PracticeProgress = {
 
 const INITIAL_PROGRESS: PracticeProgress = { answered: 0, accepted: 0, missed: 0 };
 
-export function PracticeClient() {
-  const [source, setSource] = useState<PracticeSource>("recent-mistakes");
+export function PracticeClient({
+  initialSource = "recent-mistakes",
+}: {
+  readonly initialSource?: PracticeSource;
+}) {
+  const [source, setSource] = useState<PracticeSource>(initialSource);
   const [queueState, setQueueState] = useState<QueueState>({ status: "loading" });
   const [isPracticing, setIsPracticing] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);

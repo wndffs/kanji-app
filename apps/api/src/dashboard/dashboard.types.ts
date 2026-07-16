@@ -102,3 +102,16 @@ export type DashboardLeechSignalRecord = {
   readonly stageDropMagnitude: number;
   readonly item: DashboardLeechItemRecord;
 };
+
+export type DashboardRecentItemRecord = {
+  readonly occurredAt: Date | null;
+  readonly item: DashboardLeechItemRecord;
+  readonly srs: {
+    readonly stageIndex: number;
+    readonly availableAt: Date | null;
+    readonly burnedAt: Date | null;
+    readonly wrongCount: number;
+    readonly correctStreak: number;
+    readonly stages: readonly SrsStage[];
+  } | null;
+};

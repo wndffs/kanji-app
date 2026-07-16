@@ -15,13 +15,12 @@ test.describe("optional practice", () => {
     await signIn(page);
     await mockPracticeApi(page);
 
-    await page.goto("/practice");
+    await page.goto("/practice?source=burned");
 
     await expect(page.getByRole("heading", { name: "Практика" })).toBeVisible();
     await expect(page.getByText("Карточек: 1. SRS и расписание не изменяются.")).toBeVisible();
     await expect(page.getByText("学")).toBeVisible();
 
-    await page.getByRole("tab", { name: "Сожжённые" }).click();
     await expect(page.getByRole("tab", { name: "Сожжённые" })).toHaveAttribute(
       "aria-selected",
       "true",

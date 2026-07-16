@@ -1,5 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
+import { type ItemKind, type ItemSummary } from "@kanji-srs/shared";
+
 const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
@@ -190,7 +192,26 @@ test.describe("dashboard smoke", () => {
               ],
             },
           ],
-          recentItems: [],
+          recentActivity: {
+            mistakes: [
+              {
+                occurredAt: "2026-06-24T10:00:00.000Z",
+                item: buildRecentDashboardItem("recent-mistake", "kanji", "困", "трудность"),
+              },
+            ],
+            availableLessons: [
+              {
+                occurredAt: null,
+                item: buildRecentDashboardItem("available-word", "word", "一つ", "один предмет"),
+              },
+            ],
+            burned: [
+              {
+                occurredAt: "2026-06-23T10:00:00.000Z",
+                item: buildRecentDashboardItem("burned-component", "component", "口", "рот"),
+              },
+            ],
+          },
         },
       });
     });
@@ -214,6 +235,13 @@ test.describe("dashboard smoke", () => {
     await expect(page.getByLabel("Текущий курс")).toHaveValue("course-1");
     await expect(page.getByTestId("level-progress-type")).toHaveCount(3);
     await expect(page.getByTestId("level-progress-type").nth(1)).toContainText("Кандзи");
+    await expect(page.getByTestId("recent-mistakes-item")).toContainText("困");
+    await expect(page.getByTestId("recent-available-item")).toContainText("一つ");
+    await expect(page.getByTestId("recent-burned-item")).toContainText("口");
+    await expect(page.getByRole("link", { name: "Практиковать" }).first()).toHaveAttribute(
+      "href",
+      "/practice?source=recent-mistakes",
+    );
     await expect(page.getByRole("main").getByRole("link", { name: "Практика" })).toHaveAttribute(
       "href",
       "/practice",
@@ -323,6 +351,31 @@ function currentCourseTitle(courseId: string): string {
   return courseId === "main-course" ? "Основной курс" : "Стартовый курс";
 }
 
+function buildRecentDashboardItem(
+  id: string,
+  itemType: ItemKind,
+  japanese: string,
+  translation: string,
+): ItemSummary {
+  return {
+    id,
+    itemType,
+    slug: `${itemType}:${japanese}`,
+    japanese,
+    reading: null,
+    translations: {
+      displayMode: "ru-en",
+      primaryRu: translation,
+      primaryEn: translation,
+      ru: [{ locale: "ru-RU", text: translation, isPrimary: true }],
+      en: [{ locale: "en-US", text: translation, isPrimary: true }],
+    },
+    level: 1,
+    jlptLevel: null,
+    srs: null,
+  };
+}
+
 function buildMinimalDashboard(courseId: string, courseTitle: string) {
   return {
     user: {
@@ -381,7 +434,11 @@ function buildMinimalDashboard(courseId: string, courseTitle: string) {
       accuracy: null,
     },
     srsStageSpread: [],
-    recentItems: [],
+    recentActivity: {
+      mistakes: [],
+      availableLessons: [],
+      burned: [],
+    },
   };
 }
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { type CourseListResponse, type DashboardDto } from "@kanji-srs/shared";
+import { type CourseListResponse, type DashboardDto, type ItemSummary } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
 import { ApiError, getCourses, getDashboard, selectCurrentCourse } from "../../lib/api-client";
@@ -277,6 +277,8 @@ function DashboardView({
 
       <SrsStageSpreadPanel systems={dashboard.srsStageSpread} />
 
+      <RecentActivityPanel activity={dashboard.recentActivity} timezone={dashboard.user.timezone} />
+
       <div className="dashboard-layout">
         <section className="panel">
           <h2>Курс</h2>
@@ -384,7 +386,7 @@ function DashboardView({
                     <Link className="inline-link" href={`/items/${candidate.item.id}`}>
                       <JapaneseText>{candidate.item.japanese}</JapaneseText>
                     </Link>
-                    <small>{formatCandidateTranslation(candidate.item)}</small>
+                    <small>{formatItemTranslation(candidate.item)}</small>
                   </div>
                   <dl>
                     <div>
@@ -665,8 +667,107 @@ function formatSrsStageName(name: string): string {
   return labels[name] ?? name;
 }
 
-function formatCandidateTranslation(candidate: DashboardDto["leechCandidates"][number]["item"]) {
-  const translations = candidate.translations;
+function RecentActivityPanel({
+  activity,
+  timezone,
+}: {
+  readonly activity: DashboardDto["recentActivity"];
+  readonly timezone: string;
+}) {
+  const groups = [
+    {
+      key: "mistakes",
+      title: "Недавние ошибки",
+      empty: "За последние 30 дней ошибок нет.",
+      href: "/practice?source=recent-mistakes",
+      action: "Практиковать",
+      meta: "Ошибка",
+      items: activity.mistakes,
+    },
+    {
+      key: "available",
+      title: "Новые уроки",
+      empty: "Новых доступных материалов пока нет.",
+      href: "/lessons",
+      action: "К урокам",
+      meta: "Доступно",
+      items: activity.availableLessons,
+    },
+    {
+      key: "burned",
+      title: "Недавно закреплено",
+      empty: "Закреплённых материалов пока нет.",
+      href: "/practice?source=burned",
+      action: "Практиковать",
+      meta: "Закреплено",
+      items: activity.burned,
+    },
+  ] as const;
+
+  return (
+    <section aria-labelledby="recent-activity-heading" className="panel recent-activity-panel">
+      <div>
+        <span className="eyebrow">Материалы</span>
+        <h2 id="recent-activity-heading">Последние изменения</h2>
+      </div>
+      <div className="recent-activity-grid">
+        {groups.map((group) => (
+          <section className="recent-activity-group" key={group.key}>
+            <header>
+              <h3>{group.title}</h3>
+              <Link className="inline-link" href={group.href}>
+                {group.action}
+              </Link>
+            </header>
+            {group.items.length === 0 ? (
+              <p className="muted">{group.empty}</p>
+            ) : (
+              <ul className="recent-activity-list">
+                {group.items.map((record) => (
+                  <li data-testid={`recent-${group.key}-item`} key={record.item.id}>
+                    <div>
+                      <span className="eyebrow">{formatItemType(record.item.itemType)}</span>
+                      <Link className="inline-link" href={`/items/${record.item.id}`}>
+                        <JapaneseText>{record.item.japanese}</JapaneseText>
+                      </Link>
+                      <small>{formatItemTranslation(record.item)}</small>
+                    </div>
+                    <span>{formatRecentActivityMeta(group.meta, record.occurredAt, timezone)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function formatRecentActivityMeta(
+  label: string,
+  occurredAt: string | null,
+  timezone: string,
+): string {
+  if (occurredAt === null) {
+    return `${label} сейчас`;
+  }
+
+  try {
+    const date = new Intl.DateTimeFormat("ru-RU", {
+      timeZone: timezone,
+      day: "numeric",
+      month: "short",
+    }).format(new Date(occurredAt));
+
+    return `${label} ${date}`;
+  } catch {
+    return label;
+  }
+}
+
+function formatItemTranslation(item: ItemSummary) {
+  const translations = item.translations;
   const parts = [translations.primaryRu, translations.primaryEn].filter(
     (part): part is string => part !== null,
   );

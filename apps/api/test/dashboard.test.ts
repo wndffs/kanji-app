@@ -13,6 +13,7 @@ import {
   type DashboardLeechSignalRecord,
   type DashboardLessonItemRecord,
   type DashboardLessonProgressRecord,
+  type DashboardRecentItemRecord,
   type DashboardReviewResult,
   type DashboardReviewResultCountRecord,
   type DashboardSrsStateRecord,
@@ -137,6 +138,48 @@ describe("PrismaDashboardRepository", () => {
       where: { userId: "user-1", learningCard: { learningItem: { kind: "KANJI" } } },
     });
   });
+
+  it("hydrates available lessons in queue order", async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        id: "item-second",
+        kind: "COMPONENT",
+        targetType: "COMPONENT",
+        targetId: "target-second",
+        levelHint: 1,
+      },
+      {
+        id: "item-first",
+        kind: "COMPONENT",
+        targetType: "COMPONENT",
+        targetId: "target-first",
+        levelHint: 1,
+      },
+    ]);
+    const repository = new PrismaDashboardRepository({
+      db: {
+        learningItem: { findMany },
+        component: {
+          findUnique: vi.fn().mockImplementation(({ where }: { where: { id: string } }) => ({
+            symbol: where.id === "target-first" ? "一" : "口",
+            meaningRu: where.id,
+            meaningEn: where.id,
+            sourceKind: "PROJECT_AUTHORED",
+          })),
+        },
+      },
+    } as never);
+
+    const records = await repository.listAvailableLessonItems(["item-first", "item-second"], 5);
+
+    expect(records.map((record) => record.item.id)).toEqual(["item-first", "item-second"]);
+    expect(records.every((record) => record.srs === null && record.occurredAt === null)).toBe(true);
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ["item-first", "item-second"] }, status: "PUBLISHED" },
+      }),
+    );
+  });
 });
 
 describe("DashboardService", () => {
@@ -196,7 +239,11 @@ describe("DashboardService", () => {
         resurrect: 0,
         accuracy: null,
       },
-      recentItems: [],
+      recentActivity: {
+        mistakes: [],
+        availableLessons: [],
+        burned: [],
+      },
     });
   });
 
@@ -311,6 +358,22 @@ describe("DashboardService", () => {
       wrong: 1,
       typo: 1,
       accuracy: 0.667,
+    });
+    expect(dashboard.recentActivity).toMatchObject({
+      mistakes: [
+        {
+          item: expect.objectContaining({ id: "item-card-leech", japanese: "card-leech" }),
+        },
+      ],
+      availableLessons: [
+        { item: expect.objectContaining({ id: "lesson-a" }) },
+        { item: expect.objectContaining({ id: "lesson-b" }) },
+      ],
+      burned: [
+        {
+          item: expect.objectContaining({ id: "item-card-burned", japanese: "card-burned" }),
+        },
+      ],
     });
   });
 
@@ -528,6 +591,51 @@ class InMemoryDashboardRepository extends DashboardRepository {
     );
   }
 
+  async listRecentMistakeItems(
+    userId: string,
+    _since: Date,
+    limit: number,
+  ): Promise<readonly DashboardRecentItemRecord[]> {
+    return this.states
+      .filter(
+        (state) => state.userId === userId && (state.wrongCount > 0 || state.recentWrongCount > 0),
+      )
+      .slice(0, limit)
+      .map((state) => toRecentItemRecord(state, NOW));
+  }
+
+  async listAvailableLessonItems(
+    itemIds: readonly string[],
+    limit: number,
+  ): Promise<readonly DashboardRecentItemRecord[]> {
+    return itemIds.slice(0, limit).map((itemId) => ({
+      occurredAt: null,
+      item: {
+        id: itemId,
+        itemType: "kanji",
+        japanese: itemId,
+        reading: null,
+        translations: {
+          ru: [{ locale: "ru-RU", text: itemId, isPrimary: true, sourceKind: "curated" }],
+          en: [{ locale: "en-US", text: itemId, isPrimary: true, sourceKind: "curated" }],
+        },
+        level: 1,
+        jlptLevel: "N5",
+      },
+      srs: null,
+    }));
+  }
+
+  async listRecentBurnedItems(
+    userId: string,
+    limit: number,
+  ): Promise<readonly DashboardRecentItemRecord[]> {
+    return this.states
+      .filter((state) => state.userId === userId && state.burnedAt !== null)
+      .slice(0, limit)
+      .map((state) => toRecentItemRecord(state, state.burnedAt));
+  }
+
   async listForecastStates(
     userId: string,
     horizonEnd: Date,
@@ -647,6 +755,24 @@ function countStatesByItemType(
   itemType: DashboardLeechSignalRecord["item"]["itemType"],
 ): number {
   return states.filter((state) => state.item.itemType === itemType).length;
+}
+
+function toRecentItemRecord(
+  state: InMemoryDashboardSrsStateRecord,
+  occurredAt: Date | null,
+): DashboardRecentItemRecord {
+  return {
+    occurredAt,
+    item: state.item,
+    srs: {
+      stageIndex: state.stageIndex,
+      availableAt: state.availableAt,
+      burnedAt: state.burnedAt,
+      wrongCount: state.wrongCount,
+      correctStreak: state.correctStreak,
+      stages: state.stages,
+    },
+  };
 }
 
 function createLessonItem(id: string, sortOrder: number): DashboardLessonItemRecord {

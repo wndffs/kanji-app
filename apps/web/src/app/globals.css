@@ -591,6 +591,92 @@ textarea:focus-visible {
   font-weight: 850;
 }
 
+.recent-activity-panel {
+  gap: 18px;
+}
+
+.recent-activity-panel > div:first-child h2 {
+  margin-top: 4px;
+}
+
+.recent-activity-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--surface-border);
+}
+
+.recent-activity-group {
+  min-width: 0;
+  padding: 16px 18px 0 0;
+}
+
+.recent-activity-group + .recent-activity-group {
+  border-left: 1px solid var(--surface-border);
+  padding-right: 18px;
+  padding-left: 18px;
+}
+
+.recent-activity-group:last-child {
+  padding-right: 0;
+}
+
+.recent-activity-group > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.recent-activity-group h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.recent-activity-group > .muted {
+  margin-bottom: 0;
+}
+
+.recent-activity-list {
+  display: grid;
+  gap: 0;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recent-activity-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--surface-border);
+  padding: 10px 0;
+}
+
+.recent-activity-list li > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+}
+
+.recent-activity-list small {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-activity-list li > span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .forecast-list {
   display: grid;
   gap: 10px;
@@ -3770,6 +3856,7 @@ textarea:focus-visible {
   .dashboard-layout,
   .dashboard-heading,
   .workload-grid,
+  .recent-activity-grid,
   .admin-heading,
   .admin-layout,
   .admin-item-header,
@@ -3792,6 +3879,18 @@ textarea:focus-visible {
   .review-session-header,
   .feedback-header {
     grid-template-columns: 1fr;
+  }
+
+  .recent-activity-group,
+  .recent-activity-group + .recent-activity-group,
+  .recent-activity-group:last-child {
+    border-left: 0;
+    border-top: 1px solid var(--surface-border);
+    padding: 16px 0 0;
+  }
+
+  .recent-activity-group:first-child {
+    border-top: 0;
   }
 
   .lesson-session-tools {

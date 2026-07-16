@@ -498,6 +498,17 @@ export type DashboardSrsStageSpreadDto = {
   }[];
 };
 
+export type DashboardRecentItemDto = {
+  readonly occurredAt: string | null;
+  readonly item: ItemSummary;
+};
+
+export type DashboardRecentActivityDto = {
+  readonly mistakes: readonly DashboardRecentItemDto[];
+  readonly availableLessons: readonly DashboardRecentItemDto[];
+  readonly burned: readonly DashboardRecentItemDto[];
+};
+
 export type DashboardDto = {
   readonly user: {
     readonly id: string;
@@ -523,7 +534,7 @@ export type DashboardDto = {
   readonly srsStageSpread: readonly DashboardSrsStageSpreadDto[];
   readonly leechCandidates: readonly DashboardLeechCandidateDto[];
   readonly recentReviewStats: DashboardRecentReviewStatsDto;
-  readonly recentItems: readonly ItemSummary[];
+  readonly recentActivity: DashboardRecentActivityDto;
 };
 
 export type KanaAssessmentItemDto = {

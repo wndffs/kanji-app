@@ -190,7 +190,11 @@ describe("shared DTO contracts", () => {
         resurrect: 0,
         accuracy: null,
       },
-      recentItems: [],
+      recentActivity: {
+        mistakes: [],
+        availableLessons: [],
+        burned: [],
+      },
     };
 
     expect(dashboard.user.translationDisplayMode).toBe("en");

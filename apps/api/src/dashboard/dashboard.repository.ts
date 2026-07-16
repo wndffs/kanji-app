@@ -8,6 +8,7 @@ import {
   type DashboardLeechSignalRecord,
   type DashboardLessonItemRecord,
   type DashboardLessonProgressRecord,
+  type DashboardRecentItemRecord,
   type DashboardReviewResult,
   type DashboardReviewResultCountRecord,
   type DashboardSrsStateRecord,
@@ -25,6 +26,19 @@ export abstract class DashboardRepository {
     userId: string,
     since: Date,
   ): Promise<readonly DashboardLeechSignalRecord[]>;
+  abstract listRecentMistakeItems(
+    userId: string,
+    since: Date,
+    limit: number,
+  ): Promise<readonly DashboardRecentItemRecord[]>;
+  abstract listAvailableLessonItems(
+    itemIds: readonly string[],
+    limit: number,
+  ): Promise<readonly DashboardRecentItemRecord[]>;
+  abstract listRecentBurnedItems(
+    userId: string,
+    limit: number,
+  ): Promise<readonly DashboardRecentItemRecord[]>;
   abstract listForecastStates(
     userId: string,
     horizonEnd: Date,
@@ -57,6 +71,17 @@ type LeechStateRow = ForecastStateRow & {
   readonly learningCard: {
     readonly learningItem: LeechLearningItemRow;
   };
+};
+
+type ActivityStateRow = ForecastStateRow & {
+  readonly learningCard: {
+    readonly learningItem: LeechLearningItemRow;
+  };
+};
+
+type ActivityReviewAnswerRow = {
+  readonly answeredAt: Date;
+  readonly userSrsState: ActivityStateRow;
 };
 
 type LeechLearningItemRow = {
@@ -197,6 +222,43 @@ type SentenceTargetRow = {
   readonly translationRu: string | null;
   readonly translationEn: string | null;
 };
+
+const dashboardActivityStateSelect = {
+  id: true,
+  learningCardId: true,
+  srsSystemId: true,
+  stageIndex: true,
+  availableAt: true,
+  burnedAt: true,
+  wrongCount: true,
+  correctStreak: true,
+  learningCard: {
+    select: {
+      learningItem: {
+        select: {
+          id: true,
+          kind: true,
+          targetType: true,
+          targetId: true,
+          levelHint: true,
+        },
+      },
+    },
+  },
+  srsSystem: {
+    select: {
+      stages: {
+        select: {
+          stageIndex: true,
+          name: true,
+          intervalMinutes: true,
+          isBurned: true,
+        },
+        orderBy: { stageIndex: "asc" as const },
+      },
+    },
+  },
+} as const;
 
 @Injectable()
 export class PrismaDashboardRepository extends DashboardRepository {
@@ -417,6 +479,108 @@ export class PrismaDashboardRepository extends DashboardRepository {
     }
 
     return records;
+  }
+
+  async listRecentMistakeItems(
+    userId: string,
+    since: Date,
+    limit: number,
+  ): Promise<readonly DashboardRecentItemRecord[]> {
+    if (limit <= 0) {
+      return [];
+    }
+
+    const attempts = (await this.prisma.db.reviewAnswer.findMany({
+      where: {
+        userSrsState: { userId },
+        answeredAt: { gte: since },
+        result: { in: ["WRONG", "REVEAL"] },
+      },
+      select: {
+        answeredAt: true,
+        userSrsState: { select: dashboardActivityStateSelect },
+      },
+      distinct: ["learningCardId"],
+      orderBy: [{ answeredAt: "desc" }, { id: "asc" }],
+      take: limit * 4,
+    })) as readonly ActivityReviewAnswerRow[];
+    const selected = takeDistinctActivityRows(
+      attempts,
+      (attempt) => attempt.userSrsState.learningCard.learningItem.id,
+      limit,
+    );
+
+    return Promise.all(
+      selected.map((attempt) => this.toRecentItemRecord(attempt.userSrsState, attempt.answeredAt)),
+    );
+  }
+
+  async listAvailableLessonItems(
+    itemIds: readonly string[],
+    limit: number,
+  ): Promise<readonly DashboardRecentItemRecord[]> {
+    const orderedIds = [...new Set(itemIds)].slice(0, Math.max(0, limit));
+
+    if (orderedIds.length === 0) {
+      return [];
+    }
+
+    const items = (await this.prisma.db.learningItem.findMany({
+      where: {
+        id: { in: orderedIds },
+        status: "PUBLISHED",
+      },
+      select: {
+        id: true,
+        kind: true,
+        targetType: true,
+        targetId: true,
+        levelHint: true,
+      },
+    })) as readonly LeechLearningItemRow[];
+    const itemById = new Map(items.map((item) => [item.id, item]));
+
+    return Promise.all(
+      orderedIds.flatMap((itemId) => {
+        const item = itemById.get(itemId);
+
+        return item === undefined
+          ? []
+          : [
+              this.toLeechItemRecord(item).then((hydrated) => ({
+                occurredAt: null,
+                item: hydrated,
+                srs: null,
+              })),
+            ];
+      }),
+    );
+  }
+
+  async listRecentBurnedItems(
+    userId: string,
+    limit: number,
+  ): Promise<readonly DashboardRecentItemRecord[]> {
+    if (limit <= 0) {
+      return [];
+    }
+
+    const states = (await this.prisma.db.userSrsState.findMany({
+      where: {
+        userId,
+        burnedAt: { not: null },
+      },
+      select: dashboardActivityStateSelect,
+      orderBy: [{ burnedAt: "desc" }, { id: "asc" }],
+      take: limit * 4,
+    })) as readonly ActivityStateRow[];
+    const selected = takeDistinctActivityRows(
+      states,
+      (state) => state.learningCard.learningItem.id,
+      limit,
+    );
+
+    return Promise.all(selected.map((state) => this.toRecentItemRecord(state, state.burnedAt)));
   }
 
   async listForecastStates(
@@ -646,6 +810,24 @@ export class PrismaDashboardRepository extends DashboardRepository {
     return rows;
   }
 
+  private async toRecentItemRecord(
+    state: ActivityStateRow,
+    occurredAt: Date | null,
+  ): Promise<DashboardRecentItemRecord> {
+    return {
+      occurredAt,
+      item: await this.toLeechItemRecord(state.learningCard.learningItem),
+      srs: {
+        stageIndex: state.stageIndex,
+        availableAt: state.availableAt,
+        burnedAt: state.burnedAt,
+        wrongCount: state.wrongCount,
+        correctStreak: state.correctStreak,
+        stages: state.srsSystem.stages,
+      },
+    };
+  }
+
   private async toLeechItemRecord(
     item: LeechLearningItemRow,
   ): Promise<DashboardLeechSignalRecord["item"]> {
@@ -793,6 +975,32 @@ export class PrismaDashboardRepository extends DashboardRepository {
       jlptLevel: null,
     };
   }
+}
+
+function takeDistinctActivityRows<T>(
+  rows: readonly T[],
+  getItemId: (row: T) => string,
+  limit: number,
+): readonly T[] {
+  const selected: T[] = [];
+  const seenItemIds = new Set<string>();
+
+  for (const row of rows) {
+    const itemId = getItemId(row);
+
+    if (seenItemIds.has(itemId)) {
+      continue;
+    }
+
+    seenItemIds.add(itemId);
+    selected.push(row);
+
+    if (selected.length >= limit) {
+      break;
+    }
+  }
+
+  return selected;
 }
 
 function addSrsSpreadCounts(
