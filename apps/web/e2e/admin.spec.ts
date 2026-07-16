@@ -1,6 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 
 import {
+  type AdminApplyMainCourseEnrollmentRolloutRequest,
+  type AdminApplyMainCourseEnrollmentRolloutResponse,
   type AdminApplyCourseAllocationRequest,
   type AdminApplyCourseAllocationResponse,
   type AdminApproveImportedTranslationRequest,
@@ -422,7 +424,9 @@ test.describe("admin curation", () => {
     );
   });
 
-  test("admin confirms publication without changing learner enrollment", async ({ page }) => {
+  test("admin confirms publication and add-only rollout without changing progress", async ({
+    page,
+  }) => {
     await signIn(page, "ADMIN");
     await mockAdminApi(page, { mainCourseReadyToPublish: true });
 
@@ -448,6 +452,23 @@ test.describe("admin curation", () => {
     await expect(rollout).toContainText("Preview готов");
     await expect(rollout).toContainText("Новые зачисления");
     await expect(rollout).toContainText("Демо-курс");
+    const rolloutButton = rollout.getByTestId("admin-apply-course-enrollment-rollout");
+    await expect(rolloutButton).toHaveText("Зачислить 2");
+    await rolloutButton.click();
+
+    const rolloutConfirmation = page.getByRole("dialog", {
+      name: "Зачислить учащихся на основной курс?",
+    });
+    await expect(rolloutConfirmation).toContainText("Новых зачислений: 2");
+    await expect(rolloutConfirmation).toContainText("учебный прогресс сохранится");
+    await expect(rolloutConfirmation.getByRole("button", { name: "Отмена" })).toBeFocused();
+    await rolloutConfirmation.getByRole("button", { name: "Зачислить", exact: true }).click();
+
+    await expect(
+      page.getByText("Основной курс добавлен учащимся: 2. Демо-курс и прогресс сохранены."),
+    ).toBeVisible();
+    await expect(rolloutButton).toHaveText("Все зачислены");
+    await expect(rolloutButton).toBeDisabled();
   });
 });
 
@@ -496,6 +517,7 @@ async function mockAdminApi(
   let coursePlacementLevelId = "course-level-1";
   let allocationApplied = false;
   let mainCoursePublished = false;
+  let enrollmentRolloutApplied = false;
   const secondItem = buildSecondAdminItem();
   const assignedPlanTargets = new Set<string>();
   let remainingEnqueueConflicts = options.enqueueConflictOnce === true ? 1 : 0;
@@ -811,31 +833,45 @@ async function mockAdminApi(
   await page.route(
     `${API_BASE_URL}/admin/curriculum/main-course/enrollment-rollout-preview`,
     async (route) => {
-      const readyToApply = mainCoursePublished && options.mainCourseReadyToPublish === true;
-      const response: AdminMainCourseEnrollmentRolloutPreviewResponse = {
-        policyVersion: "main-course-enrollment-rollout-v1",
-        rolloutVersion: mainCoursePublished
-          ? "main-course-enrollment-rollout:published"
-          : "main-course-enrollment-rollout:draft",
-        readinessVersion: mainCoursePublished
-          ? "main-course-readiness:published"
-          : "main-course-readiness:test",
-        generatedAt: "2026-07-15T12:02:00.000Z",
-        readyToApply,
-        strategy: "add-only",
-        course: {
-          id: "course-main",
-          slug: "japanese-ru-n2",
-          title: "Японский: кандзи и лексика до N2",
-          status: mainCoursePublished ? "published" : "draft",
-        },
-        summary: {
-          learnerAccounts: 3,
-          newEnrollments: 2,
-          existingActiveEnrollments: 1,
-          preservedInactiveEnrollments: 0,
-          activeStarterEnrollments: 3,
-        },
+      await route.fulfill({
+        json: buildMockEnrollmentRolloutPreview({
+          applied: enrollmentRolloutApplied,
+          published: mainCoursePublished,
+          readyToApply: mainCoursePublished && options.mainCourseReadyToPublish === true,
+        }),
+      });
+    },
+  );
+
+  await page.route(
+    `${API_BASE_URL}/admin/curriculum/main-course/enrollment-rollout`,
+    async (route) => {
+      const body = route.request().postDataJSON() as AdminApplyMainCourseEnrollmentRolloutRequest;
+      const currentPreview = buildMockEnrollmentRolloutPreview({
+        applied: enrollmentRolloutApplied,
+        published: mainCoursePublished,
+        readyToApply: mainCoursePublished && options.mainCourseReadyToPublish === true,
+      });
+
+      if (!currentPreview.readyToApply || body.rolloutVersion !== currentPreview.rolloutVersion) {
+        await route.fulfill({
+          status: 409,
+          json: { message: "Enrollment rollout preview changed." },
+        });
+        return;
+      }
+
+      const createdEnrollments = currentPreview.summary.newEnrollments;
+      enrollmentRolloutApplied = true;
+      const response: AdminApplyMainCourseEnrollmentRolloutResponse = {
+        appliedRolloutVersion: body.rolloutVersion,
+        appliedAt: "2026-07-16T09:00:00.000Z",
+        createdEnrollments,
+        preview: buildMockEnrollmentRolloutPreview({
+          applied: enrollmentRolloutApplied,
+          published: mainCoursePublished,
+          readyToApply: true,
+        }),
       };
 
       await route.fulfill({ json: response });
@@ -1478,6 +1514,42 @@ function buildMockPublicationReadiness({
           : "В основном курсе размещено слов: 1 из 8000.",
       },
     ],
+  };
+}
+
+function buildMockEnrollmentRolloutPreview({
+  applied,
+  published,
+  readyToApply,
+}: {
+  readonly applied: boolean;
+  readonly published: boolean;
+  readonly readyToApply: boolean;
+}): AdminMainCourseEnrollmentRolloutPreviewResponse {
+  return {
+    policyVersion: "main-course-enrollment-rollout-v1",
+    rolloutVersion: applied
+      ? "main-course-enrollment-rollout:applied"
+      : published
+        ? "main-course-enrollment-rollout:published"
+        : "main-course-enrollment-rollout:draft",
+    readinessVersion: published ? "main-course-readiness:published" : "main-course-readiness:test",
+    generatedAt: "2026-07-16T08:59:00.000Z",
+    readyToApply,
+    strategy: "add-only",
+    course: {
+      id: "course-main",
+      slug: "japanese-ru-n2",
+      title: "Японский: кандзи и лексика до N2",
+      status: published ? "published" : "draft",
+    },
+    summary: {
+      learnerAccounts: 3,
+      newEnrollments: applied ? 0 : 2,
+      existingActiveEnrollments: applied ? 3 : 1,
+      preservedInactiveEnrollments: 0,
+      activeStarterEnrollments: 3,
+    },
   };
 }
 

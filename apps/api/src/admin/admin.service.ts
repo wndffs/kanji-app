@@ -10,6 +10,7 @@ import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese"
 import {
   ADMIN_CANDIDATE_PLAN_COVERAGE_FILTERS,
   type AdminApplyCourseAllocationResponse,
+  type AdminApplyMainCourseEnrollmentRolloutResponse,
   type AdminCandidatePlanCoverageFilter,
   type AdminContentStatus,
   type AdminCourseAllocationPreviewResponse,
@@ -46,6 +47,8 @@ import {
   CoursePlacementItemNotPublishedError,
   CoursePlacementSelectionChangedError,
   MainCoursePublicationBlockedError,
+  MainCourseEnrollmentRolloutBlockedError,
+  MainCourseEnrollmentRolloutChangedError,
   MainCourseReadinessChangedError,
   PrerequisiteSelectionChangedError,
 } from "./admin.repository";
@@ -294,6 +297,41 @@ export class AdminService {
     }
 
     return preview;
+  }
+
+  async applyMainCourseEnrollmentRollout(
+    body: unknown,
+  ): Promise<AdminApplyMainCourseEnrollmentRolloutResponse> {
+    const record = parseRecord(body, "Request body");
+    const rolloutVersion = parseRequiredString(record.rolloutVersion, "rolloutVersion", {
+      maxLength: 128,
+    });
+
+    try {
+      const result = await this.adminRepository.applyMainCourseEnrollmentRollout(rolloutVersion);
+
+      if (result === null) {
+        throw new NotFoundException(
+          "Main structured course not found. Run the current database seed first.",
+        );
+      }
+
+      return result;
+    } catch (error: unknown) {
+      if (error instanceof MainCourseEnrollmentRolloutChangedError) {
+        throw new ConflictException(
+          "Enrollment rollout preview changed. Refresh it and confirm the current version.",
+        );
+      }
+
+      if (error instanceof MainCourseEnrollmentRolloutBlockedError) {
+        throw new ConflictException(
+          "Publish a readiness-approved main course before applying learner enrollment rollout.",
+        );
+      }
+
+      throw error;
+    }
   }
 
   async getCandidatePlan(query: unknown = {}): Promise<AdminCurriculumCandidatePlanResponse> {

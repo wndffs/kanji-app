@@ -1,14 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { type AdminMainCourseEnrollmentRolloutPreviewResponse } from "@kanji-srs/shared";
 
-import { getAdminMainCourseEnrollmentRolloutPreview } from "../../lib/api-client";
+import {
+  applyAdminMainCourseEnrollmentRollout,
+  getAdminMainCourseEnrollmentRolloutPreview,
+} from "../../lib/api-client";
 
 type CourseEnrollmentRolloutPanelProps = {
   readonly token: string;
   readonly refreshRevision: number;
+  readonly disabled: boolean;
+  readonly onApplied: (createdEnrollments: number) => void;
 };
 
 type RolloutState =
@@ -22,13 +27,20 @@ type RolloutState =
 export function CourseEnrollmentRolloutPanel({
   token,
   refreshRevision,
+  disabled,
+  onApplied,
 }: CourseEnrollmentRolloutPanelProps) {
   const [state, setState] = useState<RolloutState>({ status: "loading" });
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
 
     setState({ status: "loading" });
+    setConfirmationOpen(false);
+    setApplyError(null);
 
     void getAdminMainCourseEnrollmentRolloutPreview(token)
       .then((preview) => {
@@ -51,6 +63,39 @@ export function CourseEnrollmentRolloutPanel({
     };
   }, [refreshRevision, token]);
 
+  async function handleApply(): Promise<void> {
+    if (state.status !== "ready" || applying || disabled) {
+      return;
+    }
+
+    setApplying(true);
+    setApplyError(null);
+
+    try {
+      const response = await applyAdminMainCourseEnrollmentRollout(token, {
+        rolloutVersion: state.preview.rolloutVersion,
+      });
+
+      setState({ status: "ready", preview: response.preview });
+      setConfirmationOpen(false);
+      onApplied(response.createdEnrollments);
+    } catch (error: unknown) {
+      setConfirmationOpen(false);
+      setApplyError(
+        error instanceof Error ? error.message : "Не удалось зачислить учащихся на основной курс.",
+      );
+
+      try {
+        const preview = await getAdminMainCourseEnrollmentRolloutPreview(token);
+        setState({ status: "ready", preview });
+      } catch {
+        // Keep the last valid preview visible when a refresh is temporarily unavailable.
+      }
+    } finally {
+      setApplying(false);
+    }
+  }
+
   if (state.status === "loading") {
     return (
       <section className="panel" data-testid="admin-course-enrollment-rollout">
@@ -71,6 +116,8 @@ export function CourseEnrollmentRolloutPanel({
   }
 
   const { preview } = state;
+  const canApply =
+    !disabled && !applying && preview.readyToApply && preview.summary.newEnrollments > 0;
 
   return (
     <section className="panel admin-course-rollout" data-testid="admin-course-enrollment-rollout">
@@ -116,15 +163,129 @@ export function CourseEnrollmentRolloutPanel({
 
       <div className="admin-allocation-action">
         <div>
-          <strong>Только просмотр</strong>
+          <strong>Подтверждённое add-only зачисление</strong>
           <span>
-            Будущее применение добавит только отсутствующие зачисления. Демо-курс, неактивные
-            статусы и весь SRS-прогресс останутся без изменений.
+            Добавятся только отсутствующие зачисления. Демо-курс, неактивные статусы и весь
+            SRS-прогресс останутся без изменений.
           </span>
         </div>
-        <strong>{preview.strategy}</strong>
+        <button
+          className="primary-action"
+          data-testid="admin-apply-course-enrollment-rollout"
+          disabled={!canApply}
+          onClick={() => {
+            setApplyError(null);
+            setConfirmationOpen(true);
+          }}
+          type="button"
+        >
+          {preview.summary.newEnrollments === 0
+            ? "Все зачислены"
+            : `Зачислить ${formatNumber(preview.summary.newEnrollments)}`}
+        </button>
       </div>
+      {applyError === null ? null : (
+        <p className="form-error" role="alert">
+          {applyError}
+        </p>
+      )}
+      {confirmationOpen ? (
+        <CourseEnrollmentRolloutConfirmationDialog
+          busy={applying}
+          count={preview.summary.newEnrollments}
+          onCancel={() => setConfirmationOpen(false)}
+          onConfirm={() => void handleApply()}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function CourseEnrollmentRolloutConfirmationDialog({
+  busy,
+  count,
+  onCancel,
+  onConfirm,
+}: {
+  readonly busy: boolean;
+  readonly count: number;
+  readonly onCancel: () => void;
+  readonly onConfirm: () => void;
+}) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    cancelRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !busy) {
+        onCancel();
+        return;
+      }
+
+      if (event.key !== "Tab" || dialogRef.current === null) {
+        return;
+      }
+
+      const buttons = [
+        ...dialogRef.current.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
+      ];
+      const firstButton = buttons[0];
+      const lastButton = buttons.at(-1);
+
+      if (firstButton === undefined || lastButton === undefined) {
+        return;
+      }
+
+      if (event.shiftKey && document.activeElement === firstButton) {
+        event.preventDefault();
+        lastButton.focus();
+      } else if (!event.shiftKey && document.activeElement === lastButton) {
+        event.preventDefault();
+        firstButton.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [busy, onCancel]);
+
+  return (
+    <div className="dialog-backdrop">
+      <section
+        aria-describedby="course-enrollment-rollout-confirmation-description"
+        aria-labelledby="course-enrollment-rollout-confirmation-title"
+        aria-modal="true"
+        className="confirmation-dialog"
+        ref={dialogRef}
+        role="dialog"
+      >
+        <h2 id="course-enrollment-rollout-confirmation-title">
+          Зачислить учащихся на основной курс?
+        </h2>
+        <p id="course-enrollment-rollout-confirmation-description">
+          Новых зачислений: {formatNumber(count)}. Демо-курс останется активным, статусы paused и
+          completed не изменятся, весь учебный прогресс сохранится.
+        </p>
+        <div className="dialog-actions">
+          <button
+            className="secondary-action"
+            disabled={busy}
+            onClick={onCancel}
+            ref={cancelRef}
+            type="button"
+          >
+            Отмена
+          </button>
+          <button className="primary-action" disabled={busy} onClick={onConfirm} type="button">
+            {busy ? "Зачисляю..." : "Зачислить"}
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 

@@ -118,7 +118,12 @@ that user has no enrollment row for the course. The API returns aggregate
 counts without learner identities, while its opaque version hashes the full
 ordered learner and enrollment state plus current publication readiness. The
 preview itself performs no writes; applying it and changing registration
-defaults require later explicit decisions.
+defaults require separate explicit decisions. Confirmed application is bound to
+the opaque rollout version and recalculates the full cohort in a serializable
+transaction. It creates only missing active main-course enrollment rows,
+leaving existing active, paused, and completed statuses, starter-course access,
+and all SRS progress unchanged. Registration continues to use the starter demo
+course until another policy is explicitly approved.
 
 The admin scale-readiness report keeps this distinction measurable. It reports
 the remaining publication gap, work already in curation, unassigned imported

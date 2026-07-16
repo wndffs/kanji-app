@@ -274,6 +274,7 @@ in-progress session.
 - `GET /admin/curriculum/main-course/publication-readiness`
 - `POST /admin/curriculum/main-course/publication`
 - `GET /admin/curriculum/main-course/enrollment-rollout-preview`
+- `POST /admin/curriculum/main-course/enrollment-rollout`
 - `GET /admin/curriculum/candidate-plan`
 - `POST /admin/curriculum/candidate-plan/enqueue`
 - `GET /admin/items/review-queue`
@@ -403,6 +404,18 @@ enrollments. User ids and account details are not returned. The opaque
 state, so equal totals with different affected users cannot share a
 confirmation version. This endpoint performs no writes; rollout application
 and default enrollment changes require separate tasks.
+
+`POST /admin/curriculum/main-course/enrollment-rollout` accepts the exact
+`rolloutVersion` from that preview after explicit admin confirmation. A
+serializable transaction recalculates publication readiness and the complete
+learner cohort, rejects stale versions or a no-longer-ready course with `409
+Conflict`, and creates `ACTIVE` main-course enrollments only for learner
+accounts with no enrollment row for that course. Existing active,
+paused, and completed main-course enrollments are preserved, as are all starter
+course enrollments, SRS states, lesson sessions, and review schedules. The
+response reports created rows and includes a fresh preview from the same
+transaction. This operation does not change the default course used for future
+registrations.
 
 `GET /admin/curriculum/candidate-plan` applies the versioned independent
 frequency-and-prerequisite policy to active course work plus unassigned source

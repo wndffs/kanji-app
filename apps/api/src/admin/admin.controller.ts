@@ -116,6 +116,11 @@ export class AdminController {
     return this.adminService.getMainCourseEnrollmentRolloutPreview();
   }
 
+  @Post("curriculum/main-course/enrollment-rollout")
+  applyMainCourseEnrollmentRollout(@Body() body: unknown) {
+    return this.adminService.applyMainCourseEnrollmentRollout(body);
+  }
+
   @Get("curriculum/candidate-plan")
   getCandidatePlan(@Query() query: Record<string, unknown>) {
     return this.adminService.getCandidatePlan(query);

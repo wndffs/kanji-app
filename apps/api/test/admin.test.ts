@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  type AdminApplyMainCourseEnrollmentRolloutResponse,
   type AdminApplyCourseAllocationResponse,
   type AdminCurationItemDto,
   type AdminCourseAllocationPreviewResponse,
@@ -24,6 +25,8 @@ import {
   CourseAllocationPlanChangedError,
   CoursePlacementItemNotPublishedError,
   MainCoursePublicationBlockedError,
+  MainCourseEnrollmentRolloutBlockedError,
+  MainCourseEnrollmentRolloutChangedError,
   MainCourseReadinessChangedError,
   PrismaAdminRepository,
 } from "../src/admin/admin.repository";
@@ -437,6 +440,37 @@ describe("AdminService", () => {
       strategy: "add-only",
       summary: { learnerAccounts: 3, newEnrollments: 2 },
     });
+  });
+
+  it("applies only the confirmed add-only enrollment rollout version", async () => {
+    const repository = new InMemoryAdminRepository();
+    const adminService = new AdminService(repository);
+    repository.mainCourseReadyToPublish = true;
+    repository.mainCoursePublished = true;
+
+    await expect(
+      adminService.applyMainCourseEnrollmentRollout({
+        rolloutVersion: "main-course-enrollment-rollout:published",
+      }),
+    ).resolves.toMatchObject({
+      appliedRolloutVersion: "main-course-enrollment-rollout:published",
+      createdEnrollments: 2,
+      preview: { summary: { newEnrollments: 0, existingActiveEnrollments: 3 } },
+    });
+
+    await expect(
+      adminService.applyMainCourseEnrollmentRollout({
+        rolloutVersion: "main-course-enrollment-rollout:published",
+      }),
+    ).rejects.toThrow("Enrollment rollout preview changed");
+  });
+
+  it("rejects enrollment rollout before the main course is publication-ready", async () => {
+    await expect(
+      new AdminService(new InMemoryAdminRepository()).applyMainCourseEnrollmentRollout({
+        rolloutVersion: "main-course-enrollment-rollout:test",
+      }),
+    ).rejects.toThrow("Publish a readiness-approved main course");
   });
 
   it("returns bounded pages from the deterministic curriculum candidate plan", async () => {
@@ -1638,12 +1672,29 @@ describe("AdminService", () => {
       }),
     };
     const courseLevelItem = { count: vi.fn().mockResolvedValue(0) };
-    const userEnrollment = { updateMany: vi.fn() };
+    const newlyEnrolledUserIds = new Set<string>();
+    const userEnrollment = {
+      createMany: vi
+        .fn()
+        .mockImplementation(async ({ data }: { data: readonly { userId: string }[] }) => {
+          for (const enrollment of data) {
+            newlyEnrolledUserIds.add(enrollment.userId);
+          }
+
+          return { count: data.length };
+        }),
+      updateMany: vi.fn(),
+    };
     const user = {
-      findMany: vi.fn().mockResolvedValue([
+      findMany: vi.fn().mockImplementation(async () => [
         {
           id: "learner-new",
-          enrollments: [{ status: "ACTIVE", course: { slug: "starter-demo" } }],
+          enrollments: [
+            { status: "ACTIVE", course: { slug: "starter-demo" } },
+            ...(newlyEnrolledUserIds.has("learner-new")
+              ? [{ status: "ACTIVE", course: { slug: blueprint.course.slug } }]
+              : []),
+          ],
         },
         {
           id: "learner-active",
@@ -1722,6 +1773,26 @@ describe("AdminService", () => {
       orderBy: { id: "asc" },
     });
     expect(userEnrollment.updateMany).not.toHaveBeenCalled();
+
+    const rollout = await repository.getMainCourseEnrollmentRolloutPreview();
+
+    await expect(
+      repository.applyMainCourseEnrollmentRollout(rollout!.rolloutVersion),
+    ).resolves.toMatchObject({
+      appliedRolloutVersion: rollout!.rolloutVersion,
+      createdEnrollments: 1,
+      preview: {
+        summary: {
+          newEnrollments: 0,
+          existingActiveEnrollments: 2,
+          preservedInactiveEnrollments: 1,
+        },
+      },
+    });
+    expect(userEnrollment.createMany).toHaveBeenCalledWith({
+      data: [{ userId: "learner-new", courseId: "course-main", status: "ACTIVE" }],
+    });
+    expect(userEnrollment.updateMany).not.toHaveBeenCalled();
   });
 
   it("returns a stale-readiness conflict for concurrent course publication writes", async () => {
@@ -1731,6 +1802,15 @@ describe("AdminService", () => {
     await expect(repository.publishMainCourse("main-course-readiness:test")).rejects.toBeInstanceOf(
       MainCourseReadinessChangedError,
     );
+  });
+
+  it("returns a stale-rollout conflict for concurrent enrollment writes", async () => {
+    const transaction = vi.fn().mockRejectedValue({ code: "P2034" });
+    const repository = new PrismaAdminRepository({ db: { $transaction: transaction } } as never);
+
+    await expect(
+      repository.applyMainCourseEnrollmentRollout("main-course-enrollment-rollout:test"),
+    ).rejects.toBeInstanceOf(MainCourseEnrollmentRolloutChangedError);
   });
 
   it("requires non-empty RU and EN accepted answers for translation approval", async () => {
@@ -1797,6 +1877,7 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
   courseAllocationBlocked = false;
   mainCoursePublished = false;
   mainCourseReadyToPublish = false;
+  mainCourseRolloutApplied = false;
   readonly candidatePlanVersionResponses: string[] = [];
   readonly enqueuedCandidateBatches: (readonly AdminCandidatePlanEnqueueItemInput[])[] = [];
   private rejectionRevision = 0;
@@ -2428,7 +2509,9 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
 
     return {
       policyVersion: "main-course-enrollment-rollout-v1",
-      rolloutVersion: `main-course-enrollment-rollout:${readiness.readinessVersion}`,
+      rolloutVersion: this.mainCourseRolloutApplied
+        ? "main-course-enrollment-rollout:applied"
+        : `main-course-enrollment-rollout:${readiness.readinessVersion.replace("main-course-readiness:", "")}`,
       readinessVersion: readiness.readinessVersion,
       generatedAt: "2026-07-15T12:02:00.000Z",
       readyToApply: readiness.readyToPublish && readiness.course.status === "published",
@@ -2436,11 +2519,35 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
       course: readiness.course,
       summary: {
         learnerAccounts: 3,
-        newEnrollments: 2,
-        existingActiveEnrollments: 1,
+        newEnrollments: this.mainCourseRolloutApplied ? 0 : 2,
+        existingActiveEnrollments: this.mainCourseRolloutApplied ? 3 : 1,
         preservedInactiveEnrollments: 0,
         activeStarterEnrollments: 3,
       },
+    };
+  }
+
+  async applyMainCourseEnrollmentRollout(
+    rolloutVersion: string,
+  ): Promise<AdminApplyMainCourseEnrollmentRolloutResponse> {
+    const preview = await this.getMainCourseEnrollmentRolloutPreview();
+
+    if (preview.rolloutVersion !== rolloutVersion) {
+      throw new MainCourseEnrollmentRolloutChangedError();
+    }
+
+    if (!preview.readyToApply) {
+      throw new MainCourseEnrollmentRolloutBlockedError();
+    }
+
+    const createdEnrollments = preview.summary.newEnrollments;
+    this.mainCourseRolloutApplied = true;
+
+    return {
+      appliedRolloutVersion: rolloutVersion,
+      appliedAt: "2026-07-16T09:00:00.000Z",
+      createdEnrollments,
+      preview: await this.getMainCourseEnrollmentRolloutPreview(),
     };
   }
 

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 
 import {
+  type AdminApplyMainCourseEnrollmentRolloutResponse,
   type AdminApplyCourseAllocationResponse,
   type AdminContentStatus,
   type AdminCourseAllocationPreviewResponse,
@@ -52,6 +53,7 @@ import { buildMainCoursePublicationReadiness } from "./main-course-publication-r
 import {
   buildMainCourseEnrollmentRolloutPreview,
   type EnrollmentRolloutStatus,
+  type MainCourseEnrollmentRolloutInput,
 } from "./main-course-enrollment-rollout";
 import {
   type AdminCandidatePlanEnqueueItemInput,
@@ -101,6 +103,9 @@ export abstract class AdminRepository {
     readinessVersion: string,
   ): Promise<AdminPublishMainCourseResponse | null>;
   abstract getMainCourseEnrollmentRolloutPreview(): Promise<AdminMainCourseEnrollmentRolloutPreviewResponse | null>;
+  abstract applyMainCourseEnrollmentRollout(
+    rolloutVersion: string,
+  ): Promise<AdminApplyMainCourseEnrollmentRolloutResponse | null>;
   abstract getCandidatePlanVersion(): Promise<string>;
   abstract getCandidatePlan(): Promise<CurriculumCandidatePlan>;
   abstract enqueueCandidatePlanCandidates(
@@ -143,6 +148,8 @@ export class CourseAllocationPlanChangedError extends Error {}
 export class CourseAllocationBlockedError extends Error {}
 export class MainCourseReadinessChangedError extends Error {}
 export class MainCoursePublicationBlockedError extends Error {}
+export class MainCourseEnrollmentRolloutChangedError extends Error {}
+export class MainCourseEnrollmentRolloutBlockedError extends Error {}
 
 type CourseAllocationReadDatabase = Pick<Prisma.TransactionClient, "course" | "learningItem">;
 type MainCoursePublicationDatabase = Pick<
@@ -150,7 +157,7 @@ type MainCoursePublicationDatabase = Pick<
   "course" | "learningItem" | "courseLevelItem"
 >;
 type MainCourseEnrollmentPreviewDatabase = MainCoursePublicationDatabase &
-  Pick<Prisma.TransactionClient, "user">;
+  Pick<Prisma.TransactionClient, "user" | "userEnrollment">;
 
 type LearningItemRow = {
   readonly id: string;
@@ -1061,9 +1068,87 @@ export class PrismaAdminRepository extends AdminRepository {
     return this.loadMainCourseEnrollmentRolloutPreview(this.prisma.db);
   }
 
+  async applyMainCourseEnrollmentRollout(
+    rolloutVersion: string,
+  ): Promise<AdminApplyMainCourseEnrollmentRolloutResponse | null> {
+    return this.prisma.db
+      .$transaction(
+        async (db) => {
+          const input = await this.loadMainCourseEnrollmentRolloutInput(db);
+
+          if (input === null) {
+            return null;
+          }
+
+          const preview = buildMainCourseEnrollmentRolloutPreview(input);
+
+          if (preview.rolloutVersion !== rolloutVersion) {
+            throw new MainCourseEnrollmentRolloutChangedError();
+          }
+
+          if (!preview.readyToApply) {
+            throw new MainCourseEnrollmentRolloutBlockedError();
+          }
+
+          const newEnrollmentUserIds = input.learners
+            .filter((learner) => learner.mainCourseEnrollmentStatus === null)
+            .map((learner) => learner.userId);
+          let createdEnrollments = 0;
+
+          if (newEnrollmentUserIds.length > 0) {
+            const result = await db.userEnrollment.createMany({
+              data: newEnrollmentUserIds.map((userId) => ({
+                userId,
+                courseId: preview.course.id,
+                status: "ACTIVE" as const,
+              })),
+            });
+            createdEnrollments = result.count;
+
+            if (createdEnrollments !== newEnrollmentUserIds.length) {
+              throw new MainCourseEnrollmentRolloutChangedError();
+            }
+          }
+
+          const appliedPreview = await this.loadMainCourseEnrollmentRolloutPreview(db);
+
+          if (
+            appliedPreview === null ||
+            !appliedPreview.readyToApply ||
+            appliedPreview.summary.newEnrollments !== 0
+          ) {
+            throw new MainCourseEnrollmentRolloutChangedError();
+          }
+
+          return {
+            appliedRolloutVersion: preview.rolloutVersion,
+            appliedAt: new Date().toISOString(),
+            createdEnrollments,
+            preview: appliedPreview,
+          };
+        },
+        { isolationLevel: "Serializable" },
+      )
+      .catch((error: unknown) => {
+        if (isConcurrentAdminCourseWrite(error)) {
+          throw new MainCourseEnrollmentRolloutChangedError();
+        }
+
+        throw error;
+      });
+  }
+
   private async loadMainCourseEnrollmentRolloutPreview(
     db: MainCourseEnrollmentPreviewDatabase,
   ): Promise<AdminMainCourseEnrollmentRolloutPreviewResponse | null> {
+    const input = await this.loadMainCourseEnrollmentRolloutInput(db);
+
+    return input === null ? null : buildMainCourseEnrollmentRolloutPreview(input);
+  }
+
+  private async loadMainCourseEnrollmentRolloutInput(
+    db: MainCourseEnrollmentPreviewDatabase,
+  ): Promise<MainCourseEnrollmentRolloutInput | null> {
     const readiness = await this.loadMainCoursePublicationReadiness(db);
 
     if (readiness === null) {
@@ -1087,7 +1172,7 @@ export class PrismaAdminRepository extends AdminRepository {
       orderBy: { id: "asc" },
     });
 
-    return buildMainCourseEnrollmentRolloutPreview({
+    return {
       readiness,
       learners: learners.map((learner) => ({
         userId: learner.id,
@@ -1100,7 +1185,7 @@ export class PrismaAdminRepository extends AdminRepository {
             ?.status,
         ),
       })),
-    });
+    };
   }
 
   private async loadMainCoursePublicationReadiness(

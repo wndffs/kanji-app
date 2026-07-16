@@ -1128,7 +1128,17 @@ export function AdminClient() {
         token={state.token}
       />
 
-      <CourseEnrollmentRolloutPanel refreshRevision={planningRevision} token={state.token} />
+      <CourseEnrollmentRolloutPanel
+        disabled={savingKey !== null}
+        onApplied={(createdEnrollments) => {
+          setStatusMessage(
+            `Основной курс добавлен учащимся: ${createdEnrollments}. Демо-курс и прогресс сохранены.`,
+          );
+          setPlanningRevision((previous) => previous + 1);
+        }}
+        refreshRevision={planningRevision}
+        token={state.token}
+      />
 
       <section
         className="panel admin-translation-review"

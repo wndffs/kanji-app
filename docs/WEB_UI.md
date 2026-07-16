@@ -51,12 +51,15 @@ passes. The enabled action opens a keyboard-contained confirmation and sends
 the exact audited version; a stale version reloads before another attempt.
 Success marks the course published and states explicitly that no learner was
 enrolled or migrated and no existing progress changed.
-The following learner-rollout panel is also read-only. It shows the add-only
-impact as aggregate learner, new enrollment, active main-course, preserved
+The following learner-rollout panel first shows a read-only add-only impact as
+aggregate learner, new enrollment, active main-course, preserved
 paused/completed, and active starter-course counts. It becomes apply-ready only
 for a currently readiness-approved published course. No learner identifiers are
-shown, and no apply control is present until the separate confirmed rollout
-workflow exists.
+shown. The confirmed action is enabled only for an apply-ready, non-empty
+cohort. Its keyboard-contained dialog states the exact new-enrollment count and
+preservation guarantees. A stale response reloads the impact preview; success
+reports the created count and leaves the action disabled once no learner is
+missing the main-course enrollment.
 After an item or card save, the queue restarts from its first cursor page under
 the active filters. It keeps the saved item selected when it still matches and
 otherwise opens the next available item, while a post-save refresh failure is

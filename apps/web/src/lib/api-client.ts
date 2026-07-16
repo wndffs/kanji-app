@@ -1,4 +1,6 @@
 import {
+  type AdminApplyMainCourseEnrollmentRolloutRequest,
+  type AdminApplyMainCourseEnrollmentRolloutResponse,
   type AdminCandidatePlanCoverageFilter,
   type AdminApplyCourseAllocationRequest,
   type AdminApplyCourseAllocationResponse,
@@ -392,6 +394,22 @@ export function getAdminMainCourseEnrollmentRolloutPreview(
   return apiRequest<AdminMainCourseEnrollmentRolloutPreviewResponse>(
     "/admin/curriculum/main-course/enrollment-rollout-preview",
     { token, fetchImpl },
+  );
+}
+
+export function applyAdminMainCourseEnrollmentRollout(
+  token: string,
+  input: AdminApplyMainCourseEnrollmentRolloutRequest,
+  fetchImpl?: typeof fetch,
+): Promise<AdminApplyMainCourseEnrollmentRolloutResponse> {
+  return apiRequest<AdminApplyMainCourseEnrollmentRolloutResponse>(
+    "/admin/curriculum/main-course/enrollment-rollout",
+    {
+      method: "POST",
+      token,
+      body: input,
+      fetchImpl,
+    },
   );
 }
 

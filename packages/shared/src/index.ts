@@ -1146,6 +1146,17 @@ export type AdminMainCourseEnrollmentRolloutPreviewResponse = {
   };
 };
 
+export type AdminApplyMainCourseEnrollmentRolloutRequest = {
+  readonly rolloutVersion: string;
+};
+
+export type AdminApplyMainCourseEnrollmentRolloutResponse = {
+  readonly appliedRolloutVersion: string;
+  readonly appliedAt: string;
+  readonly createdEnrollments: number;
+  readonly preview: AdminMainCourseEnrollmentRolloutPreviewResponse;
+};
+
 export type AdminCurriculumCandidatePlanItemDto = {
   readonly selectionRank: number;
   readonly targetId: string;

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ApiError,
   apiRequest,
+  applyAdminMainCourseEnrollmentRollout,
   applyAdminCourseAllocation,
   createTextDeck,
   enqueueAdminCandidatePlan,
@@ -475,5 +476,27 @@ describe("apiRequest", () => {
     expect(capturedInput).toBe(
       "http://localhost:3001/admin/curriculum/main-course/enrollment-rollout-preview",
     );
+  });
+
+  it("posts the confirmed enrollment rollout version", async () => {
+    let capturedInput = "";
+    let capturedInit: RequestInit | undefined;
+    const fetchImpl: typeof fetch = async (input, init) => {
+      capturedInput = String(input);
+      capturedInit = init;
+      return Response.json({
+        appliedRolloutVersion: "main-course-enrollment-rollout:test",
+        createdEnrollments: 2,
+      });
+    };
+    const request = { rolloutVersion: "main-course-enrollment-rollout:test" };
+
+    await applyAdminMainCourseEnrollmentRollout("token-1", request, fetchImpl);
+
+    expect(capturedInput).toBe(
+      "http://localhost:3001/admin/curriculum/main-course/enrollment-rollout",
+    );
+    expect(capturedInit?.method).toBe("POST");
+    expect(capturedInit?.body).toBe(JSON.stringify(request));
   });
 });
