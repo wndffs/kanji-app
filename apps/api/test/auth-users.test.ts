@@ -1,5 +1,5 @@
 import { type ExecutionContext } from "@nestjs/common";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { AdminGuard } from "../src/auth/admin.guard";
 import { AuthGuard } from "../src/auth/auth.guard";
@@ -13,7 +13,7 @@ import {
 import { PasswordService } from "../src/auth/password.service";
 import { TokenService } from "../src/auth/token.service";
 import { mergeUserSettings } from "../src/auth/user-settings.defaults";
-import { UsersRepository } from "../src/auth/users.repository";
+import { PrismaUsersRepository, UsersRepository } from "../src/auth/users.repository";
 import { AppConfigService } from "../src/config/app-config.service";
 import { UsersController } from "../src/users/users.controller";
 
@@ -200,6 +200,84 @@ describe("Auth and users", () => {
   });
 });
 
+describe("PrismaUsersRepository default course enrollment", () => {
+  it("enrolls a new learner in the starter and published main course atomically", async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      { id: "course-main", slug: "japanese-ru-n2" },
+      { id: "course-starter", slug: "starter-demo" },
+    ]);
+    const createMany = vi.fn().mockResolvedValue({ count: 2 });
+    const transactionDatabase = {
+      course: { findMany },
+      userEnrollment: { createMany },
+    };
+    const transaction = vi.fn(
+      async (callback: (database: typeof transactionDatabase) => Promise<void>) =>
+        callback(transactionDatabase),
+    );
+    const repository = new PrismaUsersRepository({ db: { $transaction: transaction } } as never);
+
+    await repository.enrollInDefaultCourses("user-1");
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        slug: { in: ["starter-demo", "japanese-ru-n2"] },
+        status: "PUBLISHED",
+      },
+      select: { id: true, slug: true },
+      orderBy: { slug: "asc" },
+    });
+    expect(createMany).toHaveBeenCalledWith({
+      data: [
+        { userId: "user-1", courseId: "course-main", status: "ACTIVE" },
+        { userId: "user-1", courseId: "course-starter", status: "ACTIVE" },
+      ],
+      skipDuplicates: true,
+    });
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps starter enrollment working when the main course is unavailable", async () => {
+    const createMany = vi.fn().mockResolvedValue({ count: 1 });
+    const transactionDatabase = {
+      course: {
+        findMany: vi.fn().mockResolvedValue([{ id: "course-starter", slug: "starter-demo" }]),
+      },
+      userEnrollment: { createMany },
+    };
+    const repository = new PrismaUsersRepository({
+      db: {
+        $transaction: async (callback: (database: typeof transactionDatabase) => Promise<void>) =>
+          callback(transactionDatabase),
+      },
+    } as never);
+
+    await repository.enrollInDefaultCourses("user-1");
+
+    expect(createMany).toHaveBeenCalledWith({
+      data: [{ userId: "user-1", courseId: "course-starter", status: "ACTIVE" }],
+      skipDuplicates: true,
+    });
+  });
+
+  it("leaves registration usable when no default course is published", async () => {
+    const createMany = vi.fn();
+    const transactionDatabase = {
+      course: { findMany: vi.fn().mockResolvedValue([]) },
+      userEnrollment: { createMany },
+    };
+    const repository = new PrismaUsersRepository({
+      db: {
+        $transaction: async (callback: (database: typeof transactionDatabase) => Promise<void>) =>
+          callback(transactionDatabase),
+      },
+    } as never);
+
+    await expect(repository.enrollInDefaultCourses("user-1")).resolves.toBeUndefined();
+    expect(createMany).not.toHaveBeenCalled();
+  });
+});
+
 class InMemoryUsersRepository extends UsersRepository {
   private readonly usersById = new Map<string, StoredUser>();
   private readonly usersByEmail = new Map<string, StoredUser>();
@@ -230,7 +308,7 @@ class InMemoryUsersRepository extends UsersRepository {
     return user;
   }
 
-  async enrollInDefaultCourse(userId: string): Promise<void> {
+  async enrollInDefaultCourses(userId: string): Promise<void> {
     this.defaultCourseEnrollmentUserIds.push(userId);
   }
 

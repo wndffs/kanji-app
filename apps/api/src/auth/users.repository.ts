@@ -10,7 +10,7 @@ export abstract class UsersRepository {
   abstract findByEmail(email: string): Promise<StoredUser | null>;
   abstract findById(id: string): Promise<StoredUser | null>;
   abstract createUser(input: CreateUserInput): Promise<StoredUser>;
-  abstract enrollInDefaultCourse(userId: string): Promise<void>;
+  abstract enrollInDefaultCourses(userId: string): Promise<void>;
   abstract updateSettings(userId: string, settings: Partial<UserSettingsDto>): Promise<StoredUser>;
 }
 
@@ -30,7 +30,7 @@ type PrismaUserWithSettings = {
   } | null;
 };
 
-const DEFAULT_STARTER_COURSE_SLUG = "starter-demo";
+const DEFAULT_COURSE_SLUGS = ["starter-demo", "japanese-ru-n2"] as const;
 
 @Injectable()
 export class PrismaUsersRepository extends UsersRepository {
@@ -73,32 +73,29 @@ export class PrismaUsersRepository extends UsersRepository {
     return toStoredUser(user as PrismaUserWithSettings);
   }
 
-  async enrollInDefaultCourse(userId: string): Promise<void> {
-    const course = await this.prisma.db.course.findFirst({
-      where: {
-        slug: DEFAULT_STARTER_COURSE_SLUG,
-        status: "PUBLISHED",
-      },
-      select: { id: true },
-    });
+  async enrollInDefaultCourses(userId: string): Promise<void> {
+    await this.prisma.db.$transaction(async (db) => {
+      const courses = await db.course.findMany({
+        where: {
+          slug: { in: [...DEFAULT_COURSE_SLUGS] },
+          status: "PUBLISHED",
+        },
+        select: { id: true, slug: true },
+        orderBy: { slug: "asc" },
+      });
 
-    if (course === null) {
-      return;
-    }
+      if (courses.length === 0) {
+        return;
+      }
 
-    await this.prisma.db.userEnrollment.upsert({
-      where: {
-        userId_courseId: {
+      await db.userEnrollment.createMany({
+        data: courses.map((course) => ({
           userId,
           courseId: course.id,
-        },
-      },
-      update: { status: "ACTIVE" },
-      create: {
-        userId,
-        courseId: course.id,
-        status: "ACTIVE",
-      },
+          status: "ACTIVE" as const,
+        })),
+        skipDuplicates: true,
+      });
     });
   }
 

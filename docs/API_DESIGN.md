@@ -38,6 +38,13 @@ only in the development seed path. The local seed account is
 User settings include `locale`, `translationDisplayMode` (`ru`, `en`, or
 `ru-en`), `timezone`, `dailyLessonLimit`, `reviewBudget`, and `strictMode`.
 
+Registration enrolls a new learner in every available published default
+course. The defaults are the published `starter-demo` course and, once it has
+passed the separate publication gate, the published `japanese-ru-n2` course.
+An absent or unpublished main course does not block registration or starter
+access. Default enrollment is add-only and does not overwrite an existing
+enrollment status if the operation is retried.
+
 ### Dashboard
 
 - `GET /dashboard`

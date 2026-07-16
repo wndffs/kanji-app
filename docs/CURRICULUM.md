@@ -122,8 +122,11 @@ defaults require separate explicit decisions. Confirmed application is bound to
 the opaque rollout version and recalculates the full cohort in a serializable
 transaction. It creates only missing active main-course enrollment rows,
 leaving existing active, paused, and completed statuses, starter-course access,
-and all SRS progress unchanged. Registration continues to use the starter demo
-course until another policy is explicitly approved.
+and all SRS progress unchanged. New registrations use both published defaults:
+the starter demo course and the `japanese-ru-n2` main course after it passes the
+publication gate. If the main course is missing or unpublished, registration
+continues with the starter course alone. Retried default enrollment is add-only
+and never reactivates an existing paused or completed enrollment.
 
 The admin scale-readiness report keeps this distinction measurable. It reports
 the remaining publication gap, work already in curation, unassigned imported

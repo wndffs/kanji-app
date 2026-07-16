@@ -134,3 +134,4 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 52. Task 92 (completed): publish only a readiness-approved main-course version without enrolling learners.
 53. Task 93 (completed): preview a privacy-preserving add-only learner enrollment rollout without writes.
 54. Task 94 (completed): apply an explicitly confirmed add-only enrollment rollout without changing progress.
+55. Task 95 (completed): enroll new learners in the starter course and the published main course without overwriting existing enrollment status.
