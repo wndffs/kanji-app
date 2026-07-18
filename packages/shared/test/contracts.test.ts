@@ -195,6 +195,16 @@ describe("shared DTO contracts", () => {
         availableLessons: [],
         burned: [],
       },
+      studyActivity: {
+        rangeStart: "2025-06-19",
+        rangeEnd: "2026-06-18",
+        currentStreak: 0,
+        longestStreak: 0,
+        activeDays: 0,
+        totalReviews: 0,
+        totalLessons: 0,
+        days: [],
+      },
     };
 
     expect(dashboard.user.translationDisplayMode).toBe("en");

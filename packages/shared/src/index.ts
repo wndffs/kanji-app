@@ -509,6 +509,22 @@ export type DashboardRecentActivityDto = {
   readonly burned: readonly DashboardRecentItemDto[];
 };
 
+export type DashboardStudyActivityDto = {
+  readonly rangeStart: string;
+  readonly rangeEnd: string;
+  readonly currentStreak: number;
+  readonly longestStreak: number;
+  readonly activeDays: number;
+  readonly totalReviews: number;
+  readonly totalLessons: number;
+  readonly days: readonly {
+    readonly localDate: string;
+    readonly reviewCount: number;
+    readonly lessonCount: number;
+    readonly totalCount: number;
+  }[];
+};
+
 export type DashboardDto = {
   readonly user: {
     readonly id: string;
@@ -535,6 +551,7 @@ export type DashboardDto = {
   readonly leechCandidates: readonly DashboardLeechCandidateDto[];
   readonly recentReviewStats: DashboardRecentReviewStatsDto;
   readonly recentActivity: DashboardRecentActivityDto;
+  readonly studyActivity: DashboardStudyActivityDto;
 };
 
 export type KanaAssessmentItemDto = {

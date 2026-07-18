@@ -18,6 +18,7 @@ import {
   type DashboardReviewResultCountRecord,
   type DashboardSrsStateRecord,
   type DashboardSrsStageSpreadRecord,
+  type DashboardStudyActivityDayRecord,
 } from "../src/dashboard/dashboard.types";
 
 const NOW = new Date("2026-06-18T09:00:00.000Z");
@@ -180,6 +181,28 @@ describe("PrismaDashboardRepository", () => {
       }),
     );
   });
+
+  it("aggregates daily study activity with one database query", async () => {
+    const $queryRaw = vi.fn().mockResolvedValue([
+      { localDate: "2026-06-17", reviewCount: 2, lessonCount: 0 },
+      { localDate: "2026-06-18", reviewCount: 3, lessonCount: 1 },
+    ]);
+    const repository = new PrismaDashboardRepository({
+      db: { $queryRaw },
+    } as never);
+
+    await expect(
+      repository.listStudyActivity(
+        "4c44db8f-bf9f-473e-916f-d79bf65835c6",
+        new Date("2025-06-18T09:00:00.000Z"),
+        "Europe/Moscow",
+      ),
+    ).resolves.toEqual([
+      { localDate: "2026-06-17", reviewCount: 2, lessonCount: 0 },
+      { localDate: "2026-06-18", reviewCount: 3, lessonCount: 1 },
+    ]);
+    expect($queryRaw).toHaveBeenCalledOnce();
+  });
 });
 
 describe("DashboardService", () => {
@@ -243,6 +266,64 @@ describe("DashboardService", () => {
         mistakes: [],
         availableLessons: [],
         burned: [],
+      },
+      studyActivity: {
+        rangeStart: "2025-06-19",
+        rangeEnd: "2026-06-18",
+        currentStreak: 0,
+        longestStreak: 0,
+        activeDays: 0,
+        totalReviews: 0,
+        totalLessons: 0,
+        days: [],
+      },
+    });
+  });
+
+  it("calculates current and longest study streaks in the user timezone", async () => {
+    const { repository, service } = createHarness();
+    repository.setStudyActivity([
+      { localDate: "2025-06-18", reviewCount: 10, lessonCount: 10 },
+      { localDate: "2026-06-10", reviewCount: 1, lessonCount: 0 },
+      { localDate: "2026-06-11", reviewCount: 0, lessonCount: 1 },
+      { localDate: "2026-06-12", reviewCount: 2, lessonCount: 0 },
+      { localDate: "2026-06-15", reviewCount: 1, lessonCount: 0 },
+      { localDate: "2026-06-17", reviewCount: 0, lessonCount: 2 },
+      { localDate: "2026-06-18", reviewCount: 3, lessonCount: 1 },
+    ]);
+
+    await expect(service.getDashboard(createUser("owner"))).resolves.toMatchObject({
+      studyActivity: {
+        rangeStart: "2025-06-19",
+        rangeEnd: "2026-06-18",
+        currentStreak: 2,
+        longestStreak: 3,
+        activeDays: 6,
+        totalReviews: 7,
+        totalLessons: 4,
+        days: [
+          { localDate: "2026-06-10", reviewCount: 1, lessonCount: 0, totalCount: 1 },
+          { localDate: "2026-06-11", reviewCount: 0, lessonCount: 1, totalCount: 1 },
+          { localDate: "2026-06-12", reviewCount: 2, lessonCount: 0, totalCount: 2 },
+          { localDate: "2026-06-15", reviewCount: 1, lessonCount: 0, totalCount: 1 },
+          { localDate: "2026-06-17", reviewCount: 0, lessonCount: 2, totalCount: 2 },
+          { localDate: "2026-06-18", reviewCount: 3, lessonCount: 1, totalCount: 4 },
+        ],
+      },
+    });
+  });
+
+  it("keeps yesterday's study streak current until the user studies today", async () => {
+    const { repository, service } = createHarness();
+    repository.setStudyActivity([
+      { localDate: "2026-06-16", reviewCount: 1, lessonCount: 0 },
+      { localDate: "2026-06-17", reviewCount: 1, lessonCount: 0 },
+    ]);
+
+    await expect(service.getDashboard(createUser("owner"))).resolves.toMatchObject({
+      studyActivity: {
+        currentStreak: 2,
+        longestStreak: 2,
       },
     });
   });
@@ -546,6 +627,7 @@ class InMemoryDashboardRepository extends DashboardRepository {
   private readonly states: InMemoryDashboardSrsStateRecord[] = [];
   private lessonItems: readonly DashboardLessonItemRecord[] = [];
   private lessonProgress: InMemoryDashboardLessonProgressRecord[] = [];
+  private studyActivity: readonly DashboardStudyActivityDayRecord[] = [];
   private readonly reviewAnswers: {
     readonly userId: string;
     readonly result: DashboardReviewResult;
@@ -636,6 +718,14 @@ class InMemoryDashboardRepository extends DashboardRepository {
       .map((state) => toRecentItemRecord(state, state.burnedAt));
   }
 
+  async listStudyActivity(
+    _userId: string,
+    _since: Date,
+    _timezone: string,
+  ): Promise<readonly DashboardStudyActivityDayRecord[]> {
+    return this.studyActivity;
+  }
+
   async listForecastStates(
     userId: string,
     horizonEnd: Date,
@@ -719,6 +809,10 @@ class InMemoryDashboardRepository extends DashboardRepository {
 
   addReviewAnswer(userId: string, result: DashboardReviewResult, answeredAt: Date): void {
     this.reviewAnswers.push({ userId, result, answeredAt });
+  }
+
+  setStudyActivity(records: readonly DashboardStudyActivityDayRecord[]): void {
+    this.studyActivity = records;
   }
 
   setCourse(course: DashboardCourseProgressRecord): void {

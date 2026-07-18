@@ -115,3 +115,9 @@ export type DashboardRecentItemRecord = {
     readonly stages: readonly SrsStage[];
   } | null;
 };
+
+export type DashboardStudyActivityDayRecord = {
+  readonly localDate: string;
+  readonly reviewCount: number;
+  readonly lessonCount: number;
+};

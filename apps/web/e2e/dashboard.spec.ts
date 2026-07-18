@@ -212,6 +212,35 @@ test.describe("dashboard smoke", () => {
               },
             ],
           },
+          studyActivity: {
+            rangeStart: "2025-06-25",
+            rangeEnd: "2026-06-24",
+            currentStreak: 2,
+            longestStreak: 3,
+            activeDays: 3,
+            totalReviews: 9,
+            totalLessons: 2,
+            days: [
+              {
+                localDate: "2026-06-22",
+                reviewCount: 2,
+                lessonCount: 1,
+                totalCount: 3,
+              },
+              {
+                localDate: "2026-06-23",
+                reviewCount: 3,
+                lessonCount: 0,
+                totalCount: 3,
+              },
+              {
+                localDate: "2026-06-24",
+                reviewCount: 4,
+                lessonCount: 1,
+                totalCount: 5,
+              },
+            ],
+          },
         },
       });
     });
@@ -230,6 +259,13 @@ test.describe("dashboard smoke", () => {
     await expect(page.getByRole("heading", { name: "Баланс нагрузки" })).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Нагрузка повторений 7%" })).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Дневной лимит уроков 10%" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Активность за год" })).toBeVisible();
+    await expect(page.getByTestId("study-current-streak")).toHaveText("2");
+    await expect(page.getByTestId("study-activity-day")).toHaveCount(365);
+    await expect(page.locator('[data-local-date="2026-06-24"]')).toHaveAttribute(
+      "data-activity-level",
+      "4",
+    );
     await expect(page.getByRole("progressbar", { name: "Материалы уровня 50%" })).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Карточки уровня 67%" })).toBeVisible();
     await expect(page.getByLabel("Текущий курс")).toHaveValue("course-1");
@@ -438,6 +474,16 @@ function buildMinimalDashboard(courseId: string, courseTitle: string) {
       mistakes: [],
       availableLessons: [],
       burned: [],
+    },
+    studyActivity: {
+      rangeStart: "2025-07-10",
+      rangeEnd: "2026-07-09",
+      currentStreak: 0,
+      longestStreak: 0,
+      activeDays: 0,
+      totalReviews: 0,
+      totalLessons: 0,
+      days: [],
     },
   };
 }

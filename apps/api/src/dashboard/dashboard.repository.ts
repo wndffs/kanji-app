@@ -1,5 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 
+import { Prisma } from "@kanji-srs/db";
+
 import { PrismaService } from "../database/prisma.service";
 import { resolveCurrentCourseId } from "../courses/current-course";
 import {
@@ -13,6 +15,7 @@ import {
   type DashboardReviewResultCountRecord,
   type DashboardSrsStateRecord,
   type DashboardSrsStageSpreadRecord,
+  type DashboardStudyActivityDayRecord,
 } from "./dashboard.types";
 
 export abstract class DashboardRepository {
@@ -39,6 +42,11 @@ export abstract class DashboardRepository {
     userId: string,
     limit: number,
   ): Promise<readonly DashboardRecentItemRecord[]>;
+  abstract listStudyActivity(
+    userId: string,
+    since: Date,
+    timezone: string,
+  ): Promise<readonly DashboardStudyActivityDayRecord[]>;
   abstract listForecastStates(
     userId: string,
     horizonEnd: Date,
@@ -581,6 +589,64 @@ export class PrismaDashboardRepository extends DashboardRepository {
     );
 
     return Promise.all(selected.map((state) => this.toRecentItemRecord(state, state.burnedAt)));
+  }
+
+  async listStudyActivity(
+    userId: string,
+    since: Date,
+    timezone: string,
+  ): Promise<readonly DashboardStudyActivityDayRecord[]> {
+    const rows = await this.prisma.db.$queryRaw<
+      readonly {
+        readonly localDate: string;
+        readonly reviewCount: number;
+        readonly lessonCount: number;
+      }[]
+    >(Prisma.sql`
+      WITH review_activity AS (
+        SELECT
+          to_char(ra."answeredAt" AT TIME ZONE ${timezone}, 'YYYY-MM-DD') AS "localDate",
+          COUNT(DISTINCT (ra."reviewSessionId", ra."learningCardId"))::int AS "reviewCount"
+        FROM "ReviewAnswer" ra
+        INNER JOIN "ReviewSession" rs ON rs."id" = ra."reviewSessionId"
+        WHERE
+          rs."userId" = ${userId}::uuid
+          AND rs."mode" = 'REVIEW'
+          AND ra."answeredAt" >= ${since}
+        GROUP BY 1
+      ),
+      lesson_starts AS (
+        SELECT
+          lc."learningItemId",
+          MIN(state."createdAt") AS "startedAt"
+        FROM "UserSrsState" state
+        INNER JOIN "LearningCard" lc ON lc."id" = state."learningCardId"
+        WHERE state."userId" = ${userId}::uuid
+        GROUP BY lc."learningItemId"
+      ),
+      lesson_activity AS (
+        SELECT
+          to_char("startedAt" AT TIME ZONE ${timezone}, 'YYYY-MM-DD') AS "localDate",
+          COUNT(*)::int AS "lessonCount"
+        FROM lesson_starts
+        WHERE "startedAt" >= ${since}
+        GROUP BY 1
+      )
+      SELECT
+        COALESCE(reviews."localDate", lessons."localDate") AS "localDate",
+        COALESCE(reviews."reviewCount", 0)::int AS "reviewCount",
+        COALESCE(lessons."lessonCount", 0)::int AS "lessonCount"
+      FROM review_activity reviews
+      FULL OUTER JOIN lesson_activity lessons
+        ON lessons."localDate" = reviews."localDate"
+      ORDER BY "localDate" ASC
+    `);
+
+    return rows.map((row) => ({
+      localDate: row.localDate,
+      reviewCount: Number(row.reviewCount),
+      lessonCount: Number(row.lessonCount),
+    }));
   }
 
   async listForecastStates(

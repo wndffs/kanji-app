@@ -517,6 +517,26 @@ function buildDashboard(state: MvpApiState): DashboardDto {
         : [{ occurredAt: null, item: buildStarterItemSummary(state) }],
       burned: [],
     },
+    studyActivity: {
+      rangeStart: "2025-06-23",
+      rangeEnd: "2026-06-22",
+      currentStreak: state.lessonCompleted || state.reviewAnswered ? 1 : 0,
+      longestStreak: state.lessonCompleted || state.reviewAnswered ? 1 : 0,
+      activeDays: state.lessonCompleted || state.reviewAnswered ? 1 : 0,
+      totalReviews: state.reviewAnswered ? 1 : 0,
+      totalLessons: state.lessonCompleted ? 1 : 0,
+      days:
+        state.lessonCompleted || state.reviewAnswered
+          ? [
+              {
+                localDate: "2026-06-22",
+                reviewCount: state.reviewAnswered ? 1 : 0,
+                lessonCount: state.lessonCompleted ? 1 : 0,
+                totalCount: Number(state.reviewAnswered) + Number(state.lessonCompleted),
+              },
+            ]
+          : [],
+    },
   };
 }
 

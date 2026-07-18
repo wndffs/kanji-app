@@ -36,10 +36,13 @@ import {
   type DashboardReviewResultCountRecord,
   type DashboardSrsStateRecord,
   type DashboardSrsStageSpreadRecord,
+  type DashboardStudyActivityDayRecord,
 } from "./dashboard.types";
 
 const FORECAST_HORIZON_DAYS = 7;
 const RECENT_REVIEW_STATS_DAYS = 7;
+const STUDY_ACTIVITY_DAYS = 365;
+const STUDY_ACTIVITY_QUERY_BUFFER_DAYS = 1;
 const LEECH_RECENT_REVIEW_DAYS = 14;
 const MAX_DASHBOARD_LEECH_CANDIDATES = 5;
 const MAX_RECENT_ACTIVITY_ITEMS = 5;
@@ -58,6 +61,7 @@ export class DashboardService {
     const recentSince = addDays(now, -RECENT_REVIEW_STATS_DAYS);
     const leechSince = addDays(now, -LEECH_RECENT_REVIEW_DAYS);
     const forecastHorizonEnd = addDays(now, FORECAST_HORIZON_DAYS);
+    const activityTimezone = resolveTimezone(user.settings.timezone);
     const [
       lessonItems,
       lessonProgress,
@@ -68,6 +72,7 @@ export class DashboardService {
       srsStageSpread,
       currentCourse,
       recentReviewCounts,
+      studyActivity,
     ] = await Promise.all([
       this.dashboardRepository.listLessonAvailabilityItems(user.id),
       this.dashboardRepository.listLessonProgress(user.id),
@@ -78,6 +83,11 @@ export class DashboardService {
       this.dashboardRepository.listSrsStageSpread(user.id),
       this.dashboardRepository.findCurrentCourseProgress(user.id),
       this.dashboardRepository.countRecentReviewResults(user.id, recentSince, now),
+      this.dashboardRepository.listStudyActivity(
+        user.id,
+        addDays(now, -(STUDY_ACTIVITY_DAYS + STUDY_ACTIVITY_QUERY_BUFFER_DAYS)),
+        activityTimezone,
+      ),
     ]);
     const displayMode = user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE;
     const leechCandidates = toLeechCandidatesDto(leechSignals, displayMode);
@@ -122,7 +132,114 @@ export class DashboardService {
         availableLessons: toRecentItemsDto(recentAvailableLessons, displayMode),
         burned: toRecentItemsDto(recentBurned, displayMode),
       },
+      studyActivity: toStudyActivityDto(studyActivity, now, activityTimezone),
     };
+  }
+}
+
+function toStudyActivityDto(
+  records: readonly DashboardStudyActivityDayRecord[],
+  now: Date,
+  timezone: string,
+): DashboardDto["studyActivity"] {
+  const rangeEnd = getLocalDateKey(now, timezone);
+  const rangeStart = addLocalDateDays(rangeEnd, -(STUDY_ACTIVITY_DAYS - 1));
+  const countsByDate = new Map<
+    string,
+    { readonly reviewCount: number; readonly lessonCount: number }
+  >();
+
+  for (const record of records) {
+    if (record.localDate < rangeStart || record.localDate > rangeEnd) {
+      continue;
+    }
+
+    const existing = countsByDate.get(record.localDate);
+    countsByDate.set(record.localDate, {
+      reviewCount: (existing?.reviewCount ?? 0) + record.reviewCount,
+      lessonCount: (existing?.lessonCount ?? 0) + record.lessonCount,
+    });
+  }
+
+  const days = [...countsByDate.entries()]
+    .map(([localDate, counts]) => ({
+      localDate,
+      reviewCount: counts.reviewCount,
+      lessonCount: counts.lessonCount,
+      totalCount: counts.reviewCount + counts.lessonCount,
+    }))
+    .filter((day) => day.totalCount > 0)
+    .sort((left, right) => left.localDate.localeCompare(right.localDate));
+  const activeDates = new Set(days.map((day) => day.localDate));
+
+  return {
+    rangeStart,
+    rangeEnd,
+    currentStreak: countCurrentStreak(activeDates, rangeStart, rangeEnd),
+    longestStreak: countLongestStreak(activeDates, rangeStart, rangeEnd),
+    activeDays: activeDates.size,
+    totalReviews: days.reduce((sum, day) => sum + day.reviewCount, 0),
+    totalLessons: days.reduce((sum, day) => sum + day.lessonCount, 0),
+    days,
+  };
+}
+
+function countCurrentStreak(
+  activeDates: ReadonlySet<string>,
+  rangeStart: string,
+  rangeEnd: string,
+): number {
+  let cursor = rangeEnd;
+
+  if (!activeDates.has(cursor)) {
+    cursor = addLocalDateDays(cursor, -1);
+  }
+
+  let streak = 0;
+
+  while (cursor >= rangeStart && activeDates.has(cursor)) {
+    streak += 1;
+    cursor = addLocalDateDays(cursor, -1);
+  }
+
+  return streak;
+}
+
+function countLongestStreak(
+  activeDates: ReadonlySet<string>,
+  rangeStart: string,
+  rangeEnd: string,
+): number {
+  let cursor = rangeStart;
+  let current = 0;
+  let longest = 0;
+
+  while (cursor <= rangeEnd) {
+    if (activeDates.has(cursor)) {
+      current += 1;
+      longest = Math.max(longest, current);
+    } else {
+      current = 0;
+    }
+
+    cursor = addLocalDateDays(cursor, 1);
+  }
+
+  return longest;
+}
+
+function addLocalDateDays(localDate: string, days: number): string {
+  const date = new Date(`${localDate}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function resolveTimezone(timezone: string): string {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format();
+    return timezone;
+  } catch {
+    return "UTC";
   }
 }
 

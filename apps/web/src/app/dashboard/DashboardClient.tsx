@@ -275,6 +275,8 @@ function DashboardView({
 
       <WorkloadPanel workload={dashboard.workload} />
 
+      <StudyActivityPanel activity={dashboard.studyActivity} />
+
       <SrsStageSpreadPanel systems={dashboard.srsStageSpread} />
 
       <RecentActivityPanel activity={dashboard.recentActivity} timezone={dashboard.user.timezone} />
@@ -585,6 +587,164 @@ function WorkloadPanel({ workload }: { readonly workload: DashboardDto["workload
       </div>
     </section>
   );
+}
+
+function StudyActivityPanel({ activity }: { readonly activity: DashboardDto["studyActivity"] }) {
+  const calendar = buildStudyActivityCalendar(activity);
+  const firstDayOffset = getMondayFirstWeekday(activity.rangeStart);
+  const maxDailyCount = Math.max(0, ...calendar.map((day) => day.totalCount));
+
+  return (
+    <section aria-labelledby="study-activity-heading" className="panel study-activity-panel">
+      <header className="study-activity-heading">
+        <div>
+          <span className="eyebrow">365 дней</span>
+          <h2 id="study-activity-heading">Активность за год</h2>
+        </div>
+        <span>
+          {formatStudyActivityDate(activity.rangeStart)} –{" "}
+          {formatStudyActivityDate(activity.rangeEnd)}
+        </span>
+      </header>
+
+      <dl className="study-activity-stats">
+        <div>
+          <dt>Текущая серия</dt>
+          <dd data-testid="study-current-streak">{activity.currentStreak}</dd>
+          <span>дней</span>
+        </div>
+        <div>
+          <dt>Лучшая серия</dt>
+          <dd>{activity.longestStreak}</dd>
+          <span>дней</span>
+        </div>
+        <div>
+          <dt>Активные дни</dt>
+          <dd>{activity.activeDays}</dd>
+          <span>из 365</span>
+        </div>
+        <div>
+          <dt>Повторения</dt>
+          <dd>{activity.totalReviews}</dd>
+          <span>карточек</span>
+        </div>
+        <div>
+          <dt>Уроки</dt>
+          <dd>{activity.totalLessons}</dd>
+          <span>материалов</span>
+        </div>
+      </dl>
+
+      <div className="study-activity-scroll">
+        <div className="study-activity-chart">
+          <div aria-hidden="true" className="study-activity-weekdays">
+            <span>Пн</span>
+            <span />
+            <span>Ср</span>
+            <span />
+            <span>Пт</span>
+            <span />
+            <span>Вс</span>
+          </div>
+          <div
+            aria-label="Календарь учебной активности"
+            className="study-activity-grid"
+            role="grid"
+          >
+            {Array.from({ length: firstDayOffset }, (_, index) => (
+              <span aria-hidden="true" className="study-activity-placeholder" key={index} />
+            ))}
+            {calendar.map((day) => {
+              const level = getStudyActivityLevel(day.totalCount, maxDailyCount);
+              const label = formatStudyActivityDayLabel(day);
+
+              return (
+                <span
+                  aria-label={label}
+                  className={`study-activity-cell study-activity-level-${level}`}
+                  data-activity-level={level}
+                  data-local-date={day.localDate}
+                  data-testid="study-activity-day"
+                  key={day.localDate}
+                  role="gridcell"
+                  title={label}
+                />
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div aria-label="Интенсивность активности" className="study-activity-legend">
+        <span>Меньше</span>
+        {[0, 1, 2, 3, 4].map((level) => (
+          <span
+            aria-hidden="true"
+            className={`study-activity-cell study-activity-level-${level}`}
+            key={level}
+          />
+        ))}
+        <span>Больше</span>
+      </div>
+    </section>
+  );
+}
+
+function buildStudyActivityCalendar(
+  activity: DashboardDto["studyActivity"],
+): DashboardDto["studyActivity"]["days"] {
+  const activityByDate = new Map(activity.days.map((day) => [day.localDate, day]));
+  const days: DashboardDto["studyActivity"]["days"][number][] = [];
+  let cursor = activity.rangeStart;
+
+  while (cursor <= activity.rangeEnd) {
+    days.push(
+      activityByDate.get(cursor) ?? {
+        localDate: cursor,
+        reviewCount: 0,
+        lessonCount: 0,
+        totalCount: 0,
+      },
+    );
+    cursor = addLocalCalendarDays(cursor, 1);
+  }
+
+  return days;
+}
+
+function getStudyActivityLevel(totalCount: number, maxDailyCount: number): number {
+  if (totalCount === 0 || maxDailyCount === 0) {
+    return 0;
+  }
+
+  return Math.max(1, Math.ceil((totalCount / maxDailyCount) * 4));
+}
+
+function getMondayFirstWeekday(localDate: string): number {
+  return (new Date(`${localDate}T00:00:00.000Z`).getUTCDay() + 6) % 7;
+}
+
+function addLocalCalendarDays(localDate: string, days: number): string {
+  const date = new Date(`${localDate}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatStudyActivityDate(localDate: string): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${localDate}T00:00:00.000Z`));
+}
+
+function formatStudyActivityDayLabel(day: DashboardDto["studyActivity"]["days"][number]): string {
+  return [
+    formatStudyActivityDate(day.localDate),
+    formatCount(day.reviewCount, "повторение", "повторения", "повторений"),
+    formatCount(day.lessonCount, "урок", "урока", "уроков"),
+  ].join(": ");
 }
 
 function SrsStageSpreadPanel({ systems }: { readonly systems: DashboardDto["srsStageSpread"] }) {
