@@ -575,6 +575,7 @@ async function upsertCourseLevels(
         band: level.band,
         titleRu: level.titleRu,
         descriptionRu: level.descriptionRu,
+        passPolicyJson: level.passPolicy,
       },
       create: {
         courseId,
@@ -582,6 +583,7 @@ async function upsertCourseLevels(
         band: level.band,
         titleRu: level.titleRu,
         descriptionRu: level.descriptionRu,
+        passPolicyJson: level.passPolicy,
       },
     });
 
@@ -643,6 +645,7 @@ async function upsertMainCourseStructure(blueprint: MainCourseBlueprint): Promis
         band: level.band,
         titleRu: level.titleRu,
         descriptionRu: level.descriptionRu,
+        passPolicyJson: level.passPolicy,
       },
       create: {
         courseId: course.id,
@@ -650,6 +653,7 @@ async function upsertMainCourseStructure(blueprint: MainCourseBlueprint): Promis
         band: level.band,
         titleRu: level.titleRu,
         descriptionRu: level.descriptionRu,
+        passPolicyJson: level.passPolicy,
       },
     });
   }

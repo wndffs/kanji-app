@@ -1,4 +1,5 @@
 import { type SrsStage } from "@kanji-srs/srs";
+import { type CourseLevelPassPolicy } from "@kanji-srs/db";
 import { type BilingualTextDto, type ItemKind } from "@kanji-srs/shared";
 
 export type DashboardSrsStateRecord = {
@@ -57,10 +58,17 @@ export type DashboardCourseItemProgressRecord = {
   readonly cardIds: readonly string[];
   readonly startedCardIds: readonly string[];
   readonly burnedCardIds: readonly string[];
+  readonly cardStages: readonly {
+    readonly cardId: string;
+    readonly stageIndex: number | null;
+  }[];
 };
 
 export type DashboardCourseLevelProgressRecord = {
+  readonly id: string;
   readonly levelNumber: number;
+  readonly passPolicy: CourseLevelPassPolicy;
+  readonly completedAt: Date | null;
   readonly items: readonly DashboardCourseItemProgressRecord[];
 };
 
@@ -68,6 +76,12 @@ export type DashboardCourseProgressRecord = {
   readonly id: string;
   readonly title: string;
   readonly levels: readonly DashboardCourseLevelProgressRecord[];
+};
+
+export type DashboardUnlockEventRecord = {
+  readonly reviewSessionId: string;
+  readonly learningItemId: string;
+  readonly unlockedAt: Date;
 };
 
 export type DashboardReviewResult =

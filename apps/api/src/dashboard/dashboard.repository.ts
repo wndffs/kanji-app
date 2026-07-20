@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { Prisma } from "@kanji-srs/db";
+import { parseCourseLevelPassPolicy, Prisma } from "@kanji-srs/db";
 
 import { PrismaService } from "../database/prisma.service";
 import { resolveCurrentCourseId } from "../courses/current-course";
@@ -17,6 +17,7 @@ import {
   type DashboardSrsStateRecord,
   type DashboardSrsStageSpreadRecord,
   type DashboardStudyActivityDayRecord,
+  type DashboardUnlockEventRecord,
 } from "./dashboard.types";
 
 export abstract class DashboardRepository {
@@ -41,6 +42,7 @@ export abstract class DashboardRepository {
     itemIds: readonly string[],
     limit: number,
   ): Promise<readonly DashboardRecentItemRecord[]>;
+  abstract listLatestUnlockEvents(userId: string): Promise<readonly DashboardUnlockEventRecord[]>;
   abstract listRecentBurnedItems(
     userId: string,
     limit: number,
@@ -174,7 +176,12 @@ type EnrollmentRow = {
 };
 
 type CourseLevelRow = {
+  readonly id: string;
   readonly levelNumber: number;
+  readonly passPolicyJson: unknown;
+  readonly completions: readonly {
+    readonly completedAt: Date;
+  }[];
   readonly items: readonly CourseLevelItemRow[];
 };
 
@@ -190,6 +197,7 @@ type CourseCardRow = {
   readonly id: string;
   readonly srsStates: readonly {
     readonly id: string;
+    readonly stageIndex: number;
     readonly burnedAt: Date | null;
   }[];
 };
@@ -598,6 +606,57 @@ export class PrismaDashboardRepository extends DashboardRepository {
     );
   }
 
+  async listLatestUnlockEvents(userId: string): Promise<readonly DashboardUnlockEventRecord[]> {
+    const currentCourseId = await resolveCurrentCourseId(this.prisma.db, userId);
+
+    if (currentCourseId === null) {
+      return [];
+    }
+
+    const latest = await this.prisma.db.userUnlockEvent.findFirst({
+      where: {
+        userId,
+        learningItem: {
+          courseLevelItems: {
+            some: {
+              courseLevel: { courseId: currentCourseId },
+            },
+          },
+        },
+      },
+      select: { reviewSessionId: true },
+      orderBy: [
+        { reviewSession: { startedAt: "desc" } },
+        { unlockedAt: "desc" },
+        { id: "asc" },
+      ],
+    });
+
+    if (latest === null) {
+      return [];
+    }
+
+    return this.prisma.db.userUnlockEvent.findMany({
+      where: {
+        userId,
+        reviewSessionId: latest.reviewSessionId,
+        learningItem: {
+          courseLevelItems: {
+            some: {
+              courseLevel: { courseId: currentCourseId },
+            },
+          },
+        },
+      },
+      select: {
+        reviewSessionId: true,
+        learningItemId: true,
+        unlockedAt: true,
+      },
+      orderBy: [{ unlockedAt: "asc" }, { learningItemId: "asc" }],
+    });
+  }
+
   async listRecentBurnedItems(
     userId: string,
     limit: number,
@@ -808,6 +867,11 @@ export class PrismaDashboardRepository extends DashboardRepository {
             levels: {
               orderBy: { levelNumber: "asc" },
               include: {
+                completions: {
+                  where: { userId },
+                  select: { completedAt: true },
+                  take: 1,
+                },
                 items: {
                   where: { learningItem: { status: "PUBLISHED" } },
                   orderBy: { sortOrder: "asc" },
@@ -821,7 +885,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
                             id: true,
                             srsStates: {
                               where: { userId },
-                              select: { id: true, burnedAt: true },
+                              select: { id: true, stageIndex: true, burnedAt: true },
                             },
                           },
                           orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
@@ -846,7 +910,10 @@ export class PrismaDashboardRepository extends DashboardRepository {
       id: enrollment.course.id,
       title: enrollment.course.titleRu,
       levels: enrollment.course.levels.map((level) => ({
+        id: level.id,
         levelNumber: level.levelNumber,
+        passPolicy: parseCourseLevelPassPolicy(level.passPolicyJson),
+        completedAt: level.completions[0]?.completedAt ?? null,
         items: level.items.map((item) => ({
           id: item.learningItem.id,
           itemType: toDashboardItemKind(item.learningItem.kind),
@@ -857,6 +924,10 @@ export class PrismaDashboardRepository extends DashboardRepository {
           burnedCardIds: item.learningItem.cards
             .filter((card) => card.srsStates.some((state) => state.burnedAt !== null))
             .map((card) => card.id),
+          cardStages: item.learningItem.cards.map((card) => ({
+            cardId: card.id,
+            stageIndex: card.srsStates[0]?.stageIndex ?? null,
+          })),
         })),
       })),
     };

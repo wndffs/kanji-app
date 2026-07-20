@@ -1,4 +1,8 @@
 import { type SeedCourseBand } from "./course-seed";
+import {
+  DEFAULT_COURSE_LEVEL_PASS_POLICY,
+  type CourseLevelPassPolicy,
+} from "./course-level-policy";
 
 export const MAIN_COURSE_LEVEL_COUNT = 60;
 
@@ -7,6 +11,7 @@ export type MainCourseLevelBlueprint = {
   readonly band: SeedCourseBand;
   readonly titleRu: string;
   readonly descriptionRu: string;
+  readonly passPolicy: CourseLevelPassPolicy;
 };
 
 export type MainCourseBlueprint = {
@@ -79,6 +84,7 @@ const MAIN_COURSE_BLUEPRINT: MainCourseBlueprint = {
     Array.from({ length: range.lastLevel - range.firstLevel + 1 }, (_, index) => ({
       levelNumber: range.firstLevel + index,
       band: range.band,
+      passPolicy: DEFAULT_COURSE_LEVEL_PASS_POLICY,
       titleRu: `${range.labelRu} · этап ${index + 1}`,
       descriptionRu: range.descriptionRu,
     })),

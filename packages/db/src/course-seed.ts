@@ -1,3 +1,5 @@
+import { createCourseLevelPassPolicy, type CourseLevelPassPolicy } from "./course-level-policy";
+
 export type SeedLocale = "ru-RU" | "en-US";
 export type SeedItemKind = "COMPONENT" | "KANJI" | "WORD" | "SENTENCE";
 export type SeedPromptType = "MEANING" | "READING" | "RECALL" | "CLOZE" | "RECOGNITION";
@@ -28,6 +30,7 @@ export type StarterCourseSeedLevel = {
   readonly band: SeedCourseBand;
   readonly titleRu: string;
   readonly descriptionRu: string;
+  readonly passPolicy: CourseLevelPassPolicy;
 };
 
 export type StarterCourseSeedItem = {
@@ -142,24 +145,28 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
       {
         levelNumber: 1,
         band: "FOUNDATION",
+        passPolicy: createCourseLevelPassPolicy("COMPONENT", 100),
         titleRu: "Первые формы",
         descriptionRu: "Две простые формы, из которых можно объяснить первые знаки.",
       },
       {
         levelNumber: 2,
         band: "FOUNDATION",
+        passPolicy: createCourseLevelPassPolicy("KANJI", 100),
         titleRu: "Первые кандзи",
         descriptionRu: "Кандзи для числа один и слова рот.",
       },
       {
         levelNumber: 3,
         band: "N5",
+        passPolicy: createCourseLevelPassPolicy("WORD", 100),
         titleRu: "Первые слова",
         descriptionRu: "Короткие слова, основанные на уже изученных кандзи.",
       },
       {
         levelNumber: 4,
         band: "N5",
+        passPolicy: createCourseLevelPassPolicy("SENTENCE", 100),
         titleRu: "Первое предложение",
         descriptionRu: "Минимальная фраза для проверки карточки предложения.",
       },

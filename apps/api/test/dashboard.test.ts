@@ -22,6 +22,7 @@ import {
   type DashboardSrsStateRecord,
   type DashboardSrsStageSpreadRecord,
   type DashboardStudyActivityDayRecord,
+  type DashboardUnlockEventRecord,
 } from "../src/dashboard/dashboard.types";
 
 const NOW = new Date("2026-06-18T09:00:00.000Z");
@@ -73,6 +74,10 @@ describe("PrismaDashboardRepository", () => {
           include: {
             levels: {
               include: {
+                completions: {
+                  where: { userId: "user-1" },
+                  select: { completedAt: true },
+                },
                 items: {
                   include: {
                     learningItem: {
@@ -80,7 +85,9 @@ describe("PrismaDashboardRepository", () => {
                         kind: true,
                         cards: {
                           select: {
-                            srsStates: { select: { id: true, burnedAt: true } },
+                            srsStates: {
+                              select: { id: true, stageIndex: true, burnedAt: true },
+                            },
                           },
                         },
                       },
@@ -93,6 +100,58 @@ describe("PrismaDashboardRepository", () => {
         },
       },
     });
+  });
+
+  it("loads every unlock from the latest persisted review session for the current course", async () => {
+    const unlockFindMany = vi.fn().mockResolvedValue([
+      {
+        reviewSessionId: "review-latest",
+        learningItemId: "item-a",
+        unlockedAt: NOW,
+      },
+      {
+        reviewSessionId: "review-latest",
+        learningItemId: "item-b",
+        unlockedAt: NOW,
+      },
+    ]);
+    const repository = new PrismaDashboardRepository({
+      db: {
+        userSettings: {
+          findUnique: vi.fn().mockResolvedValue({ currentCourseId: "course-main" }),
+        },
+        userEnrollment: {
+          findMany: vi.fn().mockResolvedValue([
+            {
+              courseId: "course-main",
+              startedAt: NOW,
+              course: { slug: "japanese-ru-n2" },
+            },
+          ]),
+        },
+        userUnlockEvent: {
+          findFirst: vi.fn().mockResolvedValue({
+            reviewSessionId: "review-latest",
+          }),
+          findMany: unlockFindMany,
+        },
+      },
+    } as never);
+
+    await expect(repository.listLatestUnlockEvents("owner")).resolves.toHaveLength(2);
+    expect(unlockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: "owner",
+          reviewSessionId: "review-latest",
+          learningItem: {
+            courseLevelItems: {
+              some: { courseLevel: { courseId: "course-main" } },
+            },
+          },
+        }),
+      }),
+    );
   });
 
   it("aggregates the SRS spread by configured stage and item type", async () => {
@@ -577,7 +636,15 @@ describe("DashboardService", () => {
       title: "Demo course",
       levels: [
         {
+          id: "level-1",
           levelNumber: 1,
+          passPolicy: {
+            version: 1,
+            itemKind: "KANJI",
+            passStageIndex: 5,
+            requiredPercentage: 100,
+          },
+          completedAt: null,
           items: [
             {
               id: "item-burned",
@@ -585,6 +652,7 @@ describe("DashboardService", () => {
               cardIds: ["card-burned"],
               startedCardIds: ["card-burned"],
               burnedCardIds: ["card-burned"],
+              cardStages: [{ cardId: "card-burned", stageIndex: 9 }],
             },
             {
               id: "item-started",
@@ -592,6 +660,10 @@ describe("DashboardService", () => {
               cardIds: ["card-started-meaning", "card-started-reading"],
               startedCardIds: ["card-started-meaning", "card-started-reading"],
               burnedCardIds: [],
+              cardStages: [
+                { cardId: "card-started-meaning", stageIndex: 4 },
+                { cardId: "card-started-reading", stageIndex: 4 },
+              ],
             },
             {
               id: "item-open",
@@ -599,6 +671,7 @@ describe("DashboardService", () => {
               cardIds: ["card-open"],
               startedCardIds: [],
               burnedCardIds: [],
+              cardStages: [{ cardId: "card-open", stageIndex: null }],
             },
             {
               id: "item-locked",
@@ -606,11 +679,20 @@ describe("DashboardService", () => {
               cardIds: ["card-locked"],
               startedCardIds: [],
               burnedCardIds: [],
+              cardStages: [{ cardId: "card-locked", stageIndex: null }],
             },
           ],
         },
         {
+          id: "level-2",
           levelNumber: 2,
+          passPolicy: {
+            version: 1,
+            itemKind: "KANJI",
+            passStageIndex: 5,
+            requiredPercentage: 100,
+          },
+          completedAt: null,
           items: [
             {
               id: "item-next",
@@ -618,6 +700,7 @@ describe("DashboardService", () => {
               cardIds: ["card-next"],
               startedCardIds: [],
               burnedCardIds: [],
+              cardStages: [{ cardId: "card-next", stageIndex: null }],
             },
           ],
         },
@@ -637,6 +720,19 @@ describe("DashboardService", () => {
           totalCards: 5,
           percent: 50,
           cardPercent: 60,
+          pass: {
+            policyVersion: 1,
+            itemType: "kanji",
+            stageIndex: 5,
+            stageName: "Stage 5",
+            requiredPercentage: 100,
+            passedItems: 0,
+            requiredItems: 1,
+            totalItems: 1,
+            percent: 0,
+            currentlyPassed: false,
+            completedAt: null,
+          },
           itemsByType: [
             {
               itemType: "component",
@@ -644,6 +740,7 @@ describe("DashboardService", () => {
               locked: 0,
               available: 0,
               inProgress: 0,
+              passed: 0,
               burned: 1,
             },
             {
@@ -652,6 +749,7 @@ describe("DashboardService", () => {
               locked: 0,
               available: 0,
               inProgress: 1,
+              passed: 0,
               burned: 0,
             },
             {
@@ -660,6 +758,7 @@ describe("DashboardService", () => {
               locked: 0,
               available: 1,
               inProgress: 0,
+              passed: 0,
               burned: 0,
             },
             {
@@ -668,9 +767,158 @@ describe("DashboardService", () => {
               locked: 1,
               available: 0,
               inProgress: 0,
+              passed: 0,
               burned: 0,
             },
           ],
+        },
+      },
+    });
+  });
+
+  it("keeps historical level completion while reporting the current demoted stage", async () => {
+    const { repository, service } = createHarness();
+    repository.setCourse({
+      id: "course-demo",
+      title: "Demo course",
+      levels: [
+        {
+          id: "level-1",
+          levelNumber: 1,
+          passPolicy: {
+            version: 1,
+            itemKind: "KANJI",
+            passStageIndex: 5,
+            requiredPercentage: 100,
+          },
+          completedAt: NOW,
+          items: [
+            {
+              id: "kanji-one",
+              itemType: "kanji",
+              cardIds: ["card-kanji-one"],
+              startedCardIds: ["card-kanji-one"],
+              burnedCardIds: [],
+              cardStages: [{ cardId: "card-kanji-one", stageIndex: 4 }],
+            },
+          ],
+        },
+      ],
+    });
+
+    await expect(service.getDashboard(createUser("owner"))).resolves.toMatchObject({
+      currentCourse: {
+        currentLevel: 1,
+        levelProgress: {
+          pass: {
+            passedItems: 0,
+            requiredItems: 1,
+            currentlyPassed: false,
+            completedAt: NOW.toISOString(),
+          },
+        },
+      },
+    });
+  });
+
+  it("preserves latest unlock groups and explains the shortest locked path", async () => {
+    const { repository, service } = createHarness();
+    repository.setLessonItems([
+      createLessonItem("component-a", 1),
+      createLessonItem("kanji-b", 2),
+      {
+        ...createLessonItem("word-locked", 3),
+        dependencies: [
+          { prerequisiteItemId: "component-a", requiredStage: 5 },
+          { prerequisiteItemId: "kanji-b", requiredStage: 4 },
+        ],
+      },
+    ]);
+    repository.addLessonProgress({
+      userId: "owner",
+      learningItemId: "component-a",
+      learningCardId: "card-component-a",
+      stageIndex: 4,
+      createdAt: NOW,
+    });
+    repository.addLessonProgress({
+      userId: "owner",
+      learningItemId: "kanji-b",
+      learningCardId: "card-kanji-b",
+      stageIndex: 2,
+      createdAt: NOW,
+    });
+    repository.setUnlockEvents([
+      {
+        reviewSessionId: "review-latest",
+        learningItemId: "component-unlocked",
+        unlockedAt: NOW,
+      },
+      {
+        reviewSessionId: "review-latest",
+        learningItemId: "word-unlocked",
+        unlockedAt: NOW,
+      },
+    ]);
+    repository.setCourse({
+      id: "course-demo",
+      title: "Demo course",
+      levels: [
+        {
+          id: "level-1",
+          levelNumber: 1,
+          passPolicy: {
+            version: 1,
+            itemKind: "KANJI",
+            passStageIndex: 5,
+            requiredPercentage: 100,
+          },
+          completedAt: null,
+          items: [],
+        },
+      ],
+    });
+
+    await expect(service.getDashboard(createUser("owner"))).resolves.toMatchObject({
+      currentCourse: {
+        journey: {
+          newlyUnlocked: {
+            reviewSessionId: "review-latest",
+            unlockedAt: NOW.toISOString(),
+            groups: [
+              {
+                itemType: "component",
+                items: [expect.objectContaining({ id: "component-unlocked" })],
+              },
+              {
+                itemType: "word",
+                items: [expect.objectContaining({ id: "word-unlocked" })],
+              },
+            ],
+          },
+          nextLocked: {
+            target: expect.objectContaining({ id: "word-locked" }),
+            unmetPrerequisites: [
+              {
+                item: expect.objectContaining({ id: "component-a" }),
+                currentStage: 4,
+                requiredStage: 5,
+              },
+              {
+                item: expect.objectContaining({ id: "kanji-b" }),
+                currentStage: 2,
+                requiredStage: 4,
+              },
+            ],
+            shortestPath: [
+              {
+                item: expect.objectContaining({ id: "component-a" }),
+                currentStage: 4,
+                requiredStage: 5,
+              },
+            ],
+          },
+          nextAction: { kind: "wait", availableAt: null },
         },
       },
     });
@@ -733,6 +981,7 @@ class InMemoryDashboardRepository extends DashboardRepository {
   private kanaProgress: InMemoryDashboardKanaProgressRecord[] = [];
   private readonly completedReviewSessionUserIds = new Set<string>();
   private studyActivity: readonly DashboardStudyActivityDayRecord[] = [];
+  private unlockEvents: readonly DashboardUnlockEventRecord[] = [];
   private readonly reviewAnswers: {
     readonly userId: string;
     readonly result: DashboardReviewResult;
@@ -809,7 +1058,13 @@ class InMemoryDashboardRepository extends DashboardRepository {
       occurredAt: null,
       item: {
         id: itemId,
-        itemType: "kanji",
+        itemType: itemId.startsWith("component")
+          ? "component"
+          : itemId.startsWith("word")
+            ? "word"
+            : itemId.startsWith("sentence")
+              ? "sentence"
+              : "kanji",
         japanese: itemId,
         reading: null,
         translations: {
@@ -821,6 +1076,10 @@ class InMemoryDashboardRepository extends DashboardRepository {
       },
       srs: null,
     }));
+  }
+
+  async listLatestUnlockEvents(_userId: string): Promise<readonly DashboardUnlockEventRecord[]> {
+    return this.unlockEvents;
   }
 
   async listRecentBurnedItems(
@@ -940,6 +1199,10 @@ class InMemoryDashboardRepository extends DashboardRepository {
 
   setCourse(course: DashboardCourseProgressRecord): void {
     this.course = course;
+  }
+
+  setUnlockEvents(events: readonly DashboardUnlockEventRecord[]): void {
+    this.unlockEvents = events;
   }
 }
 

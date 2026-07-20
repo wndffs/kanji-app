@@ -533,14 +533,56 @@ export type DashboardLevelProgressDto = {
   readonly totalCards: number;
   readonly percent: number;
   readonly cardPercent: number;
+  readonly pass: {
+    readonly policyVersion: number;
+    readonly itemType: ItemKind;
+    readonly stageIndex: number;
+    readonly stageName: string;
+    readonly requiredPercentage: number;
+    readonly passedItems: number;
+    readonly requiredItems: number;
+    readonly totalItems: number;
+    readonly percent: number;
+    readonly currentlyPassed: boolean;
+    readonly completedAt: string | null;
+  };
   readonly itemsByType: readonly {
     readonly itemType: ItemKind;
     readonly totalItems: number;
     readonly locked: number;
     readonly available: number;
     readonly inProgress: number;
+    readonly passed: number;
     readonly burned: number;
   }[];
+};
+
+export type DashboardCourseJourneyDto = {
+  readonly newlyUnlocked: {
+    readonly reviewSessionId: string;
+    readonly unlockedAt: string;
+    readonly groups: readonly {
+      readonly itemType: ItemKind;
+      readonly items: readonly ItemSummary[];
+    }[];
+  } | null;
+  readonly nextLocked: {
+    readonly target: ItemSummary;
+    readonly unmetPrerequisites: readonly {
+      readonly item: ItemSummary;
+      readonly currentStage: number;
+      readonly requiredStage: number;
+    }[];
+    readonly shortestPath: readonly {
+      readonly item: ItemSummary;
+      readonly currentStage: number;
+      readonly requiredStage: number;
+    }[];
+  } | null;
+  readonly nextAction: {
+    readonly kind: "lesson" | "review" | "wait" | "prerequisite" | "course-complete";
+    readonly availableAt: string | null;
+  };
 };
 
 export type DashboardWorkloadDto = {
@@ -735,6 +777,7 @@ export type DashboardDto = {
     readonly title: string;
     readonly currentLevel: number;
     readonly levelProgress: DashboardLevelProgressDto;
+    readonly journey: DashboardCourseJourneyDto;
   } | null;
   readonly workload: DashboardWorkloadDto;
   readonly reviewForecast: readonly ReviewForecastBucketDto[];

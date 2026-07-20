@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { type Prisma } from "@kanji-srs/db";
+import { parseCourseLevelPassPolicy, type Prisma, type CourseLevelPassPolicy } from "@kanji-srs/db";
 import {
   type ContentLocale,
   type PracticeSource,
@@ -333,9 +333,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     return row === null ? null : toPracticeSessionRecord(row);
   }
 
-  async createPracticeSession(
-    input: CreatePracticeSessionInput,
-  ): Promise<PracticeSessionRecord> {
+  async createPracticeSession(input: CreatePracticeSessionInput): Promise<PracticeSessionRecord> {
     const session = (await this.prisma.db.reviewSession.create({
       data: {
         userId: input.userId,
@@ -573,6 +571,8 @@ export class PrismaReviewsRepository extends ReviewsRepository {
           detailsJson: input.details as Prisma.InputJsonObject,
         },
       });
+
+      await recordCourseProgressEvents(tx, input);
     });
   }
 
@@ -758,6 +758,258 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       jlptLevel: null,
     };
   }
+}
+
+type ProgressCard = {
+  readonly id: string;
+  readonly srsStates: readonly {
+    readonly stageIndex: number;
+  }[];
+};
+
+type DependencyProgress = {
+  readonly requiredStage: number | null;
+  readonly prerequisiteItem: {
+    readonly cards: readonly ProgressCard[];
+  };
+};
+
+async function recordCourseProgressEvents(
+  tx: Prisma.TransactionClient,
+  input: RecordReviewAnswerInput,
+): Promise<void> {
+  if (input.nextStageIndex <= input.previousStageIndex) {
+    return;
+  }
+
+  const changedCard = await tx.learningCard.findUnique({
+    where: { id: input.cardId },
+    select: {
+      learningItemId: true,
+      learningItem: { select: { kind: true } },
+    },
+  });
+
+  if (changedCard === null) {
+    return;
+  }
+
+  await recordNewlyUnlockedItems(tx, input, changedCard.learningItemId);
+  await recordCompletedCourseLevels(
+    tx,
+    input,
+    changedCard.learningItemId,
+    changedCard.learningItem.kind,
+  );
+}
+
+async function recordNewlyUnlockedItems(
+  tx: Prisma.TransactionClient,
+  input: RecordReviewAnswerInput,
+  changedItemId: string,
+): Promise<void> {
+  const dependencyRows = await tx.dependency.findMany({
+    where: {
+      prerequisiteItemId: changedItemId,
+      dependencyType: "PREREQUISITE",
+      learningItem: {
+        status: "PUBLISHED",
+        courseLevelItems: {
+          some: {
+            courseLevel: {
+              course: {
+                status: "PUBLISHED",
+                enrollments: {
+                  some: {
+                    userId: input.userId,
+                    status: "ACTIVE",
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    select: {
+      learningItem: {
+        select: {
+          id: true,
+          cards: {
+            select: {
+              id: true,
+              srsStates: {
+                where: { userId: input.userId },
+                select: { stageIndex: true },
+              },
+            },
+          },
+          dependencies: {
+            where: { dependencyType: "PREREQUISITE" },
+            select: {
+              requiredStage: true,
+              prerequisiteItem: {
+                select: {
+                  cards: {
+                    select: {
+                      id: true,
+                      srsStates: {
+                        where: { userId: input.userId },
+                        select: { stageIndex: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    orderBy: [{ learningItemId: "asc" }, { id: "asc" }],
+  });
+  const newlyUnlockedIds = [
+    ...new Set(
+      dependencyRows.flatMap(({ learningItem }) => {
+        const alreadyStarted = learningItem.cards.some((card) => card.srsStates.length > 0);
+        const wasAvailable = dependenciesAreSatisfied(learningItem.dependencies, {
+          cardId: input.cardId,
+          stageIndex: input.previousStageIndex,
+        });
+        const isAvailable = dependenciesAreSatisfied(learningItem.dependencies);
+
+        return !alreadyStarted && !wasAvailable && isAvailable ? [learningItem.id] : [];
+      }),
+    ),
+  ];
+
+  if (newlyUnlockedIds.length === 0) {
+    return;
+  }
+
+  await tx.userUnlockEvent.createMany({
+    data: newlyUnlockedIds.map((learningItemId) => ({
+      userId: input.userId,
+      learningItemId,
+      reviewSessionId: input.sessionId,
+      triggerLearningCardId: input.cardId,
+      unlockedAt: input.answeredAt,
+    })),
+    skipDuplicates: true,
+  });
+}
+
+async function recordCompletedCourseLevels(
+  tx: Prisma.TransactionClient,
+  input: RecordReviewAnswerInput,
+  changedItemId: string,
+  changedItemKind: string,
+): Promise<void> {
+  const levels = await tx.courseLevel.findMany({
+    where: {
+      items: { some: { learningItemId: changedItemId } },
+      course: {
+        status: "PUBLISHED",
+        enrollments: {
+          some: {
+            userId: input.userId,
+            status: "ACTIVE",
+          },
+        },
+      },
+    },
+    select: {
+      id: true,
+      passPolicyJson: true,
+      items: {
+        where: { learningItem: { status: "PUBLISHED" } },
+        select: {
+          learningItem: {
+            select: {
+              kind: true,
+              cards: {
+                select: {
+                  id: true,
+                  srsStates: {
+                    where: { userId: input.userId },
+                    select: { stageIndex: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    orderBy: [{ courseId: "asc" }, { levelNumber: "asc" }, { id: "asc" }],
+  });
+  const completedLevels = levels.flatMap((level) => {
+    const policy = parseCourseLevelPassPolicy(level.passPolicyJson);
+
+    if (policy.itemKind !== changedItemKind) {
+      return [];
+    }
+
+    const qualifyingItems = level.items
+      .map((item) => item.learningItem)
+      .filter((item) => item.kind === policy.itemKind && item.cards.length > 0);
+    const requiredCount = calculateRequiredItemCount(qualifyingItems.length, policy);
+    const passedCount = qualifyingItems.filter((item) =>
+      itemCardsReachedStage(item.cards, policy.passStageIndex),
+    ).length;
+
+    return requiredCount > 0 && passedCount >= requiredCount
+      ? [{ courseLevelId: level.id, policyVersion: policy.version }]
+      : [];
+  });
+
+  if (completedLevels.length === 0) {
+    return;
+  }
+
+  await tx.userCourseLevelCompletion.createMany({
+    data: completedLevels.map((level) => ({
+      userId: input.userId,
+      courseLevelId: level.courseLevelId,
+      reviewSessionId: input.sessionId,
+      policyVersion: level.policyVersion,
+      completedAt: input.answeredAt,
+    })),
+    skipDuplicates: true,
+  });
+}
+
+function dependenciesAreSatisfied(
+  dependencies: readonly DependencyProgress[],
+  override?: { readonly cardId: string; readonly stageIndex: number },
+): boolean {
+  return dependencies.every((dependency) => {
+    const requiredStage = dependency.requiredStage ?? 1;
+    const cards = dependency.prerequisiteItem.cards;
+
+    return (
+      cards.length > 0 && cards.every((card) => readCardStage(card, override) >= requiredStage)
+    );
+  });
+}
+
+function itemCardsReachedStage(cards: readonly ProgressCard[], requiredStage: number): boolean {
+  return cards.length > 0 && cards.every((card) => readCardStage(card) >= requiredStage);
+}
+
+function readCardStage(
+  card: ProgressCard,
+  override?: { readonly cardId: string; readonly stageIndex: number },
+): number {
+  if (override !== undefined && card.id === override.cardId) {
+    return override.stageIndex;
+  }
+
+  return card.srsStates[0]?.stageIndex ?? 0;
+}
+
+function calculateRequiredItemCount(totalItems: number, policy: CourseLevelPassPolicy): number {
+  return totalItems === 0 ? 0 : Math.ceil((totalItems * policy.requiredPercentage) / 100);
 }
 
 const stateInclude = {

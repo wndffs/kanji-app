@@ -596,6 +596,114 @@ textarea:focus-visible {
   font-size: 14px;
 }
 
+.course-next-action {
+  margin: 0;
+  border-left: 3px solid var(--primary);
+  padding: 10px 12px;
+  background: var(--surface-strong);
+  font-weight: 750;
+}
+
+.course-next-action a {
+  color: var(--primary-strong);
+}
+
+.course-pass-progress {
+  display: grid;
+  gap: 8px;
+}
+
+.course-pass-progress p {
+  margin: 0;
+}
+
+.course-pass-status {
+  color: var(--success);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.course-journey {
+  display: grid;
+  gap: 18px;
+  border-top: 1px solid var(--surface-border);
+  padding-top: 16px;
+}
+
+.course-journey section,
+.journey-unlock-group {
+  display: grid;
+  gap: 10px;
+}
+
+.course-journey h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.course-journey h3 a,
+.journey-prerequisites a,
+.journey-shortest-path a {
+  color: var(--primary-strong);
+}
+
+.journey-unlock-group > strong {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.journey-item-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
+.journey-item-links a {
+  display: grid;
+  color: var(--foreground);
+  text-decoration: none;
+}
+
+.journey-item-links a:hover {
+  color: var(--primary-strong);
+}
+
+.journey-item-links a > span:first-child {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.journey-item-links a > span:last-child {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.journey-prerequisites {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.journey-prerequisites li {
+  display: grid;
+  grid-template-columns: minmax(48px, auto) minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.journey-prerequisites small {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.journey-shortest-path {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .course-selector {
   display: grid;
   gap: 6px;
@@ -941,7 +1049,7 @@ textarea:focus-visible {
 }
 
 .level-progress-scroll table {
-  min-width: 600px;
+  min-width: 680px;
 }
 
 .srs-spread-scroll th,
@@ -4520,6 +4628,14 @@ textarea:focus-visible {
   }
 
   .dashboard-widget-presentation {
+    grid-column: 1 / -1;
+  }
+
+  .journey-prerequisites li {
+    grid-template-columns: minmax(48px, auto) minmax(0, 1fr);
+  }
+
+  .journey-prerequisites small {
     grid-column: 1 / -1;
   }
 

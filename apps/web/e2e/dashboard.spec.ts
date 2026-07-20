@@ -66,6 +66,19 @@ test.describe("dashboard smoke", () => {
               totalCards: 6,
               percent: 50,
               cardPercent: 67,
+              pass: {
+                policyVersion: 1,
+                itemType: "kanji",
+                stageIndex: 5,
+                stageName: "Guru 1",
+                requiredPercentage: 90,
+                passedItems: 1,
+                requiredItems: 2,
+                totalItems: 2,
+                percent: 50,
+                currentlyPassed: false,
+                completedAt: null,
+              },
               itemsByType: [
                 {
                   itemType: "component",
@@ -73,6 +86,7 @@ test.describe("dashboard smoke", () => {
                   locked: 0,
                   available: 0,
                   inProgress: 0,
+                  passed: 0,
                   burned: 1,
                 },
                 {
@@ -81,6 +95,7 @@ test.describe("dashboard smoke", () => {
                   locked: 0,
                   available: 1,
                   inProgress: 1,
+                  passed: 0,
                   burned: 0,
                 },
                 {
@@ -89,9 +104,40 @@ test.describe("dashboard smoke", () => {
                   locked: 1,
                   available: 0,
                   inProgress: 0,
+                  passed: 0,
                   burned: 0,
                 },
               ],
+            },
+            journey: {
+              newlyUnlocked: {
+                reviewSessionId: "review-latest",
+                unlockedAt: "2026-06-24T10:00:00.000Z",
+                groups: [
+                  {
+                    itemType: "word",
+                    items: [buildRecentDashboardItem("new-word", "word", "一つ", "один предмет")],
+                  },
+                ],
+              },
+              nextLocked: {
+                target: buildRecentDashboardItem("locked-word", "word", "人口", "население"),
+                unmetPrerequisites: [
+                  {
+                    item: buildRecentDashboardItem("required-kanji", "kanji", "口", "рот"),
+                    currentStage: 3,
+                    requiredStage: 5,
+                  },
+                ],
+                shortestPath: [
+                  {
+                    item: buildRecentDashboardItem("required-kanji", "kanji", "口", "рот"),
+                    currentStage: 3,
+                    requiredStage: 5,
+                  },
+                ],
+              },
+              nextAction: { kind: "review", availableAt: null },
             },
           },
           workload: {
@@ -282,6 +328,15 @@ test.describe("dashboard smoke", () => {
     );
     await expect(page.getByRole("progressbar", { name: "Материалы уровня 50%" })).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Карточки уровня 67%" })).toBeVisible();
+    await expect(
+      page.getByRole("progressbar", { name: "Порог уровня выполнен на 50%" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Открыто последними повторениями" }),
+    ).toBeVisible();
+    await expect(page.locator('.journey-item-links a[href="/items/new-word"]')).toContainText("一つ");
+    await expect(page.getByRole("heading", { name: /Путь к.*人口/ })).toBeVisible();
+    await expect(page.getByText("этап 3 из 5")).toBeVisible();
     await expect(page.getByLabel("Текущий курс")).toHaveValue("course-1");
     await expect(page.getByTestId("level-progress-type")).toHaveCount(3);
     await expect(page.getByTestId("level-progress-type").nth(1)).toContainText("Кандзи");
@@ -296,6 +351,111 @@ test.describe("dashboard smoke", () => {
       "href",
       "/practice",
     );
+  });
+
+  test("shows before-completion, just-completed, and waiting journey states after reload", async ({
+    page,
+  }) => {
+    await signIn(page);
+    let phase: "before" | "completed" | "waiting" = "before";
+
+    await page.route(`${API_BASE_URL}/courses`, async (route) => {
+      await route.fulfill({ json: buildCourseList("course-1") });
+    });
+    await page.route(`${API_BASE_URL}/dashboard`, async (route) => {
+      const dashboard = buildMinimalDashboard("course-1", "Базовый курс");
+      const pass =
+        phase === "before"
+          ? dashboard.currentCourse.levelProgress.pass
+          : {
+              ...dashboard.currentCourse.levelProgress.pass,
+              passedItems: phase === "completed" ? 1 : 0,
+              percent: phase === "completed" ? 100 : 0,
+              currentlyPassed: phase === "completed",
+              completedAt: "2026-07-20T18:00:00.000Z",
+            };
+      const journey =
+        phase === "before"
+          ? dashboard.currentCourse.journey
+          : phase === "completed"
+            ? {
+                newlyUnlocked: {
+                  reviewSessionId: "review-completed",
+                  unlockedAt: "2026-07-20T18:00:00.000Z",
+                  groups: [
+                    {
+                      itemType: "word" as const,
+                      items: [
+                        buildRecentDashboardItem(
+                          "unlocked-after-level",
+                          "word",
+                          "一人",
+                          "один человек",
+                        ),
+                      ],
+                    },
+                  ],
+                },
+                nextLocked: null,
+                nextAction: { kind: "lesson" as const, availableAt: null },
+              }
+            : {
+                newlyUnlocked: null,
+                nextLocked: {
+                  target: buildRecentDashboardItem("waiting-word", "word", "入口", "вход"),
+                  unmetPrerequisites: [
+                    {
+                      item: buildRecentDashboardItem("waiting-kanji", "kanji", "入", "входить"),
+                      currentStage: 4,
+                      requiredStage: 5,
+                    },
+                  ],
+                  shortestPath: [
+                    {
+                      item: buildRecentDashboardItem("waiting-kanji", "kanji", "入", "входить"),
+                      currentStage: 4,
+                      requiredStage: 5,
+                    },
+                  ],
+                },
+                nextAction: {
+                  kind: "wait" as const,
+                  availableAt: "2026-07-21T09:00:00.000Z",
+                },
+              };
+
+      await route.fulfill({
+        json: {
+          ...dashboard,
+          currentCourse: {
+            ...dashboard.currentCourse,
+            levelProgress: {
+              ...dashboard.currentCourse.levelProgress,
+              pass,
+            },
+            journey,
+          },
+        },
+      });
+    });
+
+    await page.goto("/dashboard");
+    await expect(
+      page.getByRole("progressbar", { name: "Порог уровня выполнен на 0%" }),
+    ).toBeVisible();
+
+    phase = "completed";
+    await page.reload();
+    await expect(page.getByText("Уровень завершён.")).toBeVisible();
+    await expect(page.getByRole("link", { name: /一人/ })).toBeVisible();
+
+    phase = "waiting";
+    await page.reload();
+    await expect(
+      page.getByText("Уровень завершён; текущие этапы карточек могли снизиться после ошибок."),
+    ).toBeVisible();
+    await expect(page.getByText(/Следующий шаг: дождаться повторения/)).toBeVisible();
+    await expect(page.getByText("этап 4 из 5")).toBeVisible();
   });
 
   test("guides a new learner through kana, the first lesson, and the first review", async ({
@@ -607,6 +767,19 @@ function buildMinimalDashboard(courseId: string, courseTitle: string) {
         totalCards: 2,
         percent: 0,
         cardPercent: 0,
+        pass: {
+          policyVersion: 1,
+          itemType: "kanji",
+          stageIndex: 5,
+          stageName: "Guru 1",
+          requiredPercentage: 90,
+          passedItems: 0,
+          requiredItems: 1,
+          totalItems: 1,
+          percent: 0,
+          currentlyPassed: false,
+          completedAt: null,
+        },
         itemsByType: [
           {
             itemType: "kanji",
@@ -614,9 +787,15 @@ function buildMinimalDashboard(courseId: string, courseTitle: string) {
             locked: 0,
             available: 1,
             inProgress: 0,
+            passed: 0,
             burned: 0,
           },
         ],
+      },
+      journey: {
+        newlyUnlocked: null,
+        nextLocked: null,
+        nextAction: { kind: "lesson", availableAt: null },
       },
     },
     workload: {

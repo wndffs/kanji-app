@@ -5,6 +5,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_COURSE_LEVEL_PASS_POLICY,
+  parseCourseLevelPassPolicy,
+} from "../src/course-level-policy";
+import {
   buildStarterCourseSeed,
   getInitialStarterLessonKeys,
   validateStarterCourseSeed,
@@ -56,6 +60,7 @@ describe("Prisma seed", () => {
       N3: 16,
       N2: 17,
     });
+    expect(mainCourse.levels.every((level) => level.passPolicy.itemKind === "KANJI")).toBe(true);
     expect(validateMainCourseBlueprint(mainCourse)).toEqual([]);
   });
 
@@ -208,6 +213,25 @@ describe("Prisma seed", () => {
       "component-one-stroke",
       "component-mouth-frame",
     ]);
+  });
+
+  it("uses explicit versioned pass policies for starter levels", () => {
+    const starterSeed = buildStarterCourseSeed();
+
+    expect(starterSeed.course.levels.map((level) => level.passPolicy.itemKind)).toEqual([
+      "COMPONENT",
+      "KANJI",
+      "WORD",
+      "SENTENCE",
+    ]);
+    expect(
+      parseCourseLevelPassPolicy({
+        version: 2,
+        itemKind: "KANJI",
+        passStageIndex: 5,
+        requiredPercentage: 90,
+      }),
+    ).toEqual(DEFAULT_COURSE_LEVEL_PASS_POLICY);
   });
 });
 

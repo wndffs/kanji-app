@@ -450,6 +450,7 @@ model LearningItem {
   courseLevelItems CourseLevelItem[]
   deckItems        DeckItem[]
   userMnemonics    UserMnemonic[]
+  unlockEvents     UserUnlockEvent[]
 
   @@unique([targetType, targetId])
   @@index([kind, status])
@@ -458,21 +459,22 @@ model LearningItem {
 }
 
 model LearningCard {
-  id             String             @id @default(uuid()) @db.Uuid
-  learningItemId String             @db.Uuid
-  cardType       CardType
-  promptType     PromptType
-  answerType     AnswerType
-  locale         String
-  sortOrder      Int                @default(0)
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  learningItem   LearningItem       @relation(fields: [learningItemId], references: [id], onDelete: Cascade)
-  answers        LearningAnswer[]
-  blockedAnswers BlockedAnswer[]
-  userOverrides  UserItemOverride[]
-  srsStates      UserSrsState[]
-  reviewAnswers  ReviewAnswer[]
+  id                    String             @id @default(uuid()) @db.Uuid
+  learningItemId        String             @db.Uuid
+  cardType              CardType
+  promptType            PromptType
+  answerType            AnswerType
+  locale                String
+  sortOrder             Int                @default(0)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  learningItem          LearningItem       @relation(fields: [learningItemId], references: [id], onDelete: Cascade)
+  answers               LearningAnswer[]
+  blockedAnswers        BlockedAnswer[]
+  userOverrides         UserItemOverride[]
+  srsStates             UserSrsState[]
+  reviewAnswers         ReviewAnswer[]
+  triggeredUnlockEvents UserUnlockEvent[]
 
   @@unique([learningItemId, promptType, answerType, locale])
   @@index([locale])
@@ -557,22 +559,24 @@ model Dependency {
 }
 
 model User {
-  id                  String                       @id @default(uuid()) @db.Uuid
-  email               String                       @unique
-  passwordHash        String
-  displayName         String?
-  role                UserRole                     @default(USER)
-  createdAt           DateTime                     @default(now())
-  updatedAt           DateTime                     @updatedAt
-  settings            UserSettings?
-  itemOverrides       UserItemOverride[]
-  mnemonics           UserMnemonic[]
-  enrollments         UserEnrollment[]
-  decks               Deck[]
-  srsStates           UserSrsState[]
-  reviewSessions      ReviewSession[]
-  kanaProgress        UserKanaProgress[]
-  candidateRejections ImportedCandidateRejection[]
+  id                     String                       @id @default(uuid()) @db.Uuid
+  email                  String                       @unique
+  passwordHash           String
+  displayName            String?
+  role                   UserRole                     @default(USER)
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
+  settings               UserSettings?
+  itemOverrides          UserItemOverride[]
+  mnemonics              UserMnemonic[]
+  enrollments            UserEnrollment[]
+  decks                  Deck[]
+  srsStates              UserSrsState[]
+  reviewSessions         ReviewSession[]
+  kanaProgress           UserKanaProgress[]
+  candidateRejections    ImportedCandidateRejection[]
+  courseLevelCompletions UserCourseLevelCompletion[]
+  unlockEvents           UserUnlockEvent[]
 
   @@index([role])
 }
@@ -698,14 +702,16 @@ model Course {
 }
 
 model CourseLevel {
-  id            String            @id @default(uuid()) @db.Uuid
-  courseId      String            @db.Uuid
-  levelNumber   Int
-  band          CourseBand        @default(FOUNDATION)
-  titleRu       String
-  descriptionRu String?
-  course        Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  items         CourseLevelItem[]
+  id             String                      @id @default(uuid()) @db.Uuid
+  courseId       String                      @db.Uuid
+  levelNumber    Int
+  band           CourseBand                  @default(FOUNDATION)
+  titleRu        String
+  descriptionRu  String?
+  passPolicyJson Json                        @default("{\"version\":1,\"itemKind\":\"KANJI\",\"passStageIndex\":5,\"requiredPercentage\":90}")
+  course         Course                      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  items          CourseLevelItem[]
+  completions    UserCourseLevelCompletion[]
 
   @@unique([courseId, levelNumber])
   @@index([courseId])
@@ -724,6 +730,41 @@ model CourseLevelItem {
   @@unique([courseLevelId, learningItemId])
   @@unique([courseLevelId, sortOrder])
   @@index([learningItemId])
+}
+
+model UserCourseLevelCompletion {
+  id              String         @id @default(uuid()) @db.Uuid
+  userId          String         @db.Uuid
+  courseLevelId   String         @db.Uuid
+  reviewSessionId String?        @db.Uuid
+  policyVersion   Int
+  completedAt     DateTime
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseLevel     CourseLevel    @relation(fields: [courseLevelId], references: [id], onDelete: Cascade)
+  reviewSession   ReviewSession? @relation(fields: [reviewSessionId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, courseLevelId])
+  @@index([courseLevelId])
+  @@index([reviewSessionId])
+  @@index([userId, completedAt])
+}
+
+model UserUnlockEvent {
+  id                    String        @id @default(uuid()) @db.Uuid
+  userId                String        @db.Uuid
+  learningItemId        String        @db.Uuid
+  reviewSessionId       String        @db.Uuid
+  triggerLearningCardId String        @db.Uuid
+  unlockedAt            DateTime
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  learningItem          LearningItem  @relation(fields: [learningItemId], references: [id], onDelete: Cascade)
+  reviewSession         ReviewSession @relation(fields: [reviewSessionId], references: [id], onDelete: Cascade)
+  triggerLearningCard   LearningCard  @relation(fields: [triggerLearningCardId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, learningItemId])
+  @@index([learningItemId])
+  @@index([reviewSessionId])
+  @@index([userId, unlockedAt])
 }
 
 model Deck {
@@ -807,14 +848,16 @@ model UserSrsState {
 }
 
 model ReviewSession {
-  id         String            @id @default(uuid()) @db.Uuid
-  userId     String            @db.Uuid
-  startedAt  DateTime          @default(now())
-  finishedAt DateTime?
-  mode       ReviewSessionMode @default(REVIEW)
-  statsJson  Json?
-  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  answers    ReviewAnswer[]
+  id               String                      @id @default(uuid()) @db.Uuid
+  userId           String                      @db.Uuid
+  startedAt        DateTime                    @default(now())
+  finishedAt       DateTime?
+  mode             ReviewSessionMode           @default(REVIEW)
+  statsJson        Json?
+  user             User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers          ReviewAnswer[]
+  levelCompletions UserCourseLevelCompletion[]
+  unlockEvents     UserUnlockEvent[]
 
   @@index([userId, startedAt])
   @@index([mode])

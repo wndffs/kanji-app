@@ -501,6 +501,19 @@ function buildDashboard(state: MvpApiState): DashboardDto {
         totalCards: 1,
         percent: state.lessonCompleted ? 100 : 0,
         cardPercent: state.lessonCompleted ? 100 : 0,
+        pass: {
+          policyVersion: 1,
+          itemType: "component",
+          stageIndex: 5,
+          stageName: "Guru 1",
+          requiredPercentage: 100,
+          passedItems: 0,
+          requiredItems: 1,
+          totalItems: 1,
+          percent: 0,
+          currentlyPassed: false,
+          completedAt: null,
+        },
         itemsByType: [
           {
             itemType: "component",
@@ -508,9 +521,18 @@ function buildDashboard(state: MvpApiState): DashboardDto {
             locked: 0,
             available: state.lessonCompleted ? 0 : 1,
             inProgress: state.lessonCompleted ? 1 : 0,
+            passed: 0,
             burned: 0,
           },
         ],
+      },
+      journey: {
+        newlyUnlocked: null,
+        nextLocked: null,
+        nextAction: {
+          kind: dueReviews > 0 ? "review" : availableLessons > 0 ? "lesson" : "wait",
+          availableAt: null,
+        },
       },
     },
     workload: {

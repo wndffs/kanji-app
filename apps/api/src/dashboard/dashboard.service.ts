@@ -40,6 +40,7 @@ import {
   type DashboardSrsStateRecord,
   type DashboardSrsStageSpreadRecord,
   type DashboardStudyActivityDayRecord,
+  type DashboardUnlockEventRecord,
 } from "./dashboard.types";
 
 const FORECAST_HORIZON_DAYS = 7;
@@ -76,6 +77,7 @@ export class DashboardService {
       forecastStates,
       srsStageSpread,
       currentCourse,
+      unlockEvents,
       recentReviewCounts,
       studyActivity,
     ] = await Promise.all([
@@ -89,6 +91,7 @@ export class DashboardService {
       this.dashboardRepository.listForecastStates(user.id, forecastHorizonEnd),
       this.dashboardRepository.listSrsStageSpread(user.id),
       this.dashboardRepository.findCurrentCourseProgress(user.id),
+      this.dashboardRepository.listLatestUnlockEvents(user.id),
       this.dashboardRepository.countRecentReviewResults(user.id, recentSince, now),
       this.dashboardRepository.listStudyActivity(
         user.id,
@@ -99,8 +102,11 @@ export class DashboardService {
     const displayMode = user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE;
     const leechCandidates = toLeechCandidatesDto(leechSignals, displayMode);
     const availableLessonItems = findAvailableLessonItems(lessonItems, lessonProgress);
+    const availableLessonsToday = countAvailableLessons(user, lessonItems, lessonProgress, now);
     const availableItemIds = new Set(availableLessonItems.map((item) => item.id));
-    const [recentMistakes, recentAvailableLessons, recentBurned] = await Promise.all([
+    const journeyPlan = findNextLockedPath(lessonItems, lessonProgress);
+    const journeyItemIds = collectJourneyItemIds(unlockEvents, journeyPlan);
+    const [recentMistakes, recentAvailableLessons, recentBurned, journeyItems] = await Promise.all([
       this.dashboardRepository.listRecentMistakeItems(
         user.id,
         addDays(now, -RECENT_MISTAKE_DAYS),
@@ -111,7 +117,11 @@ export class DashboardService {
         MAX_RECENT_ACTIVITY_ITEMS,
       ),
       this.dashboardRepository.listRecentBurnedItems(user.id, MAX_RECENT_ACTIVITY_ITEMS),
+      this.dashboardRepository.listAvailableLessonItems(journeyItemIds, journeyItemIds.length),
     ]);
+    const journeyItemById = new Map(
+      toRecentItemsDto(journeyItems, displayMode).map((record) => [record.item.id, record.item]),
+    );
 
     return {
       user: {
@@ -124,7 +134,7 @@ export class DashboardService {
       },
       counts: {
         dueReviews,
-        availableLessons: countAvailableLessons(user, lessonItems, lessonProgress, now),
+        availableLessons: availableLessonsToday,
         burnedCards,
         leechCandidates: leechCandidates.length,
       },
@@ -134,7 +144,21 @@ export class DashboardService {
         firstReviewCompleted,
       ),
       currentCourse:
-        currentCourse === null ? null : toCurrentCourseDto(currentCourse, availableItemIds),
+        currentCourse === null
+          ? null
+          : toCurrentCourseDto({
+              course: currentCourse,
+              availableItemIds,
+              availableLessonsToday,
+              unlockedLessonCount: availableLessonItems.length,
+              journeyPlan,
+              journeyItemById,
+              unlockEvents,
+              dueReviews,
+              forecastStates,
+              srsStageSpread,
+              now,
+            }),
       workload: toWorkloadDto(user, lessonProgress, forecastStates, dueReviews, now),
       reviewForecast: toReviewForecastDto(forecastStates, now, user.settings.timezone),
       srsStageSpread: toSrsStageSpreadDto(srsStageSpread),
@@ -348,18 +372,193 @@ function toRecentItemsDto(
   });
 }
 
-function toCurrentCourseDto(
-  course: DashboardCourseProgressRecord,
-  availableItemIds: ReadonlySet<string>,
-): NonNullable<DashboardDto["currentCourse"]> {
-  const levelProgress = findCurrentLevelProgress(course.levels, availableItemIds);
+type DashboardJourneyPrerequisitePlan = {
+  readonly itemId: string;
+  readonly currentStage: number;
+  readonly requiredStage: number;
+};
+
+type DashboardJourneyPlan = {
+  readonly targetId: string;
+  readonly unmetPrerequisites: readonly DashboardJourneyPrerequisitePlan[];
+  readonly shortestPath: readonly DashboardJourneyPrerequisitePlan[];
+};
+
+function toCurrentCourseDto(input: {
+  readonly course: DashboardCourseProgressRecord;
+  readonly availableItemIds: ReadonlySet<string>;
+  readonly availableLessonsToday: number;
+  readonly unlockedLessonCount: number;
+  readonly journeyPlan: DashboardJourneyPlan | null;
+  readonly journeyItemById: ReadonlyMap<string, ItemSummary>;
+  readonly unlockEvents: readonly DashboardUnlockEventRecord[];
+  readonly dueReviews: number;
+  readonly forecastStates: readonly DashboardSrsStateRecord[];
+  readonly srsStageSpread: readonly DashboardSrsStageSpreadRecord[];
+  readonly now: Date;
+}): NonNullable<DashboardDto["currentCourse"]> {
+  const levelProgress = findCurrentLevelProgress(
+    input.course.levels,
+    input.availableItemIds,
+    input.srsStageSpread,
+  );
 
   return {
-    id: course.id,
-    title: course.title,
+    id: input.course.id,
+    title: input.course.title,
     currentLevel: levelProgress.level,
     levelProgress,
+    journey: {
+      newlyUnlocked: toNewlyUnlockedDto(input.unlockEvents, input.journeyItemById),
+      nextLocked: toNextLockedDto(input.journeyPlan, input.journeyItemById),
+      nextAction: findNextAction({
+        dueReviews: input.dueReviews,
+        availableLessonsToday: input.availableLessonsToday,
+        unlockedLessonCount: input.unlockedLessonCount,
+        journeyPlan: input.journeyPlan,
+        forecastStates: input.forecastStates,
+        now: input.now,
+      }),
+    },
   };
+}
+
+function toNewlyUnlockedDto(
+  events: readonly DashboardUnlockEventRecord[],
+  itemById: ReadonlyMap<string, ItemSummary>,
+): NonNullable<DashboardDto["currentCourse"]>["journey"]["newlyUnlocked"] {
+  const firstEvent = events[0];
+
+  if (firstEvent === undefined) {
+    return null;
+  }
+
+  const itemTypes = ["component", "kanji", "word", "sentence"] as const;
+  const groups = itemTypes.flatMap((itemType) => {
+    const items = events.flatMap((event) => {
+      const item = itemById.get(event.learningItemId);
+
+      return item?.itemType === itemType ? [item] : [];
+    });
+
+    return items.length === 0 ? [] : [{ itemType, items }];
+  });
+
+  return groups.length === 0
+    ? null
+    : {
+        reviewSessionId: firstEvent.reviewSessionId,
+        unlockedAt: firstEvent.unlockedAt.toISOString(),
+        groups,
+      };
+}
+
+function toNextLockedDto(
+  plan: DashboardJourneyPlan | null,
+  itemById: ReadonlyMap<string, ItemSummary>,
+): NonNullable<DashboardDto["currentCourse"]>["journey"]["nextLocked"] {
+  if (plan === null) {
+    return null;
+  }
+
+  const target = itemById.get(plan.targetId);
+
+  if (target === undefined) {
+    return null;
+  }
+
+  return {
+    target,
+    unmetPrerequisites: hydrateJourneyPrerequisites(plan.unmetPrerequisites, itemById),
+    shortestPath: hydrateJourneyPrerequisites(plan.shortestPath, itemById),
+  };
+}
+
+function hydrateJourneyPrerequisites(
+  prerequisites: readonly DashboardJourneyPrerequisitePlan[],
+  itemById: ReadonlyMap<string, ItemSummary>,
+): NonNullable<
+  NonNullable<DashboardDto["currentCourse"]>["journey"]["nextLocked"]
+>["unmetPrerequisites"] {
+  return prerequisites.flatMap((prerequisite) => {
+    const item = itemById.get(prerequisite.itemId);
+
+    return item === undefined
+      ? []
+      : [
+          {
+            item,
+            currentStage: prerequisite.currentStage,
+            requiredStage: prerequisite.requiredStage,
+          },
+        ];
+  });
+}
+
+function findNextAction(input: {
+  readonly dueReviews: number;
+  readonly availableLessonsToday: number;
+  readonly unlockedLessonCount: number;
+  readonly journeyPlan: DashboardJourneyPlan | null;
+  readonly forecastStates: readonly DashboardSrsStateRecord[];
+  readonly now: Date;
+}): NonNullable<DashboardDto["currentCourse"]>["journey"]["nextAction"] {
+  if (input.dueReviews > 0) {
+    return { kind: "review", availableAt: null };
+  }
+
+  if (input.availableLessonsToday > 0) {
+    return { kind: "lesson", availableAt: null };
+  }
+
+  if (input.unlockedLessonCount > 0) {
+    return { kind: "wait", availableAt: null };
+  }
+
+  const nextReviewAt = input.forecastStates
+    .flatMap((state) =>
+      state.availableAt !== null && state.availableAt.getTime() > input.now.getTime()
+        ? [state.availableAt]
+        : [],
+    )
+    .sort((left, right) => left.getTime() - right.getTime())[0];
+
+  if (input.journeyPlan !== null) {
+    const nextPrerequisite = input.journeyPlan.shortestPath[0];
+
+    if (nextPrerequisite !== undefined && nextPrerequisite.currentStage === 0) {
+      return { kind: "prerequisite", availableAt: null };
+    }
+
+    return {
+      kind: "wait",
+      availableAt: nextReviewAt?.toISOString() ?? null,
+    };
+  }
+
+  if (nextReviewAt !== undefined) {
+    return { kind: "wait", availableAt: nextReviewAt.toISOString() };
+  }
+
+  return { kind: "course-complete", availableAt: null };
+}
+
+function collectJourneyItemIds(
+  events: readonly DashboardUnlockEventRecord[],
+  plan: DashboardJourneyPlan | null,
+): readonly string[] {
+  return [
+    ...new Set([
+      ...events.map((event) => event.learningItemId),
+      ...(plan === null
+        ? []
+        : [
+            plan.targetId,
+            ...plan.unmetPrerequisites.map((item) => item.itemId),
+            ...plan.shortestPath.map((item) => item.itemId),
+          ]),
+    ]),
+  ];
 }
 
 function countAvailableLessons(
@@ -512,6 +711,156 @@ function hasSatisfiedPrerequisites(
   return true;
 }
 
+function findNextLockedPath(
+  lessonItems: readonly DashboardLessonItemRecord[],
+  progress: readonly DashboardLessonProgressRecord[],
+): DashboardJourneyPlan | null {
+  const orderedItems = [...lessonItems].sort(compareLessonItems);
+  const itemById = new Map(orderedItems.map((item) => [item.id, item]));
+  const progressByItem = groupLessonProgressByItem(progress);
+  const candidates = orderedItems.flatMap((item) => {
+    if (item.cardIds.length === 0 || isLessonItemStarted(item, progressByItem)) {
+      return [];
+    }
+
+    const unmetPrerequisites = listUnmetPrerequisites(item, progressByItem, itemById);
+
+    if (unmetPrerequisites.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        target: item,
+        unmetPrerequisites,
+        shortestPath: findShortestPrerequisitePath(
+          item,
+          progressByItem,
+          itemById,
+          new Set([item.id]),
+        ),
+      },
+    ];
+  });
+  const selected = candidates.sort(
+    (left, right) =>
+      left.shortestPath.length - right.shortestPath.length ||
+      compareLessonItems(left.target, right.target),
+  )[0];
+
+  return selected === undefined
+    ? null
+    : {
+        targetId: selected.target.id,
+        unmetPrerequisites: selected.unmetPrerequisites,
+        shortestPath: selected.shortestPath,
+      };
+}
+
+function listUnmetPrerequisites(
+  item: DashboardLessonItemRecord,
+  progressByItem: Map<string, readonly DashboardLessonProgressRecord[]>,
+  itemById: Map<string, DashboardLessonItemRecord>,
+): readonly DashboardJourneyPrerequisitePlan[] {
+  return item.dependencies.flatMap((dependency) => {
+    const currentStage = getCurrentItemStage(
+      dependency.prerequisiteItemId,
+      progressByItem,
+      itemById,
+    );
+
+    return currentStage >= dependency.requiredStage
+      ? []
+      : [
+          {
+            itemId: dependency.prerequisiteItemId,
+            currentStage,
+            requiredStage: dependency.requiredStage,
+          },
+        ];
+  });
+}
+
+function findShortestPrerequisitePath(
+  item: DashboardLessonItemRecord,
+  progressByItem: Map<string, readonly DashboardLessonProgressRecord[]>,
+  itemById: Map<string, DashboardLessonItemRecord>,
+  visited: ReadonlySet<string>,
+): readonly DashboardJourneyPrerequisitePlan[] {
+  const paths = listUnmetPrerequisites(item, progressByItem, itemById).map((prerequisite) => {
+    const prerequisiteItem = itemById.get(prerequisite.itemId);
+
+    if (prerequisiteItem === undefined || visited.has(prerequisite.itemId)) {
+      return [prerequisite];
+    }
+
+    const nestedPath = findShortestPrerequisitePath(
+      prerequisiteItem,
+      progressByItem,
+      itemById,
+      new Set([...visited, prerequisite.itemId]),
+    );
+
+    return [...nestedPath, prerequisite];
+  });
+
+  return (
+    paths.sort(
+      (left, right) => left.length - right.length || compareJourneyPaths(left, right, itemById),
+    )[0] ?? []
+  );
+}
+
+function compareJourneyPaths(
+  left: readonly DashboardJourneyPrerequisitePlan[],
+  right: readonly DashboardJourneyPrerequisitePlan[],
+  itemById: Map<string, DashboardLessonItemRecord>,
+): number {
+  const leftItem = left[0] === undefined ? undefined : itemById.get(left[0].itemId);
+  const rightItem = right[0] === undefined ? undefined : itemById.get(right[0].itemId);
+
+  if (leftItem !== undefined && rightItem !== undefined) {
+    return compareLessonItems(leftItem, rightItem);
+  }
+
+  return (left[0]?.itemId ?? "").localeCompare(right[0]?.itemId ?? "");
+}
+
+function getCurrentItemStage(
+  itemId: string,
+  progressByItem: Map<string, readonly DashboardLessonProgressRecord[]>,
+  itemById: Map<string, DashboardLessonItemRecord>,
+): number {
+  const records = progressByItem.get(itemId) ?? [];
+  const item = itemById.get(itemId);
+
+  if (item === undefined) {
+    return records.length === 0 ? 0 : Math.min(...records.map((record) => record.stageIndex));
+  }
+
+  if (item.cardIds.length === 0) {
+    return 0;
+  }
+
+  return Math.min(
+    ...item.cardIds.map(
+      (cardId) => records.find((record) => record.learningCardId === cardId)?.stageIndex ?? 0,
+    ),
+  );
+}
+
+function compareLessonItems(
+  left: DashboardLessonItemRecord,
+  right: DashboardLessonItemRecord,
+): number {
+  return (
+    left.courseId.localeCompare(right.courseId) ||
+    left.courseLevelNumber - right.courseLevelNumber ||
+    left.sortOrder - right.sortOrder ||
+    left.id.localeCompare(right.id)
+  );
+}
+
 function getRemainingDailyLessons(
   user: CurrentUserDto,
   progress: readonly DashboardLessonProgressRecord[],
@@ -569,11 +918,15 @@ function readDatePart(
 function findCurrentLevelProgress(
   levels: readonly DashboardCourseLevelProgressRecord[],
   availableItemIds: ReadonlySet<string>,
+  srsStageSpread: readonly DashboardSrsStageSpreadRecord[],
 ): DashboardLevelProgressDto {
-  const progressByLevel = levels.map((level) => toLevelProgress(level, availableItemIds));
+  const progressByLevel = levels.map((level) =>
+    toLevelProgress(level, availableItemIds, srsStageSpread),
+  );
   const currentLevel =
     progressByLevel.find(
-      (level) => level.totalItems > 0 && level.completedItems < level.totalItems,
+      (level) =>
+        level.totalItems > 0 && level.pass.completedAt === null && !level.pass.currentlyPassed,
     ) ??
     findLastLevelWithItems(progressByLevel) ??
     progressByLevel[0];
@@ -587,6 +940,19 @@ function findCurrentLevelProgress(
       totalCards: 0,
       percent: 0,
       cardPercent: 0,
+      pass: {
+        policyVersion: 1,
+        itemType: "kanji",
+        stageIndex: 5,
+        stageName: "Guru 1",
+        requiredPercentage: 90,
+        passedItems: 0,
+        requiredItems: 0,
+        totalItems: 0,
+        percent: 0,
+        currentlyPassed: false,
+        completedAt: null,
+      },
       itemsByType: [],
     }
   );
@@ -609,12 +975,22 @@ function findLastLevelWithItems(
 function toLevelProgress(
   level: DashboardCourseLevelProgressRecord,
   availableItemIds: ReadonlySet<string>,
+  srsStageSpread: readonly DashboardSrsStageSpreadRecord[],
 ): DashboardLevelProgressDto {
   const lessonItems = level.items.filter((item) => item.cardIds.length > 0);
   const totalItems = lessonItems.length;
   const completedItems = lessonItems.filter(isCompletedLessonItem).length;
   const totalCards = lessonItems.reduce((sum, item) => sum + item.cardIds.length, 0);
   const completedCards = lessonItems.reduce((sum, item) => sum + countCompletedCards(item), 0);
+  const passItemType = toDashboardItemKind(level.passPolicy.itemKind);
+  const passItems = lessonItems.filter((item) => item.itemType === passItemType);
+  const passedItems = passItems.filter((item) =>
+    hasReachedStage(item, level.passPolicy.passStageIndex),
+  ).length;
+  const requiredItems =
+    passItems.length === 0
+      ? 0
+      : Math.ceil((passItems.length * level.passPolicy.requiredPercentage) / 100);
 
   return {
     level: level.levelNumber,
@@ -624,13 +1000,32 @@ function toLevelProgress(
     totalCards,
     percent: totalItems === 0 ? 0 : Math.round((completedItems / totalItems) * 100),
     cardPercent: totalCards === 0 ? 0 : Math.round((completedCards / totalCards) * 100),
-    itemsByType: toLevelItemTypeProgress(lessonItems, availableItemIds),
+    pass: {
+      policyVersion: level.passPolicy.version,
+      itemType: passItemType,
+      stageIndex: level.passPolicy.passStageIndex,
+      stageName: findSrsStageName(srsStageSpread, level.passPolicy.passStageIndex),
+      requiredPercentage: level.passPolicy.requiredPercentage,
+      passedItems,
+      requiredItems,
+      totalItems: passItems.length,
+      percent:
+        requiredItems === 0 ? 0 : Math.min(100, Math.round((passedItems / requiredItems) * 100)),
+      currentlyPassed: requiredItems > 0 && passedItems >= requiredItems,
+      completedAt: level.completedAt?.toISOString() ?? null,
+    },
+    itemsByType: toLevelItemTypeProgress(
+      lessonItems,
+      availableItemIds,
+      level.passPolicy.passStageIndex,
+    ),
   };
 }
 
 function toLevelItemTypeProgress(
   items: readonly DashboardCourseItemProgressRecord[],
   availableItemIds: ReadonlySet<string>,
+  passStageIndex: number,
 ): DashboardLevelProgressDto["itemsByType"] {
   const itemTypes = ["component", "kanji", "word", "sentence"] as const;
 
@@ -641,7 +1036,9 @@ function toLevelItemTypeProgress(
       return [];
     }
 
-    const states = matchingItems.map((item) => getLevelItemState(item, availableItemIds));
+    const states = matchingItems.map((item) =>
+      getLevelItemState(item, availableItemIds, passStageIndex),
+    );
 
     return [
       {
@@ -650,6 +1047,7 @@ function toLevelItemTypeProgress(
         locked: states.filter((state) => state === "locked").length,
         available: states.filter((state) => state === "available").length,
         inProgress: states.filter((state) => state === "inProgress").length,
+        passed: states.filter((state) => state === "passed").length,
         burned: states.filter((state) => state === "burned").length,
       },
     ];
@@ -659,11 +1057,16 @@ function toLevelItemTypeProgress(
 function getLevelItemState(
   item: DashboardCourseItemProgressRecord,
   availableItemIds: ReadonlySet<string>,
-): "locked" | "available" | "inProgress" | "burned" {
+  passStageIndex: number,
+): "locked" | "available" | "inProgress" | "passed" | "burned" {
   const burnedCardIds = new Set(item.burnedCardIds);
 
   if (item.cardIds.every((cardId) => burnedCardIds.has(cardId))) {
     return "burned";
+  }
+
+  if (hasReachedStage(item, passStageIndex)) {
+    return "passed";
   }
 
   if (item.startedCardIds.length > 0) {
@@ -671,6 +1074,45 @@ function getLevelItemState(
   }
 
   return availableItemIds.has(item.id) ? "available" : "locked";
+}
+
+function hasReachedStage(item: DashboardCourseItemProgressRecord, passStageIndex: number): boolean {
+  const stageByCard = new Map(item.cardStages.map((card) => [card.cardId, card.stageIndex]));
+
+  return (
+    item.cardIds.length > 0 &&
+    item.cardIds.every((cardId) => (stageByCard.get(cardId) ?? 0) >= passStageIndex)
+  );
+}
+
+function toDashboardItemKind(
+  itemKind: DashboardCourseLevelProgressRecord["passPolicy"]["itemKind"],
+): DashboardCourseItemProgressRecord["itemType"] {
+  switch (itemKind) {
+    case "COMPONENT":
+      return "component";
+    case "KANJI":
+      return "kanji";
+    case "WORD":
+      return "word";
+    case "SENTENCE":
+      return "sentence";
+  }
+}
+
+function findSrsStageName(
+  systems: readonly DashboardSrsStageSpreadRecord[],
+  stageIndex: number,
+): string {
+  for (const system of systems) {
+    const stage = system.stages.find((candidate) => candidate.stageIndex === stageIndex);
+
+    if (stage !== undefined) {
+      return stage.name;
+    }
+  }
+
+  return `Stage ${stageIndex}`;
 }
 
 function toWorkloadDto(

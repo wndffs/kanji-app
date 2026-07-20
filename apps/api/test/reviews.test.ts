@@ -6,7 +6,7 @@ import { DEFAULT_SRS_STAGES, type SrsStage } from "@kanji-srs/srs";
 import { type CurrentUserDto } from "../src/auth/auth.types";
 import { type OverridesService } from "../src/overrides/overrides.service";
 import { buildReviewSessionSummary } from "../src/reviews/review-summary";
-import { ReviewsRepository } from "../src/reviews/reviews.repository";
+import { PrismaReviewsRepository, ReviewsRepository } from "../src/reviews/reviews.repository";
 import { ReviewsService } from "../src/reviews/reviews.service";
 import {
   type CreatePracticeSessionInput,
@@ -539,6 +539,149 @@ describe("ReviewsService", () => {
   });
 });
 
+describe("PrismaReviewsRepository course progress events", () => {
+  it("records every newly unlocked item and the completed level in the answer transaction", async () => {
+    const userUnlockEvent = { createMany: vi.fn().mockResolvedValue({ count: 2 }) };
+    const userCourseLevelCompletion = {
+      createMany: vi.fn().mockResolvedValue({ count: 1 }),
+    };
+    const tx = {
+      reviewSession: {
+        findFirst: vi.fn().mockResolvedValue({ id: "session-1" }),
+      },
+      reviewAnswer: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: "answer-1" }),
+      },
+      userSrsState: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      learningCard: {
+        findUnique: vi.fn().mockResolvedValue({
+          learningItemId: "kanji-one",
+          learningItem: { kind: "KANJI" },
+        }),
+      },
+      dependency: {
+        findMany: vi
+          .fn()
+          .mockResolvedValue([
+            createUnlockedDependencyRow("word-one"),
+            createUnlockedDependencyRow("word-first"),
+          ]),
+      },
+      courseLevel: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "level-1",
+            passPolicyJson: {
+              version: 1,
+              itemKind: "KANJI",
+              passStageIndex: 5,
+              requiredPercentage: 100,
+            },
+            items: [
+              {
+                learningItem: {
+                  kind: "KANJI",
+                  cards: [{ id: "card-meaning", srsStates: [{ stageIndex: 5 }] }],
+                },
+              },
+            ],
+          },
+        ]),
+      },
+      userUnlockEvent,
+      userCourseLevelCompletion,
+    };
+    const repository = new PrismaReviewsRepository({
+      db: {
+        $transaction: vi.fn(async (callback: (transaction: typeof tx) => Promise<void>) =>
+          callback(tx),
+        ),
+      },
+    } as never);
+
+    await repository.recordReviewAnswer(createRecordReviewAnswerInput());
+
+    expect(userUnlockEvent.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          userId: "owner",
+          learningItemId: "word-one",
+          reviewSessionId: "session-1",
+          triggerLearningCardId: "card-meaning",
+          unlockedAt: NOW,
+        },
+        {
+          userId: "owner",
+          learningItemId: "word-first",
+          reviewSessionId: "session-1",
+          triggerLearningCardId: "card-meaning",
+          unlockedAt: NOW,
+        },
+      ],
+      skipDuplicates: true,
+    });
+    expect(userCourseLevelCompletion.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          userId: "owner",
+          courseLevelId: "level-1",
+          reviewSessionId: "session-1",
+          policyVersion: 1,
+          completedAt: NOW,
+        },
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  it("does not call a dependency newly unlocked when it was already satisfied", async () => {
+    const userUnlockEvent = { createMany: vi.fn() };
+    const tx = {
+      reviewSession: {
+        findFirst: vi.fn().mockResolvedValue({ id: "session-1" }),
+      },
+      reviewAnswer: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: "answer-1" }),
+      },
+      userSrsState: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      learningCard: {
+        findUnique: vi.fn().mockResolvedValue({
+          learningItemId: "kanji-one",
+          learningItem: { kind: "KANJI" },
+        }),
+      },
+      dependency: {
+        findMany: vi.fn().mockResolvedValue([createUnlockedDependencyRow("word-one")]),
+      },
+      courseLevel: { findMany: vi.fn().mockResolvedValue([]) },
+      userUnlockEvent,
+      userCourseLevelCompletion: { createMany: vi.fn() },
+    };
+    const repository = new PrismaReviewsRepository({
+      db: {
+        $transaction: vi.fn(async (callback: (transaction: typeof tx) => Promise<void>) =>
+          callback(tx),
+        ),
+      },
+    } as never);
+
+    await repository.recordReviewAnswer(
+      createRecordReviewAnswerInput({
+        previousStageIndex: 5,
+        nextStageIndex: 6,
+      }),
+    );
+
+    expect(userUnlockEvent.createMany).not.toHaveBeenCalled();
+  });
+});
+
 class InMemoryReviewsRepository extends ReviewsRepository {
   readonly recordedAnswers: RecordReviewAnswerInput[] = [];
   private readonly cards = createCards();
@@ -628,9 +771,7 @@ class InMemoryReviewsRepository extends ReviewsRepository {
     return session?.userId === userId && session.finishedAt === null ? session : null;
   }
 
-  async createPracticeSession(
-    input: CreatePracticeSessionInput,
-  ): Promise<PracticeSessionRecord> {
+  async createPracticeSession(input: CreatePracticeSessionInput): Promise<PracticeSessionRecord> {
     const session: PracticeSessionRecord = {
       id: `practice-session-${this.nextSessionId++}`,
       userId: input.userId,
@@ -986,6 +1127,56 @@ function createQueueRecord(
 
 function getAnsweredSessionCardKey(sessionId: string, stateId: string, cardId: string): string {
   return `${sessionId}:${stateId}:${cardId}`;
+}
+
+function createUnlockedDependencyRow(learningItemId: string) {
+  return {
+    learningItem: {
+      id: learningItemId,
+      cards: [{ id: `card-${learningItemId}`, srsStates: [] }],
+      dependencies: [
+        {
+          requiredStage: 5,
+          prerequisiteItem: {
+            cards: [{ id: "card-meaning", srsStates: [{ stageIndex: 5 }] }],
+          },
+        },
+      ],
+    },
+  };
+}
+
+function createRecordReviewAnswerInput(
+  overrides: Partial<RecordReviewAnswerInput> = {},
+): RecordReviewAnswerInput {
+  const previousStageIndex = overrides.previousStageIndex ?? 4;
+  const nextStageIndex = overrides.nextStageIndex ?? 5;
+
+  return {
+    userId: "owner",
+    sessionId: "session-1",
+    stateId: "state-due",
+    cardId: "card-meaning",
+    answerText: "study answer",
+    normalizedAnswer: "study answer",
+    answeredAt: NOW,
+    recordedResult: "correct",
+    responseResult: "correct",
+    previousStageIndex,
+    nextStageIndex,
+    srsTransition: "advanced",
+    nextState: {
+      stageIndex: nextStageIndex,
+      availableAt: FUTURE_AT,
+      burnedAt: null,
+      resurrectedAt: null,
+      wrongCount: 0,
+      correctStreak: 1,
+      lastReviewedAt: NOW,
+    },
+    details: {},
+    ...overrides,
+  };
 }
 
 function createUser(

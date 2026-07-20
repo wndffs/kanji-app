@@ -814,6 +814,7 @@ function DashboardWidgetContent({
           course={dashboard.currentCourse}
           coursesState={coursesState}
           onCourseChange={onCourseChange}
+          timezone={dashboard.user.timezone}
         />
       );
     case "review-forecast":
@@ -846,10 +847,12 @@ function CourseProgressPanel({
   course,
   coursesState,
   onCourseChange,
+  timezone,
 }: {
   readonly course: DashboardDto["currentCourse"];
   readonly coursesState: CoursesState;
   readonly onCourseChange: (courseId: string) => void;
+  readonly timezone: string;
 }) {
   return (
     <section className="panel">
@@ -862,6 +865,39 @@ function CourseProgressPanel({
           <div>
             <strong>{course.title}</strong>
             <span>Уровень {course.currentLevel}</span>
+          </div>
+          <CourseNextAction course={course} timezone={timezone} />
+          <div className="course-pass-progress">
+            <div className="course-progress-row">
+              <span>
+                Порог уровня: {formatItemType(course.levelProgress.pass.itemType)} до{" "}
+                {course.levelProgress.pass.stageName}
+              </span>
+              <strong>{course.levelProgress.pass.percent}%</strong>
+            </div>
+            <div
+              aria-label={`Порог уровня выполнен на ${course.levelProgress.pass.percent}%`}
+              aria-valuemax={100}
+              aria-valuemin={0}
+              aria-valuenow={course.levelProgress.pass.percent}
+              className="progress-track"
+              role="progressbar"
+            >
+              <span style={{ width: `${course.levelProgress.pass.percent}%` }} />
+            </div>
+            <p className="muted">
+              {course.levelProgress.pass.passedItems} из {course.levelProgress.pass.requiredItems}{" "}
+              требуемых · {course.levelProgress.pass.requiredPercentage}% из{" "}
+              {course.levelProgress.pass.totalItems}
+            </p>
+            {course.levelProgress.pass.completedAt === null ? null : (
+              <p className="course-pass-status">
+                Уровень завершён
+                {course.levelProgress.pass.currentlyPassed
+                  ? "."
+                  : "; текущие этапы карточек могли снизиться после ошибок."}
+              </p>
+            )}
           </div>
           <div className="course-progress-row">
             <span>Материалы уровня</span>
@@ -904,6 +940,7 @@ function CourseProgressPanel({
                     <th scope="col">Закрыто</th>
                     <th scope="col">Уроки</th>
                     <th scope="col">В SRS</th>
+                    <th scope="col">Пройдено</th>
                     <th scope="col">Закреплено</th>
                     <th scope="col">Всего</th>
                   </tr>
@@ -915,6 +952,7 @@ function CourseProgressPanel({
                       <td>{row.locked}</td>
                       <td>{row.available}</td>
                       <td>{row.inProgress}</td>
+                      <td>{row.passed}</td>
                       <td>{row.burned}</td>
                       <td className="level-progress-total">{row.totalItems}</td>
                     </tr>
@@ -923,10 +961,148 @@ function CourseProgressPanel({
               </table>
             </div>
           )}
+          <CourseJourneyDetails course={course} />
         </div>
       )}
     </section>
   );
+}
+
+function CourseNextAction({
+  course,
+  timezone,
+}: {
+  readonly course: NonNullable<DashboardDto["currentCourse"]>;
+  readonly timezone: string;
+}) {
+  const action = course.journey.nextAction;
+
+  switch (action.kind) {
+    case "review":
+      return (
+        <p className="course-next-action">
+          Следующий шаг: <Link href="/reviews">повторения</Link>.
+        </p>
+      );
+    case "lesson":
+      return (
+        <p className="course-next-action">
+          Следующий шаг: <Link href="/lessons">доступный урок</Link>.
+        </p>
+      );
+    case "prerequisite": {
+      const prerequisite = course.journey.nextLocked?.shortestPath[0];
+
+      return prerequisite === undefined ? null : (
+        <p className="course-next-action">
+          Следующий шаг: изучить{" "}
+          <Link href={`/items/${encodeURIComponent(prerequisite.item.id)}`}>
+            <JapaneseText>{prerequisite.item.japanese}</JapaneseText>
+          </Link>
+          .
+        </p>
+      );
+    }
+    case "wait":
+      return (
+        <p className="course-next-action">
+          {action.availableAt === null
+            ? "Следующий шаг появится после текущего учебного окна."
+            : `Следующий шаг: дождаться повторения до ${formatJourneyDate(
+                action.availableAt,
+                timezone,
+              )}.`}
+        </p>
+      );
+    case "course-complete":
+      return <p className="course-next-action">Все доступные уровни завершены.</p>;
+  }
+}
+
+function CourseJourneyDetails({
+  course,
+}: {
+  readonly course: NonNullable<DashboardDto["currentCourse"]>;
+}) {
+  const newlyUnlocked = course.journey.newlyUnlocked;
+  const nextLocked = course.journey.nextLocked;
+
+  if (newlyUnlocked === null && nextLocked === null) {
+    return null;
+  }
+
+  return (
+    <div className="course-journey">
+      {newlyUnlocked === null ? null : (
+        <section aria-labelledby="newly-unlocked-heading">
+          <h3 id="newly-unlocked-heading">Открыто последними повторениями</h3>
+          {newlyUnlocked.groups.map((group) => (
+            <div className="journey-unlock-group" key={group.itemType}>
+              <strong>{formatItemType(group.itemType)}</strong>
+              <div className="journey-item-links">
+                {group.items.map((item) => (
+                  <Link href={`/items/${encodeURIComponent(item.id)}`} key={item.id}>
+                    <JapaneseText>{item.japanese}</JapaneseText>
+                    <span>{formatItemTranslation(item)}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+      {nextLocked === null ? null : (
+        <section aria-labelledby="next-locked-heading">
+          <h3 id="next-locked-heading">
+            Путь к{" "}
+            <Link href={`/items/${encodeURIComponent(nextLocked.target.id)}`}>
+              <JapaneseText>{nextLocked.target.japanese}</JapaneseText>
+            </Link>
+          </h3>
+          <ol className="journey-prerequisites">
+            {nextLocked.unmetPrerequisites.map((prerequisite) => (
+              <li key={prerequisite.item.id}>
+                <Link href={`/items/${encodeURIComponent(prerequisite.item.id)}`}>
+                  <JapaneseText>{prerequisite.item.japanese}</JapaneseText>
+                </Link>
+                <span>{formatItemTranslation(prerequisite.item)}</span>
+                <small>
+                  этап {prerequisite.currentStage} из {prerequisite.requiredStage}
+                </small>
+              </li>
+            ))}
+          </ol>
+          {nextLocked.shortestPath.length <= 1 ? null : (
+            <p className="journey-shortest-path">
+              Кратчайший путь:{" "}
+              {nextLocked.shortestPath.map((prerequisite, index) => (
+                <span key={prerequisite.item.id}>
+                  {index === 0 ? "" : " → "}
+                  <Link href={`/items/${encodeURIComponent(prerequisite.item.id)}`}>
+                    <JapaneseText>{prerequisite.item.japanese}</JapaneseText>
+                  </Link>
+                </span>
+              ))}
+            </p>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
+
+function formatJourneyDate(value: string, timezone: string): string {
+  try {
+    return new Intl.DateTimeFormat("ru-RU", {
+      timeZone: timezone,
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
 }
 
 function ReviewForecastPanel({ forecast }: { readonly forecast: DashboardDto["reviewForecast"] }) {

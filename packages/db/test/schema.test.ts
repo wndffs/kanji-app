@@ -86,12 +86,20 @@ describe("Prisma schema", () => {
   });
 
   it("stores the user's translation display mode", () => {
-    expect(schema).toContain('translationDisplayMode String   @default("ru")');
+    expect(schema).toMatch(/translationDisplayMode\s+String\s+@default\("ru"\)/u);
     expect(schema).toContain("@@index([translationDisplayMode])");
   });
 
   it("stores the user's dashboard widget preferences as structured JSON", () => {
-    expect(schema).toContain('dashboardWidgets       Json     @default("[]")');
+    expect(schema).toMatch(/dashboardWidgets\s+Json\s+@default\("\[\]"\)/u);
+  });
+
+  it("persists versioned level completion and idempotent unlock events", () => {
+    expect(schema).toMatch(/passPolicyJson\s+Json\s+@default/u);
+    expect(schema).toContain("model UserCourseLevelCompletion");
+    expect(schema).toContain("@@unique([userId, courseLevelId])");
+    expect(schema).toContain("model UserUnlockEvent");
+    expect(schema).toContain("@@unique([userId, learningItemId])");
   });
 
   it("stores the user's lesson pacing and ordering preferences", () => {
