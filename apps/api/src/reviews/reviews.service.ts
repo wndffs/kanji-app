@@ -1,4 +1,10 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
 import {
@@ -11,10 +17,15 @@ import {
 import {
   DEFAULT_TRANSLATION_DISPLAY_MODE,
   getContentLocalesForDisplayMode,
+  type ActivePracticeSessionResponse,
+  type FinishPracticeSessionResponse,
   type LocalizedTextDto,
   type PracticeAnswerRequest,
   type PracticeAnswerResponse,
   type PracticeQueueResponse,
+  type PracticeSessionAnswerResponse,
+  type PracticeSessionDto,
+  type PracticeSessionResponse,
   type PracticeSource,
   type ReviewAnswerResultType,
   type ReviewOrderMode,
@@ -30,7 +41,7 @@ import { ReviewsRepository } from "./reviews.repository";
 import {
   type FinishReviewSessionResponse,
   type ParsedReviewAnswerRequest,
-  type ReviewAnswerRequestBody,
+  type PracticeSessionRecord,
   type ReviewAnswerTargetRecord,
   type ReviewQueueRecord,
   type ReviewQueueResponse,
@@ -86,19 +97,7 @@ export class ReviewsService {
     sourceValue: unknown,
   ): Promise<PracticeQueueResponse> {
     const source = parsePracticeSource(sourceValue);
-    const now = new Date();
-    const since =
-      source === "recent-lessons"
-        ? addDays(now, -RECENT_LESSON_DAYS)
-        : source === "recent-mistakes"
-          ? addDays(now, -RECENT_MISTAKE_DAYS)
-          : new Date(0);
-    const records = await this.reviewsRepository.listPracticeCards(
-      user.id,
-      source,
-      since,
-      PRACTICE_QUEUE_LIMIT,
-    );
+    const records = await this.listPracticeRecords(user.id, source);
 
     return {
       source,
@@ -106,8 +105,72 @@ export class ReviewsService {
     };
   }
 
-  async submitPracticeAnswer(user: CurrentUserDto, body: unknown): Promise<PracticeAnswerResponse> {
+  async getActivePracticeSession(
+    user: CurrentUserDto,
+    sourceValue: unknown,
+  ): Promise<ActivePracticeSessionResponse> {
+    const source = parsePracticeSource(sourceValue);
+    const session = await this.reviewsRepository.findActivePracticeSession(user.id, source);
+
+    if (session === null) {
+      return { session: null, items: [] };
+    }
+
+    return this.toPracticeSessionResponse(session);
+  }
+
+  async startPracticeSession(
+    user: CurrentUserDto,
+    body: unknown,
+  ): Promise<PracticeSessionResponse> {
+    const source = parsePracticeSource(parseRecord(body).source);
+    const active = await this.reviewsRepository.findActivePracticeSession(user.id, source);
+
+    if (active !== null) {
+      return this.toPracticeSessionResponse(active);
+    }
+
+    const records = await this.listPracticeRecords(user.id, source);
+
+    if (records.length === 0) {
+      throw new BadRequestException("Для выбранного источника нет карточек для практики.");
+    }
+
+    const session = await this.reviewsRepository.createPracticeSession({
+      userId: user.id,
+      now: new Date(),
+      source,
+      cardIds: records.map((record) => record.card.id),
+    });
+
+    return {
+      session: toPracticeSessionDto(session),
+      items: records.map(toReviewQueueItem),
+    };
+  }
+
+  async submitPracticeAnswer(
+    sessionId: string,
+    user: CurrentUserDto,
+    body: unknown,
+  ): Promise<PracticeSessionAnswerResponse> {
     const request = parsePracticeAnswerRequest(body);
+    const session = await this.reviewsRepository.findPracticeSession(user.id, sessionId);
+
+    if (session === null) {
+      throw new NotFoundException("Активная сессия практики не найдена.");
+    }
+
+    const expectedCardId = session.cardIds[session.currentIndex];
+
+    if (expectedCardId === undefined) {
+      throw new BadRequestException("Сессия практики готова к завершению.");
+    }
+
+    if (request.cardId !== expectedCardId) {
+      throw new BadRequestException("Карточка не совпадает с текущим шагом практики.");
+    }
+
     const target = await this.reviewsRepository.findPracticeCard(user.id, request.cardId);
 
     if (target === null) {
@@ -125,8 +188,7 @@ export class ReviewsService {
       answer: request.answer,
     });
     const displayMode = user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE;
-
-    return {
+    const answer: PracticeAnswerResponse = {
       cardId: target.card.id,
       accepted: validation.accepted,
       result: validation.result,
@@ -139,6 +201,98 @@ export class ReviewsService {
         blockedReason: getBlockedReason(target, validation.matchedAnswer),
         diagnostic: toAnswerDiagnostic(validation.relatedAnswer),
       },
+    };
+
+    if (answer.retry) {
+      return { answer, session: toPracticeSessionDto(session) };
+    }
+
+    const updated = await this.reviewsRepository.updatePracticeSessionProgress({
+      userId: user.id,
+      sessionId,
+      currentIndex: session.currentIndex + 1,
+      progress: {
+        answered: session.progress.answered + 1,
+        accepted: session.progress.accepted + (answer.accepted ? 1 : 0),
+        missed: session.progress.missed + (answer.accepted ? 0 : 1),
+      },
+    });
+
+    if (updated === null) {
+      throw new ConflictException("Прогресс практики изменился. Перезагрузите сессию.");
+    }
+
+    return { answer, session: toPracticeSessionDto(updated) };
+  }
+
+  async finishPracticeSession(
+    sessionId: string,
+    user: CurrentUserDto,
+  ): Promise<FinishPracticeSessionResponse> {
+    const active = await this.reviewsRepository.findPracticeSession(user.id, sessionId);
+
+    if (active === null) {
+      throw new NotFoundException("Активная сессия практики не найдена.");
+    }
+
+    if (active.currentIndex < active.cardIds.length) {
+      throw new BadRequestException("В сессии практики остались карточки без ответа.");
+    }
+
+    const finished = await this.reviewsRepository.finishPracticeSession(
+      user.id,
+      sessionId,
+      new Date(),
+    );
+
+    if (finished === null || finished.finishedAt === null) {
+      throw new ConflictException("Не удалось завершить сессию практики.");
+    }
+
+    return {
+      session: {
+        ...toPracticeSessionDto(finished),
+        finishedAt: finished.finishedAt.toISOString(),
+      },
+      summary: finished.progress,
+    };
+  }
+
+  private async listPracticeRecords(
+    userId: string,
+    source: PracticeSource,
+  ): Promise<readonly ReviewQueueRecord[]> {
+    const now = new Date();
+    const since =
+      source === "recent-lessons"
+        ? addDays(now, -RECENT_LESSON_DAYS)
+        : source === "recent-mistakes"
+          ? addDays(now, -RECENT_MISTAKE_DAYS)
+          : new Date(0);
+
+    return this.reviewsRepository.listPracticeCards(
+      userId,
+      source,
+      since,
+      PRACTICE_QUEUE_LIMIT,
+    );
+  }
+
+  private async toPracticeSessionResponse(
+    session: PracticeSessionRecord,
+  ): Promise<PracticeSessionResponse> {
+    const records = await this.reviewsRepository.listPracticeCardsByIds(
+      session.userId,
+      session.cardIds,
+    );
+
+    if (records.length !== session.cardIds.length) {
+      throw new NotFoundException("В сессии практики есть недоступные карточки.");
+    }
+
+    return {
+      session: toPracticeSessionDto(session),
+      items: records.map(toReviewQueueItem),
     };
   }
 
@@ -357,12 +511,12 @@ function parsePracticeSource(value: unknown): PracticeSource {
   throw new BadRequestException("source must be recent-lessons, recent-mistakes, or burned.");
 }
 
-function parseRecord(value: unknown): ReviewAnswerRequestBody {
+function parseRecord(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new BadRequestException("Request body must be a JSON object.");
   }
 
-  return value as ReviewAnswerRequestBody;
+  return value as Record<string, unknown>;
 }
 
 function parseRequiredString(value: unknown, key: string, maxLength?: number): string {
@@ -564,6 +718,17 @@ function toSrsSnapshot(state: ReviewSrsStateRecord): UserSrsStateSnapshot {
     wrongCount: state.wrongCount,
     correctStreak: state.correctStreak,
     lastReviewedAt: state.lastReviewedAt,
+  };
+}
+
+function toPracticeSessionDto(session: PracticeSessionRecord): PracticeSessionDto {
+  return {
+    id: session.id,
+    startedAt: session.startedAt.toISOString(),
+    source: session.source,
+    currentIndex: session.currentIndex,
+    totalItems: session.cardIds.length,
+    progress: session.progress,
   };
 }
 

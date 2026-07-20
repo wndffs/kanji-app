@@ -154,7 +154,7 @@ refresh:
 63. Task 103 (completed): persist lesson batch size, daily lesson pace, and interleaving preferences.
 64. Task 104 (completed): add review ordering presets without changing due dates or bypassing SRS rules.
 65. Task 105 (completed): add an end-of-review summary and clear per-answer SRS transition feedback.
-66. Task 106: resume optional practice queues and progress without changing scheduled SRS state.
+66. Task 106 (completed): resume optional practice queues and progress without changing scheduled SRS state.
 67. Task 107: add a vacation mode that shifts future availability without corrupting review history.
 68. Task 108: persist speech voice, speed, autoplay, and sound-feedback preferences.
 69. Task 109: persist lesson-only pronunciation aids for kana, furigana, and optional romaji.

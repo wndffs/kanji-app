@@ -1,17 +1,27 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   PRACTICE_SOURCES,
   type PracticeAnswerResponse,
+  type PracticeProgressDto,
+  type PracticeSessionDto,
   type PracticeSource,
   type ReviewQueueItem,
 } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
-import { ApiError, getPracticeQueue, submitPracticeAnswer } from "../../lib/api-client";
+import {
+  ApiError,
+  finishPracticeSession,
+  getActivePracticeSession,
+  getPracticeQueue,
+  startPracticeSession,
+  submitPracticeAnswer,
+} from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 
 type QueueState =
@@ -24,28 +34,26 @@ type QueueState =
       readonly items: readonly ReviewQueueItem[];
     };
 
-type PracticeProgress = {
-  readonly answered: number;
-  readonly accepted: number;
-  readonly missed: number;
-};
-
-const INITIAL_PROGRESS: PracticeProgress = { answered: 0, accepted: 0, missed: 0 };
+const INITIAL_PROGRESS: PracticeProgressDto = { answered: 0, accepted: 0, missed: 0 };
 
 export function PracticeClient({
   initialSource = "recent-mistakes",
 }: {
   readonly initialSource?: PracticeSource;
 }) {
+  const router = useRouter();
   const [source, setSource] = useState<PracticeSource>(initialSource);
   const [queueState, setQueueState] = useState<QueueState>({ status: "loading" });
+  const [practiceSession, setPracticeSession] = useState<PracticeSessionDto | null>(null);
   const [isPracticing, setIsPracticing] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<PracticeAnswerResponse | null>(null);
-  const [progress, setProgress] = useState<PracticeProgress>(INITIAL_PROGRESS);
-  const [finishedSummary, setFinishedSummary] = useState<PracticeProgress | null>(null);
+  const [progress, setProgress] = useState<PracticeProgressDto>(INITIAL_PROGRESS);
+  const [finishedSummary, setFinishedSummary] = useState<PracticeProgressDto | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isContinuing, setIsContinuing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const answerInputRef = useRef<HTMLInputElement>(null);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
@@ -59,6 +67,7 @@ export function PracticeClient({
     }
 
     setQueueState({ status: "loading" });
+    setPracticeSession(null);
     setIsPracticing(false);
     setCurrentIndex(0);
     setAnswer("");
@@ -68,8 +77,30 @@ export function PracticeClient({
     setError(null);
 
     try {
-      const response = await getPracticeQueue(storedSession.token, source);
-      setQueueState({ status: "ready", token: storedSession.token, items: response.items });
+      const [queue, active] = await Promise.all([
+        getPracticeQueue(storedSession.token, source),
+        getActivePracticeSession(storedSession.token, source),
+      ]);
+
+      if (
+        active.session !== null &&
+        active.session.currentIndex >= active.session.totalItems
+      ) {
+        const finished = await finishPracticeSession(storedSession.token, active.session.id);
+        setQueueState({ status: "ready", token: storedSession.token, items: queue.items });
+        setFinishedSummary(finished.summary);
+        return;
+      }
+
+      if (active.session !== null) {
+        setQueueState({ status: "ready", token: storedSession.token, items: active.items });
+        setPracticeSession(active.session);
+        setCurrentIndex(active.session.currentIndex);
+        setProgress(active.session.progress);
+        return;
+      }
+
+      setQueueState({ status: "ready", token: storedSession.token, items: queue.items });
     } catch (requestError: unknown) {
       if (requestError instanceof ApiError && requestError.status === 401) {
         clearStoredSession();
@@ -108,22 +139,38 @@ export function PracticeClient({
 
   function handleSourceChange(nextSource: PracticeSource): void {
     if (nextSource !== source) {
+      router.replace(`/practice?source=${encodeURIComponent(nextSource)}`, { scroll: false });
       setSource(nextSource);
     }
   }
 
-  function handleStart(): void {
-    if (queueState.status !== "ready" || queueState.items.length === 0) {
+  async function handleStart(): Promise<void> {
+    if (queueState.status !== "ready" || queueState.items.length === 0 || isStarting) {
       return;
     }
 
-    setIsPracticing(true);
-    setCurrentIndex(0);
-    setAnswer("");
-    setFeedback(null);
-    setProgress(INITIAL_PROGRESS);
-    setFinishedSummary(null);
+    setIsStarting(true);
     setError(null);
+
+    try {
+      const response = await startPracticeSession(queueState.token, source);
+      setQueueState({ ...queueState, items: response.items });
+      setPracticeSession(response.session);
+      setIsPracticing(true);
+      setCurrentIndex(response.session.currentIndex);
+      setAnswer("");
+      setFeedback(null);
+      setProgress(response.session.progress);
+      setFinishedSummary(null);
+    } catch (requestError: unknown) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Не удалось начать практику.",
+      );
+    } finally {
+      setIsStarting(false);
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -131,6 +178,7 @@ export function PracticeClient({
 
     if (
       queueState.status !== "ready" ||
+      practiceSession === null ||
       currentItem === null ||
       answer.trim() === "" ||
       feedback !== null ||
@@ -143,12 +191,18 @@ export function PracticeClient({
     setError(null);
 
     try {
-      const response = await submitPracticeAnswer(queueState.token, {
-        cardId: currentItem.card.id,
-        answer: answer.trim(),
-        answerType: currentItem.card.answerType,
-      });
-      setFeedback(response);
+      const response = await submitPracticeAnswer(
+        queueState.token,
+        practiceSession.id,
+        {
+          cardId: currentItem.card.id,
+          answer: answer.trim(),
+          answerType: currentItem.card.answerType,
+        },
+      );
+      setFeedback(response.answer);
+      setPracticeSession(response.session);
+      setProgress(response.session.progress);
     } catch (requestError: unknown) {
       setError(
         requestError instanceof Error ? requestError.message : "Не удалось проверить ответ.",
@@ -158,8 +212,13 @@ export function PracticeClient({
     }
   }
 
-  function handleContinue(): void {
-    if (queueState.status !== "ready" || feedback === null) {
+  async function handleContinue(): Promise<void> {
+    if (
+      queueState.status !== "ready" ||
+      practiceSession === null ||
+      feedback === null ||
+      isContinuing
+    ) {
       return;
     }
 
@@ -169,23 +228,32 @@ export function PracticeClient({
       return;
     }
 
-    const nextProgress = {
-      answered: progress.answered + 1,
-      accepted: progress.accepted + (feedback.accepted ? 1 : 0),
-      missed: progress.missed + (feedback.accepted ? 0 : 1),
-    };
-    const nextIndex = currentIndex + 1;
+    const nextIndex = practiceSession.currentIndex;
 
     if (nextIndex >= queueState.items.length) {
-      setProgress(nextProgress);
-      setFinishedSummary(nextProgress);
-      setIsPracticing(false);
-      setFeedback(null);
-      setAnswer("");
+      setIsContinuing(true);
+      setError(null);
+
+      try {
+        const response = await finishPracticeSession(queueState.token, practiceSession.id);
+        setProgress(response.summary);
+        setFinishedSummary(response.summary);
+        setPracticeSession(null);
+        setIsPracticing(false);
+        setFeedback(null);
+        setAnswer("");
+      } catch (requestError: unknown) {
+        setError(
+          requestError instanceof Error
+            ? requestError.message
+            : "Не удалось завершить практику.",
+        );
+      } finally {
+        setIsContinuing(false);
+      }
       return;
     }
 
-    setProgress(nextProgress);
     setCurrentIndex(nextIndex);
     setAnswer("");
     setFeedback(null);
@@ -241,18 +309,33 @@ export function PracticeClient({
           <div>
             <h1>Практика</h1>
             <p>Карточек: {queueState.items.length}. SRS и расписание не изменяются.</p>
+            {practiceSession === null ? null : (
+              <p>
+                Сохранено: {practiceSession.progress.answered} из {practiceSession.totalItems}.
+              </p>
+            )}
           </div>
           <button
             className="primary-action"
-            disabled={queueState.items.length === 0}
-            onClick={handleStart}
+            disabled={queueState.items.length === 0 || isStarting}
+            onClick={() => void handleStart()}
             type="button"
           >
-            Начать практику
+            {isStarting
+              ? "Открываю..."
+              : practiceSession === null
+                ? "Начать практику"
+                : "Продолжить практику"}
           </button>
         </div>
 
         <PracticeSourceControl source={source} onChange={handleSourceChange} />
+
+        {error === null ? null : (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
 
         {finishedSummary === null ? null : (
           <section className="practice-summary panel" aria-label="Результат практики">
@@ -362,11 +445,16 @@ export function PracticeClient({
             </div>
             <button
               className="primary-action"
-              onClick={handleContinue}
+              disabled={isContinuing}
+              onClick={() => void handleContinue()}
               ref={continueButtonRef}
               type="button"
             >
-              {feedback.retry ? "Ответить снова" : "Дальше"}
+              {isContinuing
+                ? "Завершаю..."
+                : feedback.retry
+                  ? "Ответить снова"
+                  : "Дальше"}
             </button>
           </div>
           <div className="feedback-grid">

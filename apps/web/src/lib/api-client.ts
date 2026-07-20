@@ -33,6 +33,7 @@ import {
   type AdminUpdateItemRequest,
   type AdminUpdatePrerequisitesRequest,
   type ActiveLessonSessionResponse,
+  type ActivePracticeSessionResponse,
   type AppLocale,
   type CardAnswerType,
   type CheckLessonAnswerRequestDto,
@@ -47,6 +48,7 @@ import {
   type CreateTextDeckRequest,
   type CreateTextDeckResponse,
   type FinishLessonSessionResponse,
+  type FinishPracticeSessionResponse,
   type ItemDetails,
   type KanaAssessmentAnswerRequest,
   type KanaAssessmentAnswerResponse,
@@ -58,8 +60,9 @@ import {
   type LessonQueueResponse,
   type LessonOrderMode,
   type PracticeAnswerRequest,
-  type PracticeAnswerResponse,
   type PracticeQueueResponse,
+  type PracticeSessionAnswerResponse,
+  type PracticeSessionResponse,
   type PracticeSource,
   type ReviewAnswerRequest,
   type ReviewAnswerResponse,
@@ -720,15 +723,54 @@ export function getPracticeQueue(
   });
 }
 
-export function submitPracticeAnswer(
+export function getActivePracticeSession(
   token: string,
-  request: PracticeAnswerRequest,
-): Promise<PracticeAnswerResponse> {
-  return apiRequest<PracticeAnswerResponse>("/reviews/practice/answer", {
+  source: PracticeSource,
+): Promise<ActivePracticeSessionResponse> {
+  const params = new URLSearchParams({ source });
+  return apiRequest<ActivePracticeSessionResponse>(
+    `/reviews/practice/active?${params.toString()}`,
+    { token },
+  );
+}
+
+export function startPracticeSession(
+  token: string,
+  source: PracticeSource,
+): Promise<PracticeSessionResponse> {
+  return apiRequest<PracticeSessionResponse>("/reviews/practice/start", {
     method: "POST",
     token,
-    body: request,
+    body: { source },
   });
+}
+
+export function submitPracticeAnswer(
+  token: string,
+  sessionId: string,
+  request: PracticeAnswerRequest,
+): Promise<PracticeSessionAnswerResponse> {
+  return apiRequest<PracticeSessionAnswerResponse>(
+    `/reviews/practice/${encodeURIComponent(sessionId)}/answer`,
+    {
+      method: "POST",
+      token,
+      body: request,
+    },
+  );
+}
+
+export function finishPracticeSession(
+  token: string,
+  sessionId: string,
+): Promise<FinishPracticeSessionResponse> {
+  return apiRequest<FinishPracticeSessionResponse>(
+    `/reviews/practice/${encodeURIComponent(sessionId)}/finish`,
+    {
+      method: "POST",
+      token,
+    },
+  );
 }
 
 export function createTextDeck(

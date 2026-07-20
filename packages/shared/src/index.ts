@@ -327,6 +327,35 @@ export type PracticeQueueResponse = {
   readonly items: readonly ReviewQueueItem[];
 };
 
+export type PracticeProgressDto = {
+  readonly answered: number;
+  readonly accepted: number;
+  readonly missed: number;
+};
+
+export type PracticeSessionDto = {
+  readonly id: string;
+  readonly startedAt: string;
+  readonly source: PracticeSource;
+  readonly currentIndex: number;
+  readonly totalItems: number;
+  readonly progress: PracticeProgressDto;
+};
+
+export type PracticeSessionResponse = {
+  readonly session: PracticeSessionDto;
+  readonly items: readonly ReviewQueueItem[];
+};
+
+export type ActivePracticeSessionResponse = {
+  readonly session: PracticeSessionDto | null;
+  readonly items: readonly ReviewQueueItem[];
+};
+
+export type StartPracticeSessionRequest = {
+  readonly source: PracticeSource;
+};
+
 export type PracticeAnswerRequest = {
   readonly cardId: string;
   readonly answer: string;
@@ -337,6 +366,16 @@ export type PracticeAnswerResponse = Omit<
   ReviewAnswerResponse,
   "previousSrs" | "nextSrs" | "srsTransition"
 >;
+
+export type PracticeSessionAnswerResponse = {
+  readonly answer: PracticeAnswerResponse;
+  readonly session: PracticeSessionDto;
+};
+
+export type FinishPracticeSessionResponse = {
+  readonly session: PracticeSessionDto & { readonly finishedAt: string };
+  readonly summary: PracticeProgressDto;
+};
 
 export type LessonMnemonicPurpose = "meaning" | "reading" | "story";
 

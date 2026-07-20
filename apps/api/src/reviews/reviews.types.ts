@@ -3,6 +3,8 @@ import {
   type CardPromptType,
   type ItemKind,
   type LocalizedTextDto,
+  type PracticeProgressDto,
+  type PracticeSource,
   type ReviewAnswerResponse,
   type ReviewAnswerResultType,
   type ReviewOrderMode,
@@ -71,6 +73,31 @@ export type ReviewQueueRecord = {
   readonly state: ReviewSrsStateRecord;
   readonly card: ReviewCardRecord;
   readonly stages: readonly SrsStage[];
+};
+
+export type PracticeSessionRecord = {
+  readonly id: string;
+  readonly userId: string;
+  readonly startedAt: Date;
+  readonly finishedAt: Date | null;
+  readonly source: PracticeSource;
+  readonly cardIds: readonly string[];
+  readonly currentIndex: number;
+  readonly progress: PracticeProgressDto;
+};
+
+export type CreatePracticeSessionInput = {
+  readonly userId: string;
+  readonly now: Date;
+  readonly source: PracticeSource;
+  readonly cardIds: readonly string[];
+};
+
+export type UpdatePracticeSessionProgressInput = {
+  readonly userId: string;
+  readonly sessionId: string;
+  readonly currentIndex: number;
+  readonly progress: PracticeProgressDto;
 };
 
 export type ReviewAnswerTargetRecord = ReviewQueueRecord & {

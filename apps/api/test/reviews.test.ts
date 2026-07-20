@@ -9,11 +9,14 @@ import { buildReviewSessionSummary } from "../src/reviews/review-summary";
 import { ReviewsRepository } from "../src/reviews/reviews.repository";
 import { ReviewsService } from "../src/reviews/reviews.service";
 import {
+  type CreatePracticeSessionInput,
   type FinishedReviewSessionRecord,
+  type PracticeSessionRecord,
   type RecordReviewAnswerInput,
   type ReviewAnswerTargetRecord,
   type ReviewQueueRecord,
   type ReviewSessionRecord,
+  type UpdatePracticeSessionProgressInput,
 } from "../src/reviews/reviews.types";
 
 const NOW = new Date("2026-06-18T09:00:00.000Z");
@@ -407,18 +410,42 @@ describe("ReviewsService", () => {
   it("validates practice answers without recording or changing SRS", async () => {
     const { repository, service } = createHarness();
     const previousState = { ...repository.getState("state-burned") };
+    const started = await service.startPracticeSession(createUser("owner"), {
+      source: "burned",
+    });
 
     await expect(
-      service.submitPracticeAnswer(createUser("owner"), {
+      service.submitPracticeAnswer(started.session.id, createUser("owner"), {
         cardId: "card-burned",
         answer: "burned answer",
         answerType: "meaning",
       }),
     ).resolves.toMatchObject({
-      cardId: "card-burned",
-      accepted: true,
-      result: "correct",
-      feedback: { message: "Ответ принят." },
+      answer: {
+        cardId: "card-burned",
+        accepted: true,
+        result: "correct",
+      },
+      session: {
+        id: started.session.id,
+        currentIndex: 1,
+        progress: { answered: 1, accepted: 1, missed: 0 },
+      },
+    });
+    await expect(
+      service.startPracticeSession(createUser("owner"), { source: "burned" }),
+    ).resolves.toMatchObject({
+      session: {
+        id: started.session.id,
+        currentIndex: 1,
+        progress: { answered: 1, accepted: 1, missed: 0 },
+      },
+      items: [expect.objectContaining({ card: expect.objectContaining({ id: "card-burned" }) })],
+    });
+    await expect(
+      service.finishPracticeSession(started.session.id, createUser("owner")),
+    ).resolves.toMatchObject({
+      summary: { answered: 1, accepted: 1, missed: 0 },
     });
     expect(repository.recordedAnswers).toEqual([]);
     expect(repository.getState("state-burned")).toEqual(previousState);
@@ -437,18 +464,27 @@ describe("ReviewsService", () => {
     } as unknown as OverridesService;
     const { repository, service } = createHarness(overridesService);
     const previousState = { ...repository.getState("state-burned") };
+    const started = await service.startPracticeSession(createUser("owner"), {
+      source: "burned",
+    });
 
     await expect(
-      service.submitPracticeAnswer(createUser("owner"), {
+      service.submitPracticeAnswer(started.session.id, createUser("owner"), {
         cardId: "card-burned",
         answer: "ひと",
         answerType: "meaning",
       }),
     ).resolves.toMatchObject({
-      accepted: false,
-      result: "wrong",
-      retry: true,
-      feedback: { diagnostic: { kind: "alternative-reading", matchedAnswer: "ひと" } },
+      answer: {
+        accepted: false,
+        result: "wrong",
+        retry: true,
+        feedback: { diagnostic: { kind: "alternative-reading", matchedAnswer: "ひと" } },
+      },
+      session: {
+        currentIndex: 0,
+        progress: { answered: 0, accepted: 0, missed: 0 },
+      },
     });
     expect(repository.recordedAnswers).toEqual([]);
     expect(repository.getState("state-burned")).toEqual(previousState);
@@ -456,17 +492,20 @@ describe("ReviewsService", () => {
 
   it("rejects unknown practice sources and cards owned by another user", async () => {
     const { service } = createHarness();
+    const started = await service.startPracticeSession(createUser("owner"), {
+      source: "burned",
+    });
 
     await expect(service.getPracticeQueue(createUser("owner"), "all")).rejects.toThrow(
       "source must be recent-lessons, recent-mistakes, or burned.",
     );
     await expect(
-      service.submitPracticeAnswer(createUser("other"), {
+      service.submitPracticeAnswer(started.session.id, createUser("other"), {
         cardId: "card-burned",
         answer: "burned answer",
         answerType: "meaning",
       }),
-    ).rejects.toThrow("Practice card not found.");
+    ).rejects.toThrow("Активная сессия практики не найдена.");
   });
 });
 
@@ -477,6 +516,7 @@ class InMemoryReviewsRepository extends ReviewsRepository {
     createQueueRecords(this.cards).map((record) => [record.state.id, record]),
   );
   private readonly sessions = new Map<string, ReviewSessionRecord>();
+  private readonly practiceSessions = new Map<string, PracticeSessionRecord>();
   private readonly answeredSessionCards = new Set<string>();
   private nextSessionId = 1;
 
@@ -519,6 +559,95 @@ class InMemoryReviewsRepository extends ReviewsRepository {
         (record) => record.state.userId === userId && record.card.id === cardId,
       ) ?? null
     );
+  }
+
+  async listPracticeCardsByIds(
+    userId: string,
+    cardIds: readonly string[],
+  ): Promise<readonly ReviewQueueRecord[]> {
+    const byCardId = new Map(
+      [...this.states.values()]
+        .filter((record) => record.state.userId === userId)
+        .map((record) => [record.card.id, record]),
+    );
+
+    return cardIds.flatMap((cardId) => {
+      const record = byCardId.get(cardId);
+      return record === undefined ? [] : [record];
+    });
+  }
+
+  async findActivePracticeSession(
+    userId: string,
+    source: PracticeSessionRecord["source"],
+  ): Promise<PracticeSessionRecord | null> {
+    return (
+      [...this.practiceSessions.values()].find(
+        (session) =>
+          session.userId === userId && session.source === source && session.finishedAt === null,
+      ) ?? null
+    );
+  }
+
+  async findPracticeSession(
+    userId: string,
+    sessionId: string,
+  ): Promise<PracticeSessionRecord | null> {
+    const session = this.practiceSessions.get(sessionId);
+
+    return session?.userId === userId && session.finishedAt === null ? session : null;
+  }
+
+  async createPracticeSession(
+    input: CreatePracticeSessionInput,
+  ): Promise<PracticeSessionRecord> {
+    const session: PracticeSessionRecord = {
+      id: `practice-session-${this.nextSessionId++}`,
+      userId: input.userId,
+      startedAt: input.now,
+      finishedAt: null,
+      source: input.source,
+      cardIds: input.cardIds,
+      currentIndex: 0,
+      progress: { answered: 0, accepted: 0, missed: 0 },
+    };
+
+    this.practiceSessions.set(session.id, session);
+    return session;
+  }
+
+  async updatePracticeSessionProgress(
+    input: UpdatePracticeSessionProgressInput,
+  ): Promise<PracticeSessionRecord | null> {
+    const session = await this.findPracticeSession(input.userId, input.sessionId);
+
+    if (session === null) {
+      return null;
+    }
+
+    const updated = {
+      ...session,
+      currentIndex: input.currentIndex,
+      progress: input.progress,
+    };
+    this.practiceSessions.set(session.id, updated);
+    return updated;
+  }
+
+  async finishPracticeSession(
+    userId: string,
+    sessionId: string,
+    now: Date,
+  ): Promise<PracticeSessionRecord | null> {
+    const session = await this.findPracticeSession(userId, sessionId);
+
+    if (session === null || session.currentIndex < session.cardIds.length) {
+      return null;
+    }
+
+    const finished = { ...session, finishedAt: now };
+    this.practiceSessions.set(session.id, finished);
+    return finished;
   }
 
   async createReviewSession(userId: string, now: Date): Promise<ReviewSessionRecord> {

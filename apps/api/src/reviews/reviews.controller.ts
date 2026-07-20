@@ -32,11 +32,36 @@ export class ReviewsController {
     return this.reviewsService.getPracticeQueue(currentUser, source);
   }
 
-  @Post("practice/answer")
-  async submitPracticeAnswer(@CurrentUser() currentUser: CurrentUserDto, @Body() body: unknown) {
+  @Get("practice/active")
+  getActivePracticeSession(
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Query("source") source: string | undefined,
+  ) {
+    return this.reviewsService.getActivePracticeSession(currentUser, source);
+  }
+
+  @Post("practice/start")
+  startPracticeSession(@CurrentUser() currentUser: CurrentUserDto, @Body() body: unknown) {
+    return this.reviewsService.startPracticeSession(currentUser, body);
+  }
+
+  @Post("practice/:sessionId/answer")
+  async submitPracticeAnswer(
+    @Param("sessionId") sessionId: string,
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Body() body: unknown,
+  ) {
     this.rateLimitService.assertAllowed("review-answer-user", currentUser.id);
 
-    return await this.reviewsService.submitPracticeAnswer(currentUser, body);
+    return await this.reviewsService.submitPracticeAnswer(sessionId, currentUser, body);
+  }
+
+  @Post("practice/:sessionId/finish")
+  finishPracticeSession(
+    @Param("sessionId") sessionId: string,
+    @CurrentUser() currentUser: CurrentUserDto,
+  ) {
+    return this.reviewsService.finishPracticeSession(sessionId, currentUser);
   }
 
   @Post(":sessionId/answer")
