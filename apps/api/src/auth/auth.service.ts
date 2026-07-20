@@ -10,9 +10,11 @@ import {
   DASHBOARD_WIDGET_IDS,
   type DashboardWidgetPreferenceDto,
   type LessonOrderMode,
+  type ReviewOrderMode,
   type TranslationDisplayMode,
   isDashboardWidgetId,
   isLessonOrderMode,
+  isReviewOrderMode,
   isTranslationDisplayMode,
 } from "@kanji-srs/shared";
 
@@ -38,6 +40,7 @@ type UserSettingsUpdate = {
   lessonBatchSize?: UserSettingsDto["lessonBatchSize"];
   lessonOrderMode?: UserSettingsDto["lessonOrderMode"];
   reviewBudget?: UserSettingsDto["reviewBudget"];
+  reviewOrderMode?: UserSettingsDto["reviewOrderMode"];
   strictMode?: UserSettingsDto["strictMode"];
   dashboardWidgets?: UserSettingsDto["dashboardWidgets"];
 };
@@ -243,6 +246,10 @@ function parseUserSettings(
     );
   }
 
+  if (record.reviewOrderMode !== undefined) {
+    settings.reviewOrderMode = parseReviewOrderMode(record.reviewOrderMode);
+  }
+
   if (record.strictMode !== undefined) {
     if (typeof record.strictMode !== "boolean") {
       throw new BadRequestException("strictMode must be a boolean.");
@@ -387,6 +394,16 @@ function parseDashboardWidgets(value: unknown): readonly DashboardWidgetPreferen
 function parseLessonOrderMode(value: unknown): LessonOrderMode {
   if (!isLessonOrderMode(value)) {
     throw new BadRequestException("lessonOrderMode must be course or interleaved.");
+  }
+
+  return value;
+}
+
+function parseReviewOrderMode(value: unknown): ReviewOrderMode {
+  if (!isReviewOrderMode(value)) {
+    throw new BadRequestException(
+      "reviewOrderMode must be shuffled, oldest-first, or lower-levels-first.",
+    );
   }
 
   return value;

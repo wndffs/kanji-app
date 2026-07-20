@@ -258,6 +258,19 @@ export type ReviewQueueItem = {
   readonly srs: SrsStateSummaryDto;
 };
 
+export const SUPPORTED_REVIEW_ORDER_MODES = [
+  "shuffled",
+  "oldest-first",
+  "lower-levels-first",
+] as const;
+export type ReviewOrderMode = (typeof SUPPORTED_REVIEW_ORDER_MODES)[number];
+
+export function isReviewOrderMode(value: unknown): value is ReviewOrderMode {
+  return (
+    typeof value === "string" && (SUPPORTED_REVIEW_ORDER_MODES as readonly string[]).includes(value)
+  );
+}
+
 export type ReviewAnswerRequest = {
   readonly cardId: string;
   readonly answer: string;

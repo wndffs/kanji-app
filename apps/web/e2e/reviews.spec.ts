@@ -136,6 +136,22 @@ test.describe("review session", () => {
     await expect(page.getByText("Сессия завершена.")).toBeVisible();
   });
 
+  test("persists and reloads the selected review order", async ({ page }) => {
+    await signIn(page);
+    const getMockState = await mockReviewApi(page, {
+      queue: [reviewQueueItem, secondReviewQueueItem],
+    });
+
+    await page.goto("/reviews");
+    await page.getByLabel("Порядок карточек").selectOption("lower-levels-first");
+
+    await expect.poll(getMockState).toMatchObject({
+      queueRequests: 2,
+      savedSettings: { reviewOrderMode: "lower-levels-first" },
+    });
+    await expect(page.getByLabel("Порядок карточек")).toHaveValue("lower-levels-first");
+  });
+
   test("shows empty queue state and reloads", async ({ page }) => {
     let requestCount = 0;
 
@@ -143,7 +159,10 @@ test.describe("review session", () => {
     await page.route(`${API_BASE_URL}/reviews/queue`, async (route) => {
       requestCount += 1;
       await route.fulfill({
-        json: { items: requestCount === 1 ? [] : [reviewQueueItem] },
+        json: {
+          items: requestCount === 1 ? [] : [reviewQueueItem],
+          orderMode: "shuffled",
+        },
       });
     });
 
@@ -241,6 +260,7 @@ async function signIn(page: Page, displayMode: TranslationDisplayMode = "ru-en")
             timezone: "Europe/Moscow",
             dailyLessonLimit: 20,
             reviewBudget: 100,
+            reviewOrderMode: "shuffled",
             strictMode: false,
           },
         }),
@@ -256,12 +276,43 @@ async function mockReviewApi(
     readonly answerRequests?: Array<{ readonly cardId?: string; readonly answerType?: string }>;
     readonly queue?: readonly ReviewQueueItem[];
   } = {},
-): Promise<void> {
+): Promise<() => { readonly queueRequests: number; readonly savedSettings: unknown }> {
   const privateAnswers = new Set<string>();
   const queue = options.queue ?? [reviewQueueItem];
+  let queueRequests = 0;
+  let reviewOrderMode = "shuffled";
+  let savedSettings: unknown = null;
 
   await page.route(`${API_BASE_URL}/reviews/queue`, async (route) => {
-    await route.fulfill({ json: { items: queue } });
+    queueRequests += 1;
+    await route.fulfill({ json: { items: queue, orderMode: reviewOrderMode } });
+  });
+
+  await page.route(`${API_BASE_URL}/users/settings`, async (route) => {
+    savedSettings = route.request().postDataJSON();
+    const requestedMode = (savedSettings as { readonly reviewOrderMode?: string }).reviewOrderMode;
+
+    if (requestedMode !== undefined) {
+      reviewOrderMode = requestedMode;
+    }
+
+    await route.fulfill({
+      json: {
+        id: "user-1",
+        email: "learner@example.test",
+        displayName: "Тестовый ученик",
+        role: "USER",
+        settings: {
+          locale: "ru-RU",
+          translationDisplayMode: "ru-en",
+          timezone: "Europe/Moscow",
+          dailyLessonLimit: 20,
+          reviewBudget: 100,
+          reviewOrderMode,
+          strictMode: false,
+        },
+      },
+    });
   });
 
   await page.route(`${API_BASE_URL}/reviews/start`, async (route) => {
@@ -356,6 +407,8 @@ async function mockReviewApi(
       },
     });
   });
+
+  return () => ({ queueRequests, savedSettings });
 }
 
 const reviewQueueItem: ReviewQueueItem = {

@@ -30,7 +30,7 @@ describe("ReviewsService", () => {
 
   it("returns due cards only without exposing answers", async () => {
     const { service } = createHarness();
-    const queue = await service.getQueue(createUser("owner"));
+    const queue = await service.getQueue(createUser("owner", { reviewOrderMode: "oldest-first" }));
     const cardIds = queue.items.map((item) => item.card.id);
     const serializedQueue = JSON.stringify(queue);
 
@@ -40,6 +40,39 @@ describe("ReviewsService", () => {
     expect(queue.items[0]?.card).not.toHaveProperty("acceptedAnswers");
     expect(queue.items[0]?.card).not.toHaveProperty("blockedAnswers");
     expect(serializedQueue).not.toContain("study answer");
+    expect(queue.orderMode).toBe("oldest-first");
+  });
+
+  it("reorders only the current due batch without changing eligibility", async () => {
+    const { repository, service } = createHarness();
+    const lowerLevels = await service.getQueue(
+      createUser("owner", { reviewOrderMode: "lower-levels-first" }),
+    );
+    const firstShuffle = await service.getQueue(
+      createUser("owner", { reviewOrderMode: "shuffled" }),
+    );
+    const secondShuffle = await service.getQueue(
+      createUser("owner", { reviewOrderMode: "shuffled" }),
+    );
+    const limited = await service.getQueue(
+      createUser("owner", {
+        reviewBudget: 1,
+        reviewOrderMode: "lower-levels-first",
+      }),
+    );
+
+    expect(lowerLevels.items.map((item) => item.card.id)).toEqual(["card-late", "card-meaning"]);
+    expect(firstShuffle.items.map((item) => item.card.id)).toEqual(
+      secondShuffle.items.map((item) => item.card.id),
+    );
+    expect(firstShuffle.items.map((item) => item.card.id).sort()).toEqual([
+      "card-late",
+      "card-meaning",
+    ]);
+    expect(firstShuffle.items.map((item) => item.card.id)).not.toContain("card-future");
+    expect(firstShuffle.items.map((item) => item.card.id)).not.toContain("card-burned");
+    expect(limited.items.map((item) => item.card.id)).toEqual(["card-meaning"]);
+    expect(repository.recordedAnswers).toEqual([]);
   });
 
   it("advances the stage for a correct answer", async () => {
@@ -629,6 +662,10 @@ function createCards(): Map<string, ReviewQueueRecord["card"]> {
       {
         ...base,
         id: "card-meaning",
+        target: {
+          ...base.target,
+          level: 2,
+        },
         acceptedAnswers: [
           {
             locale: "en-US",
@@ -645,6 +682,12 @@ function createCards(): Map<string, ReviewQueueRecord["card"]> {
       {
         ...base,
         id: "card-late",
+        learningItemId: "item-kanji-late",
+        target: {
+          ...base.target,
+          id: "item-kanji-late",
+          level: 1,
+        },
         acceptedAnswers: [
           {
             locale: "en-US",
@@ -747,6 +790,7 @@ function createUser(
       timezone: "Europe/Moscow",
       dailyLessonLimit: 10,
       reviewBudget: 20,
+      reviewOrderMode: "shuffled",
       strictMode: false,
       ...settings,
     },

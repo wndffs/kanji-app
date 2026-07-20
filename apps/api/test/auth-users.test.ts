@@ -176,6 +176,7 @@ describe("Auth and users", () => {
         lessonBatchSize: 3,
         lessonOrderMode: "interleaved",
         reviewBudget: 80,
+        reviewOrderMode: "lower-levels-first",
         strictMode: true,
         dashboardWidgets,
       }),
@@ -187,6 +188,7 @@ describe("Auth and users", () => {
         lessonBatchSize: 3,
         lessonOrderMode: "interleaved",
         reviewBudget: 80,
+        reviewOrderMode: "lower-levels-first",
         strictMode: true,
         dashboardWidgets,
       },
@@ -223,7 +225,7 @@ describe("Auth and users", () => {
     ).rejects.toThrow("dashboardWidgets contains an invalid widget.");
   });
 
-  it("rejects invalid lesson pacing preferences", async () => {
+  it("rejects invalid lesson and review ordering preferences", async () => {
     const { authService } = createAuthHarness();
     const usersController = new UsersController(authService);
     const session = await authService.register({
@@ -237,6 +239,9 @@ describe("Auth and users", () => {
     await expect(
       usersController.updateSettings(session.user, { lessonOrderMode: "random" }),
     ).rejects.toThrow("lessonOrderMode must be course or interleaved.");
+    await expect(
+      usersController.updateSettings(session.user, { reviewOrderMode: "future-first" }),
+    ).rejects.toThrow("reviewOrderMode must be shuffled, oldest-first, or lower-levels-first.");
   });
 
   it("rejects a normal user from admin guarded endpoints", async () => {
@@ -278,6 +283,7 @@ describe("PrismaUsersRepository", () => {
         lessonBatchSize: 3,
         lessonOrderMode: "interleaved",
         reviewBudget: 100,
+        reviewOrderMode: "lower-levels-first",
         strictMode: false,
         dashboardWidgets,
       },
@@ -290,6 +296,7 @@ describe("PrismaUsersRepository", () => {
       dashboardWidgets,
       lessonBatchSize: 3,
       lessonOrderMode: "interleaved",
+      reviewOrderMode: "lower-levels-first",
     });
 
     expect(update).toHaveBeenCalledWith(
@@ -301,6 +308,7 @@ describe("PrismaUsersRepository", () => {
                 dashboardWidgets,
                 lessonBatchSize: 3,
                 lessonOrderMode: "interleaved",
+                reviewOrderMode: "lower-levels-first",
               },
             }),
           },
@@ -311,6 +319,7 @@ describe("PrismaUsersRepository", () => {
     expect(stored.settings).toMatchObject({
       lessonBatchSize: 3,
       lessonOrderMode: "interleaved",
+      reviewOrderMode: "lower-levels-first",
     });
   });
 

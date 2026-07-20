@@ -37,8 +37,8 @@ only in the development seed path. The local seed account is
 
 User settings include `locale`, `translationDisplayMode` (`ru`, `en`, or
 `ru-en`), `timezone`, `dailyLessonLimit`, `lessonBatchSize`,
-`lessonOrderMode`, `reviewBudget`, `strictMode`, and dashboard widget
-preferences.
+`lessonOrderMode`, `reviewBudget`, `reviewOrderMode`, `strictMode`, and
+dashboard widget preferences.
 
 Registration enrolls a new learner in every available published default
 course. The defaults are the published `starter-demo` course and, once it has
@@ -192,10 +192,15 @@ private, and blocked answer rules, but it creates no review session or answer
 record and never invokes SRS scheduling.
 
 `GET /reviews/queue` returns due, non-burned `LearningCard` prompts for the
-authenticated user and respects the user's `reviewBudget`. Queue cards expose
-the Japanese prompt, reading where appropriate, item kind, due time, and SRS
-summary, but they do not include accepted answers, blocked answers, or meaning
-translations that would reveal the answer before submission.
+authenticated user and respects the user's `reviewBudget`. The repository first
+selects the oldest due cards within that budget. The saved `reviewOrderMode`
+then keeps them oldest-first, deterministically shuffles them for the learner's
+local day, or places lower course levels first. The response returns the applied
+mode. Ordering never includes a future or burned card and never mutates SRS
+state. Queue cards expose the Japanese prompt, reading where appropriate, item
+kind, due time, and SRS summary, but they do not include accepted answers,
+blocked answers, or meaning translations that would reveal the answer before
+submission.
 
 `POST /reviews/:sessionId/answer` validates the submitted answer with global
 answers plus the current user's private accepted answers, records a

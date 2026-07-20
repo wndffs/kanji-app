@@ -106,6 +106,9 @@ exact selected subset; unselected candidates remain in the plan after refresh.
 - Show accepted answer after wrong answer.
 - Add private synonym/meaning from feedback panel.
 - Preserve keyboard flow.
+- Persist and expose shuffled, oldest-due-first, and lower-levels-first queue
+  presets before a session starts. Changing presentation order must reload only
+  the already due, budget-limited queue and must not alter SRS state.
 
 ## Lesson UX
 

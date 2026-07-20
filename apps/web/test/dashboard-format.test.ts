@@ -4,6 +4,7 @@ import {
   formatAccuracy,
   formatCount,
   formatForecastBucket,
+  formatReviewOrderMode,
   formatSrsStageName,
   formatTranslationDisplayMode,
 } from "../src/lib/dashboard-format";
@@ -13,6 +14,12 @@ describe("dashboard formatters", () => {
     expect(formatTranslationDisplayMode("ru")).toBe("Русский");
     expect(formatTranslationDisplayMode("en")).toBe("English");
     expect(formatTranslationDisplayMode("ru-en")).toBe("Русский + English");
+  });
+
+  it("formats review ordering presets", () => {
+    expect(formatReviewOrderMode("shuffled")).toBe("Перемешать");
+    expect(formatReviewOrderMode("oldest-first")).toBe("Самые просроченные");
+    expect(formatReviewOrderMode("lower-levels-first")).toBe("Сначала нижние уровни");
   });
 
   it("formats forecast buckets and accuracy", () => {

@@ -16,8 +16,10 @@ import {
   type PracticeQueueResponse,
   type PracticeSource,
   type ReviewAnswerResultType,
+  type ReviewOrderMode,
   type ReviewQueueItem,
   type SrsStateSummaryDto,
+  isReviewOrderMode,
 } from "@kanji-srs/shared";
 
 import { type CurrentUserDto } from "../auth/auth.types";
@@ -52,9 +54,16 @@ export class ReviewsService {
     const now = new Date();
     const limit = resolveQueueLimit(user.settings.reviewBudget);
     const records = await this.reviewsRepository.listDueReviewCards(user.id, now, limit);
+    const orderMode = getReviewOrderMode(user);
+    const orderedRecords = orderReviewRecords(
+      records,
+      orderMode,
+      `${user.id}:${getLocalDateKey(now, user.settings.timezone)}`,
+    );
 
     return {
-      items: records.map(toReviewQueueItem),
+      items: orderedRecords.map(toReviewQueueItem),
+      orderMode,
     };
   }
 
@@ -390,6 +399,73 @@ function resolveQueueLimit(limit: number): number {
   }
 
   return Math.min(limit, DEFAULT_REVIEW_QUEUE_LIMIT);
+}
+
+function getReviewOrderMode(user: CurrentUserDto): ReviewOrderMode {
+  return isReviewOrderMode(user.settings.reviewOrderMode)
+    ? user.settings.reviewOrderMode
+    : "shuffled";
+}
+
+function orderReviewRecords(
+  records: readonly ReviewQueueRecord[],
+  mode: ReviewOrderMode,
+  shuffleSeed: string,
+): readonly ReviewQueueRecord[] {
+  if (mode === "oldest-first" || records.length < 2) {
+    return [...records];
+  }
+
+  if (mode === "lower-levels-first") {
+    return [...records].sort(
+      (left, right) =>
+        (left.card.target.level ?? Number.MAX_SAFE_INTEGER) -
+          (right.card.target.level ?? Number.MAX_SAFE_INTEGER) ||
+        compareReviewDueAt(left, right) ||
+        left.card.id.localeCompare(right.card.id),
+    );
+  }
+
+  return [...records].sort(
+    (left, right) =>
+      getStableShuffleRank(`${shuffleSeed}:${left.card.id}`) -
+        getStableShuffleRank(`${shuffleSeed}:${right.card.id}`) ||
+      left.card.id.localeCompare(right.card.id),
+  );
+}
+
+function compareReviewDueAt(left: ReviewQueueRecord, right: ReviewQueueRecord): number {
+  return (
+    (left.state.availableAt?.getTime() ?? Number.MAX_SAFE_INTEGER) -
+    (right.state.availableAt?.getTime() ?? Number.MAX_SAFE_INTEGER)
+  );
+}
+
+function getStableShuffleRank(value: string): number {
+  let hash = 2_166_136_261;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16_777_619);
+  }
+
+  return hash >>> 0;
+}
+
+function getLocalDateKey(date: Date, timezone: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(date);
+    const partByType = new Map(parts.map((part) => [part.type, part.value]));
+
+    return `${partByType.get("year")}-${partByType.get("month")}-${partByType.get("day")}`;
+  } catch {
+    return date.toISOString().slice(0, 10);
+  }
 }
 
 function getResponseResult(

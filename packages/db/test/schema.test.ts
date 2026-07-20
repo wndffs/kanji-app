@@ -99,6 +99,10 @@ describe("Prisma schema", () => {
     expect(schema).toMatch(/lessonOrderMode\s+String\s+@default\("course"\)/u);
   });
 
+  it("stores the user's review ordering preference", () => {
+    expect(schema).toMatch(/reviewOrderMode\s+String\s+@default\("shuffled"\)/u);
+  });
+
   it("stores per-user kana lesson and assessment progress", () => {
     expect(schema).toContain("enum KanaScript");
     expect(schema).toContain("model UserKanaProgress");

@@ -34,6 +34,7 @@ test.describe("settings", () => {
     await page.getByLabel("Размер группы урока").fill("3");
     await page.getByRole("button", { name: "Чередовать типы" }).click();
     await page.getByLabel("Бюджет повторений").fill("18");
+    await page.getByLabel("Порядок повторений").selectOption("lower-levels-first");
     await page.getByLabel("Часовой пояс").fill("Asia/Tokyo");
     await page.getByLabel("Строгая проверка").check();
     await page.getByRole("button", { name: "Сохранить" }).click();
@@ -46,6 +47,7 @@ test.describe("settings", () => {
       lessonBatchSize: 3,
       lessonOrderMode: "interleaved",
       reviewBudget: 18,
+      reviewOrderMode: "lower-levels-first",
       strictMode: true,
     });
   });
@@ -79,6 +81,7 @@ function createUser() {
       lessonBatchSize: 5,
       lessonOrderMode: "course",
       reviewBudget: 100,
+      reviewOrderMode: "shuffled",
       strictMode: false,
     },
   };

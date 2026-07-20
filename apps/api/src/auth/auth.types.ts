@@ -2,6 +2,7 @@ import {
   type AppLocale,
   type DashboardWidgetPreferenceDto,
   type LessonOrderMode,
+  type ReviewOrderMode,
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
@@ -15,6 +16,7 @@ export type UserSettingsDto = {
   readonly lessonBatchSize?: number;
   readonly lessonOrderMode?: LessonOrderMode;
   readonly reviewBudget: number;
+  readonly reviewOrderMode?: ReviewOrderMode;
   readonly strictMode: boolean;
   readonly dashboardWidgets?: readonly DashboardWidgetPreferenceDto[];
 };

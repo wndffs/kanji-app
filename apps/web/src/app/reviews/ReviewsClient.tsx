@@ -12,11 +12,13 @@ import {
 } from "react";
 
 import {
+  SUPPORTED_REVIEW_ORDER_MODES,
   getContentLocalesForDisplayMode,
   type CardAnswerType,
   type ContentLocale,
   type LocalizedTextDto,
   type ReviewAnswerResponse,
+  type ReviewOrderMode,
   type ReviewQueueItem,
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
@@ -29,10 +31,11 @@ import {
   getReviewQueue,
   startReviewSession,
   submitReviewAnswer,
+  updateUserSettings,
   type ReviewSessionDto,
 } from "../../lib/api-client";
-import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
-import { formatSrsStageName } from "../../lib/dashboard-format";
+import { clearStoredSession, readStoredSession, updateStoredUser } from "../../lib/auth-storage";
+import { formatReviewOrderMode, formatSrsStageName } from "../../lib/dashboard-format";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
 type QueueState =
@@ -44,6 +47,7 @@ type QueueState =
       readonly status: "ready";
       readonly token: string;
       readonly queue: readonly ReviewQueueItem[];
+      readonly orderMode: ReviewOrderMode;
     };
 
 type ReviewProgress = {
@@ -68,6 +72,7 @@ export function ReviewsClient() {
   const [progress, setProgress] = useState<ReviewProgress>(INITIAL_PROGRESS);
   const [finishedSummary, setFinishedSummary] = useState<ReviewProgress | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [isSavingOrderMode, setIsSavingOrderMode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isContinuing, setIsContinuing] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -99,6 +104,7 @@ export function ReviewsClient() {
         status: "ready",
         token: storedSession.token,
         queue: queue.items,
+        orderMode: queue.orderMode ?? storedSession.user.settings.reviewOrderMode ?? "shuffled",
       });
     } catch (error: unknown) {
       if (error instanceof ApiError && error.status === 401) {
@@ -162,6 +168,45 @@ export function ReviewsClient() {
       setSessionError(error instanceof Error ? error.message : "Не удалось начать повторение.");
     } finally {
       setIsStarting(false);
+    }
+  }
+
+  async function handleOrderModeChange(nextMode: ReviewOrderMode): Promise<void> {
+    if (queueState.status !== "ready" || isSavingOrderMode || nextMode === queueState.orderMode) {
+      return;
+    }
+
+    setIsSavingOrderMode(true);
+    setSessionError(null);
+
+    try {
+      const updatedUser = await updateUserSettings(queueState.token, {
+        reviewOrderMode: nextMode,
+      });
+      updateStoredUser(updatedUser);
+      setQueueState((current) =>
+        current.status === "ready" ? { ...current, orderMode: nextMode } : current,
+      );
+
+      const queue = await getReviewQueue(queueState.token);
+      setQueueState({
+        status: "ready",
+        token: queueState.token,
+        queue: queue.items,
+        orderMode: queue.orderMode ?? nextMode,
+      });
+    } catch (error: unknown) {
+      if (error instanceof ApiError && error.status === 401) {
+        clearStoredSession();
+        setQueueState({ status: "unauthenticated" });
+        return;
+      }
+
+      setSessionError(
+        error instanceof Error ? error.message : "Не удалось изменить порядок повторений.",
+      );
+    } finally {
+      setIsSavingOrderMode(false);
     }
   }
 
@@ -374,14 +419,32 @@ export function ReviewsClient() {
               приватных вариантов.
             </p>
           </div>
-          <button
-            className="primary-action"
-            disabled={isStarting}
-            onClick={() => void handleStartSession()}
-            type="button"
-          >
-            {isStarting ? "Начинаю..." : "Начать повторение"}
-          </button>
+          <div className="review-heading-actions">
+            <label className="review-order-picker">
+              <span>Порядок карточек</span>
+              <select
+                disabled={isSavingOrderMode}
+                onChange={(event) =>
+                  void handleOrderModeChange(event.currentTarget.value as ReviewOrderMode)
+                }
+                value={queueState.orderMode}
+              >
+                {SUPPORTED_REVIEW_ORDER_MODES.map((mode) => (
+                  <option key={mode} value={mode}>
+                    {formatReviewOrderMode(mode)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="primary-action"
+              disabled={isStarting || isSavingOrderMode}
+              onClick={() => void handleStartSession()}
+              type="button"
+            >
+              {isStarting ? "Начинаю..." : "Начать повторение"}
+            </button>
+          </div>
         </div>
         {sessionError === null ? null : <p className="form-error">{sessionError}</p>}
         <ReviewQueuePreview queue={queueState.queue} />

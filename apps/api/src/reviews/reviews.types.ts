@@ -5,6 +5,7 @@ import {
   type LocalizedTextDto,
   type ReviewAnswerResponse,
   type ReviewAnswerResultType,
+  type ReviewOrderMode,
   type ReviewQueueItem,
 } from "@kanji-srs/shared";
 
@@ -108,6 +109,7 @@ export type RecordReviewAnswerInput = {
 
 export type ReviewQueueResponse = {
   readonly items: readonly ReviewQueueItem[];
+  readonly orderMode: ReviewOrderMode;
 };
 
 export type StartReviewSessionResponse = {

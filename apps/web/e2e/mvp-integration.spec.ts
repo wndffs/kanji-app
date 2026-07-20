@@ -312,6 +312,7 @@ async function mockMvpApi(page: Page): Promise<void> {
     await route.fulfill({
       json: {
         items: state.lessonCompleted && !state.reviewAnswered ? [starterReviewQueueItem] : [],
+        orderMode: "shuffled",
       },
     });
   });

@@ -1,4 +1,8 @@
-import { type ReviewForecastBucketDto, type TranslationDisplayMode } from "@kanji-srs/shared";
+import {
+  type ReviewForecastBucketDto,
+  type ReviewOrderMode,
+  type TranslationDisplayMode,
+} from "@kanji-srs/shared";
 
 export function formatTranslationDisplayMode(mode: TranslationDisplayMode): string {
   switch (mode) {
@@ -8,6 +12,17 @@ export function formatTranslationDisplayMode(mode: TranslationDisplayMode): stri
       return "English";
     case "ru-en":
       return "Русский + English";
+  }
+}
+
+export function formatReviewOrderMode(mode: ReviewOrderMode): string {
+  switch (mode) {
+    case "shuffled":
+      return "Перемешать";
+    case "oldest-first":
+      return "Самые просроченные";
+    case "lower-levels-first":
+      return "Сначала нижние уровни";
   }
 }
 

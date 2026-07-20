@@ -63,6 +63,7 @@ import {
   type PracticeSource,
   type ReviewAnswerRequest,
   type ReviewAnswerResponse,
+  type ReviewOrderMode,
   type ReviewQueueItem,
   type SearchResponseDto,
   type SelectCurrentCourseRequestDto,
@@ -86,6 +87,7 @@ export type UserSettingsDto = {
   readonly lessonBatchSize?: number;
   readonly lessonOrderMode?: LessonOrderMode;
   readonly reviewBudget: number;
+  readonly reviewOrderMode?: ReviewOrderMode;
   readonly strictMode: boolean;
   readonly dashboardWidgets?: readonly DashboardWidgetPreferenceDto[];
 };
@@ -107,6 +109,7 @@ export type AuthSessionDto = {
 
 export type ReviewQueueResponse = {
   readonly items: readonly ReviewQueueItem[];
+  readonly orderMode: ReviewOrderMode;
 };
 
 export type ReviewSessionDto = {

@@ -57,6 +57,20 @@ MVP rule suggestion:
 
 Implement forecast by grouping due cards by hour/day using user timezone from settings.
 
+## Review queue ordering
+
+Review ordering is separate from scheduling. The repository selects only
+non-burned cards whose `availableAt` is due, ordered oldest-first and capped by
+the user's review budget. A saved presentation preset may then:
+
+- deterministically shuffle that current batch for the learner's local day;
+- preserve oldest-first order;
+- place lower course levels first within the batch.
+
+No preset changes `availableAt`, stage, streaks, mistake counts, review history,
+or the membership of the budget-limited due batch. SRS state changes only when
+an answer is recorded through the scheduler.
+
 ## Leech detection
 
 Start simple:

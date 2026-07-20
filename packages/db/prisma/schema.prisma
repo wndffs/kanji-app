@@ -606,6 +606,7 @@ model UserSettings {
   lessonBatchSize        Int      @default(5)
   lessonOrderMode        String   @default("course")
   reviewBudget           Int      @default(100)
+  reviewOrderMode        String   @default("shuffled")
   strictMode             Boolean  @default(false)
   dashboardWidgets       Json     @default("[]")
   createdAt              DateTime @default(now())

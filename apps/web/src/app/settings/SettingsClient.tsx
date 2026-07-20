@@ -4,8 +4,10 @@ import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
 
 import {
+  SUPPORTED_REVIEW_ORDER_MODES,
   SUPPORTED_TRANSLATION_DISPLAY_MODES,
   type LessonOrderMode,
+  type ReviewOrderMode,
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
@@ -21,7 +23,7 @@ import {
   storeTranslationDisplayMode,
   updateStoredUser,
 } from "../../lib/auth-storage";
-import { formatTranslationDisplayMode } from "../../lib/dashboard-format";
+import { formatReviewOrderMode, formatTranslationDisplayMode } from "../../lib/dashboard-format";
 
 type SettingsForm = {
   readonly translationDisplayMode: TranslationDisplayMode;
@@ -30,6 +32,7 @@ type SettingsForm = {
   readonly lessonBatchSize: string;
   readonly lessonOrderMode: LessonOrderMode;
   readonly reviewBudget: string;
+  readonly reviewOrderMode: ReviewOrderMode;
   readonly strictMode: boolean;
 };
 
@@ -41,6 +44,7 @@ type RemoteSettingsPayload = Pick<
   | "lessonBatchSize"
   | "lessonOrderMode"
   | "reviewBudget"
+  | "reviewOrderMode"
   | "strictMode"
 >;
 
@@ -205,6 +209,22 @@ export function SettingsClient() {
           </div>
         </fieldset>
         <label>
+          Порядок повторений
+          <select
+            disabled={remoteControlsDisabled}
+            onChange={(event) =>
+              updateForm("reviewOrderMode", event.currentTarget.value as ReviewOrderMode)
+            }
+            value={form.reviewOrderMode}
+          >
+            {SUPPORTED_REVIEW_ORDER_MODES.map((mode) => (
+              <option key={mode} value={mode}>
+                {formatReviewOrderMode(mode)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
           Часовой пояс
           <input
             disabled={remoteControlsDisabled}
@@ -253,6 +273,7 @@ function createLocalSettingsForm(): SettingsForm {
     lessonBatchSize: String(DEFAULT_LESSON_BATCH_SIZE),
     lessonOrderMode: "course",
     reviewBudget: String(DEFAULT_REVIEW_BUDGET),
+    reviewOrderMode: "shuffled",
     strictMode: false,
   };
 }
@@ -265,6 +286,7 @@ function createSettingsForm(settings: UserSettingsDto): SettingsForm {
     lessonBatchSize: String(settings.lessonBatchSize ?? DEFAULT_LESSON_BATCH_SIZE),
     lessonOrderMode: settings.lessonOrderMode ?? "course",
     reviewBudget: String(settings.reviewBudget),
+    reviewOrderMode: settings.reviewOrderMode ?? "shuffled",
     strictMode: settings.strictMode,
   };
 }
@@ -297,6 +319,7 @@ function parseRemoteSettingsPayload(form: SettingsForm): RemoteSettingsPayload {
     ),
     lessonOrderMode: form.lessonOrderMode,
     reviewBudget: parseBoundedInteger(form.reviewBudget, "Бюджет повторений", MAX_REVIEW_BUDGET),
+    reviewOrderMode: form.reviewOrderMode,
     strictMode: form.strictMode,
   };
 }

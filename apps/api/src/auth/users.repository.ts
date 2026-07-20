@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 
 import {
   isLessonOrderMode,
+  isReviewOrderMode,
   isTranslationDisplayMode,
   normalizeDashboardWidgetPreferences,
 } from "@kanji-srs/shared";
@@ -32,6 +33,7 @@ type PrismaUserWithSettings = {
     readonly lessonBatchSize: number;
     readonly lessonOrderMode: string;
     readonly reviewBudget: number;
+    readonly reviewOrderMode: string;
     readonly strictMode: boolean;
     readonly dashboardWidgets: unknown;
   } | null;
@@ -147,6 +149,9 @@ function toStoredUser(user: PrismaUserWithSettings): StoredUser {
               ? user.settings.lessonOrderMode
               : undefined,
             reviewBudget: user.settings.reviewBudget,
+            reviewOrderMode: isReviewOrderMode(user.settings.reviewOrderMode)
+              ? user.settings.reviewOrderMode
+              : undefined,
             strictMode: user.settings.strictMode,
             dashboardWidgets: normalizeDashboardWidgetPreferences(user.settings.dashboardWidgets),
           }),

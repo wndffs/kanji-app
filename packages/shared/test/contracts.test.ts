@@ -11,6 +11,7 @@ import {
   isContentLocale,
   isCourseBand,
   isLessonOrderMode,
+  isReviewOrderMode,
   isTranslationDisplayMode,
   normalizeDashboardWidgetPreferences,
   workspacePackages,
@@ -43,6 +44,15 @@ describe("lesson settings", () => {
     expect(isLessonOrderMode("course")).toBe(true);
     expect(isLessonOrderMode("interleaved")).toBe(true);
     expect(isLessonOrderMode("random")).toBe(false);
+  });
+});
+
+describe("review settings", () => {
+  it("accepts only supported review order modes", () => {
+    expect(isReviewOrderMode("shuffled")).toBe(true);
+    expect(isReviewOrderMode("oldest-first")).toBe(true);
+    expect(isReviewOrderMode("lower-levels-first")).toBe(true);
+    expect(isReviewOrderMode("future-first")).toBe(false);
   });
 });
 

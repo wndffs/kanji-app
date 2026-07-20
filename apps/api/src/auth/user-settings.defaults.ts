@@ -2,6 +2,7 @@ import {
   DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
   DEFAULT_TRANSLATION_DISPLAY_MODE,
   isLessonOrderMode,
+  isReviewOrderMode,
   isTranslationDisplayMode,
   normalizeDashboardWidgetPreferences,
 } from "@kanji-srs/shared";
@@ -16,6 +17,7 @@ export const DEFAULT_USER_SETTINGS: UserSettingsDto = {
   lessonBatchSize: 5,
   lessonOrderMode: "course",
   reviewBudget: 100,
+  reviewOrderMode: "shuffled",
   strictMode: false,
   dashboardWidgets: DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
 };
@@ -36,6 +38,9 @@ export function mergeUserSettings(input: Partial<UserSettingsDto> = {}): UserSet
     lessonBatchSize: normalizeBoundedInteger(input.lessonBatchSize, 1, 5, 5),
     lessonOrderMode: isLessonOrderMode(input.lessonOrderMode) ? input.lessonOrderMode : "course",
     reviewBudget: normalizePositiveInteger(input.reviewBudget, DEFAULT_USER_SETTINGS.reviewBudget),
+    reviewOrderMode: isReviewOrderMode(input.reviewOrderMode)
+      ? input.reviewOrderMode
+      : DEFAULT_USER_SETTINGS.reviewOrderMode,
     strictMode: input.strictMode ?? DEFAULT_USER_SETTINGS.strictMode,
     dashboardWidgets: normalizeDashboardWidgetPreferences(input.dashboardWidgets),
   };
