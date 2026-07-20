@@ -146,6 +146,9 @@ learner visibility, control, content completion, and presentation. The
 remaining sequence keeps functional and data work ahead of the final visual
 refresh:
 
+Detailed product, engineering, legal, and acceptance requirements for Tasks
+111-124 are maintained in [TASK_SPECS_111_124.md](./TASK_SPECS_111_124.md).
+
 58. Task 98 (completed): show the current card spread by configured SRS stage and learning-item type.
 59. Task 99 (completed): break current-level progress down by item type and learning state.
 60. Task 100 (completed): populate recent mistakes, unlocks, and burned items with direct item and practice links.
