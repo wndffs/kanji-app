@@ -19,6 +19,7 @@ export const DEFAULT_USER_SETTINGS: UserSettingsDto = {
   reviewBudget: 100,
   reviewOrderMode: "shuffled",
   strictMode: false,
+  vacationStartedAt: null,
   dashboardWidgets: DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
 };
 
@@ -42,8 +43,18 @@ export function mergeUserSettings(input: Partial<UserSettingsDto> = {}): UserSet
       ? input.reviewOrderMode
       : DEFAULT_USER_SETTINGS.reviewOrderMode,
     strictMode: input.strictMode ?? DEFAULT_USER_SETTINGS.strictMode,
+    vacationStartedAt: normalizeVacationStartedAt(input.vacationStartedAt),
     dashboardWidgets: normalizeDashboardWidgetPreferences(input.dashboardWidgets),
   };
+}
+
+function normalizeVacationStartedAt(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const timestamp = new Date(value);
+  return Number.isNaN(timestamp.getTime()) ? null : timestamp.toISOString();
 }
 
 function normalizeTimezone(value: string | undefined): string {

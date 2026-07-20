@@ -195,6 +195,33 @@ describe("Auth and users", () => {
     });
   });
 
+  it("enables and disables vacation mode independently from ordinary settings", async () => {
+    const { authService } = createAuthHarness();
+    const usersController = new UsersController(authService);
+    const session = await authService.register({
+      email: "learner@example.test",
+      password: "correct-password",
+    });
+
+    const enabled = await usersController.setVacationMode(session.user, { enabled: true });
+
+    expect(enabled).toMatchObject({
+      user: { settings: { vacationStartedAt: expect.any(String) } },
+      shiftedReviewCount: 0,
+      vacationDurationSeconds: 0,
+    });
+
+    await expect(
+      usersController.setVacationMode(enabled.user, { enabled: false }),
+    ).resolves.toMatchObject({
+      user: { settings: { vacationStartedAt: null } },
+      shiftedReviewCount: 0,
+    });
+    await expect(
+      usersController.setVacationMode(session.user, { enabled: "yes" }),
+    ).rejects.toThrow("Поле enabled должно быть логическим значением.");
+  });
+
   it("rejects incomplete or duplicate dashboard widget settings", async () => {
     const { authService } = createAuthHarness();
     const usersController = new UsersController(authService);
@@ -359,6 +386,73 @@ describe("PrismaUsersRepository", () => {
     expect(transaction).toHaveBeenCalledTimes(1);
   });
 
+  it("shifts only future SRS availability when vacation mode ends", async () => {
+    const startedAt = new Date("2026-07-10T08:00:00.000Z");
+    const endedAt = new Date("2026-07-12T08:00:00.000Z");
+    const executeRaw = vi.fn().mockResolvedValue(4);
+    const queryRaw = vi.fn().mockResolvedValue([{ vacationStartedAt: startedAt }]);
+    const updateSettings = vi.fn().mockResolvedValue({});
+    const transactionDatabase = {
+      $executeRaw: executeRaw,
+      $queryRaw: queryRaw,
+      userSettings: {
+        update: updateSettings,
+      },
+      user: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "user-1",
+          email: "learner@example.test",
+          passwordHash: "hash",
+          displayName: "Learner",
+          role: "USER",
+          settings: {
+            locale: "ru-RU",
+            translationDisplayMode: "ru-en",
+            timezone: "Europe/Moscow",
+            dailyLessonLimit: 10,
+            lessonBatchSize: 5,
+            lessonOrderMode: "course",
+            reviewBudget: 100,
+            reviewOrderMode: "shuffled",
+            strictMode: false,
+            vacationStartedAt: null,
+            dashboardWidgets: DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
+          },
+        }),
+      },
+    };
+    const repository = new PrismaUsersRepository({
+      db: {
+        $transaction: async (
+          callback: (database: typeof transactionDatabase) => Promise<unknown>,
+        ) => callback(transactionDatabase),
+      },
+    } as never);
+
+    await expect(repository.setVacationMode("user-1", false, endedAt)).resolves.toMatchObject({
+      user: { settings: { vacationStartedAt: null } },
+      shiftedReviewCount: 4,
+      vacationDurationSeconds: 172_800,
+    });
+    expect(updateSettings).toHaveBeenCalledWith({
+      where: { userId: "user-1" },
+      data: { vacationStartedAt: null },
+    });
+    const lockQuery = queryRaw.mock.calls[0]?.[0] as
+      | { readonly strings?: readonly string[] }
+      | undefined;
+    expect(lockQuery?.strings?.join("?")).toContain("FOR UPDATE");
+    const query = executeRaw.mock.calls[0]?.[0] as
+      | { readonly strings?: readonly string[] }
+      | undefined;
+    const sql = query?.strings?.join("?") ?? "";
+    expect(sql).toContain('UPDATE "UserSrsState"');
+    expect(sql).toContain('"createdAt" <');
+    expect(sql).toContain('"availableAt" > GREATEST');
+    expect(sql).not.toContain("ReviewAnswer");
+    expect(sql).not.toContain("lastReviewedAt");
+  });
+
   it("keeps starter enrollment working when the main course is unavailable", async () => {
     const createMany = vi.fn().mockResolvedValue({ count: 1 });
     const transactionDatabase = {
@@ -453,6 +547,36 @@ class InMemoryUsersRepository extends UsersRepository {
     this.usersByEmail.set(updatedUser.email, updatedUser);
 
     return updatedUser;
+  }
+
+  async setVacationMode(userId: string, enabled: boolean, now: Date) {
+    const user = this.usersById.get(userId);
+
+    if (user === undefined) {
+      throw new Error(`Missing test user ${userId}.`);
+    }
+
+    const startedAt = user.settings.vacationStartedAt ?? null;
+    const vacationStartedAt = enabled ? (startedAt ?? now.toISOString()) : null;
+    const updatedUser: StoredUser = {
+      ...user,
+      settings: mergeUserSettings({
+        ...user.settings,
+        vacationStartedAt,
+      }),
+    };
+
+    this.usersById.set(updatedUser.id, updatedUser);
+    this.usersByEmail.set(updatedUser.email, updatedUser);
+
+    return {
+      user: updatedUser,
+      shiftedReviewCount: 0,
+      vacationDurationSeconds:
+        !enabled && startedAt !== null
+          ? Math.max(0, Math.floor((now.getTime() - new Date(startedAt).getTime()) / 1_000))
+          : 0,
+    };
   }
 }
 

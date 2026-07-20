@@ -65,9 +65,19 @@ export class ReviewsService {
 
   async getQueue(user: CurrentUserDto): Promise<ReviewQueueResponse> {
     const now = new Date();
+    const orderMode = getReviewOrderMode(user);
+    const vacationStartedAt = user.settings.vacationStartedAt ?? null;
+
+    if (vacationStartedAt !== null) {
+      return {
+        items: [],
+        orderMode,
+        vacationStartedAt,
+      };
+    }
+
     const limit = resolveQueueLimit(user.settings.reviewBudget);
     const records = await this.reviewsRepository.listDueReviewCards(user.id, now, limit);
-    const orderMode = getReviewOrderMode(user);
     const orderedRecords = orderReviewRecords(
       records,
       orderMode,
@@ -77,10 +87,12 @@ export class ReviewsService {
     return {
       items: orderedRecords.map(toReviewQueueItem),
       orderMode,
+      vacationStartedAt: null,
     };
   }
 
   async startSession(user: CurrentUserDto): Promise<StartReviewSessionResponse> {
+    assertScheduledReviewsAvailable(user);
     const session = await this.reviewsRepository.createReviewSession(user.id, new Date());
 
     return {
@@ -301,6 +313,7 @@ export class ReviewsService {
     user: CurrentUserDto,
     body: unknown,
   ): Promise<SubmitReviewAnswerResponse> {
+    assertScheduledReviewsAvailable(user);
     const request = parseReviewAnswerRequest(body);
     const answeredAt = new Date();
     const target = await this.reviewsRepository.findAnswerTarget(
@@ -462,6 +475,14 @@ export class ReviewsService {
       },
       summary: finished.summary,
     };
+  }
+}
+
+function assertScheduledReviewsAvailable(user: CurrentUserDto): void {
+  if (user.settings.vacationStartedAt !== null && user.settings.vacationStartedAt !== undefined) {
+    throw new BadRequestException(
+      "Плановые повторения приостановлены, пока включён режим отпуска.",
+    );
   }
 }
 

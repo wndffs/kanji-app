@@ -93,6 +93,7 @@ export type UserSettingsDto = {
   readonly reviewBudget: number;
   readonly reviewOrderMode?: ReviewOrderMode;
   readonly strictMode: boolean;
+  readonly vacationStartedAt?: string | null;
   readonly dashboardWidgets?: readonly DashboardWidgetPreferenceDto[];
 };
 
@@ -114,6 +115,13 @@ export type AuthSessionDto = {
 export type ReviewQueueResponse = {
   readonly items: readonly ReviewQueueItem[];
   readonly orderMode: ReviewOrderMode;
+  readonly vacationStartedAt: string | null;
+};
+
+export type VacationModeResponse = {
+  readonly user: CurrentUserDto;
+  readonly shiftedReviewCount: number;
+  readonly vacationDurationSeconds: number;
 };
 
 export type ReviewSessionDto = {
@@ -905,6 +913,17 @@ export function updateUserSettings(
     method: "PATCH",
     token,
     body: settings,
+  });
+}
+
+export function updateVacationMode(
+  token: string,
+  enabled: boolean,
+): Promise<VacationModeResponse> {
+  return apiRequest<VacationModeResponse>("/users/settings/vacation", {
+    method: "PATCH",
+    token,
+    body: { enabled },
   });
 }
 

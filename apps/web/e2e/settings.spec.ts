@@ -51,6 +51,59 @@ test.describe("settings", () => {
       strictMode: true,
     });
   });
+
+  test("enables and disables vacation mode independently", async ({ page }) => {
+    const requests: boolean[] = [];
+    let vacationStartedAt: string | null = null;
+
+    await signIn(page);
+
+    await page.route(`${API_BASE_URL}/auth/me`, async (route) => {
+      await route.fulfill({
+        json: {
+          ...createUser(),
+          settings: {
+            ...createUser().settings,
+            vacationStartedAt,
+          },
+        },
+      });
+    });
+
+    await page.route(`${API_BASE_URL}/users/settings/vacation`, async (route) => {
+      const body = route.request().postDataJSON() as { readonly enabled: boolean };
+      requests.push(body.enabled);
+      vacationStartedAt = body.enabled ? "2026-07-20T09:00:00.000Z" : null;
+
+      await route.fulfill({
+        json: {
+          user: {
+            ...createUser(),
+            settings: {
+              ...createUser().settings,
+              vacationStartedAt,
+            },
+          },
+          shiftedReviewCount: body.enabled ? 0 : 4,
+          vacationDurationSeconds: body.enabled ? 0 : 86_400,
+        },
+      });
+    });
+
+    await page.goto("/settings");
+
+    const toggle = page.getByLabel("Приостановить расписание повторений");
+    await toggle.check();
+    await expect(page.getByText("Режим отпуска включён.", { exact: true })).toBeVisible();
+    await expect(toggle).toBeChecked();
+
+    await toggle.uncheck();
+    await expect(
+      page.getByText("Режим отпуска выключен. Расписание сдвинуто для 4 карточек."),
+    ).toBeVisible();
+    await expect(toggle).not.toBeChecked();
+    expect(requests).toEqual([true, false]);
+  });
 });
 
 async function signIn(page: Page): Promise<void> {
@@ -83,6 +136,7 @@ function createUser() {
       reviewBudget: 100,
       reviewOrderMode: "shuffled",
       strictMode: false,
+      vacationStartedAt: null,
     },
   };
 }

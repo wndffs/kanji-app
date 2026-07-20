@@ -18,6 +18,7 @@ export type UserSettingsDto = {
   readonly reviewBudget: number;
   readonly reviewOrderMode?: ReviewOrderMode;
   readonly strictMode: boolean;
+  readonly vacationStartedAt?: string | null;
   readonly dashboardWidgets?: readonly DashboardWidgetPreferenceDto[];
 };
 
@@ -51,6 +52,12 @@ export type LoginRequestDto = {
 };
 
 export type UpdateUserSettingsRequestDto = Partial<UserSettingsDto>;
+
+export type VacationModeResponseDto = {
+  readonly user: CurrentUserDto;
+  readonly shiftedReviewCount: number;
+  readonly vacationDurationSeconds: number;
+};
 
 export type StoredUser = {
   readonly id: string;

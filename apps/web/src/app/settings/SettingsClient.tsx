@@ -13,6 +13,7 @@ import {
 
 import {
   getCurrentUser,
+  updateVacationMode,
   updateUserSettings,
   type CurrentUserDto,
   type UserSettingsDto,
@@ -63,6 +64,9 @@ export function SettingsClient() {
     "loading",
   );
   const [error, setError] = useState<string | null>(null);
+  const [isVacationUpdating, setIsVacationUpdating] = useState(false);
+  const [pendingVacationEnabled, setPendingVacationEnabled] = useState<boolean | null>(null);
+  const [vacationMessage, setVacationMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const session = readStoredSession();
@@ -123,7 +127,43 @@ export function SettingsClient() {
     }
   }
 
-  const remoteControlsDisabled = user === null || status === "loading" || status === "saving";
+  async function handleVacationChange(enabled: boolean): Promise<void> {
+    const session = readStoredSession();
+
+    if (session === null || isVacationUpdating) {
+      return;
+    }
+
+    setIsVacationUpdating(true);
+    setPendingVacationEnabled(enabled);
+    setVacationMessage(null);
+    setError(null);
+
+    try {
+      const result = await updateVacationMode(session.token, enabled);
+      setUser(result.user);
+      setForm(createSettingsForm(result.user.settings));
+      updateStoredUser(result.user);
+      setVacationMessage(
+        enabled
+          ? "Режим отпуска включён."
+          : `Режим отпуска выключен. Расписание сдвинуто для ${result.shiftedReviewCount} карточек.`,
+      );
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error
+          ? updateError.message
+          : "Не удалось изменить режим отпуска.",
+      );
+    } finally {
+      setPendingVacationEnabled(null);
+      setIsVacationUpdating(false);
+    }
+  }
+
+  const vacationStartedAt = user?.settings.vacationStartedAt ?? null;
+  const remoteControlsDisabled =
+    user === null || status === "loading" || status === "saving" || isVacationUpdating;
 
   return (
     <section className="settings-layout">
@@ -249,6 +289,28 @@ export function SettingsClient() {
           />
           <span>Строгая проверка</span>
         </label>
+        <fieldset className="settings-fieldset" disabled={remoteControlsDisabled}>
+          <legend>Режим отпуска</legend>
+          <label className="checkbox-row">
+            <input
+              checked={pendingVacationEnabled ?? vacationStartedAt !== null}
+              onChange={(event) => void handleVacationChange(event.currentTarget.checked)}
+              type="checkbox"
+            />
+            <span>Приостановить расписание повторений</span>
+          </label>
+          {vacationStartedAt === null ? null : (
+            <p className="muted">
+              Включён с {formatVacationStartedAt(vacationStartedAt)}.
+            </p>
+          )}
+          {isVacationUpdating ? <p className="muted">Обновляю режим отпуска.</p> : null}
+          {vacationMessage === null ? null : (
+            <p className="success-text" role="status">
+              {vacationMessage}
+            </p>
+          )}
+        </fieldset>
         {status === "loading" ? <p className="muted">Загружаю настройки.</p> : null}
         {status === "saved" ? <p className="success-text">Сохранено.</p> : null}
         {error === null ? null : <p className="form-error">{error}</p>}
@@ -332,4 +394,17 @@ function parseBoundedInteger(value: string, label: string, max: number): number 
   }
 
   return parsed;
+}
+
+function formatVacationStartedAt(value: string): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("ru-RU", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
 }

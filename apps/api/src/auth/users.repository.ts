@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 
+import { Prisma } from "@kanji-srs/db";
 import {
   isLessonOrderMode,
   isReviewOrderMode,
@@ -17,7 +18,18 @@ export abstract class UsersRepository {
   abstract createUser(input: CreateUserInput): Promise<StoredUser>;
   abstract enrollInDefaultCourses(userId: string): Promise<void>;
   abstract updateSettings(userId: string, settings: Partial<UserSettingsDto>): Promise<StoredUser>;
+  abstract setVacationMode(
+    userId: string,
+    enabled: boolean,
+    now: Date,
+  ): Promise<VacationModeUpdateResult>;
 }
+
+export type VacationModeUpdateResult = {
+  readonly user: StoredUser;
+  readonly shiftedReviewCount: number;
+  readonly vacationDurationSeconds: number;
+};
 
 type PrismaUserWithSettings = {
   readonly id: string;
@@ -35,6 +47,7 @@ type PrismaUserWithSettings = {
     readonly reviewBudget: number;
     readonly reviewOrderMode: string;
     readonly strictMode: boolean;
+    readonly vacationStartedAt: Date | null;
     readonly dashboardWidgets: unknown;
   } | null;
 };
@@ -125,6 +138,74 @@ export class PrismaUsersRepository extends UsersRepository {
 
     return toStoredUser(user as PrismaUserWithSettings);
   }
+
+  async setVacationMode(
+    userId: string,
+    enabled: boolean,
+    now: Date,
+  ): Promise<VacationModeUpdateResult> {
+    return this.prisma.db.$transaction(async (db) => {
+      const [settings] = await db.$queryRaw<
+        readonly { readonly vacationStartedAt: Date | null }[]
+      >(Prisma.sql`
+        SELECT "vacationStartedAt"
+        FROM "UserSettings"
+        WHERE "userId" = ${userId}::uuid
+        FOR UPDATE
+      `);
+
+      if (settings === undefined) {
+        throw new Error("User settings not found.");
+      }
+
+      let shiftedReviewCount = 0;
+      let vacationDurationSeconds = 0;
+
+      if (enabled && settings.vacationStartedAt === null) {
+        await db.userSettings.update({
+          where: { userId },
+          data: { vacationStartedAt: now },
+        });
+      } else if (!enabled && settings.vacationStartedAt !== null) {
+        const startedAt = settings.vacationStartedAt;
+        const endedAt = new Date(Math.max(now.getTime(), startedAt.getTime()));
+        vacationDurationSeconds = Math.floor(
+          (endedAt.getTime() - startedAt.getTime()) / 1_000,
+        );
+        shiftedReviewCount = await db.$executeRaw(
+          Prisma.sql`
+            UPDATE "UserSrsState"
+            SET "availableAt" = "availableAt" + (
+              ${endedAt}::timestamp - GREATEST(${startedAt}::timestamp, "createdAt")
+            )
+            WHERE "userId" = ${userId}::uuid
+              AND "burnedAt" IS NULL
+              AND "createdAt" < ${endedAt}::timestamp
+              AND "availableAt" > GREATEST(${startedAt}::timestamp, "createdAt")
+          `,
+        );
+        await db.userSettings.update({
+          where: { userId },
+          data: { vacationStartedAt: null },
+        });
+      }
+
+      const user = await db.user.findUnique({
+        where: { id: userId },
+        include: { settings: true },
+      });
+
+      if (user === null) {
+        throw new Error("User not found after vacation mode update.");
+      }
+
+      return {
+        user: toStoredUser(user as PrismaUserWithSettings),
+        shiftedReviewCount,
+        vacationDurationSeconds,
+      };
+    });
+  }
 }
 
 function toStoredUser(user: PrismaUserWithSettings): StoredUser {
@@ -153,6 +234,7 @@ function toStoredUser(user: PrismaUserWithSettings): StoredUser {
               ? user.settings.reviewOrderMode
               : undefined,
             strictMode: user.settings.strictMode,
+            vacationStartedAt: user.settings.vacationStartedAt?.toISOString() ?? null,
             dashboardWidgets: normalizeDashboardWidgetPreferences(user.settings.dashboardWidgets),
           }),
   };

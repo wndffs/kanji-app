@@ -608,6 +608,7 @@ model UserSettings {
   reviewBudget           Int      @default(100)
   reviewOrderMode        String   @default("shuffled")
   strictMode             Boolean  @default(false)
+  vacationStartedAt      DateTime?
   dashboardWidgets       Json     @default("[]")
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt

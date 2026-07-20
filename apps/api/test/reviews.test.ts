@@ -46,6 +46,36 @@ describe("ReviewsService", () => {
     expect(queue.items[0]?.card).not.toHaveProperty("blockedAnswers");
     expect(serializedQueue).not.toContain("study answer");
     expect(queue.orderMode).toBe("oldest-first");
+    expect(queue.vacationStartedAt).toBeNull();
+  });
+
+  it("pauses scheduled reviews without disabling practice or recording answers", async () => {
+    const { repository, service } = createHarness();
+    const vacationStartedAt = "2026-06-17T09:00:00.000Z";
+    const vacationUser = createUser("owner", { vacationStartedAt });
+
+    await expect(service.getQueue(vacationUser)).resolves.toEqual({
+      items: [],
+      orderMode: "shuffled",
+      vacationStartedAt,
+    });
+    await expect(service.startSession(vacationUser)).rejects.toThrow(
+      "Плановые повторения приостановлены, пока включён режим отпуска.",
+    );
+
+    const session = await service.startSession(createUser("owner"));
+    await expect(
+      service.submitAnswer(session.session.id, vacationUser, {
+        cardId: "card-meaning",
+        answer: "study answer",
+        answerType: "meaning",
+      }),
+    ).rejects.toThrow("Плановые повторения приостановлены, пока включён режим отпуска.");
+    await expect(service.getPracticeQueue(vacationUser, "recent-lessons")).resolves.toMatchObject({
+      source: "recent-lessons",
+      items: expect.any(Array),
+    });
+    expect(repository.recordedAnswers).toEqual([]);
   });
 
   it("reorders only the current due batch without changing eligibility", async () => {

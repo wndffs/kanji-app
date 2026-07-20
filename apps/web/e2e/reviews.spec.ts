@@ -166,6 +166,7 @@ test.describe("review session", () => {
         json: {
           items: requestCount === 1 ? [] : [reviewQueueItem],
           orderMode: "shuffled",
+          vacationStartedAt: null,
         },
       });
     });
@@ -174,6 +175,25 @@ test.describe("review session", () => {
     await expect(page.getByText("Нет карточек к повторению.")).toBeVisible();
     await page.getByRole("button", { name: "Проверить снова" }).click();
     await expect(page.getByText("Готово карточек: 1")).toBeVisible();
+  });
+
+  test("shows vacation mode instead of an ordinary empty queue", async ({ page }) => {
+    await signIn(page);
+    await page.route(`${API_BASE_URL}/reviews/queue`, async (route) => {
+      await route.fulfill({
+        json: {
+          items: [],
+          orderMode: "shuffled",
+          vacationStartedAt: "2026-07-20T09:00:00.000Z",
+        },
+      });
+    });
+
+    await page.goto("/reviews");
+
+    await expect(page.getByText("Режим отпуска включён.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Начать повторение" })).toBeHidden();
+    await expect(page.getByRole("link", { name: "Настроить режим отпуска" })).toBeVisible();
   });
 
   test("keeps mobile review input sticky and Japanese prompt readable", async ({
@@ -266,6 +286,7 @@ async function signIn(page: Page, displayMode: TranslationDisplayMode = "ru-en")
             reviewBudget: 100,
             reviewOrderMode: "shuffled",
             strictMode: false,
+            vacationStartedAt: null,
           },
         }),
       );
@@ -290,7 +311,9 @@ async function mockReviewApi(
 
   await page.route(`${API_BASE_URL}/reviews/queue`, async (route) => {
     queueRequests += 1;
-    await route.fulfill({ json: { items: queue, orderMode: reviewOrderMode } });
+    await route.fulfill({
+      json: { items: queue, orderMode: reviewOrderMode, vacationStartedAt: null },
+    });
   });
 
   await page.route(`${API_BASE_URL}/users/settings`, async (route) => {
@@ -315,6 +338,7 @@ async function mockReviewApi(
           reviewBudget: 100,
           reviewOrderMode,
           strictMode: false,
+          vacationStartedAt: null,
         },
       },
     });

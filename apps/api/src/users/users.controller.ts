@@ -27,4 +27,9 @@ export class UsersController {
   ): Promise<CurrentUserDto> {
     return this.authService.updateSettings(user, body);
   }
+
+  @Patch("settings/vacation")
+  setVacationMode(@CurrentUser() user: CurrentUserDto, @Body() body: unknown) {
+    return this.authService.setVacationMode(user, body);
+  }
 }

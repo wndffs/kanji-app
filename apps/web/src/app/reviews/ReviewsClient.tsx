@@ -50,6 +50,7 @@ type QueueState =
       readonly token: string;
       readonly queue: readonly ReviewQueueItem[];
       readonly orderMode: ReviewOrderMode;
+      readonly vacationStartedAt: string | null;
     };
 
 type ReviewProgress = {
@@ -107,6 +108,7 @@ export function ReviewsClient() {
         token: storedSession.token,
         queue: queue.items,
         orderMode: queue.orderMode ?? storedSession.user.settings.reviewOrderMode ?? "shuffled",
+        vacationStartedAt: queue.vacationStartedAt ?? null,
       });
     } catch (error: unknown) {
       if (error instanceof ApiError && error.status === 401) {
@@ -196,6 +198,7 @@ export function ReviewsClient() {
         token: queueState.token,
         queue: queue.items,
         orderMode: queue.orderMode ?? nextMode,
+        vacationStartedAt: queue.vacationStartedAt ?? null,
       });
     } catch (error: unknown) {
       if (error instanceof ApiError && error.status === 401) {
@@ -423,20 +426,30 @@ export function ReviewsClient() {
   }
 
   if (queueState.queue.length === 0) {
+    const vacationActive = queueState.vacationStartedAt !== null;
+
     return (
       <section className="page-stack">
         <div className="page-heading">
           <h1>Повторения</h1>
-          <p>Нет карточек к повторению.</p>
+          <p>
+            {vacationActive
+              ? "Режим отпуска включён."
+              : "Нет карточек к повторению."}
+          </p>
         </div>
         <div className="notice-panel">
-          <p>Следующая сессия появится, когда расписание повторений откроет новые карточки.</p>
+          <p>
+            {vacationActive
+              ? "Плановые повторения приостановлены. После выключения отпуска будущие даты будут сдвинуты на время паузы."
+              : "Следующая сессия появится, когда расписание повторений откроет новые карточки."}
+          </p>
           <div className="action-row">
             <button className="secondary-action" onClick={() => void loadQueue()} type="button">
               Проверить снова
             </button>
             <Link className="secondary-action" href="/settings">
-              Настроить нагрузку
+              {vacationActive ? "Настроить режим отпуска" : "Настроить нагрузку"}
             </Link>
           </div>
         </div>

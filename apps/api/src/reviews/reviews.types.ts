@@ -145,6 +145,7 @@ export type FinishedReviewSessionRecord = {
 export type ReviewQueueResponse = {
   readonly items: readonly ReviewQueueItem[];
   readonly orderMode: ReviewOrderMode;
+  readonly vacationStartedAt: string | null;
 };
 
 export type StartReviewSessionResponse = {

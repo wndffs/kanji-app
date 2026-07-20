@@ -26,6 +26,7 @@ import {
   type StoredUser,
   type UpdateUserSettingsRequestDto,
   type UserSettingsDto,
+  type VacationModeResponseDto,
 } from "./auth.types";
 import { PasswordService } from "./password.service";
 import { TokenService } from "./token.service";
@@ -125,6 +126,20 @@ export class AuthService {
     return toCurrentUser(updatedUser);
   }
 
+  async setVacationMode(
+    user: CurrentUserDto,
+    body: unknown,
+  ): Promise<VacationModeResponseDto> {
+    const enabled = parseVacationModeRequest(body);
+    const result = await this.usersRepository.setVacationMode(user.id, enabled, new Date());
+
+    return {
+      user: toCurrentUser(result.user),
+      shiftedReviewCount: result.shiftedReviewCount,
+      vacationDurationSeconds: result.vacationDurationSeconds,
+    };
+  }
+
   private createSession(user: StoredUser): AuthSessionDto {
     const currentUser = toCurrentUser(user);
     const session = this.tokenService.createSessionToken(currentUser);
@@ -179,6 +194,16 @@ function parseLoginRequest(body: unknown): LoginRequestDto {
 
 function parseUserSettingsUpdate(body: unknown): UpdateUserSettingsRequestDto {
   return parseUserSettings(parseBodyRecord(body), { allowEmpty: false });
+}
+
+function parseVacationModeRequest(body: unknown): boolean {
+  const enabled = parseBodyRecord(body).enabled;
+
+  if (typeof enabled !== "boolean") {
+    throw new BadRequestException("Поле enabled должно быть логическим значением.");
+  }
+
+  return enabled;
 }
 
 function parseOptionalUserSettings(value: unknown): Partial<UserSettingsDto> | undefined {
