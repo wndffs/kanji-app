@@ -1,6 +1,8 @@
 import { type ExecutionContext } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
+import { DEFAULT_DASHBOARD_WIDGET_PREFERENCES } from "@kanji-srs/shared";
+
 import { AdminGuard } from "../src/auth/admin.guard";
 import { AuthGuard } from "../src/auth/auth.guard";
 import { AuthService } from "../src/auth/auth.service";
@@ -158,6 +160,13 @@ describe("Auth and users", () => {
     });
 
     await authGuard.canActivate(context);
+    const dashboardWidgets = [...DEFAULT_DASHBOARD_WIDGET_PREFERENCES]
+      .reverse()
+      .map((widget, index) => ({
+        ...widget,
+        visible: index !== 0,
+        presentation: index === 1 ? ("expanded" as const) : widget.presentation,
+      }));
 
     await expect(
       usersController.updateSettings(requireCurrentUser(request), {
@@ -166,6 +175,7 @@ describe("Auth and users", () => {
         dailyLessonLimit: 12,
         reviewBudget: 80,
         strictMode: true,
+        dashboardWidgets,
       }),
     ).resolves.toMatchObject({
       settings: {
@@ -174,8 +184,39 @@ describe("Auth and users", () => {
         dailyLessonLimit: 12,
         reviewBudget: 80,
         strictMode: true,
+        dashboardWidgets,
       },
     });
+  });
+
+  it("rejects incomplete or duplicate dashboard widget settings", async () => {
+    const { authService } = createAuthHarness();
+    const usersController = new UsersController(authService);
+    const session = await authService.register({
+      email: "learner@example.test",
+      password: "correct-password",
+    });
+
+    await expect(
+      usersController.updateSettings(session.user, {
+        dashboardWidgets: [
+          { id: "summary", visible: true, presentation: "expanded" },
+          { id: "summary", visible: false, presentation: "compact" },
+        ],
+      }),
+    ).rejects.toThrow("dashboardWidgets must contain every dashboard widget exactly once.");
+
+    const duplicateWidgets = DEFAULT_DASHBOARD_WIDGET_PREFERENCES.map((widget, index) =>
+      index === DEFAULT_DASHBOARD_WIDGET_PREFERENCES.length - 1
+        ? { ...DEFAULT_DASHBOARD_WIDGET_PREFERENCES[0] }
+        : widget,
+    );
+
+    await expect(
+      usersController.updateSettings(session.user, {
+        dashboardWidgets: duplicateWidgets,
+      }),
+    ).rejects.toThrow("dashboardWidgets contains an invalid widget.");
   });
 
   it("rejects a normal user from admin guarded endpoints", async () => {
@@ -200,7 +241,45 @@ describe("Auth and users", () => {
   });
 });
 
-describe("PrismaUsersRepository default course enrollment", () => {
+describe("PrismaUsersRepository", () => {
+  it("persists and restores normalized dashboard widget preferences", async () => {
+    const dashboardWidgets = [...DEFAULT_DASHBOARD_WIDGET_PREFERENCES].reverse();
+    const update = vi.fn().mockResolvedValue({
+      id: "user-1",
+      email: "learner@example.test",
+      passwordHash: "hash",
+      displayName: "Learner",
+      role: "USER",
+      settings: {
+        locale: "ru-RU",
+        translationDisplayMode: "ru-en",
+        timezone: "Europe/Moscow",
+        dailyLessonLimit: 10,
+        reviewBudget: 100,
+        strictMode: false,
+        dashboardWidgets,
+      },
+    });
+    const repository = new PrismaUsersRepository({
+      db: { user: { update } },
+    } as never);
+
+    const stored = await repository.updateSettings("user-1", { dashboardWidgets });
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          settings: {
+            upsert: expect.objectContaining({
+              update: { dashboardWidgets },
+            }),
+          },
+        },
+      }),
+    );
+    expect(stored.settings.dashboardWidgets).toEqual(dashboardWidgets);
+  });
+
   it("enrolls a new learner in the starter and published main course atomically", async () => {
     const findMany = vi.fn().mockResolvedValue([
       { id: "course-main", slug: "japanese-ru-n2" },

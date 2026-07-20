@@ -20,6 +20,7 @@ import {
   type ReviewForecastBucketDto,
   type TranslationBundleDto,
   type TranslationDisplayMode,
+  normalizeDashboardWidgetPreferences,
 } from "@kanji-srs/shared";
 
 import { type CurrentUserDto } from "../auth/auth.types";
@@ -113,6 +114,7 @@ export class DashboardService {
         locale: user.settings.locale,
         translationDisplayMode: displayMode,
         timezone: user.settings.timezone,
+        dashboardWidgets: normalizeDashboardWidgetPreferences(user.settings.dashboardWidgets),
       },
       counts: {
         dueReviews,

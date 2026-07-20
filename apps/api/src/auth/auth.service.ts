@@ -6,7 +6,13 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 
-import { type TranslationDisplayMode, isTranslationDisplayMode } from "@kanji-srs/shared";
+import {
+  DASHBOARD_WIDGET_IDS,
+  type DashboardWidgetPreferenceDto,
+  type TranslationDisplayMode,
+  isDashboardWidgetId,
+  isTranslationDisplayMode,
+} from "@kanji-srs/shared";
 
 import {
   type AuthSessionDto,
@@ -29,6 +35,7 @@ type UserSettingsUpdate = {
   dailyLessonLimit?: UserSettingsDto["dailyLessonLimit"];
   reviewBudget?: UserSettingsDto["reviewBudget"];
   strictMode?: UserSettingsDto["strictMode"];
+  dashboardWidgets?: UserSettingsDto["dashboardWidgets"];
 };
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -226,6 +233,10 @@ function parseUserSettings(
     settings.strictMode = record.strictMode;
   }
 
+  if (record.dashboardWidgets !== undefined) {
+    settings.dashboardWidgets = parseDashboardWidgets(record.dashboardWidgets);
+  }
+
   if (!options.allowEmpty && Object.keys(settings).length === 0) {
     throw new BadRequestException("At least one setting must be provided.");
   }
@@ -314,6 +325,45 @@ function parseTranslationDisplayMode(value: string): TranslationDisplayMode {
   }
 
   return value;
+}
+
+function parseDashboardWidgets(value: unknown): readonly DashboardWidgetPreferenceDto[] {
+  if (!Array.isArray(value) || value.length !== DASHBOARD_WIDGET_IDS.length) {
+    throw new BadRequestException(
+      "dashboardWidgets must contain every dashboard widget exactly once.",
+    );
+  }
+
+  const seen = new Set<string>();
+  const preferences = value.map((entry): DashboardWidgetPreferenceDto => {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      throw new BadRequestException("dashboardWidgets contains an invalid widget.");
+    }
+
+    const record = entry as Record<string, unknown>;
+    const id = record.id;
+    const visible = record.visible;
+    const presentation = record.presentation;
+
+    if (
+      !isDashboardWidgetId(id) ||
+      seen.has(id) ||
+      typeof visible !== "boolean" ||
+      (presentation !== "compact" && presentation !== "expanded")
+    ) {
+      throw new BadRequestException("dashboardWidgets contains an invalid widget.");
+    }
+
+    seen.add(id);
+
+    return {
+      id,
+      visible,
+      presentation,
+    };
+  });
+
+  return preferences;
 }
 
 function parseTimezone(value: string): string {

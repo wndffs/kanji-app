@@ -1,4 +1,9 @@
-import { DEFAULT_TRANSLATION_DISPLAY_MODE, isTranslationDisplayMode } from "@kanji-srs/shared";
+import {
+  DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
+  DEFAULT_TRANSLATION_DISPLAY_MODE,
+  isTranslationDisplayMode,
+  normalizeDashboardWidgetPreferences,
+} from "@kanji-srs/shared";
 
 import { type UserSettingsDto } from "./auth.types";
 
@@ -9,6 +14,7 @@ export const DEFAULT_USER_SETTINGS: UserSettingsDto = {
   dailyLessonLimit: 10,
   reviewBudget: 100,
   strictMode: false,
+  dashboardWidgets: DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
 };
 
 export function mergeUserSettings(input: Partial<UserSettingsDto> = {}): UserSettingsDto {
@@ -26,6 +32,7 @@ export function mergeUserSettings(input: Partial<UserSettingsDto> = {}): UserSet
     ),
     reviewBudget: normalizePositiveInteger(input.reviewBudget, DEFAULT_USER_SETTINGS.reviewBudget),
     strictMode: input.strictMode ?? DEFAULT_USER_SETTINGS.strictMode,
+    dashboardWidgets: normalizeDashboardWidgetPreferences(input.dashboardWidgets),
   };
 }
 

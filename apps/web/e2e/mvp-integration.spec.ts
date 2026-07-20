@@ -1,6 +1,7 @@
 import { expect, type Page, type Route, test } from "@playwright/test";
 
 import {
+  DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
   type CompleteLessonItemResponse,
   type DashboardDto,
   type ItemDetails,
@@ -440,6 +441,7 @@ function buildDashboard(state: MvpApiState): DashboardDto {
       locale: "ru-RU",
       translationDisplayMode: "ru-en",
       timezone: "Europe/Moscow",
+      dashboardWidgets: DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
     },
     counts: {
       dueReviews,

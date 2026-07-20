@@ -42,6 +42,7 @@ import {
   type CourseListResponse,
   type CompleteLessonItemRequestDto,
   type DashboardDto,
+  type DashboardWidgetPreferenceDto,
   type CompleteLessonItemResponse,
   type CreateTextDeckRequest,
   type CreateTextDeckResponse,
@@ -83,6 +84,7 @@ export type UserSettingsDto = {
   readonly dailyLessonLimit: number;
   readonly reviewBudget: number;
   readonly strictMode: boolean;
+  readonly dashboardWidgets?: readonly DashboardWidgetPreferenceDto[];
 };
 
 export type CurrentUserDto = {

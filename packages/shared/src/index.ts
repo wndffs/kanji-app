@@ -525,6 +525,87 @@ export type DashboardStudyActivityDto = {
   }[];
 };
 
+export const DASHBOARD_WIDGET_IDS = [
+  "summary",
+  "workload",
+  "study-activity",
+  "srs-stage-spread",
+  "recent-activity",
+  "course-progress",
+  "review-forecast",
+  "leech-candidates",
+  "recent-review-stats",
+] as const;
+
+export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
+export type DashboardWidgetPresentation = "compact" | "expanded";
+
+export type DashboardWidgetPreferenceDto = {
+  readonly id: DashboardWidgetId;
+  readonly visible: boolean;
+  readonly presentation: DashboardWidgetPresentation;
+};
+
+export const DEFAULT_DASHBOARD_WIDGET_PREFERENCES: readonly DashboardWidgetPreferenceDto[] =
+  DASHBOARD_WIDGET_IDS.map((id) => ({
+    id,
+    visible: true,
+    presentation:
+      id === "course-progress" ||
+      id === "review-forecast" ||
+      id === "leech-candidates" ||
+      id === "recent-review-stats"
+        ? "compact"
+        : "expanded",
+  }));
+
+export function normalizeDashboardWidgetPreferences(
+  value: unknown,
+): readonly DashboardWidgetPreferenceDto[] {
+  const preferences: DashboardWidgetPreferenceDto[] = [];
+  const seen = new Set<DashboardWidgetId>();
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+        continue;
+      }
+
+      const record = entry as Record<string, unknown>;
+      const id = record.id;
+      const presentation = record.presentation;
+
+      if (
+        !isDashboardWidgetId(id) ||
+        seen.has(id) ||
+        typeof record.visible !== "boolean" ||
+        (presentation !== "compact" && presentation !== "expanded")
+      ) {
+        continue;
+      }
+
+      seen.add(id);
+      preferences.push({
+        id,
+        visible: record.visible,
+        presentation,
+      });
+    }
+  }
+
+  for (const fallback of DEFAULT_DASHBOARD_WIDGET_PREFERENCES) {
+    if (!seen.has(fallback.id)) {
+      preferences.push(fallback);
+    }
+  }
+
+  return preferences;
+}
+
+export function isDashboardWidgetId(value: unknown): value is DashboardWidgetId {
+  return typeof value === "string" && (DASHBOARD_WIDGET_IDS as readonly string[]).includes(value);
+}
+
 export type DashboardDto = {
   readonly user: {
     readonly id: string;
@@ -532,6 +613,7 @@ export type DashboardDto = {
     readonly locale: AppLocale;
     readonly translationDisplayMode: TranslationDisplayMode;
     readonly timezone: string;
+    readonly dashboardWidgets: readonly DashboardWidgetPreferenceDto[];
   };
   readonly counts: {
     readonly dueReviews: number;

@@ -1,4 +1,8 @@
-import { type AppLocale, type TranslationDisplayMode } from "@kanji-srs/shared";
+import {
+  type AppLocale,
+  type DashboardWidgetPreferenceDto,
+  type TranslationDisplayMode,
+} from "@kanji-srs/shared";
 
 export type UserRole = "USER" | "ADMIN";
 
@@ -9,6 +13,7 @@ export type UserSettingsDto = {
   readonly dailyLessonLimit: number;
   readonly reviewBudget: number;
   readonly strictMode: boolean;
+  readonly dashboardWidgets?: readonly DashboardWidgetPreferenceDto[];
 };
 
 export type CurrentUserDto = {

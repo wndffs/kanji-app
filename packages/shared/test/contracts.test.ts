@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ADMIN_CANDIDATE_PLAN_COVERAGE_FILTERS,
   ADMIN_IMPORTED_CANDIDATE_REJECTION_REASONS,
+  DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
   DEFAULT_TRANSLATION_DISPLAY_MODE,
   SUPPORTED_CONTENT_LOCALES,
   SUPPORTED_COURSE_BANDS,
@@ -10,6 +11,7 @@ import {
   isContentLocale,
   isCourseBand,
   isTranslationDisplayMode,
+  normalizeDashboardWidgetPreferences,
   workspacePackages,
   type AdminCurriculumCompletenessReportDto,
   type AdminReviewQueueResponse,
@@ -153,6 +155,7 @@ describe("shared DTO contracts", () => {
         locale: "ru-RU",
         translationDisplayMode: "en",
         timezone: "Europe/Moscow",
+        dashboardWidgets: DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
       },
       counts: {
         dueReviews: 3,
@@ -209,6 +212,21 @@ describe("shared DTO contracts", () => {
 
     expect(dashboard.user.translationDisplayMode).toBe("en");
     expect(JSON.parse(JSON.stringify(dashboard))).toEqual(dashboard);
+  });
+
+  it("normalizes persisted dashboard widgets without losing a valid custom order", () => {
+    const preferences = normalizeDashboardWidgetPreferences([
+      { id: "review-forecast", visible: false, presentation: "expanded" },
+      { id: "summary", visible: true, presentation: "compact" },
+      { id: "summary", visible: false, presentation: "expanded" },
+      { id: "unknown", visible: true, presentation: "compact" },
+    ]);
+
+    expect(preferences.slice(0, 2)).toEqual([
+      { id: "review-forecast", visible: false, presentation: "expanded" },
+      { id: "summary", visible: true, presentation: "compact" },
+    ]);
+    expect(preferences).toHaveLength(DEFAULT_DASHBOARD_WIDGET_PREFERENCES.length);
   });
 
   it("keeps admin import run responses serializable", () => {

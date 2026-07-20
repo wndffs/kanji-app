@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { isTranslationDisplayMode } from "@kanji-srs/shared";
+import { isTranslationDisplayMode, normalizeDashboardWidgetPreferences } from "@kanji-srs/shared";
 
 import { PrismaService } from "../database/prisma.service";
 import { type CreateUserInput, type StoredUser, type UserSettingsDto } from "./auth.types";
@@ -27,6 +27,7 @@ type PrismaUserWithSettings = {
     readonly dailyLessonLimit: number;
     readonly reviewBudget: number;
     readonly strictMode: boolean;
+    readonly dashboardWidgets: unknown;
   } | null;
 };
 
@@ -137,6 +138,7 @@ function toStoredUser(user: PrismaUserWithSettings): StoredUser {
             dailyLessonLimit: user.settings.dailyLessonLimit,
             reviewBudget: user.settings.reviewBudget,
             strictMode: user.settings.strictMode,
+            dashboardWidgets: normalizeDashboardWidgetPreferences(user.settings.dashboardWidgets),
           }),
   };
 }

@@ -3,11 +3,24 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { type CourseListResponse, type DashboardDto, type ItemSummary } from "@kanji-srs/shared";
+import {
+  type CourseListResponse,
+  type DashboardDto,
+  type DashboardWidgetId,
+  type DashboardWidgetPreferenceDto,
+  type ItemSummary,
+  normalizeDashboardWidgetPreferences,
+} from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
-import { ApiError, getCourses, getDashboard, selectCurrentCourse } from "../../lib/api-client";
-import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
+import {
+  ApiError,
+  getCourses,
+  getDashboard,
+  selectCurrentCourse,
+  updateUserSettings,
+} from "../../lib/api-client";
+import { clearStoredSession, readStoredSession, updateStoredUser } from "../../lib/auth-storage";
 import {
   formatAccuracy,
   formatCount,
@@ -223,11 +236,52 @@ export function DashboardClient() {
     }
   }
 
+  async function handleDashboardWidgetsChange(
+    dashboardWidgets: readonly DashboardWidgetPreferenceDto[],
+  ): Promise<void> {
+    const session = readStoredSession();
+
+    if (session === null) {
+      throw new Error("Сессия завершена. Войдите снова.");
+    }
+
+    try {
+      const updatedUser = await updateUserSettings(session.token, { dashboardWidgets });
+      const normalizedWidgets = normalizeDashboardWidgetPreferences(
+        updatedUser.settings.dashboardWidgets ?? dashboardWidgets,
+      );
+
+      updateStoredUser(updatedUser);
+      setState((current) =>
+        current.status === "ready"
+          ? {
+              status: "ready",
+              dashboard: {
+                ...current.dashboard,
+                user: {
+                  ...current.dashboard.user,
+                  dashboardWidgets: normalizedWidgets,
+                },
+              },
+            }
+          : current,
+      );
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        clearStoredSession();
+        setState({ status: "unauthenticated" });
+      }
+
+      throw error;
+    }
+  }
+
   return (
     <DashboardView
       coursesState={coursesState}
       dashboard={state.dashboard}
       onCourseChange={(courseId) => void handleCourseChange(courseId)}
+      onDashboardWidgetsChange={handleDashboardWidgetsChange}
     />
   );
 }
@@ -236,12 +290,50 @@ function DashboardView({
   coursesState,
   dashboard,
   onCourseChange,
+  onDashboardWidgetsChange,
 }: {
   readonly coursesState: CoursesState;
   readonly dashboard: DashboardDto;
   readonly onCourseChange: (courseId: string) => void;
+  readonly onDashboardWidgetsChange: (
+    preferences: readonly DashboardWidgetPreferenceDto[],
+  ) => Promise<void>;
 }) {
-  const course = dashboard.currentCourse;
+  const [customizationOpen, setCustomizationOpen] = useState(false);
+  const [draftWidgets, setDraftWidgets] = useState(dashboard.user.dashboardWidgets);
+  const [customizationStatus, setCustomizationStatus] = useState<"idle" | "saving" | "error">(
+    "idle",
+  );
+  const [customizationError, setCustomizationError] = useState<string | null>(null);
+  const activeWidgets = customizationOpen ? draftWidgets : dashboard.user.dashboardWidgets;
+  const visibleWidgets = activeWidgets.filter((widget) => widget.visible);
+
+  useEffect(() => {
+    setDraftWidgets(dashboard.user.dashboardWidgets);
+  }, [dashboard.user.dashboardWidgets]);
+
+  function toggleCustomization(): void {
+    setDraftWidgets(dashboard.user.dashboardWidgets);
+    setCustomizationStatus("idle");
+    setCustomizationError(null);
+    setCustomizationOpen((current) => !current);
+  }
+
+  async function saveCustomization(): Promise<void> {
+    setCustomizationStatus("saving");
+    setCustomizationError(null);
+
+    try {
+      await onDashboardWidgetsChange(draftWidgets);
+      setCustomizationStatus("idle");
+      setCustomizationOpen(false);
+    } catch (error) {
+      setCustomizationStatus("error");
+      setCustomizationError(
+        error instanceof Error ? error.message : "Не удалось сохранить настройки панели.",
+      );
+    }
+  }
 
   return (
     <section className="page-stack">
@@ -263,176 +355,466 @@ function DashboardView({
           <Link className="secondary-action" href="/practice">
             Практика
           </Link>
+          <button
+            aria-expanded={customizationOpen}
+            className="secondary-action"
+            disabled={customizationStatus === "saving"}
+            onClick={toggleCustomization}
+            type="button"
+          >
+            Настроить панель
+          </button>
         </div>
       </div>
 
-      <section aria-label="Счётчики" className="metric-grid">
-        <MetricCard label="К повторению" value={dashboard.counts.dueReviews} />
-        <MetricCard label="Доступно уроков" value={dashboard.counts.availableLessons} />
-        <MetricCard label="Сожжено" value={dashboard.counts.burnedCards} />
-        <MetricCard label="Сложные" value={dashboard.counts.leechCandidates} />
-      </section>
+      {customizationOpen ? (
+        <DashboardWidgetEditor
+          error={customizationError}
+          onCancel={toggleCustomization}
+          onChange={setDraftWidgets}
+          onSave={() => void saveCustomization()}
+          preferences={draftWidgets}
+          saving={customizationStatus === "saving"}
+        />
+      ) : null}
 
-      <WorkloadPanel workload={dashboard.workload} />
+      {visibleWidgets.length === 0 ? (
+        <div className="notice-panel">
+          <p>Все виджеты скрыты. Откройте настройку панели, чтобы вернуть нужные блоки.</p>
+        </div>
+      ) : (
+        <div className="dashboard-widget-grid">
+          {visibleWidgets.map((widget) => (
+            <div
+              className={`dashboard-widget dashboard-widget-${widget.presentation}`}
+              data-dashboard-widget={widget.id}
+              key={widget.id}
+            >
+              <DashboardWidgetContent
+                coursesState={coursesState}
+                dashboard={dashboard}
+                id={widget.id}
+                onCourseChange={onCourseChange}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 
-      <StudyActivityPanel activity={dashboard.studyActivity} />
+function DashboardWidgetEditor({
+  error,
+  onCancel,
+  onChange,
+  onSave,
+  preferences,
+  saving,
+}: {
+  readonly error: string | null;
+  readonly onCancel: () => void;
+  readonly onChange: (preferences: readonly DashboardWidgetPreferenceDto[]) => void;
+  readonly onSave: () => void;
+  readonly preferences: readonly DashboardWidgetPreferenceDto[];
+  readonly saving: boolean;
+}) {
+  return (
+    <section
+      aria-labelledby="dashboard-widget-editor-heading"
+      className="panel dashboard-widget-editor"
+    >
+      <header>
+        <div>
+          <span className="eyebrow">Макет</span>
+          <h2 id="dashboard-widget-editor-heading">Настройка панели</h2>
+        </div>
+      </header>
 
-      <SrsStageSpreadPanel systems={dashboard.srsStageSpread} />
+      <ol className="dashboard-widget-editor-list">
+        {preferences.map((preference, index) => {
+          const title = formatDashboardWidgetTitle(preference.id);
 
-      <RecentActivityPanel activity={dashboard.recentActivity} timezone={dashboard.user.timezone} />
-
-      <div className="dashboard-layout">
-        <section className="panel">
-          <h2>Курс</h2>
-          <CourseSelector coursesState={coursesState} onCourseChange={onCourseChange} />
-          {course === null ? (
-            <p className="muted">Активный курс не выбран.</p>
-          ) : (
-            <div className="course-progress">
-              <div>
-                <strong>{course.title}</strong>
-                <span>Уровень {course.currentLevel}</span>
+          return (
+            <li data-testid="dashboard-widget-setting" key={preference.id}>
+              <div className="dashboard-widget-order">
+                <button
+                  aria-label={`Переместить «${title}» выше`}
+                  disabled={saving || index === 0}
+                  onClick={() => onChange(moveDashboardWidget(preferences, index, -1))}
+                  title="Переместить выше"
+                  type="button"
+                >
+                  ↑
+                </button>
+                <button
+                  aria-label={`Переместить «${title}» ниже`}
+                  disabled={saving || index === preferences.length - 1}
+                  onClick={() => onChange(moveDashboardWidget(preferences, index, 1))}
+                  title="Переместить ниже"
+                  type="button"
+                >
+                  ↓
+                </button>
               </div>
-              <div className="course-progress-row">
-                <span>Материалы уровня</span>
-                <strong>{course.levelProgress.percent}%</strong>
-              </div>
+
+              <label className="dashboard-widget-visibility">
+                <input
+                  checked={preference.visible}
+                  disabled={saving}
+                  onChange={(event) =>
+                    onChange(
+                      updateDashboardWidget(preferences, preference.id, {
+                        visible: event.currentTarget.checked,
+                      }),
+                    )
+                  }
+                  type="checkbox"
+                />
+                <span>{title}</span>
+              </label>
+
               <div
-                aria-label={`Материалы уровня ${course.levelProgress.percent}%`}
-                aria-valuemax={100}
-                aria-valuemin={0}
-                aria-valuenow={course.levelProgress.percent}
-                className="progress-track"
-                role="progressbar"
+                aria-label={`Размер виджета «${title}»`}
+                className="dashboard-widget-presentation"
+                role="group"
               >
-                <span style={{ width: `${course.levelProgress.percent}%` }} />
+                <button
+                  aria-pressed={preference.presentation === "compact"}
+                  disabled={saving}
+                  onClick={() =>
+                    onChange(
+                      updateDashboardWidget(preferences, preference.id, {
+                        presentation: "compact",
+                      }),
+                    )
+                  }
+                  type="button"
+                >
+                  Компактно
+                </button>
+                <button
+                  aria-pressed={preference.presentation === "expanded"}
+                  disabled={saving}
+                  onClick={() =>
+                    onChange(
+                      updateDashboardWidget(preferences, preference.id, {
+                        presentation: "expanded",
+                      }),
+                    )
+                  }
+                  type="button"
+                >
+                  Развёрнуто
+                </button>
               </div>
-              <div className="course-progress-row">
-                <span>Карточки уровня</span>
-                <strong>{course.levelProgress.cardPercent}%</strong>
-              </div>
-              <div
-                aria-label={`Карточки уровня ${course.levelProgress.cardPercent}%`}
-                aria-valuemax={100}
-                aria-valuemin={0}
-                aria-valuenow={course.levelProgress.cardPercent}
-                className="progress-track progress-track-secondary"
-                role="progressbar"
-              >
-                <span style={{ width: `${course.levelProgress.cardPercent}%` }} />
-              </div>
-              <p className="muted">
-                {course.levelProgress.completedItems} из {course.levelProgress.totalItems} ·{" "}
-                {course.levelProgress.completedCards} карточек из {course.levelProgress.totalCards}
-              </p>
-              {course.levelProgress.itemsByType.length === 0 ? null : (
-                <div className="level-progress-scroll">
-                  <table aria-label={`Состояния материалов уровня ${course.currentLevel}`}>
-                    <thead>
-                      <tr>
-                        <th scope="col">Тип</th>
-                        <th scope="col">Закрыто</th>
-                        <th scope="col">Уроки</th>
-                        <th scope="col">В SRS</th>
-                        <th scope="col">Закреплено</th>
-                        <th scope="col">Всего</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {course.levelProgress.itemsByType.map((row) => (
-                        <tr data-testid="level-progress-type" key={row.itemType}>
-                          <th scope="row">{formatItemType(row.itemType)}</th>
-                          <td>{row.locked}</td>
-                          <td>{row.available}</td>
-                          <td>{row.inProgress}</td>
-                          <td>{row.burned}</td>
-                          <td className="level-progress-total">{row.totalItems}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+            </li>
+          );
+        })}
+      </ol>
 
-        <section className="panel">
-          <h2>Прогноз</h2>
-          {dashboard.reviewForecast.length === 0 ? (
-            <p className="muted">Нет запланированных повторений.</p>
-          ) : (
-            <ol className="forecast-list" data-testid="forecast-list">
-              {dashboard.reviewForecast.slice(0, 6).map((bucket) => (
-                <li data-testid="forecast-bucket" key={bucket.bucketKey}>
-                  <span>{formatForecastBucket(bucket)}</span>
-                  <strong>
-                    {formatCount(bucket.dueCount, "карточка", "карточки", "карточек")}
-                  </strong>
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
+      {error === null ? null : (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
 
-        <section className="panel">
-          <h2>Сложные карточки</h2>
-          {dashboard.leechCandidates.length === 0 ? (
-            <p className="muted">Нет карточек, которые требуют отдельного внимания.</p>
-          ) : (
-            <ul className="leech-list">
-              {dashboard.leechCandidates.map((candidate) => (
-                <li key={candidate.learningCardId}>
-                  <div>
-                    <span className="eyebrow">{formatItemType(candidate.item.itemType)}</span>
-                    <Link className="inline-link" href={`/items/${candidate.item.id}`}>
-                      <JapaneseText>{candidate.item.japanese}</JapaneseText>
-                    </Link>
-                    <small>{formatItemTranslation(candidate.item)}</small>
-                  </div>
-                  <dl>
-                    <div>
-                      <dt>Балл</dt>
-                      <dd>{candidate.leech.score}</dd>
-                    </div>
-                    <div>
-                      <dt>Ошибок</dt>
-                      <dd>{candidate.leech.wrongCount}</dd>
-                    </div>
-                    <div>
-                      <dt>Недавно</dt>
-                      <dd>{candidate.leech.recentWrongCount}</dd>
-                    </div>
-                  </dl>
-                  <p>{formatLeechReasons(candidate.leech.reasons)}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="panel">
-          <h2>Последние ответы</h2>
-          <dl className="stats-list">
-            <div>
-              <dt>Всего</dt>
-              <dd>{dashboard.recentReviewStats.total}</dd>
-            </div>
-            <div>
-              <dt>Верно</dt>
-              <dd>{dashboard.recentReviewStats.correct + dashboard.recentReviewStats.typo}</dd>
-            </div>
-            <div>
-              <dt>Ошибки</dt>
-              <dd>{dashboard.recentReviewStats.wrong + dashboard.recentReviewStats.reveal}</dd>
-            </div>
-            <div>
-              <dt>Точность</dt>
-              <dd>{formatAccuracy(dashboard.recentReviewStats.accuracy)}</dd>
-            </div>
-          </dl>
-        </section>
+      <div className="action-row">
+        <button className="primary-action" disabled={saving} onClick={onSave} type="button">
+          {saving ? "Сохраняю" : "Сохранить макет"}
+        </button>
+        <button className="secondary-action" disabled={saving} onClick={onCancel} type="button">
+          Отмена
+        </button>
       </div>
+    </section>
+  );
+}
+
+function moveDashboardWidget(
+  preferences: readonly DashboardWidgetPreferenceDto[],
+  index: number,
+  offset: -1 | 1,
+): readonly DashboardWidgetPreferenceDto[] {
+  const targetIndex = index + offset;
+
+  if (targetIndex < 0 || targetIndex >= preferences.length) {
+    return preferences;
+  }
+
+  const next = [...preferences];
+  const current = next[index];
+  const target = next[targetIndex];
+
+  if (current === undefined || target === undefined) {
+    return preferences;
+  }
+
+  next[index] = target;
+  next[targetIndex] = current;
+  return next;
+}
+
+function updateDashboardWidget(
+  preferences: readonly DashboardWidgetPreferenceDto[],
+  id: DashboardWidgetId,
+  update: Partial<Omit<DashboardWidgetPreferenceDto, "id">>,
+): readonly DashboardWidgetPreferenceDto[] {
+  return preferences.map((preference) =>
+    preference.id === id ? { ...preference, ...update } : preference,
+  );
+}
+
+function formatDashboardWidgetTitle(id: DashboardWidgetId): string {
+  const titles: Readonly<Record<DashboardWidgetId, string>> = {
+    summary: "Главные показатели",
+    workload: "Баланс нагрузки",
+    "study-activity": "Активность за год",
+    "srs-stage-spread": "Этапы SRS",
+    "recent-activity": "Последние изменения",
+    "course-progress": "Прогресс курса",
+    "review-forecast": "Прогноз повторений",
+    "leech-candidates": "Сложные карточки",
+    "recent-review-stats": "Последние ответы",
+  };
+
+  return titles[id];
+}
+
+function DashboardWidgetContent({
+  coursesState,
+  dashboard,
+  id,
+  onCourseChange,
+}: {
+  readonly coursesState: CoursesState;
+  readonly dashboard: DashboardDto;
+  readonly id: DashboardWidgetId;
+  readonly onCourseChange: (courseId: string) => void;
+}) {
+  switch (id) {
+    case "summary":
+      return <DashboardSummary counts={dashboard.counts} />;
+    case "workload":
+      return <WorkloadPanel workload={dashboard.workload} />;
+    case "study-activity":
+      return <StudyActivityPanel activity={dashboard.studyActivity} />;
+    case "srs-stage-spread":
+      return <SrsStageSpreadPanel systems={dashboard.srsStageSpread} />;
+    case "recent-activity":
+      return (
+        <RecentActivityPanel
+          activity={dashboard.recentActivity}
+          timezone={dashboard.user.timezone}
+        />
+      );
+    case "course-progress":
+      return (
+        <CourseProgressPanel
+          course={dashboard.currentCourse}
+          coursesState={coursesState}
+          onCourseChange={onCourseChange}
+        />
+      );
+    case "review-forecast":
+      return <ReviewForecastPanel forecast={dashboard.reviewForecast} />;
+    case "leech-candidates":
+      return <LeechCandidatesPanel candidates={dashboard.leechCandidates} />;
+    case "recent-review-stats":
+      return <RecentReviewStatsPanel stats={dashboard.recentReviewStats} />;
+  }
+
+  return assertUnknownDashboardWidget(id);
+}
+
+function assertUnknownDashboardWidget(id: never): never {
+  throw new Error(`Unknown dashboard widget: ${String(id)}`);
+}
+
+function DashboardSummary({ counts }: { readonly counts: DashboardDto["counts"] }) {
+  return (
+    <section aria-label="Счётчики" className="metric-grid">
+      <MetricCard label="К повторению" value={counts.dueReviews} />
+      <MetricCard label="Доступно уроков" value={counts.availableLessons} />
+      <MetricCard label="Сожжено" value={counts.burnedCards} />
+      <MetricCard label="Сложные" value={counts.leechCandidates} />
+    </section>
+  );
+}
+
+function CourseProgressPanel({
+  course,
+  coursesState,
+  onCourseChange,
+}: {
+  readonly course: DashboardDto["currentCourse"];
+  readonly coursesState: CoursesState;
+  readonly onCourseChange: (courseId: string) => void;
+}) {
+  return (
+    <section className="panel">
+      <h2>Курс</h2>
+      <CourseSelector coursesState={coursesState} onCourseChange={onCourseChange} />
+      {course === null ? (
+        <p className="muted">Активный курс не выбран.</p>
+      ) : (
+        <div className="course-progress">
+          <div>
+            <strong>{course.title}</strong>
+            <span>Уровень {course.currentLevel}</span>
+          </div>
+          <div className="course-progress-row">
+            <span>Материалы уровня</span>
+            <strong>{course.levelProgress.percent}%</strong>
+          </div>
+          <div
+            aria-label={`Материалы уровня ${course.levelProgress.percent}%`}
+            aria-valuemax={100}
+            aria-valuemin={0}
+            aria-valuenow={course.levelProgress.percent}
+            className="progress-track"
+            role="progressbar"
+          >
+            <span style={{ width: `${course.levelProgress.percent}%` }} />
+          </div>
+          <div className="course-progress-row">
+            <span>Карточки уровня</span>
+            <strong>{course.levelProgress.cardPercent}%</strong>
+          </div>
+          <div
+            aria-label={`Карточки уровня ${course.levelProgress.cardPercent}%`}
+            aria-valuemax={100}
+            aria-valuemin={0}
+            aria-valuenow={course.levelProgress.cardPercent}
+            className="progress-track progress-track-secondary"
+            role="progressbar"
+          >
+            <span style={{ width: `${course.levelProgress.cardPercent}%` }} />
+          </div>
+          <p className="muted">
+            {course.levelProgress.completedItems} из {course.levelProgress.totalItems} ·{" "}
+            {course.levelProgress.completedCards} карточек из {course.levelProgress.totalCards}
+          </p>
+          {course.levelProgress.itemsByType.length === 0 ? null : (
+            <div className="level-progress-scroll">
+              <table aria-label={`Состояния материалов уровня ${course.currentLevel}`}>
+                <thead>
+                  <tr>
+                    <th scope="col">Тип</th>
+                    <th scope="col">Закрыто</th>
+                    <th scope="col">Уроки</th>
+                    <th scope="col">В SRS</th>
+                    <th scope="col">Закреплено</th>
+                    <th scope="col">Всего</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {course.levelProgress.itemsByType.map((row) => (
+                    <tr data-testid="level-progress-type" key={row.itemType}>
+                      <th scope="row">{formatItemType(row.itemType)}</th>
+                      <td>{row.locked}</td>
+                      <td>{row.available}</td>
+                      <td>{row.inProgress}</td>
+                      <td>{row.burned}</td>
+                      <td className="level-progress-total">{row.totalItems}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ReviewForecastPanel({ forecast }: { readonly forecast: DashboardDto["reviewForecast"] }) {
+  return (
+    <section className="panel">
+      <h2>Прогноз</h2>
+      {forecast.length === 0 ? (
+        <p className="muted">Нет запланированных повторений.</p>
+      ) : (
+        <ol className="forecast-list" data-testid="forecast-list">
+          {forecast.slice(0, 6).map((bucket) => (
+            <li data-testid="forecast-bucket" key={bucket.bucketKey}>
+              <span>{formatForecastBucket(bucket)}</span>
+              <strong>{formatCount(bucket.dueCount, "карточка", "карточки", "карточек")}</strong>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+function LeechCandidatesPanel({
+  candidates,
+}: {
+  readonly candidates: DashboardDto["leechCandidates"];
+}) {
+  return (
+    <section className="panel">
+      <h2>Сложные карточки</h2>
+      {candidates.length === 0 ? (
+        <p className="muted">Нет карточек, которые требуют отдельного внимания.</p>
+      ) : (
+        <ul className="leech-list">
+          {candidates.map((candidate) => (
+            <li key={candidate.learningCardId}>
+              <div>
+                <span className="eyebrow">{formatItemType(candidate.item.itemType)}</span>
+                <Link className="inline-link" href={`/items/${candidate.item.id}`}>
+                  <JapaneseText>{candidate.item.japanese}</JapaneseText>
+                </Link>
+                <small>{formatItemTranslation(candidate.item)}</small>
+              </div>
+              <dl>
+                <div>
+                  <dt>Балл</dt>
+                  <dd>{candidate.leech.score}</dd>
+                </div>
+                <div>
+                  <dt>Ошибок</dt>
+                  <dd>{candidate.leech.wrongCount}</dd>
+                </div>
+                <div>
+                  <dt>Недавно</dt>
+                  <dd>{candidate.leech.recentWrongCount}</dd>
+                </div>
+              </dl>
+              <p>{formatLeechReasons(candidate.leech.reasons)}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function RecentReviewStatsPanel({ stats }: { readonly stats: DashboardDto["recentReviewStats"] }) {
+  return (
+    <section className="panel">
+      <h2>Последние ответы</h2>
+      <dl className="stats-list">
+        <div>
+          <dt>Всего</dt>
+          <dd>{stats.total}</dd>
+        </div>
+        <div>
+          <dt>Верно</dt>
+          <dd>{stats.correct + stats.typo}</dd>
+        </div>
+        <div>
+          <dt>Ошибки</dt>
+          <dd>{stats.wrong + stats.reveal}</dd>
+        </div>
+        <div>
+          <dt>Точность</dt>
+          <dd>{formatAccuracy(stats.accuracy)}</dd>
+        </div>
+      </dl>
     </section>
   );
 }

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SRS_STAGES } from "@kanji-srs/srs";
+import { DEFAULT_DASHBOARD_WIDGET_PREFERENCES } from "@kanji-srs/shared";
 
 import { type CurrentUserDto } from "../src/auth/auth.types";
 import {
@@ -225,6 +226,7 @@ describe("DashboardService", () => {
         locale: "ru-RU",
         translationDisplayMode: "ru-en",
         timezone: "Europe/Moscow",
+        dashboardWidgets: DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
       },
       counts: {
         dueReviews: 0,
@@ -941,6 +943,7 @@ function createUser(id: string): CurrentUserDto {
       dailyLessonLimit: 10,
       reviewBudget: 20,
       strictMode: false,
+      dashboardWidgets: DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
     },
   };
 }

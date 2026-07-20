@@ -1,6 +1,11 @@
 import { expect, type Page, test } from "@playwright/test";
 
-import { type ItemKind, type ItemSummary } from "@kanji-srs/shared";
+import {
+  DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
+  type DashboardWidgetPreferenceDto,
+  type ItemKind,
+  type ItemSummary,
+} from "@kanji-srs/shared";
 
 const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
@@ -33,6 +38,7 @@ test.describe("dashboard smoke", () => {
             locale: "ru-RU",
             translationDisplayMode: "ru-en",
             timezone: "Europe/Moscow",
+            dashboardWidgets: DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
           },
           counts: {
             dueReviews: 4,
@@ -332,6 +338,81 @@ test.describe("dashboard smoke", () => {
     );
     await expect(selector).toHaveValue("main-course");
   });
+
+  test("customizes and persists dashboard widgets", async ({ page }) => {
+    await signIn(page);
+    let dashboardWidgets: readonly DashboardWidgetPreferenceDto[] =
+      DEFAULT_DASHBOARD_WIDGET_PREFERENCES;
+    let savedWidgets: readonly DashboardWidgetPreferenceDto[] = [];
+
+    await page.route(`${API_BASE_URL}/courses`, async (route) => {
+      await route.fulfill({ json: buildCourseList("course-1") });
+    });
+
+    await page.route(`${API_BASE_URL}/dashboard`, async (route) => {
+      const dashboard = buildMinimalDashboard("course-1", "Базовый курс");
+      await route.fulfill({
+        json: {
+          ...dashboard,
+          user: { ...dashboard.user, dashboardWidgets },
+        },
+      });
+    });
+
+    await page.route(`${API_BASE_URL}/users/settings`, async (route) => {
+      const body = route.request().postDataJSON() as {
+        readonly dashboardWidgets?: readonly DashboardWidgetPreferenceDto[];
+      };
+      dashboardWidgets = body.dashboardWidgets ?? dashboardWidgets;
+      savedWidgets = dashboardWidgets;
+
+      await route.fulfill({
+        json: {
+          id: "user-1",
+          email: "learner@example.test",
+          displayName: "Тестовый ученик",
+          role: "USER",
+          settings: {
+            locale: "ru-RU",
+            translationDisplayMode: "ru-en",
+            timezone: "Europe/Moscow",
+            dailyLessonLimit: 20,
+            reviewBudget: 100,
+            strictMode: false,
+            dashboardWidgets,
+          },
+        },
+      });
+    });
+
+    await page.goto("/dashboard");
+    await page.getByRole("button", { name: "Настроить панель" }).click();
+    await expect(page.getByTestId("dashboard-widget-setting")).toHaveCount(9);
+
+    const forecastSetting = page
+      .getByTestId("dashboard-widget-setting")
+      .filter({ hasText: "Прогноз повторений" });
+    await forecastSetting.getByRole("checkbox").uncheck();
+
+    await page
+      .getByRole("group", { name: "Размер виджета «Главные показатели»" })
+      .getByRole("button", { name: "Компактно" })
+      .click();
+    await page.getByRole("button", { name: "Переместить «Последние ответы» выше" }).click();
+
+    await expect(page.getByRole("heading", { name: "Прогноз" })).toBeHidden();
+    await expect(page.locator('[data-dashboard-widget="summary"]')).toHaveClass(/compact/);
+
+    await page.getByRole("button", { name: "Сохранить макет" }).click();
+    await expect(page.getByRole("heading", { name: "Настройка панели" })).toBeHidden();
+    expect(savedWidgets.find(({ id }) => id === "review-forecast")?.visible).toBe(false);
+    expect(savedWidgets.find(({ id }) => id === "summary")?.presentation).toBe("compact");
+    expect(savedWidgets.at(-2)?.id).toBe("recent-review-stats");
+
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Прогноз" })).toBeHidden();
+    await expect(page.locator('[data-dashboard-widget="summary"]')).toHaveClass(/compact/);
+  });
 });
 
 function buildCourseList(currentCourseId: string) {
@@ -420,6 +501,7 @@ function buildMinimalDashboard(courseId: string, courseTitle: string) {
       locale: "ru-RU",
       translationDisplayMode: "ru-en",
       timezone: "Europe/Moscow",
+      dashboardWidgets: DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
     },
     counts: { dueReviews: 0, availableLessons: 1, burnedCards: 0, leechCandidates: 0 },
     currentCourse: {

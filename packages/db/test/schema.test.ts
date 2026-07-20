@@ -90,6 +90,10 @@ describe("Prisma schema", () => {
     expect(schema).toContain("@@index([translationDisplayMode])");
   });
 
+  it("stores the user's dashboard widget preferences as structured JSON", () => {
+    expect(schema).toContain('dashboardWidgets       Json     @default("[]")');
+  });
+
   it("stores per-user kana lesson and assessment progress", () => {
     expect(schema).toContain("enum KanaScript");
     expect(schema).toContain("model UserKanaProgress");
