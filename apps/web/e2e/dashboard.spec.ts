@@ -46,6 +46,14 @@ test.describe("dashboard smoke", () => {
             burnedCards: 1,
             leechCandidates: 1,
           },
+          newLearnerGuide: {
+            kana: {
+              hiragana: { masteredCount: 46, totalCount: 46 },
+              katakana: { masteredCount: 46, totalCount: 46 },
+            },
+            firstLessonCompleted: true,
+            firstReviewCompleted: true,
+          },
           currentCourse: {
             id: "course-1",
             title: "Базовый курс",
@@ -290,6 +298,81 @@ test.describe("dashboard smoke", () => {
     );
   });
 
+  test("guides a new learner through kana, the first lesson, and the first review", async ({
+    page,
+  }) => {
+    await signIn(page);
+    let firstLessonCompleted = false;
+    let firstReviewCompleted = false;
+    let dueReviews = 0;
+
+    await page.route(`${API_BASE_URL}/courses`, async (route) => {
+      await route.fulfill({ json: buildCourseList("course-1") });
+    });
+
+    await page.route(`${API_BASE_URL}/dashboard`, async (route) => {
+      const dashboard = buildMinimalDashboard("course-1", "Базовый курс");
+      await route.fulfill({
+        json: {
+          ...dashboard,
+          counts: { ...dashboard.counts, dueReviews },
+          newLearnerGuide: {
+            kana: {
+              hiragana: { masteredCount: 0, totalCount: 46 },
+              katakana: { masteredCount: 0, totalCount: 46 },
+            },
+            firstLessonCompleted,
+            firstReviewCompleted,
+          },
+          reviewForecast: firstLessonCompleted
+            ? [
+                {
+                  bucketKey: "2026-07-20T22:00",
+                  localDate: "2026-07-20",
+                  localHour: 22,
+                  dueCount: 1,
+                },
+              ]
+            : [],
+        },
+      });
+    });
+
+    await page.goto("/dashboard");
+
+    const guide = page.getByTestId("new-learner-guide");
+    await expect(guide.getByRole("heading", { name: "Первый учебный цикл" })).toBeVisible();
+    await expect(
+      guide.getByRole("progressbar", { name: "Хирагана: освоено 0 из 46" }),
+    ).toBeVisible();
+    await expect(
+      guide.getByRole("progressbar", { name: "Катакана: освоено 0 из 46" }),
+    ).toBeVisible();
+    await expect(guide.getByRole("link", { name: "Начать хирагану" })).toHaveAttribute(
+      "href",
+      "/kana",
+    );
+
+    firstLessonCompleted = true;
+    await page.reload();
+    await expect(guide.locator('li[data-status="waiting"]')).toContainText(
+      "Ближайшее повторение: 20.07.2026, 22:00.",
+    );
+    await expect(guide.locator('li[data-status="parallel"]')).toContainText("Кана для старта");
+    await expect(guide.getByRole("link", { name: "Начать хирагану" })).toBeVisible();
+
+    dueReviews = 1;
+    await page.reload();
+    await expect(guide.getByRole("link", { name: "Начать первое повторение" })).toHaveAttribute(
+      "href",
+      "/reviews",
+    );
+
+    firstReviewCompleted = true;
+    await page.reload();
+    await expect(guide).toHaveCount(0);
+  });
+
   test("switches the current course and explains an active lesson conflict", async ({ page }) => {
     await signIn(page);
     let currentCourseId = "starter-course";
@@ -504,6 +587,14 @@ function buildMinimalDashboard(courseId: string, courseTitle: string) {
       dashboardWidgets: DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
     },
     counts: { dueReviews: 0, availableLessons: 1, burnedCards: 0, leechCandidates: 0 },
+    newLearnerGuide: {
+      kana: {
+        hiragana: { masteredCount: 0, totalCount: 46 },
+        katakana: { masteredCount: 0, totalCount: 46 },
+      },
+      firstLessonCompleted: false,
+      firstReviewCompleted: false,
+    },
     currentCourse: {
       id: courseId,
       title: courseTitle,

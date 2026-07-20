@@ -27,6 +27,11 @@ import {
   formatForecastBucket,
   formatTranslationDisplayMode,
 } from "../../lib/dashboard-format";
+import {
+  type NewLearnerGuideState,
+  type NewLearnerStepStatus,
+  resolveNewLearnerGuideState,
+} from "../../lib/new-learner-guide";
 
 type DashboardState =
   | { readonly status: "checking" }
@@ -307,6 +312,10 @@ function DashboardView({
   const [customizationError, setCustomizationError] = useState<string | null>(null);
   const activeWidgets = customizationOpen ? draftWidgets : dashboard.user.dashboardWidgets;
   const visibleWidgets = activeWidgets.filter((widget) => widget.visible);
+  const newLearnerGuide = resolveNewLearnerGuideState(
+    dashboard.newLearnerGuide,
+    dashboard.counts.dueReviews,
+  );
 
   useEffect(() => {
     setDraftWidgets(dashboard.user.dashboardWidgets);
@@ -367,6 +376,10 @@ function DashboardView({
         </div>
       </div>
 
+      {newLearnerGuide.visible ? (
+        <NewLearnerGuide dashboard={dashboard} state={newLearnerGuide} />
+      ) : null}
+
       {customizationOpen ? (
         <DashboardWidgetEditor
           error={customizationError}
@@ -402,6 +415,193 @@ function DashboardView({
       )}
     </section>
   );
+}
+
+function NewLearnerGuide({
+  dashboard,
+  state,
+}: {
+  readonly dashboard: DashboardDto;
+  readonly state: NewLearnerGuideState;
+}) {
+  const guide = dashboard.newLearnerGuide;
+  const nextReview = dashboard.reviewForecast.find((bucket) => bucket.dueCount > 0) ?? null;
+
+  return (
+    <section
+      aria-labelledby="new-learner-guide-heading"
+      className="panel new-learner-guide"
+      data-testid="new-learner-guide"
+    >
+      <header>
+        <div>
+          <span className="eyebrow">Старт</span>
+          <h2 id="new-learner-guide-heading">Первый учебный цикл</h2>
+        </div>
+        <p>
+          Освойте базовую хирагану, завершите первый урок и вернитесь к карточкам по расписанию SRS.
+          Катакану можно продолжать параллельно.
+        </p>
+      </header>
+
+      <ol className="new-learner-steps">
+        <li aria-current={state.kana === "current" ? "step" : undefined} data-status={state.kana}>
+          <StepMarker number={1} status={state.kana} />
+          <div className="new-learner-step-body">
+            <StepHeading status={state.kana} title="Кана для старта" />
+            <p>
+              Базовая хирагана нужна для чтений кандзи. Катакана остаётся отдельной параллельной
+              практикой.
+            </p>
+            <div className="new-learner-kana-progress">
+              <KanaReadinessProgress label="Хирагана" progress={guide.kana.hiragana} />
+              <KanaReadinessProgress label="Катакана" progress={guide.kana.katakana} />
+            </div>
+            {state.kana === "current" || state.kana === "parallel" ? (
+              <Link className="secondary-action" href="/kana">
+                {guide.kana.hiragana.masteredCount === 0 ? "Начать хирагану" : "Продолжить кану"}
+              </Link>
+            ) : null}
+          </div>
+        </li>
+
+        <li
+          aria-current={state.lesson === "current" ? "step" : undefined}
+          data-status={state.lesson}
+        >
+          <StepMarker number={2} status={state.lesson} />
+          <div className="new-learner-step-body">
+            <StepHeading status={state.lesson} title="Первый урок" />
+            {state.lesson === "complete" ? (
+              <p>Карточки созданы и получили первый интервал SRS.</p>
+            ) : state.lesson === "current" ? (
+              dashboard.counts.availableLessons > 0 ? (
+                <>
+                  <p>
+                    Изучите значения и чтения, затем правильно ответьте на обязательные вопросы.
+                  </p>
+                  <Link className="secondary-action" href="/lessons">
+                    Начать первый урок
+                  </Link>
+                </>
+              ) : (
+                <p>Доступных материалов пока нет. Проверьте выбранный курс и его первый уровень.</p>
+              )
+            ) : (
+              <p>Первый урок станет рекомендуемым шагом после базовой хираганы.</p>
+            )}
+          </div>
+        </li>
+
+        <li
+          aria-current={
+            state.review === "current" || state.review === "waiting" ? "step" : undefined
+          }
+          data-status={state.review}
+        >
+          <StepMarker number={3} status={state.review} />
+          <div className="new-learner-step-body">
+            <StepHeading status={state.review} title="Первое повторение" />
+            {state.review === "current" ? (
+              <>
+                <p>Карточки готовы. Завершите очередь, чтобы пройти первый полный цикл.</p>
+                <Link className="primary-action" href="/reviews">
+                  Начать первое повторение
+                </Link>
+              </>
+            ) : state.review === "waiting" ? (
+              <p>
+                Первый урок завершён.{" "}
+                {nextReview === null
+                  ? "Повторение появится после первого интервала SRS."
+                  : `Ближайшее повторение: ${formatForecastBucket(nextReview)}.`}
+              </p>
+            ) : (
+              <p>После урока карточки появятся здесь согласно интервалу SRS.</p>
+            )}
+          </div>
+        </li>
+      </ol>
+    </section>
+  );
+}
+
+function StepMarker({
+  number,
+  status,
+}: {
+  readonly number: number;
+  readonly status: NewLearnerStepStatus;
+}) {
+  return (
+    <span aria-hidden="true" className="new-learner-step-marker">
+      {status === "complete" ? "✓" : number}
+    </span>
+  );
+}
+
+function StepHeading({
+  status,
+  title,
+}: {
+  readonly status: NewLearnerStepStatus;
+  readonly title: string;
+}) {
+  return (
+    <div className="new-learner-step-heading">
+      <h3>{title}</h3>
+      <span>{formatNewLearnerStepStatus(status)}</span>
+    </div>
+  );
+}
+
+function KanaReadinessProgress({
+  label,
+  progress,
+}: {
+  readonly label: string;
+  readonly progress: DashboardDto["newLearnerGuide"]["kana"]["hiragana"];
+}) {
+  const percent =
+    progress.totalCount === 0
+      ? 0
+      : Math.round((progress.masteredCount / progress.totalCount) * 100);
+
+  return (
+    <div>
+      <div>
+        <span>{label}</span>
+        <strong>
+          {progress.masteredCount} / {progress.totalCount}
+        </strong>
+      </div>
+      <div
+        aria-label={`${label}: освоено ${progress.masteredCount} из ${progress.totalCount}`}
+        aria-valuemax={progress.totalCount}
+        aria-valuemin={0}
+        aria-valuenow={progress.masteredCount}
+        className="progress-track"
+        role="progressbar"
+      >
+        <span style={{ width: `${percent}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function formatNewLearnerStepStatus(status: NewLearnerStepStatus): string {
+  switch (status) {
+    case "complete":
+      return "Готово";
+    case "current":
+      return "Сейчас";
+    case "parallel":
+      return "Параллельно";
+    case "waiting":
+      return "Ожидание";
+    case "upcoming":
+      return "Далее";
+  }
 }
 
 function DashboardWidgetEditor({

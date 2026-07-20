@@ -7,6 +7,7 @@ import {
   type LeechScoreResult,
   type ReviewForecastBucket,
 } from "@kanji-srs/srs";
+import { listBasicKana } from "@kanji-srs/japanese";
 import {
   type BilingualTextDto,
   type DashboardLeechCandidateDto,
@@ -29,6 +30,7 @@ import {
   type DashboardCourseItemProgressRecord,
   type DashboardCourseLevelProgressRecord,
   type DashboardCourseProgressRecord,
+  type DashboardKanaProgressRecord,
   type DashboardLeechSignalRecord,
   type DashboardLessonItemRecord,
   type DashboardLessonProgressRecord,
@@ -66,6 +68,8 @@ export class DashboardService {
     const [
       lessonItems,
       lessonProgress,
+      kanaProgress,
+      firstReviewCompleted,
       dueReviews,
       burnedCards,
       leechSignals,
@@ -77,6 +81,8 @@ export class DashboardService {
     ] = await Promise.all([
       this.dashboardRepository.listLessonAvailabilityItems(user.id),
       this.dashboardRepository.listLessonProgress(user.id),
+      this.dashboardRepository.listKanaProgress(user.id),
+      this.dashboardRepository.hasCompletedReviewSession(user.id),
       this.dashboardRepository.countDueReviews(user.id, now),
       this.dashboardRepository.countBurnedCards(user.id),
       this.dashboardRepository.listLeechSignals(user.id, leechSince),
@@ -122,6 +128,11 @@ export class DashboardService {
         burnedCards,
         leechCandidates: leechCandidates.length,
       },
+      newLearnerGuide: toNewLearnerGuideDto(
+        kanaProgress,
+        lessonProgress.length > 0,
+        firstReviewCompleted,
+      ),
       currentCourse:
         currentCourse === null ? null : toCurrentCourseDto(currentCourse, availableItemIds),
       workload: toWorkloadDto(user, lessonProgress, forecastStates, dueReviews, now),
@@ -183,6 +194,37 @@ function toStudyActivityDto(
     totalReviews: days.reduce((sum, day) => sum + day.reviewCount, 0),
     totalLessons: days.reduce((sum, day) => sum + day.lessonCount, 0),
     days,
+  };
+}
+
+function toNewLearnerGuideDto(
+  progress: readonly DashboardKanaProgressRecord[],
+  firstLessonCompleted: boolean,
+  firstReviewCompleted: boolean,
+): DashboardDto["newLearnerGuide"] {
+  return {
+    kana: {
+      hiragana: summarizeBasicKana("hiragana", progress),
+      katakana: summarizeBasicKana("katakana", progress),
+    },
+    firstLessonCompleted,
+    firstReviewCompleted,
+  };
+}
+
+function summarizeBasicKana(
+  script: DashboardKanaProgressRecord["script"],
+  progress: readonly DashboardKanaProgressRecord[],
+): DashboardDto["newLearnerGuide"]["kana"]["hiragana"] {
+  const basicCharacters = new Set(listBasicKana(script).map((item) => item.character));
+  const masteredCount = progress.filter(
+    (item) =>
+      item.script === script && basicCharacters.has(item.character) && item.masteredAt !== null,
+  ).length;
+
+  return {
+    masteredCount,
+    totalCount: basicCharacters.size,
   };
 }
 

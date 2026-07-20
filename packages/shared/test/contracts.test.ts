@@ -182,6 +182,14 @@ describe("shared DTO contracts", () => {
         burnedCards: 1,
         leechCandidates: 0,
       },
+      newLearnerGuide: {
+        kana: {
+          hiragana: { masteredCount: 12, totalCount: 46 },
+          katakana: { masteredCount: 4, totalCount: 46 },
+        },
+        firstLessonCompleted: true,
+        firstReviewCompleted: false,
+      },
       currentCourse: null,
       workload: {
         reviews: {

@@ -45,6 +45,12 @@ export type DashboardLessonProgressRecord = {
   readonly createdAt: Date;
 };
 
+export type DashboardKanaProgressRecord = {
+  readonly character: string;
+  readonly script: "hiragana" | "katakana";
+  readonly masteredAt: Date | null;
+};
+
 export type DashboardCourseItemProgressRecord = {
   readonly id: string;
   readonly itemType: ItemKind;

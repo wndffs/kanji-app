@@ -65,7 +65,9 @@ test.describe("final MVP integration path", () => {
 
       await expect(page).toHaveURL(/\/dashboard$/);
       await expect(page.getByRole("heading", { name: "Панель" })).toBeVisible();
-      await expect(page.getByText("Стартовый MVP-курс")).toBeVisible();
+      await expect(
+        page.getByRole("strong").filter({ hasText: "Стартовый MVP-курс" }),
+      ).toBeVisible();
       await expect(
         page.locator(".metric-card").filter({ hasText: "Доступно уроков" }),
       ).toContainText("1");
@@ -79,7 +81,9 @@ test.describe("final MVP integration path", () => {
       await page.getByRole("button", { name: "Войти" }).click();
 
       await expect(page).toHaveURL(/\/dashboard$/);
-      await expect(page.getByText("Стартовый MVP-курс")).toBeVisible();
+      await expect(
+        page.getByRole("strong").filter({ hasText: "Стартовый MVP-курс" }),
+      ).toBeVisible();
     });
 
     await test.step("Complete one starter lesson item", async () => {
@@ -92,6 +96,8 @@ test.describe("final MVP integration path", () => {
       await page.getByRole("button", { name: "Далее: Чтение" }).click();
       await page.getByRole("button", { name: "Перейти к проверке" }).click();
       await page.getByLabel("Ваше значение").fill("один");
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("heading", { name: "Верно" })).toBeVisible();
       await page.keyboard.press("Enter");
 
       await expect(
@@ -293,6 +299,18 @@ async function mockMvpApi(page: Page): Promise<void> {
     await route.fulfill({ json: completeStarterLessonItemResponse });
   });
 
+  await page.route(`${API_BASE_URL}/lessons/${LESSON_SESSION_ID}/check-answer`, async (route) => {
+    expectAuthorized(route);
+    expect(route.request().postDataJSON()).toEqual({
+      itemId: starterItemId,
+      cardId: starterMeaningCardId,
+      answerType: "meaning",
+      answer: "один",
+    });
+
+    await route.fulfill({ json: starterLessonCorrectAnswer });
+  });
+
   await page.route(`${API_BASE_URL}/lessons/${LESSON_SESSION_ID}/finish`, async (route) => {
     expectAuthorized(route);
 
@@ -462,6 +480,14 @@ function buildDashboard(state: MvpApiState): DashboardDto {
       availableLessons,
       burnedCards: 0,
       leechCandidates: 0,
+    },
+    newLearnerGuide: {
+      kana: {
+        hiragana: { masteredCount: 0, totalCount: 46 },
+        katakana: { masteredCount: 0, totalCount: 46 },
+      },
+      firstLessonCompleted: state.lessonCompleted,
+      firstReviewCompleted: state.reviewAnswered,
     },
     currentCourse: {
       id: "starter-course",
@@ -788,20 +814,20 @@ const starterLessonQueueItem: LessonQueueItem = {
   exampleSentences: [],
 };
 
+const starterLessonCorrectAnswer: CompleteLessonItemResponse["answers"][number] = {
+  cardId: starterMeaningCardId,
+  answerType: "meaning",
+  accepted: true,
+  result: "correct",
+  normalizedAnswer: "один",
+  expected: starterMeaningCard.acceptedAnswers,
+};
+
 const completeStarterLessonItemResponse: CompleteLessonItemResponse = {
   itemId: starterItemId,
   passed: true,
   createdSrsStateCount: 1,
-  answers: [
-    {
-      cardId: starterMeaningCardId,
-      answerType: "meaning",
-      accepted: true,
-      result: "correct",
-      normalizedAnswer: "один",
-      expected: starterMeaningCard.acceptedAnswers,
-    },
-  ],
+  answers: [starterLessonCorrectAnswer],
   cards: [
     {
       cardId: starterMeaningCardId,

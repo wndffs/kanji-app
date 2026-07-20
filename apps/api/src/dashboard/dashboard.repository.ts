@@ -8,6 +8,7 @@ import {
   type DashboardCourseItemProgressRecord,
   type DashboardCourseProgressRecord,
   type DashboardLeechSignalRecord,
+  type DashboardKanaProgressRecord,
   type DashboardLessonItemRecord,
   type DashboardLessonProgressRecord,
   type DashboardRecentItemRecord,
@@ -23,6 +24,8 @@ export abstract class DashboardRepository {
     userId: string,
   ): Promise<readonly DashboardLessonItemRecord[]>;
   abstract listLessonProgress(userId: string): Promise<readonly DashboardLessonProgressRecord[]>;
+  abstract listKanaProgress(userId: string): Promise<readonly DashboardKanaProgressRecord[]>;
+  abstract hasCompletedReviewSession(userId: string): Promise<boolean>;
   abstract countDueReviews(userId: string, now: Date): Promise<number>;
   abstract countBurnedCards(userId: string): Promise<number>;
   abstract listLeechSignals(
@@ -371,6 +374,36 @@ export class PrismaDashboardRepository extends DashboardRepository {
       stageIndex: state.stageIndex,
       createdAt: state.createdAt,
     }));
+  }
+
+  async listKanaProgress(userId: string): Promise<readonly DashboardKanaProgressRecord[]> {
+    const rows = await this.prisma.db.userKanaProgress.findMany({
+      where: { userId },
+      select: {
+        character: true,
+        script: true,
+        masteredAt: true,
+      },
+    });
+
+    return rows.map((row) => ({
+      character: row.character,
+      script: row.script === "HIRAGANA" ? "hiragana" : "katakana",
+      masteredAt: row.masteredAt,
+    }));
+  }
+
+  async hasCompletedReviewSession(userId: string): Promise<boolean> {
+    const session = await this.prisma.db.reviewSession.findFirst({
+      where: {
+        userId,
+        mode: "REVIEW",
+        finishedAt: { not: null },
+      },
+      select: { id: true },
+    });
+
+    return session !== null;
   }
 
   async countDueReviews(userId: string, now: Date): Promise<number> {

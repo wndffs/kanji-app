@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { listBasicKana } from "@kanji-srs/japanese";
 import { DEFAULT_SRS_STAGES } from "@kanji-srs/srs";
 import { DEFAULT_DASHBOARD_WIDGET_PREFERENCES } from "@kanji-srs/shared";
 
@@ -11,6 +12,7 @@ import {
 import { DashboardService } from "../src/dashboard/dashboard.service";
 import {
   type DashboardCourseProgressRecord,
+  type DashboardKanaProgressRecord,
   type DashboardLeechSignalRecord,
   type DashboardLessonItemRecord,
   type DashboardLessonProgressRecord,
@@ -204,6 +206,50 @@ describe("PrismaDashboardRepository", () => {
     ]);
     expect($queryRaw).toHaveBeenCalledOnce();
   });
+
+  it("loads kana mastery and only treats a finished review session as the first cycle", async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        character: "あ",
+        script: "HIRAGANA",
+        masteredAt: NOW,
+      },
+      {
+        character: "ア",
+        script: "KATAKANA",
+        masteredAt: null,
+      },
+    ]);
+    const findFirst = vi.fn().mockResolvedValue({ id: "review-session-1" });
+    const repository = new PrismaDashboardRepository({
+      db: {
+        userKanaProgress: { findMany },
+        reviewSession: { findFirst },
+      },
+    } as never);
+
+    await expect(repository.listKanaProgress("user-1")).resolves.toEqual([
+      { character: "あ", script: "hiragana", masteredAt: NOW },
+      { character: "ア", script: "katakana", masteredAt: null },
+    ]);
+    await expect(repository.hasCompletedReviewSession("user-1")).resolves.toBe(true);
+    expect(findMany).toHaveBeenCalledWith({
+      where: { userId: "user-1" },
+      select: {
+        character: true,
+        script: true,
+        masteredAt: true,
+      },
+    });
+    expect(findFirst).toHaveBeenCalledWith({
+      where: {
+        userId: "user-1",
+        mode: "REVIEW",
+        finishedAt: { not: null },
+      },
+      select: { id: true },
+    });
+  });
 });
 
 describe("DashboardService", () => {
@@ -233,6 +279,14 @@ describe("DashboardService", () => {
         availableLessons: 0,
         burnedCards: 0,
         leechCandidates: 0,
+      },
+      newLearnerGuide: {
+        kana: {
+          hiragana: { masteredCount: 0, totalCount: 46 },
+          katakana: { masteredCount: 0, totalCount: 46 },
+        },
+        firstLessonCompleted: false,
+        firstReviewCompleted: false,
       },
       currentCourse: null,
       workload: {
@@ -278,6 +332,53 @@ describe("DashboardService", () => {
         totalReviews: 0,
         totalLessons: 0,
         days: [],
+      },
+    });
+  });
+
+  it("guides a new learner through kana, the first lesson, and the first review cycle", async () => {
+    const { repository, service } = createHarness();
+    repository.setKanaProgress(
+      "owner",
+      listBasicKana("hiragana").map((item) => ({
+        character: item.character,
+        script: item.script,
+        masteredAt: NOW,
+      })),
+    );
+
+    await expect(service.getDashboard(createUser("owner"))).resolves.toMatchObject({
+      newLearnerGuide: {
+        kana: {
+          hiragana: { masteredCount: 46, totalCount: 46 },
+          katakana: { masteredCount: 0, totalCount: 46 },
+        },
+        firstLessonCompleted: false,
+        firstReviewCompleted: false,
+      },
+    });
+
+    repository.addLessonProgress({
+      userId: "owner",
+      learningItemId: "item-first",
+      learningCardId: "card-first-meaning",
+      stageIndex: 1,
+      createdAt: NOW,
+    });
+
+    await expect(service.getDashboard(createUser("owner"))).resolves.toMatchObject({
+      newLearnerGuide: {
+        firstLessonCompleted: true,
+        firstReviewCompleted: false,
+      },
+    });
+
+    repository.completeReviewSession("owner");
+
+    await expect(service.getDashboard(createUser("owner"))).resolves.toMatchObject({
+      newLearnerGuide: {
+        firstLessonCompleted: true,
+        firstReviewCompleted: true,
       },
     });
   });
@@ -629,6 +730,8 @@ class InMemoryDashboardRepository extends DashboardRepository {
   private readonly states: InMemoryDashboardSrsStateRecord[] = [];
   private lessonItems: readonly DashboardLessonItemRecord[] = [];
   private lessonProgress: InMemoryDashboardLessonProgressRecord[] = [];
+  private kanaProgress: InMemoryDashboardKanaProgressRecord[] = [];
+  private readonly completedReviewSessionUserIds = new Set<string>();
   private studyActivity: readonly DashboardStudyActivityDayRecord[] = [];
   private readonly reviewAnswers: {
     readonly userId: string;
@@ -647,6 +750,16 @@ class InMemoryDashboardRepository extends DashboardRepository {
     return this.lessonProgress
       .filter((record) => record.userId === userId)
       .map(({ userId: _userId, ...record }) => record);
+  }
+
+  async listKanaProgress(userId: string): Promise<readonly DashboardKanaProgressRecord[]> {
+    return this.kanaProgress
+      .filter((record) => record.userId === userId)
+      .map(({ userId: _userId, ...record }) => record);
+  }
+
+  async hasCompletedReviewSession(userId: string): Promise<boolean> {
+    return this.completedReviewSessionUserIds.has(userId);
   }
 
   async countDueReviews(userId: string, now: Date): Promise<number> {
@@ -809,6 +922,14 @@ class InMemoryDashboardRepository extends DashboardRepository {
     this.lessonProgress.push(progress);
   }
 
+  setKanaProgress(userId: string, progress: readonly DashboardKanaProgressRecord[]): void {
+    this.kanaProgress = progress.map((record) => ({ ...record, userId }));
+  }
+
+  completeReviewSession(userId: string): void {
+    this.completedReviewSessionUserIds.add(userId);
+  }
+
   addReviewAnswer(userId: string, result: DashboardReviewResult, answeredAt: Date): void {
     this.reviewAnswers.push({ userId, result, answeredAt });
   }
@@ -831,6 +952,10 @@ type InMemoryDashboardSrsStateRecord = DashboardSrsStateRecord & {
 };
 
 type InMemoryDashboardLessonProgressRecord = DashboardLessonProgressRecord & {
+  readonly userId: string;
+};
+
+type InMemoryDashboardKanaProgressRecord = DashboardKanaProgressRecord & {
   readonly userId: string;
 };
 

@@ -289,6 +289,129 @@ textarea:focus-visible {
   gap: 16px;
 }
 
+.new-learner-guide {
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.new-learner-guide > header {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
+  align-items: end;
+  gap: 20px;
+  padding: 18px;
+}
+
+.new-learner-guide > header p,
+.new-learner-step-body p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.new-learner-guide > header h2 {
+  margin-top: 4px;
+}
+
+.new-learner-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.new-learner-steps > li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+  border-top: 1px solid var(--surface-border);
+  padding: 18px;
+}
+
+.new-learner-step-marker {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--surface-border);
+  border-radius: 50%;
+  background: var(--surface-strong);
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.new-learner-steps > li[data-status="current"] .new-learner-step-marker {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.new-learner-steps > li[data-status="complete"] .new-learner-step-marker {
+  border-color: var(--success);
+  background: var(--success);
+  color: #ffffff;
+}
+
+.new-learner-step-body {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.new-learner-step-heading {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.new-learner-step-heading h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.new-learner-step-heading span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.new-learner-steps > li[data-status="current"] .new-learner-step-heading span {
+  color: var(--primary-strong);
+}
+
+.new-learner-steps > li[data-status="complete"] .new-learner-step-heading span {
+  color: var(--success);
+}
+
+.new-learner-kana-progress {
+  width: min(100%, 620px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.new-learner-kana-progress > div {
+  display: grid;
+  gap: 7px;
+}
+
+.new-learner-kana-progress > div > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.new-learner-kana-progress .progress-track {
+  height: 8px;
+}
+
 .dashboard-widget {
   min-width: 0;
 }
@@ -4235,6 +4358,8 @@ textarea:focus-visible {
 
   .dashboard-widget-grid,
   .dashboard-heading,
+  .new-learner-guide > header,
+  .new-learner-kana-progress,
   .workload-grid,
   .recent-activity-grid,
   .admin-heading,

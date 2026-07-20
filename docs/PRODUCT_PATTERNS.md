@@ -158,7 +158,7 @@ refresh:
 67. Task 107 (completed): add a vacation mode that shifts future availability without corrupting review history.
 68. Task 108 (completed): persist speech voice, speed, autoplay, and sound-feedback preferences.
 69. Task 109 (completed): persist lesson-only pronunciation aids for kana, furigana, and optional romaji.
-70. Task 110: guide a new learner through kana readiness, first lessons, and the first review cycle.
+70. Task 110 (completed): guide a new learner through kana readiness, first lessons, and the first review cycle.
 71. Task 111: explain level completion, newly unlocked material, and the next prerequisite path.
 72. Task 112: add next review, SRS history, composition, vocabulary usage, and related-item navigation to item pages.
 73. Task 113: add side-by-side practice for visually or semantically confusable kanji.

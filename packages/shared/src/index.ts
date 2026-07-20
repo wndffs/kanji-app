@@ -640,6 +640,20 @@ export type DashboardWidgetPreferenceDto = {
   readonly presentation: DashboardWidgetPresentation;
 };
 
+export type DashboardKanaReadinessDto = {
+  readonly masteredCount: number;
+  readonly totalCount: number;
+};
+
+export type DashboardNewLearnerGuideDto = {
+  readonly kana: {
+    readonly hiragana: DashboardKanaReadinessDto;
+    readonly katakana: DashboardKanaReadinessDto;
+  };
+  readonly firstLessonCompleted: boolean;
+  readonly firstReviewCompleted: boolean;
+};
+
 export const DEFAULT_DASHBOARD_WIDGET_PREFERENCES: readonly DashboardWidgetPreferenceDto[] =
   DASHBOARD_WIDGET_IDS.map((id) => ({
     id,
@@ -715,6 +729,7 @@ export type DashboardDto = {
     readonly burnedCards: number;
     readonly leechCandidates: number;
   };
+  readonly newLearnerGuide: DashboardNewLearnerGuideDto;
   readonly currentCourse: {
     readonly id: string;
     readonly title: string;
