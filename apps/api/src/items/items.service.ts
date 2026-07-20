@@ -5,8 +5,10 @@ import {
   type BilingualTextDto,
   type ItemDetails,
   type ItemRelationDto,
+  type ItemReviewHistoryPageDto,
   type ItemSummary,
   type LearningCardDto,
+  type LocalizedTextDto,
   type SearchResponseDto,
   type TranslationBundleDto,
   type TranslationDisplayMode,
@@ -17,8 +19,11 @@ import { type CurrentUserDto } from "../auth/auth.types";
 import { ItemsRepository } from "./items.repository";
 import {
   type ItemCardRecord,
+  type ItemReviewHistoryCursor,
+  type ItemReviewHistoryRecord,
   type ItemRecord,
   type ItemTextRecord,
+  type ParsedItemHistoryQuery,
   type ParsedSearchQuery,
   type SearchParams,
 } from "./items.types";
@@ -26,6 +31,12 @@ import {
 const DEFAULT_SEARCH_PAGE = 1;
 const DEFAULT_SEARCH_LIMIT = 20;
 const MAX_SEARCH_LIMIT = 50;
+const DEFAULT_HISTORY_LIMIT = 20;
+const MAX_HISTORY_LIMIT = 50;
+const EMPTY_REVIEW_HISTORY: ItemReviewHistoryPageDto = {
+  items: [],
+  nextCursor: null,
+};
 
 @Injectable()
 export class ItemsService {
@@ -41,7 +52,9 @@ export class ItemsService {
       throw new NotFoundException("Item not found.");
     }
 
-    return toItemDetails(item, getDisplayMode(currentUser));
+    const history = await this.loadInitialHistory(item.id, currentUser);
+
+    return toItemDetails(item, getDisplayMode(currentUser), history);
   }
 
   async getKanjiDetails(
@@ -63,7 +76,38 @@ export class ItemsService {
       throw new NotFoundException("Kanji not found.");
     }
 
-    return toItemDetails(item, getDisplayMode(currentUser));
+    const history = await this.loadInitialHistory(item.id, currentUser);
+
+    return toItemDetails(item, getDisplayMode(currentUser), history);
+  }
+
+  async getItemHistory(
+    id: string,
+    rawQuery: ParsedItemHistoryQuery,
+    currentUser: CurrentUserDto | null,
+  ): Promise<ItemReviewHistoryPageDto> {
+    if (!(await this.itemsRepository.itemExists(id))) {
+      throw new NotFoundException("Item not found.");
+    }
+
+    if (currentUser === null) {
+      return EMPTY_REVIEW_HISTORY;
+    }
+
+    const cursorValue = getSingleQueryValue(rawQuery.cursor);
+    const cursor = cursorValue === undefined ? null : decodeHistoryCursor(cursorValue);
+    const limit = parsePositiveInteger(
+      getSingleQueryValue(rawQuery.limit),
+      DEFAULT_HISTORY_LIMIT,
+      "limit",
+      MAX_HISTORY_LIMIT,
+    );
+    const page = await this.itemsRepository.findItemReviewHistory(id, currentUser.id, {
+      cursor,
+      limit,
+    });
+
+    return toReviewHistoryPage(page.items, page.hasNextPage);
   }
 
   async search(
@@ -89,6 +133,22 @@ export class ItemsService {
         hasNextPage: offset + params.limit < records.length,
       },
     };
+  }
+
+  private async loadInitialHistory(
+    id: string,
+    currentUser: CurrentUserDto | null,
+  ): Promise<ItemReviewHistoryPageDto> {
+    if (currentUser === null) {
+      return EMPTY_REVIEW_HISTORY;
+    }
+
+    const page = await this.itemsRepository.findItemReviewHistory(id, currentUser.id, {
+      cursor: null,
+      limit: DEFAULT_HISTORY_LIMIT,
+    });
+
+    return toReviewHistoryPage(page.items, page.hasNextPage);
   }
 }
 
@@ -143,7 +203,17 @@ function parsePositiveInteger(
   return parsed;
 }
 
-function toItemDetails(item: ItemRecord, displayMode: TranslationDisplayMode): ItemDetails {
+function toItemDetails(
+  item: ItemRecord,
+  displayMode: TranslationDisplayMode,
+  reviewHistory: ItemReviewHistoryPageDto,
+): ItemDetails {
+  const readingAnswers = uniqueLocalizedTexts(
+    item.cards.filter((card) => card.answerType === "reading").flatMap((card) => card.answers),
+  );
+  const primaryTaughtReading =
+    readingAnswers.find((answer) => answer.isPrimary) ?? readingAnswers[0] ?? null;
+
   return {
     ...toItemSummary(item, displayMode),
     componentDetails:
@@ -156,6 +226,17 @@ function toItemDetails(item: ItemRecord, displayMode: TranslationDisplayMode): I
               displayMode,
             ),
           },
+    kanjiDetails:
+      item.itemType === "kanji"
+        ? {
+            primaryTaughtReading,
+            additionalAcceptedReadings: readingAnswers.filter(
+              (answer) => answer !== primaryTaughtReading,
+            ),
+            readingEvidence: item.target.kanjiReadingEvidence,
+          }
+        : null,
+    wordDetails: item.target.wordDetails,
     cards: item.cards.map((card) => toLearningCard(item, card, displayMode)),
     relations: item.relations.map((relation): ItemRelationDto => {
       return {
@@ -163,6 +244,13 @@ function toItemDetails(item: ItemRecord, displayMode: TranslationDisplayMode): I
         item: toItemSummary(relation.item, displayMode),
       };
     }),
+    relationGroups: item.relationGroups.map((group) => ({
+      kind: group.kind,
+      items: group.items.map((related) => toItemSummary(related, displayMode)),
+      total: group.total,
+    })),
+    nextReviewAt: item.nextReviewAt?.toISOString() ?? null,
+    reviewHistory,
     mnemonics: groupTextsByLocale(item.mnemonics),
     hints: groupTextsByLocale(item.hints),
     exampleSentences: item.exampleSentences,
@@ -170,6 +258,21 @@ function toItemDetails(item: ItemRecord, displayMode: TranslationDisplayMode): I
     userOverrides: item.userOverrides.map(toUserOverrideDto),
     strokeGraphic: item.target.strokeGraphic,
   };
+}
+
+function uniqueLocalizedTexts(texts: readonly LocalizedTextDto[]): readonly LocalizedTextDto[] {
+  const seen = new Set<string>();
+
+  return texts.filter((text) => {
+    const key = text.text;
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
 }
 
 function toItemSummary(item: ItemRecord, displayMode: TranslationDisplayMode): ItemSummary {
@@ -275,6 +378,65 @@ function groupTextsByLocale(texts: readonly ItemTextRecord[]): BilingualTextDto 
         sourceKind: text.sourceKind,
       })),
   };
+}
+
+function toReviewHistoryPage(
+  items: readonly ItemReviewHistoryRecord[],
+  hasNextPage: boolean,
+): ItemReviewHistoryPageDto {
+  const lastItem = items.at(-1);
+
+  return {
+    items: items.map((item) => ({
+      id: item.id,
+      learningCardId: item.learningCardId,
+      promptType: item.promptType,
+      answerType: item.answerType,
+      result: item.result,
+      previousStageIndex: item.previousStageIndex,
+      nextStageIndex: item.nextStageIndex,
+      answeredAt: item.answeredAt.toISOString(),
+    })),
+    nextCursor:
+      hasNextPage && lastItem !== undefined
+        ? encodeHistoryCursor({
+            answeredAt: lastItem.answeredAt,
+            id: lastItem.id,
+          })
+        : null,
+  };
+}
+
+function encodeHistoryCursor(cursor: ItemReviewHistoryCursor): string {
+  return Buffer.from(
+    JSON.stringify({
+      answeredAt: cursor.answeredAt.toISOString(),
+      id: cursor.id,
+    }),
+  ).toString("base64url");
+}
+
+function decodeHistoryCursor(value: string): ItemReviewHistoryCursor {
+  try {
+    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as {
+      readonly answeredAt?: unknown;
+      readonly id?: unknown;
+    };
+    const answeredAt =
+      typeof parsed.answeredAt === "string" ? new Date(parsed.answeredAt) : new Date(Number.NaN);
+
+    if (
+      Number.isNaN(answeredAt.getTime()) ||
+      typeof parsed.id !== "string" ||
+      parsed.id.trim() === ""
+    ) {
+      throw new Error("Invalid history cursor.");
+    }
+
+    return { answeredAt, id: parsed.id };
+  } catch {
+    throw new BadRequestException("Некорректный курсор истории повторений.");
+  }
 }
 
 function buildItemSlug(item: ItemRecord): string {

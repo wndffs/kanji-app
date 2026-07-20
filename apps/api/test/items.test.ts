@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 import { type CurrentUserDto } from "../src/auth/auth.types";
 import { ItemsRepository } from "../src/items/items.repository";
 import { ItemsService } from "../src/items/items.service";
-import { type ItemLookupOptions, type ItemRecord, localizedText } from "../src/items/items.types";
+import {
+  type ItemLookupOptions,
+  type ItemRecord,
+  type ItemReviewHistoryLookup,
+  type ItemReviewHistoryRecord,
+  localizedText,
+} from "../src/items/items.types";
 
 describe("ItemsService", () => {
   it("searches by kanji character", async () => {
@@ -237,11 +243,85 @@ describe("ItemsService", () => {
       ],
     });
   });
+
+  it("returns complete study details for all four item kinds without requiring progress", async () => {
+    const service = createService([...createItems(), createComponentItem(), createSentenceItem()]);
+
+    await expect(service.getItemDetails("item-component-one", null)).resolves.toMatchObject({
+      itemType: "component",
+      srs: null,
+      nextReviewAt: null,
+      reviewHistory: { items: [], nextCursor: null },
+    });
+    await expect(service.getItemDetails("item-kanji-one", null)).resolves.toMatchObject({
+      itemType: "kanji",
+      kanjiDetails: {
+        primaryTaughtReading: { text: "いち" },
+        readingEvidence: [
+          { reading: "いち", readingType: "on", sourceKind: "imported" },
+          { reading: "ひと", readingType: "kun", sourceKind: "imported" },
+        ],
+      },
+    });
+    await expect(service.getItemDetails("item-word-school", null)).resolves.toMatchObject({
+      itemType: "word",
+      wordDetails: {
+        reading: "がっこう",
+        commonnessRank: 420,
+        senses: [
+          {
+            locale: "ru-RU",
+            meaning: "школа",
+            partOfSpeech: "noun",
+            sourceKind: "imported",
+          },
+          {
+            locale: "en-US",
+            meaning: "school",
+            partOfSpeech: "noun",
+            sourceKind: "imported",
+          },
+        ],
+      },
+    });
+    await expect(service.getItemDetails("item-sentence-day", null)).resolves.toMatchObject({
+      itemType: "sentence",
+      nextReviewAt: null,
+    });
+  });
+
+  it("returns deterministic, private, cursor-paginated review history", async () => {
+    const service = createService();
+    const owner = createUser("owner");
+    const firstPage = await service.getItemHistory("item-kanji-one", { limit: "2" }, owner);
+
+    expect(firstPage.items.map((item) => item.result)).toEqual(["typo", "reveal"]);
+    expect(firstPage.nextCursor).not.toBeNull();
+
+    const secondPage = await service.getItemHistory(
+      "item-kanji-one",
+      { limit: "2", cursor: firstPage.nextCursor ?? undefined },
+      owner,
+    );
+
+    expect(secondPage.items.map((item) => item.result)).toEqual(["manual-ignore", "correct"]);
+    expect(secondPage.nextCursor).toBeNull();
+    await expect(
+      service.getItemHistory("item-kanji-one", {}, createUser("other")),
+    ).resolves.toEqual({
+      items: [],
+      nextCursor: null,
+    });
+  });
 });
 
 class InMemoryItemsRepository extends ItemsRepository {
   constructor(private readonly items: readonly ItemRecord[]) {
     super();
+  }
+
+  async itemExists(id: string): Promise<boolean> {
+    return this.items.some((item) => item.id === id);
   }
 
   async findItemById(id: string, options: ItemLookupOptions): Promise<ItemRecord | null> {
@@ -267,6 +347,30 @@ class InMemoryItemsRepository extends ItemsRepository {
     return this.items
       .filter((item) => matchesItem(item, normalizedQuery))
       .map((item) => filterForUser(item, options.userId));
+  }
+
+  async findItemReviewHistory(
+    learningItemId: string,
+    userId: string,
+    lookup: ItemReviewHistoryLookup,
+  ) {
+    const records =
+      userId === "owner" && learningItemId === "item-kanji-one" ? createReviewHistory() : [];
+    const cursor = lookup.cursor;
+    const filtered =
+      cursor === null
+        ? records
+        : records.filter(
+            (record) =>
+              record.answeredAt < cursor.answeredAt ||
+              (record.answeredAt.getTime() === cursor.answeredAt.getTime() &&
+                record.id < cursor.id),
+          );
+
+    return {
+      items: filtered.slice(0, lookup.limit),
+      hasNextPage: filtered.length > lookup.limit,
+    };
   }
 }
 
@@ -299,6 +403,8 @@ function createComponentItem(): ItemRecord {
           en: [localizedText("en-US", "horizontal stroke", { isPrimary: true })],
         },
       },
+      kanjiReadingEvidence: [],
+      wordDetails: null,
       sourceRecordIds: [],
       strokeGraphic: null,
       attributions: [],
@@ -307,10 +413,12 @@ function createComponentItem(): ItemRecord {
     mnemonics: [],
     hints: [],
     relations: [],
+    relationGroups: [],
     exampleSentences: [],
     attributions: [],
     userOverrides: [],
     srs: null,
+    nextReviewAt: null,
   };
 }
 
@@ -333,6 +441,21 @@ function createItems(): readonly ItemRecord[] {
           en: [localizedText("en-US", "one", { isPrimary: true })],
         },
         componentDetails: null,
+        kanjiReadingEvidence: [
+          {
+            reading: "いち",
+            readingType: "on",
+            priority: 10,
+            sourceKind: "imported",
+          },
+          {
+            reading: "ひと",
+            readingType: "kun",
+            priority: 5,
+            sourceKind: "imported",
+          },
+        ],
+        wordDetails: null,
         sourceRecordIds: ["fixture:kanji:one"],
         strokeGraphic: {
           sourceRecordId: "kanjivg:04e00",
@@ -395,10 +518,30 @@ function createItems(): readonly ItemRecord[] {
             },
           ],
         },
+        {
+          id: "card-kanji-one-reading",
+          cardType: "review",
+          promptType: "reading",
+          answerType: "reading",
+          sortOrder: 2,
+          answers: [
+            {
+              ...localizedText("ru-RU", "いち", {
+                isPrimary: true,
+                sourceKind: "curated",
+              }),
+              normalizedText: "いち",
+              answerKind: "reading",
+            },
+          ],
+          blockedAnswers: [],
+          userOverrides: [],
+        },
       ],
       mnemonics: [],
       hints: [],
       relations: [],
+      relationGroups: [],
       exampleSentences: [],
       attributions: [
         {
@@ -410,6 +553,7 @@ function createItems(): readonly ItemRecord[] {
       ],
       userOverrides: [],
       srs: null,
+      nextReviewAt: null,
     },
     {
       id: "item-word-school",
@@ -426,6 +570,29 @@ function createItems(): readonly ItemRecord[] {
           en: [localizedText("en-US", "school", { isPrimary: true })],
         },
         componentDetails: null,
+        kanjiReadingEvidence: [],
+        wordDetails: {
+          reading: "がっこう",
+          commonnessRank: 420,
+          senses: [
+            {
+              locale: "ru-RU",
+              meaning: "школа",
+              partOfSpeech: "noun",
+              register: null,
+              tags: [],
+              sourceKind: "imported",
+            },
+            {
+              locale: "en-US",
+              meaning: "school",
+              partOfSpeech: "noun",
+              register: null,
+              tags: [],
+              sourceKind: "imported",
+            },
+          ],
+        },
         sourceRecordIds: ["fixture:word:school"],
         strokeGraphic: null,
         attributions: [],
@@ -434,6 +601,7 @@ function createItems(): readonly ItemRecord[] {
       mnemonics: [],
       hints: [],
       relations: [],
+      relationGroups: [],
       exampleSentences: [
         {
           id: "sentence-school",
@@ -453,6 +621,87 @@ function createItems(): readonly ItemRecord[] {
       attributions: [],
       userOverrides: [],
       srs: null,
+      nextReviewAt: null,
+    },
+  ];
+}
+
+function createSentenceItem(): ItemRecord {
+  return {
+    id: "item-sentence-day",
+    itemType: "sentence",
+    title: "Day starts",
+    level: 1,
+    status: "PUBLISHED",
+    target: {
+      japanese: "一日が始まる。",
+      reading: "いちにちがはじまる。",
+      jlptLevel: null,
+      translations: {
+        ru: [localizedText("ru-RU", "День начинается.", { isPrimary: true })],
+        en: [localizedText("en-US", "Day starts.", { isPrimary: true })],
+      },
+      componentDetails: null,
+      kanjiReadingEvidence: [],
+      wordDetails: null,
+      sourceRecordIds: [],
+      strokeGraphic: null,
+      attributions: [],
+    },
+    cards: [],
+    mnemonics: [],
+    hints: [],
+    relations: [],
+    relationGroups: [],
+    exampleSentences: [],
+    attributions: [],
+    userOverrides: [],
+    srs: null,
+    nextReviewAt: null,
+  };
+}
+
+function createReviewHistory(): readonly ItemReviewHistoryRecord[] {
+  return [
+    {
+      id: "history-4",
+      learningCardId: "card-kanji-one-reading",
+      promptType: "reading",
+      answerType: "reading",
+      result: "typo",
+      previousStageIndex: 4,
+      nextStageIndex: 4,
+      answeredAt: new Date("2026-06-17T10:00:00.000Z"),
+    },
+    {
+      id: "history-3",
+      learningCardId: "card-kanji-one-meaning",
+      promptType: "meaning",
+      answerType: "meaning",
+      result: "reveal",
+      previousStageIndex: 4,
+      nextStageIndex: 2,
+      answeredAt: new Date("2026-06-17T09:00:00.000Z"),
+    },
+    {
+      id: "history-2",
+      learningCardId: "card-kanji-one-meaning",
+      promptType: "meaning",
+      answerType: "meaning",
+      result: "manual-ignore",
+      previousStageIndex: 2,
+      nextStageIndex: 2,
+      answeredAt: new Date("2026-06-17T09:00:00.000Z"),
+    },
+    {
+      id: "history-1",
+      learningCardId: "card-kanji-one-meaning",
+      promptType: "meaning",
+      answerType: "meaning",
+      result: "correct",
+      previousStageIndex: 1,
+      nextStageIndex: 2,
+      answeredAt: new Date("2026-06-17T08:00:00.000Z"),
     },
   ];
 }
@@ -492,6 +741,10 @@ function filterForUser(item: ItemRecord, userId: string | undefined): ItemRecord
             correctStreak: 2,
           }
         : item.srs,
+    nextReviewAt:
+      userId === "owner" && item.id === "item-word-school"
+        ? new Date("2026-06-17T17:00:00.000Z")
+        : item.nextReviewAt,
     mnemonics:
       userId === "owner"
         ? [

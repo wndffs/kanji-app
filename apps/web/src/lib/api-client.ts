@@ -50,6 +50,7 @@ import {
   type FinishLessonSessionResponse,
   type FinishPracticeSessionResponse,
   type ItemDetails,
+  type ItemReviewHistoryPageDto,
   type KanaAssessmentAnswerRequest,
   type KanaAssessmentAnswerResponse,
   type KanaAssessmentProgressDto,
@@ -618,6 +619,19 @@ export function getItemDetails(id: string, token?: string | null): Promise<ItemD
 
 export function getKanjiDetails(character: string, token?: string | null): Promise<ItemDetails> {
   return apiRequest<ItemDetails>(`/kanji/${encodeURIComponent(character)}`, { token });
+}
+
+export function getItemReviewHistory(
+  id: string,
+  cursor: string,
+  token: string,
+): Promise<ItemReviewHistoryPageDto> {
+  const params = new URLSearchParams({ cursor });
+
+  return apiRequest<ItemReviewHistoryPageDto>(
+    `/items/${encodeURIComponent(id)}/history?${params.toString()}`,
+    { token },
+  );
 }
 
 export function searchItems(

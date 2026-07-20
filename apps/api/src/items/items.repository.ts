@@ -10,7 +10,11 @@ import {
   type ItemCardRecord,
   type ItemLookupOptions,
   type ItemRecord,
+  type ItemRelationGroupRecord,
   type ItemRelationRecord,
+  type ItemReviewHistoryLookup,
+  type ItemReviewHistoryRecord,
+  type ItemReviewHistoryRecordPage,
   type ItemStrokeGraphicRecord,
   type ItemTargetRecord,
   type ItemTextRecord,
@@ -19,12 +23,18 @@ import {
 } from "./items.types";
 
 export abstract class ItemsRepository {
+  abstract itemExists(id: string): Promise<boolean>;
   abstract findItemById(id: string, options: ItemLookupOptions): Promise<ItemRecord | null>;
   abstract findKanjiItemByCharacter(
     character: string,
     options: ItemLookupOptions,
   ): Promise<ItemRecord | null>;
   abstract searchItems(query: string, options: ItemLookupOptions): Promise<readonly ItemRecord[]>;
+  abstract findItemReviewHistory(
+    learningItemId: string,
+    userId: string,
+    lookup: ItemReviewHistoryLookup,
+  ): Promise<ItemReviewHistoryRecordPage>;
 }
 
 type LearningItemRow = {
@@ -120,6 +130,7 @@ type KanjiRow = {
   readonly kanjidicSourceId: string | null;
   readonly readings: readonly {
     readonly reading: string;
+    readonly readingType: string;
     readonly priority: number;
   }[];
   readonly meanings: readonly {
@@ -138,11 +149,15 @@ type KanjiRow = {
 type WordRow = {
   readonly expression: string;
   readonly reading: string;
+  readonly commonnessRank: number | null;
   readonly jlptLevel: number | null;
   readonly jmdictEntryId: string | null;
   readonly senses: readonly {
     readonly locale: string;
     readonly meaning: string;
+    readonly partOfSpeech: string;
+    readonly register: string | null;
+    readonly tags: readonly string[];
     readonly sourceKind: string;
   }[];
 };
@@ -193,12 +208,39 @@ type ItemSrsStateRow = {
   }[];
 };
 
+type ReviewHistoryRow = {
+  readonly id: string;
+  readonly learningCardId: string;
+  readonly result: string;
+  readonly previousStageIndex: number | null;
+  readonly nextStageIndex: number | null;
+  readonly answeredAt: Date;
+  readonly learningCard: {
+    readonly promptType: string;
+    readonly answerType: string;
+  };
+};
+
 const LEECH_RECENT_REVIEW_DAYS = 14;
+const MAX_RELATED_ITEMS_PER_GROUP = 60;
+const RELATION_GROUP_ORDER = [
+  "components",
+  "used-in-kanji",
+  "kanji",
+  "vocabulary",
+  "sentences",
+  "prerequisites",
+  "dependents",
+] as const satisfies readonly ItemRelationGroupRecord["kind"][];
 
 @Injectable()
 export class PrismaItemsRepository extends ItemsRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
     super();
+  }
+
+  async itemExists(id: string): Promise<boolean> {
+    return (await this.prisma.db.learningItem.count({ where: { id } })) > 0;
   }
 
   async findItemById(id: string, options: ItemLookupOptions): Promise<ItemRecord | null> {
@@ -246,6 +288,54 @@ export class PrismaItemsRepository extends ItemsRepository {
     }
 
     return records;
+  }
+
+  async findItemReviewHistory(
+    learningItemId: string,
+    userId: string,
+    lookup: ItemReviewHistoryLookup,
+  ): Promise<ItemReviewHistoryRecordPage> {
+    const cursorWhere =
+      lookup.cursor === null
+        ? {}
+        : {
+            OR: [
+              { answeredAt: { lt: lookup.cursor.answeredAt } },
+              {
+                answeredAt: lookup.cursor.answeredAt,
+                id: { lt: lookup.cursor.id },
+              },
+            ],
+          };
+    const rows = (await this.prisma.db.reviewAnswer.findMany({
+      where: {
+        reviewSession: { userId },
+        learningCard: { learningItemId },
+        ...cursorWhere,
+      },
+      select: {
+        id: true,
+        learningCardId: true,
+        result: true,
+        previousStageIndex: true,
+        nextStageIndex: true,
+        answeredAt: true,
+        learningCard: {
+          select: {
+            promptType: true,
+            answerType: true,
+          },
+        },
+      },
+      orderBy: [{ answeredAt: "desc" }, { id: "desc" }],
+      take: lookup.limit + 1,
+    })) as readonly ReviewHistoryRow[];
+    const hasNextPage = rows.length > lookup.limit;
+
+    return {
+      items: rows.slice(0, lookup.limit).map(toReviewHistoryRecord),
+      hasNextPage,
+    };
   }
 
   private async findLearningItem(
@@ -430,14 +520,22 @@ export class PrismaItemsRepository extends ItemsRepository {
     options: HydrationOptions,
   ): Promise<ItemRecord> {
     const target = await this.findTarget(item);
-    const relations = await this.findRelations(item, options);
+    const relationGroups = await this.findRelationGroups(item, options);
+    const relations = relationGroups.flatMap((group) =>
+      group.items.map(
+        (related): ItemRelationRecord => ({
+          relationType: toLegacyRelationType(group.kind),
+          item: related,
+        }),
+      ),
+    );
     const attributions = [
       ...target.attributions,
       ...(await this.findAttributions(target.sourceRecordIds)),
     ];
     const cards = (item.cards ?? []).map(toCardRecord);
     const userOverrides = cards.flatMap((card) => card.userOverrides);
-    const srs = await this.findItemSrsSummary(item.id, options.userId);
+    const srsDetails = await this.findItemSrsDetails(item.id, options.userId);
     const exampleSentences =
       options.includeExamples === false ? [] : await this.findExampleSentences(item.id);
 
@@ -455,19 +553,24 @@ export class PrismaItemsRepository extends ItemsRepository {
       ],
       hints: (item.hints ?? []).map(toTextRecord),
       relations,
+      relationGroups,
       exampleSentences,
       attributions,
       userOverrides,
-      srs,
+      srs: srsDetails.summary,
+      nextReviewAt: srsDetails.nextReviewAt,
     };
   }
 
-  private async findItemSrsSummary(
+  private async findItemSrsDetails(
     learningItemId: string,
     userId: string | undefined,
-  ): Promise<SrsStateSummaryDto | null> {
+  ): Promise<{
+    readonly summary: SrsStateSummaryDto | null;
+    readonly nextReviewAt: Date | null;
+  }> {
     if (userId === undefined) {
-      return null;
+      return { summary: null, nextReviewAt: null };
     }
 
     const states = (await this.prisma.db.userSrsState.findMany({
@@ -502,7 +605,7 @@ export class PrismaItemsRepository extends ItemsRepository {
     })) as readonly ItemSrsStateRow[];
 
     if (states.length === 0) {
-      return null;
+      return { summary: null, nextReviewAt: null };
     }
 
     const selected = selectRepresentativeState(states);
@@ -511,51 +614,197 @@ export class PrismaItemsRepository extends ItemsRepository {
     );
 
     return {
-      stageIndex: selected.stageIndex,
-      stageName: stage?.name ?? `Stage ${selected.stageIndex}`,
-      availableAt: selected.availableAt?.toISOString() ?? null,
-      burnedAt: selected.burnedAt?.toISOString() ?? null,
-      wrongCount: selected.wrongCount,
-      correctStreak: selected.correctStreak,
-      leech: toLeechScoreDto(
-        calculateLeechScore({
-          wrongCount: selected.wrongCount,
-          correctStreak: selected.correctStreak,
-          burnedAt: selected.burnedAt,
-          recentWrongCount: countWrongLikeAnswers(selected.reviewAnswers),
-          stageDropCount: countStageDrops(selected.reviewAnswers),
-          stageDropMagnitude: sumStageDropMagnitude(selected.reviewAnswers),
-        }),
-      ),
+      summary: {
+        stageIndex: selected.stageIndex,
+        stageName: stage?.name ?? `Stage ${selected.stageIndex}`,
+        availableAt: selected.availableAt?.toISOString() ?? null,
+        burnedAt: selected.burnedAt?.toISOString() ?? null,
+        wrongCount: selected.wrongCount,
+        correctStreak: selected.correctStreak,
+        leech: toLeechScoreDto(
+          calculateLeechScore({
+            wrongCount: selected.wrongCount,
+            correctStreak: selected.correctStreak,
+            burnedAt: selected.burnedAt,
+            recentWrongCount: countWrongLikeAnswers(selected.reviewAnswers),
+            stageDropCount: countStageDrops(selected.reviewAnswers),
+            stageDropMagnitude: sumStageDropMagnitude(selected.reviewAnswers),
+          }),
+        ),
+      },
+      nextReviewAt: selectNextReviewAt(states),
     };
   }
 
-  private async findRelations(
+  private async findRelationGroups(
     item: LearningItemRow,
     options: HydrationOptions,
-  ): Promise<readonly ItemRelationRecord[]> {
+  ): Promise<readonly ItemRelationGroupRecord[]> {
     if (options.relationDepth < 1) {
       return [];
     }
 
-    const relations: ItemRelationRecord[] = [];
+    const groupIds = new Map<ItemRelationGroupRecord["kind"], string[]>();
+    const addGroupId = (kind: ItemRelationGroupRecord["kind"], id: string) => {
+      const ids = groupIds.get(kind) ?? [];
 
+      if (!ids.includes(id) && id !== item.id) {
+        ids.push(id);
+        groupIds.set(kind, ids);
+      }
+    };
     for (const dependency of item.dependencies ?? []) {
-      const related = await this.findLearningItem({ id: dependency.prerequisiteItem.id }, options);
+      switch (toItemKind(dependency.prerequisiteItem.kind)) {
+        case "component":
+          addGroupId("components", dependency.prerequisiteItem.id);
+          break;
+        case "kanji":
+          addGroupId("kanji", dependency.prerequisiteItem.id);
+          break;
+        case "word":
+          addGroupId("vocabulary", dependency.prerequisiteItem.id);
+          break;
+        default:
+          addGroupId("prerequisites", dependency.prerequisiteItem.id);
+      }
+    }
 
-      if (related !== null) {
-        relations.push({
-          relationType: "dependency",
-          item: await this.toItemRecord(related, {
+    const dependentRows = await this.prisma.db.dependency.findMany({
+      where: {
+        prerequisiteItemId: item.id,
+        learningItem: { status: "PUBLISHED" },
+      },
+      select: {
+        learningItem: {
+          select: {
+            id: true,
+            kind: true,
+          },
+        },
+      },
+      orderBy: [
+        { learningItem: { levelHint: "asc" } },
+        { learningItem: { title: "asc" } },
+        { learningItemId: "asc" },
+      ],
+    });
+
+    for (const row of dependentRows) {
+      switch (toItemKind(row.learningItem.kind)) {
+        case "kanji":
+          addGroupId(
+            item.targetType === "COMPONENT" ? "used-in-kanji" : "dependents",
+            row.learningItem.id,
+          );
+          break;
+        case "word":
+          addGroupId("vocabulary", row.learningItem.id);
+          break;
+        case "sentence":
+          addGroupId("sentences", row.learningItem.id);
+          break;
+        default:
+          addGroupId("dependents", row.learningItem.id);
+      }
+    }
+
+    if (item.targetType === "KANJI") {
+      const componentLinks = await this.prisma.db.kanjiComponent.findMany({
+        where: { kanjiId: item.targetId },
+        select: { componentId: true },
+        orderBy: [{ position: "asc" }, { componentId: "asc" }],
+      });
+      const componentItems = await this.findLearningItemsForTargets(
+        "COMPONENT",
+        componentLinks.map((link) => link.componentId),
+      );
+
+      for (const related of componentItems) {
+        addGroupId("components", related.id);
+      }
+    }
+
+    if (item.targetType === "COMPONENT") {
+      const kanjiLinks = await this.prisma.db.kanjiComponent.findMany({
+        where: { componentId: item.targetId },
+        select: { kanjiId: true },
+        orderBy: [{ kanjiId: "asc" }],
+      });
+      const kanjiItems = await this.findLearningItemsForTargets(
+        "KANJI",
+        kanjiLinks.map((link) => link.kanjiId),
+      );
+
+      for (const related of kanjiItems) {
+        addGroupId("used-in-kanji", related.id);
+      }
+    }
+
+    const relatedIds = [
+      ...new Set(
+        RELATION_GROUP_ORDER.flatMap((kind) =>
+          (groupIds.get(kind) ?? []).slice(0, MAX_RELATED_ITEMS_PER_GROUP),
+        ),
+      ),
+    ];
+    const hydratedEntries = await Promise.all(
+      relatedIds.map(async (id): Promise<readonly [string, ItemRecord] | null> => {
+        const relatedRow = await this.findLearningItem({ id }, options);
+
+        if (relatedRow === null) {
+          return null;
+        }
+
+        return [
+          id,
+          await this.toItemRecord(relatedRow, {
             ...options,
             relationDepth: options.relationDepth - 1,
             includeExamples: false,
           }),
-        });
+        ];
+      }),
+    );
+    const hydrated = new Map(
+      hydratedEntries.filter((entry): entry is readonly [string, ItemRecord] => entry !== null),
+    );
+    const groups: ItemRelationGroupRecord[] = [];
+
+    for (const kind of RELATION_GROUP_ORDER) {
+      const ids = groupIds.get(kind) ?? [];
+      const records = ids.slice(0, MAX_RELATED_ITEMS_PER_GROUP).flatMap((id) => {
+        const related = hydrated.get(id);
+
+        return related === undefined ? [] : [related];
+      });
+
+      if (records.length > 0) {
+        groups.push({ kind, items: records, total: ids.length });
       }
     }
 
-    return relations;
+    return groups;
+  }
+
+  private async findLearningItemsForTargets(
+    targetType: "COMPONENT" | "KANJI",
+    targetIds: readonly string[],
+  ): Promise<readonly { readonly id: string }[]> {
+    const ids = [...new Set(targetIds)];
+
+    if (ids.length === 0) {
+      return [];
+    }
+
+    return this.prisma.db.learningItem.findMany({
+      where: {
+        targetType,
+        targetId: { in: ids },
+        status: "PUBLISHED",
+      },
+      select: { id: true },
+      orderBy: [{ levelHint: "asc" }, { title: "asc" }, { id: "asc" }],
+    });
   }
 
   private async findExampleSentences(learningItemId: string) {
@@ -685,6 +934,8 @@ export class PrismaItemsRepository extends ItemsRepository {
           en: optionalLocalizedText("en-US", component.shapeDescriptionEn, component.sourceKind),
         },
       },
+      kanjiReadingEvidence: [],
+      wordDetails: null,
       sourceRecordIds: [],
       strokeGraphic: null,
       attributions: [],
@@ -720,6 +971,13 @@ export class PrismaItemsRepository extends ItemsRepository {
         ),
       ),
       componentDetails: null,
+      kanjiReadingEvidence: kanji.readings.map((reading) => ({
+        reading: reading.reading,
+        readingType: toKanjiReadingType(reading.readingType),
+        priority: reading.priority,
+        sourceKind: "imported",
+      })),
+      wordDetails: null,
       sourceRecordIds: uniqueSourceRecordIds(
         kanji.kanjidicSourceId,
         strokeGraphic?.sourceRecordId ?? null,
@@ -754,6 +1012,19 @@ export class PrismaItemsRepository extends ItemsRepository {
         ),
       ),
       componentDetails: null,
+      kanjiReadingEvidence: [],
+      wordDetails: {
+        reading: word.reading,
+        commonnessRank: word.commonnessRank,
+        senses: word.senses.map((sense) => ({
+          locale: toContentLocale(sense.locale),
+          meaning: sense.meaning,
+          partOfSpeech: sense.partOfSpeech,
+          register: sense.register,
+          tags: sense.tags,
+          sourceKind: toSourceKind(sense.sourceKind),
+        })),
+      },
       sourceRecordIds: word.jmdictEntryId === null ? [] : [word.jmdictEntryId],
       strokeGraphic: null,
       attributions: [],
@@ -788,6 +1059,8 @@ export class PrismaItemsRepository extends ItemsRepository {
             : [localizedText("en-US", sentence.translationEn, { isPrimary: true })],
       },
       componentDetails: null,
+      kanjiReadingEvidence: [],
+      wordDetails: null,
       sourceRecordIds: sentence.sourceId === null ? [] : [sentence.sourceId],
       strokeGraphic: null,
       attributions: [toSentenceAttribution(sentence)],
@@ -953,6 +1226,69 @@ function toPromptType(value: string) {
   }
 }
 
+function toReviewHistoryRecord(row: ReviewHistoryRow): ItemReviewHistoryRecord {
+  return {
+    id: row.id,
+    learningCardId: row.learningCardId,
+    promptType: toPromptType(row.learningCard.promptType),
+    answerType: row.learningCard.answerType === "READING" ? "reading" : "meaning",
+    result: toReviewResult(row.result),
+    previousStageIndex: row.previousStageIndex,
+    nextStageIndex: row.nextStageIndex,
+    answeredAt: row.answeredAt,
+  };
+}
+
+function toReviewResult(value: string): ItemReviewHistoryRecord["result"] {
+  switch (value) {
+    case "WRONG":
+      return "wrong";
+    case "TYPO":
+      return "typo";
+    case "REVEAL":
+      return "reveal";
+    case "MANUAL_IGNORE":
+      return "manual-ignore";
+    case "RESURRECT":
+      return "resurrect";
+    default:
+      return "correct";
+  }
+}
+
+function toKanjiReadingType(
+  value: string,
+): ItemTargetRecord["kanjiReadingEvidence"][number]["readingType"] {
+  switch (value) {
+    case "ONYOMI":
+      return "on";
+    case "KUNYOMI":
+      return "kun";
+    case "NANORI":
+      return "nanori";
+    default:
+      return "other";
+  }
+}
+
+function toLegacyRelationType(
+  kind: ItemRelationGroupRecord["kind"],
+): ItemRelationRecord["relationType"] {
+  switch (kind) {
+    case "components":
+      return "component";
+    case "used-in-kanji":
+    case "kanji":
+      return "kanji";
+    case "vocabulary":
+      return "word";
+    case "sentences":
+      return "example";
+    default:
+      return "dependency";
+  }
+}
+
 function toOverrideType(value: string): ItemUserOverrideRecord["overrideType"] {
   switch (value) {
     case "ACCEPTED_READING":
@@ -1017,6 +1353,18 @@ function selectRepresentativeState(states: readonly ItemSrsStateRow[]): ItemSrsS
   }
 
   return selected;
+}
+
+function selectNextReviewAt(states: readonly ItemSrsStateRow[]): Date | null {
+  const timestamps = states.flatMap((state) =>
+    state.burnedAt === null && state.availableAt !== null ? [state.availableAt] : [],
+  );
+
+  if (timestamps.length === 0) {
+    return null;
+  }
+
+  return new Date(Math.min(...timestamps.map((timestamp) => timestamp.getTime())));
 }
 
 function toLeechScoreDto(leech: LeechScoreResult): NonNullable<SrsStateSummaryDto["leech"]> {

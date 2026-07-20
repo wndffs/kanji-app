@@ -1,12 +1,16 @@
 import {
   type BilingualTextDto,
   type ContentLocale,
+  type ItemRelationGroupKind,
   type ItemKind,
+  type ItemReviewResult,
+  type KanjiReadingEvidenceDto,
   type KanjiStrokeGraphicDto,
   type LocalizedTextDto,
   type SentenceDto,
   type SourceAttributionDto,
   type SrsStateSummaryDto,
+  type WordStudyDetailsDto,
 } from "@kanji-srs/shared";
 
 export type ItemStrokeGraphicRecord = KanjiStrokeGraphicDto;
@@ -22,6 +26,8 @@ export type ItemTargetRecord = {
   readonly jlptLevel: string | null;
   readonly translations: BilingualTextDto;
   readonly componentDetails: ItemComponentDetailsRecord | null;
+  readonly kanjiReadingEvidence: readonly KanjiReadingEvidenceDto[];
+  readonly wordDetails: WordStudyDetailsDto | null;
   readonly sourceRecordIds: readonly string[];
   readonly strokeGraphic: ItemStrokeGraphicRecord | null;
   readonly attributions: readonly SourceAttributionDto[];
@@ -70,6 +76,38 @@ export type ItemRelationRecord = {
   readonly item: ItemRecord;
 };
 
+export type ItemRelationGroupRecord = {
+  readonly kind: ItemRelationGroupKind;
+  readonly items: readonly ItemRecord[];
+  readonly total: number;
+};
+
+export type ItemReviewHistoryRecord = {
+  readonly id: string;
+  readonly learningCardId: string;
+  readonly promptType: "meaning" | "reading" | "recall" | "cloze" | "recognition";
+  readonly answerType: "meaning" | "reading";
+  readonly result: ItemReviewResult;
+  readonly previousStageIndex: number | null;
+  readonly nextStageIndex: number | null;
+  readonly answeredAt: Date;
+};
+
+export type ItemReviewHistoryCursor = {
+  readonly answeredAt: Date;
+  readonly id: string;
+};
+
+export type ItemReviewHistoryLookup = {
+  readonly cursor: ItemReviewHistoryCursor | null;
+  readonly limit: number;
+};
+
+export type ItemReviewHistoryRecordPage = {
+  readonly items: readonly ItemReviewHistoryRecord[];
+  readonly hasNextPage: boolean;
+};
+
 export type ItemRecord = {
   readonly id: string;
   readonly itemType: ItemKind;
@@ -81,10 +119,12 @@ export type ItemRecord = {
   readonly mnemonics: readonly ItemTextRecord[];
   readonly hints: readonly ItemTextRecord[];
   readonly relations: readonly ItemRelationRecord[];
+  readonly relationGroups: readonly ItemRelationGroupRecord[];
   readonly exampleSentences: readonly SentenceDto[];
   readonly attributions: readonly SourceAttributionDto[];
   readonly userOverrides: readonly ItemUserOverrideRecord[];
   readonly srs: SrsStateSummaryDto | null;
+  readonly nextReviewAt: Date | null;
 };
 
 export type ItemLookupOptions = {
@@ -103,6 +143,11 @@ export type SearchParams = {
 export type ParsedSearchQuery = {
   readonly q?: string | readonly string[];
   readonly page?: string | readonly string[];
+  readonly limit?: string | readonly string[];
+};
+
+export type ParsedItemHistoryQuery = {
+  readonly cursor?: string | readonly string[];
   readonly limit?: string | readonly string[];
 };
 

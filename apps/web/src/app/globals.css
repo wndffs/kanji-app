@@ -2733,6 +2733,145 @@ textarea:focus-visible {
   padding-top: 12px;
 }
 
+.reading-evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.dictionary-evidence {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--surface-border);
+  padding-top: 14px;
+}
+
+.section-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-heading-row h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.source-kind-label {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border: 1px solid var(--surface-border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 2px 7px;
+}
+
+.source-kind-label.curated {
+  border-color: color-mix(in srgb, var(--success) 40%, var(--surface-border));
+  color: var(--success);
+}
+
+.source-kind-label.imported {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--surface-border));
+  color: var(--primary-strong);
+}
+
+.reading-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reading-chip-list li {
+  min-width: 54px;
+  border: 1px solid var(--surface-border);
+  border-radius: 4px;
+  background: var(--surface-strong);
+  padding: 7px 10px;
+  text-align: center;
+}
+
+.word-sense-list,
+.review-history-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.word-sense-list li,
+.review-history-list li {
+  display: grid;
+  gap: 5px;
+  border-bottom: 1px solid var(--surface-border);
+  padding: 11px 0;
+}
+
+.word-sense-list li:last-child,
+.review-history-list li:last-child {
+  border-bottom: 0;
+}
+
+.word-sense-list span,
+.word-sense-list small,
+.review-history-list span,
+.review-history-list time {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.review-history-list li {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.review-history-list li > div {
+  display: grid;
+  gap: 4px;
+}
+
+.review-history-list time {
+  text-align: right;
+}
+
+.relation-group-list {
+  display: grid;
+  gap: 16px;
+}
+
+.relation-group-summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.example-attribution {
+  width: fit-content;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.imported-source-links {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.imported-source-links > span:first-child {
+  font-weight: 800;
+}
+
 .stroke-placeholder {
   justify-items: start;
 }
@@ -4615,6 +4754,14 @@ textarea:focus-visible {
 
   .page-heading h1 {
     font-size: 28px;
+  }
+
+  .review-history-list li {
+    grid-template-columns: 1fr;
+  }
+
+  .review-history-list time {
+    text-align: left;
   }
 
   .dashboard-widget-editor > header {

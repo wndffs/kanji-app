@@ -4,7 +4,7 @@ import { type CurrentUserDto } from "../auth/auth.types";
 import { OptionalCurrentUser } from "../auth/optional-current-user.decorator";
 import { OptionalAuthGuard } from "../auth/optional-auth.guard";
 import { ItemsService } from "./items.service";
-import { type ParsedSearchQuery } from "./items.types";
+import { type ParsedItemHistoryQuery, type ParsedSearchQuery } from "./items.types";
 
 @UseGuards(OptionalAuthGuard)
 @Controller()
@@ -14,6 +14,15 @@ export class ItemsController {
   @Get("items/:id")
   getItem(@Param("id") id: string, @OptionalCurrentUser() currentUser: CurrentUserDto | null) {
     return this.itemsService.getItemDetails(id, currentUser);
+  }
+
+  @Get("items/:id/history")
+  getItemHistory(
+    @Param("id") id: string,
+    @Query() query: ParsedItemHistoryQuery,
+    @OptionalCurrentUser() currentUser: CurrentUserDto | null,
+  ) {
+    return this.itemsService.getItemHistory(id, query, currentUser);
   }
 
   @Get("kanji/:character")

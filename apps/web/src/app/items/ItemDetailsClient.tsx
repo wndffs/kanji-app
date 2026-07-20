@@ -22,6 +22,7 @@ import {
   deletePrivateAcceptedAnswer,
   deletePrivateMnemonic,
   getItemDetails,
+  getItemReviewHistory,
   getKanjiDetails,
   savePrivateMnemonic,
 } from "../../lib/api-client";
@@ -46,6 +47,7 @@ type ItemState =
       readonly item: ItemDetails;
       readonly token: string | null;
       readonly displayMode: TranslationDisplayMode;
+      readonly timezone: string;
     };
 
 type AcceptedAnswerFormState = {
@@ -87,12 +89,17 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSavingAcceptedAnswer, setIsSavingAcceptedAnswer] = useState(false);
   const [isSavingMnemonic, setIsSavingMnemonic] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const loadItem = useCallback(async () => {
     const storedSession = readStoredSession();
     const token = storedSession?.token ?? null;
     const displayMode =
       storedSession?.user.settings.translationDisplayMode ?? readTranslationDisplayMode();
+    const timezone =
+      storedSession?.user.settings.timezone ??
+      Intl.DateTimeFormat().resolvedOptions().timeZone ??
+      "UTC";
 
     setState({ status: "loading" });
     setStatusMessage(null);
@@ -109,6 +116,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
         item,
         token,
         displayMode,
+        timezone,
       });
       setAcceptedForm((previous) => resolveAcceptedFormDefaults(previous, item));
       setMnemonicForm((previous) => resolveMnemonicFormDefaults(previous, item, displayMode));
@@ -286,6 +294,49 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
     }
   }
 
+  async function handleLoadHistory(): Promise<void> {
+    if (
+      state.status !== "ready" ||
+      state.token === null ||
+      state.item.reviewHistory.nextCursor === null ||
+      isLoadingHistory
+    ) {
+      return;
+    }
+
+    setIsLoadingHistory(true);
+    setFormError(null);
+
+    try {
+      const page = await getItemReviewHistory(
+        state.item.id,
+        state.item.reviewHistory.nextCursor,
+        state.token,
+      );
+
+      setState((current) =>
+        current.status !== "ready"
+          ? current
+          : {
+              ...current,
+              item: {
+                ...current.item,
+                reviewHistory: {
+                  items: [...current.item.reviewHistory.items, ...page.items],
+                  nextCursor: page.nextCursor,
+                },
+              },
+            },
+      );
+    } catch (error: unknown) {
+      setFormError(
+        error instanceof Error ? error.message : "Не удалось загрузить историю повторений.",
+      );
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }
+
   if (state.status === "loading") {
     return (
       <section className="page-stack" aria-busy="true">
@@ -318,7 +369,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
     );
   }
 
-  const { item, token } = state;
+  const { item, token, timezone } = state;
   const displayMode = liveDisplayMode;
   const readingCards = item.cards.filter((card) => card.answerType === "reading");
   const privateOverrides = item.userOverrides.filter(
@@ -359,6 +410,10 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
             <dt>Повторения</dt>
             <dd>{formatSrsStageName(item.srs?.stageName)}</dd>
           </div>
+          <div>
+            <dt>Следующее повторение</dt>
+            <dd>{formatReviewSchedule(item.nextReviewAt, timezone)}</dd>
+          </div>
         </dl>
       </header>
 
@@ -395,32 +450,27 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
             </section>
           )}
 
-          <section className="panel">
-            <h2>Чтения</h2>
-            {item.reading === null && readingCards.length === 0 ? (
-              <p className="muted">Для этого материала чтение не требуется.</p>
-            ) : (
-              <TextList
-                textKind="reading"
-                texts={[
-                  ...(item.reading === null
-                    ? []
-                    : [{ locale: "ru-RU" as const, text: item.reading }]),
-                  ...collectAnswers(readingCards, displayMode),
-                ]}
-              />
-            )}
-          </section>
+          <ItemReadingDetails displayMode={displayMode} item={item} readingCards={readingCards} />
 
           <section className="panel">
             <h2>Глобальные ответы</h2>
             <CardAnswerList cards={item.cards} displayMode={displayMode} />
           </section>
 
-          <section className="panel">
-            <h2>Связи</h2>
-            <RelationsList relations={item.relations} displayMode={displayMode} />
-          </section>
+          <SrsHistory
+            history={item.reviewHistory}
+            isLoading={isLoadingHistory}
+            nextReviewAt={item.nextReviewAt}
+            onLoadMore={handleLoadHistory}
+            stageName={item.srs?.stageName ?? null}
+            timezone={timezone}
+          />
+
+          <RelationGroups
+            displayMode={displayMode}
+            groups={item.relationGroups}
+            legacyRelations={item.relations}
+          />
 
           <section className="panel">
             <h2>Примеры</h2>
@@ -433,6 +483,9 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
                     <JapaneseText variant="sentence">{sentence.japaneseText}</JapaneseText>
                     {sentence.readingText === null ? null : <small>{sentence.readingText}</small>}
                     <p>{formatSentenceTranslation(sentence, displayMode)}</p>
+                    {sentence.attribution === null ? null : (
+                      <SourceAttribution source={sentence.attribution} />
+                    )}
                   </li>
                 ))}
               </ul>
@@ -839,6 +892,242 @@ function CardAnswerList({
   );
 }
 
+function ItemReadingDetails({
+  displayMode,
+  item,
+  readingCards,
+}: {
+  readonly displayMode: TranslationDisplayMode;
+  readonly item: ItemDetails;
+  readonly readingCards: readonly LearningCardDto[];
+}) {
+  if (item.kanjiDetails !== null) {
+    const readingGroups = [
+      ["on", "Онъёми"],
+      ["kun", "Кунъёми"],
+      ["nanori", "Нанори"],
+      ["other", "Другие"],
+    ] as const;
+
+    return (
+      <section className="panel" data-testid="kanji-reading-details">
+        <h2>Чтения</h2>
+        <div className="reading-evidence-grid">
+          <div className="content-block">
+            <h3>Основное учебное чтение</h3>
+            {item.kanjiDetails.primaryTaughtReading === null ? (
+              <p className="muted">Учебное чтение пока не выбрано.</p>
+            ) : (
+              <TextList textKind="reading" texts={[item.kanjiDetails.primaryTaughtReading]} />
+            )}
+          </div>
+          <div className="content-block">
+            <h3>Допустимые учебные чтения</h3>
+            <TextList textKind="reading" texts={item.kanjiDetails.additionalAcceptedReadings} />
+          </div>
+        </div>
+        <div className="dictionary-evidence">
+          <div className="section-heading-row">
+            <h3>Словарные чтения</h3>
+            <span className="source-kind-label imported">импортированные данные</span>
+          </div>
+          <div className="reading-evidence-grid">
+            {readingGroups.map(([kind, title]) => {
+              const readings = item.kanjiDetails?.readingEvidence.filter(
+                (reading) => reading.readingType === kind,
+              );
+
+              return readings === undefined || readings.length === 0 ? null : (
+                <div className="content-block" key={kind}>
+                  <h3>{title}</h3>
+                  <ul className="reading-chip-list">
+                    {readings.map((reading) => (
+                      <li key={`${kind}-${reading.reading}`}>
+                        <JapaneseText>{reading.reading}</JapaneseText>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+          <ImportedSourceLinks sources={item.attributions} />
+        </div>
+      </section>
+    );
+  }
+
+  if (item.wordDetails !== null) {
+    const locales = getContentLocalesForDisplayMode(displayMode);
+    const senses = item.wordDetails.senses.filter((sense) => locales.includes(sense.locale));
+
+    return (
+      <section className="panel" data-testid="word-study-details">
+        <h2>Чтение и словарные сведения</h2>
+        <dl className="lesson-facts">
+          <div>
+            <dt>Чтение</dt>
+            <dd>
+              <JapaneseText>{item.wordDetails.reading}</JapaneseText>
+            </dd>
+          </div>
+          {item.wordDetails.commonnessRank === null ? null : (
+            <div>
+              <dt>Частотный ранг источника</dt>
+              <dd>{item.wordDetails.commonnessRank}</dd>
+            </div>
+          )}
+        </dl>
+        {senses.length === 0 ? (
+          <p className="muted">Словарные сведения для выбранного языка пока не добавлены.</p>
+        ) : (
+          <ul className="word-sense-list">
+            {senses.map((sense, index) => (
+              <li key={`${sense.locale}-${sense.meaning}-${sense.partOfSpeech}-${index}`}>
+                <strong>{sense.meaning}</strong>
+                <span>
+                  {formatLocale(sense.locale)} · {formatPartOfSpeech(sense.partOfSpeech)}
+                  {sense.register === null ? "" : ` · ${sense.register}`}
+                </span>
+                {sense.tags.length === 0 ? null : <small>{sense.tags.join(", ")}</small>}
+                <span className={`source-kind-label ${sense.sourceKind}`}>
+                  {formatSourceKind(sense.sourceKind)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <ImportedSourceLinks sources={item.attributions} />
+      </section>
+    );
+  }
+
+  return (
+    <section className="panel">
+      <h2>Чтения</h2>
+      {item.reading === null && readingCards.length === 0 ? (
+        <p className="muted">Для этого материала чтение не требуется.</p>
+      ) : (
+        <TextList
+          textKind="reading"
+          texts={[
+            ...(item.reading === null ? [] : [{ locale: "ru-RU" as const, text: item.reading }]),
+            ...collectAnswers(readingCards, displayMode),
+          ]}
+        />
+      )}
+    </section>
+  );
+}
+
+function SrsHistory({
+  history,
+  isLoading,
+  nextReviewAt,
+  onLoadMore,
+  stageName,
+  timezone,
+}: {
+  readonly history: ItemDetails["reviewHistory"];
+  readonly isLoading: boolean;
+  readonly nextReviewAt: string | null;
+  readonly onLoadMore: () => void;
+  readonly stageName: string | null;
+  readonly timezone: string;
+}) {
+  return (
+    <section className="panel" data-testid="item-srs-history">
+      <h2>История SRS</h2>
+      <dl className="lesson-facts">
+        <div>
+          <dt>Текущий этап</dt>
+          <dd>{formatSrsStageName(stageName ?? undefined)}</dd>
+        </div>
+        <div>
+          <dt>Следующее повторение</dt>
+          <dd>{formatReviewSchedule(nextReviewAt, timezone)}</dd>
+        </div>
+      </dl>
+      {history.items.length === 0 ? (
+        <p className="muted">У этого материала ещё нет истории повторений.</p>
+      ) : (
+        <ol className="review-history-list">
+          {history.items.map((entry) => (
+            <li key={entry.id}>
+              <div>
+                <strong>{formatReviewResult(entry.result)}</strong>
+                <span>
+                  {formatPromptType(entry.promptType)} ·{" "}
+                  {formatStageTransition(entry.previousStageIndex, entry.nextStageIndex)}
+                </span>
+              </div>
+              <time dateTime={entry.answeredAt}>
+                {formatAbsoluteTime(entry.answeredAt, timezone)} ·{" "}
+                {formatRelativeTime(entry.answeredAt)}
+              </time>
+            </li>
+          ))}
+        </ol>
+      )}
+      {history.nextCursor === null ? null : (
+        <button
+          className="secondary-action"
+          disabled={isLoading}
+          onClick={onLoadMore}
+          type="button"
+        >
+          {isLoading ? "Загружаю…" : "Показать более ранние"}
+        </button>
+      )}
+    </section>
+  );
+}
+
+function RelationGroups({
+  displayMode,
+  groups,
+  legacyRelations,
+}: {
+  readonly displayMode: TranslationDisplayMode;
+  readonly groups: ItemDetails["relationGroups"];
+  readonly legacyRelations: ItemDetails["relations"];
+}) {
+  return (
+    <section className="panel" data-testid="item-relation-groups">
+      <h2>Связи</h2>
+      {groups.length === 0 ? (
+        <RelationsList relations={legacyRelations} displayMode={displayMode} />
+      ) : (
+        <div className="relation-group-list">
+          {groups.map((group) => (
+            <div className="content-block" key={group.kind}>
+              <h3>{formatRelationGroup(group.kind)}</h3>
+              <ul className="lesson-relation-list">
+                {group.items.map((related) => (
+                  <li key={related.id}>
+                    <Link className="inline-link" href={`/items/${related.id}`}>
+                      <JapaneseText>{related.japanese}</JapaneseText>
+                    </Link>
+                    <small>
+                      {related.reading === null ? "" : `${related.reading} · `}
+                      {formatTranslationBundle(related.translations, displayMode)}
+                    </small>
+                  </li>
+                ))}
+              </ul>
+              {group.total > group.items.length ? (
+                <p className="relation-group-summary">
+                  Показаны первые {group.items.length} из {group.total}.
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function RelationsList({
   relations,
   displayMode,
@@ -859,11 +1148,60 @@ function RelationsList({
           </Link>
           <small>
             {formatRelationType(relation.relationType)} ·{" "}
+            {relation.item.reading === null ? "" : `${relation.item.reading} · `}
             {formatTranslationBundle(relation.item.translations, displayMode)}
           </small>
         </li>
       ))}
     </ul>
+  );
+}
+
+function SourceAttribution({
+  source,
+}: {
+  readonly source: NonNullable<ItemDetails["exampleSentences"][number]["attribution"]>;
+}) {
+  const sourceUrl = safeExternalUrl(source.sourceUrl);
+  const label = `${source.sourceName} · ${source.licenseName}`;
+
+  return sourceUrl === null ? (
+    <small className="example-attribution">{label}</small>
+  ) : (
+    <a className="example-attribution inline-link" href={sourceUrl} rel="noreferrer">
+      {label}
+    </a>
+  );
+}
+
+function ImportedSourceLinks({ sources }: { readonly sources: ItemDetails["attributions"] }) {
+  if (sources.length === 0) {
+    return null;
+  }
+
+  return (
+    <p className="imported-source-links">
+      <span>Источники метаданных:</span>{" "}
+      {sources.map((source, index) => {
+        const sourceUrl = safeExternalUrl(source.sourceUrl);
+        const separator = index === sources.length - 1 ? "" : ", ";
+
+        return (
+          <span key={`${source.sourceName}-${index}`}>
+            {sourceUrl === null ? (
+              source.sourceName
+            ) : (
+              <a className="inline-link" href={sourceUrl} rel="noreferrer">
+                {source.sourceName}
+              </a>
+            )}
+            {" · "}
+            {source.licenseName}
+            {separator}
+          </span>
+        );
+      })}
+    </p>
   );
 }
 
@@ -952,7 +1290,10 @@ function TextList({
           ) : (
             <span>{text.text}</span>
           )}
-          <small>{textKind === "reading" ? "чтение" : formatLocale(text.locale)}</small>
+          <small>
+            {textKind === "reading" ? "чтение" : formatLocale(text.locale)}
+            {text.sourceKind === undefined ? "" : ` · ${formatSourceKind(text.sourceKind)}`}
+          </small>
         </li>
       ))}
     </ul>
@@ -1078,6 +1419,121 @@ function formatAnswerType(answerType: CardAnswerType): string {
 
 function formatLocale(locale: ContentLocale): string {
   return locale === "ru-RU" ? "RU" : "EN";
+}
+
+function formatSourceKind(sourceKind: NonNullable<LocalizedTextDto["sourceKind"]>): string {
+  switch (sourceKind) {
+    case "imported":
+      return "словарные данные";
+    case "user":
+      return "личное";
+    default:
+      return "учебный материал";
+  }
+}
+
+function formatPartOfSpeech(partOfSpeech: string): string {
+  const labels: Readonly<Record<string, string>> = {
+    n: "существительное",
+    noun: "существительное",
+    "adj-i": "прилагательное на い",
+    "adj-na": "прилагательное на な",
+    v1: "глагол 一段",
+    v5: "глагол 五段",
+    adverb: "наречие",
+  };
+
+  return labels[partOfSpeech] ?? partOfSpeech;
+}
+
+function formatReviewSchedule(value: string | null, timezone: string): string {
+  if (value === null) {
+    return "не запланировано";
+  }
+
+  return `${formatAbsoluteTime(value, timezone)} · ${formatRelativeTime(value)}`;
+}
+
+function formatAbsoluteTime(value: string, timezone: string): string {
+  const date = new Date(value);
+  const options: Intl.DateTimeFormatOptions = {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: timezone,
+  };
+
+  try {
+    return `${new Intl.DateTimeFormat("ru-RU", options).format(date)} (${timezone})`;
+  } catch {
+    return `${new Intl.DateTimeFormat("ru-RU", {
+      ...options,
+      timeZone: "UTC",
+    }).format(date)} (UTC)`;
+  }
+}
+
+function formatRelativeTime(value: string): string {
+  const differenceMs = new Date(value).getTime() - Date.now();
+  const units = [
+    ["day", 86_400_000],
+    ["hour", 3_600_000],
+    ["minute", 60_000],
+  ] as const;
+  const formatter = new Intl.RelativeTimeFormat("ru-RU", { numeric: "auto" });
+
+  for (const [unit, milliseconds] of units) {
+    if (Math.abs(differenceMs) >= milliseconds || unit === "minute") {
+      return formatter.format(Math.round(differenceMs / milliseconds), unit);
+    }
+  }
+
+  return "сейчас";
+}
+
+function formatReviewResult(
+  result: ItemDetails["reviewHistory"]["items"][number]["result"],
+): string {
+  switch (result) {
+    case "wrong":
+      return "Неверно";
+    case "typo":
+      return "Опечатка";
+    case "reveal":
+      return "Ответ показан";
+    case "manual-ignore":
+      return "Ошибка проигнорирована";
+    case "resurrect":
+      return "Возвращено в SRS";
+    default:
+      return "Верно";
+  }
+}
+
+function formatStageTransition(previous: number | null, next: number | null): string {
+  if (previous === null && next === null) {
+    return "этап не изменён";
+  }
+
+  return `этап ${previous ?? "—"} → ${next ?? "—"}`;
+}
+
+function formatRelationGroup(kind: ItemDetails["relationGroups"][number]["kind"]): string {
+  switch (kind) {
+    case "components":
+      return "Составляющие компоненты";
+    case "used-in-kanji":
+      return "Кандзи с этим компонентом";
+    case "kanji":
+      return "Составляющие кандзи";
+    case "vocabulary":
+      return "Слова, закрепляющие материал";
+    case "sentences":
+      return "Связанные предложения";
+    case "prerequisites":
+      return "Другие предпосылки";
+    case "dependents":
+      return "Открываемые материалы";
+  }
 }
 
 function formatLeechReasons(

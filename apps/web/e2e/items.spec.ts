@@ -11,6 +11,7 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 const ITEM_ID = "item-kanji-one";
 const COMPONENT_ID = "item-component-one";
+const WORD_ID = "item-word-school";
 
 test.describe("item details", () => {
   test("opens an item page", async ({ page }) => {
@@ -38,6 +39,43 @@ test.describe("item details", () => {
 
     await expect(page.getByTestId("item-leech-notice")).toContainText("Балл 29");
     await expect(page.getByTestId("item-leech-notice")).toContainText("мнемонику");
+  });
+
+  test("shows taught and dictionary readings with paginated SRS history", async ({ page }) => {
+    await signIn(page);
+    await mockItemApi(page);
+
+    await page.goto(`/items/${ITEM_ID}`);
+
+    const readings = page.getByTestId("kanji-reading-details");
+    await expect(readings.getByText("Основное учебное чтение")).toBeVisible();
+    await expect(readings.getByText("いち", { exact: true }).first()).toBeVisible();
+    await expect(readings.getByText("Онъёми")).toBeVisible();
+    await expect(readings.getByText("Кунъёми")).toBeVisible();
+
+    const history = page.getByTestId("item-srs-history");
+    await expect(history.getByText("Опечатка", { exact: true })).toBeVisible();
+    await history.getByRole("button", { name: "Показать более ранние" }).click();
+    await expect(history.getByText("Ошибка проигнорирована", { exact: true })).toBeVisible();
+    await expect(page.getByText("Составляющие компоненты")).toBeVisible();
+  });
+
+  test("shows vocabulary evidence, kanji composition, and attributed examples", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await page.route(`${API_BASE_URL}/items/${WORD_ID}`, async (route) => {
+      await route.fulfill({ json: buildWordDetails() });
+    });
+
+    await page.goto(`/items/${WORD_ID}`);
+
+    const details = page.getByTestId("word-study-details");
+    await expect(details.getByText("がっこう", { exact: true })).toBeVisible();
+    await expect(details.getByText(/существительное/).first()).toBeVisible();
+    await expect(details.getByText("420", { exact: true })).toBeVisible();
+    await expect(page.getByText("Составляющие кандзи")).toBeVisible();
+    await expect(page.getByText("Project examples · LicenseRef-Project-Authored")).toBeVisible();
   });
 
   test("separates a component name and shape from its meaning", async ({ page }) => {
@@ -149,6 +187,26 @@ async function mockItemApi(page: Page): Promise<void> {
     });
   });
 
+  await page.route(`${API_BASE_URL}/items/${ITEM_ID}/history?cursor=older`, async (route) => {
+    await route.fulfill({
+      json: {
+        items: [
+          {
+            id: "history-older",
+            learningCardId: "card-kanji-one-meaning",
+            promptType: "meaning",
+            answerType: "meaning",
+            result: "manual-ignore",
+            previousStageIndex: 2,
+            nextStageIndex: 2,
+            answeredAt: "2026-06-21T08:00:00.000Z",
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+  });
+
   await page.route(`${API_BASE_URL}/cards/card-kanji-one-meaning/overrides`, async (route) => {
     const body = route.request().postDataJSON() as {
       readonly text?: string;
@@ -215,6 +273,30 @@ function buildItemDetails(
       en: [{ locale: "en-US", text: "one", isPrimary: true, sourceKind: "curated" }],
     },
     componentDetails: null,
+    kanjiDetails: {
+      primaryTaughtReading: {
+        locale: "ru-RU",
+        text: "いち",
+        isPrimary: true,
+        sourceKind: "curated",
+      },
+      additionalAcceptedReadings: [],
+      readingEvidence: [
+        {
+          reading: "いち",
+          readingType: "on",
+          priority: 10,
+          sourceKind: "imported",
+        },
+        {
+          reading: "ひと",
+          readingType: "kun",
+          priority: 5,
+          sourceKind: "imported",
+        },
+      ],
+    },
+    wordDetails: null,
     level: 1,
     jlptLevel: "N5",
     srs: {
@@ -234,6 +316,22 @@ function buildItemDetails(
         stageDropMagnitude: 4,
         reasons: ["wrong-count", "recent-wrong", "stage-instability"],
       },
+    },
+    nextReviewAt: "2026-06-24T15:00:00.000Z",
+    reviewHistory: {
+      items: [
+        {
+          id: "history-newest",
+          learningCardId: "card-kanji-one-reading",
+          promptType: "reading",
+          answerType: "reading",
+          result: "typo",
+          previousStageIndex: 4,
+          nextStageIndex: 4,
+          answeredAt: "2026-06-22T08:00:00.000Z",
+        },
+      ],
+      nextCursor: "older",
     },
     strokeGraphic: {
       sourceRecordId: "kanjivg:04e00",
@@ -328,6 +426,45 @@ function buildItemDetails(
           jlptLevel: null,
           srs: null,
         },
+      },
+    ],
+    relationGroups: [
+      {
+        kind: "components",
+        total: 1,
+        items: [
+          {
+            id: "item-component-one",
+            itemType: "component",
+            slug: "component:一",
+            japanese: "一",
+            reading: null,
+            translations: {
+              displayMode: "ru-en",
+              primaryRu: "компонент один",
+              primaryEn: "one component",
+              ru: [
+                {
+                  locale: "ru-RU",
+                  text: "компонент один",
+                  isPrimary: true,
+                  sourceKind: "curated",
+                },
+              ],
+              en: [
+                {
+                  locale: "en-US",
+                  text: "one component",
+                  isPrimary: true,
+                  sourceKind: "curated",
+                },
+              ],
+            },
+            level: 1,
+            jlptLevel: null,
+            srs: null,
+          },
+        ],
       },
     ],
     mnemonics: {
@@ -434,15 +571,125 @@ function buildComponentDetails(): ItemDetails {
         ],
       },
     },
+    kanjiDetails: null,
+    wordDetails: null,
     jlptLevel: null,
     srs: null,
+    nextReviewAt: null,
+    reviewHistory: { items: [], nextCursor: null },
     strokeGraphic: null,
     cards: [],
     relations: [],
+    relationGroups: [],
     mnemonics: { ru: [], en: [] },
     hints: { ru: [], en: [] },
     exampleSentences: [],
     attributions: [],
+    userOverrides: [],
+  };
+}
+
+function buildWordDetails(): ItemDetails {
+  const item = buildItemDetails([], null);
+  const kanjiSummary = {
+    id: ITEM_ID,
+    itemType: "kanji" as const,
+    slug: "kanji:一",
+    japanese: "学",
+    reading: "がく",
+    translations: {
+      displayMode: "ru-en" as const,
+      primaryRu: "учёба",
+      primaryEn: "study",
+      ru: [
+        {
+          locale: "ru-RU" as const,
+          text: "учёба",
+          isPrimary: true,
+          sourceKind: "curated" as const,
+        },
+      ],
+      en: [
+        {
+          locale: "en-US" as const,
+          text: "study",
+          isPrimary: true,
+          sourceKind: "curated" as const,
+        },
+      ],
+    },
+    level: 2,
+    jlptLevel: "N5",
+    srs: null,
+  };
+
+  return {
+    ...item,
+    id: WORD_ID,
+    itemType: "word",
+    slug: "word:学校",
+    japanese: "学校",
+    reading: "がっこう",
+    translations: {
+      displayMode: "ru-en",
+      primaryRu: "школа",
+      primaryEn: "school",
+      ru: [{ locale: "ru-RU", text: "школа", isPrimary: true, sourceKind: "curated" }],
+      en: [{ locale: "en-US", text: "school", isPrimary: true, sourceKind: "curated" }],
+    },
+    componentDetails: null,
+    kanjiDetails: null,
+    wordDetails: {
+      reading: "がっこう",
+      commonnessRank: 420,
+      senses: [
+        {
+          locale: "ru-RU",
+          meaning: "школа",
+          partOfSpeech: "noun",
+          register: null,
+          tags: ["common"],
+          sourceKind: "imported",
+        },
+        {
+          locale: "en-US",
+          meaning: "school",
+          partOfSpeech: "noun",
+          register: null,
+          tags: ["common"],
+          sourceKind: "imported",
+        },
+      ],
+    },
+    strokeGraphic: null,
+    cards: [],
+    relations: [{ relationType: "kanji", item: kanjiSummary }],
+    relationGroups: [{ kind: "kanji", items: [kanjiSummary], total: 1 }],
+    reviewHistory: { items: [], nextCursor: null },
+    exampleSentences: [
+      {
+        id: "sentence-school",
+        japaneseText: "学校へ行きます。",
+        readingText: "がっこうへいきます。",
+        translationRu: "Я иду в школу.",
+        translationEn: "I go to school.",
+        difficulty: 1,
+        attribution: {
+          sourceName: "Project examples",
+          licenseName: "LicenseRef-Project-Authored",
+          attributionText: "Project-authored example.",
+          sourceUrl: null,
+        },
+      },
+    ],
+    attributions: [
+      {
+        sourceName: "JMdict",
+        licenseName: "CC BY-SA 4.0",
+        attributionText: "EDRDG lexical metadata.",
+        sourceUrl: "https://www.edrdg.org/jmdict/j_jmdict.html",
+      },
+    ],
     userOverrides: [],
   };
 }

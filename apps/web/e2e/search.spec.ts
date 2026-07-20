@@ -117,8 +117,13 @@ function buildItemDetails(summary: ItemSummary): ItemDetails {
   return {
     ...summary,
     componentDetails: null,
+    kanjiDetails: null,
+    wordDetails: null,
     cards: [],
     relations: [],
+    relationGroups: [],
+    nextReviewAt: summary.srs?.availableAt ?? null,
+    reviewHistory: { items: [], nextCursor: null },
     mnemonics: { ru: [], en: [] },
     hints: { ru: [], en: [] },
     exampleSentences: [],

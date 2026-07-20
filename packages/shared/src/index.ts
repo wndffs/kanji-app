@@ -168,6 +168,73 @@ export type ItemRelationDto = {
   readonly relationType: "component" | "kanji" | "word" | "dependency" | "example";
 };
 
+export type ItemRelationGroupKind =
+  | "components"
+  | "used-in-kanji"
+  | "kanji"
+  | "vocabulary"
+  | "sentences"
+  | "prerequisites"
+  | "dependents";
+
+export type ItemRelationGroupDto = {
+  readonly kind: ItemRelationGroupKind;
+  readonly items: readonly ItemSummary[];
+  readonly total: number;
+};
+
+export type KanjiReadingEvidenceDto = {
+  readonly reading: string;
+  readonly readingType: "on" | "kun" | "nanori" | "other";
+  readonly priority: number;
+  readonly sourceKind: "imported";
+};
+
+export type KanjiStudyDetailsDto = {
+  readonly primaryTaughtReading: LocalizedTextDto | null;
+  readonly additionalAcceptedReadings: readonly LocalizedTextDto[];
+  readonly readingEvidence: readonly KanjiReadingEvidenceDto[];
+};
+
+export type WordSenseEvidenceDto = {
+  readonly locale: ContentLocale;
+  readonly meaning: string;
+  readonly partOfSpeech: string;
+  readonly register: string | null;
+  readonly tags: readonly string[];
+  readonly sourceKind: "curated" | "imported" | "user";
+};
+
+export type WordStudyDetailsDto = {
+  readonly reading: string;
+  readonly commonnessRank: number | null;
+  readonly senses: readonly WordSenseEvidenceDto[];
+};
+
+export type ItemReviewResult =
+  | "correct"
+  | "wrong"
+  | "typo"
+  | "reveal"
+  | "manual-ignore"
+  | "resurrect";
+
+export type ItemReviewHistoryEntryDto = {
+  readonly id: string;
+  readonly learningCardId: string;
+  readonly promptType: CardPromptType;
+  readonly answerType: CardAnswerType;
+  readonly result: ItemReviewResult;
+  readonly previousStageIndex: number | null;
+  readonly nextStageIndex: number | null;
+  readonly answeredAt: string;
+};
+
+export type ItemReviewHistoryPageDto = {
+  readonly items: readonly ItemReviewHistoryEntryDto[];
+  readonly nextCursor: string | null;
+};
+
 export type ComponentDetailsDto = {
   readonly name: TranslationBundleDto;
   readonly shapeDescription: TranslationBundleDto;
@@ -232,8 +299,13 @@ export type ReviewQueueItemSummary = {
 
 export type ItemDetails = ItemSummary & {
   readonly componentDetails: ComponentDetailsDto | null;
+  readonly kanjiDetails: KanjiStudyDetailsDto | null;
+  readonly wordDetails: WordStudyDetailsDto | null;
   readonly cards: readonly LearningCardDto[];
   readonly relations: readonly ItemRelationDto[];
+  readonly relationGroups: readonly ItemRelationGroupDto[];
+  readonly nextReviewAt: string | null;
+  readonly reviewHistory: ItemReviewHistoryPageDto;
   readonly mnemonics: BilingualTextDto;
   readonly hints: BilingualTextDto;
   readonly exampleSentences: readonly SentenceDto[];

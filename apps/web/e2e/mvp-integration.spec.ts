@@ -625,8 +625,27 @@ function buildStarterItemDetails(state: MvpApiState): ItemDetails {
   return {
     ...buildStarterItemSummary(state),
     componentDetails: null,
+    kanjiDetails: {
+      primaryTaughtReading: {
+        locale: "ru-RU",
+        text: "いち",
+        isPrimary: true,
+        sourceKind: "curated",
+      },
+      additionalAcceptedReadings: [],
+      readingEvidence: [],
+    },
+    wordDetails: null,
     cards: [starterMeaningCard],
     relations: [{ item: starterComponentSummary, relationType: "component" }],
+    relationGroups: [{ kind: "components", items: [starterComponentSummary], total: 1 }],
+    nextReviewAt:
+      state.lessonCompleted || state.reviewAnswered
+        ? state.reviewAnswered
+          ? "2026-06-22T20:00:00.000Z"
+          : "2026-06-22T12:00:00.000Z"
+        : null,
+    reviewHistory: { items: [], nextCursor: null },
     mnemonics: {
       ru: [
         {
