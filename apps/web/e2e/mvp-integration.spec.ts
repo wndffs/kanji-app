@@ -361,6 +361,18 @@ async function mockMvpApi(page: Page): Promise<void> {
           finishedAt: "2026-06-22T12:01:00.000Z",
           mode: "review",
         },
+        summary: {
+          totalAnswers: 1,
+          correctAnswers: 1,
+          incorrectAnswers: 0,
+          ignoredAnswers: 0,
+          accuracyPercent: 100,
+          advanced: 1,
+          unchanged: 0,
+          demoted: 0,
+          burned: 0,
+          durationSeconds: 60,
+        },
       },
     });
   });
@@ -664,6 +676,7 @@ function buildCorrectReviewAnswer(answer: string): ReviewAnswerResponse {
       wrongCount: 0,
       correctStreak: 1,
     },
+    srsTransition: "advanced",
   };
 }
 

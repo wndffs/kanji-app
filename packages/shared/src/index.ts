@@ -280,6 +280,27 @@ export type ReviewAnswerRequest = {
   readonly manualIgnore?: boolean;
 };
 
+export const REVIEW_SRS_TRANSITIONS = [
+  "advanced",
+  "unchanged",
+  "demoted",
+  "burned",
+] as const;
+export type ReviewSrsTransition = (typeof REVIEW_SRS_TRANSITIONS)[number];
+
+export type ReviewSessionSummaryDto = {
+  readonly totalAnswers: number;
+  readonly correctAnswers: number;
+  readonly incorrectAnswers: number;
+  readonly ignoredAnswers: number;
+  readonly accuracyPercent: number | null;
+  readonly advanced: number;
+  readonly unchanged: number;
+  readonly demoted: number;
+  readonly burned: number;
+  readonly durationSeconds: number;
+};
+
 export type ReviewAnswerResponse = {
   readonly cardId: string;
   readonly accepted: boolean;
@@ -295,6 +316,7 @@ export type ReviewAnswerResponse = {
   };
   readonly previousSrs: SrsStateSummaryDto;
   readonly nextSrs: SrsStateSummaryDto;
+  readonly srsTransition: ReviewSrsTransition;
 };
 
 export const PRACTICE_SOURCES = ["recent-lessons", "recent-mistakes", "burned"] as const;
@@ -311,7 +333,10 @@ export type PracticeAnswerRequest = {
   readonly answerType: CardAnswerType;
 };
 
-export type PracticeAnswerResponse = Omit<ReviewAnswerResponse, "previousSrs" | "nextSrs">;
+export type PracticeAnswerResponse = Omit<
+  ReviewAnswerResponse,
+  "previousSrs" | "nextSrs" | "srsTransition"
+>;
 
 export type LessonMnemonicPurpose = "meaning" | "reading" | "story";
 

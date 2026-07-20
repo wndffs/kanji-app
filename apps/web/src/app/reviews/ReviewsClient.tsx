@@ -20,6 +20,8 @@ import {
   type ReviewAnswerResponse,
   type ReviewOrderMode,
   type ReviewQueueItem,
+  type ReviewSessionSummaryDto,
+  type ReviewSrsTransition,
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
@@ -70,7 +72,7 @@ export function ReviewsClient() {
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<ReviewAnswerResponse | null>(null);
   const [progress, setProgress] = useState<ReviewProgress>(INITIAL_PROGRESS);
-  const [finishedSummary, setFinishedSummary] = useState<ReviewProgress | null>(null);
+  const [finishedSummary, setFinishedSummary] = useState<ReviewSessionSummaryDto | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isSavingOrderMode, setIsSavingOrderMode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -285,8 +287,8 @@ export function ReviewsClient() {
     setIsContinuing(true);
 
     try {
-      await finishReviewSession(queueState.token, session.id);
-      setFinishedSummary(progress);
+      const response = await finishReviewSession(queueState.token, session.id);
+      setFinishedSummary(response.summary);
       setSession(null);
       setCurrentIndex(0);
       setAnswer("");
@@ -359,15 +361,49 @@ export function ReviewsClient() {
           <dl className="stats-list">
             <div>
               <dt>Ответов</dt>
-              <dd>{finishedSummary.answered}</dd>
+              <dd>{finishedSummary.totalAnswers}</dd>
             </div>
             <div>
-              <dt>Принято</dt>
-              <dd>{finishedSummary.accepted}</dd>
+              <dt>Точность</dt>
+              <dd>
+                {finishedSummary.accuracyPercent === null
+                  ? "—"
+                  : `${finishedSummary.accuracyPercent}%`}
+              </dd>
+            </div>
+            <div>
+              <dt>Верно</dt>
+              <dd>{finishedSummary.correctAnswers}</dd>
             </div>
             <div>
               <dt>Ошибок</dt>
-              <dd>{finishedSummary.missed}</dd>
+              <dd>{finishedSummary.incorrectAnswers}</dd>
+            </div>
+            {finishedSummary.ignoredAnswers === 0 ? null : (
+              <div>
+                <dt>Пропущено</dt>
+                <dd>{finishedSummary.ignoredAnswers}</dd>
+              </div>
+            )}
+            <div>
+              <dt>Повышено</dt>
+              <dd>{finishedSummary.advanced}</dd>
+            </div>
+            <div>
+              <dt>Без изменения</dt>
+              <dd>{finishedSummary.unchanged}</dd>
+            </div>
+            <div>
+              <dt>Понижено</dt>
+              <dd>{finishedSummary.demoted}</dd>
+            </div>
+            <div>
+              <dt>Закреплено</dt>
+              <dd>{finishedSummary.burned}</dd>
+            </div>
+            <div>
+              <dt>Время</dt>
+              <dd>{formatDuration(finishedSummary.durationSeconds)}</dd>
             </div>
           </dl>
           <div className="action-row">
@@ -666,8 +702,10 @@ function FeedbackPanel({
           />
         </div>
         <div>
-          <h3>Следующая стадия</h3>
+          <h3>Изменение SRS</h3>
           <p>
+            {formatSrsTransition(feedback.srsTransition)} ·{" "}
+            {formatSrsStageName(feedback.previousSrs.stageName)} →{" "}
             {formatSrsStageName(feedback.nextSrs.stageName)}
             {feedback.nextSrs.availableAt === null
               ? ""
@@ -792,6 +830,26 @@ function formatResult(result: ReviewAnswerResponse["result"]): string {
     case "wrong":
       return "Ошибка";
   }
+}
+
+function formatSrsTransition(transition: ReviewSrsTransition): string {
+  switch (transition) {
+    case "advanced":
+      return "Повышение";
+    case "demoted":
+      return "Понижение";
+    case "burned":
+      return "Закреплено";
+    default:
+      return "Без изменения";
+  }
+}
+
+function formatDuration(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return minutes === 0 ? `${seconds} сек` : `${minutes} мин ${seconds} сек`;
 }
 
 function formatLocale(locale: LocalizedTextDto["locale"]): string {

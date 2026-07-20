@@ -7,6 +7,8 @@ import {
   type ReviewAnswerResultType,
   type ReviewOrderMode,
   type ReviewQueueItem,
+  type ReviewSessionSummaryDto,
+  type ReviewSrsTransition,
 } from "@kanji-srs/shared";
 
 import { type ReviewResult as SrsReviewResult, type SrsStage } from "@kanji-srs/srs";
@@ -95,6 +97,7 @@ export type RecordReviewAnswerInput = {
   readonly responseResult: ReviewAnswerResultType;
   readonly previousStageIndex: number;
   readonly nextStageIndex: number;
+  readonly srsTransition: ReviewSrsTransition;
   readonly nextState: {
     readonly stageIndex: number;
     readonly availableAt: Date | null;
@@ -105,6 +108,11 @@ export type RecordReviewAnswerInput = {
     readonly lastReviewedAt: Date | null;
   };
   readonly details: Record<string, unknown>;
+};
+
+export type FinishedReviewSessionRecord = {
+  readonly session: ReviewSessionRecord;
+  readonly summary: ReviewSessionSummaryDto;
 };
 
 export type ReviewQueueResponse = {
@@ -127,6 +135,7 @@ export type FinishReviewSessionResponse = {
     readonly finishedAt: string;
     readonly mode: ReviewSessionRecord["mode"];
   };
+  readonly summary: ReviewSessionSummaryDto;
 };
 
 export type SubmitReviewAnswerResponse = ReviewAnswerResponse;

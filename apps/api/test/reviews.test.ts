@@ -5,9 +5,11 @@ import { DEFAULT_SRS_STAGES, type SrsStage } from "@kanji-srs/srs";
 
 import { type CurrentUserDto } from "../src/auth/auth.types";
 import { type OverridesService } from "../src/overrides/overrides.service";
+import { buildReviewSessionSummary } from "../src/reviews/review-summary";
 import { ReviewsRepository } from "../src/reviews/reviews.repository";
 import { ReviewsService } from "../src/reviews/reviews.service";
 import {
+  type FinishedReviewSessionRecord,
   type RecordReviewAnswerInput,
   type ReviewAnswerTargetRecord,
   type ReviewQueueRecord,
@@ -91,6 +93,7 @@ describe("ReviewsService", () => {
       result: "correct",
       previousSrs: { stageIndex: 1 },
       nextSrs: { stageIndex: 2, availableAt: "2026-06-18T17:00:00.000Z" },
+      srsTransition: "advanced",
     });
     expect(repository.getState("state-due").stageIndex).toBe(2);
   });
@@ -151,11 +154,50 @@ describe("ReviewsService", () => {
       result: "wrong",
       previousSrs: { stageIndex: 5 },
       nextSrs: { stageIndex: 3, wrongCount: 1, correctStreak: 0 },
+      srsTransition: "demoted",
     });
     expect(repository.getState("state-late")).toMatchObject({
       stageIndex: 3,
       wrongCount: 1,
       correctStreak: 0,
+    });
+  });
+
+  it("returns a persisted end-of-review summary", async () => {
+    const { service } = createHarness();
+    const session = await service.startSession(createUser("owner"));
+
+    await service.submitAnswer(session.session.id, createUser("owner"), {
+      cardId: "card-meaning",
+      answer: "study answer",
+      answerType: "meaning",
+    });
+    await service.submitAnswer(session.session.id, createUser("owner"), {
+      cardId: "card-late",
+      answer: "wrong answer",
+      answerType: "meaning",
+    });
+    vi.setSystemTime(new Date(NOW.getTime() + 90_000));
+
+    await expect(service.finishSession(session.session.id, createUser("owner"))).resolves.toEqual({
+      session: {
+        id: session.session.id,
+        startedAt: NOW.toISOString(),
+        finishedAt: new Date(NOW.getTime() + 90_000).toISOString(),
+        mode: "review",
+      },
+      summary: {
+        totalAnswers: 2,
+        correctAnswers: 1,
+        incorrectAnswers: 1,
+        ignoredAnswers: 0,
+        accuracyPercent: 50,
+        advanced: 1,
+        unchanged: 0,
+        demoted: 1,
+        burned: 0,
+        durationSeconds: 90,
+      },
     });
   });
 
@@ -560,7 +602,7 @@ class InMemoryReviewsRepository extends ReviewsRepository {
     userId: string,
     sessionId: string,
     now: Date,
-  ): Promise<ReviewSessionRecord | null> {
+  ): Promise<FinishedReviewSessionRecord | null> {
     const session = this.sessions.get(sessionId);
 
     if (session === undefined || session.userId !== userId || session.finishedAt !== null) {
@@ -570,7 +612,19 @@ class InMemoryReviewsRepository extends ReviewsRepository {
     const finished = { ...session, finishedAt: now };
     this.sessions.set(sessionId, finished);
 
-    return finished;
+    return {
+      session: finished,
+      summary: buildReviewSessionSummary({
+        answers: this.recordedAnswers
+          .filter((answer) => answer.userId === userId && answer.sessionId === sessionId)
+          .map((answer) => ({
+            result: answer.recordedResult,
+            srsTransition: answer.srsTransition,
+          })),
+        startedAt: session.startedAt,
+        finishedAt: now,
+      }),
+    };
   }
 
   getState(stateId: string) {

@@ -65,6 +65,7 @@ import {
   type ReviewAnswerResponse,
   type ReviewOrderMode,
   type ReviewQueueItem,
+  type ReviewSessionSummaryDto,
   type SearchResponseDto,
   type SelectCurrentCourseRequestDto,
   type StartLessonSessionResponse,
@@ -125,6 +126,7 @@ export type StartReviewSessionResponse = {
 
 export type FinishReviewSessionResponse = {
   readonly session: ReviewSessionDto & { readonly finishedAt: string };
+  readonly summary: ReviewSessionSummaryDto;
 };
 
 export type AddPrivateAcceptedAnswerInput = {

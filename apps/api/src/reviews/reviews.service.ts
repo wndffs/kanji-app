@@ -4,6 +4,7 @@ import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese"
 import {
   calculateNextReview,
   type ReviewResult as SrsReviewResult,
+  type SchedulingResult,
   type SrsStage,
   type UserSrsStateSnapshot,
 } from "@kanji-srs/srs";
@@ -18,6 +19,7 @@ import {
   type ReviewAnswerResultType,
   type ReviewOrderMode,
   type ReviewQueueItem,
+  type ReviewSrsTransition,
   type SrsStateSummaryDto,
   isReviewOrderMode,
 } from "@kanji-srs/shared";
@@ -190,6 +192,7 @@ export class ReviewsService {
         },
         previousSrs: srs,
         nextSrs: srs,
+        srsTransition: "unchanged",
       };
     }
 
@@ -208,6 +211,7 @@ export class ReviewsService {
         },
       },
     });
+    const srsTransition = toReviewSrsTransition(scheduling.details.action);
 
     await this.reviewsRepository.recordReviewAnswer({
       userId: user.id,
@@ -221,6 +225,7 @@ export class ReviewsService {
       responseResult,
       previousStageIndex: scheduling.previousStage.stageIndex,
       nextStageIndex: scheduling.nextStage.stageIndex,
+      srsTransition,
       nextState: {
         stageIndex: scheduling.nextState.stageIndex,
         availableAt: scheduling.nextState.availableAt,
@@ -276,6 +281,7 @@ export class ReviewsService {
         },
         target.stages,
       ),
+      srsTransition,
     };
   }
 
@@ -283,24 +289,40 @@ export class ReviewsService {
     sessionId: string,
     user: CurrentUserDto,
   ): Promise<FinishReviewSessionResponse> {
-    const session = await this.reviewsRepository.finishReviewSession(
+    const finished = await this.reviewsRepository.finishReviewSession(
       user.id,
       sessionId,
       new Date(),
     );
 
-    if (session === null || session.finishedAt === null) {
+    if (finished === null || finished.session.finishedAt === null) {
       throw new NotFoundException("Active review session not found.");
     }
 
     return {
       session: {
-        id: session.id,
-        startedAt: session.startedAt.toISOString(),
-        finishedAt: session.finishedAt.toISOString(),
-        mode: session.mode,
+        id: finished.session.id,
+        startedAt: finished.session.startedAt.toISOString(),
+        finishedAt: finished.session.finishedAt.toISOString(),
+        mode: finished.session.mode,
       },
+      summary: finished.summary,
     };
+  }
+}
+
+function toReviewSrsTransition(
+  action: SchedulingResult["details"]["action"],
+): ReviewSrsTransition {
+  switch (action) {
+    case "advanced":
+      return "advanced";
+    case "demoted":
+      return "demoted";
+    case "burned":
+      return "burned";
+    default:
+      return "unchanged";
   }
 }
 

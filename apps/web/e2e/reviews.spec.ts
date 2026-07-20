@@ -4,6 +4,7 @@ import {
   type ContentLocale,
   type ReviewAnswerResponse,
   type ReviewQueueItem,
+  type ReviewSessionSummaryDto,
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
@@ -35,11 +36,14 @@ test.describe("review session", () => {
     await expect(
       page.getByRole("list", { name: "Правильные ответы" }).getByText("солнце", { exact: true }),
     ).toBeVisible();
+    await expect(page.getByText(/Повышение ·/)).toBeVisible();
 
     await page.keyboard.press("Enter");
 
     await expect(page.getByText("Сессия завершена.")).toBeVisible();
     await expect(page.getByText("Ответов")).toBeVisible();
+    await expect(page.getByText("100%")).toBeVisible();
+    await expect(page.getByText("Повышено")).toBeVisible();
   });
 
   test("shows feedback for a wrong answer", async ({ page }) => {
@@ -282,6 +286,7 @@ async function mockReviewApi(
   let queueRequests = 0;
   let reviewOrderMode = "shuffled";
   let savedSettings: unknown = null;
+  const completedAnswers: ReviewAnswerResponse[] = [];
 
   await page.route(`${API_BASE_URL}/reviews/queue`, async (route) => {
     queueRequests += 1;
@@ -352,10 +357,15 @@ async function mockReviewApi(
       item,
       result: accepted ? "correct" : "wrong",
     });
+    const isRetry = answer === "ひと";
+
+    if (!isRetry) {
+      completedAnswers.push(response);
+    }
 
     await route.fulfill({
       json:
-        answer === "ひと"
+        isRetry
           ? {
               ...response,
               retry: true,
@@ -379,6 +389,7 @@ async function mockReviewApi(
           finishedAt: "2026-06-22T08:02:00.000Z",
           mode: "review",
         },
+        summary: createSessionSummary(completedAnswers),
       },
     });
   });
@@ -544,6 +555,28 @@ function createAnswerResponse({
       wrongCount: accepted ? 0 : 1,
       correctStreak: accepted ? 1 : 0,
     },
+    srsTransition: accepted ? "advanced" : "unchanged",
+  };
+}
+
+function createSessionSummary(
+  answers: readonly ReviewAnswerResponse[],
+): ReviewSessionSummaryDto {
+  const correctAnswers = answers.filter((answer) => answer.accepted).length;
+  const incorrectAnswers = answers.length - correctAnswers;
+
+  return {
+    totalAnswers: answers.length,
+    correctAnswers,
+    incorrectAnswers,
+    ignoredAnswers: 0,
+    accuracyPercent:
+      answers.length === 0 ? null : Math.round((correctAnswers / answers.length) * 100),
+    advanced: answers.filter((answer) => answer.srsTransition === "advanced").length,
+    unchanged: answers.filter((answer) => answer.srsTransition === "unchanged").length,
+    demoted: answers.filter((answer) => answer.srsTransition === "demoted").length,
+    burned: answers.filter((answer) => answer.srsTransition === "burned").length,
+    durationSeconds: 120,
   };
 }
 

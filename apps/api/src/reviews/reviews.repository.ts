@@ -1,10 +1,17 @@
 import { Inject, Injectable } from "@nestjs/common";
 
 import { type Prisma } from "@kanji-srs/db";
-import { type ContentLocale, type PracticeSource } from "@kanji-srs/shared";
+import {
+  type ContentLocale,
+  type PracticeSource,
+  type ReviewSrsTransition,
+} from "@kanji-srs/shared";
+import { type ReviewResult as SrsReviewResult } from "@kanji-srs/srs";
 
 import { PrismaService } from "../database/prisma.service";
+import { buildReviewSessionSummary } from "./review-summary";
 import {
+  type FinishedReviewSessionRecord,
   type RecordReviewAnswerInput,
   type ReviewAnswerRecord,
   type ReviewAnswerTargetRecord,
@@ -41,7 +48,7 @@ export abstract class ReviewsRepository {
     userId: string,
     sessionId: string,
     now: Date,
-  ): Promise<ReviewSessionRecord | null>;
+  ): Promise<FinishedReviewSessionRecord | null>;
 }
 
 type UserSrsStateRow = {
@@ -114,6 +121,13 @@ type ReviewSessionRow = {
 
 type ReviewAnswerWithStateRow = {
   readonly userSrsState: UserSrsStateRow;
+};
+
+type ReviewAnswerSummaryRow = {
+  readonly result: string;
+  readonly previousStageIndex: number | null;
+  readonly nextStageIndex: number | null;
+  readonly detailsJson: unknown;
 };
 
 type ComponentTargetRow = {
@@ -370,27 +384,59 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     userId: string,
     sessionId: string,
     now: Date,
-  ): Promise<ReviewSessionRecord | null> {
-    const result = await this.prisma.db.reviewSession.updateMany({
-      where: {
-        id: sessionId,
-        userId,
-        finishedAt: null,
-      },
-      data: {
+  ): Promise<FinishedReviewSessionRecord | null> {
+    return this.prisma.db.$transaction(async (tx) => {
+      const session = (await tx.reviewSession.findFirst({
+        where: {
+          id: sessionId,
+          userId,
+          finishedAt: null,
+        },
+      })) as ReviewSessionRow | null;
+
+      if (session === null) {
+        return null;
+      }
+
+      const answers = (await tx.reviewAnswer.findMany({
+        where: { reviewSessionId: sessionId },
+        select: {
+          result: true,
+          previousStageIndex: true,
+          nextStageIndex: true,
+          detailsJson: true,
+        },
+        orderBy: [{ answeredAt: "asc" }, { id: "asc" }],
+      })) as readonly ReviewAnswerSummaryRow[];
+      const summary = buildReviewSessionSummary({
+        answers: answers.map((answer) => ({
+          result: toSrsReviewResult(answer.result),
+          srsTransition: toPersistedSrsTransition(answer),
+        })),
+        startedAt: session.startedAt,
         finishedAt: now,
-      },
+      });
+      const result = await tx.reviewSession.updateMany({
+        where: {
+          id: sessionId,
+          userId,
+          finishedAt: null,
+        },
+        data: {
+          finishedAt: now,
+          statsJson: { ...summary } as Prisma.InputJsonObject,
+        },
+      });
+
+      if (result.count === 0) {
+        return null;
+      }
+
+      return {
+        session: toSessionRecord({ ...session, finishedAt: now }),
+        summary,
+      };
     });
-
-    if (result.count === 0) {
-      return null;
-    }
-
-    const session = (await this.prisma.db.reviewSession.findUnique({
-      where: { id: sessionId },
-    })) as ReviewSessionRow | null;
-
-    return session === null ? null : toSessionRecord(session);
   }
 
   private async toQueueRecord(state: UserSrsStateRow): Promise<ReviewQueueRecord> {
@@ -655,6 +701,51 @@ function toPrismaReviewResult(result: RecordReviewAnswerInput["recordedResult"])
     default:
       return "WRONG";
   }
+}
+
+function toSrsReviewResult(result: string): SrsReviewResult {
+  switch (result) {
+    case "CORRECT":
+      return "correct";
+    case "TYPO":
+      return "typo";
+    case "REVEAL":
+      return "reveal";
+    case "MANUAL_IGNORE":
+      return "manual-ignore";
+    case "RESURRECT":
+      return "resurrect";
+    default:
+      return "wrong";
+  }
+}
+
+function toPersistedSrsTransition(row: ReviewAnswerSummaryRow): ReviewSrsTransition {
+  const scheduling = isRecord(row.detailsJson) ? row.detailsJson.scheduling : null;
+  const action = isRecord(scheduling) ? scheduling.action : null;
+
+  switch (action) {
+    case "advanced":
+      return "advanced";
+    case "demoted":
+      return "demoted";
+    case "burned":
+      return "burned";
+  }
+
+  if (
+    row.previousStageIndex !== null &&
+    row.nextStageIndex !== null &&
+    row.nextStageIndex !== row.previousStageIndex
+  ) {
+    return row.nextStageIndex > row.previousStageIndex ? "advanced" : "demoted";
+  }
+
+  return "unchanged";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function formatJlptLevel(value: number | null): string | null {
