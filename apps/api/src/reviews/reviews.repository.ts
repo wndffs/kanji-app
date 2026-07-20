@@ -20,6 +20,7 @@ import {
   type ReviewBlockedAnswerRecord,
   type ReviewCardRecord,
   type ReviewQueueRecord,
+  type ResumablePracticeSource,
   type ReviewSessionRecord,
   type ReviewSrsStateRecord,
   type ReviewTargetRecord,
@@ -43,9 +44,14 @@ export abstract class ReviewsRepository {
     cardIds: readonly string[],
   ): Promise<readonly ReviewQueueRecord[]>;
   abstract findPracticeCard(userId: string, cardId: string): Promise<ReviewQueueRecord | null>;
+  abstract findPublicPracticeCard(cardId: string): Promise<ReviewCardRecord | null>;
+  abstract listPublicPracticeCardsByIds(
+    cardIds: readonly string[],
+  ): Promise<readonly ReviewCardRecord[]>;
   abstract findActivePracticeSession(
     userId: string,
-    source: PracticeSource,
+    source: ResumablePracticeSource,
+    contextId?: string,
   ): Promise<PracticeSessionRecord | null>;
   abstract findPracticeSession(
     userId: string,
@@ -56,6 +62,11 @@ export abstract class ReviewsRepository {
     input: UpdatePracticeSessionProgressInput,
   ): Promise<PracticeSessionRecord | null>;
   abstract finishPracticeSession(
+    userId: string,
+    sessionId: string,
+    now: Date,
+  ): Promise<PracticeSessionRecord | null>;
+  abstract abandonPracticeSession(
     userId: string,
     sessionId: string,
     now: Date,
@@ -268,6 +279,40 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     return state === null ? null : this.toQueueRecord(state);
   }
 
+  async findPublicPracticeCard(cardId: string): Promise<ReviewCardRecord | null> {
+    return (await this.listPublicPracticeCardsByIds([cardId]))[0] ?? null;
+  }
+
+  async listPublicPracticeCardsByIds(
+    cardIds: readonly string[],
+  ): Promise<readonly ReviewCardRecord[]> {
+    if (cardIds.length === 0) {
+      return [];
+    }
+
+    const cards = (await this.prisma.db.learningCard.findMany({
+      where: {
+        id: { in: [...cardIds] },
+        cardType: "REVIEW",
+        learningItem: { status: "PUBLISHED", targetType: "KANJI" },
+      },
+      include: {
+        learningItem: true,
+        answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] },
+        blockedAnswers: { orderBy: { text: "asc" } },
+      },
+    })) as readonly LearningCardRow[];
+    const cardById = new Map(cards.map((card) => [card.id, card]));
+    const ordered = cardIds.flatMap((cardId) => {
+      const card = cardById.get(cardId);
+      return card === undefined ? [] : [card];
+    });
+
+    return Promise.all(
+      ordered.map(async (card) => toCardRecord(card, await this.findTarget(card.learningItem))),
+    );
+  }
+
   async listPracticeCardsByIds(
     userId: string,
     cardIds: readonly string[],
@@ -294,7 +339,8 @@ export class PrismaReviewsRepository extends ReviewsRepository {
 
   async findActivePracticeSession(
     userId: string,
-    source: PracticeSource,
+    source: ResumablePracticeSource,
+    contextId?: string,
   ): Promise<PracticeSessionRecord | null> {
     const rows = (await this.prisma.db.reviewSession.findMany({
       where: {
@@ -303,13 +349,15 @@ export class PrismaReviewsRepository extends ReviewsRepository {
         finishedAt: null,
       },
       orderBy: [{ startedAt: "desc" }, { id: "desc" }],
-      take: 10,
     })) as readonly ReviewSessionRow[];
 
     for (const row of rows) {
       const session = toPracticeSessionRecord(row);
 
-      if (session?.source === source) {
+      if (
+        session?.source === source &&
+        (contextId === undefined || session.contextId === contextId)
+      ) {
         return session;
       }
     }
@@ -341,6 +389,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
         mode: "EXTRA_PRACTICE",
         statsJson: toPracticeSessionStats({
           source: input.source,
+          contextId: input.contextId ?? null,
           cardIds: input.cardIds,
           currentIndex: 0,
           progress: { answered: 0, accepted: 0, missed: 0 },
@@ -431,6 +480,42 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       data: {
         finishedAt: now,
         statsJson: toPracticeSessionStats(active, "completed"),
+      },
+    });
+
+    return updated.count === 0 ? null : { ...active, finishedAt: now };
+  }
+
+  async abandonPracticeSession(
+    userId: string,
+    sessionId: string,
+    now: Date,
+  ): Promise<PracticeSessionRecord | null> {
+    const row = (await this.prisma.db.reviewSession.findFirst({
+      where: {
+        id: sessionId,
+        userId,
+        mode: "EXTRA_PRACTICE",
+        finishedAt: null,
+      },
+    })) as ReviewSessionRow | null;
+    const active = row === null ? null : toPracticeSessionRecord(row);
+
+    if (active === null) {
+      return null;
+    }
+
+    const updated = await this.prisma.db.reviewSession.updateMany({
+      where: {
+        id: sessionId,
+        userId,
+        mode: "EXTRA_PRACTICE",
+        finishedAt: null,
+        statsJson: { equals: toPracticeSessionStats(active) },
+      },
+      data: {
+        finishedAt: now,
+        statsJson: toPracticeSessionStats(active, "abandoned"),
       },
     });
 
@@ -1074,6 +1159,7 @@ function toPracticeSessionRecord(row: ReviewSessionRow): PracticeSessionRecord |
     startedAt: row.startedAt,
     finishedAt: row.finishedAt,
     source,
+    contextId: typeof stats?.contextId === "string" ? stats.contextId : null,
     cardIds,
     currentIndex: Math.min(readNonNegativeInteger(stats?.currentIndex), cardIds.length),
     progress: {
@@ -1085,11 +1171,15 @@ function toPracticeSessionRecord(row: ReviewSessionRow): PracticeSessionRecord |
 }
 
 function toPracticeSessionStats(
-  input: Pick<PracticeSessionRecord, "source" | "cardIds" | "currentIndex" | "progress">,
-  outcome: "active" | "completed" = "active",
+  input: Pick<
+    PracticeSessionRecord,
+    "source" | "contextId" | "cardIds" | "currentIndex" | "progress"
+  >,
+  outcome: "active" | "completed" | "abandoned" = "active",
 ): Prisma.InputJsonObject {
   return {
     source: input.source,
+    contextId: input.contextId,
     cardIds: [...input.cardIds],
     currentIndex: input.currentIndex,
     progress: {
@@ -1101,11 +1191,12 @@ function toPracticeSessionStats(
   };
 }
 
-function toPracticeSource(value: unknown): PracticeSource | null {
+function toPracticeSource(value: unknown): ResumablePracticeSource | null {
   switch (value) {
     case "recent-lessons":
     case "recent-mistakes":
     case "burned":
+    case "confusable-kanji":
       return value;
     default:
       return null;

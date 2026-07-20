@@ -6,6 +6,17 @@ import { describe, expect, it } from "vitest";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const schema = readFileSync(join(currentDir, "..", "prisma", "schema.prisma"), "utf8");
+const confusableMigration = readFileSync(
+  join(
+    currentDir,
+    "..",
+    "prisma",
+    "migrations",
+    "20260720230000_add_confusable_kanji_practice",
+    "migration.sql",
+  ),
+  "utf8",
+);
 
 describe("Prisma schema", () => {
   it("defines the required data-model layers", () => {
@@ -46,6 +57,7 @@ describe("Prisma schema", () => {
       "ReviewSession",
       "ReviewAnswer",
       "UserKanaProgress",
+      "KanjiConfusablePair",
     ];
 
     for (const model of requiredModels) {
@@ -116,6 +128,21 @@ describe("Prisma schema", () => {
     expect(schema).toContain("model UserKanaProgress");
     expect(schema).toContain("@@unique([userId, character])");
     expect(schema).toContain("@@index([userId, script, masteredAt])");
+  });
+
+  it("stores curated confusable kanji pairs with explicit approval", () => {
+    expect(schema).toContain("model KanjiConfusablePair ");
+    expect(schema).toMatch(/visual\s+Boolean\s+@default\(false\)/u);
+    expect(schema).toMatch(/semantic\s+Boolean\s+@default\(false\)/u);
+    expect(schema).toMatch(/sourceKind\s+ContentSourceKind\s+@default\(PROJECT_AUTHORED\)/u);
+    expect(schema).toMatch(/approvedByUserId\s+String\?/u);
+    expect(schema).toMatch(/approvedAt\s+DateTime\?/u);
+    expect(schema).toContain("@@unique([leftKanjiId, rightKanjiId])");
+    expect(schema).toContain("@@index([status, strength])");
+    expect(confusableMigration).toContain('CHECK ("visual" OR "semantic")');
+    expect(confusableMigration).toContain("CHECK (\"sourceKind\" = 'PROJECT_AUTHORED')");
+    expect(confusableMigration).toContain("\"status\" <> 'PUBLISHED'");
+    expect(confusableMigration).toContain('"approvedByUserId" IS NOT NULL');
   });
 
   it("models structured course bands through N2", () => {

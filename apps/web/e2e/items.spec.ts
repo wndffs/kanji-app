@@ -175,6 +175,10 @@ async function mockItemApi(page: Page): Promise<void> {
   const privateOverrides: UserOverrideDto[] = [];
   let privateMnemonic: UserMnemonicDto | null = null;
 
+  await page.route(`${API_BASE_URL}/confusables?itemId=*`, async (route) => {
+    await route.fulfill({ json: { pairs: [] } });
+  });
+
   await page.route(`${API_BASE_URL}/items/${ITEM_ID}`, async (route) => {
     await route.fulfill({
       json: buildItemDetails(privateOverrides, privateMnemonic),

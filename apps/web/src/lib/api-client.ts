@@ -8,6 +8,9 @@ import {
   type AdminCoursePlacementListResponse,
   type AdminCourseAllocationPreviewResponse,
   type AdminCurationItemDto,
+  type AdminConfusablePairDto,
+  type AdminConfusablePairListResponse,
+  type AdminCreateConfusablePairRequest,
   type AdminCurriculumCandidatePlanResponse,
   type AdminCurriculumCompletenessReportDto,
   type AdminCurriculumScaleReadinessDto,
@@ -29,10 +32,12 @@ import {
   type AdminReviewQueueFilters,
   type AdminReviewQueueResponse,
   type AdminUpdateCardAnswersRequest,
+  type AdminUpdateConfusablePairRequest,
   type AdminUpdateCoursePlacementsRequest,
   type AdminUpdateItemRequest,
   type AdminUpdatePrerequisitesRequest,
   type ActiveLessonSessionResponse,
+  type ActiveConfusablePracticeSessionResponse,
   type ActivePracticeSessionResponse,
   type AppLocale,
   type CardAnswerType,
@@ -45,9 +50,13 @@ import {
   type DashboardDto,
   type DashboardWidgetPreferenceDto,
   type CompleteLessonItemResponse,
+  type ConfusablePairListResponse,
+  type ConfusablePracticeAnswerResponse,
+  type ConfusablePracticeSessionResponse,
   type CreateTextDeckRequest,
   type CreateTextDeckResponse,
   type FinishLessonSessionResponse,
+  type FinishConfusablePracticeSessionResponse,
   type FinishPracticeSessionResponse,
   type ItemDetails,
   type ItemReviewHistoryPageDto,
@@ -631,6 +640,103 @@ export function getItemReviewHistory(
   return apiRequest<ItemReviewHistoryPageDto>(
     `/items/${encodeURIComponent(id)}/history?${params.toString()}`,
     { token },
+  );
+}
+
+export function getConfusablePairs(
+  token: string,
+  itemId?: string,
+): Promise<ConfusablePairListResponse> {
+  const query = itemId === undefined ? "" : `?${new URLSearchParams({ itemId }).toString()}`;
+
+  return apiRequest<ConfusablePairListResponse>(`/confusables${query}`, { token });
+}
+
+export function getActiveConfusablePracticeSession(
+  token: string,
+  pairId: string,
+): Promise<ActiveConfusablePracticeSessionResponse> {
+  return apiRequest<ActiveConfusablePracticeSessionResponse>(
+    `/confusables/${encodeURIComponent(pairId)}/session`,
+    { token },
+  );
+}
+
+export function startConfusablePracticeSession(
+  token: string,
+  pairId: string,
+): Promise<ConfusablePracticeSessionResponse> {
+  return apiRequest<ConfusablePracticeSessionResponse>(
+    `/confusables/${encodeURIComponent(pairId)}/session`,
+    { method: "POST", token },
+  );
+}
+
+export function submitConfusablePracticeAnswer(
+  token: string,
+  sessionId: string,
+  request: PracticeAnswerRequest,
+): Promise<ConfusablePracticeAnswerResponse> {
+  return apiRequest<ConfusablePracticeAnswerResponse>(
+    `/confusables/sessions/${encodeURIComponent(sessionId)}/answer`,
+    { method: "POST", token, body: request },
+  );
+}
+
+export function finishConfusablePracticeSession(
+  token: string,
+  sessionId: string,
+): Promise<FinishConfusablePracticeSessionResponse> {
+  return apiRequest<FinishConfusablePracticeSessionResponse>(
+    `/confusables/sessions/${encodeURIComponent(sessionId)}/finish`,
+    { method: "POST", token },
+  );
+}
+
+export function abandonConfusablePracticeSession(
+  token: string,
+  sessionId: string,
+): Promise<FinishConfusablePracticeSessionResponse> {
+  return apiRequest<FinishConfusablePracticeSessionResponse>(
+    `/confusables/sessions/${encodeURIComponent(sessionId)}/abandon`,
+    { method: "POST", token },
+  );
+}
+
+export function getAdminConfusablePairs(token: string): Promise<AdminConfusablePairListResponse> {
+  return apiRequest<AdminConfusablePairListResponse>("/admin/confusables", { token });
+}
+
+export function createAdminConfusablePair(
+  token: string,
+  request: AdminCreateConfusablePairRequest,
+): Promise<AdminConfusablePairDto> {
+  return apiRequest<AdminConfusablePairDto>("/admin/confusables", {
+    method: "POST",
+    token,
+    body: request,
+  });
+}
+
+export function updateAdminConfusablePair(
+  token: string,
+  id: string,
+  request: AdminUpdateConfusablePairRequest,
+): Promise<AdminConfusablePairDto> {
+  return apiRequest<AdminConfusablePairDto>(`/admin/confusables/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    token,
+    body: request,
+  });
+}
+
+export function publishAdminConfusablePair(
+  token: string,
+  id: string,
+): Promise<AdminConfusablePairDto> {
+  return apiRequest<AdminConfusablePairDto>(
+    `/admin/confusables/${encodeURIComponent(id)}/publish`,
+    { method: "POST", token },
   );
 }
 

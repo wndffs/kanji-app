@@ -3,6 +3,7 @@ import { Module, type MiddlewareConsumer, type NestModule } from "@nestjs/common
 import { AdminModule } from "./admin/admin.module";
 import { AuthModule } from "./auth/auth.module";
 import { AppConfigModule } from "./config/app-config.module";
+import { ConfusablesModule } from "./confusables/confusables.module";
 import { CoursesModule } from "./courses/courses.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { DatabaseModule } from "./database/database.module";
@@ -25,6 +26,7 @@ import { UsersModule } from "./users/users.module";
     AuthModule,
     UsersModule,
     CoursesModule,
+    ConfusablesModule,
     AdminModule,
     ItemsModule,
     KanaModule,

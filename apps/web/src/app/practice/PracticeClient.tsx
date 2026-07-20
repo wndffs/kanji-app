@@ -82,10 +82,7 @@ export function PracticeClient({
         getActivePracticeSession(storedSession.token, source),
       ]);
 
-      if (
-        active.session !== null &&
-        active.session.currentIndex >= active.session.totalItems
-      ) {
+      if (active.session !== null && active.session.currentIndex >= active.session.totalItems) {
         const finished = await finishPracticeSession(storedSession.token, active.session.id);
         setQueueState({ status: "ready", token: storedSession.token, items: queue.items });
         setFinishedSummary(finished.summary);
@@ -164,9 +161,7 @@ export function PracticeClient({
       setFinishedSummary(null);
     } catch (requestError: unknown) {
       setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Не удалось начать практику.",
+        requestError instanceof Error ? requestError.message : "Не удалось начать практику.",
       );
     } finally {
       setIsStarting(false);
@@ -191,15 +186,11 @@ export function PracticeClient({
     setError(null);
 
     try {
-      const response = await submitPracticeAnswer(
-        queueState.token,
-        practiceSession.id,
-        {
-          cardId: currentItem.card.id,
-          answer: answer.trim(),
-          answerType: currentItem.card.answerType,
-        },
-      );
+      const response = await submitPracticeAnswer(queueState.token, practiceSession.id, {
+        cardId: currentItem.card.id,
+        answer: answer.trim(),
+        answerType: currentItem.card.answerType,
+      });
       setFeedback(response.answer);
       setPracticeSession(response.session);
       setProgress(response.session.progress);
@@ -244,9 +235,7 @@ export function PracticeClient({
         setAnswer("");
       } catch (requestError: unknown) {
         setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Не удалось завершить практику.",
+          requestError instanceof Error ? requestError.message : "Не удалось завершить практику.",
         );
       } finally {
         setIsContinuing(false);
@@ -330,6 +319,11 @@ export function PracticeClient({
         </div>
 
         <PracticeSourceControl source={source} onChange={handleSourceChange} />
+        <div>
+          <Link className="secondary-action" href="/practice/confusables">
+            Похожие кандзи
+          </Link>
+        </div>
 
         {error === null ? null : (
           <p className="form-error" role="alert">
@@ -450,11 +444,7 @@ export function PracticeClient({
               ref={continueButtonRef}
               type="button"
             >
-              {isContinuing
-                ? "Завершаю..."
-                : feedback.retry
-                  ? "Ответить снова"
-                  : "Дальше"}
+              {isContinuing ? "Завершаю..." : feedback.retry ? "Ответить снова" : "Дальше"}
             </button>
           </div>
           <div className="feedback-grid">

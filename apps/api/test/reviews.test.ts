@@ -537,6 +537,28 @@ describe("ReviewsService", () => {
       }),
     ).rejects.toThrow("Активная сессия практики не найдена.");
   });
+
+  it("does not let generic practice endpoints finish a confusable session", async () => {
+    const { repository, service } = createHarness();
+    const session = await repository.createPracticeSession({
+      userId: "owner",
+      now: NOW,
+      source: "confusable-kanji",
+      contextId: "pair-one-two",
+      cardIds: ["card-burned"],
+    });
+
+    await repository.updatePracticeSessionProgress({
+      userId: "owner",
+      sessionId: session.id,
+      currentIndex: 1,
+      progress: { answered: 1, accepted: 1, missed: 0 },
+    });
+
+    await expect(service.finishPracticeSession(session.id, createUser("owner"))).rejects.toThrow(
+      "Активная сессия практики не найдена.",
+    );
+  });
 });
 
 describe("PrismaReviewsRepository course progress events", () => {
@@ -734,6 +756,17 @@ class InMemoryReviewsRepository extends ReviewsRepository {
     );
   }
 
+  async findPublicPracticeCard(cardId: string) {
+    return this.cards.get(cardId) ?? null;
+  }
+
+  async listPublicPracticeCardsByIds(cardIds: readonly string[]) {
+    return cardIds.flatMap((cardId) => {
+      const card = this.cards.get(cardId);
+      return card === undefined ? [] : [card];
+    });
+  }
+
   async listPracticeCardsByIds(
     userId: string,
     cardIds: readonly string[],
@@ -753,11 +786,15 @@ class InMemoryReviewsRepository extends ReviewsRepository {
   async findActivePracticeSession(
     userId: string,
     source: PracticeSessionRecord["source"],
+    contextId?: string,
   ): Promise<PracticeSessionRecord | null> {
     return (
       [...this.practiceSessions.values()].find(
         (session) =>
-          session.userId === userId && session.source === source && session.finishedAt === null,
+          session.userId === userId &&
+          session.source === source &&
+          (contextId === undefined || session.contextId === contextId) &&
+          session.finishedAt === null,
       ) ?? null
     );
   }
@@ -778,6 +815,7 @@ class InMemoryReviewsRepository extends ReviewsRepository {
       startedAt: input.now,
       finishedAt: null,
       source: input.source,
+      contextId: input.contextId ?? null,
       cardIds: input.cardIds,
       currentIndex: 0,
       progress: { answered: 0, accepted: 0, missed: 0 },
@@ -813,6 +851,22 @@ class InMemoryReviewsRepository extends ReviewsRepository {
     const session = await this.findPracticeSession(userId, sessionId);
 
     if (session === null || session.currentIndex < session.cardIds.length) {
+      return null;
+    }
+
+    const finished = { ...session, finishedAt: now };
+    this.practiceSessions.set(session.id, finished);
+    return finished;
+  }
+
+  async abandonPracticeSession(
+    userId: string,
+    sessionId: string,
+    now: Date,
+  ): Promise<PracticeSessionRecord | null> {
+    const session = await this.findPracticeSession(userId, sessionId);
+
+    if (session === null) {
       return null;
     }
 

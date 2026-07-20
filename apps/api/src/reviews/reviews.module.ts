@@ -17,5 +17,6 @@ import { ReviewsService } from "./reviews.service";
       useClass: PrismaReviewsRepository,
     },
   ],
+  exports: [ReviewsRepository],
 })
 export class ReviewsModule {}

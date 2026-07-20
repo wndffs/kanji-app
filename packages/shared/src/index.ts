@@ -456,6 +456,118 @@ export type FinishPracticeSessionResponse = {
   readonly summary: PracticeProgressDto;
 };
 
+export const CONFUSABLE_RELATION_KINDS = ["visual", "semantic"] as const;
+export type ConfusableRelationKind = (typeof CONFUSABLE_RELATION_KINDS)[number];
+
+export type ConfusableKanjiRefDto = {
+  readonly itemId: string;
+  readonly character: string;
+  readonly level: number | null;
+  readonly jlptLevel: string | null;
+};
+
+export type ConfusablePairSummaryDto = {
+  readonly id: string;
+  readonly kinds: readonly ConfusableRelationKind[];
+  readonly strength: number;
+  readonly recentWrongCount: number;
+  readonly kanji: readonly [ConfusableKanjiRefDto, ConfusableKanjiRefDto];
+};
+
+export type ConfusablePairListResponse = {
+  readonly pairs: readonly ConfusablePairSummaryDto[];
+};
+
+export type ConfusableRelatedItemDto = {
+  readonly id: string;
+  readonly japanese: string;
+  readonly reading: string | null;
+  readonly translations: TranslationBundleDto;
+};
+
+export type ConfusableComparisonKanjiDto = ConfusableKanjiRefDto & {
+  readonly meanings: TranslationBundleDto;
+  readonly readings: readonly string[];
+  readonly components: readonly ConfusableRelatedItemDto[];
+  readonly vocabulary: readonly ConfusableRelatedItemDto[];
+};
+
+export type ConfusableComparisonDto = {
+  readonly pairId: string;
+  readonly kinds: readonly ConfusableRelationKind[];
+  readonly explanation: TranslationBundleDto;
+  readonly kanji: readonly [ConfusableComparisonKanjiDto, ConfusableComparisonKanjiDto];
+  readonly source: {
+    readonly sourceKind: "curated";
+    readonly sourceNote: string;
+  };
+};
+
+export type ConfusablePracticeSessionDto = {
+  readonly id: string;
+  readonly pairId: string;
+  readonly startedAt: string;
+  readonly currentIndex: number;
+  readonly totalItems: number;
+  readonly progress: PracticeProgressDto;
+};
+
+export type ConfusablePracticeSessionResponse = {
+  readonly pair: ConfusablePairSummaryDto;
+  readonly session: ConfusablePracticeSessionDto;
+  readonly cards: readonly ReviewQueueCardDto[];
+};
+
+export type ActiveConfusablePracticeSessionResponse = {
+  readonly pair: ConfusablePairSummaryDto;
+  readonly session: ConfusablePracticeSessionDto | null;
+  readonly cards: readonly ReviewQueueCardDto[];
+};
+
+export type ConfusablePracticeAnswerResponse = {
+  readonly answer: PracticeAnswerResponse;
+  readonly session: ConfusablePracticeSessionDto;
+  readonly comparison: ConfusableComparisonDto;
+};
+
+export type FinishConfusablePracticeSessionResponse = {
+  readonly session: ConfusablePracticeSessionDto & {
+    readonly finishedAt: string;
+  };
+  readonly summary: PracticeProgressDto;
+};
+
+export type AdminConfusablePairDto = ConfusablePairSummaryDto & {
+  readonly status: AdminContentStatus;
+  readonly explanationRu: string | null;
+  readonly explanationEn: string | null;
+  readonly sourceNote: string;
+  readonly createdByUserId: string;
+  readonly approvedByUserId: string | null;
+  readonly approvedAt: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+};
+
+export type AdminConfusablePairListResponse = {
+  readonly pairs: readonly AdminConfusablePairDto[];
+};
+
+export type AdminCreateConfusablePairRequest = {
+  readonly leftItemId: string;
+  readonly rightItemId: string;
+  readonly kinds: readonly ConfusableRelationKind[];
+  readonly strength: number;
+  readonly explanationRu?: string | null;
+  readonly explanationEn?: string | null;
+  readonly sourceNote: string;
+};
+
+export type AdminUpdateConfusablePairRequest = Omit<
+  AdminCreateConfusablePairRequest,
+  "leftItemId" | "rightItemId"
+>;
+
 export type LessonMnemonicPurpose = "meaning" | "reading" | "story";
 
 export type LessonHintPurpose = "meaning" | "reading" | "usage";

@@ -16,7 +16,6 @@ import {
 } from "@kanji-srs/srs";
 import {
   DEFAULT_TRANSLATION_DISPLAY_MODE,
-  getContentLocalesForDisplayMode,
   type ActivePracticeSessionResponse,
   type FinishPracticeSessionResponse,
   type LocalizedTextDto,
@@ -38,6 +37,12 @@ import {
 import { type CurrentUserDto } from "../auth/auth.types";
 import { OverridesService } from "../overrides/overrides.service";
 import { ReviewsRepository } from "./reviews.repository";
+import {
+  getPracticeBlockedReason,
+  getPracticeFeedbackMessage,
+  toExpectedPracticeAnswers,
+  toPracticeAnswerDiagnostic,
+} from "./practice-answer-feedback";
 import {
   type FinishReviewSessionResponse,
   type ParsedReviewAnswerRequest,
@@ -173,6 +178,8 @@ export class ReviewsService {
       throw new NotFoundException("Активная сессия практики не найдена.");
     }
 
+    assertStandardPracticeSession(session);
+
     const expectedCardId = session.cardIds[session.currentIndex];
 
     if (expectedCardId === undefined) {
@@ -208,10 +215,10 @@ export class ReviewsService {
       matchedAnswer: validation.matchedAnswer,
       retry: validation.relatedAnswer !== undefined && validation.relatedAnswer !== null,
       feedback: {
-        message: getFeedbackMessage(validation.result, validation.relatedAnswer),
-        expected: toExpectedAnswersForDisplay(target, displayMode),
-        blockedReason: getBlockedReason(target, validation.matchedAnswer),
-        diagnostic: toAnswerDiagnostic(validation.relatedAnswer),
+        message: getPracticeFeedbackMessage(validation.result, validation.relatedAnswer),
+        expected: toExpectedPracticeAnswers(target.card, displayMode),
+        blockedReason: getPracticeBlockedReason(target.card, validation.matchedAnswer),
+        diagnostic: toPracticeAnswerDiagnostic(validation.relatedAnswer),
       },
     };
 
@@ -246,6 +253,8 @@ export class ReviewsService {
     if (active === null) {
       throw new NotFoundException("Активная сессия практики не найдена.");
     }
+
+    assertStandardPracticeSession(active);
 
     if (active.currentIndex < active.cardIds.length) {
       throw new BadRequestException("В сессии практики остались карточки без ответа.");
@@ -282,17 +291,13 @@ export class ReviewsService {
           ? addDays(now, -RECENT_MISTAKE_DAYS)
           : new Date(0);
 
-    return this.reviewsRepository.listPracticeCards(
-      userId,
-      source,
-      since,
-      PRACTICE_QUEUE_LIMIT,
-    );
+    return this.reviewsRepository.listPracticeCards(userId, source, since, PRACTICE_QUEUE_LIMIT);
   }
 
   private async toPracticeSessionResponse(
     session: PracticeSessionRecord,
   ): Promise<PracticeSessionResponse> {
+    assertStandardPracticeSession(session);
     const records = await this.reviewsRepository.listPracticeCardsByIds(
       session.userId,
       session.cardIds,
@@ -352,10 +357,10 @@ export class ReviewsService {
         matchedAnswer: null,
         retry: true,
         feedback: {
-          message: getFeedbackMessage("wrong", validation.relatedAnswer),
+          message: getPracticeFeedbackMessage("wrong", validation.relatedAnswer),
           expected: toExpectedAnswers(target),
           blockedReason: null,
-          diagnostic: toAnswerDiagnostic(validation.relatedAnswer),
+          diagnostic: toPracticeAnswerDiagnostic(validation.relatedAnswer),
         },
         previousSrs: srs,
         nextSrs: srs,
@@ -431,10 +436,10 @@ export class ReviewsService {
       matchedAnswer: validation?.matchedAnswer ?? null,
       retry: false,
       feedback: {
-        message: getFeedbackMessage(responseResult, validation?.relatedAnswer),
+        message: getPracticeFeedbackMessage(responseResult, validation?.relatedAnswer),
         expected: toExpectedAnswers(target),
-        blockedReason: getBlockedReason(target, validation?.matchedAnswer ?? null),
-        diagnostic: toAnswerDiagnostic(validation?.relatedAnswer),
+        blockedReason: getPracticeBlockedReason(target.card, validation?.matchedAnswer ?? null),
+        diagnostic: toPracticeAnswerDiagnostic(validation?.relatedAnswer),
       },
       previousSrs: toSrsSummary(target.state, target.stages),
       nextSrs: toSrsSummary(
@@ -486,9 +491,7 @@ function assertScheduledReviewsAvailable(user: CurrentUserDto): void {
   }
 }
 
-function toReviewSrsTransition(
-  action: SchedulingResult["details"]["action"],
-): ReviewSrsTransition {
+function toReviewSrsTransition(action: SchedulingResult["details"]["action"]): ReviewSrsTransition {
   switch (action) {
     case "advanced":
       return "advanced";
@@ -743,6 +746,10 @@ function toSrsSnapshot(state: ReviewSrsStateRecord): UserSrsStateSnapshot {
 }
 
 function toPracticeSessionDto(session: PracticeSessionRecord): PracticeSessionDto {
+  if (session.source === "confusable-kanji") {
+    throw new Error("Confusable practice must use the confusables response mapper.");
+  }
+
   return {
     id: session.id,
     startedAt: session.startedAt.toISOString(),
@@ -751,6 +758,14 @@ function toPracticeSessionDto(session: PracticeSessionRecord): PracticeSessionDt
     totalItems: session.cardIds.length,
     progress: session.progress,
   };
+}
+
+function assertStandardPracticeSession(
+  session: PracticeSessionRecord,
+): asserts session is PracticeSessionRecord & { readonly source: PracticeSource } {
+  if (session.source === "confusable-kanji") {
+    throw new NotFoundException("Активная сессия практики не найдена.");
+  }
 }
 
 function toSrsSummary(
@@ -779,57 +794,6 @@ function toExpectedAnswers(target: ReviewAnswerTargetRecord): readonly Localized
     isPrimary: answer.isPrimary,
     sourceKind: answer.sourceKind,
   }));
-}
-
-function toExpectedAnswersForDisplay(
-  target: ReviewQueueRecord,
-  displayMode: CurrentUserDto["settings"]["translationDisplayMode"],
-): readonly LocalizedTextDto[] {
-  const locales = getContentLocalesForDisplayMode(displayMode);
-
-  return target.card.acceptedAnswers
-    .filter((answer) => target.card.answerType === "reading" || locales.includes(answer.locale))
-    .map((answer) => ({
-      locale: answer.locale,
-      text: answer.text,
-      isPrimary: answer.isPrimary,
-      sourceKind: answer.sourceKind,
-    }));
-}
-
-function getBlockedReason(target: ReviewQueueRecord, matchedAnswer: string | null): string | null {
-  if (matchedAnswer === null) {
-    return null;
-  }
-
-  return target.card.blockedAnswers.find((answer) => answer.text === matchedAnswer)?.reason ?? null;
-}
-
-function getFeedbackMessage(result: ReviewAnswerResultType, relatedAnswer?: string | null): string {
-  if (result === "wrong" && relatedAnswer !== undefined && relatedAnswer !== null) {
-    return "Это существующее чтение кандзи, но эта карточка ожидает другое чтение.";
-  }
-
-  switch (result) {
-    case "correct":
-      return "Ответ принят.";
-    case "typo":
-      return "Ответ принят как опечатка.";
-    case "blocked":
-      return "Этот ответ специально отклонен для этой карточки.";
-    case "reveal":
-      return "Ответ раскрыт, карточка будет повторяться раньше.";
-    case "manual-ignore":
-      return "Ответ проигнорирован без изменения SRS.";
-    default:
-      return "Ответ не принят.";
-  }
-}
-
-function toAnswerDiagnostic(relatedAnswer?: string | null) {
-  return relatedAnswer === undefined || relatedAnswer === null
-    ? null
-    : ({ kind: "alternative-reading", matchedAnswer: relatedAnswer } as const);
 }
 
 function addDays(date: Date, days: number): Date {

@@ -75,12 +75,15 @@ export type ReviewQueueRecord = {
   readonly stages: readonly SrsStage[];
 };
 
+export type ResumablePracticeSource = PracticeSource | "confusable-kanji";
+
 export type PracticeSessionRecord = {
   readonly id: string;
   readonly userId: string;
   readonly startedAt: Date;
   readonly finishedAt: Date | null;
-  readonly source: PracticeSource;
+  readonly source: ResumablePracticeSource;
+  readonly contextId: string | null;
   readonly cardIds: readonly string[];
   readonly currentIndex: number;
   readonly progress: PracticeProgressDto;
@@ -89,7 +92,8 @@ export type PracticeSessionRecord = {
 export type CreatePracticeSessionInput = {
   readonly userId: string;
   readonly now: Date;
-  readonly source: PracticeSource;
+  readonly source: ResumablePracticeSource;
+  readonly contextId?: string | null;
   readonly cardIds: readonly string[];
 };
 

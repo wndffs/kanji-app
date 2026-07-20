@@ -1649,6 +1649,14 @@ function RecentActivityPanel({
                         <JapaneseText>{record.item.japanese}</JapaneseText>
                       </Link>
                       <small>{formatItemTranslation(record.item)}</small>
+                      {group.key === "mistakes" && record.item.itemType === "kanji" ? (
+                        <Link
+                          className="inline-link recent-confusable-link"
+                          href={`/practice/confusables?itemId=${encodeURIComponent(record.item.id)}`}
+                        >
+                          Сравнить похожие
+                        </Link>
+                      ) : null}
                     </div>
                     <span>{formatRecentActivityMeta(group.meta, record.occurredAt, timezone)}</span>
                   </li>

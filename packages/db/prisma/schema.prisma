@@ -301,11 +301,42 @@ model Kanji {
   meanings                 KanjiMeaning[]
   components               KanjiComponent[]
   strokeGraphic            KanjiStrokeGraphic?
+  confusablePairsAsLeft    KanjiConfusablePair[] @relation("ConfusableLeftKanji")
+  confusablePairsAsRight   KanjiConfusablePair[] @relation("ConfusableRightKanji")
 
   @@index([jlptLevel])
   @@index([frequencyRank])
   @@index([kanjidicSourceId])
   @@index([kanjidicImportedRecordId])
+}
+
+model KanjiConfusablePair {
+  id                String            @id @default(uuid()) @db.Uuid
+  leftKanjiId       String            @db.Uuid
+  rightKanjiId      String            @db.Uuid
+  visual            Boolean           @default(false)
+  semantic          Boolean           @default(false)
+  strength          Int               @default(50)
+  explanationRu     String?
+  explanationEn     String?
+  sourceKind        ContentSourceKind @default(PROJECT_AUTHORED)
+  sourceNote        String
+  status            ContentStatus     @default(DRAFT)
+  createdByUserId   String            @db.Uuid
+  approvedByUserId  String?           @db.Uuid
+  approvedAt        DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  leftKanji         Kanji             @relation("ConfusableLeftKanji", fields: [leftKanjiId], references: [id], onDelete: Cascade)
+  rightKanji        Kanji             @relation("ConfusableRightKanji", fields: [rightKanjiId], references: [id], onDelete: Cascade)
+  createdBy         User              @relation("CreatedConfusablePairs", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  approvedBy        User?             @relation("ApprovedConfusablePairs", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([leftKanjiId, rightKanjiId])
+  @@index([rightKanjiId])
+  @@index([status, strength])
+  @@index([createdByUserId])
+  @@index([approvedByUserId])
 }
 
 model KanjiStrokeGraphic {
@@ -577,6 +608,8 @@ model User {
   candidateRejections    ImportedCandidateRejection[]
   courseLevelCompletions UserCourseLevelCompletion[]
   unlockEvents           UserUnlockEvent[]
+  createdConfusablePairs  KanjiConfusablePair[]         @relation("CreatedConfusablePairs")
+  approvedConfusablePairs KanjiConfusablePair[]         @relation("ApprovedConfusablePairs")
 
   @@index([role])
 }

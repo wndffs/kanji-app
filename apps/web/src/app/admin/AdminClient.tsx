@@ -53,6 +53,7 @@ import { CourseAllocationPanel } from "./CourseAllocationPanel";
 import { CoursePlacementEditor } from "./CoursePlacementEditor";
 import { CoursePublicationReadinessPanel } from "./CoursePublicationReadinessPanel";
 import { CourseEnrollmentRolloutPanel } from "./CourseEnrollmentRolloutPanel";
+import { ConfusablePairsPanel } from "./ConfusablePairsPanel";
 import { PrerequisiteEditor } from "./PrerequisiteEditor";
 
 type AdminState =
@@ -1089,6 +1090,8 @@ export function AdminClient() {
           ))}
         </div>
       </section>
+
+      <ConfusablePairsPanel token={state.token} />
 
       <CurriculumPlanningPanel
         disabled={savingKey !== null}

@@ -6,6 +6,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react
 import {
   getContentLocalesForDisplayMode,
   type CardAnswerType,
+  type ConfusablePairSummaryDto,
   type ContentLocale,
   type ItemDetails,
   type LearningCardDto,
@@ -23,6 +24,7 @@ import {
   deletePrivateMnemonic,
   getItemDetails,
   getItemReviewHistory,
+  getConfusablePairs,
   getKanjiDetails,
   savePrivateMnemonic,
 } from "../../lib/api-client";
@@ -90,6 +92,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
   const [isSavingAcceptedAnswer, setIsSavingAcceptedAnswer] = useState(false);
   const [isSavingMnemonic, setIsSavingMnemonic] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [confusablePairs, setConfusablePairs] = useState<readonly ConfusablePairSummaryDto[]>([]);
 
   const loadItem = useCallback(async () => {
     const storedSession = readStoredSession();
@@ -104,6 +107,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
     setState({ status: "loading" });
     setStatusMessage(null);
     setFormError(null);
+    setConfusablePairs([]);
 
     try {
       const item =
@@ -118,6 +122,13 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
         displayMode,
         timezone,
       });
+      if (token !== null && item.itemType === "kanji") {
+        try {
+          setConfusablePairs((await getConfusablePairs(token, item.id)).pairs);
+        } catch {
+          setConfusablePairs([]);
+        }
+      }
       setAcceptedForm((previous) => resolveAcceptedFormDefaults(previous, item));
       setMnemonicForm((previous) => resolveMnemonicFormDefaults(previous, item, displayMode));
     } catch (error: unknown) {
@@ -424,6 +435,31 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
         </p>
       )}
       {item.srs?.leech?.isCandidate ? <LeechNotice item={item} /> : null}
+      {item.itemType === "kanji" && token !== null ? (
+        <section className="panel item-confusable-panel">
+          <div>
+            <span className="eyebrow">Отдельная практика</span>
+            <h2>Похожие кандзи</h2>
+          </div>
+          <div className="item-confusable-links">
+            {confusablePairs.slice(0, 3).map((pair) => (
+              <Link
+                className="secondary-action"
+                href={`/practice/confusables?pairId=${encodeURIComponent(pair.id)}`}
+                key={pair.id}
+              >
+                {pair.kanji[0].character} / {pair.kanji[1].character}
+              </Link>
+            ))}
+            <Link
+              className={confusablePairs.length === 0 ? "secondary-action" : "inline-link"}
+              href={`/practice/confusables?itemId=${encodeURIComponent(item.id)}`}
+            >
+              {confusablePairs.length === 0 ? "Найти пары" : "Все пары"}
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <div className="item-layout">
         <main className="item-main">
