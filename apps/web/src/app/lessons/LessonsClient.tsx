@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import {
+  type LessonPronunciationMode,
   getContentLocalesForDisplayMode,
   type CardAnswerType,
   type CompleteLessonItemResponse,
@@ -25,6 +26,7 @@ import {
   type TranslationBundleDto,
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
+import { romanizeKana } from "@kanji-srs/japanese";
 
 import { JapaneseText } from "../../components/JapaneseText";
 import {
@@ -49,6 +51,7 @@ import {
 } from "../../lib/lesson-study";
 import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
+import { useLessonPronunciationPreferences } from "../../lib/use-lesson-pronunciation-preferences";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
 type QueueState =
@@ -75,6 +78,7 @@ type CompletionSummary = {
 
 export function LessonsClient() {
   const activeDisplayMode = useTranslationDisplayMode();
+  const lessonPronunciation = useLessonPronunciationPreferences();
   const {
     available: speechAvailable,
     autoplay: speechAutoplay,
@@ -418,12 +422,7 @@ export function LessonsClient() {
   }, [cancelJapaneseSpeech, currentIndex, step, studyPhaseIndex]);
 
   useEffect(() => {
-    if (
-      !speechAvailable ||
-      !speechAutoplay ||
-      step !== "study" ||
-      currentLesson === null
-    ) {
+    if (!speechAvailable || !speechAutoplay || step !== "study" || currentLesson === null) {
       return;
     }
 
@@ -819,6 +818,8 @@ export function LessonsClient() {
           phaseIndex={studyPhaseIndex}
           phases={currentStudyPhases}
           navigationPending={isSavingProgress}
+          pronunciationMode={lessonPronunciation.mode}
+          showRomaji={lessonPronunciation.showRomaji}
           speechAvailable={speechAvailable}
           isLast={currentIndex === activeQueue.length - 1}
           onContinue={() => void handleContinueStudy()}
@@ -1054,6 +1055,8 @@ function LessonStudyView({
   phaseIndex,
   phases,
   navigationPending,
+  pronunciationMode,
+  showRomaji,
   speechAvailable,
   isLast,
   onContinue,
@@ -1066,6 +1069,8 @@ function LessonStudyView({
   readonly phaseIndex: number;
   readonly phases: readonly LessonStudyPhase[];
   readonly navigationPending: boolean;
+  readonly pronunciationMode: LessonPronunciationMode;
+  readonly showRomaji: boolean;
   readonly speechAvailable: boolean;
   readonly isLast: boolean;
   readonly onContinue: () => void;
@@ -1083,6 +1088,11 @@ function LessonStudyView({
   const nextPhase = phases[phaseIndex + 1];
   const showsMemory = mnemonicGroups.length > 0 || hintGroups.length > 0;
   const pronunciationText = getLessonPronunciationText(lesson);
+  const pronunciationRevealed = phase !== "meaning";
+  const itemRomaji =
+    pronunciationRevealed && showRomaji && pronunciationText !== null
+      ? romanizeKana(pronunciationText)
+      : null;
 
   return (
     <>
@@ -1110,6 +1120,9 @@ function LessonStudyView({
           <JapaneseText
             as="p"
             className="review-japanese"
+            furigana={
+              pronunciationRevealed && pronunciationMode === "furigana" ? pronunciationText : null
+            }
             variant={lesson.item.itemType === "sentence" ? "sentence" : "display"}
           >
             {lesson.item.japanese}
@@ -1117,14 +1130,22 @@ function LessonStudyView({
           <p>{formatTranslationBundle(lesson.item.translations, displayMode)}</p>
         </div>
         <dl className="lesson-facts">
-          <div>
-            <dt>Чтение</dt>
-            <dd>
-              {phase === "meaning" && phases.includes("reading")
-                ? "следующий этап"
-                : (lesson.item.reading ?? "нет")}
-            </dd>
-          </div>
+          {phase === "meaning" || pronunciationMode === "kana" ? (
+            <div>
+              <dt>Чтение</dt>
+              <dd>
+                {phase === "meaning" && phases.includes("reading")
+                  ? "следующий этап"
+                  : (lesson.item.reading ?? "нет")}
+              </dd>
+            </div>
+          ) : null}
+          {itemRomaji === null ? null : (
+            <div>
+              <dt>Ромадзи</dt>
+              <dd>{itemRomaji}</dd>
+            </div>
+          )}
           <div>
             <dt>Уровень</dt>
             <dd>{lesson.item.level ?? "без уровня"}</dd>
@@ -1229,25 +1250,44 @@ function LessonStudyView({
           <section className="panel lesson-wide-panel">
             <h2>Примеры употребления</h2>
             <ul className="lesson-example-list">
-              {lesson.exampleSentences.map((sentence) => (
-                <li key={sentence.id}>
-                  <div className="lesson-example-heading">
-                    <JapaneseText variant="sentence">{sentence.japaneseText}</JapaneseText>
-                    <JapaneseSpeechButton
-                      available={speechAvailable}
-                      label={`Озвучить пример ${sentence.japaneseText}`}
-                      onClick={() => void onSpeak(sentence.japaneseText)}
-                    />
-                  </div>
-                  {sentence.readingText === null ? null : <span>{sentence.readingText}</span>}
-                  <p>{formatLessonSentenceTranslation(sentence, displayMode)}</p>
-                  {sentence.attribution === null ? null : (
-                    <small>
-                      {sentence.attribution.sourceName} · {sentence.attribution.licenseName}
-                    </small>
-                  )}
-                </li>
-              ))}
+              {lesson.exampleSentences.map((sentence) => {
+                const sentenceRomaji =
+                  showRomaji && sentence.readingText !== null
+                    ? romanizeKana(sentence.readingText)
+                    : null;
+
+                return (
+                  <li key={sentence.id}>
+                    <div className="lesson-example-heading">
+                      <JapaneseText
+                        furigana={pronunciationMode === "furigana" ? sentence.readingText : null}
+                        variant="sentence"
+                      >
+                        {sentence.japaneseText}
+                      </JapaneseText>
+                      <JapaneseSpeechButton
+                        available={speechAvailable}
+                        label={`Озвучить пример ${sentence.japaneseText}`}
+                        onClick={() => void onSpeak(sentence.japaneseText)}
+                      />
+                    </div>
+                    {pronunciationMode !== "kana" || sentence.readingText === null ? null : (
+                      <span className="lesson-kana-reading" lang="ja">
+                        {sentence.readingText}
+                      </span>
+                    )}
+                    {sentenceRomaji === null ? null : (
+                      <span className="lesson-romaji-reading">{sentenceRomaji}</span>
+                    )}
+                    <p>{formatLessonSentenceTranslation(sentence, displayMode)}</p>
+                    {sentence.attribution === null ? null : (
+                      <small>
+                        {sentence.attribution.sourceName} · {sentence.attribution.licenseName}
+                      </small>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </section>
         ) : null}

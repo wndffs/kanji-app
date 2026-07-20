@@ -5,6 +5,7 @@ import {
   MAX_SPEECH_RATE,
   MIN_SPEECH_RATE,
   isLessonOrderMode,
+  isLessonPronunciationMode,
   isReviewOrderMode,
   isTranslationDisplayMode,
   normalizeDashboardWidgetPreferences,
@@ -27,6 +28,8 @@ export const DEFAULT_USER_SETTINGS: UserSettingsDto = {
   speechRate: DEFAULT_SPEECH_RATE,
   speechAutoplay: false,
   soundFeedback: false,
+  lessonPronunciationMode: "kana",
+  lessonRomaji: false,
   dashboardWidgets: DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
 };
 
@@ -55,6 +58,10 @@ export function mergeUserSettings(input: Partial<UserSettingsDto> = {}): UserSet
     speechRate: normalizeSpeechRate(input.speechRate),
     speechAutoplay: input.speechAutoplay ?? DEFAULT_USER_SETTINGS.speechAutoplay,
     soundFeedback: input.soundFeedback ?? DEFAULT_USER_SETTINGS.soundFeedback,
+    lessonPronunciationMode: isLessonPronunciationMode(input.lessonPronunciationMode)
+      ? input.lessonPronunciationMode
+      : DEFAULT_USER_SETTINGS.lessonPronunciationMode,
+    lessonRomaji: input.lessonRomaji ?? DEFAULT_USER_SETTINGS.lessonRomaji,
     dashboardWidgets: normalizeDashboardWidgetPreferences(input.dashboardWidgets),
   };
 }

@@ -12,10 +12,12 @@ import {
   MIN_SPEECH_RATE,
   type DashboardWidgetPreferenceDto,
   type LessonOrderMode,
+  type LessonPronunciationMode,
   type ReviewOrderMode,
   type TranslationDisplayMode,
   isDashboardWidgetId,
   isLessonOrderMode,
+  isLessonPronunciationMode,
   isReviewOrderMode,
   isTranslationDisplayMode,
 } from "@kanji-srs/shared";
@@ -49,6 +51,8 @@ type UserSettingsUpdate = {
   speechRate?: UserSettingsDto["speechRate"];
   speechAutoplay?: UserSettingsDto["speechAutoplay"];
   soundFeedback?: UserSettingsDto["soundFeedback"];
+  lessonPronunciationMode?: UserSettingsDto["lessonPronunciationMode"];
+  lessonRomaji?: UserSettingsDto["lessonRomaji"];
   dashboardWidgets?: UserSettingsDto["dashboardWidgets"];
 };
 
@@ -133,10 +137,7 @@ export class AuthService {
     return toCurrentUser(updatedUser);
   }
 
-  async setVacationMode(
-    user: CurrentUserDto,
-    body: unknown,
-  ): Promise<VacationModeResponseDto> {
+  async setVacationMode(user: CurrentUserDto, body: unknown): Promise<VacationModeResponseDto> {
     const enabled = parseVacationModeRequest(body);
     const result = await this.usersRepository.setVacationMode(user.id, enabled, new Date());
 
@@ -310,6 +311,14 @@ function parseUserSettings(
     settings.soundFeedback = parseBoolean(record.soundFeedback, "soundFeedback");
   }
 
+  if (record.lessonPronunciationMode !== undefined) {
+    settings.lessonPronunciationMode = parseLessonPronunciationMode(record.lessonPronunciationMode);
+  }
+
+  if (record.lessonRomaji !== undefined) {
+    settings.lessonRomaji = parseBoolean(record.lessonRomaji, "lessonRomaji");
+  }
+
   if (record.dashboardWidgets !== undefined) {
     settings.dashboardWidgets = parseDashboardWidgets(record.dashboardWidgets);
   }
@@ -357,6 +366,14 @@ function parseSpeechRate(value: unknown): number {
 function parseBoolean(value: unknown, key: string): boolean {
   if (typeof value !== "boolean") {
     throw new BadRequestException(`${key} должен быть логическим значением.`);
+  }
+
+  return value;
+}
+
+function parseLessonPronunciationMode(value: unknown): LessonPronunciationMode {
+  if (!isLessonPronunciationMode(value)) {
+    throw new BadRequestException("lessonPronunciationMode должен быть kana или furigana.");
   }
 
   return value;

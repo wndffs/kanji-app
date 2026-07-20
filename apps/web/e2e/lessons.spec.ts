@@ -149,8 +149,10 @@ test.describe("lesson session", () => {
     await expect(page.getByText("Карточек повторения")).toBeVisible();
   });
 
-  test("autoplays lesson pronunciation with the saved voice and speed", async ({ page }) => {
+  test("applies saved pronunciation aids only to study stages", async ({ page }) => {
     await signIn(page, {
+      lessonPronunciationMode: "furigana",
+      lessonRomaji: true,
       speechAutoplay: true,
       speechRate: 1.2,
       speechVoiceUri: "voice-ja-b",
@@ -159,21 +161,24 @@ test.describe("lesson session", () => {
 
     await page.goto("/lessons");
     await page.getByRole("button", { name: "Начать урок" }).click();
+    await expect(page.locator(".lesson-hero ruby")).toHaveCount(0);
+    await expect(page.getByText("ichi", { exact: true })).toBeHidden();
     await page.getByRole("button", { name: "Далее: Чтение" }).click();
 
+    await expect(page.locator(".lesson-hero ruby rt")).toHaveText("いち");
+    await expect(page.getByText("ichi", { exact: true })).toBeVisible();
     await expect
       .poll(() =>
-        page.evaluate(
-          () =>
-            (
-              window as typeof window & {
-                __spokenJapanese: readonly {
-                  text: string;
-                  rate: number;
-                  voiceUri: string | null;
-                }[];
-              }
-            ).__spokenJapanese.at(-1),
+        page.evaluate(() =>
+          (
+            window as typeof window & {
+              __spokenJapanese: readonly {
+                text: string;
+                rate: number;
+                voiceUri: string | null;
+              }[];
+            }
+          ).__spokenJapanese.at(-1),
         ),
       )
       .toMatchObject({
@@ -195,6 +200,13 @@ test.describe("lesson session", () => {
         ),
       )
       .toBe("一つください。");
+    await expect(page.locator(".lesson-example-list ruby rt")).toHaveText("ひとつください。");
+    await expect(page.getByText("hitotsukudasai。", { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Перейти к проверке" }).click();
+    await expect(page.locator("ruby")).toHaveCount(0);
+    await expect(page.getByText("ichi", { exact: true })).toBeHidden();
+    await expect(page.getByText("hitotsukudasai。", { exact: true })).toBeHidden();
   });
 
   test("starts the existing lesson flow from a saved deck", async ({ page }) => {
@@ -296,6 +308,8 @@ test.describe("lesson session", () => {
 async function signIn(
   page: Page,
   audioSettings: {
+    readonly lessonPronunciationMode?: "kana" | "furigana";
+    readonly lessonRomaji?: boolean;
     readonly speechAutoplay?: boolean;
     readonly speechRate?: number;
     readonly speechVoiceUri?: string | null;
@@ -381,6 +395,8 @@ async function signIn(
             speechRate: 0.8,
             speechAutoplay: false,
             soundFeedback: false,
+            lessonPronunciationMode: "kana",
+            lessonRomaji: false,
             ...storedAudioSettings,
           },
         }),

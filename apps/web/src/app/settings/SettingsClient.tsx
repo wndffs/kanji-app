@@ -7,9 +7,11 @@ import {
   DEFAULT_SPEECH_RATE,
   MAX_SPEECH_RATE,
   MIN_SPEECH_RATE,
+  SUPPORTED_LESSON_PRONUNCIATION_MODES,
   SUPPORTED_REVIEW_ORDER_MODES,
   SUPPORTED_TRANSLATION_DISPLAY_MODES,
   type LessonOrderMode,
+  type LessonPronunciationMode,
   type ReviewOrderMode,
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
@@ -43,6 +45,8 @@ type SettingsForm = {
   readonly speechRate: string;
   readonly speechAutoplay: boolean;
   readonly soundFeedback: boolean;
+  readonly lessonPronunciationMode: LessonPronunciationMode;
+  readonly lessonRomaji: boolean;
 };
 
 type RemoteSettingsPayload = Pick<
@@ -59,6 +63,8 @@ type RemoteSettingsPayload = Pick<
   | "speechRate"
   | "speechAutoplay"
   | "soundFeedback"
+  | "lessonPronunciationMode"
+  | "lessonRomaji"
 >;
 
 const DEFAULT_TIMEZONE = "Europe/Moscow";
@@ -167,9 +173,7 @@ export function SettingsClient() {
       );
     } catch (updateError) {
       setError(
-        updateError instanceof Error
-          ? updateError.message
-          : "Не удалось изменить режим отпуска.",
+        updateError instanceof Error ? updateError.message : "Не удалось изменить режим отпуска.",
       );
     } finally {
       setPendingVacationEnabled(null);
@@ -370,6 +374,33 @@ export function SettingsClient() {
           </button>
         </fieldset>
         <fieldset className="settings-fieldset" disabled={remoteControlsDisabled}>
+          <legend>Чтение в учебных этапах урока</legend>
+          <div
+            aria-label="Способ показа чтения в уроках"
+            className="lesson-order-control"
+            role="group"
+          >
+            {SUPPORTED_LESSON_PRONUNCIATION_MODES.map((mode) => (
+              <button
+                aria-pressed={form.lessonPronunciationMode === mode}
+                key={mode}
+                onClick={() => updateForm("lessonPronunciationMode", mode)}
+                type="button"
+              >
+                {mode === "kana" ? "Кана строкой" : "Фуригана над текстом"}
+              </button>
+            ))}
+          </div>
+          <label className="checkbox-row">
+            <input
+              checked={form.lessonRomaji}
+              onChange={(event) => updateForm("lessonRomaji", event.currentTarget.checked)}
+              type="checkbox"
+            />
+            <span>Показывать ромадзи в уроках</span>
+          </label>
+        </fieldset>
+        <fieldset className="settings-fieldset" disabled={remoteControlsDisabled}>
           <legend>Режим отпуска</legend>
           <label className="checkbox-row">
             <input
@@ -380,9 +411,7 @@ export function SettingsClient() {
             <span>Приостановить расписание повторений</span>
           </label>
           {vacationStartedAt === null ? null : (
-            <p className="muted">
-              Включён с {formatVacationStartedAt(vacationStartedAt)}.
-            </p>
+            <p className="muted">Включён с {formatVacationStartedAt(vacationStartedAt)}.</p>
           )}
           {isVacationUpdating ? <p className="muted">Обновляю режим отпуска.</p> : null}
           {vacationMessage === null ? null : (
@@ -421,6 +450,8 @@ function createLocalSettingsForm(): SettingsForm {
     speechRate: String(DEFAULT_SPEECH_RATE),
     speechAutoplay: false,
     soundFeedback: false,
+    lessonPronunciationMode: "kana",
+    lessonRomaji: false,
   };
 }
 
@@ -438,6 +469,8 @@ function createSettingsForm(settings: UserSettingsDto): SettingsForm {
     speechRate: String(settings.speechRate ?? DEFAULT_SPEECH_RATE),
     speechAutoplay: settings.speechAutoplay ?? false,
     soundFeedback: settings.soundFeedback ?? false,
+    lessonPronunciationMode: settings.lessonPronunciationMode ?? "kana",
+    lessonRomaji: settings.lessonRomaji ?? false,
   };
 }
 
@@ -475,6 +508,8 @@ function parseRemoteSettingsPayload(form: SettingsForm): RemoteSettingsPayload {
     speechRate: parseSpeechRate(form.speechRate),
     speechAutoplay: form.speechAutoplay,
     soundFeedback: form.soundFeedback,
+    lessonPronunciationMode: form.lessonPronunciationMode,
+    lessonRomaji: form.lessonRomaji,
   };
 }
 

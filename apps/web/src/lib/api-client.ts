@@ -59,6 +59,7 @@ import {
   type DeckListResponse,
   type LessonQueueResponse,
   type LessonOrderMode,
+  type LessonPronunciationMode,
   type PracticeAnswerRequest,
   type PracticeQueueResponse,
   type PracticeSessionAnswerResponse,
@@ -98,6 +99,8 @@ export type UserSettingsDto = {
   readonly speechRate?: number;
   readonly speechAutoplay?: boolean;
   readonly soundFeedback?: boolean;
+  readonly lessonPronunciationMode?: LessonPronunciationMode;
+  readonly lessonRomaji?: boolean;
   readonly dashboardWidgets?: readonly DashboardWidgetPreferenceDto[];
 };
 
@@ -920,10 +923,7 @@ export function updateUserSettings(
   });
 }
 
-export function updateVacationMode(
-  token: string,
-  enabled: boolean,
-): Promise<VacationModeResponse> {
+export function updateVacationMode(token: string, enabled: boolean): Promise<VacationModeResponse> {
   return apiRequest<VacationModeResponse>("/users/settings/vacation", {
     method: "PATCH",
     token,

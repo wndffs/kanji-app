@@ -3,6 +3,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { Prisma } from "@kanji-srs/db";
 import {
   isLessonOrderMode,
+  isLessonPronunciationMode,
   isReviewOrderMode,
   isTranslationDisplayMode,
   normalizeDashboardWidgetPreferences,
@@ -52,6 +53,8 @@ type PrismaUserWithSettings = {
     readonly speechRate: number;
     readonly speechAutoplay: boolean;
     readonly soundFeedback: boolean;
+    readonly lessonPronunciationMode: string;
+    readonly lessonRomaji: boolean;
     readonly dashboardWidgets: unknown;
   } | null;
 };
@@ -173,9 +176,7 @@ export class PrismaUsersRepository extends UsersRepository {
       } else if (!enabled && settings.vacationStartedAt !== null) {
         const startedAt = settings.vacationStartedAt;
         const endedAt = new Date(Math.max(now.getTime(), startedAt.getTime()));
-        vacationDurationSeconds = Math.floor(
-          (endedAt.getTime() - startedAt.getTime()) / 1_000,
-        );
+        vacationDurationSeconds = Math.floor((endedAt.getTime() - startedAt.getTime()) / 1_000);
         shiftedReviewCount = await db.$executeRaw(
           Prisma.sql`
             UPDATE "UserSrsState"
@@ -243,6 +244,12 @@ function toStoredUser(user: PrismaUserWithSettings): StoredUser {
             speechRate: user.settings.speechRate,
             speechAutoplay: user.settings.speechAutoplay,
             soundFeedback: user.settings.soundFeedback,
+            lessonPronunciationMode: isLessonPronunciationMode(
+              user.settings.lessonPronunciationMode,
+            )
+              ? user.settings.lessonPronunciationMode
+              : undefined,
+            lessonRomaji: user.settings.lessonRomaji,
             dashboardWidgets: normalizeDashboardWidgetPreferences(user.settings.dashboardWidgets),
           }),
   };

@@ -993,6 +993,19 @@ textarea:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.japanese-text ruby {
+  ruby-align: center;
+  ruby-position: over;
+}
+
+.japanese-text rt {
+  color: var(--muted);
+  font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Sans", sans-serif;
+  font-size: 0.38em;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
 .japanese-text-inline {
   font-size: 1em;
 }
@@ -1924,6 +1937,22 @@ textarea:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.lesson-kana-reading,
+.lesson-romaji-reading {
+  display: block;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.lesson-kana-reading {
+  font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Sans", sans-serif;
+}
+
+.lesson-romaji-reading {
+  font-size: 14px;
+  font-style: italic;
 }
 
 .lesson-section-heading h2 {

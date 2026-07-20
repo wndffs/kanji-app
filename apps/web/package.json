@@ -11,6 +11,7 @@
     "test:smoke": "node scripts/run-playwright-smoke.mjs"
   },
   "dependencies": {
+    "@kanji-srs/japanese": "0.0.0",
     "@kanji-srs/shared": "0.0.0",
     "@kanji-srs/ui": "0.0.0",
     "next": "^15.3.4",

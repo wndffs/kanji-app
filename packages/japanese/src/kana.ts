@@ -342,6 +342,13 @@ export const KANA: readonly KanaCharacter[] = [
 
 const BASIC_KANA_BY_CHARACTER = new Map(BASIC_KANA.map((kana) => [kana.character, kana]));
 const KANA_BY_CHARACTER = new Map(KANA.map((kana) => [kana.character, kana]));
+const ROMANIZATION_ENTRIES = [...KANA_BY_CHARACTER.values()].sort(
+  (left, right) =>
+    Array.from(right.character).length - Array.from(left.character).length ||
+    left.order - right.order,
+);
+const KANA_CODE_POINT_PATTERN = /^[\u3040-\u30ff]$/u;
+const ROMANIZATION_SEPARATOR_PATTERN = /^[\s。、！？!?.,・「」『』（）()[\]【】…〜~:：;；'’-]$/u;
 
 export function listBasicKana(script: KanaScript): readonly KanaCharacter[] {
   return BASIC_KANA.filter((kana) => kana.script === script);
@@ -357,6 +364,74 @@ export function listKana(script: KanaScript): readonly KanaCharacter[] {
 
 export function findKana(character: string): KanaCharacter | null {
   return KANA_BY_CHARACTER.get(character.normalize("NFKC")) ?? null;
+}
+
+export function romanizeKana(input: string): string | null {
+  const normalized = input.normalize("NFKC").trim();
+
+  if (normalized === "") {
+    return null;
+  }
+
+  let output = "";
+  let index = 0;
+
+  while (index < normalized.length) {
+    const match = ROMANIZATION_ENTRIES.find((entry) =>
+      normalized.startsWith(entry.character, index),
+    );
+
+    if (match !== undefined) {
+      output += match.romaji;
+      index += match.character.length;
+      continue;
+    }
+
+    const character = normalized[index];
+
+    if (character === "っ" || character === "ッ") {
+      const next = ROMANIZATION_ENTRIES.find((entry) =>
+        normalized.startsWith(entry.character, index + character.length),
+      );
+      const firstConsonant = next?.romaji.match(/^[bcdfghjkmprstwyz]/u)?.[0];
+
+      if (firstConsonant === undefined) {
+        return null;
+      }
+
+      output += firstConsonant;
+      index += character.length;
+      continue;
+    }
+
+    if (character === "ー") {
+      const previousVowel = Array.from(output)
+        .reverse()
+        .find((candidate) => /^[aeiou]$/u.test(candidate));
+
+      if (previousVowel === undefined) {
+        return null;
+      }
+
+      output += previousVowel;
+      index += character.length;
+      continue;
+    }
+
+    if (ROMANIZATION_SEPARATOR_PATTERN.test(character)) {
+      output += character;
+      index += character.length;
+      continue;
+    }
+
+    if (KANA_CODE_POINT_PATTERN.test(character)) {
+      return null;
+    }
+
+    return null;
+  }
+
+  return output.replace(/\s+/gu, " ").trim();
 }
 
 export function normalizeRomaji(input: string): string {

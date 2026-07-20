@@ -2,6 +2,7 @@ import {
   type AppLocale,
   type DashboardWidgetPreferenceDto,
   type LessonOrderMode,
+  type LessonPronunciationMode,
   type ReviewOrderMode,
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
@@ -23,6 +24,8 @@ export type UserSettingsDto = {
   readonly speechRate?: number;
   readonly speechAutoplay?: boolean;
   readonly soundFeedback?: boolean;
+  readonly lessonPronunciationMode?: LessonPronunciationMode;
+  readonly lessonRomaji?: boolean;
   readonly dashboardWidgets?: readonly DashboardWidgetPreferenceDto[];
 };
 

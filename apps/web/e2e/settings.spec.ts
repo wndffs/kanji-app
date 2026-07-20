@@ -37,6 +37,8 @@ test.describe("settings", () => {
     await page.getByLabel("Порядок повторений").selectOption("lower-levels-first");
     await page.getByLabel("Часовой пояс").fill("Asia/Tokyo");
     await page.getByLabel("Строгая проверка").check();
+    await page.getByRole("button", { name: "Фуригана над текстом" }).click();
+    await page.getByLabel("Показывать ромадзи в уроках").check();
     await page.getByRole("button", { name: "Сохранить" }).click();
 
     await expect(page.getByText("Сохранено.")).toBeVisible();
@@ -53,6 +55,8 @@ test.describe("settings", () => {
       speechRate: 0.8,
       speechAutoplay: false,
       soundFeedback: false,
+      lessonPronunciationMode: "furigana",
+      lessonRomaji: true,
     });
   });
 
@@ -81,24 +85,21 @@ test.describe("settings", () => {
     await page.getByLabel("Японский голос").selectOption("voice-ja-b");
     await page.getByLabel("Скорость речи").fill("1.2");
     await page.getByLabel("Автоматически озвучивать учебные материалы").check();
-    await page
-      .getByLabel("Звуковые сигналы правильных и неправильных ответов")
-      .check();
+    await page.getByLabel("Звуковые сигналы правильных и неправильных ответов").check();
     await page.getByRole("button", { name: "Прослушать голос" }).click();
 
     await expect
       .poll(() =>
-        page.evaluate(
-          () =>
-            (
-              window as typeof window & {
-                __spokenSettings: readonly {
-                  rate: number;
-                  text: string;
-                  voiceUri: string | null;
-                }[];
-              }
-            ).__spokenSettings.at(-1),
+        page.evaluate(() =>
+          (
+            window as typeof window & {
+              __spokenSettings: readonly {
+                rate: number;
+                text: string;
+                voiceUri: string | null;
+              }[];
+            }
+          ).__spokenSettings.at(-1),
         ),
       )
       .toEqual({
@@ -261,6 +262,8 @@ function createUser() {
       speechRate: 0.8,
       speechAutoplay: false,
       soundFeedback: false,
+      lessonPronunciationMode: "kana",
+      lessonRomaji: false,
     },
   };
 }

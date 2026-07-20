@@ -8,12 +8,21 @@ export const WORKSPACE_STATUS = "Готово";
 
 export const SUPPORTED_CONTENT_LOCALES = ["ru-RU", "en-US"] as const;
 export const SUPPORTED_TRANSLATION_DISPLAY_MODES = ["ru", "en", "ru-en"] as const;
+export const SUPPORTED_LESSON_PRONUNCIATION_MODES = ["kana", "furigana"] as const;
 
 export type AppLocale = "ru-RU";
 export type ContentLocale = (typeof SUPPORTED_CONTENT_LOCALES)[number];
 export type TranslationDisplayMode = (typeof SUPPORTED_TRANSLATION_DISPLAY_MODES)[number];
+export type LessonPronunciationMode = (typeof SUPPORTED_LESSON_PRONUNCIATION_MODES)[number];
 export type KanaScript = "hiragana" | "katakana";
 export type KanaVariant = "basic" | "dakuten" | "handakuten" | "yoon" | "sokuon" | "long-vowel";
+
+export function isLessonPronunciationMode(value: unknown): value is LessonPronunciationMode {
+  return (
+    typeof value === "string" &&
+    (SUPPORTED_LESSON_PRONUNCIATION_MODES as readonly string[]).includes(value)
+  );
+}
 
 export type WorkspacePackageName =
   | "@kanji-srs/db"
@@ -283,12 +292,7 @@ export type ReviewAnswerRequest = {
   readonly manualIgnore?: boolean;
 };
 
-export const REVIEW_SRS_TRANSITIONS = [
-  "advanced",
-  "unchanged",
-  "demoted",
-  "burned",
-] as const;
+export const REVIEW_SRS_TRANSITIONS = ["advanced", "unchanged", "demoted", "burned"] as const;
 export type ReviewSrsTransition = (typeof REVIEW_SRS_TRANSITIONS)[number];
 
 export type ReviewSessionSummaryDto = {

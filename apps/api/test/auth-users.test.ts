@@ -182,6 +182,8 @@ describe("Auth and users", () => {
         speechRate: 1.1,
         speechAutoplay: true,
         soundFeedback: true,
+        lessonPronunciationMode: "furigana",
+        lessonRomaji: true,
         dashboardWidgets,
       }),
     ).resolves.toMatchObject({
@@ -198,6 +200,8 @@ describe("Auth and users", () => {
         speechRate: 1.1,
         speechAutoplay: true,
         soundFeedback: true,
+        lessonPronunciationMode: "furigana",
+        lessonRomaji: true,
         dashboardWidgets,
       },
     });
@@ -225,9 +229,9 @@ describe("Auth and users", () => {
       user: { settings: { vacationStartedAt: null } },
       shiftedReviewCount: 0,
     });
-    await expect(
-      usersController.setVacationMode(session.user, { enabled: "yes" }),
-    ).rejects.toThrow("Поле enabled должно быть логическим значением.");
+    await expect(usersController.setVacationMode(session.user, { enabled: "yes" })).rejects.toThrow(
+      "Поле enabled должно быть логическим значением.",
+    );
   });
 
   it("rejects incomplete or duplicate dashboard widget settings", async () => {
@@ -287,15 +291,21 @@ describe("Auth and users", () => {
       password: "correct-password",
     });
 
-    await expect(
-      usersController.updateSettings(session.user, { speechRate: 1.6 }),
-    ).rejects.toThrow("speechRate должен быть числом от 0.5 до 1.5.");
+    await expect(usersController.updateSettings(session.user, { speechRate: 1.6 })).rejects.toThrow(
+      "speechRate должен быть числом от 0.5 до 1.5.",
+    );
     await expect(
       usersController.updateSettings(session.user, { speechAutoplay: "yes" }),
     ).rejects.toThrow("speechAutoplay должен быть логическим значением.");
     await expect(
       usersController.updateSettings(session.user, { speechVoiceUri: 42 }),
     ).rejects.toThrow("speechVoiceUri должен быть строкой или null.");
+    await expect(
+      usersController.updateSettings(session.user, { lessonPronunciationMode: "kanji" }),
+    ).rejects.toThrow("lessonPronunciationMode должен быть kana или furigana.");
+    await expect(
+      usersController.updateSettings(session.user, { lessonRomaji: "yes" }),
+    ).rejects.toThrow("lessonRomaji должен быть логическим значением.");
   });
 
   it("rejects a normal user from admin guarded endpoints", async () => {
@@ -343,6 +353,8 @@ describe("PrismaUsersRepository", () => {
         speechRate: 1.1,
         speechAutoplay: true,
         soundFeedback: true,
+        lessonPronunciationMode: "furigana",
+        lessonRomaji: true,
         dashboardWidgets,
       },
     });
@@ -359,6 +371,8 @@ describe("PrismaUsersRepository", () => {
       speechRate: 1.1,
       speechAutoplay: true,
       soundFeedback: true,
+      lessonPronunciationMode: "furigana",
+      lessonRomaji: true,
     });
 
     expect(update).toHaveBeenCalledWith(
@@ -375,6 +389,8 @@ describe("PrismaUsersRepository", () => {
                 speechRate: 1.1,
                 speechAutoplay: true,
                 soundFeedback: true,
+                lessonPronunciationMode: "furigana",
+                lessonRomaji: true,
               },
             }),
           },
@@ -390,6 +406,8 @@ describe("PrismaUsersRepository", () => {
       speechRate: 1.1,
       speechAutoplay: true,
       soundFeedback: true,
+      lessonPronunciationMode: "furigana",
+      lessonRomaji: true,
     });
   });
 
