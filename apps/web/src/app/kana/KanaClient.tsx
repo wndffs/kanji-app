@@ -36,6 +36,7 @@ import {
 } from "../../lib/kana-exercises";
 import { buildKanaSpeechText } from "../../lib/kana-speech";
 import { isKanaTracingCandidate } from "../../lib/kana-tracing";
+import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import { KanaTracingExercise } from "./KanaTracingExercise";
 
@@ -69,6 +70,7 @@ export function KanaClient() {
   const choiceRef = useRef<HTMLButtonElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
   const kanaSpeech = useJapaneseSpeech();
+  const { play: playAnswerSound } = useAnswerSound();
   const handleTracingUnavailable = useCallback(() => setExerciseKind("typing"), []);
 
   useEffect(() => {
@@ -188,6 +190,32 @@ export function KanaClient() {
     );
   }, [currentLessonItem, exerciseItems, exerciseKind]);
 
+  useEffect(() => {
+    if (
+      !kanaSpeech.available ||
+      !kanaSpeech.autoplay ||
+      currentLessonItem === null ||
+      feedback !== null ||
+      !(
+        (mode === "lessons" && lessonPhase === "teach") ||
+        exerciseKind === "listening-choice"
+      )
+    ) {
+      return;
+    }
+
+    kanaSpeech.speak(buildKanaSpeechText(currentLessonItem));
+  }, [
+    currentLessonItem,
+    exerciseKind,
+    feedback,
+    kanaSpeech.available,
+    kanaSpeech.autoplay,
+    kanaSpeech.speak,
+    lessonPhase,
+    mode,
+  ]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
@@ -260,6 +288,7 @@ export function KanaClient() {
         };
       });
 
+      playAnswerSound(result.correct);
       return result;
     } catch (error: unknown) {
       if (error instanceof ApiError && error.status === 401) {

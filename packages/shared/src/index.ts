@@ -1,6 +1,9 @@
 export const APP_NAME = "Кандзи SRS";
 export const DEFAULT_APP_LOCALE = "ru-RU";
 export const DEFAULT_TRANSLATION_DISPLAY_MODE = "ru";
+export const DEFAULT_SPEECH_RATE = 0.8;
+export const MIN_SPEECH_RATE = 0.5;
+export const MAX_SPEECH_RATE = 1.5;
 export const WORKSPACE_STATUS = "Готово";
 
 export const SUPPORTED_CONTENT_LOCALES = ["ru-RU", "en-US"] as const;

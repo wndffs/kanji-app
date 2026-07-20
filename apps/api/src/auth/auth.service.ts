@@ -8,6 +8,8 @@ import {
 
 import {
   DASHBOARD_WIDGET_IDS,
+  MAX_SPEECH_RATE,
+  MIN_SPEECH_RATE,
   type DashboardWidgetPreferenceDto,
   type LessonOrderMode,
   type ReviewOrderMode,
@@ -43,6 +45,10 @@ type UserSettingsUpdate = {
   reviewBudget?: UserSettingsDto["reviewBudget"];
   reviewOrderMode?: UserSettingsDto["reviewOrderMode"];
   strictMode?: UserSettingsDto["strictMode"];
+  speechVoiceUri?: UserSettingsDto["speechVoiceUri"];
+  speechRate?: UserSettingsDto["speechRate"];
+  speechAutoplay?: UserSettingsDto["speechAutoplay"];
+  soundFeedback?: UserSettingsDto["soundFeedback"];
   dashboardWidgets?: UserSettingsDto["dashboardWidgets"];
 };
 
@@ -54,6 +60,7 @@ const MAX_TIMEZONE_LENGTH = 80;
 const MAX_DAILY_LESSON_LIMIT = 200;
 const MAX_LESSON_BATCH_SIZE = 5;
 const MAX_REVIEW_BUDGET = 1_000;
+const MAX_SPEECH_VOICE_URI_LENGTH = 500;
 
 @Injectable()
 export class AuthService {
@@ -283,6 +290,26 @@ function parseUserSettings(
     settings.strictMode = record.strictMode;
   }
 
+  if (record.speechVoiceUri !== undefined) {
+    settings.speechVoiceUri = parseNullableString(
+      record.speechVoiceUri,
+      "speechVoiceUri",
+      MAX_SPEECH_VOICE_URI_LENGTH,
+    );
+  }
+
+  if (record.speechRate !== undefined) {
+    settings.speechRate = parseSpeechRate(record.speechRate);
+  }
+
+  if (record.speechAutoplay !== undefined) {
+    settings.speechAutoplay = parseBoolean(record.speechAutoplay, "speechAutoplay");
+  }
+
+  if (record.soundFeedback !== undefined) {
+    settings.soundFeedback = parseBoolean(record.soundFeedback, "soundFeedback");
+  }
+
   if (record.dashboardWidgets !== undefined) {
     settings.dashboardWidgets = parseDashboardWidgets(record.dashboardWidgets);
   }
@@ -292,6 +319,47 @@ function parseUserSettings(
   }
 
   return settings;
+}
+
+function parseNullableString(value: unknown, key: string, maxLength: number): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    throw new BadRequestException(`${key} должен быть строкой или null.`);
+  }
+
+  const trimmed = value.trim();
+
+  if (trimmed.length > maxLength) {
+    throw new BadRequestException(`${key} не должен быть длиннее ${maxLength} символов.`);
+  }
+
+  return trimmed === "" ? null : trimmed;
+}
+
+function parseSpeechRate(value: unknown): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    value < MIN_SPEECH_RATE ||
+    value > MAX_SPEECH_RATE
+  ) {
+    throw new BadRequestException(
+      `speechRate должен быть числом от ${MIN_SPEECH_RATE} до ${MAX_SPEECH_RATE}.`,
+    );
+  }
+
+  return value;
+}
+
+function parseBoolean(value: unknown, key: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new BadRequestException(`${key} должен быть логическим значением.`);
+  }
+
+  return value;
 }
 
 function parseBodyRecord(body: unknown): Record<string, unknown> {

@@ -49,6 +49,71 @@ test.describe("settings", () => {
       reviewBudget: 18,
       reviewOrderMode: "lower-levels-first",
       strictMode: true,
+      speechVoiceUri: null,
+      speechRate: 0.8,
+      speechAutoplay: false,
+      soundFeedback: false,
+    });
+  });
+
+  test("previews and saves study audio preferences", async ({ page }) => {
+    let receivedSettings: Record<string, unknown> | null = null;
+
+    await signIn(page);
+    await page.route(`${API_BASE_URL}/auth/me`, async (route) => {
+      await route.fulfill({ json: createUser() });
+    });
+    await page.route(`${API_BASE_URL}/users/settings`, async (route) => {
+      receivedSettings = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        json: {
+          ...createUser(),
+          settings: {
+            ...createUser().settings,
+            ...receivedSettings,
+          },
+        },
+      });
+    });
+
+    await page.goto("/settings");
+
+    await page.getByLabel("Японский голос").selectOption("voice-ja-b");
+    await page.getByLabel("Скорость речи").fill("1.2");
+    await page.getByLabel("Автоматически озвучивать учебные материалы").check();
+    await page
+      .getByLabel("Звуковые сигналы правильных и неправильных ответов")
+      .check();
+    await page.getByRole("button", { name: "Прослушать голос" }).click();
+
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (
+              window as typeof window & {
+                __spokenSettings: readonly {
+                  rate: number;
+                  text: string;
+                  voiceUri: string | null;
+                }[];
+              }
+            ).__spokenSettings.at(-1),
+        ),
+      )
+      .toEqual({
+        rate: 1.2,
+        text: "日本語の発音",
+        voiceUri: "voice-ja-b",
+      });
+
+    await page.getByRole("button", { name: "Сохранить" }).click();
+    await expect(page.getByText("Сохранено.")).toBeVisible();
+    expect(receivedSettings).toMatchObject({
+      speechVoiceUri: "voice-ja-b",
+      speechRate: 1.2,
+      speechAutoplay: true,
+      soundFeedback: true,
     });
   });
 
@@ -109,6 +174,61 @@ test.describe("settings", () => {
 async function signIn(page: Page): Promise<void> {
   await page.addInitScript(
     ({ accessToken, user }) => {
+      const speechWindow = window as typeof window & {
+        __spokenSettings: {
+          rate: number;
+          text: string;
+          voiceUri: string | null;
+        }[];
+      };
+      speechWindow.__spokenSettings = [];
+      class MockSpeechSynthesisUtterance {
+        lang = "";
+        pitch = 1;
+        rate = 1;
+        text: string;
+        voice: SpeechSynthesisVoice | null = null;
+
+        constructor(text: string) {
+          this.text = text;
+        }
+      }
+      const voices = [
+        {
+          default: true,
+          lang: "ja-JP",
+          name: "Japanese A",
+          voiceURI: "voice-ja-a",
+        },
+        {
+          default: false,
+          lang: "ja-JP",
+          name: "Japanese B",
+          voiceURI: "voice-ja-b",
+        },
+      ];
+
+      Object.defineProperty(window, "SpeechSynthesisUtterance", {
+        configurable: true,
+        value: MockSpeechSynthesisUtterance,
+      });
+      Object.defineProperty(window, "speechSynthesis", {
+        configurable: true,
+        value: {
+          addEventListener: () => undefined,
+          cancel: () => undefined,
+          getVoices: () => voices,
+          removeEventListener: () => undefined,
+          speak: (utterance: MockSpeechSynthesisUtterance) => {
+            speechWindow.__spokenSettings.push({
+              rate: utterance.rate,
+              text: utterance.text,
+              voiceUri: utterance.voice?.voiceURI ?? null,
+            });
+          },
+        },
+      });
+
       window.localStorage.setItem("kanji-srs.accessToken", accessToken);
       window.localStorage.setItem(
         "kanji-srs.translationDisplayMode",
@@ -137,6 +257,10 @@ function createUser() {
       reviewOrderMode: "shuffled",
       strictMode: false,
       vacationStartedAt: null,
+      speechVoiceUri: null,
+      speechRate: 0.8,
+      speechAutoplay: false,
+      soundFeedback: false,
     },
   };
 }

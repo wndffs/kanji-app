@@ -38,6 +38,7 @@ import {
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession, updateStoredUser } from "../../lib/auth-storage";
 import { formatReviewOrderMode, formatSrsStageName } from "../../lib/dashboard-format";
+import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
 type QueueState =
@@ -67,6 +68,7 @@ const INITIAL_PROGRESS: ReviewProgress = {
 
 export function ReviewsClient() {
   const displayMode = useTranslationDisplayMode();
+  const { play: playAnswerSound } = useAnswerSound();
   const [queueState, setQueueState] = useState<QueueState>({ status: "checking" });
   const [session, setSession] = useState<ReviewSessionDto | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -248,6 +250,9 @@ export function ReviewsClient() {
         answeredAt: new Date().toISOString(),
       });
 
+      if (!response.retry) {
+        playAnswerSound(response.accepted);
+      }
       setFeedback(response);
       if (!response.retry) {
         setProgress((previous) => ({

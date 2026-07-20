@@ -47,6 +47,7 @@ import {
   getLessonStudyPhases,
   type LessonStudyPhase,
 } from "../../lib/lesson-study";
+import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
@@ -76,9 +77,11 @@ export function LessonsClient() {
   const activeDisplayMode = useTranslationDisplayMode();
   const {
     available: speechAvailable,
+    autoplay: speechAutoplay,
     cancel: cancelJapaneseSpeech,
     speak: speakJapanese,
   } = useJapaneseSpeech();
+  const { play: playAnswerSound } = useAnswerSound();
   const [queueState, setQueueState] = useState<QueueState>({ status: "checking" });
   const [session, setSession] = useState<LessonSessionDto | null>(null);
   const [sessionQueue, setSessionQueue] = useState<readonly LessonQueueItem[]>([]);
@@ -414,6 +417,37 @@ export function LessonsClient() {
     cancelJapaneseSpeech();
   }, [cancelJapaneseSpeech, currentIndex, step, studyPhaseIndex]);
 
+  useEffect(() => {
+    if (
+      !speechAvailable ||
+      !speechAutoplay ||
+      step !== "study" ||
+      currentLesson === null
+    ) {
+      return;
+    }
+
+    const phase = currentStudyPhases[studyPhaseIndex];
+    const pronunciationText =
+      phase === "reading"
+        ? getLessonPronunciationText(currentLesson)
+        : phase === "context"
+          ? (currentLesson.exampleSentences[0]?.japaneseText ?? null)
+          : null;
+
+    if (pronunciationText !== null) {
+      speakJapanese(pronunciationText);
+    }
+  }, [
+    currentLesson,
+    currentStudyPhases,
+    speakJapanese,
+    speechAvailable,
+    speechAutoplay,
+    step,
+    studyPhaseIndex,
+  ]);
+
   async function handleQuizSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
@@ -447,6 +481,9 @@ export function LessonsClient() {
 
       if (result.accepted) {
         setQuizAnswers((current) => ({ ...current, [quizCard.id]: quizAnswer.trim() }));
+      }
+      if (result.diagnostic?.kind !== "alternative-reading") {
+        playAnswerSound(result.accepted);
       }
       setQuizFeedback(result);
     } catch (error: unknown) {

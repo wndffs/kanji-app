@@ -1176,6 +1176,25 @@ textarea:focus-visible {
   font-weight: 700;
 }
 
+.speech-rate-control {
+  display: grid;
+  align-content: end;
+  gap: 8px;
+}
+
+.speech-rate-control > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.speech-rate-control output {
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
 .form-panel .checkbox-row {
   display: flex;
   align-items: center;

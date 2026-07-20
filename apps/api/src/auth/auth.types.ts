@@ -19,6 +19,10 @@ export type UserSettingsDto = {
   readonly reviewOrderMode?: ReviewOrderMode;
   readonly strictMode: boolean;
   readonly vacationStartedAt?: string | null;
+  readonly speechVoiceUri?: string | null;
+  readonly speechRate?: number;
+  readonly speechAutoplay?: boolean;
+  readonly soundFeedback?: boolean;
   readonly dashboardWidgets?: readonly DashboardWidgetPreferenceDto[];
 };
 

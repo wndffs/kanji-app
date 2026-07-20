@@ -14,7 +14,7 @@ const SESSION_ID = "review-session-1";
 
 test.describe("review session", () => {
   test("completes one correct review", async ({ page }) => {
-    await signIn(page);
+    await signIn(page, "ru-en", true);
     await mockReviewApi(page);
 
     await page.goto("/reviews");
@@ -37,6 +37,18 @@ test.describe("review session", () => {
       page.getByRole("list", { name: "Правильные ответы" }).getByText("солнце", { exact: true }),
     ).toBeVisible();
     await expect(page.getByText(/Повышение ·/)).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (
+              window as typeof window & {
+                __answerSoundFrequencies: readonly number[];
+              }
+            ).__answerSoundFrequencies[0],
+        ),
+      )
+      .toBe(660);
 
     await page.keyboard.press("Enter");
 
@@ -266,9 +278,57 @@ test.describe("review session", () => {
   });
 });
 
-async function signIn(page: Page, displayMode: TranslationDisplayMode = "ru-en"): Promise<void> {
+async function signIn(
+  page: Page,
+  displayMode: TranslationDisplayMode = "ru-en",
+  soundFeedback = false,
+): Promise<void> {
   await page.addInitScript(
-    ({ accessToken, mode }) => {
+    ({ accessToken, mode, soundFeedback: storedSoundFeedback }) => {
+      const audioWindow = window as typeof window & {
+        __answerSoundFrequencies: number[];
+      };
+      audioWindow.__answerSoundFrequencies = [];
+      class MockAudioContext {
+        currentTime = 0;
+        destination = {};
+
+        close(): Promise<void> {
+          return Promise.resolve();
+        }
+
+        createGain() {
+          return {
+            connect: () => undefined,
+            gain: {
+              exponentialRampToValueAtTime: () => undefined,
+              setValueAtTime: () => undefined,
+            },
+          };
+        }
+
+        createOscillator() {
+          return {
+            connect: () => undefined,
+            frequency: {
+              exponentialRampToValueAtTime: (value: number) => {
+                audioWindow.__answerSoundFrequencies.push(value);
+              },
+              setValueAtTime: (value: number) => {
+                audioWindow.__answerSoundFrequencies.push(value);
+              },
+            },
+            start: () => undefined,
+            stop: () => undefined,
+            type: "sine",
+          };
+        }
+      }
+
+      Object.defineProperty(window, "AudioContext", {
+        configurable: true,
+        value: MockAudioContext,
+      });
       window.localStorage.setItem("kanji-srs.accessToken", accessToken);
       window.localStorage.setItem("kanji-srs.translationDisplayMode", mode);
       window.localStorage.setItem(
@@ -287,11 +347,15 @@ async function signIn(page: Page, displayMode: TranslationDisplayMode = "ru-en")
             reviewOrderMode: "shuffled",
             strictMode: false,
             vacationStartedAt: null,
+            speechVoiceUri: null,
+            speechRate: 0.8,
+            speechAutoplay: false,
+            soundFeedback: storedSoundFeedback,
           },
         }),
       );
     },
-    { accessToken: ACCESS_TOKEN, mode: displayMode },
+    { accessToken: ACCESS_TOKEN, mode: displayMode, soundFeedback },
   );
 }
 

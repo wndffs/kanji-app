@@ -59,12 +59,17 @@ test.describe("lesson session", () => {
         page.evaluate(() =>
           (
             window as typeof window & {
-              __spokenJapanese: readonly { text: string; lang: string; rate: number }[];
+              __spokenJapanese: readonly {
+                text: string;
+                lang: string;
+                rate: number;
+                voiceUri: string | null;
+              }[];
             }
           ).__spokenJapanese.at(-1),
         ),
       )
-      .toEqual({ text: "いち", lang: "ja-JP", rate: 0.78 });
+      .toEqual({ text: "いち", lang: "ja-JP", rate: 0.8, voiceUri: "voice-ja-a" });
     await expect(page.getByRole("button", { name: "Предыдущий этап" })).toBeVisible();
     await page.getByRole("button", { name: "Предыдущий этап" }).click();
     await expect(page.getByRole("tab", { name: "Значение" })).toHaveAttribute(
@@ -92,12 +97,22 @@ test.describe("lesson session", () => {
         page.evaluate(() =>
           (
             window as typeof window & {
-              __spokenJapanese: readonly { text: string; lang: string; rate: number }[];
+              __spokenJapanese: readonly {
+                text: string;
+                lang: string;
+                rate: number;
+                voiceUri: string | null;
+              }[];
             }
           ).__spokenJapanese.at(-1),
         ),
       )
-      .toEqual({ text: "一つください。", lang: "ja-JP", rate: 0.78 });
+      .toEqual({
+        text: "一つください。",
+        lang: "ja-JP",
+        rate: 0.8,
+        voiceUri: "voice-ja-a",
+      });
 
     await page.getByRole("button", { name: "Перейти к проверке" }).click();
 
@@ -132,6 +147,54 @@ test.describe("lesson session", () => {
     ).toBeVisible();
     await expect(page.getByText("Изучено")).toBeVisible();
     await expect(page.getByText("Карточек повторения")).toBeVisible();
+  });
+
+  test("autoplays lesson pronunciation with the saved voice and speed", async ({ page }) => {
+    await signIn(page, {
+      speechAutoplay: true,
+      speechRate: 1.2,
+      speechVoiceUri: "voice-ja-b",
+    });
+    await mockLessonApi(page);
+
+    await page.goto("/lessons");
+    await page.getByRole("button", { name: "Начать урок" }).click();
+    await page.getByRole("button", { name: "Далее: Чтение" }).click();
+
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (
+              window as typeof window & {
+                __spokenJapanese: readonly {
+                  text: string;
+                  rate: number;
+                  voiceUri: string | null;
+                }[];
+              }
+            ).__spokenJapanese.at(-1),
+        ),
+      )
+      .toMatchObject({
+        text: "いち",
+        rate: 1.2,
+        voiceUri: "voice-ja-b",
+      });
+
+    await page.getByRole("button", { name: "Далее: Контекст" }).click();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (
+              window as typeof window & {
+                __spokenJapanese: readonly { text: string }[];
+              }
+            ).__spokenJapanese.at(-1)?.text,
+        ),
+      )
+      .toBe("一つください。");
   });
 
   test("starts the existing lesson flow from a saved deck", async ({ page }) => {
@@ -230,11 +293,23 @@ test.describe("lesson session", () => {
   });
 });
 
-async function signIn(page: Page): Promise<void> {
+async function signIn(
+  page: Page,
+  audioSettings: {
+    readonly speechAutoplay?: boolean;
+    readonly speechRate?: number;
+    readonly speechVoiceUri?: string | null;
+  } = {},
+): Promise<void> {
   await page.addInitScript(
-    ({ accessToken }) => {
+    ({ accessToken, audioSettings: storedAudioSettings }) => {
       const speechWindow = window as typeof window & {
-        __spokenJapanese: { text: string; lang: string; rate: number }[];
+        __spokenJapanese: {
+          text: string;
+          lang: string;
+          rate: number;
+          voiceUri: string | null;
+        }[];
       };
       speechWindow.__spokenJapanese = [];
       class MockSpeechSynthesisUtterance {
@@ -258,13 +333,27 @@ async function signIn(page: Page): Promise<void> {
         value: {
           addEventListener: () => undefined,
           cancel: () => undefined,
-          getVoices: () => [{ default: true, lang: "ja-JP", name: "Test Japanese" }],
+          getVoices: () => [
+            {
+              default: true,
+              lang: "ja-JP",
+              name: "Test Japanese A",
+              voiceURI: "voice-ja-a",
+            },
+            {
+              default: false,
+              lang: "ja-JP",
+              name: "Test Japanese B",
+              voiceURI: "voice-ja-b",
+            },
+          ],
           removeEventListener: () => undefined,
           speak: (utterance: MockSpeechSynthesisUtterance) => {
             speechWindow.__spokenJapanese.push({
               text: utterance.text,
               lang: utterance.lang,
               rate: utterance.rate,
+              voiceUri: utterance.voice?.voiceURI ?? null,
             });
           },
         },
@@ -288,11 +377,16 @@ async function signIn(page: Page): Promise<void> {
             lessonOrderMode: "course",
             reviewBudget: 100,
             strictMode: false,
+            speechVoiceUri: null,
+            speechRate: 0.8,
+            speechAutoplay: false,
+            soundFeedback: false,
+            ...storedAudioSettings,
           },
         }),
       );
     },
-    { accessToken: ACCESS_TOKEN },
+    { accessToken: ACCESS_TOKEN, audioSettings },
   );
 }
 

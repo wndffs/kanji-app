@@ -178,6 +178,10 @@ describe("Auth and users", () => {
         reviewBudget: 80,
         reviewOrderMode: "lower-levels-first",
         strictMode: true,
+        speechVoiceUri: "urn:voice:test-japanese",
+        speechRate: 1.1,
+        speechAutoplay: true,
+        soundFeedback: true,
         dashboardWidgets,
       }),
     ).resolves.toMatchObject({
@@ -190,6 +194,10 @@ describe("Auth and users", () => {
         reviewBudget: 80,
         reviewOrderMode: "lower-levels-first",
         strictMode: true,
+        speechVoiceUri: "urn:voice:test-japanese",
+        speechRate: 1.1,
+        speechAutoplay: true,
+        soundFeedback: true,
         dashboardWidgets,
       },
     });
@@ -271,6 +279,25 @@ describe("Auth and users", () => {
     ).rejects.toThrow("reviewOrderMode must be shuffled, oldest-first, or lower-levels-first.");
   });
 
+  it("rejects invalid study audio preferences", async () => {
+    const { authService } = createAuthHarness();
+    const usersController = new UsersController(authService);
+    const session = await authService.register({
+      email: "learner@example.test",
+      password: "correct-password",
+    });
+
+    await expect(
+      usersController.updateSettings(session.user, { speechRate: 1.6 }),
+    ).rejects.toThrow("speechRate должен быть числом от 0.5 до 1.5.");
+    await expect(
+      usersController.updateSettings(session.user, { speechAutoplay: "yes" }),
+    ).rejects.toThrow("speechAutoplay должен быть логическим значением.");
+    await expect(
+      usersController.updateSettings(session.user, { speechVoiceUri: 42 }),
+    ).rejects.toThrow("speechVoiceUri должен быть строкой или null.");
+  });
+
   it("rejects a normal user from admin guarded endpoints", async () => {
     const { adminGuard, authService } = createAuthHarness();
     const session = await authService.register({
@@ -312,6 +339,10 @@ describe("PrismaUsersRepository", () => {
         reviewBudget: 100,
         reviewOrderMode: "lower-levels-first",
         strictMode: false,
+        speechVoiceUri: "urn:voice:test-japanese",
+        speechRate: 1.1,
+        speechAutoplay: true,
+        soundFeedback: true,
         dashboardWidgets,
       },
     });
@@ -324,6 +355,10 @@ describe("PrismaUsersRepository", () => {
       lessonBatchSize: 3,
       lessonOrderMode: "interleaved",
       reviewOrderMode: "lower-levels-first",
+      speechVoiceUri: "urn:voice:test-japanese",
+      speechRate: 1.1,
+      speechAutoplay: true,
+      soundFeedback: true,
     });
 
     expect(update).toHaveBeenCalledWith(
@@ -336,6 +371,10 @@ describe("PrismaUsersRepository", () => {
                 lessonBatchSize: 3,
                 lessonOrderMode: "interleaved",
                 reviewOrderMode: "lower-levels-first",
+                speechVoiceUri: "urn:voice:test-japanese",
+                speechRate: 1.1,
+                speechAutoplay: true,
+                soundFeedback: true,
               },
             }),
           },
@@ -347,6 +386,10 @@ describe("PrismaUsersRepository", () => {
       lessonBatchSize: 3,
       lessonOrderMode: "interleaved",
       reviewOrderMode: "lower-levels-first",
+      speechVoiceUri: "urn:voice:test-japanese",
+      speechRate: 1.1,
+      speechAutoplay: true,
+      soundFeedback: true,
     });
   });
 

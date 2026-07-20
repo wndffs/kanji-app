@@ -1,6 +1,9 @@
 import {
   DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
+  DEFAULT_SPEECH_RATE,
   DEFAULT_TRANSLATION_DISPLAY_MODE,
+  MAX_SPEECH_RATE,
+  MIN_SPEECH_RATE,
   isLessonOrderMode,
   isReviewOrderMode,
   isTranslationDisplayMode,
@@ -20,6 +23,10 @@ export const DEFAULT_USER_SETTINGS: UserSettingsDto = {
   reviewOrderMode: "shuffled",
   strictMode: false,
   vacationStartedAt: null,
+  speechVoiceUri: null,
+  speechRate: DEFAULT_SPEECH_RATE,
+  speechAutoplay: false,
+  soundFeedback: false,
   dashboardWidgets: DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
 };
 
@@ -44,8 +51,30 @@ export function mergeUserSettings(input: Partial<UserSettingsDto> = {}): UserSet
       : DEFAULT_USER_SETTINGS.reviewOrderMode,
     strictMode: input.strictMode ?? DEFAULT_USER_SETTINGS.strictMode,
     vacationStartedAt: normalizeVacationStartedAt(input.vacationStartedAt),
+    speechVoiceUri: normalizeSpeechVoiceUri(input.speechVoiceUri),
+    speechRate: normalizeSpeechRate(input.speechRate),
+    speechAutoplay: input.speechAutoplay ?? DEFAULT_USER_SETTINGS.speechAutoplay,
+    soundFeedback: input.soundFeedback ?? DEFAULT_USER_SETTINGS.soundFeedback,
     dashboardWidgets: normalizeDashboardWidgetPreferences(input.dashboardWidgets),
   };
+}
+
+function normalizeSpeechVoiceUri(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+function normalizeSpeechRate(value: number | undefined): number {
+  return value !== undefined &&
+    Number.isFinite(value) &&
+    value >= MIN_SPEECH_RATE &&
+    value <= MAX_SPEECH_RATE
+    ? value
+    : DEFAULT_SPEECH_RATE;
 }
 
 function normalizeVacationStartedAt(value: string | null | undefined): string | null {

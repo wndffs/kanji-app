@@ -14,7 +14,7 @@ const ACCESS_TOKEN = "kana-token";
 
 test.describe("kana lessons", () => {
   test("rotates kana exercises and switches to katakana", async ({ page }) => {
-    await signIn(page);
+    await signIn(page, { speechAutoplay: true });
     await mockKanaApi(page);
 
     await page.goto("/kana");
@@ -23,6 +23,14 @@ test.describe("kana lessons", () => {
     await expect(page.getByRole("heading", { name: "Кана" })).toBeVisible();
     await expect(practice).toContainText("あ");
     await expect(practice).toContainText("a");
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as typeof window & { __spokenKana: readonly string[] }).__spokenKana.at(-1),
+        ),
+      )
+      .toBe("あ");
     const yoonTile = page.getByTestId("kana-unit-list").getByText("きゃ", { exact: true });
     await expect(yoonTile).toBeVisible();
     expect(await yoonTile.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
@@ -118,9 +126,12 @@ test.describe("kana lessons", () => {
   });
 });
 
-async function signIn(page: Page): Promise<void> {
+async function signIn(
+  page: Page,
+  audioSettings: { readonly speechAutoplay?: boolean } = {},
+): Promise<void> {
   await page.addInitScript(
-    ({ accessToken }) => {
+    ({ accessToken, audioSettings: storedAudioSettings }) => {
       const speechWindow = window as typeof window & { __spokenKana: string[] };
       speechWindow.__spokenKana = [];
       class MockSpeechSynthesisUtterance {
@@ -144,7 +155,14 @@ async function signIn(page: Page): Promise<void> {
         value: {
           addEventListener: () => undefined,
           cancel: () => undefined,
-          getVoices: () => [{ default: true, lang: "ja-JP", name: "Test Japanese" }],
+          getVoices: () => [
+            {
+              default: true,
+              lang: "ja-JP",
+              name: "Test Japanese",
+              voiceURI: "voice-ja",
+            },
+          ],
           removeEventListener: () => undefined,
           speak: (utterance: MockSpeechSynthesisUtterance) => {
             speechWindow.__spokenKana.push(utterance.text);
@@ -168,11 +186,16 @@ async function signIn(page: Page): Promise<void> {
             dailyLessonLimit: 20,
             reviewBudget: 100,
             strictMode: false,
+            speechVoiceUri: null,
+            speechRate: 0.8,
+            speechAutoplay: false,
+            soundFeedback: false,
+            ...storedAudioSettings,
           },
         }),
       );
     },
-    { accessToken: ACCESS_TOKEN },
+    { accessToken: ACCESS_TOKEN, audioSettings },
   );
 }
 

@@ -4,6 +4,9 @@ import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
 
 import {
+  DEFAULT_SPEECH_RATE,
+  MAX_SPEECH_RATE,
+  MIN_SPEECH_RATE,
   SUPPORTED_REVIEW_ORDER_MODES,
   SUPPORTED_TRANSLATION_DISPLAY_MODES,
   type LessonOrderMode,
@@ -25,6 +28,7 @@ import {
   updateStoredUser,
 } from "../../lib/auth-storage";
 import { formatReviewOrderMode, formatTranslationDisplayMode } from "../../lib/dashboard-format";
+import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 
 type SettingsForm = {
   readonly translationDisplayMode: TranslationDisplayMode;
@@ -35,6 +39,10 @@ type SettingsForm = {
   readonly reviewBudget: string;
   readonly reviewOrderMode: ReviewOrderMode;
   readonly strictMode: boolean;
+  readonly speechVoiceUri: string;
+  readonly speechRate: string;
+  readonly speechAutoplay: boolean;
+  readonly soundFeedback: boolean;
 };
 
 type RemoteSettingsPayload = Pick<
@@ -47,6 +55,10 @@ type RemoteSettingsPayload = Pick<
   | "reviewBudget"
   | "reviewOrderMode"
   | "strictMode"
+  | "speechVoiceUri"
+  | "speechRate"
+  | "speechAutoplay"
+  | "soundFeedback"
 >;
 
 const DEFAULT_TIMEZONE = "Europe/Moscow";
@@ -67,6 +79,10 @@ export function SettingsClient() {
   const [isVacationUpdating, setIsVacationUpdating] = useState(false);
   const [pendingVacationEnabled, setPendingVacationEnabled] = useState<boolean | null>(null);
   const [vacationMessage, setVacationMessage] = useState<string | null>(null);
+  const speechPreview = useJapaneseSpeech({
+    rate: Number(form.speechRate),
+    voiceUri: form.speechVoiceUri === "" ? null : form.speechVoiceUri,
+  });
 
   useEffect(() => {
     const session = readStoredSession();
@@ -162,6 +178,9 @@ export function SettingsClient() {
   }
 
   const vacationStartedAt = user?.settings.vacationStartedAt ?? null;
+  const selectedVoiceAvailable = speechPreview.voices.some(
+    (voice) => voice.voiceUri === form.speechVoiceUri,
+  );
   const remoteControlsDisabled =
     user === null || status === "loading" || status === "saving" || isVacationUpdating;
 
@@ -290,6 +309,67 @@ export function SettingsClient() {
           <span>Строгая проверка</span>
         </label>
         <fieldset className="settings-fieldset" disabled={remoteControlsDisabled}>
+          <legend>Звук и произношение</legend>
+          <div className="settings-grid">
+            <label>
+              Японский голос
+              <select
+                onChange={(event) => updateForm("speechVoiceUri", event.currentTarget.value)}
+                value={form.speechVoiceUri}
+              >
+                <option value="">Автоматический выбор</option>
+                {form.speechVoiceUri !== "" && !selectedVoiceAvailable ? (
+                  <option value={form.speechVoiceUri}>Сохранённый голос недоступен</option>
+                ) : null}
+                {speechPreview.voices.map((voice) => (
+                  <option key={voice.voiceUri} value={voice.voiceUri}>
+                    {voice.name} ({voice.lang})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="speech-rate-control">
+              <div>
+                <label htmlFor="speech-rate">Скорость речи</label>
+                <output htmlFor="speech-rate">{formatSpeechRate(form.speechRate)}</output>
+              </div>
+              <input
+                id="speech-rate"
+                max={MAX_SPEECH_RATE}
+                min={MIN_SPEECH_RATE}
+                onChange={(event) => updateForm("speechRate", event.currentTarget.value)}
+                step={0.1}
+                type="range"
+                value={form.speechRate}
+              />
+            </div>
+          </div>
+          <label className="checkbox-row">
+            <input
+              checked={form.speechAutoplay}
+              onChange={(event) => updateForm("speechAutoplay", event.currentTarget.checked)}
+              type="checkbox"
+            />
+            <span>Автоматически озвучивать учебные материалы</span>
+          </label>
+          <label className="checkbox-row">
+            <input
+              checked={form.soundFeedback}
+              onChange={(event) => updateForm("soundFeedback", event.currentTarget.checked)}
+              type="checkbox"
+            />
+            <span>Звуковые сигналы правильных и неправильных ответов</span>
+          </label>
+          <button
+            className="secondary-action"
+            disabled={!speechPreview.available}
+            onClick={() => void speechPreview.speak("日本語の発音")}
+            type="button"
+          >
+            Прослушать голос
+          </button>
+        </fieldset>
+        <fieldset className="settings-fieldset" disabled={remoteControlsDisabled}>
           <legend>Режим отпуска</legend>
           <label className="checkbox-row">
             <input
@@ -337,6 +417,10 @@ function createLocalSettingsForm(): SettingsForm {
     reviewBudget: String(DEFAULT_REVIEW_BUDGET),
     reviewOrderMode: "shuffled",
     strictMode: false,
+    speechVoiceUri: "",
+    speechRate: String(DEFAULT_SPEECH_RATE),
+    speechAutoplay: false,
+    soundFeedback: false,
   };
 }
 
@@ -350,6 +434,10 @@ function createSettingsForm(settings: UserSettingsDto): SettingsForm {
     reviewBudget: String(settings.reviewBudget),
     reviewOrderMode: settings.reviewOrderMode ?? "shuffled",
     strictMode: settings.strictMode,
+    speechVoiceUri: settings.speechVoiceUri ?? "",
+    speechRate: String(settings.speechRate ?? DEFAULT_SPEECH_RATE),
+    speechAutoplay: settings.speechAutoplay ?? false,
+    soundFeedback: settings.soundFeedback ?? false,
   };
 }
 
@@ -383,7 +471,27 @@ function parseRemoteSettingsPayload(form: SettingsForm): RemoteSettingsPayload {
     reviewBudget: parseBoundedInteger(form.reviewBudget, "Бюджет повторений", MAX_REVIEW_BUDGET),
     reviewOrderMode: form.reviewOrderMode,
     strictMode: form.strictMode,
+    speechVoiceUri: form.speechVoiceUri === "" ? null : form.speechVoiceUri,
+    speechRate: parseSpeechRate(form.speechRate),
+    speechAutoplay: form.speechAutoplay,
+    soundFeedback: form.soundFeedback,
   };
+}
+
+function parseSpeechRate(value: string): number {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < MIN_SPEECH_RATE || parsed > MAX_SPEECH_RATE) {
+    throw new Error(
+      `Скорость речи должна быть числом от ${MIN_SPEECH_RATE} до ${MAX_SPEECH_RATE}.`,
+    );
+  }
+
+  return parsed;
+}
+
+function formatSpeechRate(value: string): string {
+  return `${parseSpeechRate(value).toFixed(1)}×`;
 }
 
 function parseBoundedInteger(value: string, label: string, max: number): number {

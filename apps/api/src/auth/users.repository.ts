@@ -48,6 +48,10 @@ type PrismaUserWithSettings = {
     readonly reviewOrderMode: string;
     readonly strictMode: boolean;
     readonly vacationStartedAt: Date | null;
+    readonly speechVoiceUri: string | null;
+    readonly speechRate: number;
+    readonly speechAutoplay: boolean;
+    readonly soundFeedback: boolean;
     readonly dashboardWidgets: unknown;
   } | null;
 };
@@ -235,6 +239,10 @@ function toStoredUser(user: PrismaUserWithSettings): StoredUser {
               : undefined,
             strictMode: user.settings.strictMode,
             vacationStartedAt: user.settings.vacationStartedAt?.toISOString() ?? null,
+            speechVoiceUri: user.settings.speechVoiceUri,
+            speechRate: user.settings.speechRate,
+            speechAutoplay: user.settings.speechAutoplay,
+            soundFeedback: user.settings.soundFeedback,
             dashboardWidgets: normalizeDashboardWidgetPreferences(user.settings.dashboardWidgets),
           }),
   };

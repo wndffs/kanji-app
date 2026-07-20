@@ -609,6 +609,10 @@ model UserSettings {
   reviewOrderMode        String   @default("shuffled")
   strictMode             Boolean  @default(false)
   vacationStartedAt      DateTime?
+  speechVoiceUri         String?
+  speechRate             Float    @default(0.8)
+  speechAutoplay         Boolean  @default(false)
+  soundFeedback          Boolean  @default(false)
   dashboardWidgets       Json     @default("[]")
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
