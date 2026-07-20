@@ -30,7 +30,9 @@ test.describe("settings", () => {
     await page.goto("/settings");
 
     await page.getByLabel("Перевод карточек").selectOption("en");
-    await page.getByLabel("Лимит уроков в день").fill("7");
+    await page.getByLabel("Новых материалов в день").fill("7");
+    await page.getByLabel("Размер группы урока").fill("3");
+    await page.getByRole("button", { name: "Чередовать типы" }).click();
     await page.getByLabel("Бюджет повторений").fill("18");
     await page.getByLabel("Часовой пояс").fill("Asia/Tokyo");
     await page.getByLabel("Строгая проверка").check();
@@ -41,6 +43,8 @@ test.describe("settings", () => {
       translationDisplayMode: "en",
       timezone: "Asia/Tokyo",
       dailyLessonLimit: 7,
+      lessonBatchSize: 3,
+      lessonOrderMode: "interleaved",
       reviewBudget: 18,
       strictMode: true,
     });
@@ -72,6 +76,8 @@ function createUser() {
       translationDisplayMode: "ru-en",
       timezone: "Europe/Moscow",
       dailyLessonLimit: 20,
+      lessonBatchSize: 5,
+      lessonOrderMode: "course",
       reviewBudget: 100,
       strictMode: false,
     },

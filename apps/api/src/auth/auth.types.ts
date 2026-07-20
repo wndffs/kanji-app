@@ -1,6 +1,7 @@
 import {
   type AppLocale,
   type DashboardWidgetPreferenceDto,
+  type LessonOrderMode,
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
@@ -11,6 +12,8 @@ export type UserSettingsDto = {
   readonly translationDisplayMode: TranslationDisplayMode;
   readonly timezone: string;
   readonly dailyLessonLimit: number;
+  readonly lessonBatchSize?: number;
+  readonly lessonOrderMode?: LessonOrderMode;
   readonly reviewBudget: number;
   readonly strictMode: boolean;
   readonly dashboardWidgets?: readonly DashboardWidgetPreferenceDto[];

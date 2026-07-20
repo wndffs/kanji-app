@@ -1,0 +1,3 @@
+ALTER TABLE "UserSettings"
+ADD COLUMN "lessonBatchSize" INTEGER NOT NULL DEFAULT 5,
+ADD COLUMN "lessonOrderMode" TEXT NOT NULL DEFAULT 'course';

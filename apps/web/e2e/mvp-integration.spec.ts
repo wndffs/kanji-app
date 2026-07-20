@@ -243,6 +243,7 @@ async function mockMvpApi(page: Page): Promise<void> {
         availableItems: state.lessonCompleted ? [] : [starterLessonQueueItem],
         batchLimit: 5,
         remainingToday: state.lessonCompleted ? 19 : 20,
+        orderMode: "course",
       },
     });
   });

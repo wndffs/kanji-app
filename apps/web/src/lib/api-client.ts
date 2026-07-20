@@ -56,6 +56,7 @@ import {
   type DeckDetailsDto,
   type DeckListResponse,
   type LessonQueueResponse,
+  type LessonOrderMode,
   type PracticeAnswerRequest,
   type PracticeAnswerResponse,
   type PracticeQueueResponse,
@@ -82,6 +83,8 @@ export type UserSettingsDto = {
   readonly translationDisplayMode: TranslationDisplayMode;
   readonly timezone: string;
   readonly dailyLessonLimit: number;
+  readonly lessonBatchSize?: number;
+  readonly lessonOrderMode?: LessonOrderMode;
   readonly reviewBudget: number;
   readonly strictMode: boolean;
   readonly dashboardWidgets?: readonly DashboardWidgetPreferenceDto[];

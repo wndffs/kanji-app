@@ -603,6 +603,8 @@ model UserSettings {
   translationDisplayMode String   @default("ru")
   timezone               String   @default("Europe/Moscow")
   dailyLessonLimit       Int      @default(10)
+  lessonBatchSize        Int      @default(5)
+  lessonOrderMode        String   @default("course")
   reviewBudget           Int      @default(100)
   strictMode             Boolean  @default(false)
   dashboardWidgets       Json     @default("[]")

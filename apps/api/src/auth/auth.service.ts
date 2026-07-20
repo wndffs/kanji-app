@@ -9,8 +9,10 @@ import {
 import {
   DASHBOARD_WIDGET_IDS,
   type DashboardWidgetPreferenceDto,
+  type LessonOrderMode,
   type TranslationDisplayMode,
   isDashboardWidgetId,
+  isLessonOrderMode,
   isTranslationDisplayMode,
 } from "@kanji-srs/shared";
 
@@ -33,6 +35,8 @@ type UserSettingsUpdate = {
   translationDisplayMode?: UserSettingsDto["translationDisplayMode"];
   timezone?: UserSettingsDto["timezone"];
   dailyLessonLimit?: UserSettingsDto["dailyLessonLimit"];
+  lessonBatchSize?: UserSettingsDto["lessonBatchSize"];
+  lessonOrderMode?: UserSettingsDto["lessonOrderMode"];
   reviewBudget?: UserSettingsDto["reviewBudget"];
   strictMode?: UserSettingsDto["strictMode"];
   dashboardWidgets?: UserSettingsDto["dashboardWidgets"];
@@ -44,6 +48,7 @@ const MAX_EMAIL_LENGTH = 254;
 const MAX_DISPLAY_NAME_LENGTH = 120;
 const MAX_TIMEZONE_LENGTH = 80;
 const MAX_DAILY_LESSON_LIMIT = 200;
+const MAX_LESSON_BATCH_SIZE = 5;
 const MAX_REVIEW_BUDGET = 1_000;
 
 @Injectable()
@@ -216,6 +221,19 @@ function parseUserSettings(
     );
   }
 
+  if (record.lessonBatchSize !== undefined) {
+    settings.lessonBatchSize = parseBoundedInteger(
+      record.lessonBatchSize,
+      "lessonBatchSize",
+      1,
+      MAX_LESSON_BATCH_SIZE,
+    );
+  }
+
+  if (record.lessonOrderMode !== undefined) {
+    settings.lessonOrderMode = parseLessonOrderMode(record.lessonOrderMode);
+  }
+
   if (record.reviewBudget !== undefined) {
     settings.reviewBudget = parseBoundedInteger(
       record.reviewBudget,
@@ -364,6 +382,14 @@ function parseDashboardWidgets(value: unknown): readonly DashboardWidgetPreferen
   });
 
   return preferences;
+}
+
+function parseLessonOrderMode(value: unknown): LessonOrderMode {
+  if (!isLessonOrderMode(value)) {
+    throw new BadRequestException("lessonOrderMode must be course or interleaved.");
+  }
+
+  return value;
 }
 
 function parseTimezone(value: string): string {

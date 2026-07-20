@@ -9,7 +9,7 @@ const SESSION_ID = "lesson-session-1";
 test.describe("lesson session", () => {
   test("requires every lesson quiz answer before completing one item", async ({ page }) => {
     await signIn(page);
-    await mockLessonApi(page);
+    const savedSettings = await mockLessonApi(page);
 
     await page.goto("/lessons");
 
@@ -26,6 +26,7 @@ test.describe("lesson session", () => {
       "aria-pressed",
       "true",
     );
+    await expect.poll(savedSettings).toEqual({ lessonOrderMode: "interleaved" });
     await optionalLesson.uncheck();
 
     await page.getByRole("button", { name: "Начать урок" }).click();
@@ -179,6 +180,7 @@ test.describe("lesson session", () => {
           availableItems: [lessonQueueItem],
           batchLimit: 5,
           remainingToday: 20,
+          orderMode: "course",
           source: { kind: "course" },
         },
       });
@@ -282,6 +284,8 @@ async function signIn(page: Page): Promise<void> {
             translationDisplayMode: "ru-en",
             timezone: "Europe/Moscow",
             dailyLessonLimit: 20,
+            lessonBatchSize: 5,
+            lessonOrderMode: "course",
             reviewBudget: 100,
             strictMode: false,
           },
@@ -292,7 +296,8 @@ async function signIn(page: Page): Promise<void> {
   );
 }
 
-async function mockLessonApi(page: Page): Promise<void> {
+async function mockLessonApi(page: Page): Promise<() => unknown> {
+  let savedSettings: unknown = null;
   await mockNoActiveLesson(page);
 
   await page.route(`${API_BASE_URL}/lessons/queue`, async (route) => {
@@ -302,7 +307,30 @@ async function mockLessonApi(page: Page): Promise<void> {
         availableItems: [lessonQueueItem, optionalLessonQueueItem],
         batchLimit: 5,
         remainingToday: 20,
+        orderMode: "course",
         source: { kind: "course" },
+      },
+    });
+  });
+
+  await page.route(`${API_BASE_URL}/users/settings`, async (route) => {
+    savedSettings = route.request().postDataJSON();
+    await route.fulfill({
+      json: {
+        id: "user-1",
+        email: "learner@example.test",
+        displayName: "Тестовый ученик",
+        role: "USER",
+        settings: {
+          locale: "ru-RU",
+          translationDisplayMode: "ru-en",
+          timezone: "Europe/Moscow",
+          dailyLessonLimit: 20,
+          lessonBatchSize: 5,
+          lessonOrderMode: "interleaved",
+          reviewBudget: 100,
+          strictMode: false,
+        },
       },
     });
   });
@@ -377,6 +405,8 @@ async function mockLessonApi(page: Page): Promise<void> {
       },
     });
   });
+
+  return () => savedSettings;
 }
 
 async function mockDeckLessonApi(page: Page): Promise<() => unknown> {
@@ -390,6 +420,7 @@ async function mockDeckLessonApi(page: Page): Promise<() => unknown> {
         availableItems: [lessonQueueItem],
         batchLimit: 5,
         remainingToday: 20,
+        orderMode: "interleaved",
         source: { kind: "deck", deckId: "deck-saved", title: "Новости на японском" },
       },
     });

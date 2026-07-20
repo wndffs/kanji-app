@@ -36,7 +36,9 @@ only in the development seed path. The local seed account is
 `demo@example.local` / `dev-password` and is skipped when `NODE_ENV=production`.
 
 User settings include `locale`, `translationDisplayMode` (`ru`, `en`, or
-`ru-en`), `timezone`, `dailyLessonLimit`, `reviewBudget`, and `strictMode`.
+`ru-en`), `timezone`, `dailyLessonLimit`, `lessonBatchSize`,
+`lessonOrderMode`, `reviewBudget`, `strictMode`, and dashboard widget
+preferences.
 
 Registration enrolls a new learner in every available published default
 course. The defaults are the published `starter-demo` course and, once it has

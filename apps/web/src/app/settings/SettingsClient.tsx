@@ -5,6 +5,7 @@ import { type FormEvent, useEffect, useState } from "react";
 
 import {
   SUPPORTED_TRANSLATION_DISPLAY_MODES,
+  type LessonOrderMode,
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
@@ -26,19 +27,29 @@ type SettingsForm = {
   readonly translationDisplayMode: TranslationDisplayMode;
   readonly timezone: string;
   readonly dailyLessonLimit: string;
+  readonly lessonBatchSize: string;
+  readonly lessonOrderMode: LessonOrderMode;
   readonly reviewBudget: string;
   readonly strictMode: boolean;
 };
 
 type RemoteSettingsPayload = Pick<
   UserSettingsDto,
-  "translationDisplayMode" | "timezone" | "dailyLessonLimit" | "reviewBudget" | "strictMode"
+  | "translationDisplayMode"
+  | "timezone"
+  | "dailyLessonLimit"
+  | "lessonBatchSize"
+  | "lessonOrderMode"
+  | "reviewBudget"
+  | "strictMode"
 >;
 
 const DEFAULT_TIMEZONE = "Europe/Moscow";
 const DEFAULT_DAILY_LESSON_LIMIT = 10;
+const DEFAULT_LESSON_BATCH_SIZE = 5;
 const DEFAULT_REVIEW_BUDGET = 20;
 const MAX_DAILY_LESSON_LIMIT = 200;
+const MAX_LESSON_BATCH_SIZE = 5;
 const MAX_REVIEW_BUDGET = 1_000;
 
 export function SettingsClient() {
@@ -138,7 +149,7 @@ export function SettingsClient() {
         </label>
         <div className="settings-grid">
           <label>
-            Лимит уроков в день
+            Новых материалов в день
             <input
               disabled={remoteControlsDisabled}
               inputMode="numeric"
@@ -147,6 +158,18 @@ export function SettingsClient() {
               onChange={(event) => updateForm("dailyLessonLimit", event.currentTarget.value)}
               type="number"
               value={form.dailyLessonLimit}
+            />
+          </label>
+          <label>
+            Размер группы урока
+            <input
+              disabled={remoteControlsDisabled}
+              inputMode="numeric"
+              max={MAX_LESSON_BATCH_SIZE}
+              min={1}
+              onChange={(event) => updateForm("lessonBatchSize", event.currentTarget.value)}
+              type="number"
+              value={form.lessonBatchSize}
             />
           </label>
           <label>
@@ -162,6 +185,25 @@ export function SettingsClient() {
             />
           </label>
         </div>
+        <fieldset className="settings-fieldset" disabled={remoteControlsDisabled}>
+          <legend>Порядок новых материалов</legend>
+          <div className="lesson-order-control" role="group" aria-label="Порядок новых материалов">
+            <button
+              aria-pressed={form.lessonOrderMode === "course"}
+              onClick={() => updateForm("lessonOrderMode", "course")}
+              type="button"
+            >
+              Порядок курса
+            </button>
+            <button
+              aria-pressed={form.lessonOrderMode === "interleaved"}
+              onClick={() => updateForm("lessonOrderMode", "interleaved")}
+              type="button"
+            >
+              Чередовать типы
+            </button>
+          </div>
+        </fieldset>
         <label>
           Часовой пояс
           <input
@@ -208,6 +250,8 @@ function createLocalSettingsForm(): SettingsForm {
     translationDisplayMode: readTranslationDisplayMode(),
     timezone: DEFAULT_TIMEZONE,
     dailyLessonLimit: String(DEFAULT_DAILY_LESSON_LIMIT),
+    lessonBatchSize: String(DEFAULT_LESSON_BATCH_SIZE),
+    lessonOrderMode: "course",
     reviewBudget: String(DEFAULT_REVIEW_BUDGET),
     strictMode: false,
   };
@@ -218,6 +262,8 @@ function createSettingsForm(settings: UserSettingsDto): SettingsForm {
     translationDisplayMode: settings.translationDisplayMode,
     timezone: settings.timezone,
     dailyLessonLimit: String(settings.dailyLessonLimit),
+    lessonBatchSize: String(settings.lessonBatchSize ?? DEFAULT_LESSON_BATCH_SIZE),
+    lessonOrderMode: settings.lessonOrderMode ?? "course",
     reviewBudget: String(settings.reviewBudget),
     strictMode: settings.strictMode,
   };
@@ -244,6 +290,12 @@ function parseRemoteSettingsPayload(form: SettingsForm): RemoteSettingsPayload {
       "Лимит уроков в день",
       MAX_DAILY_LESSON_LIMIT,
     ),
+    lessonBatchSize: parseBoundedInteger(
+      form.lessonBatchSize,
+      "Размер группы урока",
+      MAX_LESSON_BATCH_SIZE,
+    ),
+    lessonOrderMode: form.lessonOrderMode,
     reviewBudget: parseBoundedInteger(form.reviewBudget, "Бюджет повторений", MAX_REVIEW_BUDGET),
     strictMode: form.strictMode,
   };

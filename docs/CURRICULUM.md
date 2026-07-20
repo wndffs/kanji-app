@@ -232,9 +232,9 @@ the confirmed page identity used for staging.
 
 ## Main lesson flow
 
-Component, kanji, vocabulary, and sentence lessons use small groups of at most
-five new items. The learner studies every item in the group before retrieval
-begins. The required quiz then asks every meaning and reading card independently.
+Component, kanji, vocabulary, and sentence lessons use a saved group size from
+one to five new items. The learner studies every item in the group before
+retrieval begins. The required quiz then asks every meaning and reading card independently.
 The browser derives a deterministic item and card order from the lesson session
 id, separating retrieval order from presentation order while keeping reloads
 stable. The original curriculum and selected lesson order are not mutated.
@@ -254,10 +254,10 @@ were not completed remain available under the normal prerequisite and daily
 limit rules.
 
 Before starting, the learner may replace the recommended items with any other
-currently eligible materials, up to the five-item batch limit. The course-order
-mode preserves curriculum order. The interleaved mode alternates selected item
-types while preserving order within each type. Selection never exposes or
-unlocks materials whose prerequisites are unsatisfied.
+currently eligible materials, up to the saved batch limit. The saved
+course-order mode preserves curriculum order. The interleaved mode alternates
+selected item types while preserving order within each type. Selection never
+exposes or unlocks materials whose prerequisites are unsatisfied.
 
 The API, rather than the browser, validates each answer against global accepted
 answers, private user answers, and blocked answers. The learner confirms the

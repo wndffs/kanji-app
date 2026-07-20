@@ -151,7 +151,7 @@ refresh:
 60. Task 100 (completed): populate recent mistakes, unlocks, and burned items with direct item and practice links.
 61. Task 101 (completed): aggregate daily study activity for streaks, completed reviews, and a calendar heat map.
 62. Task 102 (completed): persist dashboard widget visibility, ordering, and compact or expanded presentation.
-63. Task 103: persist lesson batch size, daily lesson pace, and interleaving preferences.
+63. Task 103 (completed): persist lesson batch size, daily lesson pace, and interleaving preferences.
 64. Task 104: add review ordering presets without changing due dates or bypassing SRS rules.
 65. Task 105: add an end-of-review summary and clear per-answer SRS transition feedback.
 66. Task 106: resume optional practice queues and progress without changing scheduled SRS state.

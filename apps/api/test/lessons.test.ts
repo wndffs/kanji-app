@@ -197,6 +197,7 @@ describe("LessonsService", () => {
       availableItems: [],
       batchLimit: 5,
       remainingToday: 10,
+      orderMode: "course",
       source: { kind: "course" },
     });
   });
@@ -450,6 +451,44 @@ describe("LessonsService", () => {
     expect(queue).toMatchObject({ batchLimit: 5, remainingToday: 10 });
   });
 
+  it("applies the saved lesson batch size and ordering preference", async () => {
+    const courseItems = [
+      createCourseItem(createItem("item-component-0", "component", ["card-component-0"]), 1),
+      createCourseItem(createItem("item-component-1", "component", ["card-component-1"]), 2),
+      createCourseItem(createItem("item-kanji-0", "kanji", ["card-kanji-0"]), 3),
+      createCourseItem(createItem("item-word-0", "word", ["card-word-0"]), 4),
+    ];
+    const service = createService({ courseItems });
+    const user = createUser("owner", {
+      lessonBatchSize: 2,
+      lessonOrderMode: "interleaved",
+    });
+
+    await expect(service.getQueue(user)).resolves.toMatchObject({
+      items: [{ item: { id: "item-component-0" } }, { item: { id: "item-kanji-0" } }],
+      availableItems: expect.arrayContaining([
+        expect.objectContaining({
+          item: expect.objectContaining({ id: "item-component-1" }),
+        }),
+        expect.objectContaining({
+          item: expect.objectContaining({ id: "item-word-0" }),
+        }),
+      ]),
+      batchLimit: 2,
+      orderMode: "interleaved",
+    });
+    await expect(service.startSession(user)).resolves.toMatchObject({
+      session: {
+        itemIds: ["item-component-0", "item-kanji-0"],
+      },
+    });
+    await expect(
+      service.startSession(user, {
+        itemIds: ["item-component-0", "item-kanji-0", "item-word-0"],
+      }),
+    ).rejects.toThrow("itemIds exceed the current lesson batch limit.");
+  });
+
   it("restores the selected lesson group and its current study phase", async () => {
     const service = createService();
     const started = await service.startSession(createUser("owner"), {
@@ -593,6 +632,7 @@ describe("LessonsService", () => {
       ],
       batchLimit: 5,
       remainingToday: 1,
+      orderMode: "course",
       source: { kind: "course" },
     });
   });
@@ -621,6 +661,7 @@ describe("LessonsService", () => {
       availableItems: [],
       batchLimit: 5,
       remainingToday: 0,
+      orderMode: "course",
       source: { kind: "course" },
     });
 
@@ -644,6 +685,7 @@ describe("LessonsService", () => {
       ],
       batchLimit: 5,
       remainingToday: 1,
+      orderMode: "course",
       source: { kind: "course" },
     });
   });
@@ -1110,6 +1152,8 @@ function createUser(
       translationDisplayMode: "ru-en",
       timezone: "Europe/Moscow",
       dailyLessonLimit: 10,
+      lessonBatchSize: 5,
+      lessonOrderMode: "course",
       reviewBudget: 20,
       strictMode: false,
       ...settings,

@@ -13,6 +13,7 @@ import {
   type LearningCardDto,
   type LessonQueueItem,
   type LessonQueueResponse,
+  type LessonOrderMode,
   type LessonQueueSourceDto,
   type LessonSessionPhase,
   type LocalizedTextDto,
@@ -22,6 +23,7 @@ import {
   type TranslationBundleDto,
   type TranslationDisplayMode,
   getContentLocalesForDisplayMode,
+  isLessonOrderMode,
 } from "@kanji-srs/shared";
 
 import { type CurrentUserDto } from "../auth/auth.types";
@@ -58,12 +60,20 @@ export class LessonsService {
     const selectableItems = availableItems
       .slice(0, remainingToday)
       .map((item) => toLessonQueueItem(item.item, item.unlockedBy, displayMode));
+    const batchLimit = getLessonBatchSize(user);
+    const orderMode = getLessonOrderMode(user);
+    const suggestedItems = orderLessonItems(
+      selectableItems,
+      orderMode,
+      (entry) => entry.item.itemType,
+    );
 
     return {
-      items: selectableItems.slice(0, DEFAULT_LESSON_BATCH_LIMIT),
+      items: suggestedItems.slice(0, batchLimit),
       availableItems: selectableItems,
-      batchLimit: DEFAULT_LESSON_BATCH_LIMIT,
+      batchLimit,
       remainingToday,
+      orderMode,
       source,
     };
   }
@@ -76,12 +86,17 @@ export class LessonsService {
       now,
       request.deckId,
     );
+    const batchLimit = getLessonBatchSize(user);
     const requestedItemIds =
       request.itemIds ??
-      availableItems
-        .slice(0, Math.min(DEFAULT_LESSON_BATCH_LIMIT, remainingToday))
+      orderLessonItems(
+        availableItems.slice(0, remainingToday),
+        getLessonOrderMode(user),
+        (entry) => entry.item.itemType,
+      )
+        .slice(0, batchLimit)
         .map((entry) => entry.item.id);
-    const maxBatchSize = Math.min(DEFAULT_LESSON_BATCH_LIMIT, remainingToday);
+    const maxBatchSize = Math.min(batchLimit, remainingToday);
 
     if (requestedItemIds.length === 0) {
       throw new BadRequestException("No lesson items are currently available.");
@@ -671,6 +686,59 @@ function getRemainingDailyLessons(
   );
 
   return Math.max(0, dailyLimit - completedItemIds.size);
+}
+
+function getLessonBatchSize(user: CurrentUserDto): number {
+  const batchSize = user.settings.lessonBatchSize;
+
+  return batchSize !== undefined &&
+    Number.isInteger(batchSize) &&
+    batchSize >= 1 &&
+    batchSize <= DEFAULT_LESSON_BATCH_LIMIT
+    ? batchSize
+    : DEFAULT_LESSON_BATCH_LIMIT;
+}
+
+function getLessonOrderMode(user: CurrentUserDto): LessonOrderMode {
+  return isLessonOrderMode(user.settings.lessonOrderMode)
+    ? user.settings.lessonOrderMode
+    : "course";
+}
+
+function orderLessonItems<T>(
+  items: readonly T[],
+  mode: LessonOrderMode,
+  getItemType: (item: T) => string,
+): readonly T[] {
+  if (mode === "course" || items.length < 2) {
+    return [...items];
+  }
+
+  const groups = new Map<string, T[]>();
+
+  for (const item of items) {
+    const itemType = getItemType(item);
+    const group = groups.get(itemType) ?? [];
+    group.push(item);
+    groups.set(itemType, group);
+  }
+
+  const orderedItems: T[] = [];
+  let groupIndex = 0;
+
+  while (orderedItems.length < items.length) {
+    for (const group of groups.values()) {
+      const item = group[groupIndex];
+
+      if (item !== undefined) {
+        orderedItems.push(item);
+      }
+    }
+
+    groupIndex += 1;
+  }
+
+  return orderedItems;
 }
 
 function getLocalDateKey(date: Date, timezone: string): string {

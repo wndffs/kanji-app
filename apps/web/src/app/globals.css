@@ -1160,6 +1160,22 @@ textarea:focus-visible {
   gap: 14px;
 }
 
+.settings-fieldset {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.settings-fieldset legend {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .form-panel .checkbox-row {
   display: flex;
   align-items: center;
@@ -1633,6 +1649,11 @@ textarea:focus-visible {
 .lesson-order-control button[aria-pressed="true"] {
   background: var(--foreground);
   color: var(--surface);
+}
+
+.lesson-order-control button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .lesson-preview-card {

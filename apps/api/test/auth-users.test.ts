@@ -173,6 +173,8 @@ describe("Auth and users", () => {
         translationDisplayMode: "en",
         timezone: "Asia/Tokyo",
         dailyLessonLimit: 12,
+        lessonBatchSize: 3,
+        lessonOrderMode: "interleaved",
         reviewBudget: 80,
         strictMode: true,
         dashboardWidgets,
@@ -182,6 +184,8 @@ describe("Auth and users", () => {
         translationDisplayMode: "en",
         timezone: "Asia/Tokyo",
         dailyLessonLimit: 12,
+        lessonBatchSize: 3,
+        lessonOrderMode: "interleaved",
         reviewBudget: 80,
         strictMode: true,
         dashboardWidgets,
@@ -219,6 +223,22 @@ describe("Auth and users", () => {
     ).rejects.toThrow("dashboardWidgets contains an invalid widget.");
   });
 
+  it("rejects invalid lesson pacing preferences", async () => {
+    const { authService } = createAuthHarness();
+    const usersController = new UsersController(authService);
+    const session = await authService.register({
+      email: "learner@example.test",
+      password: "correct-password",
+    });
+
+    await expect(
+      usersController.updateSettings(session.user, { lessonBatchSize: 6 }),
+    ).rejects.toThrow("lessonBatchSize must be an integer between 1 and 5.");
+    await expect(
+      usersController.updateSettings(session.user, { lessonOrderMode: "random" }),
+    ).rejects.toThrow("lessonOrderMode must be course or interleaved.");
+  });
+
   it("rejects a normal user from admin guarded endpoints", async () => {
     const { adminGuard, authService } = createAuthHarness();
     const session = await authService.register({
@@ -242,7 +262,7 @@ describe("Auth and users", () => {
 });
 
 describe("PrismaUsersRepository", () => {
-  it("persists and restores normalized dashboard widget preferences", async () => {
+  it("persists and restores structured user preferences", async () => {
     const dashboardWidgets = [...DEFAULT_DASHBOARD_WIDGET_PREFERENCES].reverse();
     const update = vi.fn().mockResolvedValue({
       id: "user-1",
@@ -255,6 +275,8 @@ describe("PrismaUsersRepository", () => {
         translationDisplayMode: "ru-en",
         timezone: "Europe/Moscow",
         dailyLessonLimit: 10,
+        lessonBatchSize: 3,
+        lessonOrderMode: "interleaved",
         reviewBudget: 100,
         strictMode: false,
         dashboardWidgets,
@@ -264,20 +286,32 @@ describe("PrismaUsersRepository", () => {
       db: { user: { update } },
     } as never);
 
-    const stored = await repository.updateSettings("user-1", { dashboardWidgets });
+    const stored = await repository.updateSettings("user-1", {
+      dashboardWidgets,
+      lessonBatchSize: 3,
+      lessonOrderMode: "interleaved",
+    });
 
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: {
           settings: {
             upsert: expect.objectContaining({
-              update: { dashboardWidgets },
+              update: {
+                dashboardWidgets,
+                lessonBatchSize: 3,
+                lessonOrderMode: "interleaved",
+              },
             }),
           },
         },
       }),
     );
     expect(stored.settings.dashboardWidgets).toEqual(dashboardWidgets);
+    expect(stored.settings).toMatchObject({
+      lessonBatchSize: 3,
+      lessonOrderMode: "interleaved",
+    });
   });
 
   it("enrolls a new learner in the starter and published main course atomically", async () => {

@@ -17,6 +17,7 @@ import {
   type CompleteLessonItemResponse,
   type ContentLocale,
   type LearningCardDto,
+  type LessonOrderMode,
   type LessonQueueItem,
   type LessonQueueSourceDto,
   type LessonSessionDto,
@@ -35,10 +36,11 @@ import {
   getActiveLessonSession,
   getLessonQueue,
   startLessonSession,
+  updateUserSettings,
   updateLessonSessionProgress,
 } from "../../lib/api-client";
-import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
-import { type LessonOrderMode, orderLessonSelection } from "../../lib/lesson-selection";
+import { clearStoredSession, readStoredSession, updateStoredUser } from "../../lib/auth-storage";
+import { orderLessonSelection } from "../../lib/lesson-selection";
 import { advanceLessonQuizCardQueue, buildLessonQuizQueue } from "../../lib/lesson-quiz";
 import {
   getLessonPronunciationText,
@@ -92,6 +94,7 @@ export function LessonsClient() {
     CompleteLessonItemResponse["answers"][number] | null
   >(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [isSavingOrderMode, setIsSavingOrderMode] = useState(false);
   const [isSavingProgress, setIsSavingProgress] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isExitDialogOpen, setIsExitDialogOpen] = useState(false);
@@ -114,7 +117,7 @@ export function LessonsClient() {
     setSession(null);
     setSessionQueue([]);
     setSelectedItemIds([]);
-    setOrderMode("course");
+    setOrderMode(storedSession.user.settings.lessonOrderMode ?? "course");
     setCurrentIndex(0);
     setStep("study");
     setStudyPhaseIndex(0);
@@ -190,6 +193,7 @@ export function LessonsClient() {
         remainingToday: queue.remainingToday,
         source: queue.source ?? { kind: "course" },
       });
+      setOrderMode(queue.orderMode ?? "course");
       setSelectedItemIds(queue.items.map((lesson) => lesson.item.id));
     } catch (error: unknown) {
       if (error instanceof ApiError && error.status === 401) {
@@ -284,6 +288,38 @@ export function LessonsClient() {
   function handleUseSuggestedBatch(): void {
     if (queueState.status === "ready") {
       setSelectedItemIds(queueState.suggestedItems.map((lesson) => lesson.item.id));
+    }
+  }
+
+  async function handleOrderModeChange(nextMode: LessonOrderMode): Promise<void> {
+    if (queueState.status !== "ready" || isSavingOrderMode || nextMode === orderMode) {
+      return;
+    }
+
+    const previousMode = orderMode;
+    setOrderMode(nextMode);
+    setIsSavingOrderMode(true);
+    setSessionError(null);
+
+    try {
+      const updatedUser = await updateUserSettings(queueState.token, {
+        lessonOrderMode: nextMode,
+      });
+      updateStoredUser(updatedUser);
+    } catch (error) {
+      setOrderMode(previousMode);
+
+      if (error instanceof ApiError && error.status === 401) {
+        clearStoredSession();
+        setQueueState({ status: "unauthenticated" });
+        return;
+      }
+
+      setSessionError(
+        error instanceof Error ? error.message : "Не удалось сохранить порядок уроков.",
+      );
+    } finally {
+      setIsSavingOrderMode(false);
     }
   }
 
@@ -687,9 +723,10 @@ export function LessonsClient() {
           batchLimit={queueState.batchLimit}
           displayMode={activeDisplayMode}
           orderMode={orderMode}
+          orderModeSaving={isSavingOrderMode}
           selectedItemIds={selectedItemIdSet}
           onClear={() => setSelectedItemIds([])}
-          onOrderModeChange={setOrderMode}
+          onOrderModeChange={(mode) => void handleOrderModeChange(mode)}
           onToggle={handleToggleLesson}
           onUseSuggested={handleUseSuggestedBatch}
         />
@@ -880,6 +917,7 @@ function LessonPicker({
   batchLimit,
   displayMode,
   orderMode,
+  orderModeSaving,
   selectedItemIds,
   onClear,
   onOrderModeChange,
@@ -890,6 +928,7 @@ function LessonPicker({
   readonly batchLimit: number;
   readonly displayMode: TranslationDisplayMode;
   readonly orderMode: LessonOrderMode;
+  readonly orderModeSaving: boolean;
   readonly selectedItemIds: ReadonlySet<string>;
   readonly onClear: () => void;
   readonly onOrderModeChange: (mode: LessonOrderMode) => void;
@@ -925,6 +964,7 @@ function LessonPicker({
       <div className="lesson-order-control" role="group" aria-label="Порядок материалов">
         <button
           aria-pressed={orderMode === "course"}
+          disabled={orderModeSaving}
           onClick={() => onOrderModeChange("course")}
           type="button"
         >
@@ -932,6 +972,7 @@ function LessonPicker({
         </button>
         <button
           aria-pressed={orderMode === "interleaved"}
+          disabled={orderModeSaving}
           onClick={() => onOrderModeChange("interleaved")}
           type="button"
         >

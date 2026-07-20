@@ -1,6 +1,4 @@
-import { type LessonQueueItem } from "@kanji-srs/shared";
-
-export type LessonOrderMode = "course" | "interleaved";
+import { type LessonOrderMode, type LessonQueueItem } from "@kanji-srs/shared";
 
 export function orderLessonSelection(
   lessons: readonly LessonQueueItem[],

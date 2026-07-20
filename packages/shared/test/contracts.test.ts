@@ -10,6 +10,7 @@ import {
   getContentLocalesForDisplayMode,
   isContentLocale,
   isCourseBand,
+  isLessonOrderMode,
   isTranslationDisplayMode,
   normalizeDashboardWidgetPreferences,
   workspacePackages,
@@ -34,6 +35,14 @@ describe("workspacePackages", () => {
       "@kanji-srs/shared",
       "@kanji-srs/ui",
     ]);
+  });
+});
+
+describe("lesson settings", () => {
+  it("accepts only supported lesson order modes", () => {
+    expect(isLessonOrderMode("course")).toBe(true);
+    expect(isLessonOrderMode("interleaved")).toBe(true);
+    expect(isLessonOrderMode("random")).toBe(false);
   });
 });
 

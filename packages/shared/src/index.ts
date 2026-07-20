@@ -327,6 +327,15 @@ export type LessonQueueSourceDto =
   | { readonly kind: "course" }
   | { readonly kind: "deck"; readonly deckId: string; readonly title: string };
 
+export const SUPPORTED_LESSON_ORDER_MODES = ["course", "interleaved"] as const;
+export type LessonOrderMode = (typeof SUPPORTED_LESSON_ORDER_MODES)[number];
+
+export function isLessonOrderMode(value: unknown): value is LessonOrderMode {
+  return (
+    typeof value === "string" && (SUPPORTED_LESSON_ORDER_MODES as readonly string[]).includes(value)
+  );
+}
+
 export type LessonQueueResponse = {
   /** Suggested default batch, already capped by batchLimit. */
   readonly items: readonly LessonQueueItem[];
@@ -334,6 +343,7 @@ export type LessonQueueResponse = {
   readonly availableItems: readonly LessonQueueItem[];
   readonly batchLimit: number;
   readonly remainingToday: number;
+  readonly orderMode: LessonOrderMode;
   readonly source: LessonQueueSourceDto;
 };
 
