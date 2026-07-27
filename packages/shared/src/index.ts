@@ -1086,6 +1086,84 @@ export type KanaPracticeAnswerResponse = {
   readonly session: KanaPracticeSessionDto;
 };
 
+export type CharacterHubKanaWeakSymbolDto = {
+  readonly character: string;
+  readonly script: KanaScript;
+  readonly romaji: string;
+  readonly currentStreak: number;
+  readonly recentAccuracy: number;
+  readonly lastPracticedAt: string | null;
+  readonly weaknessScore: number;
+};
+
+export type CharacterHubKanaSectionDto = {
+  readonly progressModel: "mastery";
+  readonly script: KanaScript;
+  readonly totalCount: number;
+  readonly attemptedCount: number;
+  readonly masteredCount: number;
+  readonly units: readonly KanaLessonUnitDto[];
+  readonly weakSymbols: readonly CharacterHubKanaWeakSymbolDto[];
+  readonly actions: {
+    readonly lessonsHref: string;
+    readonly assessmentHref: string;
+    readonly practiceHref: string;
+  };
+};
+
+export type CharacterHubKanjiStudyState =
+  | "not-started"
+  | "learning"
+  | "passed"
+  | "burned";
+
+export type CharacterHubKanjiItemDto = {
+  readonly id: string;
+  readonly character: string;
+  readonly reading: string | null;
+  readonly meaningRu: string | null;
+  readonly meaningEn: string | null;
+  readonly level: number;
+  readonly band: CourseBand;
+  readonly jlptLevel: "n5" | "n4" | "n3" | "n2" | "n1" | null;
+  readonly studyState: CharacterHubKanjiStudyState;
+  readonly stageIndex: number | null;
+  readonly stageName: string | null;
+  readonly weaknessScore: number;
+  readonly weak: boolean;
+  readonly href: string;
+};
+
+export type CharacterHubKanjiSectionDto = {
+  readonly progressModel: "srs";
+  readonly currentCourse: {
+    readonly id: string;
+    readonly title: string;
+    readonly currentLevel: number;
+  } | null;
+  readonly counts: {
+    readonly total: number;
+    readonly learned: number;
+    readonly passed: number;
+    readonly burned: number;
+    readonly weak: number;
+  };
+  readonly filters: {
+    readonly levels: readonly number[];
+    readonly bands: readonly CourseBand[];
+    readonly jlptLevels: readonly ("n5" | "n4" | "n3" | "n2" | "n1")[];
+  };
+  readonly items: readonly CharacterHubKanjiItemDto[];
+};
+
+export type CharacterHubResponseDto = {
+  readonly kana: {
+    readonly hiragana: CharacterHubKanaSectionDto;
+    readonly katakana: CharacterHubKanaSectionDto;
+  };
+  readonly kanji: CharacterHubKanjiSectionDto;
+};
+
 export type UserOverrideDto = {
   readonly id: string;
   readonly learningCardId: string;

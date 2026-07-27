@@ -6,6 +6,7 @@ import {
   isKanaRomajiAccepted,
   listKana,
   normalizeRomaji,
+  scoreAdaptiveKanaCandidate,
   type AdaptiveKanaCandidate,
   type KanaCharacter,
 } from "@kanji-srs/japanese";
@@ -14,6 +15,7 @@ import {
   type KanaAssessmentAnswerResponse,
   type KanaAssessmentItemDto,
   type KanaAssessmentProgressDto,
+  type CharacterHubKanaSectionDto,
   type KanaLessonPathDto,
   type KanaLessonUnitDto,
   type KanaPracticeAnswerRequest,
@@ -135,6 +137,66 @@ export class KanaService {
     });
 
     return toPracticeSessionDto(session);
+  }
+
+  async getCharacterHubSection(
+    userId: string,
+    scriptValue: unknown,
+  ): Promise<CharacterHubKanaSectionDto> {
+    const script = parseScript(scriptValue);
+    const [progress, attempts] = await Promise.all([
+      this.kanaRepository.listProgress(userId, script),
+      this.kanaRepository.listAttempts(userId, [script]),
+    ]);
+    const path = buildLessonPathDto(script, progress);
+    const candidates = buildAdaptiveCandidates(script, progress);
+    const now = new Date();
+    const weakSymbols = candidates
+      .filter((candidate) => candidate.unlocked && candidate.attemptCount > 0)
+      .map((candidate) => {
+        const recent = attempts
+          .filter((attempt) => attempt.expectedCharacter === candidate.character)
+          .slice(0, 10);
+        const recentAccuracy =
+          recent.length === 0
+            ? candidate.correctCount / candidate.attemptCount
+            : recent.filter((attempt) => attempt.correct).length / recent.length;
+
+        return {
+          character: candidate.character,
+          script: candidate.script,
+          romaji: candidate.romaji,
+          currentStreak: candidate.currentStreak,
+          recentAccuracy,
+          lastPracticedAt: candidate.lastAnsweredAt?.toISOString() ?? null,
+          weaknessScore: scoreAdaptiveKanaCandidate(candidate, recent, now),
+        };
+      })
+      .filter(
+        (candidate) =>
+          candidate.recentAccuracy < 0.85 || candidate.currentStreak < KANA_MASTERY_STREAK,
+      )
+      .sort(
+        (left, right) =>
+          right.weaknessScore - left.weaknessScore ||
+          left.character.localeCompare(right.character),
+      )
+      .slice(0, 8);
+
+    return {
+      progressModel: "mastery",
+      script,
+      totalCount: path.totalCount,
+      attemptedCount: progress.filter((item) => item.attemptCount > 0).length,
+      masteredCount: path.masteredCount,
+      units: path.units,
+      weakSymbols,
+      actions: {
+        lessonsHref: `/kana?script=${script}&mode=lessons`,
+        assessmentHref: `/kana?script=${script}&mode=assessment`,
+        practiceHref: `/kana?script=${script}&mode=practice`,
+      },
+    };
   }
 
   async answerPractice(

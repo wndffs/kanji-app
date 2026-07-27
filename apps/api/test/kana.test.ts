@@ -243,6 +243,34 @@ describe("KanaService", () => {
       correct: false,
     });
   });
+
+  it("builds a mastery-based character hub section with adaptive weak symbols", async () => {
+    const repository = new InMemoryKanaRepository();
+    const service = new KanaService(repository);
+
+    await service.answer("user-1", { character: "あ", answer: "o" });
+    await service.answer("user-1", { character: "い", answer: "i" });
+
+    const section = await service.getCharacterHubSection("user-1", "hiragana");
+
+    expect(section).toMatchObject({
+      progressModel: "mastery",
+      script: "hiragana",
+      totalCount: 115,
+      attemptedCount: 2,
+      masteredCount: 0,
+      actions: {
+        lessonsHref: "/kana?script=hiragana&mode=lessons",
+        assessmentHref: "/kana?script=hiragana&mode=assessment",
+        practiceHref: "/kana?script=hiragana&mode=practice",
+      },
+    });
+    expect(section.units).toHaveLength(28);
+    expect(section.weakSymbols[0]).toMatchObject({
+      character: "あ",
+      recentAccuracy: 0,
+    });
+  });
 });
 
 class InMemoryKanaRepository extends KanaRepository {

@@ -7,8 +7,8 @@ describe("primaryNavigation", () => {
     expect(primaryNavigation[0]).toEqual({ href: "/dashboard", label: "Панель" });
   });
 
-  it("links to kana onboarding from primary navigation", () => {
-    expect(primaryNavigation).toContainEqual({ href: "/kana", label: "Кана" });
+  it("links to the unified character hub from primary navigation", () => {
+    expect(primaryNavigation).toContainEqual({ href: "/characters", label: "Символы" });
   });
 
   it("links to optional practice from primary navigation", () => {

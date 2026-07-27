@@ -18,6 +18,34 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "kana-token";
 
 test.describe("kana lessons", () => {
+  test("opens character-hub deep links in the requested mode and script", async ({ page }) => {
+    await signIn(page);
+    await mockKanaApi(page);
+
+    await page.goto("/kana?script=katakana&mode=assessment");
+
+    await expect(page.getByRole("tab", { name: "Проверка" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.getByRole("button", { name: "Катакана" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(page.getByTestId("kana-practice")).toContainText("ア");
+
+    await page.goto("/kana?script=mixed&mode=practice");
+    await expect(page.getByRole("tab", { name: "Практика" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.getByRole("button", { name: "Смешанная" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(page.getByTestId("kana-adaptive-practice")).toBeVisible();
+  });
+
   test("rotates kana exercises and switches to katakana", async ({ page }) => {
     await signIn(page, { speechAutoplay: true });
     await mockKanaApi(page);

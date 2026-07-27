@@ -9,7 +9,7 @@ export const primaryNavigation = [
   { href: "/lessons", label: "Уроки" },
   { href: "/reviews", label: "Повторения" },
   { href: "/practice", label: "Практика" },
-  { href: "/kana", label: "Кана" },
+  { href: "/characters", label: "Символы" },
   { href: "/search", label: "Поиск" },
   { href: "/decks", label: "Колоды" },
   { href: "/settings", label: "Настройки" },

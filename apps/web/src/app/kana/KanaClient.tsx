@@ -39,10 +39,10 @@ import { buildKanaSpeechText } from "../../lib/kana-speech";
 import { isKanaTracingCandidate } from "../../lib/kana-tracing";
 import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
+import { type KanaRouteMode } from "../../lib/kana-route";
 import { AdaptiveKanaPractice } from "./AdaptiveKanaPractice";
 import { KanaTracingExercise } from "./KanaTracingExercise";
 
-type KanaMode = "lessons" | "assessment" | "practice";
 type LessonPhase = "teach" | "quiz";
 
 type KanaState =
@@ -57,11 +57,20 @@ type KanaState =
       readonly path: KanaLessonPathDto;
     };
 
-export function KanaClient() {
-  const [script, setScript] = useState<KanaScript>("hiragana");
-  const [practiceScript, setPracticeScript] = useState<KanaPracticeScript>("hiragana");
+export function KanaClient({
+  initialMode = "lessons",
+  initialScript = "hiragana",
+  initialPracticeScript = "hiragana",
+}: {
+  readonly initialMode?: KanaRouteMode;
+  readonly initialScript?: KanaScript;
+  readonly initialPracticeScript?: KanaPracticeScript;
+}) {
+  const [script, setScript] = useState<KanaScript>(initialScript);
+  const [practiceScript, setPracticeScript] =
+    useState<KanaPracticeScript>(initialPracticeScript);
   const [dataRevision, setDataRevision] = useState(0);
-  const [mode, setMode] = useState<KanaMode>("lessons");
+  const [mode, setMode] = useState<KanaRouteMode>(initialMode);
   const [state, setState] = useState<KanaState>({ status: "checking" });
   const [activeUnitId, setActiveUnitId] = useState<string | null>(null);
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
@@ -379,7 +388,7 @@ export function KanaClient() {
     }
   }
 
-  function handleModeChange(nextMode: KanaMode): void {
+  function handleModeChange(nextMode: KanaRouteMode): void {
     if (state.status !== "ready" || nextMode === mode) {
       return;
     }

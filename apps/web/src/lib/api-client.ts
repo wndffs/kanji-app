@@ -41,6 +41,7 @@ import {
   type ActivePracticeSessionResponse,
   type AppLocale,
   type CardAnswerType,
+  type CharacterHubResponseDto,
   type CheckLessonAnswerRequestDto,
   type CheckLessonAnswerResponse,
   type ContentLocale,
@@ -248,6 +249,10 @@ export function register(input: {
 
 export function getDashboard(token: string): Promise<DashboardDto> {
   return apiRequest<DashboardDto>("/dashboard", { token });
+}
+
+export function getCharacterHub(token: string): Promise<CharacterHubResponseDto> {
+  return apiRequest<CharacterHubResponseDto>("/characters", { token });
 }
 
 export function getCourses(token: string): Promise<CourseListResponse> {

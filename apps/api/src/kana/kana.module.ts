@@ -15,5 +15,6 @@ import { KanaService } from "./kana.service";
       useClass: PrismaKanaRepository,
     },
   ],
+  exports: [KanaService],
 })
 export class KanaModule {}
