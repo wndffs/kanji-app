@@ -17,6 +17,7 @@ import {
   type LessonQueueSourceDto,
   type LessonSessionPhase,
   type LocalizedTextDto,
+  type ListeningPlaybackEvidenceDto,
   type SrsStateSummaryDto,
   type StartLessonSessionResponse,
   type UpdateLessonSessionProgressResponse,
@@ -27,6 +28,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { type CurrentUserDto } from "../auth/auth.types";
+import { hasCompletedListeningPlayback } from "../audio/listening-playback";
 import { OverridesService } from "../overrides/overrides.service";
 import { LessonsRepository } from "./lessons.repository";
 import {
@@ -260,6 +262,8 @@ export class LessonsService {
           throw new BadRequestException("Lesson answer references an unknown card.");
         }
 
+        assertListeningPlayback(card, answer.listeningEvidence);
+
         const validation = await this.overridesService.validateAnswerForUser({
           userId: user.id,
           cardId: card.id,
@@ -356,6 +360,8 @@ export class LessonsService {
     if (card.answerType !== request.answerType) {
       throw new BadRequestException(`answerType must be ${card.answerType} for card ${card.id}.`);
     }
+
+    assertListeningPlayback(card, request.listeningEvidence);
 
     const validation = await this.overridesService.validateAnswerForUser({
       userId: user.id,
@@ -878,7 +884,13 @@ function parseCheckLessonAnswerRequest(body: unknown): CheckLessonAnswerRequestD
     throw new BadRequestException("answerType must be meaning or reading.");
   }
 
-  return { itemId, cardId, answerType: record.answerType, answer };
+  return {
+    itemId,
+    cardId,
+    answerType: record.answerType,
+    answer,
+    listeningEvidence: parseListeningEvidence(record.listeningEvidence, "listeningEvidence"),
+  };
 }
 
 function parseLessonAnswer(
@@ -901,7 +913,52 @@ function parseLessonAnswer(
     throw new BadRequestException(`answers[${index}].answerType must be meaning or reading.`);
   }
 
-  return { cardId, answerType: record.answerType, answer };
+  return {
+    cardId,
+    answerType: record.answerType,
+    answer,
+    listeningEvidence: parseListeningEvidence(
+      record.listeningEvidence,
+      `answers[${index}].listeningEvidence`,
+    ),
+  };
+}
+
+function parseListeningEvidence(
+  value: unknown,
+  label: string,
+): ListeningPlaybackEvidenceDto | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new BadRequestException(`${label} must be a JSON object.`);
+  }
+
+  const record = value as Record<string, unknown>;
+
+  if (
+    typeof record.completed !== "boolean" ||
+    typeof record.playCount !== "number" ||
+    !Number.isInteger(record.playCount) ||
+    record.playCount < 0
+  ) {
+    throw new BadRequestException(`${label} must contain completed and a non-negative playCount.`);
+  }
+
+  return { completed: record.completed, playCount: record.playCount };
+}
+
+function assertListeningPlayback(
+  card: LessonCardRecord,
+  evidence: ListeningPlaybackEvidenceDto | undefined,
+): void {
+  if (!hasCompletedListeningPlayback(card.promptType, card.audio, evidence)) {
+    throw new BadRequestException(
+      "Listening audio must finish successfully before this answer can be graded.",
+    );
+  }
 }
 
 function parseRequiredString(value: unknown, label: string, maxLength: number): string {
@@ -1040,6 +1097,7 @@ function toLearningCard(
       text: answer.text,
       sourceKind: answer.sourceKind,
     })),
+    audio: card.audio ?? null,
     sortOrder: card.sortOrder,
   };
 }

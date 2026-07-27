@@ -1,7 +1,9 @@
 import {
+  type AudioAssetDto,
   type CardAnswerType,
   type CardPromptType,
   type ItemKind,
+  type BilingualTextDto,
   type LocalizedTextDto,
   type PracticeProgressDto,
   type PracticeSource,
@@ -44,6 +46,7 @@ export type ReviewTargetRecord = {
   readonly reading: string | null;
   readonly level: number | null;
   readonly jlptLevel: string | null;
+  readonly translations?: BilingualTextDto;
 };
 
 export type ReviewAnswerRecord = LocalizedTextDto & {
@@ -67,6 +70,7 @@ export type ReviewCardRecord = {
   readonly target: ReviewTargetRecord;
   readonly acceptedAnswers: readonly ReviewAnswerRecord[];
   readonly blockedAnswers: readonly ReviewBlockedAnswerRecord[];
+  readonly audio?: AudioAssetDto | null;
 };
 
 export type ReviewQueueRecord = {
@@ -114,6 +118,10 @@ export type ParsedReviewAnswerRequest = {
   readonly answerType: CardAnswerType;
   readonly revealRequested: boolean;
   readonly manualIgnore: boolean;
+  readonly listeningEvidence?: {
+    readonly completed: boolean;
+    readonly playCount: number;
+  };
 };
 
 export type RecordReviewAnswerInput = {
@@ -179,4 +187,5 @@ export type ReviewAnswerRequestBody = {
   readonly answeredAt?: unknown;
   readonly revealRequested?: unknown;
   readonly manualIgnore?: unknown;
+  readonly listeningEvidence?: unknown;
 };

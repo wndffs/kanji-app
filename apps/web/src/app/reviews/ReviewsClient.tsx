@@ -17,6 +17,7 @@ import {
   type CardAnswerType,
   type ContentLocale,
   type LocalizedTextDto,
+  type ListeningPlaybackEvidenceDto,
   type ReviewAnswerResponse,
   type ReviewOrderMode,
   type ReviewQueueItem,
@@ -26,6 +27,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
+import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
   ApiError,
   addPrivateAcceptedAnswer,
@@ -82,6 +84,10 @@ export function ReviewsClient() {
   const [isContinuing, setIsContinuing] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [listeningEvidence, setListeningEvidence] = useState<ListeningPlaybackEvidenceDto>({
+    completed: false,
+    playCount: 0,
+  });
   const answerInputRef = useRef<HTMLInputElement>(null);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -143,10 +149,20 @@ export function ReviewsClient() {
   }, [currentIndex, currentItem, totalCount]);
 
   useEffect(() => {
-    if (session !== null && feedback === null && currentItem !== null && !isSubmitting) {
+    if (
+      session !== null &&
+      feedback === null &&
+      currentItem !== null &&
+      !isSubmitting &&
+      (currentItem.card.promptType !== "listening" || listeningEvidence.completed)
+    ) {
       answerInputRef.current?.focus();
     }
-  }, [currentItem, feedback, isSubmitting, session]);
+  }, [currentItem, feedback, isSubmitting, listeningEvidence.completed, session]);
+
+  useEffect(() => {
+    setListeningEvidence({ completed: false, playCount: 0 });
+  }, [currentItem?.card.id]);
 
   useEffect(() => {
     if (feedback !== null) {
@@ -232,6 +248,11 @@ export function ReviewsClient() {
 
     const trimmedAnswer = answer.trim();
 
+    if (currentItem.card.promptType === "listening" && !listeningEvidence.completed) {
+      setFormError("Сначала прослушайте запись полностью.");
+      return;
+    }
+
     if (trimmedAnswer === "") {
       setFormError("Введите ответ.");
       answerInputRef.current?.focus();
@@ -248,6 +269,8 @@ export function ReviewsClient() {
         answer: trimmedAnswer,
         answerType: currentItem.card.answerType,
         answeredAt: new Date().toISOString(),
+        listeningEvidence:
+          currentItem.card.promptType === "listening" ? listeningEvidence : undefined,
       });
 
       if (!response.retry) {
@@ -437,11 +460,7 @@ export function ReviewsClient() {
       <section className="page-stack">
         <div className="page-heading">
           <h1>Повторения</h1>
-          <p>
-            {vacationActive
-              ? "Режим отпуска включён."
-              : "Нет карточек к повторению."}
-          </p>
+          <p>{vacationActive ? "Режим отпуска включён." : "Нет карточек к повторению."}</p>
         </div>
         <div className="notice-panel">
           <p>
@@ -536,17 +555,25 @@ export function ReviewsClient() {
       <article className="review-card">
         <div className="review-card-meta">
           <span>{formatItemType(currentItem.item.itemType)}</span>
+          {currentItem.card.promptType === "listening" ? <span>Аудирование</span> : null}
           <span>{formatAnswerType(currentItem.card.answerType)}</span>
           <span>{formatSrsStageName(currentItem.srs.stageName)}</span>
         </div>
         <div className="review-prompt">
-          <JapaneseText
-            as="p"
-            className="review-japanese"
-            variant={currentItem.item.itemType === "sentence" ? "sentence" : "display"}
-          >
-            {currentItem.card.prompt.japanese}
-          </JapaneseText>
+          {currentItem.card.promptType === "listening" ? (
+            <ListeningPrompt
+              audio={currentItem.card.audio}
+              onEvidenceChange={setListeningEvidence}
+            />
+          ) : (
+            <JapaneseText
+              as="p"
+              className="review-japanese"
+              variant={currentItem.item.itemType === "sentence" ? "sentence" : "display"}
+            >
+              {currentItem.card.prompt.japanese}
+            </JapaneseText>
+          )}
           {currentItem.card.answerType === "meaning" ? null : (
             <p className="muted">Введите чтение. Правильный вариант появится после ответа.</p>
           )}
@@ -583,7 +610,10 @@ export function ReviewsClient() {
               aria-describedby={formError === null ? undefined : "review-answer-error"}
               aria-invalid={formError !== null}
               autoComplete="off"
-              disabled={isSubmitting}
+              disabled={
+                isSubmitting ||
+                (currentItem.card.promptType === "listening" && !listeningEvidence.completed)
+              }
               id="review-answer"
               onChange={(event) => setAnswer(event.currentTarget.value)}
               placeholder={formatInputPlaceholder(currentItem.card.answerType)}
@@ -592,7 +622,14 @@ export function ReviewsClient() {
               value={answer}
             />
           </label>
-          <button className="primary-action" disabled={isSubmitting} type="submit">
+          <button
+            className="primary-action"
+            disabled={
+              isSubmitting ||
+              (currentItem.card.promptType === "listening" && !listeningEvidence.completed)
+            }
+            type="submit"
+          >
             {isSubmitting ? "Проверяю..." : "Ответить"}
           </button>
           {formError === null ? null : (
@@ -731,6 +768,25 @@ function FeedbackPanel({
           </p>
         </div>
       </div>
+
+      {item.card.promptType === "listening" && item.card.audio != null ? (
+        <section className="listening-feedback-details">
+          <div>
+            <h3>Прослушанный материал</h3>
+            <JapaneseText
+              as="p"
+              variant={item.item.itemType === "sentence" ? "sentence" : "display"}
+            >
+              {item.item.japanese}
+            </JapaneseText>
+            <p lang="ja">{item.item.reading ?? "Чтение не указано"}</p>
+            {item.item.translations === undefined ? null : (
+              <p>{formatReviewTranslations(item.item.translations, displayMode)}</p>
+            )}
+          </div>
+          <ListeningAttribution audio={item.card.audio} />
+        </section>
+      ) : null}
 
       <form
         className="private-answer-form"
@@ -872,4 +928,16 @@ function formatDuration(totalSeconds: number): string {
 
 function formatLocale(locale: LocalizedTextDto["locale"]): string {
   return locale === "ru-RU" ? "RU" : "EN";
+}
+
+function formatReviewTranslations(
+  translations: NonNullable<ReviewQueueItem["item"]["translations"]>,
+  displayMode: TranslationDisplayMode,
+): string {
+  const values = [
+    ...(displayMode === "ru" || displayMode === "ru-en" ? [translations.primaryRu] : []),
+    ...(displayMode === "en" || displayMode === "ru-en" ? [translations.primaryEn] : []),
+  ].filter((value): value is string => value !== null);
+
+  return values.length === 0 ? "Значение не указано" : values.join(" · ");
 }

@@ -6,14 +6,18 @@ import { type FormEvent, useCallback, useEffect, useRef, useState } from "react"
 
 import {
   PRACTICE_SOURCES,
+  type ListeningPlaybackEvidenceDto,
   type PracticeAnswerResponse,
   type PracticeProgressDto,
   type PracticeSessionDto,
   type PracticeSource,
   type ReviewQueueItem,
+  type TranslationBundleDto,
+  type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
+import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
   ApiError,
   finishPracticeSession,
@@ -23,6 +27,7 @@ import {
   submitPracticeAnswer,
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
+import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
 type QueueState =
   | { readonly status: "loading" }
@@ -42,6 +47,7 @@ export function PracticeClient({
   readonly initialSource?: PracticeSource;
 }) {
   const router = useRouter();
+  const displayMode = useTranslationDisplayMode();
   const [source, setSource] = useState<PracticeSource>(initialSource);
   const [queueState, setQueueState] = useState<QueueState>({ status: "loading" });
   const [practiceSession, setPracticeSession] = useState<PracticeSessionDto | null>(null);
@@ -55,6 +61,10 @@ export function PracticeClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isContinuing, setIsContinuing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [listeningEvidence, setListeningEvidence] = useState<ListeningPlaybackEvidenceDto>({
+    completed: false,
+    playCount: 0,
+  });
   const answerInputRef = useRef<HTMLInputElement>(null);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -75,6 +85,7 @@ export function PracticeClient({
     setProgress(INITIAL_PROGRESS);
     setFinishedSummary(null);
     setError(null);
+    setListeningEvidence({ completed: false, playCount: 0 });
 
     try {
       const [queue, active] = await Promise.all([
@@ -123,10 +134,19 @@ export function PracticeClient({
     queueState.status === "ready" && isPracticing ? (queueState.items[currentIndex] ?? null) : null;
 
   useEffect(() => {
-    if (currentItem !== null && feedback === null && !isSubmitting) {
+    if (
+      currentItem !== null &&
+      feedback === null &&
+      !isSubmitting &&
+      (currentItem.card.promptType !== "listening" || listeningEvidence.completed)
+    ) {
       answerInputRef.current?.focus();
     }
-  }, [currentItem, feedback, isSubmitting]);
+  }, [currentItem, feedback, isSubmitting, listeningEvidence.completed]);
+
+  useEffect(() => {
+    setListeningEvidence({ completed: false, playCount: 0 });
+  }, [currentItem?.card.id]);
 
   useEffect(() => {
     if (feedback !== null) {
@@ -159,6 +179,7 @@ export function PracticeClient({
       setFeedback(null);
       setProgress(response.session.progress);
       setFinishedSummary(null);
+      setListeningEvidence({ completed: false, playCount: 0 });
     } catch (requestError: unknown) {
       setError(
         requestError instanceof Error ? requestError.message : "Не удалось начать практику.",
@@ -177,6 +198,7 @@ export function PracticeClient({
       currentItem === null ||
       answer.trim() === "" ||
       feedback !== null ||
+      (currentItem.card.promptType === "listening" && !listeningEvidence.completed) ||
       isSubmitting
     ) {
       return;
@@ -190,6 +212,8 @@ export function PracticeClient({
         cardId: currentItem.card.id,
         answer: answer.trim(),
         answerType: currentItem.card.answerType,
+        listeningEvidence:
+          currentItem.card.promptType === "listening" ? listeningEvidence : undefined,
       });
       setFeedback(response.answer);
       setPracticeSession(response.session);
@@ -233,6 +257,7 @@ export function PracticeClient({
         setIsPracticing(false);
         setFeedback(null);
         setAnswer("");
+        setListeningEvidence({ completed: false, playCount: 0 });
       } catch (requestError: unknown) {
         setError(
           requestError instanceof Error ? requestError.message : "Не удалось завершить практику.",
@@ -246,6 +271,7 @@ export function PracticeClient({
     setCurrentIndex(nextIndex);
     setAnswer("");
     setFeedback(null);
+    setListeningEvidence({ completed: false, playCount: 0 });
   }
 
   if (queueState.status === "loading") {
@@ -384,17 +410,25 @@ export function PracticeClient({
       <article className="review-card">
         <div className="review-card-meta">
           <span>{formatItemType(currentItem.item.itemType)}</span>
+          {currentItem.card.promptType === "listening" ? <span>Аудирование</span> : null}
           <span>{formatAnswerType(currentItem.card.answerType)}</span>
           <span>Без изменения SRS</span>
         </div>
         <div className="review-prompt">
-          <JapaneseText
-            as="p"
-            className="review-japanese"
-            variant={currentItem.item.itemType === "sentence" ? "sentence" : "display"}
-          >
-            {currentItem.card.prompt.japanese}
-          </JapaneseText>
+          {currentItem.card.promptType === "listening" ? (
+            <ListeningPrompt
+              audio={currentItem.card.audio}
+              onEvidenceChange={setListeningEvidence}
+            />
+          ) : (
+            <JapaneseText
+              as="p"
+              className="review-japanese"
+              variant={currentItem.item.itemType === "sentence" ? "sentence" : "display"}
+            >
+              {currentItem.card.prompt.japanese}
+            </JapaneseText>
+          )}
         </div>
       </article>
 
@@ -404,7 +438,10 @@ export function PracticeClient({
             <span>{formatInputLabel(currentItem.card.answerType)}</span>
             <input
               autoComplete="off"
-              disabled={isSubmitting}
+              disabled={
+                isSubmitting ||
+                (currentItem.card.promptType === "listening" && !listeningEvidence.completed)
+              }
               id="practice-answer"
               onChange={(event) => setAnswer(event.currentTarget.value)}
               ref={answerInputRef}
@@ -413,7 +450,11 @@ export function PracticeClient({
           </label>
           <button
             className="primary-action"
-            disabled={isSubmitting || answer.trim() === ""}
+            disabled={
+              isSubmitting ||
+              answer.trim() === "" ||
+              (currentItem.card.promptType === "listening" && !listeningEvidence.completed)
+            }
             type="submit"
           >
             {isSubmitting ? "Проверяю..." : "Ответить"}
@@ -467,6 +508,24 @@ export function PracticeClient({
               <p>Без изменений</p>
             </div>
           </div>
+          {currentItem.card.promptType === "listening" && currentItem.card.audio != null ? (
+            <section className="listening-feedback-details">
+              <div>
+                <h3>Прослушанный материал</h3>
+                <JapaneseText
+                  as="p"
+                  variant={currentItem.item.itemType === "sentence" ? "sentence" : "display"}
+                >
+                  {currentItem.item.japanese}
+                </JapaneseText>
+                <p lang="ja">{currentItem.item.reading ?? "Чтение не указано"}</p>
+                {currentItem.item.translations === undefined ? null : (
+                  <p>{formatPracticeTranslations(currentItem.item.translations, displayMode)}</p>
+                )}
+              </div>
+              <ListeningAttribution audio={currentItem.card.audio} />
+            </section>
+          ) : null}
         </section>
       )}
 
@@ -510,7 +569,11 @@ function PracticeQueuePreview({ items }: { readonly items: readonly ReviewQueueI
         <article className="review-queue-card" key={item.card.id}>
           <div>
             <span className="eyebrow">{formatItemType(item.item.itemType)}</span>
-            <JapaneseText as="strong">{item.item.japanese}</JapaneseText>
+            {item.card.promptType === "listening" ? (
+              <strong>Аудирование</strong>
+            ) : (
+              <JapaneseText as="strong">{item.item.japanese}</JapaneseText>
+            )}
           </div>
           <span>{formatAnswerType(item.card.answerType)}</span>
         </article>
@@ -560,6 +623,23 @@ function formatAnswerType(answerType: ReviewQueueItem["card"]["answerType"]): st
 
 function formatInputLabel(answerType: ReviewQueueItem["card"]["answerType"]): string {
   return answerType === "reading" ? "Введите чтение" : "Введите значение";
+}
+
+function formatPracticeTranslations(
+  translations: TranslationBundleDto,
+  displayMode: TranslationDisplayMode,
+): string {
+  const values: string[] = [];
+
+  if (displayMode === "ru" || displayMode === "ru-en") {
+    values.push(...translations.ru.map((entry) => entry.text));
+  }
+
+  if (displayMode === "en" || displayMode === "ru-en") {
+    values.push(...translations.en.map((entry) => entry.text));
+  }
+
+  return [...new Set(values)].join(" / ");
 }
 
 function formatResult(result: PracticeAnswerResponse["result"]): string {

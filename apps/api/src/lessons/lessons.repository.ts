@@ -13,6 +13,11 @@ import {
 import { PrismaService } from "../database/prisma.service";
 import { resolveCurrentCourseId } from "../courses/current-course";
 import {
+  isEligibleListeningAudio,
+  toAudioAssetDto,
+  type AudioAssetRecord,
+} from "../audio/audio-asset";
+import {
   type CompleteLessonItemInput,
   type CompletedLessonItemRecord,
   type CourseLessonItemRecord,
@@ -123,6 +128,7 @@ type LearningCardRow = {
   readonly sortOrder: number;
   readonly answers: readonly LearningAnswerRow[];
   readonly blockedAnswers: readonly BlockedAnswerRow[];
+  readonly audioAsset: AudioAssetRecord | null;
 };
 
 type LearningAnswerRow = {
@@ -269,6 +275,7 @@ export class PrismaLessonsRepository extends LessonsRepository {
                     learningItem: {
                       include: {
                         cards: {
+                          where: listeningCardEligibilityWhere,
                           orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
                           include: {
                             answers: {
@@ -276,6 +283,12 @@ export class PrismaLessonsRepository extends LessonsRepository {
                             },
                             blockedAnswers: {
                               orderBy: { text: "asc" },
+                            },
+                            audioAsset: {
+                              include: {
+                                dataSource: true,
+                                license: true,
+                              },
                             },
                           },
                         },
@@ -320,14 +333,20 @@ export class PrismaLessonsRepository extends LessonsRepository {
     for (const enrollment of enrollments) {
       for (const level of enrollment.course.levels) {
         for (const item of level.items) {
+          const lessonItem = await this.toLessonItemRecord(
+            item.learningItem,
+            examplesByItem.get(item.learningItem.id) ?? [],
+          );
+
+          if (lessonItem.cards.length === 0) {
+            continue;
+          }
+
           records.push({
             courseId: enrollment.course.id,
             courseLevelNumber: level.levelNumber,
             sortOrder: item.sortOrder,
-            item: await this.toLessonItemRecord(
-              item.learningItem,
-              examplesByItem.get(item.learningItem.id) ?? [],
-            ),
+            item: lessonItem,
             unlockPolicy: isRecord(item.unlockPolicyJson) ? item.unlockPolicyJson : null,
           });
         }
@@ -350,6 +369,7 @@ export class PrismaLessonsRepository extends LessonsRepository {
             learningItem: {
               include: {
                 cards: {
+                  where: listeningCardEligibilityWhere,
                   orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
                   include: {
                     answers: {
@@ -357,6 +377,12 @@ export class PrismaLessonsRepository extends LessonsRepository {
                     },
                     blockedAnswers: {
                       orderBy: { text: "asc" },
+                    },
+                    audioAsset: {
+                      include: {
+                        dataSource: true,
+                        license: true,
+                      },
                     },
                   },
                 },
@@ -389,19 +415,21 @@ export class PrismaLessonsRepository extends LessonsRepository {
       deck.items.map((entry) => entry.learningItem.id),
     );
 
+    const items = await Promise.all(
+      deck.items.map(async (entry) => ({
+        sortOrder: entry.sortOrder,
+        item: await this.toLessonItemRecord(
+          entry.learningItem,
+          examplesByItem.get(entry.learningItem.id) ?? [],
+        ),
+      })),
+    );
+
     return {
       id: deck.id,
       title: deck.title,
       status: toDeckLessonStatus(deck.status),
-      items: await Promise.all(
-        deck.items.map(async (entry) => ({
-          sortOrder: entry.sortOrder,
-          item: await this.toLessonItemRecord(
-            entry.learningItem,
-            examplesByItem.get(entry.learningItem.id) ?? [],
-          ),
-        })),
-      ),
+      items: items.filter((entry) => entry.item.cards.length > 0),
     };
   }
 
@@ -621,6 +649,9 @@ export class PrismaLessonsRepository extends LessonsRepository {
     exampleSentences: readonly SentenceDto[],
   ): Promise<LessonItemRecord> {
     const itemType = toItemKind(item.kind);
+    const cards = item.cards
+      .map((card) => toCardRecord(card, itemType))
+      .filter(isLessonCardEligible);
 
     return {
       id: item.id,
@@ -628,7 +659,7 @@ export class PrismaLessonsRepository extends LessonsRepository {
       title: item.title,
       level: item.levelHint,
       target: await this.findTarget(item),
-      cards: item.cards.map((card) => toCardRecord(card, itemType)),
+      cards,
       dependencies: item.dependencies.map(toDependencyRecord),
       mnemonics: groupLessonMnemonics(item.mnemonics, item.userMnemonics),
       hints: groupLessonHints(item.hints),
@@ -885,20 +916,32 @@ function toDeckLessonStatus(status: string): DeckLessonRecord["status"] {
   }
 }
 
+function isLessonCardEligible(card: LessonCardRecord): boolean {
+  return card.promptType !== "listening" || card.audio !== null;
+}
+
 function toCardRecord(
   card: LearningCardRow,
   itemType: LessonCardRecord["itemType"],
 ): LessonCardRecord {
+  const promptType = toPromptType(card.promptType);
+  const audio =
+    promptType === "listening" &&
+    isEligibleListeningAudio(card.audioAsset, card.learningItemId, itemType)
+      ? toAudioAssetDto(card.audioAsset)
+      : null;
+
   return {
     id: card.id,
     learningItemId: card.learningItemId,
     itemType,
     cardType: card.cardType === "LESSON" ? "lesson" : "review",
-    promptType: toPromptType(card.promptType),
+    promptType,
     answerType: card.answerType === "READING" ? "reading" : "meaning",
     sortOrder: card.sortOrder,
     answers: card.answers.map(toAnswerRecord),
     blockedAnswers: card.blockedAnswers.map(toBlockedAnswerRecord),
+    audio,
   };
 }
 
@@ -962,6 +1005,8 @@ function toItemKind(kind: string): LessonItemRecord["itemType"] {
 
 function toPromptType(value: string): LessonCardRecord["promptType"] {
   switch (value) {
+    case "LISTENING":
+      return "listening";
     case "READING":
       return "reading";
     case "RECALL":
@@ -974,6 +1019,24 @@ function toPromptType(value: string): LessonCardRecord["promptType"] {
       return "meaning";
   }
 }
+
+const listeningCardEligibilityWhere = {
+  OR: [
+    { promptType: { not: "LISTENING" as const } },
+    {
+      promptType: "LISTENING" as const,
+      learningItem: { kind: { in: ["WORD" as const, "SENTENCE" as const] } },
+      audioAsset: {
+        is: {
+          status: "PUBLISHED" as const,
+          mediaUrl: { not: null, startsWith: "https://" },
+          durationMs: { gt: 0 },
+          attributionText: { not: "" },
+        },
+      },
+    },
+  ],
+};
 
 function localizedText(
   locale: ContentLocale,

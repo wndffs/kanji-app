@@ -1436,6 +1436,8 @@ function formatItemType(itemType: ItemDetails["itemType"]): string {
 
 function formatPromptType(promptType: LearningCardDto["promptType"]): string {
   switch (promptType) {
+    case "listening":
+      return "аудирование";
     case "reading":
       return "чтение";
     case "recall":

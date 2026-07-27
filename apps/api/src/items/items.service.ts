@@ -318,6 +318,7 @@ function toLearningCard(
       text: answer.text,
       sourceKind: answer.sourceKind,
     })),
+    audio: card.audio ?? null,
     sortOrder: card.sortOrder,
   };
 }

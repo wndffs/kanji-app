@@ -8,9 +8,20 @@ import {
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
+import { createSilentWav } from "./support/test-audio";
+
 const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 const SESSION_ID = "review-session-1";
+
+type CapturedReviewAnswerRequest = {
+  readonly cardId?: string;
+  readonly answerType?: string;
+  readonly listeningEvidence?: {
+    readonly completed: boolean;
+    readonly playCount: number;
+  };
+};
 
 test.describe("review session", () => {
   test("completes one correct review", async ({ page }) => {
@@ -72,6 +83,73 @@ test.describe("review session", () => {
     await expect(page.getByText("Ответ не принят.")).toBeVisible();
     await expect(page.getByText("Правильные ответы")).toBeVisible();
     await expect(page.getByText("солнце")).toBeVisible();
+  });
+
+  test("requires completed audio and reveals licensed listening metadata", async ({ page }) => {
+    const answerRequests: CapturedReviewAnswerRequest[] = [];
+
+    await signIn(page);
+    await mockReviewApi(page, {
+      answerRequests,
+      queue: [listeningReviewQueueItem],
+    });
+
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение" }).click();
+
+    const answerInput = page.getByLabel("Ответ чтением");
+    await expect(answerInput).toBeDisabled();
+    await expect(page.getByText("一つ", { exact: true })).toBeHidden();
+
+    const playButton = page.getByRole("button", { name: "Воспроизвести аудио" });
+    await expect(playButton).toBeEnabled();
+    await playButton.click();
+
+    await expect(page.getByText("Запись прослушана. Можно отвечать.")).toBeVisible();
+    await page.getByRole("button", { name: "Воспроизвести аудио ещё раз" }).click();
+    await expect(page.getByText("Запись прослушана. Можно отвечать.")).toBeVisible();
+    await expect(answerInput).toBeEnabled();
+    await answerInput.fill("ひとつ");
+    await page.keyboard.press("Enter");
+
+    expect(answerRequests).toEqual([
+      expect.objectContaining({
+        cardId: listeningReviewQueueItem.card.id,
+        answerType: "reading",
+        listeningEvidence: { completed: true, playCount: 2 },
+      }),
+    ]);
+    const listeningDetails = page.locator(".listening-feedback-details");
+    await expect(listeningDetails.getByText("一つ", { exact: true })).toBeVisible();
+    await expect(listeningDetails.getByText("ひとつ", { exact: true })).toBeVisible();
+    await expect(listeningDetails.getByText("Project speaker", { exact: true })).toBeVisible();
+    await expect(listeningDetails.getByText("Project recordings", { exact: true })).toBeVisible();
+    await expect(listeningDetails.getByText("Project-owned audio", { exact: true })).toBeVisible();
+    await expect(
+      listeningDetails.getByText("Recorded for Kanji SRS.", { exact: true }),
+    ).toBeVisible();
+  });
+
+  test("keeps a failed listening prompt recoverable and ungraded", async ({ page }) => {
+    const answerRequests: CapturedReviewAnswerRequest[] = [];
+
+    await signIn(page);
+    await mockReviewApi(page, {
+      answerRequests,
+      failAudio: true,
+      queue: [listeningReviewQueueItem],
+    });
+
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение" }).click();
+
+    await expect(
+      page.getByText("Аудио недоступно. Ответ не будет оценён; попробуйте воспроизвести ещё раз."),
+    ).toBeVisible();
+    await expect(page.getByLabel("Ответ чтением")).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Ответить" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Воспроизвести аудио" })).toBeEnabled();
+    expect(answerRequests).toEqual([]);
   });
 
   test("retries an alternative kanji reading without advancing the review", async ({ page }) => {
@@ -362,7 +440,8 @@ async function signIn(
 async function mockReviewApi(
   page: Page,
   options: {
-    readonly answerRequests?: Array<{ readonly cardId?: string; readonly answerType?: string }>;
+    readonly answerRequests?: CapturedReviewAnswerRequest[];
+    readonly failAudio?: boolean;
     readonly queue?: readonly ReviewQueueItem[];
   } = {},
 ): Promise<() => { readonly queueRequests: number; readonly savedSettings: unknown }> {
@@ -372,6 +451,19 @@ async function mockReviewApi(
   let reviewOrderMode = "shuffled";
   let savedSettings: unknown = null;
   const completedAnswers: ReviewAnswerResponse[] = [];
+
+  await page.route("https://media.example.test/**", async (route) => {
+    if (options.failAudio) {
+      await route.abort("failed");
+      return;
+    }
+
+    await route.fulfill({
+      body: createSilentWav(800),
+      contentType: "audio/wav",
+      headers: { "Accept-Ranges": "bytes" },
+    });
+  });
 
   await page.route(`${API_BASE_URL}/reviews/queue`, async (route) => {
     queueRequests += 1;
@@ -425,6 +517,7 @@ async function mockReviewApi(
       readonly answer?: string;
       readonly answerType?: string;
       readonly cardId?: string;
+      readonly listeningEvidence?: CapturedReviewAnswerRequest["listeningEvidence"];
     };
     const answer = body.answer ?? "";
     const item = queue.find((candidate) => candidate.card.id === body.cardId) ?? queue[0];
@@ -437,6 +530,7 @@ async function mockReviewApi(
     options.answerRequests?.push({
       answerType: body.answerType,
       cardId: body.cardId,
+      listeningEvidence: body.listeningEvidence,
     });
 
     const response = createAnswerResponse({
@@ -452,19 +546,18 @@ async function mockReviewApi(
     }
 
     await route.fulfill({
-      json:
-        isRetry
-          ? {
-              ...response,
-              retry: true,
-              feedback: {
-                ...response.feedback,
-                message: "Это существующее чтение кандзи, но эта карточка ожидает другое чтение.",
-                diagnostic: { kind: "alternative-reading", matchedAnswer: "ひと" },
-              },
-              nextSrs: item.srs,
-            }
-          : response,
+      json: isRetry
+        ? {
+            ...response,
+            retry: true,
+            feedback: {
+              ...response.feedback,
+              message: "Это существующее чтение кандзи, но эта карточка ожидает другое чтение.",
+              diagnostic: { kind: "alternative-reading", matchedAnswer: "ひと" },
+            },
+            nextSrs: item.srs,
+          }
+        : response,
     });
   });
 
@@ -532,6 +625,65 @@ const reviewQueueItem: ReviewQueueItem = {
     reading: "にち",
     level: 1,
     jlptLevel: "N5",
+  },
+  dueAt: "2026-06-22T08:00:00.000Z",
+  srs: {
+    stageIndex: 1,
+    stageName: "Apprentice 1",
+    availableAt: "2026-06-22T08:00:00.000Z",
+    burnedAt: null,
+    wrongCount: 0,
+    correctStreak: 0,
+  },
+};
+
+const listeningReviewQueueItem: ReviewQueueItem = {
+  card: {
+    id: "card-listening-word-1",
+    learningItemId: "item-word-1",
+    itemType: "word",
+    cardType: "review",
+    promptType: "listening",
+    answerType: "reading",
+    prompt: {
+      japanese: "一つ",
+      reading: "ひとつ",
+    },
+    sortOrder: 1,
+    audio: {
+      id: "audio-word-1",
+      learningItemId: "item-word-1",
+      mediaUrl: "https://media.example.test/hitotsu.wav",
+      storageKey: "audio/project/hitotsu.wav",
+      checksumSha256: "a".repeat(64),
+      durationMs: 800,
+      locale: "ja-JP",
+      speakerName: "Project speaker",
+      voiceMetadata: null,
+      sourceName: "Project recordings",
+      sourceUrl: null,
+      licenseName: "Project-owned audio",
+      licenseUrl: null,
+      attributionText: "Recorded for Kanji SRS.",
+      importRunId: null,
+      status: "published",
+    },
+  },
+  item: {
+    id: "item-word-1",
+    itemType: "word",
+    slug: "word:hitotsu",
+    japanese: "一つ",
+    reading: "ひとつ",
+    level: 1,
+    jlptLevel: "N5",
+    translations: {
+      displayMode: "ru-en",
+      primaryRu: "один предмет",
+      primaryEn: "one thing",
+      ru: [{ locale: "ru-RU", text: "один предмет", isPrimary: true }],
+      en: [{ locale: "en-US", text: "one thing", isPrimary: true }],
+    },
   },
   dueAt: "2026-06-22T08:00:00.000Z",
   srs: {
@@ -647,9 +799,7 @@ function createAnswerResponse({
   };
 }
 
-function createSessionSummary(
-  answers: readonly ReviewAnswerResponse[],
-): ReviewSessionSummaryDto {
+function createSessionSummary(answers: readonly ReviewAnswerResponse[]): ReviewSessionSummaryDto {
   const correctAnswers = answers.filter((answer) => answer.accepted).length;
   const incorrectAnswers = answers.length - correctAnswers;
 

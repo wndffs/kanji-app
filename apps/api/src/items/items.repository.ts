@@ -1,9 +1,18 @@
 import { Inject, Injectable } from "@nestjs/common";
 
 import { calculateLeechScore, type LeechScoreResult } from "@kanji-srs/srs";
-import { type SourceAttributionDto, type SrsStateSummaryDto } from "@kanji-srs/shared";
+import {
+  type ItemKind,
+  type SourceAttributionDto,
+  type SrsStateSummaryDto,
+} from "@kanji-srs/shared";
 
 import { PrismaService } from "../database/prisma.service";
+import {
+  isEligibleListeningAudio,
+  toAudioAssetDto,
+  type AudioAssetRecord,
+} from "../audio/audio-asset";
 import {
   type ItemAnswerRecord,
   type ItemBlockedAnswerRecord,
@@ -61,6 +70,7 @@ type LearningCardRow = {
   readonly answers?: readonly AnswerRow[];
   readonly blockedAnswers?: readonly BlockedAnswerRow[];
   readonly userOverrides?: readonly UserOverrideRow[];
+  readonly audioAsset?: AudioAssetRecord | null;
 };
 
 type AnswerRow = {
@@ -357,6 +367,12 @@ export class PrismaItemsRepository extends ItemsRepository {
           include: {
             answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] },
             blockedAnswers: { orderBy: { text: "asc" } },
+            audioAsset: {
+              include: {
+                dataSource: true,
+                license: true,
+              },
+            },
             userOverrides:
               options.userId === undefined
                 ? false
@@ -533,7 +549,8 @@ export class PrismaItemsRepository extends ItemsRepository {
       ...target.attributions,
       ...(await this.findAttributions(target.sourceRecordIds)),
     ];
-    const cards = (item.cards ?? []).map(toCardRecord);
+    const itemType = toItemKind(item.kind);
+    const cards = (item.cards ?? []).map((card) => toCardRecord(card, item.id, itemType));
     const userOverrides = cards.flatMap((card) => card.userOverrides);
     const srsDetails = await this.findItemSrsDetails(item.id, options.userId);
     const exampleSentences =
@@ -541,7 +558,7 @@ export class PrismaItemsRepository extends ItemsRepository {
 
     return {
       id: item.id,
-      itemType: toItemKind(item.kind),
+      itemType,
       title: item.title,
       level: item.levelHint,
       status: item.status,
@@ -1113,16 +1130,29 @@ export class PrismaItemsRepository extends ItemsRepository {
   }
 }
 
-function toCardRecord(card: LearningCardRow): ItemCardRecord {
+function toCardRecord(
+  card: LearningCardRow,
+  learningItemId: string,
+  itemType: ItemKind,
+): ItemCardRecord {
+  const promptType = toPromptType(card.promptType);
+  const audio =
+    promptType === "listening" &&
+    card.audioAsset !== undefined &&
+    isEligibleListeningAudio(card.audioAsset, learningItemId, itemType)
+      ? toAudioAssetDto(card.audioAsset)
+      : null;
+
   return {
     id: card.id,
     cardType: card.cardType === "LESSON" ? "lesson" : "review",
-    promptType: toPromptType(card.promptType),
+    promptType,
     answerType: card.answerType === "READING" ? "reading" : "meaning",
     sortOrder: card.sortOrder,
     answers: (card.answers ?? []).map(toAnswerRecord),
     blockedAnswers: (card.blockedAnswers ?? []).map(toBlockedAnswerRecord),
     userOverrides: (card.userOverrides ?? []).map(toUserOverrideRecord),
+    audio,
   };
 }
 
@@ -1213,6 +1243,8 @@ function toItemKind(kind: string) {
 
 function toPromptType(value: string) {
   switch (value) {
+    case "LISTENING":
+      return "listening";
     case "READING":
       return "reading";
     case "RECALL":

@@ -5225,6 +5225,108 @@ textarea:focus-visible {
   color: var(--warning);
 }
 
+.listening-prompt {
+  min-height: 178px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.listening-prompt audio {
+  display: none;
+}
+
+.listening-play-button {
+  min-width: 168px;
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  background: var(--primary);
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 850;
+  padding: 0 16px;
+}
+
+.listening-play-button span {
+  font-size: 18px;
+}
+
+.listening-play-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.listening-prompt p {
+  max-width: 520px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.listening-feedback-details {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  gap: 22px;
+  border-top: 1px solid var(--surface-border);
+  padding-top: 18px;
+}
+
+.listening-feedback-details h3,
+.listening-feedback-details p {
+  margin: 0;
+}
+
+.listening-feedback-details .japanese-text {
+  margin-top: 8px;
+  font-size: 34px;
+  font-weight: 800;
+}
+
+.listening-feedback-details > div > p:not(.japanese-text) {
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.listening-attribution {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--surface-border);
+}
+
+.listening-attribution div {
+  min-width: 0;
+  border-bottom: 1px solid var(--surface-border);
+  padding: 10px 12px;
+}
+
+.listening-attribution dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.listening-attribution dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.listening-attribution a {
+  color: var(--primary-strong);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 @keyframes shimmer {
   from {
     background-position: 200% 0;
@@ -5278,6 +5380,10 @@ textarea:focus-visible {
 
   .character-hub-section-heading,
   .character-hub-weak {
+    grid-template-columns: 1fr;
+  }
+
+  .listening-feedback-details {
     grid-template-columns: 1fr;
   }
 
@@ -5688,6 +5794,10 @@ textarea:focus-visible {
   }
 
   .character-hub-kanji-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .listening-attribution {
     grid-template-columns: 1fr;
   }
 

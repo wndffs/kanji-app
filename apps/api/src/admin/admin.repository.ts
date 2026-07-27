@@ -34,6 +34,7 @@ import {
 } from "@kanji-srs/shared";
 import { type Prisma } from "@kanji-srs/db";
 import { PrismaService } from "../database/prisma.service";
+import { toAudioAssetDto, type AudioAssetRecord } from "../audio/audio-asset";
 import {
   buildCourseAllocationPreview,
   type CourseAllocationPlanInput,
@@ -184,6 +185,7 @@ type LearningCardRow = {
   readonly updatedAt: Date;
   readonly answers: readonly AnswerRow[];
   readonly blockedAnswers: readonly BlockedAnswerRow[];
+  readonly audioAsset: AudioAssetRecord | null;
 };
 
 type AnswerRow = {
@@ -2300,6 +2302,12 @@ export class PrismaAdminRepository extends AdminRepository {
             ],
           },
           blockedAnswers: { orderBy: { text: "asc" as const } },
+          audioAsset: {
+            include: {
+              dataSource: true,
+              license: true,
+            },
+          },
         },
       },
       hints: {
@@ -2608,6 +2616,7 @@ function toCardDto(card: LearningCardRow): AdminCurationCardDto {
       normalizedText: answer.normalizedText,
       reason: answer.reason,
     })),
+    audio: card.audioAsset === null ? null : toAudioAssetDto(card.audioAsset),
   };
 }
 
@@ -3122,6 +3131,8 @@ function toPrismaTargetType(kind: ItemKind): "COMPONENT" | "KANJI" | "WORD" | "S
 
 function toPromptType(value: string): CardPromptType {
   switch (value) {
+    case "LISTENING":
+      return "listening";
     case "MEANING":
       return "meaning";
     case "READING":

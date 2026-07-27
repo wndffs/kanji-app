@@ -2,7 +2,13 @@ import { createCourseLevelPassPolicy, type CourseLevelPassPolicy } from "./cours
 
 export type SeedLocale = "ru-RU" | "en-US";
 export type SeedItemKind = "COMPONENT" | "KANJI" | "WORD" | "SENTENCE";
-export type SeedPromptType = "MEANING" | "READING" | "RECALL" | "CLOZE" | "RECOGNITION";
+export type SeedPromptType =
+  | "MEANING"
+  | "READING"
+  | "RECALL"
+  | "CLOZE"
+  | "RECOGNITION"
+  | "LISTENING";
 export type SeedAnswerType = "MEANING" | "READING";
 export type SeedMnemonicType = "MEANING" | "READING" | "STORY";
 export type SeedHintType = "MEANING" | "READING" | "USAGE";

@@ -47,7 +47,13 @@ export type WorkspacePackageInfo = {
 
 export type ItemKind = "component" | "kanji" | "word" | "sentence";
 export type LearningCardType = "lesson" | "review";
-export type CardPromptType = "meaning" | "reading" | "recall" | "cloze" | "recognition";
+export type CardPromptType =
+  | "meaning"
+  | "reading"
+  | "recall"
+  | "cloze"
+  | "recognition"
+  | "listening";
 export type CardAnswerType = "meaning" | "reading";
 export type ReviewAnswerResultType =
   | "correct"
@@ -104,7 +110,10 @@ export type AdminQualityIssueCode =
   | "missing-attribution"
   | "missing-dependency"
   | "self-dependency"
-  | "unpublished-dependency";
+  | "unpublished-dependency"
+  | "missing-audio-asset"
+  | "unpublished-audio-asset"
+  | "ineligible-audio-target";
 
 export type LocalizedTextDto = {
   readonly locale: ContentLocale;
@@ -261,6 +270,30 @@ export type KanjiStrokeGraphicDto = {
   readonly strokes: readonly KanjiStrokePathDto[];
 };
 
+export type AudioAssetDto = {
+  readonly id: string;
+  readonly learningItemId: string;
+  readonly mediaUrl: string | null;
+  readonly storageKey: string | null;
+  readonly checksumSha256: string;
+  readonly durationMs: number;
+  readonly locale: string;
+  readonly speakerName: string | null;
+  readonly voiceMetadata: Readonly<Record<string, unknown>> | null;
+  readonly sourceName: string;
+  readonly sourceUrl: string | null;
+  readonly licenseName: string;
+  readonly licenseUrl: string | null;
+  readonly attributionText: string;
+  readonly importRunId: string | null;
+  readonly status: AdminContentStatus;
+};
+
+export type ListeningPlaybackEvidenceDto = {
+  readonly completed: boolean;
+  readonly playCount: number;
+};
+
 export type LearningCardDto = {
   readonly id: string;
   readonly learningItemId: string;
@@ -277,6 +310,7 @@ export type LearningCardDto = {
   readonly translations: TranslationBundleDto;
   readonly acceptedAnswers: readonly LocalizedTextDto[];
   readonly blockedAnswers: readonly LocalizedTextDto[];
+  readonly audio?: AudioAssetDto | null;
   readonly sortOrder: number;
 };
 
@@ -292,6 +326,7 @@ export type ReviewQueueCardDto = {
     readonly reading: string | null;
     readonly clozeText?: string | null;
   };
+  readonly audio?: AudioAssetDto | null;
   readonly sortOrder: number;
 };
 
@@ -303,6 +338,7 @@ export type ReviewQueueItemSummary = {
   readonly reading: string | null;
   readonly level: number | null;
   readonly jlptLevel: string | null;
+  readonly translations?: TranslationBundleDto;
 };
 
 export type ItemDetails = ItemSummary & {
@@ -369,6 +405,7 @@ export type ReviewAnswerRequest = {
   readonly answerType: CardAnswerType;
   readonly answeredAt: string;
   readonly revealRequested?: boolean;
+  readonly listeningEvidence?: ListeningPlaybackEvidenceDto;
   readonly manualIgnore?: boolean;
 };
 
@@ -447,6 +484,7 @@ export type PracticeAnswerRequest = {
   readonly cardId: string;
   readonly answer: string;
   readonly answerType: CardAnswerType;
+  readonly listeningEvidence?: ListeningPlaybackEvidenceDto;
 };
 
 export type PracticeAnswerResponse = Omit<
@@ -682,6 +720,7 @@ export type CheckLessonAnswerRequestDto = {
   readonly cardId: string;
   readonly answerType: CardAnswerType;
   readonly answer: string;
+  readonly listeningEvidence?: ListeningPlaybackEvidenceDto;
 };
 
 export type CheckLessonAnswerResponse = LessonAnswerFeedbackDto;
@@ -703,6 +742,7 @@ export type CompleteLessonItemRequestDto = {
     readonly cardId: string;
     readonly answerType: CardAnswerType;
     readonly answer: string;
+    readonly listeningEvidence?: ListeningPlaybackEvidenceDto;
   }[];
 };
 
@@ -1111,11 +1151,7 @@ export type CharacterHubKanaSectionDto = {
   };
 };
 
-export type CharacterHubKanjiStudyState =
-  | "not-started"
-  | "learning"
-  | "passed"
-  | "burned";
+export type CharacterHubKanjiStudyState = "not-started" | "learning" | "passed" | "burned";
 
 export type CharacterHubKanjiItemDto = {
   readonly id: string;
@@ -1475,6 +1511,7 @@ export type AdminCurationCardDto = {
   readonly updatedAt: string;
   readonly acceptedAnswers: readonly AdminCurationAnswerDto[];
   readonly blockedAnswers: readonly AdminCurationBlockedAnswerDto[];
+  readonly audio?: AudioAssetDto | null;
 };
 
 export type AdminCurationTextDto = {

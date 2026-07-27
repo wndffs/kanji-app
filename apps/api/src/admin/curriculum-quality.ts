@@ -24,6 +24,32 @@ export function getAdminQualityIssues(item: AdminCurationItemDto): readonly Admi
     issues.push(issue("missing-accepted-answer", "Добавьте хотя бы одну учебную карточку."));
   } else {
     for (const card of item.cards) {
+      if (card.promptType === "listening") {
+        if (item.itemType !== "word" && item.itemType !== "sentence") {
+          issues.push(
+            issue(
+              "ineligible-audio-target",
+              "Карточка аудирования допустима только для слова или предложения.",
+              { cardId: card.id },
+            ),
+          );
+        } else if (card.audio === undefined || card.audio === null) {
+          issues.push(
+            issue("missing-audio-asset", "Привяжите лицензированный аудиофайл к карточке.", {
+              cardId: card.id,
+            }),
+          );
+        } else if (!isPublishableAudio(card.audio, item.id)) {
+          issues.push(
+            issue(
+              "unpublished-audio-asset",
+              "Аудиофайл должен быть опубликован, доступен по HTTPS и содержать лицензию, checksum и атрибуцию.",
+              { cardId: card.id },
+            ),
+          );
+        }
+      }
+
       if (card.acceptedAnswers.length === 0) {
         issues.push(
           issue("missing-accepted-answer", "У карточки нет правильного ответа.", {
@@ -88,6 +114,31 @@ export function getAdminQualityIssues(item: AdminCurationItemDto): readonly Admi
   }
 
   return issues;
+}
+
+function isPublishableAudio(
+  audio: NonNullable<AdminCurationItemDto["cards"][number]["audio"]>,
+  learningItemId: string,
+): boolean {
+  return (
+    audio.learningItemId === learningItemId &&
+    audio.status === "published" &&
+    audio.mediaUrl !== null &&
+    isHttpsUrl(audio.mediaUrl) &&
+    audio.durationMs > 0 &&
+    /^[a-f0-9]{64}$/i.test(audio.checksumSha256) &&
+    audio.attributionText.trim() !== "" &&
+    audio.licenseName.trim() !== "" &&
+    audio.sourceName.trim() !== ""
+  );
+}
+
+function isHttpsUrl(value: string): boolean {
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 export function applyQualityIssues(item: AdminCurationItemDto): AdminCurationItemDto {

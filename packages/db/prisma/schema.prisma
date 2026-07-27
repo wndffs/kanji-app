@@ -85,6 +85,7 @@ enum PromptType {
   RECALL
   CLOZE
   RECOGNITION
+  LISTENING
 }
 
 enum AnswerType {
@@ -206,6 +207,7 @@ model License {
   updatedAt           DateTime     @updatedAt
   dataSources         DataSource[]
   sentences           Sentence[]
+  audioAssets         AudioAsset[]
 }
 
 model DataSource {
@@ -221,6 +223,7 @@ model DataSource {
   license         License     @relation(fields: [licenseId], references: [id], onDelete: Restrict)
   importRuns      ImportRun[]
   sentences       Sentence[]
+  audioAssets     AudioAsset[]
 
   @@index([licenseId])
 }
@@ -239,6 +242,7 @@ model ImportRun {
   errorText          String?
   dataSource         DataSource       @relation(fields: [dataSourceId], references: [id], onDelete: Restrict)
   records            ImportedRecord[]
+  audioAssets        AudioAsset[]
 
   @@unique([dataSourceId, checksumSha256])
   @@index([dataSourceId, startedAt])
@@ -497,6 +501,7 @@ model LearningItem {
   deckItems        DeckItem[]
   userMnemonics    UserMnemonic[]
   unlockEvents     UserUnlockEvent[]
+  audioAssets      AudioAsset[]
 
   @@unique([targetType, targetId])
   @@index([kind, status])
@@ -512,9 +517,11 @@ model LearningCard {
   answerType            AnswerType
   locale                String
   sortOrder             Int                @default(0)
+  audioAssetId          String?            @db.Uuid
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
   learningItem          LearningItem       @relation(fields: [learningItemId], references: [id], onDelete: Cascade)
+  audioAsset            AudioAsset?        @relation(fields: [audioAssetId], references: [id], onDelete: Restrict)
   answers               LearningAnswer[]
   blockedAnswers        BlockedAnswer[]
   userOverrides         UserItemOverride[]
@@ -525,6 +532,38 @@ model LearningCard {
   @@unique([learningItemId, promptType, answerType, locale])
   @@index([locale])
   @@index([promptType, answerType])
+  @@index([audioAssetId])
+}
+
+model AudioAsset {
+  id                String         @id @default(uuid()) @db.Uuid
+  learningItemId    String         @db.Uuid
+  mediaUrl          String?
+  storageKey        String?
+  checksumSha256    String
+  durationMs        Int
+  speakerName       String?
+  voiceMetadataJson Json?
+  locale            String         @default("ja-JP")
+  dataSourceId      String         @db.Uuid
+  licenseId         String         @db.Uuid
+  importRunId       String?        @db.Uuid
+  attributionText   String
+  status            ContentStatus  @default(DRAFT)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  learningItem      LearningItem   @relation(fields: [learningItemId], references: [id], onDelete: Cascade)
+  dataSource        DataSource     @relation(fields: [dataSourceId], references: [id], onDelete: Restrict)
+  license           License        @relation(fields: [licenseId], references: [id], onDelete: Restrict)
+  importRun         ImportRun?     @relation(fields: [importRunId], references: [id], onDelete: SetNull)
+  cards             LearningCard[]
+
+  @@unique([learningItemId, checksumSha256])
+  @@index([learningItemId, status])
+  @@index([dataSourceId])
+  @@index([licenseId])
+  @@index([importRunId])
+  @@index([status])
 }
 
 model LearningAnswer {

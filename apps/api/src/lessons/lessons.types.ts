@@ -11,6 +11,7 @@ import {
   type LessonMnemonicGroupDto,
   type LessonQueueResponse,
   type LocalizedTextDto,
+  type AudioAssetDto,
   type SentenceDto,
   type StartLessonSessionResponse,
   type TranslationDisplayMode,
@@ -69,6 +70,7 @@ export type LessonCardRecord = {
   readonly sortOrder: number;
   readonly answers: readonly LessonAnswerRecord[];
   readonly blockedAnswers: readonly LessonBlockedAnswerRecord[];
+  readonly audio?: AudioAssetDto | null;
 };
 
 export type LessonDependencyRecord = {

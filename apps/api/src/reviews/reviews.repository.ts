@@ -9,6 +9,11 @@ import {
 import { type ReviewResult as SrsReviewResult } from "@kanji-srs/srs";
 
 import { PrismaService } from "../database/prisma.service";
+import {
+  isEligibleListeningAudio,
+  toAudioAssetDto,
+  type AudioAssetRecord,
+} from "../audio/audio-asset";
 import { buildReviewSessionSummary } from "./review-summary";
 import {
   type CreatePracticeSessionInput,
@@ -122,6 +127,7 @@ type LearningCardRow = {
   readonly learningItem: LearningItemRow;
   readonly answers: readonly LearningAnswerRow[];
   readonly blockedAnswers: readonly BlockedAnswerRow[];
+  readonly audioAsset: AudioAssetRecord | null;
 };
 
 type LearningItemRow = {
@@ -183,11 +189,17 @@ type WordTargetRow = {
   readonly expression: string;
   readonly reading: string;
   readonly jlptLevel: number | null;
+  readonly senses: readonly {
+    readonly locale: string;
+    readonly meaning: string;
+  }[];
 };
 
 type SentenceTargetRow = {
   readonly japaneseText: string;
   readonly readingText: string | null;
+  readonly translationRu: string | null;
+  readonly translationEn: string | null;
 };
 
 @Injectable()
@@ -209,6 +221,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       where: {
         userId,
         burnedAt: null,
+        learningCard: listeningReviewCardEligibilityWhere,
         availableAt: {
           lte: now,
         },
@@ -218,7 +231,9 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       take: limit,
     })) as readonly UserSrsStateRow[];
 
-    return Promise.all(states.map((state) => this.toQueueRecord(state)));
+    return filterEligibleQueueRecords(
+      await Promise.all(states.map((state) => this.toQueueRecord(state))),
+    );
   }
 
   async listPracticeCards(
@@ -234,7 +249,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     if (source === "recent-mistakes") {
       const attempts = (await this.prisma.db.reviewAnswer.findMany({
         where: {
-          userSrsState: { userId },
+          userSrsState: { userId, learningCard: listeningReviewCardEligibilityWhere },
           answeredAt: { gte: since },
           result: { in: ["WRONG", "REVEAL"] },
         },
@@ -246,14 +261,20 @@ export class PrismaReviewsRepository extends ReviewsRepository {
         take: limit,
       })) as readonly ReviewAnswerWithStateRow[];
 
-      return Promise.all(attempts.map((attempt) => this.toQueueRecord(attempt.userSrsState)));
+      return filterEligibleQueueRecords(
+        await Promise.all(attempts.map((attempt) => this.toQueueRecord(attempt.userSrsState))),
+      );
     }
 
     const states = (await this.prisma.db.userSrsState.findMany({
       where:
         source === "recent-lessons"
-          ? { userId, createdAt: { gte: since } }
-          : { userId, burnedAt: { not: null } },
+          ? { userId, createdAt: { gte: since }, learningCard: listeningReviewCardEligibilityWhere }
+          : {
+              userId,
+              burnedAt: { not: null },
+              learningCard: listeningReviewCardEligibilityWhere,
+            },
       include: stateInclude,
       orderBy:
         source === "recent-lessons"
@@ -262,21 +283,27 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       take: limit,
     })) as readonly UserSrsStateRow[];
 
-    return Promise.all(states.map((state) => this.toQueueRecord(state)));
+    return filterEligibleQueueRecords(
+      await Promise.all(states.map((state) => this.toQueueRecord(state))),
+    );
   }
 
   async findPracticeCard(userId: string, cardId: string): Promise<ReviewQueueRecord | null> {
-    const state = (await this.prisma.db.userSrsState.findUnique({
+    const state = (await this.prisma.db.userSrsState.findFirst({
       where: {
-        userId_learningCardId: {
-          userId,
-          learningCardId: cardId,
-        },
+        userId,
+        learningCardId: cardId,
+        learningCard: listeningReviewCardEligibilityWhere,
       },
       include: stateInclude,
     })) as UserSrsStateRow | null;
 
-    return state === null ? null : this.toQueueRecord(state);
+    if (state === null) {
+      return null;
+    }
+
+    const record = await this.toQueueRecord(state);
+    return isReviewQueueRecordEligible(record) ? record : null;
   }
 
   async findPublicPracticeCard(cardId: string): Promise<ReviewCardRecord | null> {
@@ -294,12 +321,19 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       where: {
         id: { in: [...cardIds] },
         cardType: "REVIEW",
+        promptType: { not: "LISTENING" },
         learningItem: { status: "PUBLISHED", targetType: "KANJI" },
       },
       include: {
         learningItem: true,
         answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] },
         blockedAnswers: { orderBy: { text: "asc" } },
+        audioAsset: {
+          include: {
+            dataSource: true,
+            license: true,
+          },
+        },
       },
     })) as readonly LearningCardRow[];
     const cardById = new Map(cards.map((card) => [card.id, card]));
@@ -325,6 +359,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       where: {
         userId,
         learningCardId: { in: [...cardIds] },
+        learningCard: listeningReviewCardEligibilityWhere,
       },
       include: stateInclude,
     })) as readonly UserSrsStateRow[];
@@ -334,7 +369,9 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       return state === undefined ? [] : [state];
     });
 
-    return Promise.all(orderedStates.map((state) => this.toQueueRecord(state)));
+    return filterEligibleQueueRecords(
+      await Promise.all(orderedStates.map((state) => this.toQueueRecord(state))),
+    );
   }
 
   async findActivePracticeSession(
@@ -552,12 +589,11 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       return null;
     }
 
-    const state = (await this.prisma.db.userSrsState.findUnique({
+    const state = (await this.prisma.db.userSrsState.findFirst({
       where: {
-        userId_learningCardId: {
-          userId,
-          learningCardId: cardId,
-        },
+        userId,
+        learningCardId: cardId,
+        learningCard: listeningReviewCardEligibilityWhere,
       },
       include: stateInclude,
     })) as UserSrsStateRow | null;
@@ -587,8 +623,14 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       return null;
     }
 
+    const queueRecord = await this.toQueueRecord(state);
+
+    if (!isReviewQueueRecordEligible(queueRecord)) {
+      return null;
+    }
+
     return {
-      ...(await this.toQueueRecord(state)),
+      ...queueRecord,
       session: toSessionRecord(session),
     };
   }
@@ -804,6 +846,11 @@ export class PrismaReviewsRepository extends ReviewsRepository {
         expression: true,
         reading: true,
         jlptLevel: true,
+        senses: {
+          where: { locale: { in: ["ru-RU", "en-US"] } },
+          orderBy: [{ locale: "asc" }, { meaning: "asc" }],
+          select: { locale: true, meaning: true },
+        },
       },
     })) as WordTargetRow | null;
 
@@ -818,6 +865,22 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       reading: word.reading,
       level: item.levelHint,
       jlptLevel: formatJlptLevel(word.jlptLevel),
+      translations: {
+        ru: word.senses
+          .filter((sense) => sense.locale === "ru-RU")
+          .map((sense, index) => ({
+            locale: "ru-RU",
+            text: sense.meaning,
+            isPrimary: index === 0,
+          })),
+        en: word.senses
+          .filter((sense) => sense.locale === "en-US")
+          .map((sense, index) => ({
+            locale: "en-US",
+            text: sense.meaning,
+            isPrimary: index === 0,
+          })),
+      },
     };
   }
 
@@ -827,6 +890,8 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       select: {
         japaneseText: true,
         readingText: true,
+        translationRu: true,
+        translationEn: true,
       },
     })) as SentenceTargetRow | null;
 
@@ -841,6 +906,16 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       reading: sentence.readingText,
       level: item.levelHint,
       jlptLevel: null,
+      translations: {
+        ru:
+          sentence.translationRu === null
+            ? []
+            : [{ locale: "ru-RU", text: sentence.translationRu, isPrimary: true }],
+        en:
+          sentence.translationEn === null
+            ? []
+            : [{ locale: "en-US", text: sentence.translationEn, isPrimary: true }],
+      },
     };
   }
 }
@@ -1110,8 +1185,35 @@ const stateInclude = {
       learningItem: true,
       answers: { orderBy: [{ isPrimary: "desc" as const }, { text: "asc" as const }] },
       blockedAnswers: { orderBy: { text: "asc" as const } },
+      audioAsset: {
+        include: {
+          dataSource: true,
+          license: true,
+        },
+      },
     },
   },
+};
+
+const listeningReviewCardEligibilityWhere = {
+  OR: [
+    { promptType: { not: "LISTENING" as const } },
+    {
+      promptType: "LISTENING" as const,
+      learningItem: {
+        status: "PUBLISHED" as const,
+        kind: { in: ["WORD" as const, "SENTENCE" as const] },
+      },
+      audioAsset: {
+        is: {
+          status: "PUBLISHED" as const,
+          mediaUrl: { not: null, startsWith: "https://" },
+          durationMs: { gt: 0 },
+          attributionText: { not: "" },
+        },
+      },
+    },
+  ],
 };
 
 function toSrsStateRecord(row: UserSrsStateRow): ReviewSrsStateRecord {
@@ -1128,6 +1230,16 @@ function toSrsStateRecord(row: UserSrsStateRow): ReviewSrsStateRecord {
     correctStreak: row.correctStreak,
     lastReviewedAt: row.lastReviewedAt,
   };
+}
+
+function filterEligibleQueueRecords(
+  records: readonly ReviewQueueRecord[],
+): readonly ReviewQueueRecord[] {
+  return records.filter(isReviewQueueRecordEligible);
+}
+
+function isReviewQueueRecordEligible(record: ReviewQueueRecord): boolean {
+  return record.card.promptType !== "listening" || record.card.audio !== null;
 }
 
 function toSessionRecord(row: ReviewSessionRow): ReviewSessionRecord {
@@ -1208,17 +1320,25 @@ function readNonNegativeInteger(value: unknown): number {
 }
 
 function toCardRecord(card: LearningCardRow, target: ReviewTargetRecord): ReviewCardRecord {
+  const promptType = toPromptType(card.promptType);
+  const audio =
+    promptType === "listening" &&
+    isEligibleListeningAudio(card.audioAsset, card.learningItemId, target.itemType)
+      ? toAudioAssetDto(card.audioAsset)
+      : null;
+
   return {
     id: card.id,
     learningItemId: card.learningItemId,
     itemType: target.itemType,
     cardType: card.cardType === "LESSON" ? "lesson" : "review",
-    promptType: toPromptType(card.promptType),
+    promptType,
     answerType: card.answerType === "READING" ? "reading" : "meaning",
     sortOrder: card.sortOrder,
     target,
     acceptedAnswers: card.answers.map(toAnswerRecord),
     blockedAnswers: card.blockedAnswers.map(toBlockedAnswerRecord),
+    audio,
   };
 }
 
@@ -1258,6 +1378,8 @@ function toItemKind(kind: string): ReviewTargetRecord["itemType"] {
 
 function toPromptType(value: string): ReviewCardRecord["promptType"] {
   switch (value) {
+    case "LISTENING":
+      return "listening";
     case "READING":
       return "reading";
     case "RECALL":

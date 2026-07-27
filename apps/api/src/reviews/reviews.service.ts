@@ -35,6 +35,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { type CurrentUserDto } from "../auth/auth.types";
+import { hasCompletedListeningPlayback } from "../audio/listening-playback";
 import { OverridesService } from "../overrides/overrides.service";
 import { ReviewsRepository } from "./reviews.repository";
 import {
@@ -48,6 +49,7 @@ import {
   type ParsedReviewAnswerRequest,
   type PracticeSessionRecord,
   type ReviewAnswerTargetRecord,
+  type ReviewCardRecord,
   type ReviewQueueRecord,
   type ReviewQueueResponse,
   type ReviewSrsStateRecord,
@@ -200,6 +202,8 @@ export class ReviewsService {
       throw new BadRequestException(`answerType must be ${target.card.answerType} for this card.`);
     }
 
+    assertListeningPlayback(target.card, request.listeningEvidence);
+
     const validation = await this.overridesService.validateAnswerForUser({
       userId: user.id,
       cardId: request.cardId,
@@ -336,6 +340,8 @@ export class ReviewsService {
       throw new BadRequestException(`answerType must be ${target.card.answerType} for this card.`);
     }
 
+    assertListeningPlayback(target.card, request.listeningEvidence);
+
     const validation =
       request.revealRequested || request.manualIgnore
         ? null
@@ -409,6 +415,13 @@ export class ReviewsService {
       },
       details: {
         responseResult,
+        listening:
+          target.card.promptType === "listening"
+            ? {
+                completed: request.listeningEvidence?.completed === true,
+                playCount: request.listeningEvidence?.playCount ?? 0,
+              }
+            : null,
         validation:
           validation === null
             ? null
@@ -514,6 +527,7 @@ function parseReviewAnswerRequest(body: unknown): ParsedReviewAnswerRequest {
     answerType: parseAnswerType(record.answerType),
     revealRequested: parseOptionalBoolean(record.revealRequested, "revealRequested"),
     manualIgnore: parseOptionalBoolean(record.manualIgnore, "manualIgnore"),
+    listeningEvidence: parseListeningEvidence(record.listeningEvidence),
   };
 }
 
@@ -524,7 +538,42 @@ function parsePracticeAnswerRequest(body: unknown): PracticeAnswerRequest {
     cardId: parseRequiredString(record.cardId, "cardId"),
     answer: parseRequiredString(record.answer, "answer", MAX_REVIEW_ANSWER_LENGTH),
     answerType: parseAnswerType(record.answerType),
+    listeningEvidence: parseListeningEvidence(record.listeningEvidence),
   };
+}
+
+function parseListeningEvidence(
+  value: unknown,
+): { readonly completed: boolean; readonly playCount: number } | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const record = parseRecord(value);
+
+  if (
+    typeof record.completed !== "boolean" ||
+    typeof record.playCount !== "number" ||
+    !Number.isInteger(record.playCount) ||
+    record.playCount < 0
+  ) {
+    throw new BadRequestException(
+      "listeningEvidence must contain completed and a non-negative playCount.",
+    );
+  }
+
+  return { completed: record.completed, playCount: record.playCount };
+}
+
+function assertListeningPlayback(
+  card: ReviewCardRecord,
+  evidence: { readonly completed: boolean; readonly playCount: number } | undefined,
+): void {
+  if (!hasCompletedListeningPlayback(card.promptType, card.audio, evidence)) {
+    throw new BadRequestException(
+      "Listening audio must finish successfully before this answer can be graded.",
+    );
+  }
 }
 
 function parsePracticeSource(value: unknown): PracticeSource {
@@ -715,6 +764,7 @@ function toReviewQueueItem(record: ReviewQueueRecord): ReviewQueueItem {
         japanese: record.card.target.japanese,
         reading: record.card.target.reading,
       },
+      audio: record.card.audio ?? null,
       sortOrder: record.card.sortOrder,
     },
     item: {
@@ -725,6 +775,21 @@ function toReviewQueueItem(record: ReviewQueueRecord): ReviewQueueItem {
       reading: record.card.target.reading,
       level: record.card.target.level,
       jlptLevel: record.card.target.jlptLevel,
+      translations:
+        record.card.target.translations === undefined
+          ? undefined
+          : {
+              ...record.card.target.translations,
+              displayMode: "ru-en",
+              primaryRu:
+                record.card.target.translations.ru.find((entry) => entry.isPrimary)?.text ??
+                record.card.target.translations.ru[0]?.text ??
+                null,
+              primaryEn:
+                record.card.target.translations.en.find((entry) => entry.isPrimary)?.text ??
+                record.card.target.translations.en[0]?.text ??
+                null,
+            },
     },
     dueAt: record.state.availableAt?.toISOString() ?? new Date(0).toISOString(),
     srs: toSrsSummary(record.state, record.stages),

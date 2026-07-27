@@ -23,12 +23,14 @@ import {
   type LessonQueueSourceDto,
   type LessonSessionDto,
   type LocalizedTextDto,
+  type ListeningPlaybackEvidenceDto,
   type TranslationBundleDto,
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 import { romanizeKana } from "@kanji-srs/japanese";
 
 import { JapaneseText } from "../../components/JapaneseText";
+import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
   abandonLessonSession,
   ApiError,
@@ -97,6 +99,9 @@ export function LessonsClient() {
   const [quizPendingCardIds, setQuizPendingCardIds] = useState<readonly string[]>([]);
   const [quizAnswer, setQuizAnswer] = useState("");
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
+  const [quizListeningEvidence, setQuizListeningEvidence] = useState<
+    Record<string, ListeningPlaybackEvidenceDto>
+  >({});
   const [quizFeedback, setQuizFeedback] = useState<
     CompleteLessonItemResponse["answers"][number] | null
   >(null);
@@ -131,6 +136,7 @@ export function LessonsClient() {
     setQuizPendingCardIds([]);
     setQuizAnswer("");
     setQuizAnswers({});
+    setQuizListeningEvidence({});
     setQuizFeedback(null);
     setIsSavingProgress(false);
     setIsExitDialogOpen(false);
@@ -234,6 +240,8 @@ export function LessonsClient() {
     [queueState, selectedItemIdSet],
   );
   const currentLesson = session === null ? null : (activeQueue[currentIndex] ?? null);
+  const currentQuizCard =
+    currentLesson?.cards.find((card) => card.id === quizPendingCardIds[0]) ?? null;
   const currentStudyPhases = useMemo(
     () => (currentLesson === null ? [] : getLessonStudyPhases(currentLesson)),
     [currentLesson],
@@ -270,6 +278,7 @@ export function LessonsClient() {
       setQuizPendingCardIds([]);
       setQuizAnswer("");
       setQuizAnswers({});
+      setQuizListeningEvidence({});
       setQuizFeedback(null);
     } catch (error: unknown) {
       setSessionError(error instanceof Error ? error.message : "Не удалось начать урок.");
@@ -402,6 +411,7 @@ export function LessonsClient() {
       setQuizPendingCardIds(firstLesson.cards.map((card) => card.id));
       setQuizAnswer("");
       setQuizAnswers({});
+      setQuizListeningEvidence({});
       setQuizFeedback(null);
       setSessionError(null);
     }
@@ -409,13 +419,25 @@ export function LessonsClient() {
 
   useEffect(() => {
     if (step === "quiz" && !isCompleting) {
-      if (quizFeedback === null) {
+      if (
+        quizFeedback === null &&
+        (currentQuizCard?.promptType !== "listening" ||
+          quizListeningEvidence[currentQuizCard.id]?.completed === true)
+      ) {
         quizInputRef.current?.focus();
       } else {
         quizActionRef.current?.focus();
       }
     }
-  }, [currentIndex, isCompleting, quizFeedback, quizPendingCardIds, step]);
+  }, [
+    currentIndex,
+    currentQuizCard,
+    isCompleting,
+    quizFeedback,
+    quizListeningEvidence,
+    quizPendingCardIds,
+    step,
+  ]);
 
   useEffect(() => {
     cancelJapaneseSpeech();
@@ -455,13 +477,15 @@ export function LessonsClient() {
       return;
     }
 
-    const quizCard = currentLesson?.cards.find((card) => card.id === quizPendingCardIds[0]);
+    const quizCard = currentQuizCard;
     if (
       queueState.status !== "ready" ||
       session === null ||
       currentLesson === null ||
-      quizCard === undefined ||
+      quizCard === null ||
       quizAnswer.trim() === "" ||
+      (quizCard.promptType === "listening" &&
+        quizListeningEvidence[quizCard.id]?.completed !== true) ||
       isCompleting
     ) {
       return;
@@ -476,6 +500,8 @@ export function LessonsClient() {
         cardId: quizCard.id,
         answerType: quizCard.answerType,
         answer: quizAnswer.trim(),
+        listeningEvidence:
+          quizCard.promptType === "listening" ? quizListeningEvidence[quizCard.id] : undefined,
       });
 
       if (result.accepted) {
@@ -534,6 +560,8 @@ export function LessonsClient() {
           cardId: card.id,
           answerType: card.answerType,
           answer: quizAnswers[card.id] ?? "",
+          listeningEvidence:
+            card.promptType === "listening" ? quizListeningEvidence[card.id] : undefined,
         })),
       });
 
@@ -542,6 +570,9 @@ export function LessonsClient() {
         const failedIds = new Set(failedAnswers.map((answer) => answer.cardId));
 
         setQuizAnswers((current) =>
+          Object.fromEntries(Object.entries(current).filter(([cardId]) => !failedIds.has(cardId))),
+        );
+        setQuizListeningEvidence((current) =>
           Object.fromEntries(Object.entries(current).filter(([cardId]) => !failedIds.has(cardId))),
         );
         setQuizPendingCardIds(failedAnswers.map((answer) => answer.cardId));
@@ -577,6 +608,7 @@ export function LessonsClient() {
         setQuizPendingCardIds(nextLesson?.cards.map((card) => card.id) ?? []);
         setQuizAnswer("");
         setQuizAnswers({});
+        setQuizListeningEvidence({});
         setQuizFeedback(null);
         setCompletionSummary(nextSummary);
         return;
@@ -591,6 +623,7 @@ export function LessonsClient() {
       setQuizPendingCardIds([]);
       setQuizAnswer("");
       setQuizAnswers({});
+      setQuizListeningEvidence({});
       setQuizFeedback(null);
       setCompletionSummary(nextSummary);
     } catch (error: unknown) {
@@ -829,12 +862,24 @@ export function LessonsClient() {
       ) : (
         <LessonQuizView
           lesson={currentLesson}
-          card={currentLesson.cards.find((card) => card.id === quizPendingCardIds[0]) ?? null}
+          card={currentQuizCard}
           completedCardCount={currentLesson.cards.length - quizPendingCardIds.length}
           answer={quizAnswer}
           feedback={quizFeedback}
+          displayMode={activeDisplayMode}
+          listeningEvidence={
+            currentQuizCard === null ? undefined : quizListeningEvidence[currentQuizCard.id]
+          }
           isCompleting={isCompleting}
           onAnswerChange={setQuizAnswer}
+          onListeningEvidenceChange={(evidence) => {
+            if (currentQuizCard !== null) {
+              setQuizListeningEvidence((current) => ({
+                ...current,
+                [currentQuizCard.id]: evidence,
+              }));
+            }
+          }}
           actionRef={quizActionRef}
           inputRef={quizInputRef}
           onSubmit={(event) => void handleQuizSubmit(event)}
@@ -1327,8 +1372,11 @@ function LessonQuizView({
   completedCardCount,
   answer,
   feedback,
+  displayMode,
+  listeningEvidence,
   isCompleting,
   onAnswerChange,
+  onListeningEvidenceChange,
   actionRef,
   inputRef,
   onSubmit,
@@ -1338,13 +1386,17 @@ function LessonQuizView({
   readonly completedCardCount: number;
   readonly answer: string;
   readonly feedback: CompleteLessonItemResponse["answers"][number] | null;
+  readonly displayMode: TranslationDisplayMode;
+  readonly listeningEvidence: ListeningPlaybackEvidenceDto | undefined;
   readonly isCompleting: boolean;
   readonly onAnswerChange: (value: string) => void;
+  readonly onListeningEvidenceChange: (evidence: ListeningPlaybackEvidenceDto) => void;
   readonly actionRef: RefObject<HTMLButtonElement | null>;
   readonly inputRef: RefObject<HTMLInputElement | null>;
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const answerType = card?.answerType ?? "meaning";
+  const listeningReady = card?.promptType !== "listening" || listeningEvidence?.completed === true;
 
   return (
     <article className="lesson-quiz panel">
@@ -1353,13 +1405,17 @@ function LessonQuizView({
         <strong className="lesson-quiz-count">
           Пройдено {completedCardCount} из {lesson.cards.length}
         </strong>
-        <JapaneseText
-          as="p"
-          className="review-japanese"
-          variant={lesson.item.itemType === "sentence" ? "sentence" : "display"}
-        >
-          {lesson.item.japanese}
-        </JapaneseText>
+        {card?.promptType === "listening" ? (
+          <ListeningPrompt audio={card.audio} onEvidenceChange={onListeningEvidenceChange} />
+        ) : (
+          <JapaneseText
+            as="p"
+            className="review-japanese"
+            variant={lesson.item.itemType === "sentence" ? "sentence" : "display"}
+          >
+            {lesson.item.japanese}
+          </JapaneseText>
+        )}
         <p className="muted">
           Введите {answerType === "reading" ? "чтение" : "значение"}. Материал попадёт в SRS только
           после верных ответов на все карточки.
@@ -1371,7 +1427,7 @@ function LessonQuizView({
           <span>{answerType === "reading" ? "Ваше чтение" : "Ваше значение"}</span>
           <input
             autoComplete="off"
-            disabled={isCompleting || feedback !== null}
+            disabled={isCompleting || feedback !== null || !listeningReady}
             id="lesson-quiz-answer"
             onChange={(event) => onAnswerChange(event.currentTarget.value)}
             placeholder={answerType === "reading" ? "например: いち" : "например: один"}
@@ -1381,7 +1437,7 @@ function LessonQuizView({
         </label>
         <button
           className="primary-action"
-          disabled={isCompleting || (feedback === null && answer.trim() === "")}
+          disabled={isCompleting || !listeningReady || (feedback === null && answer.trim() === "")}
           ref={actionRef}
           type="submit"
         >
@@ -1408,6 +1464,22 @@ function LessonQuizView({
               />
             </>
           )}
+          {card?.promptType === "listening" && card.audio != null ? (
+            <div className="listening-feedback-details">
+              <div>
+                <h3>Прослушанный материал</h3>
+                <JapaneseText
+                  as="p"
+                  variant={lesson.item.itemType === "sentence" ? "sentence" : "display"}
+                >
+                  {lesson.item.japanese}
+                </JapaneseText>
+                <p lang="ja">{lesson.item.reading ?? "Чтение не указано"}</p>
+                <p>{formatTranslationBundle(lesson.item.translations, displayMode)}</p>
+              </div>
+              <ListeningAttribution audio={card.audio} />
+            </div>
+          ) : null}
         </section>
       )}
     </article>

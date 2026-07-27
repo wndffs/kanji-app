@@ -1,4 +1,5 @@
 import {
+  type AudioAssetDto,
   type BilingualTextDto,
   type ContentLocale,
   type ItemRelationGroupKind,
@@ -63,12 +64,13 @@ export type ItemUserOverrideRecord = {
 export type ItemCardRecord = {
   readonly id: string;
   readonly cardType: "lesson" | "review";
-  readonly promptType: "meaning" | "reading" | "recall" | "cloze" | "recognition";
+  readonly promptType: "meaning" | "reading" | "recall" | "cloze" | "recognition" | "listening";
   readonly answerType: "meaning" | "reading";
   readonly sortOrder: number;
   readonly answers: readonly ItemAnswerRecord[];
   readonly blockedAnswers: readonly ItemBlockedAnswerRecord[];
   readonly userOverrides: readonly ItemUserOverrideRecord[];
+  readonly audio?: AudioAssetDto | null;
 };
 
 export type ItemRelationRecord = {
@@ -85,7 +87,7 @@ export type ItemRelationGroupRecord = {
 export type ItemReviewHistoryRecord = {
   readonly id: string;
   readonly learningCardId: string;
-  readonly promptType: "meaning" | "reading" | "recall" | "cloze" | "recognition";
+  readonly promptType: "meaning" | "reading" | "recall" | "cloze" | "recognition" | "listening";
   readonly answerType: "meaning" | "reading";
   readonly result: ItemReviewResult;
   readonly previousStageIndex: number | null;
