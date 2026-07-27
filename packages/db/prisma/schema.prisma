@@ -125,6 +125,21 @@ enum KanaScript {
   KATAKANA
 }
 
+enum KanaPracticeMode {
+  HIRAGANA
+  KATAKANA
+  MIXED
+}
+
+enum KanaExerciseKind {
+  TYPING
+  RECOGNITION_CHOICE
+  REVERSE_CHOICE
+  MATCHING
+  LISTENING_CHOICE
+  TRACING
+}
+
 enum UserOverrideType {
   ACCEPTED_MEANING
   ACCEPTED_READING
@@ -605,6 +620,8 @@ model User {
   srsStates              UserSrsState[]
   reviewSessions         ReviewSession[]
   kanaProgress           UserKanaProgress[]
+  kanaAttempts           KanaAttempt[]
+  kanaPracticeSessions   KanaPracticeSession[]
   candidateRejections    ImportedCandidateRejection[]
   courseLevelCompletions UserCourseLevelCompletion[]
   unlockEvents           UserUnlockEvent[]
@@ -630,6 +647,41 @@ model UserKanaProgress {
 
   @@unique([userId, character])
   @@index([userId, script, masteredAt])
+}
+
+model KanaPracticeSession {
+  id           String           @id @default(uuid()) @db.Uuid
+  userId       String           @db.Uuid
+  mode         KanaPracticeMode
+  queueJson    Json
+  currentIndex Int              @default(0)
+  startedAt    DateTime         @default(now())
+  finishedAt   DateTime?
+  updatedAt    DateTime         @updatedAt
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempts     KanaAttempt[]
+
+  @@index([userId, mode, finishedAt])
+}
+
+model KanaAttempt {
+  id                String               @id @default(uuid()) @db.Uuid
+  userId            String               @db.Uuid
+  practiceSessionId String?              @db.Uuid
+  expectedCharacter String
+  script            KanaScript
+  submittedAnswer   String?
+  selectedCharacter String?
+  exerciseKind      KanaExerciseKind
+  correct           Boolean
+  answeredAt        DateTime
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  practiceSession   KanaPracticeSession? @relation(fields: [practiceSessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, answeredAt])
+  @@index([userId, expectedCharacter, answeredAt])
+  @@index([userId, selectedCharacter, answeredAt])
+  @@index([practiceSessionId])
 }
 
 model UserSettings {

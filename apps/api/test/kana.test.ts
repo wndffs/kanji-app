@@ -1,8 +1,23 @@
 import { describe, expect, it } from "vitest";
 
+import { findKana, type AdaptiveKanaExerciseKind } from "@kanji-srs/japanese";
+import {
+  type KanaPracticeAnswerRequest,
+  type KanaPracticeExerciseDto,
+  type KanaScript,
+} from "@kanji-srs/shared";
+
 import { KanaRepository } from "../src/kana/kana.repository";
 import { KANA_MASTERY_STREAK, KanaService } from "../src/kana/kana.service";
-import { type KanaProgressRecord, type RecordKanaAttemptInput } from "../src/kana/kana.types";
+import {
+  type CreateKanaPracticeSessionInput,
+  type KanaAttemptRecord,
+  type KanaPracticeSessionRecord,
+  type KanaProgressRecord,
+  type RecordKanaAttemptInput,
+  type RecordKanaPracticeAttemptInput,
+  type RecordKanaPracticeAttemptResult,
+} from "../src/kana/kana.types";
 
 describe("KanaService", () => {
   it("returns the complete hiragana track without exposing romaji before an answer", async () => {
@@ -132,10 +147,110 @@ describe("KanaService", () => {
       "один знак или сочетание кана",
     );
   });
+
+  it("creates and resumes a mixed adaptive session from unlocked lesson units", async () => {
+    const repository = new InMemoryKanaRepository();
+    const service = new KanaService(repository);
+
+    const first = await service.getPracticeSession("user-1", "mixed");
+    const resumed = await service.getPracticeSession("user-1", "mixed");
+    const session = repository.getSession(first.id);
+
+    expect(resumed).toEqual(first);
+    expect(first).toMatchObject({
+      script: "mixed",
+      currentIndex: 0,
+      completedCount: 0,
+      totalCount: 12,
+    });
+    expect(new Set(session?.items.map((item) => item.script))).toEqual(
+      new Set(["hiragana", "katakana"]),
+    );
+    expect(
+      session?.items.every((item) => findKana(item.character)?.row === "vowels"),
+    ).toBe(true);
+    expect(
+      session?.items.every(
+        (item, index) => item.character !== session.items[index - 1]?.character,
+      ),
+    ).toBe(true);
+  });
+
+  it("persists detailed practice evidence and advances the stored session once", async () => {
+    const repository = new InMemoryKanaRepository();
+    const service = new KanaService(repository);
+    const started = await service.getPracticeSession("user-1", "hiragana");
+    const exercise = started.exercise!;
+    const request = correctPracticeAnswer(started.id, exercise);
+
+    const response = await service.answerPractice("user-1", request);
+    const attempts = await repository.listAttempts("user-1", ["hiragana"]);
+
+    expect(response).toMatchObject({
+      correct: true,
+      expectedCharacter: exercise.character,
+      expectedRomaji: exercise.romaji,
+      session: { id: started.id, currentIndex: 1, completedCount: 1 },
+    });
+    expect(attempts[0]).toMatchObject({
+      expectedCharacter: exercise.character,
+      script: exercise.script,
+      exerciseKind: exercise.exerciseKind,
+      correct: true,
+    });
+    expect(attempts[0]?.submittedAnswer ?? attempts[0]?.selectedCharacter).not.toBeNull();
+    await expect(service.answerPractice("user-1", request)).rejects.toThrow(
+      "Очередь практики уже перешла",
+    );
+  });
+
+  it("stores a wrong selected kana separately from a romaji response", async () => {
+    const repository = new InMemoryKanaRepository();
+    const service = new KanaService(repository);
+    let session = await service.getPracticeSession("user-1", "hiragana");
+
+    while (
+      session.exercise !== null &&
+      !usesCharacterChoice(session.exercise.exerciseKind)
+    ) {
+      const response = await service.answerPractice(
+        "user-1",
+        correctPracticeAnswer(session.id, session.exercise),
+      );
+      session = response.session;
+    }
+
+    const exercise = session.exercise!;
+    const wrongChoice = exercise.choices.find(
+      (choice) => choice.character !== exercise.character,
+    )!;
+    const response = await service.answerPractice("user-1", {
+      sessionId: session.id,
+      exerciseId: exercise.id,
+      selectedCharacter: wrongChoice.character,
+    });
+    const attempts = await repository.listAttempts("user-1", ["hiragana"]);
+
+    expect(response).toMatchObject({
+      correct: false,
+      selectedCharacter: wrongChoice.character,
+    });
+    expect(response.confusionExplanation).not.toBeNull();
+    expect(attempts[0]).toMatchObject({
+      expectedCharacter: exercise.character,
+      submittedAnswer: null,
+      selectedCharacter: wrongChoice.character,
+      correct: false,
+    });
+  });
 });
 
 class InMemoryKanaRepository extends KanaRepository {
   private readonly progress = new Map<string, KanaProgressRecord>();
+  private readonly attempts: KanaAttemptRecord[] = [];
+  private readonly sessions = new Map<string, KanaPracticeSessionRecord>();
+  private nextAttemptId = 1;
+  private nextSessionId = 1;
 
   async listProgress(
     userId: string,
@@ -146,7 +261,88 @@ class InMemoryKanaRepository extends KanaRepository {
       .map(([, item]) => item);
   }
 
+  async listAttempts(
+    userId: string,
+    scripts: readonly KanaScript[],
+  ): Promise<readonly KanaAttemptRecord[]> {
+    return this.attempts.filter(
+      (attempt) => attempt.id.startsWith(`${userId}:`) && scripts.includes(attempt.script),
+    );
+  }
+
+  async findActivePracticeSession(
+    userId: string,
+    script: KanaPracticeSessionRecord["script"],
+  ): Promise<KanaPracticeSessionRecord | null> {
+    return (
+      [...this.sessions.values()].find(
+        (session) =>
+          session.userId === userId && session.script === script && session.finishedAt === null,
+      ) ?? null
+    );
+  }
+
+  async findPracticeSession(
+    userId: string,
+    sessionId: string,
+  ): Promise<KanaPracticeSessionRecord | null> {
+    const session = this.sessions.get(sessionId);
+    return session?.userId === userId ? session : null;
+  }
+
+  async createPracticeSession(
+    input: CreateKanaPracticeSessionInput,
+  ): Promise<KanaPracticeSessionRecord> {
+    const session: KanaPracticeSessionRecord = {
+      id: `session-${this.nextSessionId++}`,
+      userId: input.userId,
+      script: input.script,
+      items: input.items,
+      currentIndex: 0,
+      startedAt: input.startedAt,
+      finishedAt: null,
+    };
+    this.sessions.set(session.id, session);
+    return session;
+  }
+
   async recordAttempt(input: RecordKanaAttemptInput): Promise<KanaProgressRecord> {
+    this.addAttempt(input);
+    return this.updateProgress(input);
+  }
+
+  async recordPracticeAttempt(
+    input: RecordKanaPracticeAttemptInput,
+  ): Promise<RecordKanaPracticeAttemptResult> {
+    const session = this.sessions.get(input.sessionId);
+
+    if (
+      session === undefined ||
+      session.userId !== input.userId ||
+      session.finishedAt !== null ||
+      session.currentIndex !== input.expectedSessionIndex
+    ) {
+      throw new Error("Kana practice session has already advanced.");
+    }
+
+    const progress = this.updateProgress(input);
+    this.addAttempt(input);
+    const nextIndex = session.currentIndex + 1;
+    const updatedSession: KanaPracticeSessionRecord = {
+      ...session,
+      currentIndex: nextIndex,
+      finishedAt: nextIndex >= input.sessionItemCount ? input.answeredAt : null,
+    };
+    this.sessions.set(session.id, updatedSession);
+
+    return { progress, session: updatedSession };
+  }
+
+  getSession(id: string): KanaPracticeSessionRecord | null {
+    return this.sessions.get(id) ?? null;
+  }
+
+  private updateProgress(input: RecordKanaAttemptInput): KanaProgressRecord {
     const key = `${input.userId}:${input.character}`;
     const existing = this.progress.get(key);
     const currentStreak = input.correct ? (existing?.currentStreak ?? 0) + 1 : 0;
@@ -164,6 +360,19 @@ class InMemoryKanaRepository extends KanaRepository {
     this.progress.set(key, next);
     return next;
   }
+
+  private addAttempt(input: RecordKanaAttemptInput): void {
+    this.attempts.unshift({
+      id: `${input.userId}:attempt-${this.nextAttemptId++}`,
+      expectedCharacter: input.character,
+      script: input.script,
+      submittedAnswer: input.submittedAnswer,
+      selectedCharacter: input.selectedCharacter,
+      exerciseKind: input.exerciseKind,
+      correct: input.correct,
+      answeredAt: input.answeredAt,
+    });
+  }
 }
 
 function findAnswer(character: string): string {
@@ -174,4 +383,30 @@ function findAnswer(character: string): string {
     ["え", "e"],
     ["お", "o"],
   ]).get(character)!;
+}
+
+function correctPracticeAnswer(
+  sessionId: string,
+  exercise: KanaPracticeExerciseDto,
+): KanaPracticeAnswerRequest {
+  return usesCharacterChoice(exercise.exerciseKind)
+    ? {
+        sessionId,
+        exerciseId: exercise.id,
+        selectedCharacter: exercise.character,
+      }
+    : {
+        sessionId,
+        exerciseId: exercise.id,
+        answer: exercise.romaji,
+      };
+}
+
+function usesCharacterChoice(kind: AdaptiveKanaExerciseKind): boolean {
+  return (
+    kind === "reverse-choice" ||
+    kind === "matching" ||
+    kind === "listening-choice" ||
+    kind === "tracing"
+  );
 }

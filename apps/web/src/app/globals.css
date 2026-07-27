@@ -4243,6 +4243,10 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
+.kana-script-control.has-mixed {
+  grid-template-columns: repeat(3, minmax(110px, 1fr));
+}
+
 .kana-script-control button {
   min-height: 44px;
   border: 0;
@@ -4758,6 +4762,86 @@ textarea:focus-visible {
   min-height: 440px;
 }
 
+.kana-adaptive-practice {
+  align-content: start;
+  padding-top: 28px;
+}
+
+.kana-adaptive-loading {
+  width: min(100%, 460px);
+  min-height: 320px;
+}
+
+.kana-adaptive-progress {
+  width: min(100%, 460px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.kana-adaptive-progress strong {
+  color: var(--foreground);
+}
+
+.kana-adaptive-complete {
+  font-size: 42px;
+}
+
+.kana-adaptive-feedback p {
+  max-width: 52ch;
+  margin: 8px 0 0;
+  color: var(--foreground);
+  line-height: 1.45;
+}
+
+.kana-adaptive-summary {
+  display: grid;
+  gap: 18px;
+  border-top: 3px solid var(--primary);
+  padding: 20px 4px;
+}
+
+.kana-adaptive-summary > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.kana-adaptive-summary > div:first-child span,
+.kana-adaptive-summary dt {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.kana-adaptive-summary > div:first-child strong {
+  font-size: 26px;
+}
+
+.kana-adaptive-summary dl {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid var(--surface-border);
+}
+
+.kana-adaptive-summary dl > div {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.4fr) minmax(0, 1fr);
+  gap: 16px;
+  border-bottom: 1px solid var(--surface-border);
+  padding: 14px 0;
+}
+
+.kana-adaptive-summary dd {
+  margin: 0;
+  font-weight: 800;
+}
+
 @keyframes shimmer {
   from {
     background-position: 200% 0;
@@ -5137,6 +5221,10 @@ textarea:focus-visible {
   .kana-script-control {
     width: 100%;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kana-script-control.has-mixed {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .kana-practice {

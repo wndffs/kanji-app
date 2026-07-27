@@ -6,6 +6,11 @@ import {
   type KanaAssessmentItemDto,
   type KanaAssessmentProgressDto,
   type KanaLessonPathDto,
+  type KanaPracticeAnswerRequest,
+  type KanaPracticeAnswerResponse,
+  type KanaPracticeExerciseDto,
+  type KanaPracticeScript,
+  type KanaPracticeSessionDto,
   type KanaScript,
 } from "@kanji-srs/shared";
 
@@ -124,6 +129,34 @@ test.describe("kana lessons", () => {
     ).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Освоено 0%" })).toBeVisible();
   });
+
+  test("resumes a mixed adaptive session and keeps exercise evidence distinct", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockKanaApi(page);
+
+    await page.goto("/kana");
+    await page.getByRole("tab", { name: "Практика" }).click();
+    await page.getByRole("button", { name: "Смешанная" }).click();
+
+    const practice = page.getByTestId("kana-adaptive-practice");
+    await expect(practice.getByText("あ", { exact: true })).toBeVisible();
+    await expect(practice.getByText("Распознавание", { exact: true })).toBeVisible();
+
+    await page.reload();
+    await page.getByRole("tab", { name: "Практика" }).click();
+    await page.getByRole("button", { name: "Смешанная" }).click();
+    await expect(practice.getByText("あ", { exact: true })).toBeVisible();
+
+    await practice.getByRole("button", { name: "a", exact: true }).click();
+    await expect(practice.getByText("Верно", { exact: true })).toBeVisible();
+    await practice.getByRole("button", { name: "Следующий" }).click();
+    await expect(practice.getByText("a", { exact: true })).toBeVisible();
+    await expect(practice.getByText("Звук → знак", { exact: true })).toBeVisible();
+    await practice.getByRole("button", { name: "ア", exact: true }).click();
+    await expect(practice.getByText("Верно", { exact: true })).toBeVisible();
+  });
 });
 
 async function signIn(
@@ -204,6 +237,8 @@ async function mockKanaApi(page: Page): Promise<void> {
     ["hiragana", buildProgress("hiragana", ["あ", "い", "う", "きゃ", "っか", "え", "おう"])],
     ["katakana", buildProgress("katakana", ["ア", "イ", "ウ", "キャ", "ッカ", "エ", "オー"])],
   ]);
+  const practiceItems = buildMockPracticeItems();
+  const practiceIndex = new Map<KanaPracticeScript, number>();
 
   await page.route("**/api/kana-strokes/*", async (route) => {
     await route.fulfill({
@@ -234,6 +269,35 @@ async function mockKanaApi(page: Page): Promise<void> {
 
   await page.route(`${API_BASE_URL}/kana/lessons/answer`, async (route) => {
     await answerKanaRoute(route, progressByScript);
+  });
+
+  await page.route(`${API_BASE_URL}/kana/practice?script=*`, async (route) => {
+    const script = new URL(route.request().url()).searchParams.get("script") as KanaPracticeScript;
+    const currentIndex = practiceIndex.get(script) ?? 0;
+    await route.fulfill({
+      json: buildPracticeSession(script, currentIndex, practiceItems),
+    });
+  });
+
+  await page.route(`${API_BASE_URL}/kana/practice/answer`, async (route) => {
+    const body = route.request().postDataJSON() as KanaPracticeAnswerRequest;
+    const script = body.sessionId.replace("practice-", "") as KanaPracticeScript;
+    const currentIndex = practiceIndex.get(script) ?? 0;
+    const exercise = practiceItems[currentIndex]!;
+    const correct =
+      body.answer === exercise.romaji || body.selectedCharacter === exercise.character;
+    const nextIndex = currentIndex + 1;
+    practiceIndex.set(script, nextIndex);
+    const response: KanaPracticeAnswerResponse = {
+      correct,
+      normalizedAnswer: body.answer ?? null,
+      expectedCharacter: exercise.character,
+      expectedRomaji: exercise.romaji,
+      selectedCharacter: body.selectedCharacter ?? null,
+      confusionExplanation: correct ? null : "Сравните форму и чтение знаков.",
+      session: buildPracticeSession(script, nextIndex, practiceItems),
+    };
+    await route.fulfill({ json: response });
   });
 }
 
@@ -415,6 +479,61 @@ function getMockRomaji(character: string): string {
   }
 
   return romaji;
+}
+
+function buildMockPracticeItems(): readonly KanaPracticeExerciseDto[] {
+  const choices = [
+    { character: "あ", script: "hiragana" as const, romaji: "a" },
+    { character: "ア", script: "katakana" as const, romaji: "a" },
+    { character: "い", script: "hiragana" as const, romaji: "i" },
+    { character: "イ", script: "katakana" as const, romaji: "i" },
+  ];
+
+  return [
+    {
+      id: "mixed-1",
+      character: "あ",
+      script: "hiragana",
+      romaji: "a",
+      exerciseKind: "recognition-choice",
+      choices: [choices[0]!, choices[2]!],
+      focusReason: "weak",
+    },
+    {
+      id: "mixed-2",
+      character: "ア",
+      script: "katakana",
+      romaji: "a",
+      exerciseKind: "reverse-choice",
+      choices,
+      focusReason: "overdue",
+    },
+    {
+      id: "mixed-3",
+      character: "い",
+      script: "hiragana",
+      romaji: "i",
+      exerciseKind: "typing",
+      choices,
+      focusReason: "new",
+    },
+  ];
+}
+
+function buildPracticeSession(
+  script: KanaPracticeScript,
+  currentIndex: number,
+  items: readonly KanaPracticeExerciseDto[],
+): KanaPracticeSessionDto {
+  return {
+    id: `practice-${script}`,
+    script,
+    currentIndex,
+    completedCount: currentIndex,
+    totalCount: items.length,
+    startedAt: "2026-07-27T12:00:00.000Z",
+    exercise: items[currentIndex] ?? null,
+  };
 }
 
 async function traceLine(

@@ -1,10 +1,12 @@
-import { BadRequestException, Inject, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, Inject, Injectable } from "@nestjs/common";
 
 import {
+  buildAdaptiveKanaSession,
   findKana,
   isKanaRomajiAccepted,
   listKana,
   normalizeRomaji,
+  type AdaptiveKanaCandidate,
   type KanaCharacter,
 } from "@kanji-srs/japanese";
 import {
@@ -14,14 +16,24 @@ import {
   type KanaAssessmentProgressDto,
   type KanaLessonPathDto,
   type KanaLessonUnitDto,
+  type KanaPracticeAnswerRequest,
+  type KanaPracticeAnswerResponse,
+  type KanaPracticeExerciseKind,
+  type KanaPracticeSessionDto,
+  type KanaPracticeScript,
   type KanaScript,
 } from "@kanji-srs/shared";
 
 import { KanaRepository } from "./kana.repository";
-import { type KanaProgressRecord } from "./kana.types";
+import {
+  type KanaPracticeSessionRecord,
+  KanaPracticeSessionConflictError,
+  type KanaProgressRecord,
+} from "./kana.types";
 
 export const KANA_MASTERY_STREAK = 3;
 const MAX_ANSWER_LENGTH = 24;
+const KANA_PRACTICE_SESSION_SIZE = 12;
 
 @Injectable()
 export class KanaService {
@@ -55,12 +67,18 @@ export class KanaService {
       throw new BadRequestException("Ответ не должен быть пустым.");
     }
 
-    const correct = isKanaRomajiAccepted(kana, request.answer);
+    const correct =
+      request.selectedCharacter === undefined
+        ? isKanaRomajiAccepted(kana, request.answer)
+        : request.selectedCharacter === kana.character;
     const updated = await this.kanaRepository.recordAttempt({
       userId,
       character: kana.character,
       script: kana.script,
       correct,
+      submittedAnswer: request.answer,
+      selectedCharacter: request.selectedCharacter ?? null,
+      exerciseKind: request.exerciseKind ?? "typing",
       masteryThreshold: KANA_MASTERY_STREAK,
       answeredAt: new Date(),
     });
@@ -74,6 +92,148 @@ export class KanaService {
       item: toItemDto(kana, updated),
       attemptedCount: summary.attemptedCount,
       masteredCount: summary.masteredCount,
+    };
+  }
+
+  async getPracticeSession(
+    userId: string,
+    scriptValue: unknown,
+  ): Promise<KanaPracticeSessionDto> {
+    const script = parsePracticeScript(scriptValue);
+    const active = await this.kanaRepository.findActivePracticeSession(userId, script);
+
+    if (active !== null) {
+      return toPracticeSessionDto(active);
+    }
+
+    const now = new Date();
+    const scripts: readonly KanaScript[] =
+      script === "mixed" ? ["hiragana", "katakana"] : [script];
+    const progressByScript = await Promise.all(
+      scripts.map(async (candidateScript) => ({
+        script: candidateScript,
+        progress: await this.kanaRepository.listProgress(userId, candidateScript),
+      })),
+    );
+    const attempts = await this.kanaRepository.listAttempts(userId, scripts);
+    const candidates = progressByScript.flatMap(({ script: candidateScript, progress }) =>
+      buildAdaptiveCandidates(candidateScript, progress),
+    );
+    const items = buildAdaptiveKanaSession({
+      candidates,
+      attempts,
+      script,
+      now,
+      seed: `${userId}:${script}:${now.toISOString()}`,
+      size: KANA_PRACTICE_SESSION_SIZE,
+    });
+    const session = await this.kanaRepository.createPracticeSession({
+      userId,
+      script,
+      items,
+      startedAt: now,
+    });
+
+    return toPracticeSessionDto(session);
+  }
+
+  async answerPractice(
+    userId: string,
+    body: unknown,
+  ): Promise<KanaPracticeAnswerResponse> {
+    const request = parsePracticeAnswerRequest(body);
+    const session = await this.kanaRepository.findPracticeSession(userId, request.sessionId);
+
+    if (session === null || session.finishedAt !== null) {
+      throw new BadRequestException("Сессия практики не найдена или уже завершена.");
+    }
+
+    const exercise = session.items[session.currentIndex];
+
+    if (exercise === undefined || exercise.id !== request.exerciseId) {
+      throw new ConflictException("Очередь практики уже перешла к следующему заданию.");
+    }
+
+    const kana = findKana(exercise.character);
+
+    if (kana === null) {
+      throw new BadRequestException("В сессии находится неизвестный знак каны.");
+    }
+
+    const characterChoice = usesCharacterChoice(exercise.exerciseKind);
+    const submittedAnswer = characterChoice ? null : request.answer?.trim() ?? null;
+    const selectedCharacter = characterChoice ? request.selectedCharacter?.trim() ?? null : null;
+
+    if (characterChoice && selectedCharacter === null) {
+      throw new BadRequestException("selectedCharacter обязателен для этого упражнения.");
+    }
+
+    if (!characterChoice && (submittedAnswer === null || submittedAnswer === "")) {
+      throw new BadRequestException("answer обязателен для этого упражнения.");
+    }
+
+    if (
+      selectedCharacter !== null &&
+      !exercise.choices.some((choice) => choice.character === selectedCharacter)
+    ) {
+      throw new BadRequestException("Выбранный знак отсутствует в вариантах ответа.");
+    }
+
+    const correct =
+      selectedCharacter === null
+        ? isKanaRomajiAccepted(kana, submittedAnswer!)
+        : selectedCharacter === exercise.character;
+    const attempts = await this.kanaRepository.listAttempts(userId, [
+      "hiragana",
+      "katakana",
+    ]);
+    const previouslyConfused =
+      selectedCharacter !== null &&
+      attempts.some(
+        (attempt) =>
+          attempt.expectedCharacter === exercise.character &&
+          attempt.selectedCharacter === selectedCharacter &&
+          !attempt.correct,
+      );
+    const answeredAt = new Date();
+
+    let updatedSession: KanaPracticeSessionRecord;
+
+    try {
+      const result = await this.kanaRepository.recordPracticeAttempt({
+        userId,
+        sessionId: session.id,
+        expectedSessionIndex: session.currentIndex,
+        sessionItemCount: session.items.length,
+        character: exercise.character,
+        script: exercise.script,
+        correct,
+        submittedAnswer,
+        selectedCharacter,
+        exerciseKind: exercise.exerciseKind,
+        masteryThreshold: KANA_MASTERY_STREAK,
+        answeredAt,
+      });
+      updatedSession = result.session;
+    } catch (error: unknown) {
+      if (error instanceof KanaPracticeSessionConflictError) {
+        throw new ConflictException("Очередь практики уже перешла к следующему заданию.");
+      }
+
+      throw error;
+    }
+
+    return {
+      correct,
+      normalizedAnswer: submittedAnswer === null ? null : normalizeRomaji(submittedAnswer),
+      expectedCharacter: exercise.character,
+      expectedRomaji: exercise.romaji,
+      selectedCharacter,
+      confusionExplanation:
+        correct || selectedCharacter === null
+          ? null
+          : explainKanaConfusion(kana, selectedCharacter, previouslyConfused),
+      session: toPracticeSessionDto(updatedSession),
     };
   }
 }
@@ -116,7 +276,89 @@ function parseAnswerRequest(value: unknown): KanaAssessmentAnswerRequest {
     throw new BadRequestException("Ответ слишком длинный.");
   }
 
-  return { character, answer: record.answer };
+  const exerciseKind =
+    record.exerciseKind === undefined ? undefined : parseExerciseKind(record.exerciseKind);
+  const selectedCharacter =
+    record.selectedCharacter === undefined
+      ? undefined
+      : parseSelectedCharacter(record.selectedCharacter);
+
+  return { character, answer: record.answer, exerciseKind, selectedCharacter };
+}
+
+function parsePracticeScript(value: unknown): KanaPracticeScript {
+  if (value === undefined || value === null || value === "" || value === "hiragana") {
+    return "hiragana";
+  }
+
+  if (value === "katakana" || value === "mixed") {
+    return value;
+  }
+
+  throw new BadRequestException("script должен быть hiragana, katakana или mixed.");
+}
+
+function parsePracticeAnswerRequest(value: unknown): KanaPracticeAnswerRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new BadRequestException("Тело запроса должно быть JSON-объектом.");
+  }
+
+  const record = value as Record<string, unknown>;
+
+  if (
+    typeof record.sessionId !== "string" ||
+    record.sessionId.trim() === "" ||
+    typeof record.exerciseId !== "string" ||
+    record.exerciseId.trim() === ""
+  ) {
+    throw new BadRequestException("sessionId и exerciseId обязательны.");
+  }
+
+  if (record.answer !== undefined && typeof record.answer !== "string") {
+    throw new BadRequestException("answer должен быть строкой.");
+  }
+
+  if (typeof record.answer === "string" && record.answer.trim().length > MAX_ANSWER_LENGTH) {
+    throw new BadRequestException("Ответ слишком длинный.");
+  }
+
+  return {
+    sessionId: record.sessionId,
+    exerciseId: record.exerciseId,
+    ...(record.answer === undefined ? {} : { answer: record.answer }),
+    ...(record.selectedCharacter === undefined
+      ? {}
+      : { selectedCharacter: parseSelectedCharacter(record.selectedCharacter) }),
+  };
+}
+
+function parseSelectedCharacter(value: unknown): string {
+  if (typeof value !== "string") {
+    throw new BadRequestException("selectedCharacter должен быть строкой.");
+  }
+
+  const character = value.trim();
+
+  if (Array.from(character).length < 1 || Array.from(character).length > 2) {
+    throw new BadRequestException("selectedCharacter должен содержать знак или сочетание каны.");
+  }
+
+  return character;
+}
+
+function parseExerciseKind(value: unknown): KanaPracticeExerciseKind {
+  if (
+    value === "typing" ||
+    value === "recognition-choice" ||
+    value === "reverse-choice" ||
+    value === "matching" ||
+    value === "listening-choice" ||
+    value === "tracing"
+  ) {
+    return value;
+  }
+
+  throw new BadRequestException("Неизвестный тип упражнения.");
 }
 
 function buildProgressDto(
@@ -247,4 +489,85 @@ function buildLessonPathDto(
     totalCount: kana.length,
     units,
   };
+}
+
+function buildAdaptiveCandidates(
+  script: KanaScript,
+  progress: readonly KanaProgressRecord[],
+): readonly AdaptiveKanaCandidate[] {
+  const path = buildLessonPathDto(script, progress);
+
+  return path.units.flatMap((unit) =>
+    unit.items.map((item) => {
+      const kana = findKana(item.character);
+
+      if (kana === null) {
+        throw new Error(`Unknown kana in lesson path: ${item.character}`);
+      }
+
+      return {
+        ...kana,
+        unlocked: unit.unlocked,
+        attemptCount: item.attemptCount,
+        correctCount: item.correctCount,
+        currentStreak: item.currentStreak,
+        mastered: item.mastered,
+        lastAnsweredAt: item.lastAnsweredAt === null ? null : new Date(item.lastAnsweredAt),
+      };
+    }),
+  );
+}
+
+function toPracticeSessionDto(session: KanaPracticeSessionRecord): KanaPracticeSessionDto {
+  return {
+    id: session.id,
+    script: session.script,
+    currentIndex: session.currentIndex,
+    completedCount: Math.min(session.currentIndex, session.items.length),
+    totalCount: session.items.length,
+    startedAt: session.startedAt.toISOString(),
+    exercise: session.items[session.currentIndex] ?? null,
+  };
+}
+
+function usesCharacterChoice(kind: KanaPracticeExerciseKind): boolean {
+  return (
+    kind === "reverse-choice" ||
+    kind === "matching" ||
+    kind === "listening-choice" ||
+    kind === "tracing"
+  );
+}
+
+function explainKanaConfusion(
+  expected: KanaCharacter,
+  selectedCharacter: string,
+  previouslyConfused: boolean,
+): string {
+  const selected = findKana(selectedCharacter);
+
+  if (selected === null) {
+    return `Нужно выбрать ${expected.character} (${expected.romaji}), а не ${selectedCharacter}.`;
+  }
+
+  if (selected.romaji === expected.romaji && selected.script !== expected.script) {
+    return `${selected.character} и ${expected.character} передают звук ${expected.romaji}, но относятся к разным азбукам.`;
+  }
+
+  if (
+    selected.baseCharacter === expected.baseCharacter &&
+    selected.character !== expected.character
+  ) {
+    return `${selected.character} и ${expected.character} образованы от одного базового знака, но диакритика меняет чтение: ${selected.romaji} и ${expected.romaji}.`;
+  }
+
+  if (selected.row === expected.row) {
+    return `Оба знака находятся в ряду ${expected.row.toUpperCase()}, поэтому сравните их гласную: ${selected.character} — ${selected.romaji}, ${expected.character} — ${expected.romaji}.`;
+  }
+
+  if (previouslyConfused) {
+    return `${selected.character} снова появился как отвлекающий вариант из вашей истории ошибок. Сравните ${selected.romaji} с ${expected.romaji}.`;
+  }
+
+  return `Сравните форму и чтение: ${selected.character} — ${selected.romaji}, ${expected.character} — ${expected.romaji}.`;
 }

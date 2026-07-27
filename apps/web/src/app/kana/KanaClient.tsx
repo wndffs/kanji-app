@@ -18,6 +18,7 @@ import {
   type KanaLessonItemDto,
   type KanaLessonPathDto,
   type KanaLessonUnitDto,
+  type KanaPracticeScript,
   type KanaScript,
 } from "@kanji-srs/shared";
 
@@ -38,9 +39,10 @@ import { buildKanaSpeechText } from "../../lib/kana-speech";
 import { isKanaTracingCandidate } from "../../lib/kana-tracing";
 import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
+import { AdaptiveKanaPractice } from "./AdaptiveKanaPractice";
 import { KanaTracingExercise } from "./KanaTracingExercise";
 
-type KanaMode = "lessons" | "assessment";
+type KanaMode = "lessons" | "assessment" | "practice";
 type LessonPhase = "teach" | "quiz";
 
 type KanaState =
@@ -57,6 +59,8 @@ type KanaState =
 
 export function KanaClient() {
   const [script, setScript] = useState<KanaScript>("hiragana");
+  const [practiceScript, setPracticeScript] = useState<KanaPracticeScript>("hiragana");
+  const [dataRevision, setDataRevision] = useState(0);
   const [mode, setMode] = useState<KanaMode>("lessons");
   const [state, setState] = useState<KanaState>({ status: "checking" });
   const [activeUnitId, setActiveUnitId] = useState<string | null>(null);
@@ -72,6 +76,10 @@ export function KanaClient() {
   const kanaSpeech = useJapaneseSpeech();
   const { play: playAnswerSound } = useAnswerSound();
   const handleTracingUnavailable = useCallback(() => setExerciseKind("typing"), []);
+  const handleUnauthorized = useCallback(() => {
+    clearStoredSession();
+    setState({ status: "unauthenticated" });
+  }, []);
 
   useEffect(() => {
     const session = readStoredSession();
@@ -124,7 +132,7 @@ export function KanaClient() {
     return () => {
       cancelled = true;
     };
-  }, [script]);
+  }, [dataRevision, script]);
 
   useEffect(() => {
     if (lessonPhase === "quiz" && feedback === null) {
@@ -236,14 +244,21 @@ export function KanaClient() {
     }
   }
 
-  async function handleChoiceAnswer(selectedRomaji: string): Promise<void> {
+  async function handleChoiceAnswer(
+    selectedRomaji: string,
+    selectedCharacter?: string,
+  ): Promise<void> {
     if (currentItem === null || feedback !== null || submitting) {
       return;
     }
 
     kanaSpeech.cancel();
     setAnswer(selectedRomaji);
-    const result = await submitAnswer(currentItem.character, selectedRomaji);
+    const result = await submitAnswer(
+      currentItem.character,
+      selectedRomaji,
+      selectedCharacter,
+    );
 
     if (result !== null) {
       setFeedback(result);
@@ -255,7 +270,11 @@ export function KanaClient() {
       return;
     }
 
-    const result = await submitAnswer(currentItem.character, currentLessonItem.romaji);
+    const result = await submitAnswer(
+      currentItem.character,
+      currentLessonItem.romaji,
+      currentItem.character,
+    );
 
     if (result !== null) {
       setFeedback(result);
@@ -265,6 +284,7 @@ export function KanaClient() {
   async function submitAnswer(
     character: string,
     submittedAnswer: string,
+    selectedAnswerCharacter?: string,
   ): Promise<KanaAssessmentAnswerResponse | null> {
     if (state.status !== "ready" || submitting) {
       return null;
@@ -274,7 +294,14 @@ export function KanaClient() {
 
     try {
       const submit = mode === "lessons" ? submitKanaLessonAnswer : submitKanaAssessmentAnswer;
-      const result = await submit(state.token, { character, answer: submittedAnswer });
+      const result = await submit(state.token, {
+        character,
+        answer: submittedAnswer,
+        exerciseKind,
+        ...(selectedAnswerCharacter === undefined
+          ? {}
+          : { selectedCharacter: selectedAnswerCharacter }),
+      });
 
       setState((currentState) => {
         if (currentState.status !== "ready") {
@@ -358,6 +385,21 @@ export function KanaClient() {
     }
 
     setMode(nextMode);
+
+    if (nextMode === "practice") {
+      setPracticeScript(script);
+      setAnswer("");
+      setFeedback(null);
+      return;
+    }
+
+    if (mode === "practice") {
+      if (practiceScript !== "mixed" && practiceScript !== script) {
+        setScript(practiceScript);
+      } else {
+        setDataRevision((revision) => revision + 1);
+      }
+    }
 
     if (nextMode === "assessment") {
       const character = selectNextCharacter(state.progress.items, null);
@@ -453,23 +495,55 @@ export function KanaClient() {
           <span className="eyebrow">Characters</span>
           <h1>Кана</h1>
         </div>
-        <div aria-label="Выбор азбуки" className="kana-script-control" role="group">
+        <div
+          aria-label="Выбор азбуки"
+          className={`kana-script-control ${mode === "practice" ? "has-mixed" : ""}`}
+          role="group"
+        >
           <button
-            aria-pressed={script === "hiragana"}
+            aria-pressed={
+              mode === "practice"
+                ? practiceScript === "hiragana"
+                : script === "hiragana"
+            }
             disabled={submitting}
-            onClick={() => setScript("hiragana")}
+            onClick={() => {
+              setPracticeScript("hiragana");
+              if (mode !== "practice") {
+                setScript("hiragana");
+              }
+            }}
             type="button"
           >
             Хирагана
           </button>
           <button
-            aria-pressed={script === "katakana"}
+            aria-pressed={
+              mode === "practice"
+                ? practiceScript === "katakana"
+                : script === "katakana"
+            }
             disabled={submitting}
-            onClick={() => setScript("katakana")}
+            onClick={() => {
+              setPracticeScript("katakana");
+              if (mode !== "practice") {
+                setScript("katakana");
+              }
+            }}
             type="button"
           >
             Катакана
           </button>
+          {mode === "practice" ? (
+            <button
+              aria-pressed={practiceScript === "mixed"}
+              disabled={submitting}
+              onClick={() => setPracticeScript("mixed")}
+              type="button"
+            >
+              Смешанная
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -490,108 +564,133 @@ export function KanaClient() {
         >
           Проверка
         </button>
+        <button
+          aria-selected={mode === "practice"}
+          onClick={() => handleModeChange("practice")}
+          role="tab"
+          type="button"
+        >
+          Практика
+        </button>
       </div>
 
-      <div className="kana-progress-summary">
-        <div>
-          <span>Освоено</span>
-          <strong>
-            {state.path.masteredCount}/{state.path.totalCount}
-          </strong>
+      {mode === "practice" ? null : (
+        <div className="kana-progress-summary">
+          <div>
+            <span>Освоено</span>
+            <strong>
+              {state.path.masteredCount}/{state.path.totalCount}
+            </strong>
+          </div>
+          <div
+            aria-label={`Освоено ${progressPercent}%`}
+            aria-valuemax={100}
+            aria-valuemin={0}
+            aria-valuenow={progressPercent}
+            className="kana-progress-track"
+            role="progressbar"
+          >
+            <span style={{ width: `${progressPercent}%` }} />
+          </div>
+          <small>
+            {mode === "lessons" ? formatLessonCount(state.path.units.length) : "Свободный режим"}
+          </small>
         </div>
-        <div
-          aria-label={`Освоено ${progressPercent}%`}
-          aria-valuemax={100}
-          aria-valuemin={0}
-          aria-valuenow={progressPercent}
-          className="kana-progress-track"
-          role="progressbar"
-        >
-          <span style={{ width: `${progressPercent}%` }} />
-        </div>
-        <small>
-          {mode === "lessons" ? formatLessonCount(state.path.units.length) : "Свободный режим"}
-        </small>
-      </div>
+      )}
 
       <div className="kana-workspace">
-        <section className="panel kana-practice" data-testid="kana-practice">
-          {currentItem === null ? (
-            <p className="muted">В этой азбуке пока нет знаков.</p>
-          ) : mode === "lessons" && lessonPhase === "teach" && currentLessonItem !== null ? (
-            <KanaTeachingStep item={currentLessonItem} onContinue={() => setLessonPhase("quiz")} />
-          ) : currentLessonItem === null ? (
-            <p className="muted">Не удалось подготовить упражнение для этого знака.</p>
-          ) : (
-            <KanaQuiz
-              answer={answer}
-              choiceRef={choiceRef}
-              choices={exerciseChoices}
-              continueRef={continueRef}
-              exerciseKind={exerciseKind}
-              feedback={feedback}
-              inputRef={inputRef}
-              item={currentLessonItem}
-              masteryThreshold={state.progress.masteryThreshold}
-              onAnswerChange={setAnswer}
-              onChoice={(romaji) => void handleChoiceAnswer(romaji)}
-              onMatchAnswer={submitAnswer}
-              onNext={handleNext}
-              onSpeak={() => kanaSpeech.speak(buildKanaSpeechText(currentLessonItem))}
-              onSubmit={(event) => void handleSubmit(event)}
-              onTraceComplete={handleTraceComplete}
-              onTracingUnavailable={handleTracingUnavailable}
-              submitting={submitting}
-            />
-          )}
-        </section>
-
-        {mode === "lessons" ? (
-          <div className="kana-unit-list" data-testid="kana-unit-list">
-            {state.path.units.map((unit) => (
-              <button
-                aria-current={unit.id === activeUnitId ? "step" : undefined}
-                className={unit.complete ? "is-complete" : ""}
-                disabled={!unit.unlocked || submitting}
-                key={unit.id}
-                onClick={() => handleStartUnit(unit)}
-                type="button"
-              >
-                <span className="kana-unit-copy">
-                  <strong>{unit.title}</strong>
-                  <small>
-                    {unit.masteredCount}/{unit.totalCount}
-                  </small>
-                </span>
-                <span className="kana-unit-characters" lang="ja">
-                  {unit.items.map((item) => (
-                    <span className={item.mastered ? "is-mastered" : ""} key={item.character}>
-                      {item.character}
-                    </span>
-                  ))}
-                </span>
-              </button>
-            ))}
-          </div>
+        {mode === "practice" ? (
+          <AdaptiveKanaPractice
+            onUnauthorized={handleUnauthorized}
+            script={practiceScript}
+            token={state.token}
+          />
         ) : (
-          <section className="kana-map" aria-label="Карта кана">
-            {state.progress.items.map((item) => (
-              <button
-                aria-current={item.character === selectedCharacter ? "true" : undefined}
-                aria-label={formatKanaStatus(item, state.progress.masteryThreshold)}
-                className={
-                  item.mastered ? "is-mastered" : item.attemptCount > 0 ? "is-started" : ""
-                }
-                disabled={feedback !== null || submitting}
-                key={item.character}
-                lang="ja"
-                onClick={() => handleSelectAssessmentCharacter(item.character)}
-                type="button"
-              >
-                {item.character}
-              </button>
-            ))}
-          </section>
+          <>
+            <section className="panel kana-practice" data-testid="kana-practice">
+              {currentItem === null ? (
+                <p className="muted">В этой азбуке пока нет знаков.</p>
+              ) : mode === "lessons" && lessonPhase === "teach" && currentLessonItem !== null ? (
+                <KanaTeachingStep
+                  item={currentLessonItem}
+                  onContinue={() => setLessonPhase("quiz")}
+                />
+              ) : currentLessonItem === null ? (
+                <p className="muted">Не удалось подготовить упражнение для этого знака.</p>
+              ) : (
+                <KanaQuiz
+                  answer={answer}
+                  choiceRef={choiceRef}
+                  choices={exerciseChoices}
+                  continueRef={continueRef}
+                  exerciseKind={exerciseKind}
+                  feedback={feedback}
+                  inputRef={inputRef}
+                  item={currentLessonItem}
+                  masteryThreshold={state.progress.masteryThreshold}
+                  onAnswerChange={setAnswer}
+                  onChoice={(romaji, character) =>
+                    void handleChoiceAnswer(romaji, character)
+                  }
+                  onMatchAnswer={submitAnswer}
+                  onNext={handleNext}
+                  onSpeak={() => kanaSpeech.speak(buildKanaSpeechText(currentLessonItem))}
+                  onSubmit={(event) => void handleSubmit(event)}
+                  onTraceComplete={handleTraceComplete}
+                  onTracingUnavailable={handleTracingUnavailable}
+                  submitting={submitting}
+                />
+              )}
+            </section>
+
+            {mode === "lessons" ? (
+              <div className="kana-unit-list" data-testid="kana-unit-list">
+                {state.path.units.map((unit) => (
+                  <button
+                    aria-current={unit.id === activeUnitId ? "step" : undefined}
+                    className={unit.complete ? "is-complete" : ""}
+                    disabled={!unit.unlocked || submitting}
+                    key={unit.id}
+                    onClick={() => handleStartUnit(unit)}
+                    type="button"
+                  >
+                    <span className="kana-unit-copy">
+                      <strong>{unit.title}</strong>
+                      <small>
+                        {unit.masteredCount}/{unit.totalCount}
+                      </small>
+                    </span>
+                    <span className="kana-unit-characters" lang="ja">
+                      {unit.items.map((item) => (
+                        <span className={item.mastered ? "is-mastered" : ""} key={item.character}>
+                          {item.character}
+                        </span>
+                      ))}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <section className="kana-map" aria-label="Карта кана">
+                {state.progress.items.map((item) => (
+                  <button
+                    aria-current={item.character === selectedCharacter ? "true" : undefined}
+                    aria-label={formatKanaStatus(item, state.progress.masteryThreshold)}
+                    className={
+                      item.mastered ? "is-mastered" : item.attemptCount > 0 ? "is-started" : ""
+                    }
+                    disabled={feedback !== null || submitting}
+                    key={item.character}
+                    lang="ja"
+                    onClick={() => handleSelectAssessmentCharacter(item.character)}
+                    type="button"
+                  >
+                    {item.character}
+                  </button>
+                ))}
+              </section>
+            )}
+          </>
         )}
       </div>
     </section>
@@ -628,7 +727,7 @@ function KanaQuiz({
   readonly item: KanaLessonItemDto;
   readonly masteryThreshold: number;
   readonly onAnswerChange: (answer: string) => void;
-  readonly onChoice: (romaji: string) => void;
+  readonly onChoice: (romaji: string, character?: string) => void;
   readonly onMatchAnswer: (
     character: string,
     answer: string,
@@ -735,7 +834,12 @@ function KanaQuiz({
               disabled={feedback !== null || submitting}
               key={choice.character}
               lang={characterChoices ? "ja" : undefined}
-              onClick={() => onChoice(choice.romaji)}
+              onClick={() =>
+                onChoice(
+                  choice.romaji,
+                  characterChoices ? choice.character : undefined,
+                )
+              }
               ref={index === 0 && !listening ? choiceRef : undefined}
               type="button"
             >

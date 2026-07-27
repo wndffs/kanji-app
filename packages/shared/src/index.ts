@@ -16,6 +16,14 @@ export type TranslationDisplayMode = (typeof SUPPORTED_TRANSLATION_DISPLAY_MODES
 export type LessonPronunciationMode = (typeof SUPPORTED_LESSON_PRONUNCIATION_MODES)[number];
 export type KanaScript = "hiragana" | "katakana";
 export type KanaVariant = "basic" | "dakuten" | "handakuten" | "yoon" | "sokuon" | "long-vowel";
+export type KanaPracticeScript = KanaScript | "mixed";
+export type KanaPracticeExerciseKind =
+  | "typing"
+  | "recognition-choice"
+  | "reverse-choice"
+  | "matching"
+  | "listening-choice"
+  | "tracing";
 
 export function isLessonPronunciationMode(value: unknown): value is LessonPronunciationMode {
   return (
@@ -998,6 +1006,8 @@ export type KanaAssessmentProgressDto = {
 export type KanaAssessmentAnswerRequest = {
   readonly character: string;
   readonly answer: string;
+  readonly exerciseKind?: KanaPracticeExerciseKind;
+  readonly selectedCharacter?: string;
 };
 
 export type KanaAssessmentAnswerResponse = {
@@ -1031,6 +1041,49 @@ export type KanaLessonPathDto = {
   readonly masteredCount: number;
   readonly totalCount: number;
   readonly units: readonly KanaLessonUnitDto[];
+};
+
+export type KanaPracticeChoiceDto = {
+  readonly character: string;
+  readonly script: KanaScript;
+  readonly romaji: string;
+};
+
+export type KanaPracticeExerciseDto = {
+  readonly id: string;
+  readonly character: string;
+  readonly script: KanaScript;
+  readonly romaji: string;
+  readonly exerciseKind: KanaPracticeExerciseKind;
+  readonly choices: readonly KanaPracticeChoiceDto[];
+  readonly focusReason: "weak" | "overdue" | "new" | "review";
+};
+
+export type KanaPracticeSessionDto = {
+  readonly id: string;
+  readonly script: KanaPracticeScript;
+  readonly currentIndex: number;
+  readonly completedCount: number;
+  readonly totalCount: number;
+  readonly startedAt: string;
+  readonly exercise: KanaPracticeExerciseDto | null;
+};
+
+export type KanaPracticeAnswerRequest = {
+  readonly sessionId: string;
+  readonly exerciseId: string;
+  readonly answer?: string;
+  readonly selectedCharacter?: string;
+};
+
+export type KanaPracticeAnswerResponse = {
+  readonly correct: boolean;
+  readonly normalizedAnswer: string | null;
+  readonly expectedCharacter: string;
+  readonly expectedRomaji: string;
+  readonly selectedCharacter: string | null;
+  readonly confusionExplanation: string | null;
+  readonly session: KanaPracticeSessionDto;
 };
 
 export type UserOverrideDto = {

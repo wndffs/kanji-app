@@ -29,4 +29,14 @@ export class KanaController {
   answerLesson(@CurrentUser() user: CurrentUserDto, @Body() body: unknown) {
     return this.kanaService.answer(user.id, body);
   }
+
+  @Get("practice")
+  getPractice(@CurrentUser() user: CurrentUserDto, @Query("script") script?: string) {
+    return this.kanaService.getPracticeSession(user.id, script);
+  }
+
+  @Post("practice/answer")
+  answerPractice(@CurrentUser() user: CurrentUserDto, @Body() body: unknown) {
+    return this.kanaService.answerPractice(user.id, body);
+  }
 }

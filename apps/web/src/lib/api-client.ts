@@ -64,6 +64,10 @@ import {
   type KanaAssessmentAnswerResponse,
   type KanaAssessmentProgressDto,
   type KanaLessonPathDto,
+  type KanaPracticeAnswerRequest,
+  type KanaPracticeAnswerResponse,
+  type KanaPracticeScript,
+  type KanaPracticeSessionDto,
   type KanaScript,
   type DeckDetailsDto,
   type DeckListResponse,
@@ -293,6 +297,27 @@ export function submitKanaLessonAnswer(
   input: KanaAssessmentAnswerRequest,
 ): Promise<KanaAssessmentAnswerResponse> {
   return apiRequest<KanaAssessmentAnswerResponse>("/kana/lessons/answer", {
+    method: "POST",
+    token,
+    body: input,
+  });
+}
+
+export function getKanaPracticeSession(
+  token: string,
+  script: KanaPracticeScript,
+): Promise<KanaPracticeSessionDto> {
+  return apiRequest<KanaPracticeSessionDto>(
+    `/kana/practice?script=${encodeURIComponent(script)}`,
+    { token },
+  );
+}
+
+export function submitKanaPracticeAnswer(
+  token: string,
+  input: KanaPracticeAnswerRequest,
+): Promise<KanaPracticeAnswerResponse> {
+  return apiRequest<KanaPracticeAnswerResponse>("/kana/practice/answer", {
     method: "POST",
     token,
     body: input,
