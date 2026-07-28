@@ -93,6 +93,15 @@ Implementation requirements:
 - Do not use audio unless its individual audio license is compatible and stored.
 - The current importer uses the sentence and link exports only. Those exports provide sentence IDs and language links but not reliable author metadata. Author attribution must be added before importing exports that include authors, and audio must remain disabled until per-audio license metadata is modeled and tested.
 
+### Pitch accent
+
+Pitch-accent integration is currently **deferred** and must remain disabled.
+The source, version, checksum, dialect, identity matching, attribution, and
+removal requirements are recorded in
+[Pitch-accent source decision](./PITCH_ACCENT_SOURCE_DECISION.md). That decision
+must be replaced by an explicit `APPROVED` record before adding schema,
+importer, API, settings, or UI support.
+
 ## Raw dataset hygiene
 
 Full-size raw source dumps must not be committed. Keep downloaded files outside the repository, or in ignored local paths such as `.cache/content-sources/` or `data/raw/` while running CLI imports. Only small hand-authored or trimmed fixtures belong in `data/fixtures/`.
