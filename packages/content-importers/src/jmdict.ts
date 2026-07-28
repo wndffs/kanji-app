@@ -62,6 +62,14 @@ export type JmDictImportOptions = {
   readonly sourceDownloadedAt?: Date | null;
   readonly checksumSha256?: string;
   readonly onProgress?: ContentImportProgressCallback;
+  readonly batchWriter?: JmDictBatchWriter;
+};
+
+export type JmDictBatchWriter = {
+  writeBatch(args: {
+    readonly importRunId: string;
+    readonly entries: readonly JmDictEntryDto[];
+  }): Promise<void>;
 };
 
 export type JmDictImportResult = {
@@ -157,6 +165,7 @@ const JMDICT_HOMEPAGE_URL = "https://www.edrdg.org/wiki/index.php/JMdict-EDICT_D
 const JMDICT_DOWNLOAD_URL = "https://www.edrdg.org/pub/Nihongo/JMdict.gz";
 const EDRDG_LICENSE_URL = "https://www.edrdg.org/edrdg/licence.html";
 const IMPORT_WRITE_CONCURRENCY = 8;
+const IMPORT_WRITE_BATCH_SIZE = 100;
 
 export function parseJmDictXml(xml: string): JmDictParseResult {
   const entryBlocks = extractElements(stripDoctype(xml), "entry");
@@ -303,6 +312,23 @@ export async function importJmDictXml(
       parsed.entries.length,
       options.onProgress,
     );
+
+    if (options.batchWriter !== undefined) {
+      for (let index = 0; index < parsed.entries.length; index += IMPORT_WRITE_BATCH_SIZE) {
+        const entries = parsed.entries.slice(index, index + IMPORT_WRITE_BATCH_SIZE);
+
+        await options.batchWriter.writeBatch({
+          importRunId: importRun.id,
+          entries,
+        });
+
+        for (let completed = 0; completed < entries.length; completed += 1) {
+          progress.advance();
+        }
+      }
+
+      return;
+    }
 
     await forEachConcurrent(parsed.entries, IMPORT_WRITE_CONCURRENCY, async (entry) => {
       const importedRecord = await db.importedRecord.upsert({

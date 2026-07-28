@@ -64,6 +64,12 @@ the JSON object on `stdout`. Progress advances only after a complete source
 record has been written and is emitted at roughly one-percent intervals, plus
 the exact start and completion states.
 
+JMdict production writes are committed in bounded batches of 100 source
+entries. Imported records, expression-reading identities, provenance updates,
+and senses are written in bulk within each batch transaction. If a process is
+cancelled, rerunning the same checksum safely revisits completed batches and
+continues the same import run without duplicating compound identities.
+
 Use the full multilingual `JMdict.gz` distribution and decompress it outside the repository.
 The English-only `JMdict_e.gz` file cannot populate Russian word senses. The importer stores
 English (`eng`/`en`) and Russian (`rus`/`ru`) glosses as normalized word senses. Other languages
@@ -127,10 +133,12 @@ The post-import report separates the raw dictionary from published learning
 content. `dictionary.kanji` and `dictionary.words` measure imported targets;
 `publishedCourse.kanji` and `publishedCourse.words` measure items learners can
 actually study. The staging workflow runs the report with `--require-full` and
-fails unless the database has at least 10,000 kanji, 10,000 imported stroke
+fails unless the database has at least 10,000 kanji, 6,000 imported stroke
 graphics, 100,000 words, 30,000 words with both Russian and English imported
-senses, and successful KANJIDIC2, KanjiVG, and JMdict import runs. These are
-completeness guards, not curriculum targets.
+senses, and successful KANJIDIC2, KanjiVG, and JMdict import runs. The KanjiVG
+threshold detects a truncated source while remaining below the verified 6,702
+graphics in release `r20250816`. These are completeness guards, not curriculum
+targets.
 
 EDRDG's current JMdict and KANJIDIC2 URLs are mutable daily distributions. The
 local and Actions caches make repeated imports of one snapshot deterministic

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildJmDictWordBatchCandidates,
   calculateSha256,
   importJmDictXml,
   type JmDictImportDatabase,
@@ -146,7 +147,92 @@ describe("JMdict importer", () => {
       downloadUrl: "https://www.edrdg.org/pub/Nihongo/JMdict.gz",
     });
   });
+
+  it("writes large imports through bounded batches", async () => {
+    const db = new InMemoryJmDictDb();
+    const batchSizes: number[] = [];
+    const progress: number[] = [];
+
+    const result = await importJmDictXml(db, buildJmDictFixture(101), {
+      sourceFileName: "jmdict-batch.xml",
+      batchWriter: {
+        writeBatch: async ({ entries }) => {
+          batchSizes.push(entries.length);
+        },
+      },
+      onProgress: ({ completed }) => {
+        progress.push(completed);
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: "SUCCESS",
+      entryCount: 101,
+      wordCount: 101,
+      importedRecordCount: 101,
+    });
+    expect(batchSizes).toEqual([100, 1]);
+    expect(progress[0]).toBe(0);
+    expect(progress.at(-1)).toBe(101);
+    expect(db.importedRecords.size).toBe(0);
+  });
+
+  it("deduplicates word identities and merges imported senses inside a batch", () => {
+    const first = parseJmDictXml(buildDuplicateWordFixture("2000001", "first meaning")).entries[0];
+    const second = parseJmDictXml(buildDuplicateWordFixture("2000002", "second meaning"))
+      .entries[0];
+
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+
+    const candidates = buildJmDictWordBatchCandidates(
+      [first!, second!],
+      [
+        { id: "record-1", sourceRecordId: "jmdict:2000001" },
+        { id: "record-2", sourceRecordId: "jmdict:2000002" },
+      ],
+    );
+
+    expect(candidates).toEqual([
+      expect.objectContaining({
+        expression: "同じ",
+        reading: "おなじ",
+        jmdictEntryId: "jmdict:2000002",
+        importedRecordId: "record-2",
+        senses: [
+          expect.objectContaining({ meaning: "first meaning" }),
+          expect.objectContaining({ meaning: "second meaning" }),
+        ],
+      }),
+    ]);
+  });
 });
+
+function buildJmDictFixture(entryCount: number): string {
+  const entries = Array.from(
+    { length: entryCount },
+    (_, index) => `
+      <entry>
+        <ent_seq>${3_000_000 + index}</ent_seq>
+        <r_ele><reb>かな${index}</reb></r_ele>
+        <sense><pos>&n;</pos><gloss>fixture ${index}</gloss></sense>
+      </entry>`,
+  ).join("");
+
+  return `<?xml version="1.0" encoding="UTF-8"?><JMdict>${entries}</JMdict>`;
+}
+
+function buildDuplicateWordFixture(sequence: string, meaning: string): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+    <JMdict>
+      <entry>
+        <ent_seq>${sequence}</ent_seq>
+        <k_ele><keb>同じ</keb></k_ele>
+        <r_ele><reb>おなじ</reb></r_ele>
+        <sense><pos>&n;</pos><gloss>${meaning}</gloss></sense>
+      </entry>
+    </JMdict>`;
+}
 
 class InMemoryJmDictDb implements JmDictImportDatabase {
   readonly licenses = new Map<string, Record<string, unknown>>();

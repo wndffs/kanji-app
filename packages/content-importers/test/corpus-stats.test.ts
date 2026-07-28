@@ -18,7 +18,7 @@ describe("corpus stats", () => {
       generatedAt: NOW.toISOString(),
       dictionary: {
         kanji: 13_108,
-        strokeGraphics: 12_500,
+        strokeGraphics: 6_702,
         kanjiReadings: 29_400,
         importedEnglishKanjiMeanings: 48_000,
         words: 205_000,
@@ -60,7 +60,7 @@ describe("corpus stats", () => {
 
     expect(validateCorpusMinimums(stats)).toEqual([
       "kanji count 3 is below 10000",
-      "stroke graphic count 1 is below 10000",
+      "stroke graphic count 1 is below 6000",
       "word count 10 is below 100000",
       "bilingual word count 1 is below 30000",
       "KANJIDIC2 has no successful import run",
@@ -73,7 +73,7 @@ describe("corpus stats", () => {
 function createDatabase(): CorpusStatsDatabase {
   return {
     kanji: countModel(13_108),
-    kanjiStrokeGraphic: countModel(12_500),
+    kanjiStrokeGraphic: countModel(6_702),
     kanjiReading: countModel(29_400),
     kanjiMeaning: countModel(48_000),
     word: countModel(205_000, 75_000),

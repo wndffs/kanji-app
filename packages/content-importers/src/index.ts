@@ -15,6 +15,7 @@ export * from "./checksum";
 export * from "./corpus-stats";
 export * from "./concurrency";
 export * from "./jmdict";
+export * from "./jmdict-prisma-batch";
 export * from "./import-metadata";
 export * from "./import-run";
 export * from "./kanjidic2";
