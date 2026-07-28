@@ -30,7 +30,7 @@ export function createPrismaJmDictBatchWriter(prisma: PrismaClient): JmDictBatch
               importRunId,
               recordType: "JMDICT_ENTRY",
               sourceRecordId: entry.sourceRecordId,
-              rawJson: entry.raw as Prisma.InputJsonValue,
+              rawJson: buildCompactJmDictImportedRecord(entry),
             })),
             skipDuplicates: true,
           });
@@ -111,6 +111,14 @@ export function createPrismaJmDictBatchWriter(prisma: PrismaClient): JmDictBatch
         },
       );
     },
+  };
+}
+
+export function buildCompactJmDictImportedRecord(entry: JmDictEntryDto): Prisma.InputJsonObject {
+  return {
+    sequence: entry.sequence,
+    importedWordCount: entry.words.length,
+    retainedLocales: ["en-US", "ru-RU"],
   };
 }
 

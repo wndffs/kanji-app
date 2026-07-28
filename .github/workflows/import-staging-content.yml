@@ -44,6 +44,7 @@ jobs:
       KANJIDIC2_URL: https://www.edrdg.org/kanjidic/kanjidic2.xml.gz
       KANJIVG_URL: https://github.com/KanjiVG/kanjivg/releases/download/r20250816/kanjivg-20250816.xml.gz
       KANJIVG_VERSION: r20250816
+      JMDICT_SELECTION_PROFILE: bilingual-course-candidates-v1
 
     steps:
       - name: Check out repository
@@ -139,6 +140,7 @@ jobs:
           --source-version "$SNAPSHOT_VERSION"
           --source-downloaded-at "$JMDICT_SOURCE_DOWNLOADED_AT"
           --checksum-sha256 "$JMDICT_CONTENT_SHA256"
+          --selection-profile "$JMDICT_SELECTION_PROFILE"
 
       - name: Verify full corpus and write database report
         run: >-

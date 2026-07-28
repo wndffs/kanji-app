@@ -38,7 +38,7 @@ siblings and are removed or atomically replaced; they are never treated as a
 valid cache entry.
 
 ```powershell
-npm run import:jmdict -- .cache\content-sources\2026-07-13\JMdict.xml --source-version 2026-07-13
+npm run import:jmdict -- .cache\content-sources\2026-07-13\JMdict.xml --source-version 2026-07-13 --selection-profile bilingual-course-candidates-v1
 npm run import:kanjidic2 -- .cache\content-sources\2026-07-13\kanjidic2.xml --source-version 2026-07-13
 npm run import:kanjivg -- .cache\content-sources\2026-07-13\kanjivg-20250816.xml --source-version r20250816
 npm run import:tatoeba -- C:\data\sentences.tsv C:\data\links.tsv --source-version 2026-06
@@ -70,11 +70,23 @@ and senses are written in bulk within each batch transaction. If a process is
 cancelled, rerunning the same checksum safely revisits completed batches and
 continues the same import run without duplicating compound identities.
 
-Use the full multilingual `JMdict.gz` distribution and decompress it outside the repository.
-The English-only `JMdict_e.gz` file cannot populate Russian word senses. The importer stores
-English (`eng`/`en`) and Russian (`rus`/`ru`) glosses as normalized word senses. Other languages
-are discarded before `ImportedRecord.rawJson` is written and are counted as unsupported in the
-import stats; they are never silently converted to English.
+Use the full multilingual `JMdict.gz` distribution and decompress it outside
+the repository. The English-only `JMdict_e.gz` file cannot populate Russian
+word senses. The staging workflow verifies the full source checksum, then uses
+the versioned `bilingual-course-candidates-v1` profile to select exactly 30,000
+unique expression-reading pairs that have both English and Russian senses.
+Frequency-marked pairs sort first; the JMdict sequence and expression-reading
+identity provide deterministic tie-breakers.
+
+The bounded candidate pool is 3.75 times the 8,000-word published-course target
+and is deliberately separate from project-reviewed learning content. Other
+languages are discarded during parsing and never silently converted to
+English. `ImportedRecord.rawJson` stores only the JMdict sequence, selected word
+count, and retained locales. The complete verified XML remains outside the
+database, while `ImportRun` and the snapshot manifest retain its source URL,
+version, download time, and checksum. The JMdict CLI defaults to this bounded
+profile so an omitted flag cannot accidentally request an unbounded production
+import.
 
 JMdict priority tags are normalized into an approximate `Word.commonnessRank`
 for cross-feature sorting. `nfXX` represents a 500-word frequency band, while
@@ -92,7 +104,7 @@ plus checksum, source version/date, optional downloaded date, status, stats,
 errors, and imported records. Keep the exact download URL and license on the
 `DataSource`/`License` rows rather than in ad hoc notes.
 
-## Full staging snapshot
+## Verified staging snapshot
 
 Use the manually dispatched GitHub Actions workflow `Import staging content` for
 a complete staging import. It restores a verified source snapshot from GitHub
@@ -129,16 +141,17 @@ uploaded as workflow artifacts. Cache retention is operational, not permanent;
 keep the manifest checksums for verification and use a new snapshot date for an
 intentional refresh.
 
-The post-import report separates the raw dictionary from published learning
-content. `dictionary.kanji` and `dictionary.words` measure imported targets;
+The post-import report separates the imported candidate dictionary from
+published learning content. `dictionary.kanji` and `dictionary.words` measure imported targets;
 `publishedCourse.kanji` and `publishedCourse.words` measure items learners can
 actually study. The staging workflow runs the report with `--require-full` and
 fails unless the database has at least 10,000 kanji, 6,000 imported stroke
-graphics, 100,000 words, 30,000 words with both Russian and English imported
+graphics, 30,000 words, 30,000 words with both Russian and English imported
 senses, and successful KANJIDIC2, KanjiVG, and JMdict import runs. The KanjiVG
 threshold detects a truncated source while remaining below the verified 6,702
 graphics in release `r20250816`. These are completeness guards, not curriculum
-targets.
+targets. Task 118 still requires 2,300 placed published kanji and 8,000 placed
+published vocabulary pairs with project-reviewed RU/EN content.
 
 EDRDG's current JMdict and KANJIDIC2 URLs are mutable daily distributions. The
 local and Actions caches make repeated imports of one snapshot deterministic
@@ -146,14 +159,13 @@ while that cache exists. Long-term replay still requires retaining the original
 archives in storage permitted by their license terms; the manifest is
 sufficient to verify them. KanjiVG uses an immutable release URL.
 
-The full multilingual JMdict import retains only Russian and English glosses.
-The admin translation-review queue only offers ranked targets for which both
-locales are available. Confirming a translation writes a separate
-project-authored curation layer; it does not replace or relabel imported
-dictionary senses.
-It can run for a long time and consume substantial Neon storage; inspect the
-provider's current usage after the first run. A failed Action can be rerun:
-source checksum and compound database keys make imports idempotent.
+The full multilingual JMdict file is the verified source, but the operational
+database stores only the bounded bilingual selection profile. The admin
+translation-review queue offers ranked targets for which both locales are
+available. Confirming a translation writes a separate project-authored
+curation layer; it does not replace or relabel imported dictionary senses. A
+failed Action can be rerun: source checksum and compound database keys make
+imports idempotent.
 
 Tatoeba imports currently use sentence/link TSV exports only. They store
 sentence IDs and language links in `ImportedRecord.rawJson`. They do not import

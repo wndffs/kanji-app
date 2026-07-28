@@ -179,15 +179,16 @@ STAGING_API_URL=https://<your-render-service>.onrender.com
    be marked as rolled back before retrying.
 
 After the database deploy succeeds, use the separate `Import staging content`
-workflow to load a checksummed full JMdict/KANJIDIC2/KanjiVG snapshot. Detailed
-inputs, provenance behavior, and retry rules are documented in
+workflow to verify a checksummed full JMdict/KANJIDIC2/KanjiVG source snapshot
+and load the bounded bilingual JMdict candidate profile. Detailed inputs,
+provenance behavior, and retry rules are documented in
 `docs/IMPORT_OPERATIONS.md`. This import is intentionally not part of every
 deployment because the source data is large and changes independently of the
 application schema.
 
-The workflow verifies full-corpus minimums after import and uploads both a
+The workflow verifies candidate-corpus minimums after import and uploads both a
 source manifest and a database count report. Treat the run as successful only
-when the report distinguishes a complete raw dictionary from the much smaller
+when the report distinguishes imported candidates from the much smaller
 published course without failing its minimum checks.
 
 For a local fallback, apply the same migrations and seed from a trusted machine:

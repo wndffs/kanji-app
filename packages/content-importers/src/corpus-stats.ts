@@ -69,7 +69,7 @@ export type CorpusMinimums = {
 export const FULL_CORPUS_MINIMUMS: CorpusMinimums = {
   kanji: 10_000,
   strokeGraphics: 6_000,
-  words: 100_000,
+  words: 30_000,
   bilingualWords: 30_000,
 };
 

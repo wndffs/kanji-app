@@ -56,6 +56,10 @@ export type JmDictParseResult = {
   readonly unsupportedGlossCount: number;
 };
 
+export const JMDICT_SELECTION_PROFILE_NAMES = ["bilingual-course-candidates-v1"] as const;
+
+export type JmDictSelectionProfileName = (typeof JMDICT_SELECTION_PROFILE_NAMES)[number];
+
 export type JmDictImportOptions = {
   readonly sourceFileName: string;
   readonly sourceVersion?: string | null;
@@ -63,6 +67,7 @@ export type JmDictImportOptions = {
   readonly checksumSha256?: string;
   readonly onProgress?: ContentImportProgressCallback;
   readonly batchWriter?: JmDictBatchWriter;
+  readonly selectionProfile?: JmDictSelectionProfileName;
 };
 
 export type JmDictBatchWriter = {
@@ -78,6 +83,9 @@ export type JmDictImportResult = {
   readonly importRunId: string;
   readonly checksumSha256: string;
   readonly status: "SUCCESS";
+  readonly selectionProfile: JmDictSelectionProfileName | null;
+  readonly sourceEntryCount: number;
+  readonly sourceWordCount: number;
   readonly entryCount: number;
   readonly wordCount: number;
   readonly glossCount: number;
@@ -166,6 +174,7 @@ const JMDICT_DOWNLOAD_URL = "https://www.edrdg.org/pub/Nihongo/JMdict.gz";
 const EDRDG_LICENSE_URL = "https://www.edrdg.org/edrdg/licence.html";
 const IMPORT_WRITE_CONCURRENCY = 8;
 const IMPORT_WRITE_BATCH_SIZE = 100;
+const BILINGUAL_COURSE_CANDIDATE_WORD_LIMIT = 30_000;
 
 export function parseJmDictXml(xml: string): JmDictParseResult {
   const entryBlocks = extractElements(stripDoctype(xml), "entry");
@@ -202,16 +211,23 @@ export async function importJmDictXml(
 ): Promise<JmDictImportResult> {
   const checksumSha256 = verifySha256(xml, options.checksumSha256);
   const parsed = parseJmDictXml(xml);
+  const sourceWordCount = countWords(parsed.entries);
+  const selectedEntries = selectJmDictEntries(parsed.entries, options.selectionProfile);
   const sourceVersion = options.sourceVersion ?? "unknown";
-  const wordCount = parsed.entries.reduce((count, entry) => count + entry.words.length, 0);
-  const importedGlossCount = parsed.glossCount - parsed.unsupportedGlossCount;
+  const wordCount = countWords(selectedEntries);
+  const importedGlossCount = countSupportedGlosses(selectedEntries);
   const statsJson = {
-    entries: parsed.entries.length,
+    entries: selectedEntries.length,
     words: wordCount,
     glosses: {
-      total: parsed.glossCount,
       imported: importedGlossCount,
+      sourceTotal: parsed.glossCount,
       unsupported: parsed.unsupportedGlossCount,
+    },
+    selectionProfile: options.selectionProfile ?? null,
+    source: {
+      entries: parsed.entries.length,
+      words: sourceWordCount,
     },
   };
 
@@ -270,12 +286,15 @@ export async function importJmDictXml(
       importRunId: completedImportRun.id,
       checksumSha256,
       status: "SUCCESS",
-      entryCount: parsed.entries.length,
+      selectionProfile: options.selectionProfile ?? null,
+      sourceEntryCount: parsed.entries.length,
+      sourceWordCount,
+      entryCount: selectedEntries.length,
       wordCount,
       glossCount: parsed.glossCount,
       importedGlossCount,
       unsupportedGlossCount: parsed.unsupportedGlossCount,
-      importedRecordCount: parsed.entries.length,
+      importedRecordCount: selectedEntries.length,
     };
   }
 
@@ -309,13 +328,13 @@ export async function importJmDictXml(
   await executeTrackedImport(db.importRun, importRun.id, statsJson, async () => {
     const progress = createContentImportProgressTracker(
       "JMdict",
-      parsed.entries.length,
+      selectedEntries.length,
       options.onProgress,
     );
 
     if (options.batchWriter !== undefined) {
-      for (let index = 0; index < parsed.entries.length; index += IMPORT_WRITE_BATCH_SIZE) {
-        const entries = parsed.entries.slice(index, index + IMPORT_WRITE_BATCH_SIZE);
+      for (let index = 0; index < selectedEntries.length; index += IMPORT_WRITE_BATCH_SIZE) {
+        const entries = selectedEntries.slice(index, index + IMPORT_WRITE_BATCH_SIZE);
 
         await options.batchWriter.writeBatch({
           importRunId: importRun.id,
@@ -330,7 +349,7 @@ export async function importJmDictXml(
       return;
     }
 
-    await forEachConcurrent(parsed.entries, IMPORT_WRITE_CONCURRENCY, async (entry) => {
+    await forEachConcurrent(selectedEntries, IMPORT_WRITE_CONCURRENCY, async (entry) => {
       const importedRecord = await db.importedRecord.upsert({
         where: {
           importRunId_recordType_sourceRecordId: {
@@ -406,13 +425,140 @@ export async function importJmDictXml(
     importRunId: importRun.id,
     checksumSha256,
     status: "SUCCESS",
-    entryCount: parsed.entries.length,
+    selectionProfile: options.selectionProfile ?? null,
+    sourceEntryCount: parsed.entries.length,
+    sourceWordCount,
+    entryCount: selectedEntries.length,
     wordCount,
     glossCount: parsed.glossCount,
     importedGlossCount,
     unsupportedGlossCount: parsed.unsupportedGlossCount,
-    importedRecordCount: parsed.entries.length,
+    importedRecordCount: selectedEntries.length,
   };
+}
+
+export function readJmDictSelectionProfile(
+  value: string | null,
+): JmDictSelectionProfileName | undefined {
+  if (value === null) {
+    return undefined;
+  }
+
+  if ((JMDICT_SELECTION_PROFILE_NAMES as readonly string[]).includes(value)) {
+    return value as JmDictSelectionProfileName;
+  }
+
+  throw new Error(
+    `--selection-profile must be one of: ${JMDICT_SELECTION_PROFILE_NAMES.join(", ")}.`,
+  );
+}
+
+export function selectJmDictEntries(
+  entries: readonly JmDictEntryDto[],
+  profile: JmDictSelectionProfileName | undefined,
+): readonly JmDictEntryDto[] {
+  if (profile === undefined) {
+    return entries;
+  }
+
+  const candidates = entries
+    .flatMap((entry) =>
+      entry.words.filter(isBilingualWord).map((word) => ({
+        entry,
+        word,
+      })),
+    )
+    .sort(compareJmDictWordCandidates);
+  const selectedIdentities = new Set<string>();
+  const selectedWordsByEntry = new Map<string, JmDictWordDto[]>();
+
+  for (const candidate of candidates) {
+    const identity = wordIdentity(candidate.word);
+
+    if (selectedIdentities.has(identity)) {
+      continue;
+    }
+
+    selectedIdentities.add(identity);
+    const selectedWords = selectedWordsByEntry.get(candidate.entry.sourceRecordId) ?? [];
+    selectedWords.push(candidate.word);
+    selectedWordsByEntry.set(candidate.entry.sourceRecordId, selectedWords);
+
+    if (selectedIdentities.size === BILINGUAL_COURSE_CANDIDATE_WORD_LIMIT) {
+      break;
+    }
+  }
+
+  if (selectedIdentities.size < BILINGUAL_COURSE_CANDIDATE_WORD_LIMIT) {
+    throw new Error(
+      `JMdict profile ${profile} requires ${BILINGUAL_COURSE_CANDIDATE_WORD_LIMIT} unique bilingual word pairs, but only ${selectedIdentities.size} are available.`,
+    );
+  }
+
+  return entries.flatMap((entry) => {
+    const words = selectedWordsByEntry.get(entry.sourceRecordId);
+    return words === undefined ? [] : [{ ...entry, words }];
+  });
+}
+
+function compareJmDictWordCandidates(
+  left: { readonly entry: JmDictEntryDto; readonly word: JmDictWordDto },
+  right: { readonly entry: JmDictEntryDto; readonly word: JmDictWordDto },
+): number {
+  const rankDifference =
+    (left.word.commonnessRank ?? Number.MAX_SAFE_INTEGER) -
+    (right.word.commonnessRank ?? Number.MAX_SAFE_INTEGER);
+
+  if (rankDifference !== 0) {
+    return rankDifference;
+  }
+
+  const sequenceDifference = compareNumericStrings(left.entry.sequence, right.entry.sequence);
+
+  if (sequenceDifference !== 0) {
+    return sequenceDifference;
+  }
+
+  const expressionDifference = compareStrings(left.word.expression, right.word.expression);
+  return expressionDifference === 0
+    ? compareStrings(left.word.reading, right.word.reading)
+    : expressionDifference;
+}
+
+function compareNumericStrings(left: string, right: string): number {
+  return left.length === right.length ? compareStrings(left, right) : left.length - right.length;
+}
+
+function compareStrings(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function isBilingualWord(word: JmDictWordDto): boolean {
+  let hasEnglish = false;
+  let hasRussian = false;
+
+  for (const sense of word.senses) {
+    hasEnglish ||= sense.locale === "en-US";
+    hasRussian ||= sense.locale === "ru-RU";
+  }
+
+  return hasEnglish && hasRussian;
+}
+
+function wordIdentity(word: JmDictWordDto): string {
+  return JSON.stringify([word.expression, word.reading]);
+}
+
+function countWords(entries: readonly JmDictEntryDto[]): number {
+  return entries.reduce((count, entry) => count + entry.words.length, 0);
+}
+
+function countSupportedGlosses(entries: readonly JmDictEntryDto[]): number {
+  return entries.reduce(
+    (entryCount, entry) =>
+      entryCount + entry.senses.reduce((senseCount, sense) => senseCount + sense.glosses.length, 0),
+    0,
+  );
 }
 
 function parseEntryBlock(block: string): JmDictEntryDto {

@@ -5,11 +5,15 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildCompactJmDictImportedRecord,
   buildJmDictWordBatchCandidates,
   calculateSha256,
   importJmDictXml,
+  type JmDictEntryDto,
   type JmDictImportDatabase,
   parseJmDictXml,
+  readJmDictSelectionProfile,
+  selectJmDictEntries,
 } from "../src";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
@@ -120,6 +124,9 @@ describe("JMdict importer", () => {
     expect(result).toMatchObject({
       checksumSha256: checksum,
       status: "SUCCESS",
+      selectionProfile: null,
+      sourceEntryCount: 3,
+      sourceWordCount: 5,
       entryCount: 3,
       wordCount: 5,
       glossCount: 8,
@@ -134,7 +141,9 @@ describe("JMdict importer", () => {
       statsJson: {
         entries: 3,
         words: 5,
-        glosses: { total: 8, imported: 7, unsupported: 1 },
+        glosses: { imported: 7, sourceTotal: 8, unsupported: 1 },
+        selectionProfile: null,
+        source: { entries: 3, words: 5 },
       },
     });
     expect([...db.licenses.values()][0]).toMatchObject({
@@ -167,6 +176,8 @@ describe("JMdict importer", () => {
 
     expect(result).toMatchObject({
       status: "SUCCESS",
+      sourceEntryCount: 101,
+      sourceWordCount: 101,
       entryCount: 101,
       wordCount: 101,
       importedRecordCount: 101,
@@ -206,6 +217,51 @@ describe("JMdict importer", () => {
       }),
     ]);
   });
+
+  it("selects a deterministic storage-bounded bilingual candidate corpus", () => {
+    const rareEntries = Array.from({ length: 30_000 }, (_, index) =>
+      buildEntry(String(2_000_000 + index), `rare-${index + 1}`, null),
+    );
+    const commonEntry = buildEntry("9999999", "common", 1_000);
+    const englishOnlyEntry = buildEntry("1", "english-only", 1_000, false);
+    const duplicateEntry = buildEntry("9999998", "rare-1", 1_000);
+    const entries = [englishOnlyEntry, ...rareEntries, duplicateEntry, commonEntry];
+    const selected = selectJmDictEntries(entries, "bilingual-course-candidates-v1");
+    const reversed = selectJmDictEntries([...entries].reverse(), "bilingual-course-candidates-v1");
+    const selectedIdentities = selectedWordIdentities(selected);
+
+    expect(selected.flatMap((entry) => entry.words)).toHaveLength(30_000);
+    expect(selectedIdentities).toContain(JSON.stringify(["common", "reading-common"]));
+    expect(selectedIdentities).toContain(JSON.stringify(["rare-1", "reading-rare-1"]));
+    expect(selectedIdentities).not.toContain(JSON.stringify(["rare-30000", "reading-rare-30000"]));
+    expect(selectedIdentities).not.toContain(
+      JSON.stringify(["english-only", "reading-english-only"]),
+    );
+    expect(selectedWordIdentities(reversed).sort()).toEqual(selectedIdentities.sort());
+  });
+
+  it("records only compact JMdict provenance in batch imported records", () => {
+    const entry = buildEntry("1234567", "compact", 1_000);
+
+    expect(buildCompactJmDictImportedRecord(entry)).toEqual({
+      sequence: "1234567",
+      importedWordCount: 1,
+      retainedLocales: ["en-US", "ru-RU"],
+    });
+    expect(JSON.stringify(buildCompactJmDictImportedRecord(entry))).not.toContain(
+      "English compact",
+    );
+  });
+
+  it("rejects unknown JMdict selection profiles", () => {
+    expect(readJmDictSelectionProfile(null)).toBeUndefined();
+    expect(readJmDictSelectionProfile("bilingual-course-candidates-v1")).toBe(
+      "bilingual-course-candidates-v1",
+    );
+    expect(() => readJmDictSelectionProfile("unbounded")).toThrow(
+      /--selection-profile must be one of/u,
+    );
+  });
 });
 
 function buildJmDictFixture(entryCount: number): string {
@@ -232,6 +288,56 @@ function buildDuplicateWordFixture(sequence: string, meaning: string): string {
         <sense><pos>&n;</pos><gloss>${meaning}</gloss></sense>
       </entry>
     </JMdict>`;
+}
+
+function buildEntry(
+  sequence: string,
+  expression: string,
+  commonnessRank: number | null,
+  bilingual = true,
+): JmDictEntryDto {
+  const reading = `reading-${expression}`;
+  const senses = [
+    {
+      partOfSpeech: ["noun"],
+      glosses: [
+        { locale: "en-US" as const, text: `English ${expression}`, sourceLanguage: "eng" },
+        ...(bilingual
+          ? [{ locale: "ru-RU" as const, text: `Russian ${expression}`, sourceLanguage: "rus" }]
+          : []),
+      ],
+    },
+  ];
+
+  return {
+    sourceRecordId: `jmdict:${sequence}`,
+    sequence,
+    kanjiElements: [{ expression, priorities: [] }],
+    readingElements: [{ reading, priorities: [], restrictions: [] }],
+    senses,
+    words: [
+      {
+        expression,
+        reading,
+        commonnessRank,
+        senses: senses.flatMap((sense) =>
+          sense.glosses.map((gloss) => ({
+            locale: gloss.locale,
+            meaning: gloss.text,
+            partOfSpeech: "noun",
+            sourceKind: "IMPORTED" as const,
+          })),
+        ),
+      },
+    ],
+    raw: { sequence },
+  };
+}
+
+function selectedWordIdentities(entries: readonly JmDictEntryDto[]): string[] {
+  return entries.flatMap((entry) =>
+    entry.words.map((word) => JSON.stringify([word.expression, word.reading])),
+  );
 }
 
 class InMemoryJmDictDb implements JmDictImportDatabase {

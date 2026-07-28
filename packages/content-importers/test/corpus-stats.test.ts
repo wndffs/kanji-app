@@ -61,7 +61,7 @@ describe("corpus stats", () => {
     expect(validateCorpusMinimums(stats)).toEqual([
       "kanji count 3 is below 10000",
       "stroke graphic count 1 is below 6000",
-      "word count 10 is below 100000",
+      "word count 10 is below 30000",
       "bilingual word count 1 is below 30000",
       "KANJIDIC2 has no successful import run",
       "KanjiVG has no successful import run",

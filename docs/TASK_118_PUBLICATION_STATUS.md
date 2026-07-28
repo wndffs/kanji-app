@@ -8,7 +8,7 @@
 - Main course publication approved: **no**
 
 The 2,300-kanji and 8,000-vocabulary publication target has not been reached or
-claimed. This record captures the last auditable staging import, the blocking
+claimed. This record captures the latest staging attempts, the blocking
 failure, and the checks required before editorial publication can continue.
 
 ## Last staging evidence
@@ -26,6 +26,15 @@ from 2026-07-13.
 The JMdict step ran for approximately five hours before the six-hour workflow
 limit cancelled the job. The database report step was skipped, so partial word
 rows must not be reported as a verified corpus.
+
+The replacement
+[run 30343095577](https://github.com/wndffs/kanji-app/actions/runs/30343095577)
+verified and cached snapshot `2026-07-28`, applied migrations, and completed
+KANJIDIC2 plus KanjiVG. The batch JMdict writer reached 78,552 of 218,173 source
+entries (36%) in about 23 minutes, then Neon rejected further writes because
+the free project exceeded its 512 MB size limit. This confirms the batch
+performance fix and a separate storage-capacity blocker. The partial JMdict run
+is not a verified corpus and must be removed before retry.
 
 The repository-authored starter seed contains two published kanji and two
 published words. Relative to the Task 118 targets, that isolated seed baseline
@@ -46,18 +55,30 @@ successful database report and main-course readiness audit.
 - The KanjiVG full-source minimum is 6,000 graphics. The previous 10,000 minimum
   exceeded the verified 6,702-row official release and made a successful report
   impossible.
+- The full multilingual JMdict file remains the checksummed source snapshot.
+- Staging stores the deterministic `bilingual-course-candidates-v1` selection:
+  exactly 30,000 unique RU+EN expression-reading pairs, frequency-ranked with
+  stable source tie-breakers.
+- JMdict imported-record JSON is compact provenance instead of a duplicate of
+  the source entry.
+- The 30,000-pair candidate gate does not weaken the Task 118 publication gate:
+  8,000 words still require project review, placement, cards, prerequisites, and
+  readiness approval.
 
 ## Required next run
 
 After this change is committed and pushed:
 
-1. Run `Import staging content` with a pinned snapshot label and checksums.
-2. Require a successful JMdict import run and generated `corpus-report.json`.
-3. Record exact imported word and bilingual-word counts from the artifact.
-4. Run the main-course scale-readiness and publication-readiness audits.
-5. Record exact published kanji, published expression-reading pairs, remaining
+1. Reset the staging database or remove the failed partial JMdict data and
+   reclaim its storage before retrying.
+2. Run `Import staging content` with snapshot `2026-07-28` from the verified
+   Actions cache.
+3. Require a successful JMdict import run and generated `corpus-report.json`.
+4. Record exact imported word and bilingual-word counts from the artifact.
+5. Run the main-course scale-readiness and publication-readiness audits.
+6. Record exact published kanji, published expression-reading pairs, remaining
    gaps, allocation plan version, and blocking issue counts.
-6. Continue bounded editorial curation; raw candidates must not be relabeled as
+7. Continue bounded editorial curation; raw candidates must not be relabeled as
    project-reviewed content.
 
 Task 118 remains open until all 60 levels are populated, the database contains
