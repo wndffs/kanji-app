@@ -8,39 +8,55 @@
 - Main course publication approved: **no**
 
 The 2,300-kanji and 8,000-vocabulary publication target has not been reached or
-claimed. This record captures the latest staging attempts, the blocking
-failure, and the checks required before editorial publication can continue.
+claimed. This record captures the successful staging corpus, the exact
+publication gap, and the checks required before editorial publication can
+continue.
 
-## Last staging evidence
+## Verified staging evidence
 
 Evidence source:
-[Import staging content run 29243186549](https://github.com/wndffs/kanji-app/actions/runs/29243186549)
-from 2026-07-13.
+[Import staging content run 30359957598](https://github.com/wndffs/kanji-app/actions/runs/30359957598)
+from 2026-07-28. Artifact:
+`content-snapshot-2026-07-28-30359957598`.
 
-| Source              | Result    |     Imported rows | Import run                             | Content SHA-256                                                    |
-| ------------------- | --------- | ----------------: | -------------------------------------- | ------------------------------------------------------------------ |
-| KANJIDIC2           | success   | 13,108 characters | `0e483791-e42d-47be-b46b-89bc076eae77` | `e2debd18fac3a9b3fe56285607a80b0932658164d870b03085488307eb4f9352` |
-| KanjiVG `r20250816` | success   |    6,702 graphics | `05953022-2f2a-4d7c-87f0-4c8c4779a96f` | `97f316c265eee227cac44af1baf1227f16c707a367038c6b3d72afc864dd8010` |
-| JMdict              | cancelled |     not auditable | no successful run                      | `575c14564fbaa8a4ef70cfcfbaf8824bbd41e728f1b03218c59269d4643fba83` |
+| Source              | Result  |               Imported rows | Import run                             | Content SHA-256                                                    |
+| ------------------- | ------- | --------------------------: | -------------------------------------- | ------------------------------------------------------------------ |
+| KANJIDIC2           | success |           13,108 characters | `639cb8f8-3f0e-4e86-8658-0fca7090d598` | `d3bfc4373f785c6308d38faaaa5a86bd3bcb6c77368f9188232832c29e2c433c` |
+| KanjiVG `r20250816` | success |              6,702 graphics | `902ed0d4-ac8a-47a6-8b52-3d70f88edebf` | `97f316c265eee227cac44af1baf1227f16c707a367038c6b3d72afc864dd8010` |
+| JMdict `2026-07-28` | success | 30,000 bilingual word pairs | `bda8da91-d1df-4c85-90ff-6c983fe0c107` | `f8a59e2a456c64339da4ef8cd24ab8216cb11712ba71b5ac22a4779def2a2462` |
 
-The JMdict step ran for approximately five hours before the six-hour workflow
-limit cancelled the job. The database report step was skipped, so partial word
-rows must not be reported as a verified corpus.
+The corpus report records 37,047 kanji readings, 24,823 imported English kanji
+meanings, 136,850 English word senses, and 63,581 Russian word senses. All
+30,000 retained word identities have both Russian and English source evidence.
+The final database size was 148 MB after the run, leaving approximately 364 MB
+under the Neon free project's 512 MB limit.
 
-The replacement
+The failed partial import from
 [run 30343095577](https://github.com/wndffs/kanji-app/actions/runs/30343095577)
-verified and cached snapshot `2026-07-28`, applied migrations, and completed
-KANJIDIC2 plus KanjiVG. The batch JMdict writer reached 78,552 of 218,173 source
-entries (36%) in about 23 minutes, then Neon rejected further writes because
-the free project exceeded its 512 MB size limit. This confirms the batch
-performance fix and a separate storage-capacity blocker. The partial JMdict run
-is not a verified corpus and must be removed before retry.
+was removed by resetting the staging `public` schema before this run. The
+successful run restored the verified source snapshot from cache and used the
+bounded `bilingual-course-candidates-v1` JMdict profile.
 
-The repository-authored starter seed contains two published kanji and two
-published words. Relative to the Task 118 targets, that isolated seed baseline
-is short by 2,298 kanji and 7,998 expression-reading pairs. These are not
-production publication counts: the exact staging gap must come from the next
-successful database report and main-course readiness audit.
+## Publication-readiness audit
+
+The 2026-07-28 staging admin audit reports:
+
+- global published seed baseline: 2 kanji and 2 words;
+- main-course placements: 0 kanji and 0 words;
+- main-course levels containing content: 0 of 60;
+- allocation preview: 7 published seed items proposed, 0 allocation conflicts;
+- publication-readiness checks passed: 3 of 8;
+- blocking checks: allocation incomplete, empty levels, missing initial lesson,
+  missing 2,300 placed kanji, and missing 8,000 placed words;
+- unassigned imported capacity: 13,106 kanji and 29,998 words;
+- candidate-plan selection: 2,298 kanji and 7,998 words with no unfilled slots.
+
+Raw candidate capacity is sufficient, but it is not publication. The first v1
+word plan placed every selected word in N5 and surfaced later-course proper
+names before basic prerequisite-safe vocabulary. Policy
+`independent-frequency-prerequisites-v2` fixes that planning defect by applying
+the latest prerequisite-kanji band as a word floor and ordering early bands
+before later bands.
 
 ## Remediation in this change
 
@@ -64,22 +80,19 @@ successful database report and main-course readiness audit.
 - The 30,000-pair candidate gate does not weaken the Task 118 publication gate:
   8,000 words still require project review, placement, cards, prerequisites, and
   readiness approval.
+- Candidate policy v2 keeps every word at or after its latest prerequisite
+  kanji band and presents earlier-band editorial work first.
 
-## Required next run
+## Required next work
 
-After this change is committed and pushed:
-
-1. Reset the staging database or remove the failed partial JMdict data and
-   reclaim its storage before retrying.
-2. Run `Import staging content` with snapshot `2026-07-28` from the verified
-   Actions cache.
-3. Require a successful JMdict import run and generated `corpus-report.json`.
-4. Record exact imported word and bilingual-word counts from the artifact.
-5. Run the main-course scale-readiness and publication-readiness audits.
-6. Record exact published kanji, published expression-reading pairs, remaining
-   gaps, allocation plan version, and blocking issue counts.
-7. Continue bounded editorial curation; raw candidates must not be relabeled as
-   project-reviewed content.
+1. Deploy candidate policy v2 and verify its staging band distribution and
+   first pages for kanji and words.
+2. Enqueue a bounded prerequisite-safe page, beginning with early-course kanji.
+3. Continue explicit RU/EN meaning, reading, mnemonic, prerequisite, card, and
+   publication review in auditable batches.
+4. Apply allocation only for published, quality-complete items.
+5. Repeat scale-readiness and publication-readiness audits after every bounded
+   publication batch.
 
 Task 118 remains open until all 60 levels are populated, the database contains
 at least 2,300 placed published kanji and 8,000 placed published vocabulary

@@ -1835,7 +1835,7 @@ export type AdminCurriculumCandidatePlanItemDto = {
 };
 
 export type AdminCurriculumCandidatePlanSummaryDto = {
-  readonly policyVersion: "independent-frequency-prerequisites-v1";
+  readonly policyVersion: "independent-frequency-prerequisites-v2";
   readonly targetItems: Readonly<Record<"kanji" | "word", number>>;
   readonly existingItems: Readonly<Record<"kanji" | "word", number>>;
   readonly candidateSlots: Readonly<Record<"kanji" | "word", number>>;

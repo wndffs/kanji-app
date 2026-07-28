@@ -482,7 +482,7 @@ describe("AdminService", () => {
     expect(firstPage).toMatchObject({
       planVersion: "candidate-plan-version-one",
       summary: {
-        policyVersion: "independent-frequency-prerequisites-v1",
+        policyVersion: "independent-frequency-prerequisites-v2",
         selectedItems: { kanji: 0, word: 2 },
       },
       page: {

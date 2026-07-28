@@ -143,8 +143,11 @@ coverage. It does not promote or publish dictionary rows automatically.
 The candidate plan uses a project-owned, versioned ordering policy rather than
 another product's levels. It ranks kanji and words from source metadata, then
 admits a word only when every kanji in its written form is already active or
-selected by the same plan. The plan is paginated editorial input, not an
-automatic curriculum or a substitute for bilingual curation.
+selected by the same plan. Policy `independent-frequency-prerequisites-v2`
+also prevents a word from receiving an earlier band than any prerequisite
+kanji and orders word candidates by that prerequisite-safe band before score
+and source frequency. The plan is paginated editorial input, not an automatic
+curriculum or a substitute for bilingual curation.
 
 Pagination is bound to an opaque database-derived plan version. This prevents
 an import or editorial update from silently shifting later pages while an

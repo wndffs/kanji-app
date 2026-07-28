@@ -39,7 +39,7 @@ describe("curriculum candidate plan cache", () => {
 function emptyPlan(): CurriculumCandidatePlan {
   return {
     summary: {
-      policyVersion: "independent-frequency-prerequisites-v1",
+      policyVersion: "independent-frequency-prerequisites-v2",
       targetItems: { kanji: 2_300, word: 8_000 },
       existingItems: { kanji: 0, word: 0 },
       candidateSlots: { kanji: 2_300, word: 8_000 },

@@ -10,7 +10,7 @@ describe("curriculum candidate plan", () => {
   it("selects a stable independent shortlist and enforces word kanji prerequisites", () => {
     const plan = buildCurriculumCandidatePlan({
       existingItems: { kanji: 2_299, word: 7_998 },
-      existingKanji: ["日"],
+      existingKanji: [{ character: "日", band: "foundation" }],
       poolTruncated: { kanji: false, word: false },
       candidates: [
         candidate({
@@ -18,6 +18,7 @@ describe("curriculum candidate plan", () => {
           itemType: "kanji",
           japanese: "水",
           reading: "みず",
+          jlptLevel: "N5",
           sourcePriority: 100,
           sourceName: "KANJIDIC2",
           meanings: { ru: [], en: ["water"] },
@@ -75,11 +76,63 @@ describe("curriculum candidate plan", () => {
         selectionRank: 1,
         targetId: "word-water",
         prerequisiteKanji: ["水"],
+        suggestedBand: "n5",
       }),
       expect.objectContaining({
         selectionRank: 2,
         targetId: "word-kana",
         prerequisiteKanji: [],
+      }),
+    ]);
+  });
+
+  it("places words no earlier than their latest prerequisite kanji band", () => {
+    const plan = buildCurriculumCandidatePlan({
+      existingItems: { kanji: 2_298, word: 7_998 },
+      existingKanji: [],
+      poolTruncated: { kanji: false, word: false },
+      candidates: [
+        candidate({
+          targetId: "kanji-country",
+          itemType: "kanji",
+          japanese: "国",
+          reading: "こく",
+          jlptLevel: "N5",
+        }),
+        candidate({
+          targetId: "kanji-study",
+          itemType: "kanji",
+          japanese: "学",
+          reading: "がく",
+          jlptLevel: "N3",
+        }),
+        candidate({
+          targetId: "word-country",
+          japanese: "国",
+          reading: "くに",
+          sourcePriority: 5_000,
+          meanings: { ru: ["страна"], en: ["country"] },
+        }),
+        candidate({
+          targetId: "word-study",
+          japanese: "学",
+          reading: "がく",
+          sourcePriority: 100,
+          meanings: { ru: ["учёба"], en: ["study"] },
+        }),
+      ],
+    });
+
+    expect(plan.candidates.word).toEqual([
+      expect.objectContaining({
+        selectionRank: 1,
+        targetId: "word-country",
+        suggestedBand: "n5",
+      }),
+      expect.objectContaining({
+        selectionRank: 2,
+        targetId: "word-study",
+        suggestedBand: "n3",
       }),
     ]);
   });

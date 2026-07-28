@@ -1375,7 +1375,7 @@ export class PrismaAdminRepository extends AdminRepository {
     const [assignedTargets, rejectedTargets] = await Promise.all([
       this.prisma.db.learningItem.findMany({
         where: { targetType: { in: ["KANJI", "WORD"] } },
-        select: { targetType: true, targetId: true, status: true },
+        select: { targetType: true, targetId: true, status: true, curriculumBand: true },
       }),
       this.prisma.db.importedCandidateRejection.findMany({
         select: { targetType: true, targetId: true },
@@ -1399,6 +1399,11 @@ export class PrismaAdminRepository extends AdminRepository {
     const activeKanjiIds = activeTargets
       .filter((target) => target.targetType === "KANJI")
       .map((target) => target.targetId);
+    const activeKanjiBandById = new Map(
+      activeTargets
+        .filter((target) => target.targetType === "KANJI")
+        .map((target) => [target.targetId, toApiBandOrNull(target.curriculumBand)]),
+    );
     const unassignedKanjiWhere = {
       kanjidicImportedRecordId: { not: null },
       ...(unavailableKanjiIds.length === 0 ? {} : { id: { notIn: unavailableKanjiIds } }),
@@ -1413,7 +1418,7 @@ export class PrismaAdminRepository extends AdminRepository {
           ? Promise.resolve([])
           : this.prisma.db.kanji.findMany({
               where: { id: { in: activeKanjiIds } },
-              select: { character: true },
+              select: { id: true, character: true },
             }),
         this.prisma.db.kanji.count({ where: unassignedKanjiWhere }),
         this.prisma.db.word.count({ where: unassignedWordWhere }),
@@ -1464,7 +1469,10 @@ export class PrismaAdminRepository extends AdminRepository {
         kanji: activeTargets.filter((target) => target.targetType === "KANJI").length,
         word: activeTargets.filter((target) => target.targetType === "WORD").length,
       },
-      existingKanji: existingKanjiRows.map((row) => row.character),
+      existingKanji: existingKanjiRows.map((row) => ({
+        character: row.character,
+        band: activeKanjiBandById.get(row.id) ?? null,
+      })),
       candidates: [
         ...(kanjiRows as unknown as readonly CandidatePlanKanjiRow[]).map(
           toCandidatePlanKanjiInput,

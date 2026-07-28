@@ -450,10 +450,12 @@ registrations.
 frequency-and-prerequisite policy to active course work plus unassigned source
 rows. It ranks kanji and vocabulary separately, fills only the remaining
 2,300/8,000 target slots, and excludes a word when one of its kanji is absent
-from both the active course and selected kanji plan. The response includes a
-band summary and one page selected with `itemType=kanji|word`, `offset`, and a
-maximum `limit` of 100. Rejected targets are excluded before pool limits and
-ranking are applied.
+from both the active course and selected kanji plan. Policy
+`independent-frequency-prerequisites-v2` raises each word to at least the latest
+band of its prerequisite kanji, then orders words by prerequisite-safe band,
+score, and source frequency. The response includes a band summary and one page
+selected with `itemType=kanji|word`, `offset`, and a maximum `limit` of 100.
+Rejected targets are excluded before pool limits and ranking are applied.
 
 Planning reads lightweight, source-ordered pools capped at 5,000 kanji and
 40,000 words. `poolTruncated` makes that bound explicit. Selection remains an
