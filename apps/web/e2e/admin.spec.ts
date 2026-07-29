@@ -245,6 +245,7 @@ test.describe("admin curation", () => {
 
     await candidatePlan.getByRole("button", { name: "Слова" }).click();
     await expect(search).toHaveValue("水");
+    await expect(candidatePlan).toContainText(/Скрытые варианты\s*340/u);
     await expect(candidatePlan.getByRole("button", { name: "Проверить 水" })).toBeVisible();
 
     await candidatePlan.getByRole("button", { name: "Сбросить" }).click();
@@ -983,7 +984,7 @@ async function mockAdminApi(
       planVersion: "plan-version-one",
       generatedAt: "2026-07-13T12:01:00.000Z",
       summary: {
-        policyVersion: "independent-frequency-prerequisites-v2",
+        policyVersion: "independent-frequency-prerequisites-v3",
         targetItems: { kanji: 2_300, word: 8_000 },
         existingItems: { kanji: 2, word: 4 },
         candidateSlots: { kanji: 2_298, word: 7_996 },
@@ -992,6 +993,7 @@ async function mockAdminApi(
         selectedItems: { kanji: 2_298, word: 7_996 },
         unfilledSlots: { kanji: 0, word: 0 },
         excludedWordsMissingKanji: 120,
+        collapsedWordAlternatives: 340,
         bands: [
           { band: "foundation", kanjiItems: 80, wordItems: 200 },
           { band: "n5", kanjiItems: 120, wordItems: 1_500 },

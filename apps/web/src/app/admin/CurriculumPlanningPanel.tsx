@@ -613,6 +613,12 @@ export function CurriculumPlanningPanel({
                   )}
                 </dd>
               </div>
+              {itemType === "word" ? (
+                <div>
+                  <dt>Скрытые варианты</dt>
+                  <dd>{formatNumber(plan.summary.collapsedWordAlternatives)}</dd>
+                </div>
+              ) : null}
             </dl>
 
             <div className="admin-plan-bands" aria-label="Распределение по диапазонам">

@@ -482,7 +482,7 @@ describe("AdminService", () => {
     expect(firstPage).toMatchObject({
       planVersion: "candidate-plan-version-one",
       summary: {
-        policyVersion: "independent-frequency-prerequisites-v2",
+        policyVersion: "independent-frequency-prerequisites-v3",
         selectedItems: { kanji: 0, word: 2 },
       },
       page: {
@@ -2570,6 +2570,7 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
           schoolGrade: null,
           hasStrokeData: false,
           sourceName: "JMdict" as const,
+          sourceGroupId: "jmdict:plan-word-two",
         },
         {
           targetId: "plan-word-one",
@@ -2582,6 +2583,7 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
           schoolGrade: null,
           hasStrokeData: false,
           sourceName: "JMdict" as const,
+          sourceGroupId: "jmdict:plan-word-one",
         },
       ].filter(
         (candidate) => !this.candidateRejections.has(`${candidate.itemType}:${candidate.targetId}`),

@@ -3,7 +3,7 @@
 ## Status
 
 - Task: 118
-- Updated: 2026-07-28
+- Updated: 2026-07-29
 - State: **IN PROGRESS**
 - Main course publication approved: **no**
 
@@ -39,7 +39,7 @@ bounded `bilingual-course-candidates-v1` JMdict profile.
 
 ## Publication-readiness audit
 
-The 2026-07-28 staging admin audit reports:
+The 2026-07-28 and 2026-07-29 staging admin audits report:
 
 - global published seed baseline: 2 kanji and 2 words;
 - main-course placements: 0 kanji and 0 words;
@@ -53,10 +53,27 @@ The 2026-07-28 staging admin audit reports:
 
 Raw candidate capacity is sufficient, but it is not publication. The first v1
 word plan placed every selected word in N5 and surfaced later-course proper
-names before basic prerequisite-safe vocabulary. Policy
-`independent-frequency-prerequisites-v2` fixes that planning defect by applying
-the latest prerequisite-kanji band as a word floor and ordering early bands
-before later bands.
+names before basic prerequisite-safe vocabulary. Deployed policy v2 applied the
+latest prerequisite-kanji band as a word floor and produced this staging
+distribution:
+
+- kanji: Foundation 5, N5 101, N4 230, N3 109, N2 1,853;
+- words: Foundation 0, N5 7,752, N4 246, N3 0, N2 0.
+
+The v2 floor fixed the unsafe band relationship but did not make the word
+shortlist editorially safe. Its first page still contained mixed-script
+alternatives such as `ニッポン人` and multiple readings of the same standalone
+numeral. No v2 word candidate was staged.
+
+The first kanji page was suitable for bounded review. On 2026-07-29 the exact
+20-item page (`日`, `国`, `会`, `人`, `年`, `大`, `十`, `二`, `本`, `中`, `長`,
+`出`, `三`, `時`, `行`, `社`, `見`, `月`, `分`, `後`) was staged with
+`needs-review` status. The operation reported 20 newly queued and 0 already
+queued items. It created no cards, meanings, mnemonics, dependencies,
+placements, or published content. Scale readiness then reported 2 published
+kanji, 20 kanji in curation, and 13,086 remaining unassigned kanji candidates.
+The first inspected item had all expected blockers: missing RU meaning, cards,
+RU/EN mnemonics, and prerequisite.
 
 ## Remediation in this change
 
@@ -80,16 +97,22 @@ before later bands.
 - The 30,000-pair candidate gate does not weaken the Task 118 publication gate:
   8,000 words still require project review, placement, cards, prerequisites, and
   readiness approval.
-- Candidate policy v2 keeps every word at or after its latest prerequisite
+- Candidate policy v3 keeps every word at or after its latest prerequisite
   kanji band and presents earlier-band editorial work first.
+- Policy v3 proposes at most one expression-reading representative per JMdict
+  entry. It prefers source frequency, conventional orthography, the primary
+  KANJIDIC2 reading for a standalone kanji, and more frequent prerequisite
+  kanji while retaining every alternative in the imported layer.
+- The candidate-plan summary reports the number of collapsed word alternatives
+  so the reduced editorial pool remains auditable.
 
 ## Required next work
 
-1. Deploy candidate policy v2 and verify its staging band distribution and
-   first pages for kanji and words.
-2. Enqueue a bounded prerequisite-safe page, beginning with early-course kanji.
-3. Continue explicit RU/EN meaning, reading, mnemonic, prerequisite, card, and
-   publication review in auditable batches.
+1. Deploy candidate policy v3 and verify its staging band distribution,
+   collapsed-alternative count, and first word pages.
+2. Curate the staged 20-kanji batch with explicit RU/EN meaning, reading,
+   mnemonic, prerequisite, card, stroke-data, and placement decisions.
+3. Publish only the quality-complete subset and record any explicit exceptions.
 4. Apply allocation only for published, quality-complete items.
 5. Repeat scale-readiness and publication-readiness audits after every bounded
    publication batch.

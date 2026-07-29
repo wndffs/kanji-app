@@ -44,6 +44,7 @@ import {
   buildCurriculumCandidatePlan,
   CURRICULUM_CANDIDATE_POLICY_VERSION,
   type CurriculumCandidatePlan,
+  type CurriculumCandidatePlanSource,
 } from "./curriculum-candidate-plan";
 import { buildCurriculumScaleReadiness } from "./curriculum-scale-readiness";
 import {
@@ -361,6 +362,7 @@ type CandidatePlanWordRow = {
   readonly reading: string;
   readonly commonnessRank: number | null;
   readonly jlptLevel: number | null;
+  readonly jmdictEntryId: string | null;
   readonly senses: readonly { readonly locale: string }[];
 };
 
@@ -1418,7 +1420,16 @@ export class PrismaAdminRepository extends AdminRepository {
           ? Promise.resolve([])
           : this.prisma.db.kanji.findMany({
               where: { id: { in: activeKanjiIds } },
-              select: { id: true, character: true },
+              select: {
+                id: true,
+                character: true,
+                frequencyRank: true,
+                readings: {
+                  orderBy: [{ priority: "asc" }, { reading: "asc" }],
+                  take: 1,
+                  select: { reading: true },
+                },
+              },
             }),
         this.prisma.db.kanji.count({ where: unassignedKanjiWhere }),
         this.prisma.db.word.count({ where: unassignedWordWhere }),
@@ -1455,6 +1466,7 @@ export class PrismaAdminRepository extends AdminRepository {
             reading: true,
             commonnessRank: true,
             jlptLevel: true,
+            jmdictEntryId: true,
             senses: {
               where: { locale: { in: ["ru-RU", "en-US"] } },
               distinct: ["locale"],
@@ -1472,6 +1484,8 @@ export class PrismaAdminRepository extends AdminRepository {
       existingKanji: existingKanjiRows.map((row) => ({
         character: row.character,
         band: activeKanjiBandById.get(row.id) ?? null,
+        primaryReading: row.readings[0]?.reading ?? null,
+        sourcePriority: row.frequencyRank,
       })),
       candidates: [
         ...(kanjiRows as unknown as readonly CandidatePlanKanjiRow[]).map(
@@ -3344,7 +3358,7 @@ function toImportedCandidateDetailsSource(
   };
 }
 
-function toCandidatePlanKanjiInput(row: CandidatePlanKanjiRow): ImportedCandidateRankingInput {
+function toCandidatePlanKanjiInput(row: CandidatePlanKanjiRow): CurriculumCandidatePlanSource {
   return {
     targetId: row.id,
     itemType: "kanji",
@@ -3356,10 +3370,11 @@ function toCandidatePlanKanjiInput(row: CandidatePlanKanjiRow): ImportedCandidat
     schoolGrade: row.grade,
     hasStrokeData: row.strokeGraphic !== null,
     sourceName: "KANJIDIC2",
+    sourceGroupId: null,
   };
 }
 
-function toCandidatePlanWordInput(row: CandidatePlanWordRow): ImportedCandidateRankingInput {
+function toCandidatePlanWordInput(row: CandidatePlanWordRow): CurriculumCandidatePlanSource {
   return {
     targetId: row.id,
     itemType: "word",
@@ -3371,6 +3386,7 @@ function toCandidatePlanWordInput(row: CandidatePlanWordRow): ImportedCandidateR
     schoolGrade: null,
     hasStrokeData: false,
     sourceName: "JMdict",
+    sourceGroupId: row.jmdictEntryId,
   };
 }
 

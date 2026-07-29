@@ -1835,7 +1835,7 @@ export type AdminCurriculumCandidatePlanItemDto = {
 };
 
 export type AdminCurriculumCandidatePlanSummaryDto = {
-  readonly policyVersion: "independent-frequency-prerequisites-v2";
+  readonly policyVersion: "independent-frequency-prerequisites-v3";
   readonly targetItems: Readonly<Record<"kanji" | "word", number>>;
   readonly existingItems: Readonly<Record<"kanji" | "word", number>>;
   readonly candidateSlots: Readonly<Record<"kanji" | "word", number>>;
@@ -1844,6 +1844,7 @@ export type AdminCurriculumCandidatePlanSummaryDto = {
   readonly selectedItems: Readonly<Record<"kanji" | "word", number>>;
   readonly unfilledSlots: Readonly<Record<"kanji" | "word", number>>;
   readonly excludedWordsMissingKanji: number;
+  readonly collapsedWordAlternatives: number;
   readonly bands: readonly {
     readonly band: CourseBand;
     readonly kanjiItems: number;
