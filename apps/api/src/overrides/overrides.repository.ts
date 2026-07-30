@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 
+import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
 import { PrismaService } from "../database/prisma.service";
 import {
   type CardAnswerValidationRecord,
@@ -98,7 +99,7 @@ export class PrismaOverridesRepository extends OverridesRepository {
     const readings = await this.prisma.db.kanjiReading.findMany({
       where: { kanjiId },
       select: { reading: true },
-      orderBy: [{ priority: "desc" }, { reading: "asc" }],
+      orderBy: kanjiReadingOrderBy(),
     });
 
     return readings.map((reading) => reading.reading);

@@ -105,16 +105,31 @@ RU/EN mnemonics, and prerequisite.
   kanji while retaining every alternative in the imported layer.
 - The candidate-plan summary reports the number of collapsed word alternatives
   so the reduced editorial pool remains auditable.
+- `task-118-foundation-kanji-01@1` records the first reproducible editorial
+  package: 26 project-authored components and the exact 20 staged kanji,
+  reordered into prerequisite-safe main-course levels 1-4.
+- Every kanji in that package has reviewed RU/EN meanings, a source-supported
+  taught reading, bilingual meaning/reading explanations, two cards, published
+  component dependencies, a placement, and mandatory KanjiVG coverage.
+- `npm run db:curate` applies the package idempotently in bounded transactions,
+  records a checksummed project-authored import run, and preserves the raw
+  imported evidence layer.
+- Lower KANJIDIC2 reading priority values are now treated consistently as
+  earlier readings across candidate planning, lessons, reviews, item pages,
+  search-adjacent surfaces, and overrides.
 
 ## Required next work
 
-1. Deploy candidate policy v3 and verify its staging band distribution,
+1. Run the `Deploy staging curation` workflow and verify the batch checksum,
+   exact source readings, 26 component placements, and 20 kanji placements.
+2. Verify candidate policy v3's staging band distribution,
    collapsed-alternative count, and first word pages.
-2. Curate the staged 20-kanji batch with explicit RU/EN meaning, reading,
-   mnemonic, prerequisite, card, stroke-data, and placement decisions.
-3. Publish only the quality-complete subset and record any explicit exceptions.
-4. Apply allocation only for published, quality-complete items.
-5. Repeat scale-readiness and publication-readiness audits after every bounded
+3. Inspect an early, middle, and late foundation item through lessons and
+   reviews before accepting the batch.
+4. Continue bounded RU/EN vocabulary curation only after the v3 word shortlist
+   passes editorial inspection.
+5. Apply allocation only for published, quality-complete items.
+6. Repeat scale-readiness and publication-readiness audits after every bounded
    publication batch.
 
 Task 118 remains open until all 60 levels are populated, the database contains

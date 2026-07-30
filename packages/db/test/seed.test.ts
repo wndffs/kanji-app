@@ -205,6 +205,15 @@ describe("Prisma seed", () => {
     expect(cards.every((card) => card.acceptedAnswers.length > 0)).toBe(true);
   });
 
+  it("uses lower reading priorities for earlier source-supported readings", () => {
+    const one = buildStarterCourseSeed().items.find((item) => item.key === "kanji-one");
+
+    expect(one?.target.kind === "KANJI" ? one.target.readings : []).toEqual([
+      { reading: "いち", readingType: "ONYOMI", priority: 1 },
+      { reading: "ひと", readingType: "KUNYOMI", priority: 2 },
+    ]);
+  });
+
   it("enrolls the demo user into a course with initial lessons", () => {
     const starterSeed = buildStarterCourseSeed();
 

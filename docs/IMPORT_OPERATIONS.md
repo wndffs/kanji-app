@@ -153,6 +153,14 @@ graphics in release `r20250816`. These are completeness guards, not curriculum
 targets. Task 118 still requires 2,300 placed published kanji and 8,000 placed
 published vocabulary pairs with project-reviewed RU/EN content.
 
+After all three dictionary sources are loaded, the staging workflow runs
+`npm run db:curate`. This reapplies the repository's versioned editorial
+batches without changing imported KANJIDIC2/JMdict meanings or provenance. A
+batch fails closed when its target, taught reading evidence, required stroke
+data, component prerequisite, or course level is missing. The standalone
+`Deploy staging curation` workflow applies the same command without downloading
+the source corpus again.
+
 EDRDG's current JMdict and KANJIDIC2 URLs are mutable daily distributions. The
 local and Actions caches make repeated imports of one snapshot deterministic
 while that cache exists. Long-term replay still requires retaining the original

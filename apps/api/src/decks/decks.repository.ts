@@ -7,6 +7,7 @@ import {
   type DeckItemReasonDto,
 } from "@kanji-srs/shared";
 
+import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
 import { PrismaService } from "../database/prisma.service";
 import {
   type CreateTextDeckInput,
@@ -323,7 +324,7 @@ export class PrismaDecksRepository extends DecksRepository {
         character: { in: [...tokens.kanjiCharacters] },
       },
       include: {
-        readings: { orderBy: [{ priority: "desc" }, { reading: "asc" }] },
+        readings: { orderBy: kanjiReadingOrderBy() },
         meanings: { orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }] },
       },
       orderBy: [{ frequencyRank: "asc" }, { character: "asc" }],
@@ -446,7 +447,7 @@ export class PrismaDecksRepository extends DecksRepository {
     const kanji = (await this.prisma.db.kanji.findUnique({
       where: { id },
       include: {
-        readings: { orderBy: [{ priority: "desc" }, { reading: "asc" }] },
+        readings: { orderBy: kanjiReadingOrderBy() },
         meanings: { orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }] },
       },
     })) as KanjiRow | null;

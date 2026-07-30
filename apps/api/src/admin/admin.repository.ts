@@ -33,6 +33,8 @@ import {
   CURRICULUM_SCALE_TARGETS,
 } from "@kanji-srs/shared";
 import { type Prisma } from "@kanji-srs/db";
+
+import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
 import { PrismaService } from "../database/prisma.service";
 import { toAudioAssetDto, type AudioAssetRecord } from "../audio/audio-asset";
 import {
@@ -2445,7 +2447,7 @@ export class PrismaAdminRepository extends AdminRepository {
     const kanji = (await this.prisma.db.kanji.findUnique({
       where: { id: targetId },
       include: {
-        readings: { orderBy: [{ priority: "desc" }, { reading: "asc" }] },
+        readings: { orderBy: kanjiReadingOrderBy() },
         meanings: { orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }] },
       },
     })) as {

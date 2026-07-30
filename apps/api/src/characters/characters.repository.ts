@@ -3,11 +3,9 @@ import { Inject, Injectable } from "@nestjs/common";
 import { parseCourseLevelPassPolicy } from "@kanji-srs/db";
 
 import { resolveCurrentCourseId } from "../courses/current-course";
+import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
 import { PrismaService } from "../database/prisma.service";
-import {
-  type CharacterHubCourseRecord,
-  type CharacterHubKanjiRecord,
-} from "./characters.types";
+import { type CharacterHubCourseRecord, type CharacterHubKanjiRecord } from "./characters.types";
 
 export abstract class CharactersRepository {
   abstract findCurrentCourseKanji(userId: string): Promise<CharacterHubCourseRecord | null>;
@@ -147,7 +145,7 @@ export class PrismaCharactersRepository extends CharactersRepository {
         character: true,
         jlptLevel: true,
         readings: {
-          orderBy: [{ priority: "desc" }, { reading: "asc" }],
+          orderBy: kanjiReadingOrderBy(),
           select: { reading: true },
         },
         meanings: {

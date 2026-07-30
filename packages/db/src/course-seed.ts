@@ -283,8 +283,8 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
         jlptLevel: 5,
         components: [{ componentKey: "component-one-stroke", position: "full" }],
         readings: [
-          { reading: "いち", readingType: "ONYOMI", priority: 10 },
-          { reading: "ひと", readingType: "KUNYOMI", priority: 5 },
+          { reading: "いち", readingType: "ONYOMI", priority: 1 },
+          { reading: "ひと", readingType: "KUNYOMI", priority: 2 },
         ],
         meanings: [
           { locale: "ru-RU", text: "один", isPrimary: true },
@@ -331,7 +331,7 @@ const STARTER_COURSE_SEED: StarterCourseSeed = {
         strokeCount: 3,
         jlptLevel: 5,
         components: [{ componentKey: "component-mouth-frame", position: "full" }],
-        readings: [{ reading: "くち", readingType: "KUNYOMI", priority: 10 }],
+        readings: [{ reading: "くち", readingType: "KUNYOMI", priority: 1 }],
         meanings: [
           { locale: "ru-RU", text: "рот", isPrimary: true },
           { locale: "en-US", text: "mouth", isPrimary: true },

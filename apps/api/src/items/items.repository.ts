@@ -13,6 +13,7 @@ import {
   toAudioAssetDto,
   type AudioAssetRecord,
 } from "../audio/audio-asset";
+import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
 import {
   type ItemAnswerRecord,
   type ItemBlockedAnswerRecord,
@@ -963,7 +964,7 @@ export class PrismaItemsRepository extends ItemsRepository {
     const kanji = (await this.prisma.db.kanji.findUnique({
       where: { id },
       include: {
-        readings: { orderBy: [{ priority: "desc" }, { reading: "asc" }] },
+        readings: { orderBy: kanjiReadingOrderBy() },
         meanings: { orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }] },
         strokeGraphic: true,
       },

@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 
 import { type AdminContentStatus, type ContentLocale } from "@kanji-srs/shared";
 
+import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
 import { PrismaService } from "../database/prisma.service";
 import {
   type ConfusableComparisonKanjiRecord,
@@ -462,7 +463,7 @@ export class PrismaConfusablesRepository extends ConfusablesRepository {
     const kanji = (await this.prisma.db.kanji.findUnique({
       where: { id: ref.kanjiId },
       include: {
-        readings: { orderBy: [{ priority: "desc" }, { reading: "asc" }] },
+        readings: { orderBy: kanjiReadingOrderBy() },
         meanings: { orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }] },
         components: { include: { component: true }, orderBy: [{ position: "asc" }, { id: "asc" }] },
       },

@@ -208,6 +208,12 @@ course shell in `DRAFT`. Re-running it updates main-course level metadata but
 does not delete editorial placements or demote an existing course. It
 intentionally does not create a demo user.
 
+Versioned Task 118 learning content is applied separately after KANJIDIC2 and
+KanjiVG are present. Run the `Deploy staging curation` workflow for an existing
+staging corpus. The workflow runs `npm run db:curate`, verifies the full corpus,
+and uploads a post-curation report. A future full `Import staging content` run
+also reapplies these batches automatically. See `docs/MAIN_COURSE_CURATION.md`.
+
 4. Create the Render API service from `render.yaml`.
    - The blueprint pins the service to Frankfurt to match the Neon region.
    - Set `DATABASE_URL` and `WEB_ORIGIN` in the Render dashboard.

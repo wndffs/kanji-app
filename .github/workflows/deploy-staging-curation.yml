@@ -1,0 +1,63 @@
+name: Deploy staging curation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-database
+  cancel-in-progress: false
+
+jobs:
+  curate:
+    name: Apply versioned curation to Neon
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      NODE_ENV: production
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Verify staging database secret
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "Repository secret STAGING_DATABASE_URL is required."
+            exit 1
+          fi
+
+      - name: Apply Prisma migrations
+        run: npm run db:migrate:deploy
+
+      - name: Apply versioned main-course curation
+        run: npm run db:curate
+
+      - name: Write post-curation corpus report
+        run: >-
+          npm run content:report --
+          --require-full
+          --output "$RUNNER_TEMP/task-118-corpus-report.json"
+
+      - name: Upload corpus report
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-118-curation-${{ github.run_id }}
+          path: ${{ runner.temp }}/task-118-corpus-report.json
+          if-no-files-found: error
+          retention-days: 90

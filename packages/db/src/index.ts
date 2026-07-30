@@ -4,6 +4,7 @@ export const DB_PACKAGE_NAME = "@kanji-srs/db";
 
 export * from "./course-level-policy";
 export * from "./course-seed";
+export * from "./main-course-content";
 export * from "./main-course";
 
 export type DatabaseConnectionConfig = {

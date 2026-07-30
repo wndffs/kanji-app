@@ -14,6 +14,7 @@ import {
   toAudioAssetDto,
   type AudioAssetRecord,
 } from "../audio/audio-asset";
+import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
 import { buildReviewSessionSummary } from "./review-summary";
 import {
   type CreatePracticeSessionInput,
@@ -820,7 +821,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
         jlptLevel: true,
         readings: {
           select: { reading: true, priority: true },
-          orderBy: [{ priority: "desc" }, { reading: "asc" }],
+          orderBy: kanjiReadingOrderBy(),
         },
       },
     })) as KanjiTargetRow | null;

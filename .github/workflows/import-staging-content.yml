@@ -142,6 +142,9 @@ jobs:
           --checksum-sha256 "$JMDICT_CONTENT_SHA256"
           --selection-profile "$JMDICT_SELECTION_PROFILE"
 
+      - name: Apply versioned main-course curation
+        run: npm run db:curate
+
       - name: Verify full corpus and write database report
         run: >-
           npm run content:report --

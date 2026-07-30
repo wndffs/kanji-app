@@ -2,8 +2,9 @@ import { Inject, Injectable } from "@nestjs/common";
 
 import { parseCourseLevelPassPolicy, Prisma } from "@kanji-srs/db";
 
-import { PrismaService } from "../database/prisma.service";
 import { resolveCurrentCourseId } from "../courses/current-course";
+import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
+import { PrismaService } from "../database/prisma.service";
 import {
   type DashboardCourseItemProgressRecord,
   type DashboardCourseProgressRecord,
@@ -625,11 +626,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
         },
       },
       select: { reviewSessionId: true },
-      orderBy: [
-        { reviewSession: { startedAt: "desc" } },
-        { unlockedAt: "desc" },
-        { id: "asc" },
-      ],
+      orderBy: [{ reviewSession: { startedAt: "desc" } }, { unlockedAt: "desc" }, { id: "asc" }],
     });
 
     if (latest === null) {
@@ -1056,7 +1053,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
     const kanji = (await this.prisma.db.kanji.findUnique({
       where: { id: item.targetId },
       include: {
-        readings: { orderBy: [{ priority: "desc" }, { reading: "asc" }] },
+        readings: { orderBy: kanjiReadingOrderBy() },
         meanings: { orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }] },
       },
     })) as KanjiTargetRow | null;

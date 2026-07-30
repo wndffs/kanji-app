@@ -12,6 +12,7 @@ import {
 
 import { PrismaService } from "../database/prisma.service";
 import { resolveCurrentCourseId } from "../courses/current-course";
+import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
 import {
   isEligibleListeningAudio,
   toAudioAssetDto,
@@ -791,7 +792,7 @@ export class PrismaLessonsRepository extends LessonsRepository {
     const kanji = (await this.prisma.db.kanji.findUnique({
       where: { id },
       include: {
-        readings: { orderBy: [{ priority: "desc" }, { reading: "asc" }] },
+        readings: { orderBy: kanjiReadingOrderBy() },
         meanings: { orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }] },
       },
     })) as KanjiTargetRow | null;
