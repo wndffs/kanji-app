@@ -1,8 +1,24 @@
 import { describe, expect, it } from "vitest";
 
-import { buildConfigSnapshot } from "../src/config/app-config.service";
+import { AppConfigService, buildConfigSnapshot } from "../src/config/app-config.service";
 
 describe("buildConfigSnapshot", () => {
+  it("redacts connection credentials when configuration is serialized", () => {
+    const config = new AppConfigService({
+      DATABASE_URL: "postgresql://owner:database-private-password@example.test/app",
+      REDIS_URL: "redis://default:redis-private-password@example.test:6379",
+      AUTH_TOKEN_SECRET: "private-token-secret",
+    });
+    const serialized = JSON.stringify(config);
+    expect(serialized).not.toContain("private-password");
+    expect(serialized).not.toContain("private-token-secret");
+    expect(config.toJSON()).toMatchObject({
+      databaseUrl: "[redacted]",
+      redisUrl: "[redacted]",
+      authTokenSecret: "[redacted]",
+    });
+    expect(config.databaseUrl).toContain("database-private-password");
+  });
   it("uses safe local defaults", () => {
     expect(buildConfigSnapshot({})).toMatchObject({
       environment: "development",

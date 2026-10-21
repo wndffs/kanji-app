@@ -14,7 +14,7 @@ if (!Number.isInteger(suiteTimeoutMs) || suiteTimeoutMs < 1) {
 
 const server = spawnCommand(
   "npm",
-  ["exec", "--", "next", "dev", "--port", String(port), "--hostname", hostname],
+  ["exec", "--", "next", "dev", "--webpack", "--port", String(port), "--hostname", hostname],
   {
     WEB_SMOKE_HOST: hostname,
     WEB_SMOKE_PORT: String(port),

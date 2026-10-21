@@ -33,8 +33,13 @@ export type ApiConfigSnapshot = {
   };
 };
 
-export type PublicApiConfigSnapshot = Omit<ApiConfigSnapshot, "authTokenSecret"> & {
+export type PublicApiConfigSnapshot = Omit<
+  ApiConfigSnapshot,
+  "authTokenSecret" | "databaseUrl" | "redisUrl"
+> & {
   readonly authTokenSecret: "[redacted]";
+  readonly databaseUrl: "[redacted]";
+  readonly redisUrl: "[redacted]" | null;
 };
 
 const DEFAULT_PORT = 3001;
@@ -91,6 +96,8 @@ export class AppConfigService {
     return {
       ...this.snapshot,
       authTokenSecret: "[redacted]",
+      databaseUrl: "[redacted]",
+      redisUrl: this.snapshot.redisUrl === null ? null : "[redacted]",
     };
   }
 }

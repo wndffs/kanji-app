@@ -6,7 +6,7 @@ This repository is an npm TypeScript monorepo with a tiny project-authored start
 
 ## Requirements
 
-- Node.js 20.11 or newer
+- Node.js 22.12 or newer (supported even-numbered Node releases)
 - npm 10 or newer
 - Docker Desktop or another Docker Compose-compatible runtime
 
