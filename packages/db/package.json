@@ -13,6 +13,7 @@
     "lint": "eslint . --max-warnings=0",
     "prisma:generate": "prisma generate",
     "prisma:curate-main-course": "tsx prisma/curate-main-course.ts",
+    "prisma:report-content-quality": "tsx prisma/report-content-quality.ts",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
@@ -20,6 +21,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@kanji-srs/japanese": "0.0.0",
+    "@kanji-srs/shared": "0.0.0",
     "@prisma/client": "^6.18.0"
   },
   "devDependencies": {

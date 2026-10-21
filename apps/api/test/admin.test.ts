@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import * as databasePackage from "@kanji-srs/db";
+
+afterEach(() => vi.restoreAllMocks());
 
 import {
   type AdminApplyMainCourseEnrollmentRolloutResponse,
@@ -1558,6 +1561,8 @@ describe("AdminService", () => {
     });
     expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: "Serializable",
+      maxWait: 10000,
+      timeout: 120000,
     });
   });
 
@@ -1610,6 +1615,18 @@ describe("AdminService", () => {
   });
 
   it("audits and atomically publishes the seeded main course without changing enrollments", async () => {
+    const contentAudit = vi
+      .spyOn(databasePackage, "collectContentQualityReport")
+      .mockResolvedValue({
+        policyVersion: "course-content-quality-v1",
+        generatedAt: "2026-10-21T12:00:00Z",
+        contentVersion: "verified-fixture",
+        scannedItems: 10301,
+        blockerCount: 0,
+        warningCount: 0,
+        issues: [],
+        issuesTruncated: false,
+      });
     const blueprint = buildMainCourseBlueprint();
     let courseStatus = "DRAFT";
     const allocationCourse = {
@@ -1722,7 +1739,7 @@ describe("AdminService", () => {
 
     expect(readiness).toMatchObject({
       readyToPublish: true,
-      summary: { passedChecks: 8, blockedChecks: 0 },
+      summary: { passedChecks: 9, blockedChecks: 0 },
     });
     expect(courseLevelItem.count).toHaveBeenCalledWith({
       where: {
@@ -1743,7 +1760,10 @@ describe("AdminService", () => {
     });
     expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: "Serializable",
+      maxWait: 10000,
+      timeout: 120000,
     });
+    expect(contentAudit).toHaveBeenCalledWith(transactionDatabase, { maxIssues: 0 });
     expect(userEnrollment.updateMany).not.toHaveBeenCalled();
 
     await expect(repository.getMainCourseEnrollmentRolloutPreview()).resolves.toMatchObject({
@@ -1873,6 +1893,16 @@ describe("AdminService", () => {
 });
 
 class InMemoryAdminRepository extends AdminRepository implements OverridesRepository {
+  async getContentQualityPage() {
+    return {
+      policyVersion: "course-content-quality-v1" as const,
+      scannedItems: 0,
+      blockerCount: 0,
+      warningCount: 0,
+      issues: [],
+      nextCursor: null,
+    };
+  }
   candidatePlanReads = 0;
   courseAllocationBlocked = false;
   mainCoursePublished = false;

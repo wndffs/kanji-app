@@ -36,6 +36,52 @@ const ITEM_ID = "item-kanji-one";
 const CARD_ID = "card-kanji-one-meaning";
 
 test.describe("admin curation", () => {
+  test("admin inspects bounded filtered content-quality pages", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await mockAdminApi(page);
+    const queries: URL[] = [];
+    await page.route(`${API_BASE_URL}/admin/curriculum/content-quality**`, async (route) => {
+      const url = new URL(route.request().url());
+      queries.push(url);
+      await route.fulfill({
+        json: {
+          policyVersion: "course-content-quality-v1",
+          scannedItems: 50,
+          blockerCount: 1,
+          warningCount: 0,
+          issues: [
+            {
+              learningItemId: ITEM_ID,
+              cardId: CARD_ID,
+              code: "unsupported-reading",
+              severity: "blocker",
+              message: "Учебное чтение не подтверждено источником.",
+              remediation: "Выберите чтение из словаря.",
+            },
+          ],
+          nextCursor: url.searchParams.has("cursor")
+            ? null
+            : "00000000-0000-0000-0000-000000000050",
+        },
+      });
+    });
+    await page.goto("/admin");
+    const panel = page.getByRole("region", { name: "Качество учебных материалов" });
+    await panel
+      .getByRole("combobox", { name: "Проверка", exact: true })
+      .selectOption("unsupported-reading");
+    await panel.getByRole("button", { name: "Проверить с начала" }).click();
+    await expect(panel.getByRole("status")).toContainText("Ошибок: 1");
+    await expect(
+      panel.getByText("Учебное чтение не подтверждено источником.", { exact: false }),
+    ).toBeVisible();
+    await panel.getByRole("button", { name: "Следующая страница" }).click();
+    await expect(panel.getByRole("button", { name: "Следующая страница" })).toHaveCount(0);
+    expect(queries[0]?.searchParams.get("code")).toBe("unsupported-reading");
+    expect(queries[1]?.searchParams.get("cursor")).toBe("00000000-0000-0000-0000-000000000050");
+    await panel.getByRole("button", { name: "Открыть материал" }).click();
+    await expect(page.getByTestId("admin-accepted-en")).toBeVisible();
+  });
   test("normal user cannot access admin", async ({ page }) => {
     await signIn(page, "USER");
 

@@ -6,6 +6,54 @@ export const MIN_SPEECH_RATE = 0.5;
 export const MAX_SPEECH_RATE = 1.5;
 export const WORKSPACE_STATUS = "Готово";
 
+export const CONTENT_QUALITY_POLICY_VERSION = "course-content-quality-v1" as const;
+export const CONTENT_QUALITY_ISSUE_CODES = [
+  "missing-target",
+  "missing-card",
+  "empty-answer",
+  "invalid-normalization",
+  "duplicate-answer",
+  "primary-answer-count",
+  "unsupported-locale",
+  "blocked-answer-collision",
+  "unsupported-reading",
+  "missing-source",
+  "invalid-source",
+  "unreviewed-content",
+  "missing-mnemonic",
+  "placeholder-content",
+  "missing-strokes",
+  "missing-prerequisite",
+  "invalid-prerequisite",
+  "prerequisite-cycle",
+  "invalid-placement",
+  "missing-word-evidence",
+  "invalid-media",
+  "missing-example",
+] as const;
+export type ContentQualityIssueCode = (typeof CONTENT_QUALITY_ISSUE_CODES)[number];
+export type ContentQualityIssueDto = {
+  readonly learningItemId: string;
+  readonly cardId: string | null;
+  readonly code: ContentQualityIssueCode;
+  readonly severity: "blocker" | "warning";
+  readonly message: string;
+  readonly remediation: string;
+};
+export type ContentQualityPageDto = {
+  readonly policyVersion: typeof CONTENT_QUALITY_POLICY_VERSION;
+  readonly scannedItems: number;
+  readonly blockerCount: number;
+  readonly warningCount: number;
+  readonly issues: readonly ContentQualityIssueDto[];
+  readonly nextCursor: string | null;
+};
+export type ContentQualityReportDto = Omit<ContentQualityPageDto, "nextCursor"> & {
+  readonly generatedAt: string;
+  readonly contentVersion: string;
+  readonly issuesTruncated: boolean;
+};
+
 export const SUPPORTED_CONTENT_LOCALES = ["ru-RU", "en-US"] as const;
 export const SUPPORTED_TRANSLATION_DISPLAY_MODES = ["ru", "en", "ru-en"] as const;
 export const SUPPORTED_LESSON_PRONUNCIATION_MODES = ["kana", "furigana"] as const;
@@ -1741,7 +1789,8 @@ export type AdminMainCourseReadinessCheckCode =
   | "levels-populated"
   | "initial-lesson"
   | "kanji-target"
-  | "word-target";
+  | "word-target"
+  | "content-quality";
 
 export type AdminMainCourseReadinessCheckDto = {
   readonly code: AdminMainCourseReadinessCheckCode;
@@ -1753,7 +1802,9 @@ export type AdminMainCourseReadinessCheckDto = {
 };
 
 export type AdminMainCoursePublicationReadinessResponse = {
-  readonly policyVersion: "main-course-publication-readiness-v1";
+  readonly policyVersion:
+    | "main-course-publication-readiness-v1"
+    | "main-course-publication-readiness-v2";
   readonly readinessVersion: string;
   readonly allocationPlanVersion: string;
   readonly generatedAt: string;

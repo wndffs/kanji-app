@@ -16,10 +16,10 @@ describe("main course publication readiness", () => {
     );
 
     expect(readiness).toMatchObject({
-      policyVersion: "main-course-publication-readiness-v1",
+      policyVersion: "main-course-publication-readiness-v2",
       generatedAt: "2026-07-15T12:00:00.000Z",
       readyToPublish: true,
-      summary: { passedChecks: 8, blockedChecks: 0 },
+      summary: { passedChecks: 9, blockedChecks: 0 },
     });
     expect(readiness.checks.every((check) => check.passed)).toBe(true);
   });
@@ -66,6 +66,25 @@ describe("main course publication readiness", () => {
 
     expect(first.readinessVersion).toBe(second.readinessVersion);
     expect(changed.readinessVersion).not.toBe(first.readinessVersion);
+  });
+
+  it("blocks broken content even when every scale target is met and versions content edits", () => {
+    const input = createInput();
+    const broken = buildMainCoursePublicationReadiness({
+      ...input,
+      contentQuality: { ...input.contentQuality, blockerCount: 1 },
+    });
+    const edited = buildMainCoursePublicationReadiness({
+      ...input,
+      contentQuality: { ...input.contentQuality, contentVersion: "changed-content" },
+    });
+    expect(broken.readyToPublish).toBe(false);
+    expect(broken.checks).toContainEqual(
+      expect.objectContaining({ code: "content-quality", passed: false }),
+    );
+    expect(edited.readinessVersion).not.toBe(
+      buildMainCoursePublicationReadiness(input).readinessVersion,
+    );
   });
 
   it("rejects drift from the project-owned course blueprint", () => {
@@ -117,5 +136,10 @@ function createInput(): MainCoursePublicationReadinessInput {
     placedKanji: CURRICULUM_SCALE_TARGETS.kanji,
     placedWords: CURRICULUM_SCALE_TARGETS.word,
     initialLessonItems: 1,
+    contentQuality: {
+      contentVersion: "verified-content",
+      scannedItems: publishedItems,
+      blockerCount: 0,
+    },
   };
 }

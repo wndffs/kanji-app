@@ -55,6 +55,7 @@ import { CoursePublicationReadinessPanel } from "./CoursePublicationReadinessPan
 import { CourseEnrollmentRolloutPanel } from "./CourseEnrollmentRolloutPanel";
 import { ConfusablePairsPanel } from "./ConfusablePairsPanel";
 import { PrerequisiteEditor } from "./PrerequisiteEditor";
+import { ContentQualityPanel } from "./ContentQualityPanel";
 
 type AdminState =
   | { readonly status: "checking" }
@@ -1092,6 +1093,12 @@ export function AdminClient() {
       </section>
 
       <ConfusablePairsPanel token={state.token} />
+
+      <ContentQualityPanel
+        key={`${state.token}:${planningRevision}`}
+        token={state.token}
+        onInspect={handleSelectItem}
+      />
 
       <CurriculumPlanningPanel
         disabled={savingKey !== null}

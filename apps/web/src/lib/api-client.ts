@@ -1,4 +1,6 @@
 import {
+  type ContentQualityPageDto,
+  type ContentQualityIssueCode,
   type AdminApplyMainCourseEnrollmentRolloutRequest,
   type AdminApplyMainCourseEnrollmentRolloutResponse,
   type AdminCandidatePlanCoverageFilter,
@@ -312,10 +314,9 @@ export function getKanaPracticeSession(
   token: string,
   script: KanaPracticeScript,
 ): Promise<KanaPracticeSessionDto> {
-  return apiRequest<KanaPracticeSessionDto>(
-    `/kana/practice?script=${encodeURIComponent(script)}`,
-    { token },
-  );
+  return apiRequest<KanaPracticeSessionDto>(`/kana/practice?script=${encodeURIComponent(script)}`, {
+    token,
+  });
 }
 
 export function submitKanaPracticeAnswer(
@@ -415,6 +416,16 @@ export function getAdminCompletenessReport(
   return apiRequest<AdminCurriculumCompletenessReportDto>("/admin/curriculum/completeness", {
     token,
   });
+}
+
+export function getAdminContentQualityPage(
+  token: string,
+  options: { cursor?: string; code?: ContentQualityIssueCode } = {},
+): Promise<ContentQualityPageDto> {
+  const query = new URLSearchParams({ limit: "50" });
+  if (options.cursor !== undefined) query.set("cursor", options.cursor);
+  if (options.code !== undefined) query.set("code", options.code);
+  return apiRequest(`/admin/curriculum/content-quality?${query}`, { token });
 }
 
 export function getAdminScaleReadiness(token: string): Promise<AdminCurriculumScaleReadinessDto> {

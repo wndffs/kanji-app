@@ -9,6 +9,8 @@ import {
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
 import {
   ADMIN_CANDIDATE_PLAN_COVERAGE_FILTERS,
+  CONTENT_QUALITY_ISSUE_CODES,
+  type ContentQualityIssueCode,
   type AdminApplyCourseAllocationResponse,
   type AdminApplyMainCourseEnrollmentRolloutResponse,
   type AdminCandidatePlanCoverageFilter,
@@ -94,6 +96,30 @@ export class AdminService {
   private readonly candidatePlanCache = new CurriculumCandidatePlanCache();
 
   constructor(@Inject(AdminRepository) private readonly adminRepository: AdminRepository) {}
+
+  async getContentQualityPage(query: Record<string, unknown>) {
+    const cursor = query.cursor;
+    const limit = query.limit === undefined ? 50 : Number(query.limit);
+    const code = query.code;
+    if (
+      (cursor !== undefined &&
+        (typeof cursor !== "string" ||
+          !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(cursor))) ||
+      !Number.isInteger(limit) ||
+      limit < 1 ||
+      limit > 100 ||
+      (code !== undefined && !(CONTENT_QUALITY_ISSUE_CODES as readonly unknown[]).includes(code))
+    ) {
+      throw new BadRequestException(
+        "Укажите корректный курсор, код проверки и размер страницы от 1 до 100.",
+      );
+    }
+    return this.adminRepository.getContentQualityPage({
+      cursor: cursor as string | undefined,
+      limit,
+      code: code as ContentQualityIssueCode | undefined,
+    });
+  }
 
   async listImportRuns(): Promise<AdminImportRunListResponse> {
     return {

@@ -54,10 +54,18 @@ jobs:
           --require-full
           --output "$RUNNER_TEMP/task-118-corpus-report.json"
 
+      - name: Verify published main-course content quality
+        run: >-
+          npm run content:quality --
+          --output "$RUNNER_TEMP/task-119-quality-report.json"
+
       - name: Upload corpus report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: task-118-curation-${{ github.run_id }}
-          path: ${{ runner.temp }}/task-118-corpus-report.json
-          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/task-118-corpus-report.json
+            ${{ runner.temp }}/task-119-quality-report.json
+          if-no-files-found: warn
           retention-days: 90

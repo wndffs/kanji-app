@@ -32,7 +32,13 @@ import {
   type SourceAttributionDto,
   CURRICULUM_SCALE_TARGETS,
 } from "@kanji-srs/shared";
-import { type Prisma } from "@kanji-srs/db";
+import {
+  collectContentQualityReport,
+  getContentQualityPage,
+  type ContentQualityPageOptions,
+  type Prisma,
+} from "@kanji-srs/db";
+import { type ContentQualityPageDto } from "@kanji-srs/shared";
 
 import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
 import { PrismaService } from "../database/prisma.service";
@@ -97,6 +103,9 @@ export abstract class AdminRepository {
     filters: NormalizedAdminReviewQueueFilters,
   ): Promise<AdminReviewQueuePageResult>;
   abstract getCompletenessReport(): Promise<AdminCurriculumCompletenessReportDto>;
+  abstract getContentQualityPage(
+    options: ContentQualityPageOptions,
+  ): Promise<ContentQualityPageDto>;
   abstract getScaleReadiness(): Promise<AdminCurriculumScaleReadinessDto>;
   abstract getCourseAllocationPreview(): Promise<AdminCourseAllocationPreviewResponse | null>;
   abstract applyCourseAllocation(
@@ -158,7 +167,15 @@ export class MainCourseEnrollmentRolloutBlockedError extends Error {}
 type CourseAllocationReadDatabase = Pick<Prisma.TransactionClient, "course" | "learningItem">;
 type MainCoursePublicationDatabase = Pick<
   Prisma.TransactionClient,
-  "course" | "learningItem" | "courseLevelItem"
+  | "course"
+  | "learningItem"
+  | "courseLevelItem"
+  | "kanji"
+  | "word"
+  | "component"
+  | "sentence"
+  | "srsSystem"
+  | "$queryRaw"
 >;
 type MainCourseEnrollmentPreviewDatabase = MainCoursePublicationDatabase &
   Pick<Prisma.TransactionClient, "user" | "userEnrollment">;
@@ -406,6 +423,10 @@ const ADMIN_REVIEW_QUEUE_SCAN_LIMIT = 100;
 export class PrismaAdminRepository extends AdminRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
     super();
+  }
+
+  async getContentQualityPage(options: ContentQualityPageOptions): Promise<ContentQualityPageDto> {
+    return getContentQualityPage(this.prisma.db, options);
   }
 
   async listImportRuns(): Promise<readonly AdminImportRunSummaryDto[]> {
@@ -981,7 +1002,7 @@ export class PrismaAdminRepository extends AdminRepository {
             createdPlacements: placements.length,
           };
         },
-        { isolationLevel: "Serializable" },
+        { isolationLevel: "Serializable", maxWait: 10_000, timeout: 120_000 },
       )
       .catch((error: unknown) => {
         if (isConcurrentAdminCourseWrite(error)) {
@@ -1059,7 +1080,7 @@ export class PrismaAdminRepository extends AdminRepository {
             readiness: publishedReadiness,
           };
         },
-        { isolationLevel: "Serializable" },
+        { isolationLevel: "Serializable", maxWait: 10_000, timeout: 120_000 },
       )
       .catch((error: unknown) => {
         if (isConcurrentAdminCourseWrite(error)) {
@@ -1133,7 +1154,7 @@ export class PrismaAdminRepository extends AdminRepository {
             preview: appliedPreview,
           };
         },
-        { isolationLevel: "Serializable" },
+        { isolationLevel: "Serializable", maxWait: 10_000, timeout: 120_000 },
       )
       .catch((error: unknown) => {
         if (isConcurrentAdminCourseWrite(error)) {
@@ -1273,6 +1294,8 @@ export class PrismaAdminRepository extends AdminRepository {
       return null;
     }
 
+    const contentQuality = await collectContentQualityReport(db, { maxIssues: 0 });
+
     return buildMainCoursePublicationReadiness({
       course: {
         id: course.id,
@@ -1303,6 +1326,7 @@ export class PrismaAdminRepository extends AdminRepository {
       placedKanji,
       placedWords,
       initialLessonItems,
+      contentQuality,
     });
   }
 

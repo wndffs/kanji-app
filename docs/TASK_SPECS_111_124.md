@@ -93,6 +93,18 @@ These sources describe mechanics only. They are not content sources.
 
 ## Cross-task engineering rules
 
+### Revalidated order (2026-10-21)
+
+Task 119 implementation must precede further mass publication in Task 118.
+Structural quality gates prevent bad batches from being amplified; Task 118
+retains its full 2,300-kanji/8,000-word acceptance criteria. Task 120 can proceed
+independently while bounded editorial work continues. Tasks 121-122 follow
+stable functional contracts; Task 124 requires real deployment evidence.
+Correctness findings in SRS, private editing, or kana take priority over visual
+refresh work. Pitch-accent integration remains deferred; Task 117's research
+completion is not a claim of shipped accent data. Task 116's audio support is
+not a claim of full licensed audio coverage.
+
 - Keep SRS calculations in `packages/srs`.
 - Keep answer normalization and validation in `packages/japanese`.
 - Keep persisted data and migrations in `packages/db`.

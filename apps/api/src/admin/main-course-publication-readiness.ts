@@ -10,7 +10,7 @@ import {
 } from "@kanji-srs/shared";
 
 export const MAIN_COURSE_PUBLICATION_READINESS_POLICY_VERSION =
-  "main-course-publication-readiness-v1" as const;
+  "main-course-publication-readiness-v2" as const;
 
 export type MainCoursePublicationReadinessInput = {
   readonly course: {
@@ -42,6 +42,11 @@ export type MainCoursePublicationReadinessInput = {
   readonly placedKanji: number;
   readonly placedWords: number;
   readonly initialLessonItems: number;
+  readonly contentQuality: {
+    readonly contentVersion: string;
+    readonly scannedItems: number;
+    readonly blockerCount: number;
+  };
 };
 
 export function buildMainCoursePublicationReadiness(
@@ -138,6 +143,16 @@ export function buildMainCoursePublicationReadiness(
       required: CURRICULUM_SCALE_TARGETS.word,
       message: `В основном курсе размещено слов: ${input.placedWords} из ${CURRICULUM_SCALE_TARGETS.word}.`,
     }),
+    check({
+      code: "content-quality",
+      title: "Качество учебного контента",
+      passed:
+        input.contentQuality.blockerCount === 0 &&
+        input.contentQuality.scannedItems >= input.placedKanji + input.placedWords,
+      current: input.contentQuality.blockerCount,
+      required: 0,
+      message: `Проверено материалов: ${input.contentQuality.scannedItems}; блокирующих ошибок: ${input.contentQuality.blockerCount}.`,
+    }),
   ];
   const passedChecks = checks.filter((candidate) => candidate.passed).length;
 
@@ -214,6 +229,7 @@ function buildReadinessVersion(
     placedKanji: input.placedKanji,
     placedWords: input.placedWords,
     initialLessonItems: input.initialLessonItems,
+    contentQuality: input.contentQuality,
     checks: checks.map(({ code, passed, current, required }) => ({
       code,
       passed,

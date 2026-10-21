@@ -86,6 +86,11 @@ export class AdminController {
     return this.adminService.getCompletenessReport();
   }
 
+  @Get("curriculum/content-quality")
+  getContentQuality(@Query() query: Record<string, unknown>) {
+    return this.adminService.getContentQualityPage(query);
+  }
+
   @Get("curriculum/scale-readiness")
   getScaleReadiness() {
     return this.adminService.getScaleReadiness();
