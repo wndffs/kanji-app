@@ -3,7 +3,7 @@
 ## Status
 
 - Task: 118
-- Updated: 2026-07-29
+- Updated: 2026-10-21
 - State: **IN PROGRESS**
 - Main course publication approved: **no**
 
@@ -13,6 +13,34 @@ publication gap, and the checks required before editorial publication can
 continue.
 
 ## Verified staging evidence
+
+### Current editorial batch (2026-10-21)
+
+[Curation run 39606493648](https://github.com/wndffs/kanji-app/actions/runs/39606493648)
+successfully applied `task-118-foundation-kanji-01@1` to Neon. Its checksummed
+batch contains **26 components, 20 kanji, 46 placements and 66 learning cards**
+in main-course levels 1-4. Batch SHA-256:
+`34676566c590fd19d10349e6bb07c75d01471fc618872fa103db2e676fd138b8`.
+
+The same run's
+[quality artifact](https://github.com/wndffs/kanji-app/actions/runs/39606493648/artifacts/12348487149)
+reports 46 scanned items, **0 blockers and 0 warnings**, under
+`course-content-quality-v1`. Content version:
+`3bb0c4e57999a1bb7e6fefafcdfe0706e11a7f6a493e0c9acaa9de55a32530fc`.
+This is a bounded-batch result, not a full-course readiness pass.
+
+Main-course vocabulary remains **0**; the course remains **DRAFT**. Remaining
+main-course targets are **2,280 kanji and 8,000 vocabulary pairs**. The older
+published starter demo remains separate and must not be added to main-course
+placement counts without verified allocation. Do not report 30,000 raw words
+as 30,000 teachable words.
+
+The live read-only inventory before curation showed 13,394 total `Kanji` rows,
+30,000 `Word` rows and approximately 148 MB of database storage. The total
+kanji-table count includes non-KANJIDIC supplemental rows; it is not the same
+as the 13,108 imported KANJIDIC2 entries in the historical source report below.
+
+### Historical import snapshot (2026-07-28)
 
 Evidence source:
 [Import staging content run 30359957598](https://github.com/wndffs/kanji-app/actions/runs/30359957598)
@@ -39,7 +67,7 @@ bounded `bilingual-course-candidates-v1` JMdict profile.
 
 ## Publication-readiness audit
 
-The 2026-07-28 and 2026-07-29 staging admin audits report:
+The historical 2026-07-28 and 2026-07-29 staging admin audits reported:
 
 - global published seed baseline: 2 kanji and 2 words;
 - main-course placements: 0 kanji and 0 words;
@@ -120,8 +148,8 @@ RU/EN mnemonics, and prerequisite.
 
 ## Required next work
 
-1. Run the `Deploy staging curation` workflow and verify the batch checksum,
-   exact source readings, 26 component placements, and 20 kanji placements.
+1. First-batch application/checksum and structural quality verification are
+   complete. Retain the report above as the baseline for subsequent batches.
 2. Verify candidate policy v3's staging band distribution,
    collapsed-alternative count, and first word pages.
 3. Inspect an early, middle, and late foundation item through lessons and

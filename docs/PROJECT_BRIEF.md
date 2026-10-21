@@ -17,7 +17,14 @@ Build a personal Russian-first Japanese kanji/vocabulary SRS web application wit
 
 ## MVP learning scope
 
-MVP should prove the learning loop, not cover all Japanese content.
+Historical MVP planning targets below describe an earlier phase, not verified
+published counts. The current product target is at least **2,300 placed kanji
+and 8,000 placed vocabulary expression-reading pairs across 60 independent
+levels**, with reviewed RU/EN learning content. See
+`TASK_SPECS_111_124.md` and `TASK_118_PUBLICATION_STATUS.md` for acceptance and
+current evidence. Imported dictionary capacity is not published course content.
+
+MVP was intended to prove the learning loop, not cover all Japanese content.
 
 Target MVP content:
 

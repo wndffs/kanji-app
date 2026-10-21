@@ -28,7 +28,8 @@ Raw imported data and curated pedagogical content are different layers. Keep the
 
 ## Chosen architecture
 
-Use a TypeScript monorepo with pnpm workspaces.
+Use a TypeScript monorepo with npm workspaces and the committed package-lock.json.
+Do not introduce pnpm commands or a second lockfile.
 
 Recommended structure:
 

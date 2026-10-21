@@ -95,6 +95,11 @@ These sources describe mechanics only. They are not content sources.
 
 ### Revalidated order (2026-10-21)
 
+Current evidence, honest completion states and additional acceptance-sized
+Tasks 125-128 are recorded in `REVALIDATION_2026_10_21.md`. Read that record
+alongside this specification; implementation is not proof of full-corpus
+publication or final production readiness.
+
 Task 119 implementation must precede further mass publication in Task 118.
 Structural quality gates prevent bad batches from being amplified; Task 118
 retains its full 2,300-kanji/8,000-word acceptance criteria. Task 120 can proceed
