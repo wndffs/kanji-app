@@ -67,7 +67,7 @@ type ConservativeTypoOptions = Required<TypoToleranceConfig>;
 
 const DEFAULT_TYPO_TOLERANCE = {
   enabled: true,
-  minLength: 6,
+  minLength: 9,
   maxDistance: 2,
   maxRatio: 0.18,
   requireSameFirstCharacter: true,

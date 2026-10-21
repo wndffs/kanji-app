@@ -10,6 +10,43 @@ import {
 const NOW = new Date("2026-07-27T12:00:00.000Z");
 
 describe("adaptive kana practice", () => {
+  it("never offers homophones or overlapping romaji aliases as competing choices", () => {
+    const characters = ["じ", "ぢ", "ず", "づ", "お", "を", "シ", "し", "あ", "い", "う", "え"];
+    const candidates = characters.map((character) => candidate(character));
+    for (let seed = 0; seed < 20; seed += 1) {
+      const session = buildAdaptiveKanaSession({
+        candidates,
+        attempts: [evidence("じ", false, { selectedCharacter: "ぢ" })],
+        script: "mixed",
+        now: NOW,
+        seed,
+        size: 20,
+      });
+      for (const exercise of session) {
+        const seen = new Set<string>();
+        for (const choice of exercise.choices) {
+          const kana = findKana(choice.character)!;
+          expect(kana.acceptedRomaji.some((reading) => seen.has(reading))).toBe(false);
+          kana.acceptedRomaji.forEach((reading) => seen.add(reading));
+        }
+      }
+    }
+  });
+  it("uses typed recall when all remaining choices sound alike", () => {
+    const exercises = buildAdaptiveKanaSession({
+      candidates: [candidate("じ"), candidate("ぢ")],
+      attempts: [],
+      script: "hiragana",
+      now: NOW,
+      seed: "homophones",
+      size: 12,
+    });
+    expect(
+      exercises.every(
+        (exercise) => exercise.exerciseKind === "typing" || exercise.exerciseKind === "tracing",
+      ),
+    ).toBe(true);
+  });
   it("prioritizes repeatedly missed kana while retaining a small mastered review", () => {
     const candidates = [
       candidate("あ", { attemptCount: 8, correctCount: 1 }),
@@ -33,9 +70,9 @@ describe("adaptive kana practice", () => {
 
     expect(counts.get("あ")).toBeGreaterThan(counts.get("う") ?? 0);
     expect(counts.get("う")).toBeGreaterThan(0);
-    expect(session.every((exercise, index) => exercise.character !== session[index - 1]?.character)).toBe(
-      true,
-    );
+    expect(
+      session.every((exercise, index) => exercise.character !== session[index - 1]?.character),
+    ).toBe(true);
     expect(
       session.every(
         (exercise, index) =>
@@ -91,9 +128,9 @@ describe("adaptive kana practice", () => {
     expect(new Set(first.map((exercise) => exercise.script))).toEqual(
       new Set(["hiragana", "katakana"]),
     );
-    expect(first.some((exercise) => exercise.character === "か" || exercise.character === "カ")).toBe(
-      false,
-    );
+    expect(
+      first.some((exercise) => exercise.character === "か" || exercise.character === "カ"),
+    ).toBe(false);
     expect(
       first
         .filter((exercise) => exercise.exerciseKind === "recognition-choice")

@@ -255,6 +255,18 @@ describe("English meaning normalization", () => {
 });
 
 describe("conservative typo handling", () => {
+  it.each([
+    ["входить", "выходить"],
+    ["immoral", "immortal"],
+    ["causal", "casual"],
+  ])(
+    "requires exact short meanings instead of accepting semantic near-words: %s",
+    (answer, accepted) => {
+      expect(
+        validateAnswer({ answerKind: "meaning", answer, acceptedAnswers: [accepted] }).accepted,
+      ).toBe(false);
+    },
+  );
   it("calculates string distance", () => {
     expect(calculateStringDistance("кот", "кит")).toBe(1);
     expect(calculateStringDistance("электричество", "электричетво")).toBe(1);

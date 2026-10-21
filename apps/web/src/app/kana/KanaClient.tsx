@@ -67,8 +67,7 @@ export function KanaClient({
   readonly initialPracticeScript?: KanaPracticeScript;
 }) {
   const [script, setScript] = useState<KanaScript>(initialScript);
-  const [practiceScript, setPracticeScript] =
-    useState<KanaPracticeScript>(initialPracticeScript);
+  const [practiceScript, setPracticeScript] = useState<KanaPracticeScript>(initialPracticeScript);
   const [dataRevision, setDataRevision] = useState(0);
   const [mode, setMode] = useState<KanaRouteMode>(initialMode);
   const [state, setState] = useState<KanaState>({ status: "checking" });
@@ -213,10 +212,7 @@ export function KanaClient({
       !kanaSpeech.autoplay ||
       currentLessonItem === null ||
       feedback !== null ||
-      !(
-        (mode === "lessons" && lessonPhase === "teach") ||
-        exerciseKind === "listening-choice"
-      )
+      !((mode === "lessons" && lessonPhase === "teach") || exerciseKind === "listening-choice")
     ) {
       return;
     }
@@ -263,11 +259,7 @@ export function KanaClient({
 
     kanaSpeech.cancel();
     setAnswer(selectedRomaji);
-    const result = await submitAnswer(
-      currentItem.character,
-      selectedRomaji,
-      selectedCharacter,
-    );
+    const result = await submitAnswer(currentItem.character, selectedRomaji, selectedCharacter);
 
     if (result !== null) {
       setFeedback(result);
@@ -511,9 +503,7 @@ export function KanaClient({
         >
           <button
             aria-pressed={
-              mode === "practice"
-                ? practiceScript === "hiragana"
-                : script === "hiragana"
+              mode === "practice" ? practiceScript === "hiragana" : script === "hiragana"
             }
             disabled={submitting}
             onClick={() => {
@@ -528,9 +518,7 @@ export function KanaClient({
           </button>
           <button
             aria-pressed={
-              mode === "practice"
-                ? practiceScript === "katakana"
-                : script === "katakana"
+              mode === "practice" ? practiceScript === "katakana" : script === "katakana"
             }
             disabled={submitting}
             onClick={() => {
@@ -610,6 +598,7 @@ export function KanaClient({
       <div className="kana-workspace">
         {mode === "practice" ? (
           <AdaptiveKanaPractice
+            key={`${state.token}:${practiceScript}`}
             onUnauthorized={handleUnauthorized}
             script={practiceScript}
             token={state.token}
@@ -638,9 +627,7 @@ export function KanaClient({
                   item={currentLessonItem}
                   masteryThreshold={state.progress.masteryThreshold}
                   onAnswerChange={setAnswer}
-                  onChoice={(romaji, character) =>
-                    void handleChoiceAnswer(romaji, character)
-                  }
+                  onChoice={(romaji, character) => void handleChoiceAnswer(romaji, character)}
                   onMatchAnswer={submitAnswer}
                   onNext={handleNext}
                   onSpeak={() => kanaSpeech.speak(buildKanaSpeechText(currentLessonItem))}
@@ -844,10 +831,7 @@ function KanaQuiz({
               key={choice.character}
               lang={characterChoices ? "ja" : undefined}
               onClick={() =>
-                onChoice(
-                  choice.romaji,
-                  characterChoices ? choice.character : undefined,
-                )
+                onChoice(choice.romaji, characterChoices ? choice.character : undefined)
               }
               ref={index === 0 && !listening ? choiceRef : undefined}
               type="button"

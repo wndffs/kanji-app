@@ -81,6 +81,9 @@ test.describe("review session", () => {
     await expect(page.getByRole("region", { name: "Результат ответа" })).toBeVisible();
     await expect(page.getByText("Ошибка")).toBeVisible();
     await expect(page.getByText("Ответ не принят.")).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Результат ответа" }).getByRole("status"),
+    ).toContainText("Ответ не принят.");
     await expect(page.getByText("Правильные ответы")).toBeVisible();
     await expect(page.getByText("солнце")).toBeVisible();
   });
@@ -247,14 +250,13 @@ test.describe("review session", () => {
   });
 
   test("shows empty queue state and reloads", async ({ page }) => {
-    let requestCount = 0;
+    let queueAvailable = false;
 
     await signIn(page);
     await page.route(`${API_BASE_URL}/reviews/queue`, async (route) => {
-      requestCount += 1;
       await route.fulfill({
         json: {
-          items: requestCount === 1 ? [] : [reviewQueueItem],
+          items: queueAvailable ? [reviewQueueItem] : [],
           orderMode: "shuffled",
           vacationStartedAt: null,
         },
@@ -263,6 +265,7 @@ test.describe("review session", () => {
 
     await page.goto("/reviews");
     await expect(page.getByText("Нет карточек к повторению.")).toBeVisible();
+    queueAvailable = true;
     await page.getByRole("button", { name: "Проверить снова" }).click();
     await expect(page.getByText("Готово карточек: 1")).toBeVisible();
   });

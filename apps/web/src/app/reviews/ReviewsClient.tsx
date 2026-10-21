@@ -726,7 +726,7 @@ function FeedbackPanel({
       }
     >
       <div className="feedback-header">
-        <div>
+        <div role="status" aria-atomic="true">
           <span className="eyebrow">
             {feedback.retry ? "Другое чтение" : formatResult(feedback.result)}
           </span>

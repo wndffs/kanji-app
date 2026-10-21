@@ -18,15 +18,8 @@ import {
   type KanaPracticeSessionDto,
 } from "@kanji-srs/shared";
 
-import {
-  ApiError,
-  getKanaPracticeSession,
-  submitKanaPracticeAnswer,
-} from "../../lib/api-client";
-import {
-  buildKanaPracticeAnswer,
-  toKanaLessonItem,
-} from "../../lib/kana-adaptive-practice";
+import { ApiError, getKanaPracticeSession, submitKanaPracticeAnswer } from "../../lib/api-client";
+import { buildKanaPracticeAnswer, toKanaLessonItem } from "../../lib/kana-adaptive-practice";
 import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import { KanaTracingExercise } from "./KanaTracingExercise";
@@ -53,10 +46,12 @@ export function AdaptiveKanaPractice({
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
+  const requestRevision = useRef(0);
   const speech = useJapaneseSpeech();
   const { play: playAnswerSound } = useAnswerSound();
 
   const loadSession = useCallback(async (): Promise<void> => {
+    const revision = ++requestRevision.current;
     setState({ status: "loading" });
     setAnswer("");
     setFeedback(null);
@@ -65,8 +60,10 @@ export function AdaptiveKanaPractice({
 
     try {
       const session = await getKanaPracticeSession(token, script);
+      if (revision !== requestRevision.current) return;
       setState({ status: "ready", session });
     } catch (error: unknown) {
+      if (revision !== requestRevision.current) return;
       if (error instanceof ApiError && error.status === 401) {
         onUnauthorized();
         return;
@@ -82,6 +79,9 @@ export function AdaptiveKanaPractice({
 
   useEffect(() => {
     void loadSession();
+    return () => {
+      requestRevision.current += 1;
+    };
   }, [loadSession]);
 
   const exercise = state.status === "ready" ? state.session.exercise : null;
@@ -123,12 +123,7 @@ export function AdaptiveKanaPractice({
   );
 
   async function submit(value: string): Promise<void> {
-    if (
-      state.status !== "ready" ||
-      exercise === null ||
-      feedback !== null ||
-      submitting
-    ) {
+    if (state.status !== "ready" || exercise === null || feedback !== null || submitting) {
       return;
     }
 
@@ -392,16 +387,9 @@ function PracticeFeedback({
         <span>
           {feedback.expectedCharacter} · {feedback.expectedRomaji}
         </span>
-        {feedback.confusionExplanation === null ? null : (
-          <p>{feedback.confusionExplanation}</p>
-        )}
+        {feedback.confusionExplanation === null ? null : <p>{feedback.confusionExplanation}</p>}
       </div>
-      <button
-        className="secondary-action"
-        onClick={onContinue}
-        ref={continueRef}
-        type="button"
-      >
+      <button className="secondary-action" onClick={onContinue} ref={continueRef} type="button">
         Следующий
       </button>
     </div>
@@ -416,7 +404,9 @@ function PracticeSummary({
   readonly session: KanaPracticeSessionDto;
 }) {
   const percent =
-    session.totalCount === 0 ? 100 : Math.round((session.completedCount / session.totalCount) * 100);
+    session.totalCount === 0
+      ? 100
+      : Math.round((session.completedCount / session.totalCount) * 100);
 
   return (
     <aside className="kana-adaptive-summary">

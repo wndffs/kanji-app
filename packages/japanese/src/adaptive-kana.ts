@@ -82,8 +82,7 @@ export function buildAdaptiveKanaSession(
   const attemptsByCharacter = groupAttempts(input.attempts);
   const masteredCandidates = candidates.filter((candidate) => candidate.mastered);
   const unmasteredCandidates = candidates.filter((candidate) => !candidate.mastered);
-  const reviewSlots =
-    masteredCandidates.length === 0 ? 0 : Math.max(1, Math.floor(size * 0.15));
+  const reviewSlots = masteredCandidates.length === 0 ? 0 : Math.max(1, Math.floor(size * 0.15));
   const usage = new Map<string, number>();
   const exercises: AdaptiveKanaExercise[] = [];
   let masteredUsed = 0;
@@ -111,7 +110,15 @@ export function buildAdaptiveKanaSession(
 
       return rightScore - leftScore || left.order - right.order;
     })[0]!;
-    const exerciseKind = selectExerciseKind(candidate, index, previousKind, random);
+    let exerciseKind = selectExerciseKind(candidate, index, previousKind, random);
+    const choices = buildChoices(
+      candidate,
+      candidates,
+      attemptsByCharacter.get(candidate.character) ?? [],
+      input.seed,
+    );
+    if (choices.length < 2 && exerciseKind !== "typing" && exerciseKind !== "tracing")
+      exerciseKind = "typing";
 
     exercises.push({
       id: `${hashSeed(input.seed).toString(36)}-${index + 1}`,
@@ -119,13 +126,7 @@ export function buildAdaptiveKanaSession(
       script: candidate.script,
       romaji: candidate.romaji,
       exerciseKind,
-      choices: buildChoices(
-        candidate,
-        candidates,
-        attemptsByCharacter.get(candidate.character) ?? [],
-        input.seed,
-        exerciseKind,
-      ),
+      choices,
       focusReason: determineFocusReason(
         candidate,
         attemptsByCharacter.get(candidate.character) ?? [],
@@ -266,7 +267,6 @@ function buildChoices(
   candidates: readonly AdaptiveKanaCandidate[],
   attempts: readonly KanaAttemptEvidence[],
   seed: string | number,
-  exerciseKind: AdaptiveKanaExerciseKind,
 ): readonly AdaptiveKanaChoice[] {
   const confusionCounts = new Map<string, number>();
 
@@ -287,23 +287,23 @@ function buildChoices(
     .filter((candidate) => candidate.character !== target.character)
     .sort(
       (left, right) =>
-        (confusionCounts.get(right.character) ?? 0) -
-          (confusionCounts.get(left.character) ?? 0) ||
+        (confusionCounts.get(right.character) ?? 0) - (confusionCounts.get(left.character) ?? 0) ||
         Number(left.script !== target.script) - Number(right.script !== target.script) ||
         Math.abs(left.order - target.order) - Math.abs(right.order - target.order) ||
         seededRank(seed, target.character, left.character) -
           seededRank(seed, target.character, right.character),
     );
   const distractors: AdaptiveKanaCandidate[] = [];
-  const usedRomaji = new Set([target.romaji]);
+  const usedRomaji = new Set([target.romaji, ...target.acceptedRomaji]);
 
   for (const candidate of rankedDistractors) {
-    if (exerciseKind === "recognition-choice" && usedRomaji.has(candidate.romaji)) {
+    const readings = [candidate.romaji, ...candidate.acceptedRomaji];
+    if (readings.some((reading) => usedRomaji.has(reading))) {
       continue;
     }
 
     distractors.push(candidate);
-    usedRomaji.add(candidate.romaji);
+    readings.forEach((reading) => usedRomaji.add(reading));
 
     if (distractors.length === 3) {
       break;

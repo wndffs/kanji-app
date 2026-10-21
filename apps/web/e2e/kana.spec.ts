@@ -18,6 +18,67 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "kana-token";
 
 test.describe("kana lessons", () => {
+  for (const lateStatus of [200, 401]) {
+    test(`keeps katakana selected after a late hiragana response (${lateStatus})`, async ({
+      page,
+    }) => {
+      await signIn(page);
+      await mockKanaApi(page);
+      let release = () => {};
+      let signalRequest = () => {};
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const requested = new Promise<void>((resolve) => {
+        signalRequest = resolve;
+      });
+      await page.route(`${API_BASE_URL}/kana/practice?script=*`, async (route) => {
+        const script = new URL(route.request().url()).searchParams.get("script") as KanaScript;
+        const exercise: KanaPracticeExerciseDto = {
+          id: `exercise-${script}`,
+          script,
+          character: script === "katakana" ? "カ" : "か",
+          romaji: "ka",
+          exerciseKind: "typing",
+          choices: [],
+          focusReason: "new",
+        };
+        if (script === "hiragana") {
+          signalRequest();
+          await held;
+        }
+        await route.fulfill({
+          status: script === "hiragana" ? lateStatus : 200,
+          json:
+            script === "hiragana" && lateStatus === 401
+              ? { message: "Expired older request" }
+              : buildPracticeSession(script, 0, [exercise]),
+        });
+      });
+      await page.goto("/kana?script=hiragana&mode=practice");
+      await requested;
+      await page.getByRole("button", { name: "Катакана", exact: true }).click();
+      const practice = page.getByTestId("kana-adaptive-practice");
+      await expect(practice.getByText("カ", { exact: true })).toBeVisible();
+      const olderResponse = page.waitForResponse((response) =>
+        response.url().endsWith("/kana/practice?script=hiragana"),
+      );
+      release();
+      await olderResponse;
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+      await expect(page.getByRole("button", { name: "Катакана", exact: true })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      await expect(practice.getByText("カ", { exact: true })).toBeVisible();
+      await expect(practice.getByText("か", { exact: true })).toHaveCount(0);
+    });
+  }
   test("opens character-hub deep links in the requested mode and script", async ({ page }) => {
     await signIn(page);
     await mockKanaApi(page);
@@ -58,9 +119,8 @@ test.describe("kana lessons", () => {
     await expect(practice).toContainText("a");
     await expect
       .poll(() =>
-        page.evaluate(
-          () =>
-            (window as typeof window & { __spokenKana: readonly string[] }).__spokenKana.at(-1),
+        page.evaluate(() =>
+          (window as typeof window & { __spokenKana: readonly string[] }).__spokenKana.at(-1),
         ),
       )
       .toBe("あ");
