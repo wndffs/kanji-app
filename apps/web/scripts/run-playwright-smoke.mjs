@@ -7,6 +7,10 @@ const hostname = process.env.WEB_SMOKE_HOST ?? "127.0.0.1";
 const baseURL = `http://${hostname}:${port}`;
 const isWindows = process.platform === "win32";
 const playwrightArgs = process.argv.slice(2);
+const suiteTimeoutMs = Number(process.env.WEB_SMOKE_TIMEOUT_MS ?? 600_000);
+if (!Number.isInteger(suiteTimeoutMs) || suiteTimeoutMs < 1) {
+  throw new Error("WEB_SMOKE_TIMEOUT_MS must be a positive integer.");
+}
 
 const server = spawnCommand(
   "npm",
@@ -26,6 +30,9 @@ try {
   });
 
   process.exitCode = exitCode;
+} catch (error) {
+  console.error(error);
+  process.exitCode = 1;
 } finally {
   await stopProcessTree(server.pid);
   process.exit(process.exitCode ?? 0);
@@ -63,39 +70,26 @@ function runPlaywright(env = {}) {
       windowsHide: true,
     });
     let settled = false;
-    let output = "";
-    let successTimer = null;
     const timeout = setTimeout(() => {
-      settle(hasPassingSummary(output) ? 0 : 1);
-    }, 90_000);
+      console.error(`Playwright did not finish within ${suiteTimeoutMs}ms.`);
+      settle(1);
+    }, suiteTimeoutMs);
 
     child.stdout.on("data", (chunk) => {
       const text = chunk.toString();
-      output += text;
       process.stdout.write(text);
-      scheduleSuccessExit();
     });
     child.stderr.on("data", (chunk) => {
       const text = chunk.toString();
-      output += text;
       process.stderr.write(text);
-      scheduleSuccessExit();
     });
     child.on("exit", (code) => {
-      settle(code ?? (hasPassingSummary(output) ? 0 : 1));
+      settle(code ?? 1);
     });
     child.on("error", (error) => {
       console.error(error);
       settle(1);
     });
-
-    function scheduleSuccessExit() {
-      if (!hasPassingSummary(output) || successTimer !== null) {
-        return;
-      }
-
-      successTimer = setTimeout(() => settle(0), 1_000);
-    }
 
     function settle(code) {
       if (settled) {
@@ -105,17 +99,9 @@ function runPlaywright(env = {}) {
       settled = true;
       clearTimeout(timeout);
 
-      if (successTimer !== null) {
-        clearTimeout(successTimer);
-      }
-
       void stopProcessTree(child.pid).finally(() => resolve(code));
     }
   });
-}
-
-function hasPassingSummary(output) {
-  return /\b\d+\s+passed\b/.test(output) && !/\b(failed|timed out)\b/i.test(output);
 }
 
 function hasWorkerArg(args) {

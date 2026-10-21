@@ -117,7 +117,10 @@ test.describe("final MVP integration path", () => {
     });
 
     await test.step("Answer the review correctly and save a private accepted answer", async () => {
-      await page.getByRole("link", { name: "Повторения" }).click();
+      await page
+        .getByRole("navigation", { name: "Основная навигация" })
+        .getByRole("link", { name: "Повторения", exact: true })
+        .click();
       await expect(page.getByText("Готово карточек: 1")).toBeVisible();
       await page.getByRole("button", { name: "Начать повторение" }).click();
 
