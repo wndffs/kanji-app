@@ -27,6 +27,57 @@ import {
 const NOW = new Date("2026-06-18T09:00:00.000Z");
 
 describe("PrismaLessonsRepository", () => {
+  it("loads canonical prerequisite cards independently of source and existing user progress", async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        id: "meaning-card",
+        learningItemId: "outside-source",
+        promptType: "MEANING",
+        learningItem: { kind: "WORD" },
+        audioAsset: null,
+      },
+      {
+        id: "reading-card",
+        learningItemId: "outside-source",
+        promptType: "READING",
+        learningItem: { kind: "WORD" },
+        audioAsset: null,
+      },
+      {
+        id: "unavailable-listening-card",
+        learningItemId: "outside-source",
+        promptType: "LISTENING",
+        learningItem: { kind: "WORD" },
+        audioAsset: null,
+      },
+    ]);
+    const repository = new PrismaLessonsRepository({
+      db: { learningCard: { findMany } },
+    } as never);
+
+    await expect(
+      repository.listPrerequisiteCardIds(["outside-source", "outside-source"]),
+    ).resolves.toEqual(new Map([["outside-source", ["meaning-card", "reading-card"]]]));
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          learningItemId: { in: ["outside-source"] },
+          learningItem: { status: "PUBLISHED" },
+        }),
+      }),
+    );
+  });
+
+  it("does not query prerequisite metadata for an empty batch", async () => {
+    const findMany = vi.fn();
+    const repository = new PrismaLessonsRepository({
+      db: { learningCard: { findMany } },
+    } as never);
+
+    await expect(repository.listPrerequisiteCardIds([])).resolves.toEqual(new Map());
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
   it("loads published lesson items only from the resolved current course", async () => {
     const findMany = vi
       .fn()
@@ -297,6 +348,80 @@ describe("LessonsService", () => {
         expect.objectContaining({ item: expect.objectContaining({ id: "item-word-one" }) }),
       ]),
     });
+  });
+
+  it.each(["course", "deck"])(
+    "requires every external prerequisite card for %s queues and completion",
+    async (source) => {
+      const dependent = createItem(
+        "dependent-word",
+        "word",
+        ["dependent-card"],
+        [{ prerequisiteItemId: "external-kanji", requiredStage: 5 }],
+      );
+      const repository = new InMemoryLessonsRepository({
+        courseItems: [createCourseItem(dependent, 1)],
+      });
+      const lookup = vi
+        .spyOn(repository, "listPrerequisiteCardIds")
+        .mockResolvedValue(new Map([["external-kanji", ["external-meaning", "external-reading"]]]));
+      if (source === "deck") {
+        vi.spyOn(repository, "findDeckLesson").mockResolvedValue({
+          id: "deck-study",
+          title: "Study text",
+          status: "active",
+          items: [{ sortOrder: 1, item: dependent }],
+        });
+      }
+      const service = new LessonsService(repository, createOverridesService());
+      const user = createUser("owner");
+      const deckId = source === "deck" ? "deck-study" : undefined;
+      repository.addProgress("owner", "external-kanji", ["external-meaning"], 5);
+      repository.addProgress("other", "external-kanji", ["external-reading"], 5);
+
+      await expect(service.getQueue(user, deckId)).resolves.toMatchObject({ items: [] });
+      repository.addProgress("owner", "external-kanji", ["external-reading"], 1);
+      await expect(service.getQueue(user, deckId)).resolves.toMatchObject({ items: [] });
+
+      repository.addProgress("owner", "external-kanji", ["external-reading"], 5);
+      await expect(service.getQueue(user, deckId)).resolves.toMatchObject({
+        items: [{ item: { id: dependent.id } }],
+      });
+      const session = await service.startSession(user, deckId === undefined ? {} : { deckId });
+      const request = {
+        itemId: dependent.id,
+        answers: [{ cardId: "dependent-card", answerType: "meaning", answer: "study" }],
+      };
+
+      repository.addProgress("owner", "external-kanji", ["external-reading"], 1);
+      await expect(service.completeItem(session.session.id, user, request)).rejects.toThrow(
+        "Lesson item is not currently available.",
+      );
+      expect(repository.listProgressFor("owner", dependent.id)).toEqual([]);
+
+      repository.addProgress("owner", "external-kanji", ["external-reading"], 5);
+      await expect(service.completeItem(session.session.id, user, request)).resolves.toMatchObject({
+        passed: true,
+        createdSrsStateCount: 1,
+      });
+      expect(lookup).toHaveBeenCalledWith(["external-kanji"]);
+    },
+  );
+
+  it("fails closed when an external prerequisite has no canonical eligible cards", async () => {
+    const dependent = createItem(
+      "dependent-word",
+      "word",
+      ["dependent-card"],
+      [{ prerequisiteItemId: "external-kanji", requiredStage: 5 }],
+    );
+    const repository = new InMemoryLessonsRepository({
+      courseItems: [createCourseItem(dependent, 1)],
+    });
+    repository.addProgress("owner", "external-kanji", ["old-card"], 9);
+    const service = new LessonsService(repository, createOverridesService());
+
+    await expect(service.getQueue(createUser("owner"))).resolves.toMatchObject({ items: [] });
   });
 
   it("creates initial SRS states when completing a lesson item", async () => {
@@ -783,6 +908,16 @@ class InMemoryLessonsRepository extends LessonsRepository {
         ...record,
         learningItemId: record.learningItemId.slice(`${userId}:`.length),
       }));
+  }
+
+  async listPrerequisiteCardIds(
+    itemIds: readonly string[],
+  ): Promise<ReadonlyMap<string, readonly string[]>> {
+    return new Map(
+      this.courseItems
+        .filter((entry) => itemIds.includes(entry.item.id))
+        .map((entry) => [entry.item.id, entry.item.cards.map((card) => card.id)]),
+    );
   }
 
   async getDefaultSrsSystem(): Promise<SrsSystemRecord | null> {

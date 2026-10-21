@@ -1,6 +1,6 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 
-import { parseCourseLevelPassPolicy, type Prisma, type CourseLevelPassPolicy } from "@kanji-srs/db";
+import { parseCourseLevelPassPolicy, Prisma, type CourseLevelPassPolicy } from "@kanji-srs/db";
 import {
   type ContentLocale,
   type PracticeSource,
@@ -456,7 +456,18 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     })) as ReviewSessionRow | null;
     const active = row === null ? null : toPracticeSessionRecord(row);
 
-    if (active === null) {
+    if (
+      active === null ||
+      active.currentIndex >= active.cardIds.length ||
+      input.currentIndex !== active.currentIndex + 1 ||
+      input.progress.answered !== active.progress.answered + 1 ||
+      !(
+        (input.progress.accepted === active.progress.accepted + 1 &&
+          input.progress.missed === active.progress.missed) ||
+        (input.progress.accepted === active.progress.accepted &&
+          input.progress.missed === active.progress.missed + 1)
+      )
+    ) {
       return null;
     }
 
@@ -582,6 +593,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       where: {
         id: sessionId,
         userId,
+        mode: "REVIEW",
         finishedAt: null,
       },
     })) as ReviewSessionRow | null;
@@ -637,18 +649,19 @@ export class PrismaReviewsRepository extends ReviewsRepository {
   }
 
   async recordReviewAnswer(input: RecordReviewAnswerInput): Promise<void> {
-    await this.prisma.db.$transaction(async (tx) => {
+    await this.runReviewTransaction(async (tx) => {
       const session = await tx.reviewSession.findFirst({
         where: {
           id: input.sessionId,
           userId: input.userId,
+          mode: "REVIEW",
           finishedAt: null,
         },
         select: { id: true },
       });
 
       if (session === null) {
-        throw new Error("Review session ownership check failed.");
+        throw new NotFoundException("Active review session not found.");
       }
 
       const existingAnswer = await tx.reviewAnswer.findFirst({
@@ -661,7 +674,9 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       });
 
       if (existingAnswer !== null) {
-        throw new Error("Review answer has already been recorded for this session card.");
+        throw new ConflictException(
+          "Review answer has already been recorded for this session card.",
+        );
       }
 
       const updated = await tx.userSrsState.updateMany({
@@ -669,6 +684,14 @@ export class PrismaReviewsRepository extends ReviewsRepository {
           id: input.stateId,
           userId: input.userId,
           learningCardId: input.cardId,
+          srsSystemId: input.expectedState.srsSystemId,
+          stageIndex: input.expectedState.stageIndex,
+          availableAt: input.expectedState.availableAt,
+          burnedAt: input.expectedState.burnedAt,
+          resurrectedAt: input.expectedState.resurrectedAt,
+          wrongCount: input.expectedState.wrongCount,
+          correctStreak: input.expectedState.correctStreak,
+          lastReviewedAt: input.expectedState.lastReviewedAt,
         },
         data: {
           stageIndex: input.nextState.stageIndex,
@@ -682,7 +705,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       });
 
       if (updated.count === 0) {
-        throw new Error("Review SRS state ownership check failed.");
+        throw new ConflictException("Review progress changed. Reload the session.");
       }
 
       await tx.reviewAnswer.create({
@@ -709,11 +732,12 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     sessionId: string,
     now: Date,
   ): Promise<FinishedReviewSessionRecord | null> {
-    return this.prisma.db.$transaction(async (tx) => {
+    return this.runReviewTransaction(async (tx) => {
       const session = (await tx.reviewSession.findFirst({
         where: {
           id: sessionId,
           userId,
+          mode: "REVIEW",
           finishedAt: null,
         },
       })) as ReviewSessionRow | null;
@@ -744,6 +768,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
         where: {
           id: sessionId,
           userId,
+          mode: "REVIEW",
           finishedAt: null,
         },
         data: {
@@ -761,6 +786,20 @@ export class PrismaReviewsRepository extends ReviewsRepository {
         summary,
       };
     });
+  }
+
+  private async runReviewTransaction<T>(
+    callback: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await this.prisma.db.$transaction(callback, { isolationLevel: "Serializable" });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
+        throw new ConflictException("Review progress changed. Reload the session.");
+      }
+
+      throw error;
+    }
   }
 
   private async toQueueRecord(state: UserSrsStateRow): Promise<ReviewQueueRecord> {

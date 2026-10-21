@@ -40,6 +40,9 @@ export abstract class LessonsRepository {
   abstract listCourseLessonItems(userId: string): Promise<readonly CourseLessonItemRecord[]>;
   abstract findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null>;
   abstract listUserProgress(userId: string): Promise<readonly UserItemProgressRecord[]>;
+  abstract listPrerequisiteCardIds(
+    itemIds: readonly string[],
+  ): Promise<ReadonlyMap<string, readonly string[]>>;
   abstract getDefaultSrsSystem(): Promise<SrsSystemRecord | null>;
   abstract createLessonSession(input: CreateLessonSessionInput): Promise<LessonSessionRecord>;
   abstract findLatestActiveLessonSession(userId: string): Promise<LessonSessionRecord | null>;
@@ -455,6 +458,49 @@ export class PrismaLessonsRepository extends LessonsRepository {
       stageIndex: state.stageIndex,
       createdAt: state.createdAt,
     }));
+  }
+
+  async listPrerequisiteCardIds(
+    itemIds: readonly string[],
+  ): Promise<ReadonlyMap<string, readonly string[]>> {
+    if (itemIds.length === 0) {
+      return new Map();
+    }
+
+    const cards = await this.prisma.db.learningCard.findMany({
+      where: {
+        learningItemId: { in: [...new Set(itemIds)] },
+        learningItem: { status: "PUBLISHED" },
+        ...listeningCardEligibilityWhere,
+      },
+      select: {
+        id: true,
+        learningItemId: true,
+        promptType: true,
+        learningItem: { select: { kind: true } },
+        audioAsset: { include: { dataSource: true, license: true } },
+      },
+    });
+    const cardIdsByItem = new Map<string, string[]>();
+
+    for (const card of cards) {
+      if (
+        card.promptType === "LISTENING" &&
+        !isEligibleListeningAudio(
+          card.audioAsset,
+          card.learningItemId,
+          toItemKind(card.learningItem.kind),
+        )
+      ) {
+        continue;
+      }
+
+      const cardIds = cardIdsByItem.get(card.learningItemId) ?? [];
+      cardIds.push(card.id);
+      cardIdsByItem.set(card.learningItemId, cardIds);
+    }
+
+    return cardIdsByItem;
   }
 
   async getDefaultSrsSystem(): Promise<SrsSystemRecord | null> {

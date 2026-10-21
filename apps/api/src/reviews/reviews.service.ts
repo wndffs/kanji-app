@@ -404,6 +404,7 @@ export class ReviewsService {
       previousStageIndex: scheduling.previousStage.stageIndex,
       nextStageIndex: scheduling.nextStage.stageIndex,
       srsTransition,
+      expectedState: target.state,
       nextState: {
         stageIndex: scheduling.nextState.stageIndex,
         availableAt: scheduling.nextState.availableAt,

@@ -453,8 +453,12 @@ export class LessonsService {
         return { availableItems: [], displayMode, progress, remainingToday, source };
       }
 
+      const prerequisiteCardIds = await this.getExternalPrerequisiteCardIds(
+        deck.items.map((entry) => entry.item),
+      );
+
       return {
-        availableItems: findAvailableDeckItems(deck, progress),
+        availableItems: findAvailableDeckItems(deck, progress, prerequisiteCardIds),
         displayMode,
         progress,
         remainingToday,
@@ -473,9 +477,31 @@ export class LessonsService {
       return { availableItems: [], displayMode, progress, remainingToday, source };
     }
 
-    const availableItems = findAvailableCourseItems(courseItems, progress);
+    const prerequisiteCardIds = await this.getExternalPrerequisiteCardIds(
+      courseItems.map((entry) => entry.item),
+    );
+    const availableItems = findAvailableCourseItems(courseItems, progress, prerequisiteCardIds);
 
     return { availableItems, displayMode, progress, remainingToday, source };
+  }
+
+  private async getExternalPrerequisiteCardIds(
+    items: readonly LessonItemRecord[],
+  ): Promise<ReadonlyMap<string, readonly string[]>> {
+    const sourceItemIds = new Set(items.map((item) => item.id));
+    const externalItemIds = [
+      ...new Set(
+        items.flatMap((item) =>
+          item.dependencies
+            .map((dependency) => dependency.prerequisiteItemId)
+            .filter((itemId) => !sourceItemIds.has(itemId)),
+        ),
+      ),
+    ];
+
+    return externalItemIds.length === 0
+      ? new Map()
+      : this.lessonsRepository.listPrerequisiteCardIds(externalItemIds);
   }
 }
 
@@ -490,6 +516,7 @@ type AvailableLessonItem = {
 function findAvailableDeckItems(
   deck: DeckLessonRecord,
   progress: readonly UserItemProgressRecord[],
+  prerequisiteCardIds: ReadonlyMap<string, readonly string[]>,
 ): readonly AvailableLessonItem[] {
   const progressByItem = groupProgressByItem(progress);
   const itemById = new Map(deck.items.map((entry) => [entry.item.id, entry.item]));
@@ -500,7 +527,12 @@ function findAvailableDeckItems(
         return [];
       }
 
-      const unlockedBy = getSatisfiedPrerequisites(entry.item, progressByItem, itemById);
+      const unlockedBy = getSatisfiedPrerequisites(
+        entry.item,
+        progressByItem,
+        itemById,
+        prerequisiteCardIds,
+      );
 
       return unlockedBy === null
         ? []
@@ -523,6 +555,7 @@ function findAvailableDeckItems(
 function findAvailableCourseItems(
   courseItems: readonly CourseLessonItemRecord[],
   progress: readonly UserItemProgressRecord[],
+  prerequisiteCardIds: ReadonlyMap<string, readonly string[]>,
 ): readonly AvailableLessonItem[] {
   const progressByItem = groupProgressByItem(progress);
   const itemById = new Map(courseItems.map((entry) => [entry.item.id, entry.item]));
@@ -541,7 +574,12 @@ function findAvailableCourseItems(
         continue;
       }
 
-      const unlockedBy = getSatisfiedPrerequisites(entry.item, progressByItem, itemById);
+      const unlockedBy = getSatisfiedPrerequisites(
+        entry.item,
+        progressByItem,
+        itemById,
+        prerequisiteCardIds,
+      );
 
       if (unlockedBy === null) {
         continue;
@@ -646,22 +684,25 @@ function getSatisfiedPrerequisites(
   item: LessonItemRecord,
   progressByItem: Map<string, readonly UserItemProgressRecord[]>,
   itemById: Map<string, LessonItemRecord>,
+  prerequisiteCardIds: ReadonlyMap<string, readonly string[]>,
 ): readonly LessonItemRecord[] | null {
   const unlockedBy: LessonItemRecord[] = [];
 
   for (const dependency of item.dependencies) {
     const prerequisite = itemById.get(dependency.prerequisiteItemId);
     const progress = progressByItem.get(dependency.prerequisiteItemId) ?? [];
+    const cardIds =
+      prerequisite?.cards.map((card) => card.id) ??
+      prerequisiteCardIds.get(dependency.prerequisiteItemId) ??
+      [];
     const satisfied =
-      prerequisite === undefined
-        ? progress.some((record) => record.stageIndex >= dependency.requiredStage)
-        : prerequisite.cards.length > 0 &&
-          prerequisite.cards.every((card) =>
-            progress.some(
-              (record) =>
-                record.learningCardId === card.id && record.stageIndex >= dependency.requiredStage,
-            ),
-          );
+      cardIds.length > 0 &&
+      cardIds.every((cardId) =>
+        progress.some(
+          (record) =>
+            record.learningCardId === cardId && record.stageIndex >= dependency.requiredStage,
+        ),
+      );
 
     if (!satisfied) {
       return null;

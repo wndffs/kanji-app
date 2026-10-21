@@ -137,6 +137,17 @@ export type RecordReviewAnswerInput = {
   readonly previousStageIndex: number;
   readonly nextStageIndex: number;
   readonly srsTransition: ReviewSrsTransition;
+  readonly expectedState: Pick<
+    ReviewSrsStateRecord,
+    | "srsSystemId"
+    | "stageIndex"
+    | "availableAt"
+    | "burnedAt"
+    | "resurrectedAt"
+    | "wrongCount"
+    | "correctStreak"
+    | "lastReviewedAt"
+  >;
   readonly nextState: {
     readonly stageIndex: number;
     readonly availableAt: Date | null;

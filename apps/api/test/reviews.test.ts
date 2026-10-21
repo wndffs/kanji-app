@@ -129,6 +129,15 @@ describe("ReviewsService", () => {
       srsTransition: "advanced",
     });
     expect(repository.getState("state-due").stageIndex).toBe(2);
+    expect(repository.recordedAnswers[0]?.expectedState).toMatchObject({
+      srsSystemId: "srs-default",
+      stageIndex: 1,
+      availableAt: DUE_AT,
+      burnedAt: null,
+      wrongCount: 0,
+      correctStreak: 0,
+      lastReviewedAt: null,
+    });
   });
 
   it("uses strict mode to keep typo answers on the current stage", async () => {
@@ -1219,6 +1228,16 @@ function createRecordReviewAnswerInput(
     previousStageIndex,
     nextStageIndex,
     srsTransition: "advanced",
+    expectedState: {
+      srsSystemId: "srs-default",
+      stageIndex: previousStageIndex,
+      availableAt: DUE_AT,
+      burnedAt: null,
+      resurrectedAt: null,
+      wrongCount: 0,
+      correctStreak: 0,
+      lastReviewedAt: null,
+    },
     nextState: {
       stageIndex: nextStageIndex,
       availableAt: FUTURE_AT,
