@@ -9,11 +9,13 @@ import {
   isReviewOrderMode,
   isTranslationDisplayMode,
   normalizeDashboardWidgetPreferences,
+  normalizeInterfacePreferences,
 } from "@kanji-srs/shared";
 
 import { type UserSettingsDto } from "./auth.types";
 
 export const DEFAULT_USER_SETTINGS: UserSettingsDto = {
+  ...normalizeInterfacePreferences(undefined),
   locale: "ru-RU",
   translationDisplayMode: DEFAULT_TRANSLATION_DISPLAY_MODE,
   timezone: "Europe/Moscow",
@@ -35,6 +37,7 @@ export const DEFAULT_USER_SETTINGS: UserSettingsDto = {
 
 export function mergeUserSettings(input: Partial<UserSettingsDto> = {}): UserSettingsDto {
   return {
+    ...normalizeInterfacePreferences(input),
     locale: "ru-RU",
     translationDisplayMode:
       input.translationDisplayMode !== undefined &&

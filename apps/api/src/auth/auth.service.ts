@@ -8,9 +8,11 @@ import {
 
 import {
   DASHBOARD_WIDGET_IDS,
+  INTERFACE_PREFERENCE_OPTIONS,
   MAX_SPEECH_RATE,
   MIN_SPEECH_RATE,
   type DashboardWidgetPreferenceDto,
+  type InterfacePreferences,
   type LessonOrderMode,
   type LessonPronunciationMode,
   type ReviewOrderMode,
@@ -54,7 +56,7 @@ type UserSettingsUpdate = {
   lessonPronunciationMode?: UserSettingsDto["lessonPronunciationMode"];
   lessonRomaji?: UserSettingsDto["lessonRomaji"];
   dashboardWidgets?: UserSettingsDto["dashboardWidgets"];
-};
+} & { -readonly [Key in keyof InterfacePreferences]?: InterfacePreferences[Key] };
 
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 256;
@@ -228,6 +230,32 @@ function parseUserSettings(
 ): Partial<UserSettingsDto> {
   const settings: UserSettingsUpdate = {};
 
+  if (record.interfaceTheme !== undefined) {
+    settings.interfaceTheme = parseInterfacePreference(record.interfaceTheme, "interfaceTheme");
+  }
+
+  if (record.interfaceDensity !== undefined) {
+    settings.interfaceDensity = parseInterfacePreference(
+      record.interfaceDensity,
+      "interfaceDensity",
+    );
+  }
+
+  if (record.interfaceMotion !== undefined) {
+    settings.interfaceMotion = parseInterfacePreference(record.interfaceMotion, "interfaceMotion");
+  }
+
+  if (record.studyTextSize !== undefined) {
+    settings.studyTextSize = parseInterfacePreference(record.studyTextSize, "studyTextSize");
+  }
+
+  if (record.studyInformationDensity !== undefined) {
+    settings.studyInformationDensity = parseInterfacePreference(
+      record.studyInformationDensity,
+      "studyInformationDensity",
+    );
+  }
+
   if (record.locale !== undefined) {
     const locale = readRequiredString(record, "locale");
 
@@ -328,6 +356,22 @@ function parseUserSettings(
   }
 
   return settings;
+}
+
+function parseInterfacePreference<Key extends keyof InterfacePreferences>(
+  value: unknown,
+  key: Key,
+): InterfacePreferences[Key] {
+  const options = INTERFACE_PREFERENCE_OPTIONS[key];
+  const matched = options.find((option) => option === value);
+
+  if (matched === undefined) {
+    throw new BadRequestException(
+      `Поле ${key} должно иметь одно из значений: ${options.join(", ")}.`,
+    );
+  }
+
+  return matched as InterfacePreferences[Key];
 }
 
 function parseNullableString(value: unknown, key: string, maxLength: number): string | null {

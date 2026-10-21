@@ -62,6 +62,7 @@ import {
   type FinishConfusablePracticeSessionResponse,
   type FinishPracticeSessionResponse,
   type ItemDetails,
+  type InterfacePreferences,
   type ItemReviewHistoryPageDto,
   type KanaAssessmentAnswerRequest,
   type KanaAssessmentAnswerResponse,
@@ -101,7 +102,7 @@ import {
 
 export type UserRole = "USER" | "ADMIN";
 
-export type UserSettingsDto = {
+export type UserSettingsDto = Partial<InterfacePreferences> & {
   readonly locale: AppLocale;
   readonly translationDisplayMode: TranslationDisplayMode;
   readonly timezone: string;

@@ -7,6 +7,8 @@ import {
   DEFAULT_SPEECH_RATE,
   MAX_SPEECH_RATE,
   MIN_SPEECH_RATE,
+  INTERFACE_PREFERENCE_OPTIONS,
+  normalizeInterfacePreferences,
   SUPPORTED_LESSON_PRONUNCIATION_MODES,
   SUPPORTED_REVIEW_ORDER_MODES,
   SUPPORTED_TRANSLATION_DISPLAY_MODES,
@@ -14,6 +16,7 @@ import {
   type LessonPronunciationMode,
   type ReviewOrderMode,
   type TranslationDisplayMode,
+  type InterfacePreferences,
 } from "@kanji-srs/shared";
 
 import {
@@ -31,8 +34,12 @@ import {
 } from "../../lib/auth-storage";
 import { formatReviewOrderMode, formatTranslationDisplayMode } from "../../lib/dashboard-format";
 import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
+import {
+  readInterfacePreferences,
+  storeInterfacePreferences,
+} from "../../lib/interface-preferences";
 
-type SettingsForm = {
+type SettingsForm = InterfacePreferences & {
   readonly translationDisplayMode: TranslationDisplayMode;
   readonly timezone: string;
   readonly dailyLessonLimit: string;
@@ -49,23 +56,24 @@ type SettingsForm = {
   readonly lessonRomaji: boolean;
 };
 
-type RemoteSettingsPayload = Pick<
-  UserSettingsDto,
-  | "translationDisplayMode"
-  | "timezone"
-  | "dailyLessonLimit"
-  | "lessonBatchSize"
-  | "lessonOrderMode"
-  | "reviewBudget"
-  | "reviewOrderMode"
-  | "strictMode"
-  | "speechVoiceUri"
-  | "speechRate"
-  | "speechAutoplay"
-  | "soundFeedback"
-  | "lessonPronunciationMode"
-  | "lessonRomaji"
->;
+type RemoteSettingsPayload = InterfacePreferences &
+  Pick<
+    UserSettingsDto,
+    | "translationDisplayMode"
+    | "timezone"
+    | "dailyLessonLimit"
+    | "lessonBatchSize"
+    | "lessonOrderMode"
+    | "reviewBudget"
+    | "reviewOrderMode"
+    | "strictMode"
+    | "speechVoiceUri"
+    | "speechRate"
+    | "speechAutoplay"
+    | "soundFeedback"
+    | "lessonPronunciationMode"
+    | "lessonRomaji"
+  >;
 
 const DEFAULT_TIMEZONE = "Europe/Moscow";
 const DEFAULT_DAILY_LESSON_LIMIT = 10;
@@ -128,11 +136,12 @@ export function SettingsClient() {
     event.preventDefault();
     setStatus("saving");
     setError(null);
-    storeTranslationDisplayMode(form.translationDisplayMode);
 
     const session = readStoredSession();
 
     if (session === null) {
+      storeTranslationDisplayMode(form.translationDisplayMode);
+      storeInterfacePreferences(form);
       setStatus("saved");
       return;
     }
@@ -195,6 +204,34 @@ export function SettingsClient() {
         <p>{user?.email ?? "Локальные параметры интерфейса"}</p>
       </div>
       <form className="form-panel" onSubmit={(event) => void handleSubmit(event)}>
+        <fieldset
+          className="settings-fieldset"
+          disabled={status === "loading" || status === "saving"}
+        >
+          <legend>Внешний вид</legend>
+          <div className="settings-grid">
+            {(Object.keys(INTERFACE_PREFERENCE_OPTIONS) as (keyof InterfacePreferences)[]).map(
+              (key) => (
+                <label key={key}>
+                  {PREFERENCE_LABELS[key]}
+                  <select
+                    aria-label={PREFERENCE_LABELS[key]}
+                    onChange={(event) =>
+                      updateForm(key, event.currentTarget.value as InterfacePreferences[typeof key])
+                    }
+                    value={form[key]}
+                  >
+                    {INTERFACE_PREFERENCE_OPTIONS[key].map((value) => (
+                      <option key={value} value={value}>
+                        {PREFERENCE_VALUE_LABELS[value]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ),
+            )}
+          </div>
+        </fieldset>
         <label>
           Перевод карточек
           <select
@@ -438,6 +475,7 @@ export function SettingsClient() {
 
 function createLocalSettingsForm(): SettingsForm {
   return {
+    ...readInterfacePreferences(),
     translationDisplayMode: readTranslationDisplayMode(),
     timezone: DEFAULT_TIMEZONE,
     dailyLessonLimit: String(DEFAULT_DAILY_LESSON_LIMIT),
@@ -457,6 +495,7 @@ function createLocalSettingsForm(): SettingsForm {
 
 function createSettingsForm(settings: UserSettingsDto): SettingsForm {
   return {
+    ...normalizeInterfacePreferences(settings),
     translationDisplayMode: settings.translationDisplayMode,
     timezone: settings.timezone,
     dailyLessonLimit: String(settings.dailyLessonLimit),
@@ -488,6 +527,7 @@ function parseRemoteSettingsPayload(form: SettingsForm): RemoteSettingsPayload {
   }
 
   return {
+    ...normalizeInterfacePreferences(form),
     translationDisplayMode: form.translationDisplayMode,
     timezone,
     dailyLessonLimit: parseBoundedInteger(
@@ -512,6 +552,27 @@ function parseRemoteSettingsPayload(form: SettingsForm): RemoteSettingsPayload {
     lessonRomaji: form.lessonRomaji,
   };
 }
+
+const PREFERENCE_LABELS: Record<keyof InterfacePreferences, string> = {
+  interfaceTheme: "Тема",
+  interfaceDensity: "Плотность интерфейса",
+  interfaceMotion: "Анимация",
+  studyTextSize: "Размер японского текста",
+  studyInformationDensity: "Плотность учебных блоков",
+};
+
+const PREFERENCE_VALUE_LABELS: Record<InterfacePreferences[keyof InterfacePreferences], string> = {
+  system: "Как в системе",
+  light: "Светлая",
+  dark: "Тёмная",
+  comfortable: "Просторная",
+  compact: "Компактная",
+  reduced: "Минимальная",
+  full: "Полная",
+  standard: "Обычный",
+  large: "Крупный",
+  "extra-large": "Очень крупный",
+};
 
 function parseSpeechRate(value: string): number {
   const parsed = Number(value);

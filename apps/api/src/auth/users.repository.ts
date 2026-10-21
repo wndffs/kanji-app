@@ -7,6 +7,7 @@ import {
   isReviewOrderMode,
   isTranslationDisplayMode,
   normalizeDashboardWidgetPreferences,
+  normalizeInterfacePreferences,
 } from "@kanji-srs/shared";
 
 import { PrismaService } from "../database/prisma.service";
@@ -39,6 +40,11 @@ type PrismaUserWithSettings = {
   readonly displayName: string | null;
   readonly role: "USER" | "ADMIN";
   readonly settings: {
+    readonly interfaceTheme: string;
+    readonly interfaceDensity: string;
+    readonly interfaceMotion: string;
+    readonly studyTextSize: string;
+    readonly studyInformationDensity: string;
     readonly locale: string;
     readonly translationDisplayMode: string;
     readonly timezone: string;
@@ -224,6 +230,7 @@ function toStoredUser(user: PrismaUserWithSettings): StoredUser {
       user.settings === null
         ? DEFAULT_USER_SETTINGS
         : mergeUserSettings({
+            ...normalizeInterfacePreferences(user.settings),
             locale: "ru-RU",
             translationDisplayMode: isTranslationDisplayMode(user.settings.translationDisplayMode)
               ? user.settings.translationDisplayMode

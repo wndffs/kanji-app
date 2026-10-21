@@ -2,6 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 
 import {
   type ContentLocale,
+  type InterfacePreferences,
   type ReviewAnswerResponse,
   type ReviewQueueItem,
   type ReviewSessionSummaryDto,
@@ -24,6 +25,29 @@ type CapturedReviewAnswerRequest = {
 };
 
 test.describe("review session", () => {
+  for (const preset of ["standard", "large", "extra-large"] as const) {
+    test(`keeps ${preset} Japanese text readable without horizontal overflow`, async ({
+      page,
+    }, testInfo) => {
+      await signIn(page, "ru-en", false, { studyTextSize: preset, interfaceTheme: "dark" });
+      await mockReviewApi(page, { queue: [sentenceReviewQueueItem] });
+      await page.goto("/reviews");
+      await page.getByRole("button", { name: "Начать повторение" }).click();
+      const metrics = await page.locator(".review-japanese").evaluate((element) => ({
+        size: Number.parseFloat(getComputedStyle(element).fontSize),
+        width: document.documentElement.scrollWidth,
+        viewport: window.innerWidth,
+      }));
+      const sizes =
+        testInfo.project.name === "mobile"
+          ? { standard: 24, large: 28, "extra-large": 32 }
+          : { standard: 36, large: 42, "extra-large": 48 };
+      expect(metrics.size).toBe(sizes[preset]);
+      expect(metrics.width).toBeLessThanOrEqual(metrics.viewport);
+      await expect(page.locator("html")).toHaveAttribute("data-interface-theme", "dark");
+    });
+  }
+
   test("completes one correct review", async ({ page }) => {
     await signIn(page, "ru-en", true);
     await mockReviewApi(page);
@@ -363,9 +387,15 @@ async function signIn(
   page: Page,
   displayMode: TranslationDisplayMode = "ru-en",
   soundFeedback = false,
+  presentation: Partial<InterfacePreferences> = {},
 ): Promise<void> {
   await page.addInitScript(
-    ({ accessToken, mode, soundFeedback: storedSoundFeedback }) => {
+    ({
+      accessToken,
+      mode,
+      soundFeedback: storedSoundFeedback,
+      presentation: storedPresentation,
+    }) => {
       const audioWindow = window as typeof window & {
         __answerSoundFrequencies: number[];
       };
@@ -420,6 +450,7 @@ async function signIn(
           displayName: "Тестовый ученик",
           role: "USER",
           settings: {
+            ...storedPresentation,
             locale: "ru-RU",
             translationDisplayMode: mode,
             timezone: "Europe/Moscow",
@@ -436,7 +467,7 @@ async function signIn(
         }),
       );
     },
-    { accessToken: ACCESS_TOKEN, mode: displayMode, soundFeedback },
+    { accessToken: ACCESS_TOKEN, mode: displayMode, soundFeedback, presentation },
   );
 }
 

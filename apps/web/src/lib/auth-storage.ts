@@ -5,6 +5,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { type CurrentUserDto } from "./api-client";
+import { storeInterfacePreferences } from "./interface-preferences";
 
 const TOKEN_KEY = "kanji-srs.accessToken";
 const USER_KEY = "kanji-srs.user";
@@ -48,6 +49,7 @@ export function storeSession(session: StoredSession): void {
   window.localStorage.setItem(TOKEN_KEY, session.token);
   window.localStorage.setItem(USER_KEY, JSON.stringify(session.user));
   storeTranslationDisplayMode(session.user.settings.translationDisplayMode);
+  storeInterfacePreferences(session.user.settings);
   window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
 }
 
@@ -58,6 +60,7 @@ export function updateStoredUser(user: CurrentUserDto): void {
 
   window.localStorage.setItem(USER_KEY, JSON.stringify(user));
   storeTranslationDisplayMode(user.settings.translationDisplayMode);
+  storeInterfacePreferences(user.settings);
   window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
 }
 
@@ -68,6 +71,7 @@ export function clearStoredSession(): void {
 
   window.localStorage.removeItem(TOKEN_KEY);
   window.localStorage.removeItem(USER_KEY);
+  storeInterfacePreferences(null);
   window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
 }
 

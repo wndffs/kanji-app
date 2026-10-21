@@ -744,6 +744,11 @@ model UserSettings {
   lessonPronunciationMode String    @default("kana")
   lessonRomaji            Boolean   @default(false)
   dashboardWidgets        Json      @default("[]")
+  interfaceTheme          String    @default("system")
+  interfaceDensity        String    @default("comfortable")
+  interfaceMotion         String    @default("system")
+  studyTextSize           String    @default("standard")
+  studyInformationDensity String    @default("comfortable")
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
   user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)

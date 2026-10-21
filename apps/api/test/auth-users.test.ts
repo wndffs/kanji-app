@@ -1,7 +1,10 @@
 import { type ExecutionContext } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
-import { DEFAULT_DASHBOARD_WIDGET_PREFERENCES } from "@kanji-srs/shared";
+import {
+  DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
+  DEFAULT_INTERFACE_PREFERENCES,
+} from "@kanji-srs/shared";
 
 import { AdminGuard } from "../src/auth/admin.guard";
 import { AuthGuard } from "../src/auth/auth.guard";
@@ -52,6 +55,8 @@ describe("Auth and users", () => {
     expect(storedUser?.passwordHash).toMatch(/^scrypt\$v1\$/);
     expect(storedUser?.passwordHash).not.toContain("correct-password");
     expect(repository.defaultCourseEnrollmentUserIds).toEqual(["user-1"]);
+    expect(session.user.settings).toMatchObject(DEFAULT_INTERFACE_PREFERENCES);
+    expect(storedUser?.settings).toMatchObject(DEFAULT_INTERFACE_PREFERENCES);
   });
 
   it("rejects duplicate registration by normalized email", async () => {

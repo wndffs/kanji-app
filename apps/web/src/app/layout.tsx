@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { APP_NAME } from "@kanji-srs/shared";
 
 import { AppShell } from "../components/AppShell";
+import { InterfacePreferencesSync } from "../components/InterfacePreferencesSync";
+import { INTERFACE_PREFERENCES_BOOTSTRAP } from "../lib/interface-preferences";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,8 +20,12 @@ type RootLayoutProps = {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="ru">
+    <html lang="ru" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: INTERFACE_PREFERENCES_BOOTSTRAP }} />
+      </head>
       <body>
+        <InterfacePreferencesSync />
         <AppShell>{children}</AppShell>
       </body>
     </html>

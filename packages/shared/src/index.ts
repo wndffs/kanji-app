@@ -1,3 +1,5 @@
+export * from "./interface-preferences";
+
 export const APP_NAME = "Кандзи SRS";
 export const DEFAULT_APP_LOCALE = "ru-RU";
 export const DEFAULT_TRANSLATION_DISPLAY_MODE = "ru";

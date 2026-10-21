@@ -1,9 +1,87 @@
 import { expect, type Page, test } from "@playwright/test";
 
+import { DEFAULT_INTERFACE_PREFERENCES } from "@kanji-srs/shared";
+
 const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("settings", () => {
+  test("persists presentation preferences and restores server settings on reload", async ({
+    page,
+  }) => {
+    let settings: Record<string, unknown> = { ...createUser().settings };
+    await signIn(page);
+    await page.route(`${API_BASE_URL}/auth/me`, async (route) => {
+      await route.fulfill({ json: { ...createUser(), settings } });
+    });
+    await page.route(`${API_BASE_URL}/users/settings`, async (route) => {
+      settings = { ...settings, ...route.request().postDataJSON() };
+      await route.fulfill({ json: { ...createUser(), settings } });
+    });
+    await page.goto("/settings");
+    await expect(page.getByText("Загружаю настройки.")).toBeHidden();
+    await page.getByLabel("Тема", { exact: true }).selectOption("dark");
+    await page.getByLabel("Плотность интерфейса", { exact: true }).selectOption("compact");
+    await page.getByLabel("Анимация", { exact: true }).selectOption("reduced");
+    await page.getByLabel("Размер японского текста", { exact: true }).selectOption("extra-large");
+    await page.getByLabel("Плотность учебных блоков", { exact: true }).selectOption("compact");
+    await page.getByRole("button", { name: "Сохранить", exact: true }).click();
+    await expect(page.getByText("Сохранено.")).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("data-interface-theme", "dark");
+    await expect(page.locator("html")).toHaveAttribute("data-interface-density", "compact");
+    await expect(page.locator("html")).toHaveAttribute("data-interface-motion", "reduced");
+    await expect(page.locator("html")).toHaveAttribute("data-study-text-size", "extra-large");
+    await expect(page.locator("html")).toHaveAttribute("data-study-information-density", "compact");
+
+    await page.evaluate(() => {
+      localStorage.removeItem("kanji-srs.interface-preferences");
+      const user = JSON.parse(localStorage.getItem("kanji-srs.user")!);
+      for (const key of [
+        "interfaceTheme",
+        "interfaceDensity",
+        "interfaceMotion",
+        "studyTextSize",
+        "studyInformationDensity",
+      ]) {
+        delete user.settings[key];
+      }
+      localStorage.setItem("kanji-srs.user", JSON.stringify(user));
+    });
+    await page.reload();
+    await expect(page.getByLabel("Тема", { exact: true })).toHaveValue("dark");
+    await expect(page.locator("html")).toHaveAttribute("data-study-text-size", "extra-large");
+    const metrics = await page
+      .getByRole("button", { name: "Сохранить", exact: true })
+      .evaluate((element) => ({
+        height: element.getBoundingClientRect().height,
+        transition: getComputedStyle(element).transitionDuration,
+        width: document.documentElement.scrollWidth,
+        viewport: window.innerWidth,
+      }));
+    expect(metrics.height).toBeGreaterThanOrEqual(44);
+    expect(metrics.transition).toBe("0s");
+    expect(metrics.width).toBeLessThanOrEqual(metrics.viewport);
+  });
+
+  test("honors the OS theme and reduced motion while allowing an explicit light theme", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+    await page.goto("/settings");
+    await expect(page.getByLabel("Тема", { exact: true })).toHaveValue("system");
+    const systemBackground = await page
+      .locator("body")
+      .evaluate((element) => getComputedStyle(element).backgroundColor);
+    await page.getByLabel("Тема", { exact: true }).selectOption("light");
+    await page.getByRole("button", { name: "Сохранить", exact: true }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-interface-theme", "light");
+    expect(
+      await page.locator("body").evaluate((element) => getComputedStyle(element).backgroundColor),
+    ).not.toBe(systemBackground);
+    await page.reload();
+    await expect(page.getByLabel("Тема", { exact: true })).toHaveValue("light");
+  });
+
   test("saves workload controls", async ({ page }) => {
     let receivedSettings: unknown = null;
 
@@ -43,6 +121,7 @@ test.describe("settings", () => {
 
     await expect(page.getByText("Сохранено.")).toBeVisible();
     expect(receivedSettings).toEqual({
+      ...DEFAULT_INTERFACE_PREFERENCES,
       translationDisplayMode: "en",
       timezone: "Asia/Tokyo",
       dailyLessonLimit: 7,

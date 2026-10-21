@@ -1,6 +1,7 @@
 import {
   type AppLocale,
   type DashboardWidgetPreferenceDto,
+  type InterfacePreferences,
   type LessonOrderMode,
   type LessonPronunciationMode,
   type ReviewOrderMode,
@@ -27,7 +28,7 @@ export type UserSettingsDto = {
   readonly lessonPronunciationMode?: LessonPronunciationMode;
   readonly lessonRomaji?: boolean;
   readonly dashboardWidgets?: readonly DashboardWidgetPreferenceDto[];
-};
+} & Partial<InterfacePreferences>;
 
 export type CurrentUserDto = {
   readonly id: string;
