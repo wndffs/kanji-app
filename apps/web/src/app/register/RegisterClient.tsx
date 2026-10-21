@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 
 import { register } from "../../lib/api-client";
 import { storeSession } from "../../lib/auth-storage";
@@ -13,9 +13,13 @@ export function RegisterClient() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => setHydrated(true), []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    if (!hydrated || isSubmitting) return;
     setError(null);
     setIsSubmitting(true);
 
@@ -43,11 +47,16 @@ export function RegisterClient() {
         <h1>Регистрация</h1>
         <p>Новый локальный профиль.</p>
       </div>
-      <form className="form-panel" onSubmit={(event) => void handleSubmit(event)}>
+      <form
+        aria-busy={!hydrated || isSubmitting}
+        className="form-panel"
+        onSubmit={(event) => void handleSubmit(event)}
+      >
         <label>
           Почта
           <input
             autoComplete="email"
+            disabled={!hydrated || isSubmitting}
             onChange={(event) => setEmail(event.currentTarget.value)}
             required
             type="email"
@@ -58,6 +67,7 @@ export function RegisterClient() {
           Имя
           <input
             autoComplete="name"
+            disabled={!hydrated || isSubmitting}
             onChange={(event) => setDisplayName(event.currentTarget.value)}
             type="text"
             value={displayName}
@@ -67,6 +77,7 @@ export function RegisterClient() {
           Пароль
           <input
             autoComplete="new-password"
+            disabled={!hydrated || isSubmitting}
             minLength={8}
             onChange={(event) => setPassword(event.currentTarget.value)}
             required
@@ -75,7 +86,7 @@ export function RegisterClient() {
           />
         </label>
         {error === null ? null : <p className="form-error">{error}</p>}
-        <button className="primary-action" disabled={isSubmitting} type="submit">
+        <button className="primary-action" disabled={!hydrated || isSubmitting} type="submit">
           {isSubmitting ? "Создаю" : "Создать"}
         </button>
       </form>

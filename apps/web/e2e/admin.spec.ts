@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 import {
   type AdminApplyMainCourseEnrollmentRolloutRequest,
@@ -128,6 +128,9 @@ test.describe("admin curation", () => {
   test("admin replaces inferred prerequisite links", async ({ page }) => {
     await signIn(page, "ADMIN");
     await mockAdminApi(page);
+    if (test.info().project.name === "mobile") {
+      await page.setViewportSize({ width: 390, height: 360 });
+    }
 
     await page.goto("/admin");
 
@@ -137,6 +140,7 @@ test.describe("admin curation", () => {
 
     await expect(componentOne).toBeChecked();
     await expect(componentLine).not.toBeChecked();
+    await expectPointerReachable(componentOne);
     await componentOne.uncheck();
     await componentLine.check();
     await editor.getByRole("spinbutton", { name: "Порог SRS для Компонент линия" }).fill("2");
@@ -394,6 +398,9 @@ test.describe("admin curation", () => {
   test("admin stages only selected candidates from the current plan page", async ({ page }) => {
     await signIn(page, "ADMIN");
     await mockAdminApi(page, { multiplePlanCandidates: true });
+    if (test.info().project.name === "mobile") {
+      await page.setViewportSize({ width: 390, height: 360 });
+    }
 
     await page.goto("/admin");
 
@@ -406,6 +413,7 @@ test.describe("admin curation", () => {
     await expect(secondCandidate).toBeChecked();
     await expect(selectPage).toBeChecked();
 
+    await expectPointerReachable(selectPage);
     await selectPage.uncheck();
     await expect(firstCandidate).not.toBeChecked();
     await expect(secondCandidate).not.toBeChecked();
@@ -415,6 +423,7 @@ test.describe("admin curation", () => {
     await expect(firstCandidate).toBeChecked();
     await expect(secondCandidate).toBeChecked();
 
+    await expectPointerReachable(secondCandidate);
     await secondCandidate.uncheck();
     await expect(selectPage).not.toBeChecked();
     await expect(candidatePlan).toContainText("Выбрано 1 из 2");
@@ -518,6 +527,30 @@ test.describe("admin curation", () => {
     await expect(rolloutButton).toBeDisabled();
   });
 });
+
+async function expectPointerReachable(control: Locator): Promise<void> {
+  await control.scrollIntoViewIfNeeded();
+  const screenshot = test.info().outputPath(`admin-control-${Date.now()}.png`);
+  await control.page().screenshot({ path: screenshot });
+  await test.info().attach("admin-control-viewport", {
+    path: screenshot,
+    contentType: "image/png",
+  });
+  await expect
+    .poll(() =>
+      control.evaluate((element) => {
+        const bounds = element.getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          bounds.left + bounds.width / 2,
+          bounds.top + bounds.height / 2,
+        );
+        return hit === element || (hit !== null && element.contains(hit))
+          ? "reachable"
+          : (hit?.outerHTML.slice(0, 240) ?? "outside viewport");
+      }),
+    )
+    .toBe("reachable");
+}
 
 async function signIn(page: Page, role: "USER" | "ADMIN"): Promise<void> {
   await page.addInitScript(

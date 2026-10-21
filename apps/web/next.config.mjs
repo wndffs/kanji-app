@@ -6,6 +6,7 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 /** @type {import("next").NextConfig} */
 const nextConfig = {
   agentRules: false,
+  devIndicators: false,
   experimental: { cpus: 2 },
   output: "standalone",
   outputFileTracingRoot: path.join(dirname, "../.."),

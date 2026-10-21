@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 
 import { login } from "../../lib/api-client";
 import { storeSession } from "../../lib/auth-storage";
@@ -16,9 +16,13 @@ export function LoginClient() {
   const [password, setPassword] = useState(DEMO_LOGIN_PREFILL.password);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => setHydrated(true), []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    if (!hydrated || isSubmitting) return;
     setError(null);
     setIsSubmitting(true);
 
@@ -42,11 +46,16 @@ export function LoginClient() {
         <h1>Вход</h1>
         <p>Локальный аккаунт для разработки уже подставлен.</p>
       </div>
-      <form className="form-panel" onSubmit={(event) => void handleSubmit(event)}>
+      <form
+        aria-busy={!hydrated || isSubmitting}
+        className="form-panel"
+        onSubmit={(event) => void handleSubmit(event)}
+      >
         <label>
           Почта
           <input
             autoComplete="email"
+            disabled={!hydrated || isSubmitting}
             onChange={(event) => setEmail(event.currentTarget.value)}
             required
             type="email"
@@ -57,6 +66,7 @@ export function LoginClient() {
           Пароль
           <input
             autoComplete="current-password"
+            disabled={!hydrated || isSubmitting}
             onChange={(event) => setPassword(event.currentTarget.value)}
             required
             type="password"
@@ -64,7 +74,7 @@ export function LoginClient() {
           />
         </label>
         {error === null ? null : <p className="form-error">{error}</p>}
-        <button className="primary-action" disabled={isSubmitting} type="submit">
+        <button className="primary-action" disabled={!hydrated || isSubmitting} type="submit">
           {isSubmitting ? "Вхожу" : "Войти"}
         </button>
         <Link className="inline-link" href="/register">

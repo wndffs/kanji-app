@@ -51,6 +51,56 @@ type MvpApiState = {
 };
 
 test.describe("final MVP integration path", () => {
+  for (const path of ["login", "register"] as const) {
+    test(`${path} waits for hydration before enabling authentication`, async ({ page }) => {
+      const apiState = await mockMvpApi(page);
+      if (path === "login") apiState.registered = true;
+      const authNavigations: string[] = [];
+      page.on("request", (request) => {
+        if (request.isNavigationRequest() && new URL(request.url()).pathname === `/${path}`) {
+          authNavigations.push(request.url());
+        }
+      });
+      let releaseScripts!: () => void;
+      const scriptsReady = new Promise<void>((resolve) => {
+        releaseScripts = resolve;
+      });
+      await page.route(/\/_next\/static\/.*\.js(?:\?|$)/, async (route) => {
+        await scriptsReady;
+        await route.continue();
+      });
+      const submit = page.getByRole("button", {
+        name: path === "login" ? "Войти" : "Создать",
+        exact: true,
+      });
+      try {
+        await page.goto(`/${path}`, { waitUntil: "commit" });
+        await expect(
+          page.getByRole("heading", {
+            name: path === "login" ? "Вход" : "Регистрация",
+            exact: true,
+          }),
+        ).toBeVisible();
+        await expect(submit).toBeDisabled();
+        await expect(page.getByLabel("Пароль", { exact: true })).toBeDisabled();
+      } finally {
+        releaseScripts();
+      }
+      await expect(submit).toBeEnabled();
+      const screenshot = test.info().outputPath(`${path}-hydrated.png`);
+      await page.screenshot({ path: screenshot });
+      await test.info().attach(`${path}-hydrated`, { path: screenshot, contentType: "image/png" });
+      await page.getByLabel("Почта", { exact: true }).fill(USER_EMAIL);
+      await page.getByLabel("Пароль", { exact: true }).fill(USER_PASSWORD);
+      if (path === "register")
+        await page.getByLabel("Имя", { exact: true }).fill(USER_DISPLAY_NAME);
+      await submit.click();
+      await expect(page).toHaveURL(/\/dashboard$/);
+      await expect(page.getByRole("heading", { name: "Панель", exact: true })).toBeVisible();
+      expect(authNavigations).toHaveLength(1);
+    });
+  }
+
   test("registers, studies, reviews, saves a private answer, and opens the item page", async ({
     page,
   }) => {
@@ -156,7 +206,7 @@ test.describe("final MVP integration path", () => {
   });
 });
 
-async function mockMvpApi(page: Page): Promise<void> {
+async function mockMvpApi(page: Page): Promise<MvpApiState> {
   await page.route(`${API_BASE_URL}/items/item-kanji-one/private-mnemonics`, async (route) => {
     expectAuthorized(route);
     await route.fulfill({ json: [] });
@@ -428,6 +478,7 @@ async function mockMvpApi(page: Page): Promise<void> {
 
     await route.fulfill({ json: buildStarterItemDetails(state) });
   });
+  return state;
 }
 
 function buildStarterLessonSession(phase: "meaning" | "reading" | "context" | "quiz") {

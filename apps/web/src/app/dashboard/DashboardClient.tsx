@@ -713,20 +713,34 @@ function DashboardWidgetEditor({
         })}
       </ol>
 
-      {error === null ? null : (
-        <p className="form-error" role="alert">
-          {error}
-        </p>
-      )}
-
-      <div className="action-row">
-        <button className="primary-action" disabled={saving} onClick={onSave} type="button">
-          {saving ? "Сохраняю" : "Сохранить макет"}
-        </button>
-        <button className="secondary-action" disabled={saving} onClick={onCancel} type="button">
-          Отмена
-        </button>
-      </div>
+      <footer>
+        {error === null ? null : (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="action-row">
+          <button className="primary-action" disabled={saving} onClick={onSave} type="button">
+            {saving ? "Сохраняю" : "Сохранить макет"}
+          </button>
+          <button className="secondary-action" disabled={saving} onClick={onCancel} type="button">
+            Отмена
+          </button>
+        </div>
+      </footer>
+      <style jsx>{`
+        .dashboard-widget-editor {
+          grid-template-rows: auto minmax(0, 1fr) auto;
+          max-height: calc(100dvh - 32px);
+          overflow: hidden;
+        }
+        .dashboard-widget-editor-list {
+          min-height: 0;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          scrollbar-gutter: stable;
+        }
+      `}</style>
     </section>
   );
 }

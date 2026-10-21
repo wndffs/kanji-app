@@ -123,6 +123,13 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       </header>
       <main className="main">{children}</main>
+      <style jsx>{`
+        @media (max-width: 920px), (max-height: 600px) {
+          .topbar {
+            position: static;
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -334,7 +334,9 @@ test.describe("dashboard smoke", () => {
     await expect(
       page.getByRole("heading", { name: "Открыто последними повторениями" }),
     ).toBeVisible();
-    await expect(page.locator('.journey-item-links a[href="/items/new-word"]')).toContainText("一つ");
+    await expect(page.locator('.journey-item-links a[href="/items/new-word"]')).toContainText(
+      "一つ",
+    );
     await expect(page.getByRole("heading", { name: /Путь к.*人口/ })).toBeVisible();
     await expect(page.getByText("этап 3 из 5")).toBeVisible();
     await expect(page.getByLabel("Текущий курс")).toHaveValue("course-1");
@@ -583,6 +585,9 @@ test.describe("dashboard smoke", () => {
   });
 
   test("customizes and persists dashboard widgets", async ({ page }) => {
+    if (test.info().project.name === "desktop") {
+      await page.setViewportSize({ width: 1280, height: 600 });
+    }
     await signIn(page);
     let dashboardWidgets: readonly DashboardWidgetPreferenceDto[] =
       DEFAULT_DASHBOARD_WIDGET_PREFERENCES;
@@ -631,6 +636,16 @@ test.describe("dashboard smoke", () => {
     await page.goto("/dashboard");
     await page.getByRole("button", { name: "Настроить панель" }).click();
     await expect(page.getByTestId("dashboard-widget-setting")).toHaveCount(9);
+    const editor = page.getByRole("region", { name: "Настройка панели", exact: true });
+    await editor.scrollIntoViewIfNeeded();
+    const screenshot = test.info().outputPath("dashboard-editor.png");
+    await page.screenshot({ path: screenshot });
+    await test
+      .info()
+      .attach("dashboard-editor-viewport", { path: screenshot, contentType: "image/png" });
+    expect((await editor.boundingBox())!.height).toBeLessThanOrEqual(
+      page.viewportSize()!.height - 32,
+    );
 
     const forecastSetting = page
       .getByTestId("dashboard-widget-setting")
@@ -646,7 +661,9 @@ test.describe("dashboard smoke", () => {
     await expect(page.getByRole("heading", { name: "Прогноз" })).toBeHidden();
     await expect(page.locator('[data-dashboard-widget="summary"]')).toHaveClass(/compact/);
 
-    await page.getByRole("button", { name: "Сохранить макет" }).click();
+    const saveLayout = editor.getByRole("button", { name: "Сохранить макет" });
+    await expect(saveLayout).toBeInViewport({ ratio: 1 });
+    await saveLayout.click();
     await expect(page.getByRole("heading", { name: "Настройка панели" })).toBeHidden();
     expect(savedWidgets.find(({ id }) => id === "review-forecast")?.visible).toBe(false);
     expect(savedWidgets.find(({ id }) => id === "summary")?.presentation).toBe("compact");
