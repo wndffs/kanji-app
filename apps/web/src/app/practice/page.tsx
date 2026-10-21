@@ -9,7 +9,7 @@ export default async function PracticePage({
 }) {
   const source = parsePracticeSource((await searchParams).source);
 
-  return <PracticeClient initialSource={source} />;
+  return <PracticeClient key={source} initialSource={source} />;
 }
 
 function parsePracticeSource(value: string | readonly string[] | undefined): PracticeSource {

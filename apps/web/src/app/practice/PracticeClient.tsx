@@ -48,7 +48,7 @@ export function PracticeClient({
 }) {
   const router = useRouter();
   const displayMode = useTranslationDisplayMode();
-  const [source, setSource] = useState<PracticeSource>(initialSource);
+  const source = initialSource;
   const [queueState, setQueueState] = useState<QueueState>({ status: "loading" });
   const [practiceSession, setPracticeSession] = useState<PracticeSessionDto | null>(null);
   const [isPracticing, setIsPracticing] = useState(false);
@@ -67,8 +67,10 @@ export function PracticeClient({
   });
   const answerInputRef = useRef<HTMLInputElement>(null);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
+  const requestRevision = useRef(0);
 
   const loadQueue = useCallback(async () => {
+    const revision = ++requestRevision.current;
     const storedSession = readStoredSession();
 
     if (storedSession === null) {
@@ -92,9 +94,11 @@ export function PracticeClient({
         getPracticeQueue(storedSession.token, source),
         getActivePracticeSession(storedSession.token, source),
       ]);
+      if (revision !== requestRevision.current) return;
 
       if (active.session !== null && active.session.currentIndex >= active.session.totalItems) {
         const finished = await finishPracticeSession(storedSession.token, active.session.id);
+        if (revision !== requestRevision.current) return;
         setQueueState({ status: "ready", token: storedSession.token, items: queue.items });
         setFinishedSummary(finished.summary);
         return;
@@ -110,6 +114,7 @@ export function PracticeClient({
 
       setQueueState({ status: "ready", token: storedSession.token, items: queue.items });
     } catch (requestError: unknown) {
+      if (revision !== requestRevision.current) return;
       if (requestError instanceof ApiError && requestError.status === 401) {
         clearStoredSession();
         setQueueState({ status: "unauthenticated" });
@@ -128,6 +133,9 @@ export function PracticeClient({
 
   useEffect(() => {
     void loadQueue();
+    return () => {
+      requestRevision.current += 1;
+    };
   }, [loadQueue]);
 
   const currentItem =
@@ -156,8 +164,7 @@ export function PracticeClient({
 
   function handleSourceChange(nextSource: PracticeSource): void {
     if (nextSource !== source) {
-      router.replace(`/practice?source=${encodeURIComponent(nextSource)}`, { scroll: false });
-      setSource(nextSource);
+      router.push(`/practice?source=${encodeURIComponent(nextSource)}`, { scroll: false });
     }
   }
 
@@ -472,7 +479,7 @@ export function PracticeClient({
           aria-label="Результат ответа"
         >
           <div className="feedback-header">
-            <div>
+            <div role="status" aria-atomic="true">
               <span className="eyebrow">
                 {feedback.retry ? "Другое чтение" : formatResult(feedback.result)}
               </span>

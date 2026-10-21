@@ -24,6 +24,56 @@ type CapturedPracticeAnswerRequest = {
 };
 
 test.describe("optional practice", () => {
+  for (const staleStatus of [200, 401]) {
+    test(`restores the practice source with Back and ignores a late ${staleStatus}`, async ({
+      page,
+    }) => {
+      let release = () => {};
+      let started = () => {};
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const requested = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      await signIn(page);
+      await mockPracticeApi(page);
+      await page.route(`${API_BASE_URL}/reviews/practice/queue?source=burned`, async (route) => {
+        started();
+        await held;
+        await route.fulfill({
+          status: staleStatus,
+          json:
+            staleStatus === 200
+              ? { source: "burned", items: [secondPracticeItem] }
+              : { message: "Expired old request" },
+        });
+      });
+      await page.goto("/practice?source=recent-lessons");
+      await expect(page.getByRole("button", { name: "Начать практику" })).toBeVisible();
+      await page.getByRole("tab", { name: "Сожжённые" }).click();
+      await requested;
+      await expect(page).toHaveURL(/source=burned$/);
+      await page.goBack();
+      await expect(page).toHaveURL(/source=recent-lessons$/);
+      await expect(page.getByRole("button", { name: "Начать практику" })).toBeVisible();
+      const lateResponse = page.waitForResponse((response) =>
+        response.url().includes("queue?source=burned"),
+      );
+      release();
+      await lateResponse;
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+      await expect(page.getByText("学", { exact: true })).toBeVisible();
+      await expect(page.getByText("火", { exact: true })).toBeHidden();
+      await expect(page.getByRole("link", { name: "Войти", exact: true })).toBeHidden();
+    });
+  }
+
   test("practises a selected source without showing an SRS transition", async ({ page }) => {
     await signIn(page);
     await mockPracticeApi(page);
