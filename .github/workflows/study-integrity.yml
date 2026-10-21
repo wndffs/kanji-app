@@ -1,0 +1,58 @@
+name: Study integrity
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: study-integrity-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reviews-postgres:
+    name: Review integrity / PostgreSQL 18
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: kanji
+          POSTGRES_PASSWORD: integration-only
+          POSTGRES_DB: kanji_integration
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kanji -d kanji_integration"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://kanji:integration-only@localhost:5432/kanji_integration?schema=public
+      INTEGRATION_DATABASE_URL: postgresql://kanji:integration-only@localhost:5432/kanji_integration?schema=public
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Apply migrations to isolated integration database
+        run: npm run db:migrate:deploy
+
+      - name: Run PostgreSQL concurrency regressions
+        run: npm exec -- vitest run apps/api/test/reviews-postgres.integration.test.ts --maxWorkers=1
