@@ -1,5 +1,7 @@
 import { Inject, Injectable, Optional } from "@nestjs/common";
 
+import { withNeonConnectionDefaults } from "@kanji-srs/db";
+
 import {
   DEFAULT_TRANSLATION_DISPLAY_MODE,
   type AppLocale,
@@ -104,7 +106,7 @@ export class AppConfigService {
 
 export function buildConfigSnapshot(env: NodeJS.ProcessEnv): ApiConfigSnapshot {
   const environment = parseEnvironment(env.NODE_ENV);
-  const databaseUrl = env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
+  const databaseUrl = withNeonConnectionDefaults(env.DATABASE_URL ?? DEFAULT_DATABASE_URL);
   const authMode = parseAuthMode(env.AUTH_MODE);
   const authTokenSecret = env.AUTH_TOKEN_SECRET ?? DEFAULT_AUTH_TOKEN_SECRET;
 

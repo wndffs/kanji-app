@@ -3,6 +3,17 @@ import { describe, expect, it } from "vitest";
 import { AppConfigService, buildConfigSnapshot } from "../src/config/app-config.service";
 
 describe("buildConfigSnapshot", () => {
+  it("applies bounded Neon cold-start defaults without exposing the configured URL", () => {
+    const config = new AppConfigService({
+      DATABASE_URL: "postgresql://owner:private-password@ep-example.neon.tech/app?sslmode=require",
+    });
+    const connection = new URL(config.databaseUrl);
+    expect(connection.searchParams.get("connect_timeout")).toBe("15");
+    expect(connection.searchParams.get("pool_timeout")).toBe("15");
+    expect(connection.searchParams.get("sslmode")).toBe("require");
+    expect(JSON.stringify(config)).not.toContain("private-password");
+  });
+
   it("redacts connection credentials when configuration is serialized", () => {
     const config = new AppConfigService({
       DATABASE_URL: "postgresql://owner:database-private-password@example.test/app",
