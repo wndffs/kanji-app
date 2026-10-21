@@ -33,6 +33,24 @@ export class OverridesController {
     return this.overridesService.deleteAcceptedAnswer(cardId, overrideId, currentUser);
   }
 
+  @Put("cards/:cardId/overrides/:overrideId")
+  replaceAcceptedAnswer(
+    @Param("cardId") cardId: string,
+    @Param("overrideId") overrideId: string,
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Body() body: unknown,
+  ) {
+    return this.overridesService.replaceAcceptedAnswer(cardId, overrideId, currentUser, body);
+  }
+
+  @Get("items/:itemId/private-mnemonics")
+  listPrivateMnemonics(
+    @Param("itemId") itemId: string,
+    @CurrentUser() currentUser: CurrentUserDto,
+  ) {
+    return this.overridesService.listPrivateMnemonics(itemId, currentUser);
+  }
+
   @Put("items/:itemId/private-mnemonic")
   savePrivateMnemonic(
     @Param("itemId") itemId: string,

@@ -74,6 +74,12 @@ export type UpsertAcceptedAnswerInput = {
   readonly note: string | null;
 };
 
+export type ReplaceAcceptedAnswerInput = UpsertAcceptedAnswerInput & {
+  readonly overrideId: string;
+};
+
+export class AcceptedAnswerCollisionError extends Error {}
+
 export type UpsertPrivateMnemonicInput = {
   readonly userId: string;
   readonly learningItemId: string;

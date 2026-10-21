@@ -1042,6 +1042,28 @@ export function deletePrivateAcceptedAnswer(
   );
 }
 
+export function replacePrivateAcceptedAnswer(
+  token: string,
+  cardId: string,
+  overrideId: string,
+  input: AddPrivateAcceptedAnswerInput,
+): Promise<UserOverrideDto> {
+  return apiRequest<UserOverrideDto>(
+    `/cards/${encodeURIComponent(cardId)}/overrides/${encodeURIComponent(overrideId)}`,
+    { method: "PUT", token, body: input },
+  );
+}
+
+export function getPrivateMnemonics(
+  token: string,
+  itemId: string,
+): Promise<readonly UserMnemonicDto[]> {
+  return apiRequest<readonly UserMnemonicDto[]>(
+    `/items/${encodeURIComponent(itemId)}/private-mnemonics`,
+    { token },
+  );
+}
+
 export function savePrivateMnemonic(
   token: string,
   itemId: string,

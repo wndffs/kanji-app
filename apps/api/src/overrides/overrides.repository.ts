@@ -3,7 +3,9 @@ import { Inject, Injectable } from "@nestjs/common";
 import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
 import { PrismaService } from "../database/prisma.service";
 import {
+  AcceptedAnswerCollisionError,
   type CardAnswerValidationRecord,
+  type ReplaceAcceptedAnswerInput,
   type UpsertAcceptedAnswerInput,
   type UpsertPrivateMnemonicInput,
   type UserAcceptedAnswerRecord,
@@ -20,12 +22,19 @@ export abstract class OverridesRepository {
   abstract upsertAcceptedAnswer(
     input: UpsertAcceptedAnswerInput,
   ): Promise<UserAcceptedAnswerRecord>;
+  abstract replaceAcceptedAnswer(
+    input: ReplaceAcceptedAnswerInput,
+  ): Promise<UserAcceptedAnswerRecord | null>;
   abstract deleteAcceptedAnswer(
     userId: string,
     cardId: string,
     overrideId: string,
   ): Promise<boolean>;
   abstract upsertPrivateMnemonic(input: UpsertPrivateMnemonicInput): Promise<UserMnemonicRecord>;
+  abstract listPrivateMnemonics(
+    userId: string,
+    learningItemId: string,
+  ): Promise<readonly UserMnemonicRecord[]>;
   abstract deletePrivateMnemonic(
     userId: string,
     learningItemId: string,
@@ -153,6 +162,42 @@ export class PrismaOverridesRepository extends OverridesRepository {
     return toAcceptedAnswerRecord(override as UserItemOverrideRow);
   }
 
+  async replaceAcceptedAnswer(
+    input: ReplaceAcceptedAnswerInput,
+  ): Promise<UserAcceptedAnswerRecord | null> {
+    const overrideType = input.answerKind === "reading" ? "ACCEPTED_READING" : "ACCEPTED_MEANING";
+
+    try {
+      // A single guarded UPDATE preserves the original on any constraint or write failure.
+      const override = await this.prisma.db.userItemOverride.update({
+        where: {
+          id: input.overrideId,
+          userId: input.userId,
+          learningCardId: input.cardId,
+          overrideType,
+        },
+        data: {
+          locale: input.locale,
+          text: input.text,
+          normalizedText: input.normalizedText,
+          note: input.note,
+        },
+      });
+
+      return toAcceptedAnswerRecord(override as UserItemOverrideRow);
+    } catch (error: unknown) {
+      if (typeof error === "object" && error !== null && "code" in error) {
+        if (error.code === "P2025") {
+          return null;
+        }
+        if (error.code === "P2002") {
+          throw new AcceptedAnswerCollisionError();
+        }
+      }
+      throw error;
+    }
+  }
+
   async deleteAcceptedAnswer(userId: string, cardId: string, overrideId: string): Promise<boolean> {
     const result = await this.prisma.db.userItemOverride.deleteMany({
       where: {
@@ -191,6 +236,18 @@ export class PrismaOverridesRepository extends OverridesRepository {
     });
 
     return toUserMnemonicRecord(mnemonic as UserMnemonicRow);
+  }
+
+  async listPrivateMnemonics(
+    userId: string,
+    learningItemId: string,
+  ): Promise<readonly UserMnemonicRecord[]> {
+    const rows = await this.prisma.db.userMnemonic.findMany({
+      where: { userId, learningItemId },
+      orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }],
+    });
+
+    return rows.map((row) => toUserMnemonicRecord(row as UserMnemonicRow));
   }
 
   async deletePrivateMnemonic(

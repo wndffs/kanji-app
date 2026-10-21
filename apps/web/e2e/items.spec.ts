@@ -20,15 +20,16 @@ test.describe("item details", () => {
 
     await page.goto(`/items/${ITEM_ID}`);
 
-    await expect(page.getByText("Кандзи", { exact: true })).toBeVisible();
+    await expect(page.locator(".item-hero-main > .eyebrow")).toHaveText("Кандзи");
     await expect(page.getByRole("heading", { name: "一" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Значения" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Глобальные ответы" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Порядок черт" })).toBeVisible();
     await expect(page.getByTestId("kanji-stroke-graphic")).toBeVisible();
     await expect(page.getByTestId("kanji-stroke-graphic").locator("path")).toHaveCount(1);
-    await expect(page.getByText("KANJIDIC2")).toBeVisible();
-    await expect(page.getByText("KanjiVG", { exact: true })).toBeVisible();
+    const sources = page.getByRole("heading", { name: "Источники", exact: true }).locator("..");
+    await expect(sources.getByText("KANJIDIC2", { exact: true })).toBeVisible();
+    await expect(sources.getByText("KanjiVG", { exact: true })).toBeVisible();
   });
 
   test("suggests mnemonic review for leech items", async ({ page }) => {
@@ -136,6 +137,77 @@ test.describe("item details", () => {
       mnemonicPanel.locator(".lesson-text-list").getByText("Один чистый штрих."),
     ).toBeVisible();
   });
+
+  test("preserves a synonym when replacement fails and retries with one PUT", async ({ page }) => {
+    await signIn(page);
+    const original = buildOverride("original", "единица");
+    const mock = await mockItemApi(page, { overrides: [original], failReplacement: true });
+    await page.goto(`/items/${ITEM_ID}`);
+    const panel = privatePanel(page, "Приватные ответы");
+    await panel.getByRole("button", { name: "Изменить", exact: true }).click();
+    await page.getByTestId("private-answer-text").fill("единичка");
+    await page.getByTestId("private-answer-submit").click();
+    await expect(page.locator(".item-page").getByRole("alert")).toHaveText("Replacement failed");
+    expect(mock.privateOverrides).toEqual([original]);
+    expect(mock.overrideDeletes).toEqual([]);
+    await page.reload();
+    await expect(panel.locator(".private-override-list strong")).toHaveText("единица");
+    await panel.getByRole("button", { name: "Изменить", exact: true }).click();
+    await page.getByTestId("private-answer-text").fill("единичка");
+    await page.getByTestId("private-answer-submit").click();
+    await expect(panel.locator(".private-override-list strong")).toHaveText("единичка");
+    expect(mock.privateOverrides).toMatchObject([{ id: original.id, text: "единичка" }]);
+    expect(mock.replacementMethods).toEqual(["PUT", "PUT"]);
+    expect(mock.overrideDeletes).toEqual([]);
+  });
+
+  test("loads exact mnemonic locale/type, retains drafts, and preserves other stored notes", async ({
+    page,
+  }) => {
+    await signIn(page);
+    // Editing remains independent of the learning-content display filter.
+    await page.addInitScript(() =>
+      window.localStorage.setItem("kanji-srs.translationDisplayMode", "ru"),
+    );
+    const originals = (["ru-RU", "en-US"] as const).flatMap((locale) =>
+      (["story", "meaning", "reading"] as const).map((mnemonicType) =>
+        buildMnemonic(locale, mnemonicType),
+      ),
+    );
+    const mock = await mockItemApi(page, { mnemonics: originals });
+    await page.goto(`/items/${ITEM_ID}`);
+    const form = page.getByTestId("private-mnemonic-form");
+    const body = page.getByTestId("private-mnemonic-body");
+    await expect(body).toHaveValue("ru-RU:story");
+    await body.fill("unsaved RU story");
+    await form.getByRole("combobox", { name: "Язык", exact: true }).selectOption("en-US");
+    await expect(body).toHaveValue("en-US:story");
+    await form.getByRole("combobox", { name: "Тип", exact: true }).selectOption("reading");
+    await expect(body).toHaveValue("en-US:reading");
+    await body.fill("updated EN reading");
+    await form.getByRole("combobox", { name: "Язык", exact: true }).selectOption("ru-RU");
+    await expect(body).toHaveValue("ru-RU:reading");
+    await form.getByRole("combobox", { name: "Тип", exact: true }).selectOption("story");
+    await expect(body).toHaveValue("unsaved RU story");
+    await form.getByRole("combobox", { name: "Язык", exact: true }).selectOption("en-US");
+    await form.getByRole("combobox", { name: "Тип", exact: true }).selectOption("reading");
+    await expect(body).toHaveValue("updated EN reading");
+    await page.getByTestId("private-mnemonic-submit").click();
+    await expect(page.getByText("Приватная заметка сохранена.")).toBeVisible();
+    expect(mock.mnemonics.filter((note) => note.body !== "updated EN reading")).toEqual(
+      originals.filter((note) => note.locale !== "en-US" || note.mnemonicType !== "reading"),
+    );
+    await page.reload();
+    await expect(body).toHaveValue("ru-RU:story");
+    await form.getByRole("combobox", { name: "Язык", exact: true }).selectOption("en-US");
+    await form.getByRole("combobox", { name: "Тип", exact: true }).selectOption("reading");
+    await expect(body).toHaveValue("updated EN reading");
+    await form.getByRole("button", { name: "Удалить заметку", exact: true }).click();
+    await expect(body).toHaveValue("");
+    expect(mock.mnemonics).toEqual(
+      originals.filter((note) => note.locale !== "en-US" || note.mnemonicType !== "reading"),
+    );
+  });
 });
 
 function privatePanel(page: Page, heading: string) {
@@ -145,6 +217,9 @@ function privatePanel(page: Page, heading: string) {
 }
 
 async function signIn(page: Page): Promise<void> {
+  await page.route(`${API_BASE_URL}/items/*/private-mnemonics`, async (route) => {
+    await route.fulfill({ json: [] });
+  });
   await page.addInitScript(
     ({ accessToken }) => {
       window.localStorage.setItem("kanji-srs.accessToken", accessToken);
@@ -171,9 +246,36 @@ async function signIn(page: Page): Promise<void> {
   );
 }
 
-async function mockItemApi(page: Page): Promise<void> {
-  const privateOverrides: UserOverrideDto[] = [];
-  let privateMnemonic: UserMnemonicDto | null = null;
+async function mockItemApi(
+  page: Page,
+  options: {
+    readonly overrides?: readonly UserOverrideDto[];
+    readonly mnemonics?: readonly UserMnemonicDto[];
+    readonly failReplacement?: boolean;
+  } = {},
+) {
+  const privateOverrides = [...(options.overrides ?? [])];
+  const mnemonics = [...(options.mnemonics ?? [])];
+  const overrideDeletes: string[] = [];
+  const replacementMethods: string[] = [];
+  let failReplacement = options.failReplacement ?? false;
+  const details = (): ItemDetails => {
+    const item = buildItemDetails(privateOverrides, null);
+    return {
+      ...item,
+      mnemonics: {
+        ru: [
+          ...item.mnemonics.ru,
+          ...mnemonics
+            .filter((note) => note.locale === "ru-RU")
+            .map((note) => ({ locale: note.locale, text: note.body, sourceKind: "user" as const })),
+        ],
+        en: mnemonics
+          .filter((note) => note.locale === "en-US")
+          .map((note) => ({ locale: note.locale, text: note.body, sourceKind: "user" as const })),
+      },
+    };
+  };
 
   await page.route(`${API_BASE_URL}/confusables?itemId=*`, async (route) => {
     await route.fulfill({ json: { pairs: [] } });
@@ -181,13 +283,13 @@ async function mockItemApi(page: Page): Promise<void> {
 
   await page.route(`${API_BASE_URL}/items/${ITEM_ID}`, async (route) => {
     await route.fulfill({
-      json: buildItemDetails(privateOverrides, privateMnemonic),
+      json: details(),
     });
   });
 
   await page.route(`${API_BASE_URL}/kanji/${encodeURIComponent("一")}`, async (route) => {
     await route.fulfill({
-      json: buildItemDetails(privateOverrides, privateMnemonic),
+      json: details(),
     });
   });
 
@@ -233,19 +335,51 @@ async function mockItemApi(page: Page): Promise<void> {
     await route.fulfill({ json: override });
   });
 
-  await page.route(`${API_BASE_URL}/items/${ITEM_ID}/private-mnemonic`, async (route) => {
+  await page.route(`${API_BASE_URL}/cards/card-kanji-one-meaning/overrides/*`, async (route) => {
+    const id = route.request().url().split("/").at(-1)!;
+    const index = privateOverrides.findIndex((entry) => entry.id === id);
     if (route.request().method() === "DELETE") {
-      privateMnemonic = null;
+      overrideDeletes.push(id);
+      if (index !== -1) privateOverrides.splice(index, 1);
       await route.fulfill({ json: { deleted: true } });
       return;
     }
+    replacementMethods.push(route.request().method());
+    if (failReplacement) {
+      failReplacement = false;
+      await route.fulfill({ status: 503, json: { message: "Replacement failed" } });
+      return;
+    }
+    const input = route.request().postDataJSON() as {
+      text: string;
+      locale: ContentLocale;
+      note: string | null;
+    };
+    const updated = { ...privateOverrides[index]!, ...input, normalizedText: input.text };
+    privateOverrides[index] = updated;
+    await route.fulfill({ json: updated });
+  });
 
+  await page.route(`${API_BASE_URL}/items/${ITEM_ID}/private-mnemonics`, async (route) => {
+    await route.fulfill({ json: mnemonics });
+  });
+
+  await page.route(`${API_BASE_URL}/items/${ITEM_ID}/private-mnemonic`, async (route) => {
     const body = route.request().postDataJSON() as {
       readonly body?: string;
       readonly locale?: ContentLocale;
       readonly mnemonicType?: UserMnemonicDto["mnemonicType"];
     };
-    privateMnemonic = {
+    const index = mnemonics.findIndex(
+      (note) => note.locale === body.locale && note.mnemonicType === body.mnemonicType,
+    );
+    if (route.request().method() === "DELETE") {
+      if (index !== -1) mnemonics.splice(index, 1);
+      await route.fulfill({ json: { deleted: true } });
+      return;
+    }
+
+    const privateMnemonic: UserMnemonicDto = {
       id: "mnemonic-1",
       learningItemId: ITEM_ID,
       locale: body.locale ?? "ru-RU",
@@ -254,9 +388,41 @@ async function mockItemApi(page: Page): Promise<void> {
       createdAt: "2026-06-22T08:02:00.000Z",
       updatedAt: "2026-06-22T08:03:00.000Z",
     };
+    if (index === -1) mnemonics.push(privateMnemonic);
+    else mnemonics[index] = privateMnemonic;
 
     await route.fulfill({ json: { mnemonic: privateMnemonic } });
   });
+  return { privateOverrides, mnemonics, overrideDeletes, replacementMethods };
+}
+
+function buildOverride(id: string, text: string): UserOverrideDto {
+  return {
+    id,
+    text,
+    normalizedText: text,
+    learningCardId: "card-kanji-one-meaning",
+    kind: "accepted-answer",
+    locale: "ru-RU",
+    note: null,
+    createdAt: "2026-06-22T08:00:00.000Z",
+    updatedAt: "2026-06-22T08:00:00.000Z",
+  };
+}
+
+function buildMnemonic(
+  locale: ContentLocale,
+  mnemonicType: UserMnemonicDto["mnemonicType"],
+): UserMnemonicDto {
+  return {
+    id: `${locale}:${mnemonicType}`,
+    learningItemId: ITEM_ID,
+    locale,
+    mnemonicType,
+    body: `${locale}:${mnemonicType}`,
+    createdAt: "2026-06-22T08:00:00.000Z",
+    updatedAt: "2026-06-22T08:00:00.000Z",
+  };
 }
 
 function buildItemDetails(

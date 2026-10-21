@@ -157,6 +157,10 @@ test.describe("final MVP integration path", () => {
 });
 
 async function mockMvpApi(page: Page): Promise<void> {
+  await page.route(`${API_BASE_URL}/items/item-kanji-one/private-mnemonics`, async (route) => {
+    expectAuthorized(route);
+    await route.fulfill({ json: [] });
+  });
   const state: MvpApiState = {
     registered: false,
     loggedIn: false,

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   getContentLocalesForDisplayMode,
@@ -13,6 +13,7 @@ import {
   type LocalizedTextDto,
   type TranslationBundleDto,
   type TranslationDisplayMode,
+  type UserMnemonicDto,
   type UserOverrideDto,
 } from "@kanji-srs/shared";
 
@@ -26,6 +27,8 @@ import {
   getItemReviewHistory,
   getConfusablePairs,
   getKanjiDetails,
+  getPrivateMnemonics,
+  replacePrivateAcceptedAnswer,
   savePrivateMnemonic,
 } from "../../lib/api-client";
 import {
@@ -34,6 +37,12 @@ import {
   readTranslationDisplayMode,
 } from "../../lib/auth-storage";
 import { formatSrsStageName } from "../../lib/dashboard-format";
+import {
+  editMnemonicBody,
+  resolveMnemonicForm,
+  selectMnemonicForm,
+  type MnemonicFormState,
+} from "../../lib/private-mnemonic-editor";
 import { safeExternalUrl } from "../../lib/safe-url";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
@@ -61,12 +70,6 @@ type AcceptedAnswerFormState = {
   readonly editingOverride: UserOverrideDto | null;
 };
 
-type MnemonicFormState = {
-  readonly locale: ContentLocale;
-  readonly mnemonicType: "meaning" | "reading" | "story";
-  readonly body: string;
-};
-
 const EMPTY_ACCEPTED_FORM: AcceptedAnswerFormState = {
   cardId: "",
   answerKind: "meaning",
@@ -80,6 +83,7 @@ const EMPTY_MNEMONIC_FORM: MnemonicFormState = {
   locale: "ru-RU",
   mnemonicType: "story",
   body: "",
+  drafts: {},
 };
 
 export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
@@ -87,6 +91,9 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
   const [state, setState] = useState<ItemState>({ status: "loading" });
   const [acceptedForm, setAcceptedForm] = useState<AcceptedAnswerFormState>(EMPTY_ACCEPTED_FORM);
   const [mnemonicForm, setMnemonicForm] = useState<MnemonicFormState>(EMPTY_MNEMONIC_FORM);
+  const [privateMnemonics, setPrivateMnemonics] = useState<readonly UserMnemonicDto[]>([]);
+  const itemLoadVersion = useRef(0);
+  const loadedItemScope = useRef<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSavingAcceptedAnswer, setIsSavingAcceptedAnswer] = useState(false);
@@ -95,6 +102,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
   const [confusablePairs, setConfusablePairs] = useState<readonly ConfusablePairSummaryDto[]>([]);
 
   const loadItem = useCallback(async () => {
+    const version = ++itemLoadVersion.current;
     const storedSession = readStoredSession();
     const token = storedSession?.token ?? null;
     const displayMode =
@@ -114,6 +122,20 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
         lookup.type === "kanji"
           ? await getKanjiDetails(lookup.value, token)
           : await getItemDetails(lookup.value, token);
+      const mnemonics = token === null ? [] : await getPrivateMnemonics(token, item.id);
+      if (version !== itemLoadVersion.current) {
+        return;
+      }
+      const scope = `${storedSession?.user.id ?? "guest"}:${item.id}`;
+      const sameItem = loadedItemScope.current === scope;
+      loadedItemScope.current = scope;
+      setPrivateMnemonics(mnemonics);
+      setAcceptedForm((previous) =>
+        resolveAcceptedFormDefaults(sameItem ? previous : EMPTY_ACCEPTED_FORM, item),
+      );
+      setMnemonicForm((previous) =>
+        resolveMnemonicForm(sameItem ? previous : EMPTY_MNEMONIC_FORM, mnemonics),
+      );
 
       setState({
         status: "ready",
@@ -124,14 +146,20 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
       });
       if (token !== null && item.itemType === "kanji") {
         try {
-          setConfusablePairs((await getConfusablePairs(token, item.id)).pairs);
+          const pairs = await getConfusablePairs(token, item.id);
+          if (version === itemLoadVersion.current) {
+            setConfusablePairs(pairs.pairs);
+          }
         } catch {
-          setConfusablePairs([]);
+          if (version === itemLoadVersion.current) {
+            setConfusablePairs([]);
+          }
         }
       }
-      setAcceptedForm((previous) => resolveAcceptedFormDefaults(previous, item));
-      setMnemonicForm((previous) => resolveMnemonicFormDefaults(previous, item, displayMode));
     } catch (error: unknown) {
+      if (version !== itemLoadVersion.current) {
+        return;
+      }
       if (error instanceof ApiError && error.status === 401) {
         clearStoredSession();
       }
@@ -145,6 +173,9 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
 
   useEffect(() => {
     void loadItem();
+    return () => {
+      itemLoadVersion.current += 1;
+    };
   }, [loadItem]);
 
   const editableCards = useMemo(() => {
@@ -195,20 +226,22 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
     setStatusMessage(null);
 
     try {
-      if (acceptedForm.editingOverride !== null) {
-        await deletePrivateAcceptedAnswer(
-          state.token,
-          acceptedForm.editingOverride.learningCardId,
-          acceptedForm.editingOverride.id,
-        );
-      }
-
-      await addPrivateAcceptedAnswer(state.token, card.id, {
+      const input = {
         answerKind: card.answerType,
         text,
         locale: acceptedForm.locale,
         note: acceptedForm.note.trim() === "" ? null : acceptedForm.note.trim(),
-      });
+      };
+      if (acceptedForm.editingOverride !== null) {
+        await replacePrivateAcceptedAnswer(
+          state.token,
+          acceptedForm.editingOverride.learningCardId,
+          acceptedForm.editingOverride.id,
+          input,
+        );
+      } else {
+        await addPrivateAcceptedAnswer(state.token, card.id, input);
+      }
       setAcceptedForm(resolveAcceptedFormDefaults(EMPTY_ACCEPTED_FORM, state.item));
       await loadItem();
       setStatusMessage("Приватный ответ сохранён.");
@@ -220,10 +253,11 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
   }
 
   async function handleDeleteAcceptedAnswer(override: UserOverrideDto): Promise<void> {
-    if (state.status !== "ready" || state.token === null) {
+    if (state.status !== "ready" || state.token === null || isSavingAcceptedAnswer) {
       return;
     }
 
+    setIsSavingAcceptedAnswer(true);
     setFormError(null);
     setStatusMessage(null);
 
@@ -233,10 +267,15 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
       setStatusMessage("Приватный ответ удалён.");
     } catch (error: unknown) {
       setFormError(error instanceof Error ? error.message : "Не удалось удалить ответ.");
+    } finally {
+      setIsSavingAcceptedAnswer(false);
     }
   }
 
   function handleEditAcceptedAnswer(override: UserOverrideDto): void {
+    if (isSavingAcceptedAnswer) {
+      return;
+    }
     const card = state.status === "ready" ? findCardForOverride(state.item.cards, override) : null;
 
     setAcceptedForm({
@@ -275,6 +314,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
         mnemonicType: mnemonicForm.mnemonicType,
         body,
       });
+      setMnemonicForm((previous) => editMnemonicBody(previous, body));
       await loadItem();
       setStatusMessage("Приватная заметка сохранена.");
     } catch (error: unknown) {
@@ -285,10 +325,11 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
   }
 
   async function handleDeleteMnemonic(): Promise<void> {
-    if (state.status !== "ready" || state.token === null) {
+    if (state.status !== "ready" || state.token === null || isSavingMnemonic) {
       return;
     }
 
+    setIsSavingMnemonic(true);
     setFormError(null);
     setStatusMessage(null);
 
@@ -297,11 +338,13 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
         locale: mnemonicForm.locale,
         mnemonicType: mnemonicForm.mnemonicType,
       });
-      setMnemonicForm({ ...mnemonicForm, body: "" });
+      setMnemonicForm((previous) => editMnemonicBody(previous, ""));
       await loadItem();
       setStatusMessage("Приватная заметка удалена.");
     } catch (error: unknown) {
       setFormError(error instanceof Error ? error.message : "Не удалось удалить заметку.");
+    } finally {
+      setIsSavingMnemonic(false);
     }
   }
 
@@ -590,6 +633,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
                   <label>
                     <span>Тип</span>
                     <select
+                      disabled={isSavingAcceptedAnswer || acceptedForm.editingOverride !== null}
                       onChange={(event) => {
                         const answerKind = event.currentTarget.value as CardAnswerType;
 
@@ -614,6 +658,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
                   <label>
                     <span>Карточка</span>
                     <select
+                      disabled={isSavingAcceptedAnswer || acceptedForm.editingOverride !== null}
                       onChange={(event) => {
                         const cardId = event.currentTarget.value;
 
@@ -639,6 +684,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
                     <label>
                       <span>Язык</span>
                       <select
+                        disabled={isSavingAcceptedAnswer}
                         onChange={(event) => {
                           const locale = event.currentTarget.value as ContentLocale;
 
@@ -658,6 +704,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
                     <span>Ответ</span>
                     <input
                       data-testid="private-answer-text"
+                      disabled={isSavingAcceptedAnswer}
                       onChange={(event) => {
                         const text = event.currentTarget.value;
 
@@ -674,6 +721,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
                     <input
                       aria-label="Заметка к приватному ответу"
                       data-testid="private-answer-note"
+                      disabled={isSavingAcceptedAnswer}
                       onChange={(event) => {
                         const note = event.currentTarget.value;
 
@@ -693,8 +741,21 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
                   >
                     {acceptedForm.editingOverride === null ? "Добавить ответ" : "Сохранить ответ"}
                   </button>
+                  {acceptedForm.editingOverride === null ? null : (
+                    <button
+                      className="secondary-action"
+                      disabled={isSavingAcceptedAnswer}
+                      onClick={() =>
+                        setAcceptedForm(resolveAcceptedFormDefaults(EMPTY_ACCEPTED_FORM, item))
+                      }
+                      type="button"
+                    >
+                      Отменить редактирование
+                    </button>
+                  )}
                 </form>
                 <PrivateOverridesList
+                  disabled={isSavingAcceptedAnswer}
                   cards={item.cards}
                   overrides={privateOverrides}
                   onDelete={handleDeleteAcceptedAnswer}
@@ -718,13 +779,13 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
                   <label>
                     <span>Язык</span>
                     <select
+                      disabled={isSavingMnemonic}
                       onChange={(event) => {
                         const locale = event.currentTarget.value as ContentLocale;
 
-                        setMnemonicForm((previous) => ({
-                          ...previous,
-                          locale,
-                        }));
+                        setMnemonicForm((previous) =>
+                          selectMnemonicForm(previous, { ...previous, locale }, privateMnemonics),
+                        );
                       }}
                       value={mnemonicForm.locale}
                     >
@@ -735,14 +796,18 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
                   <label>
                     <span>Тип</span>
                     <select
+                      disabled={isSavingMnemonic}
                       onChange={(event) => {
                         const mnemonicType = event.currentTarget
                           .value as MnemonicFormState["mnemonicType"];
 
-                        setMnemonicForm((previous) => ({
-                          ...previous,
-                          mnemonicType,
-                        }));
+                        setMnemonicForm((previous) =>
+                          selectMnemonicForm(
+                            previous,
+                            { ...previous, mnemonicType },
+                            privateMnemonics,
+                          ),
+                        );
                       }}
                       value={mnemonicForm.mnemonicType}
                     >
@@ -756,13 +821,11 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
                     <textarea
                       aria-label="Текст приватной заметки"
                       data-testid="private-mnemonic-body"
+                      disabled={isSavingMnemonic}
                       onChange={(event) => {
                         const body = event.currentTarget.value;
 
-                        setMnemonicForm((previous) => ({
-                          ...previous,
-                          body,
-                        }));
+                        setMnemonicForm((previous) => editMnemonicBody(previous, body));
                       }}
                       value={mnemonicForm.body}
                     />
@@ -778,6 +841,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
                     </button>
                     <button
                       className="secondary-action"
+                      disabled={isSavingMnemonic}
                       onClick={() => void handleDeleteMnemonic()}
                       type="button"
                     >
@@ -837,24 +901,14 @@ function resolveAcceptedFormDefaults(
   };
 }
 
-function resolveMnemonicFormDefaults(
-  form: MnemonicFormState,
-  item: ItemDetails,
-  displayMode: TranslationDisplayMode,
-): MnemonicFormState {
-  const existing = getLocalizedTexts(item.mnemonics, displayMode).find(
-    (text) => text.sourceKind === "user" && text.locale === form.locale,
-  );
-
-  return existing === undefined ? form : { ...form, body: existing.text };
-}
-
 function PrivateOverridesList({
+  disabled,
   cards,
   overrides,
   onDelete,
   onEdit,
 }: {
+  readonly disabled: boolean;
   readonly cards: readonly LearningCardDto[];
   readonly overrides: readonly UserOverrideDto[];
   readonly onDelete: (override: UserOverrideDto) => void;
@@ -880,10 +934,20 @@ function PrivateOverridesList({
               {override.note === null ? null : <small>{override.note}</small>}
             </div>
             <div className="action-row">
-              <button className="secondary-action" onClick={() => onEdit(override)} type="button">
+              <button
+                className="secondary-action"
+                disabled={disabled}
+                onClick={() => onEdit(override)}
+                type="button"
+              >
                 Изменить
               </button>
-              <button className="secondary-action" onClick={() => onDelete(override)} type="button">
+              <button
+                className="secondary-action"
+                disabled={disabled}
+                onClick={() => onDelete(override)}
+                type="button"
+              >
                 Удалить
               </button>
             </div>

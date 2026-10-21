@@ -1,4 +1,10 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 
 import { normalizeJapaneseReading, normalizeMeaning, validateAnswer } from "@kanji-srs/japanese";
 import { type ContentLocale, type UserMnemonicDto, type UserOverrideDto } from "@kanji-srs/shared";
@@ -6,6 +12,7 @@ import { type ContentLocale, type UserMnemonicDto, type UserOverrideDto } from "
 import { type CurrentUserDto } from "../auth/auth.types";
 import { OverridesRepository } from "./overrides.repository";
 import {
+  AcceptedAnswerCollisionError,
   type AcceptedAnswerKind,
   type AddAcceptedAnswerRequest,
   type CardAnswerValidationResult,
@@ -85,6 +92,51 @@ export class OverridesService {
     }
 
     return { deleted: true };
+  }
+
+  async replaceAcceptedAnswer(
+    cardId: string,
+    overrideId: string,
+    user: CurrentUserDto,
+    body: unknown,
+  ): Promise<UserOverrideDto> {
+    const request = parseAddAcceptedAnswerRequest(body);
+    const card = await this.overridesRepository.findCardForValidation(cardId);
+
+    if (card === null) {
+      throw new NotFoundException("Learning card not found.");
+    }
+    if (card.answerKind !== request.answerKind) {
+      throw new BadRequestException(`answerKind must be ${card.answerKind} for this card.`);
+    }
+
+    try {
+      const override = await this.overridesRepository.replaceAcceptedAnswer({
+        ...request,
+        userId: user.id,
+        cardId,
+        overrideId,
+        normalizedText: normalizeAcceptedText(request),
+      });
+
+      if (override === null) {
+        throw new NotFoundException("Private accepted answer not found.");
+      }
+      return toUserOverrideDto(override);
+    } catch (error: unknown) {
+      if (error instanceof AcceptedAnswerCollisionError) {
+        throw new ConflictException("Такой личный ответ уже существует. Исходный ответ сохранён.");
+      }
+      throw error;
+    }
+  }
+
+  async listPrivateMnemonics(
+    learningItemId: string,
+    user: CurrentUserDto,
+  ): Promise<readonly UserMnemonicDto[]> {
+    const mnemonics = await this.overridesRepository.listPrivateMnemonics(user.id, learningItemId);
+    return mnemonics.map(toUserMnemonicDto);
   }
 
   async savePrivateMnemonic(

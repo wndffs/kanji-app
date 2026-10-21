@@ -1,10 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { type CurrentUserDto } from "../src/auth/auth.types";
-import { OverridesRepository } from "../src/overrides/overrides.repository";
+import { OverridesController } from "../src/overrides/overrides.controller";
+import {
+  OverridesRepository,
+  PrismaOverridesRepository,
+} from "../src/overrides/overrides.repository";
 import { OverridesService } from "../src/overrides/overrides.service";
 import {
+  AcceptedAnswerCollisionError,
   type CardAnswerValidationRecord,
+  type ReplaceAcceptedAnswerInput,
   type UpsertAcceptedAnswerInput,
   type UpsertPrivateMnemonicInput,
   type UserAcceptedAnswerRecord,
@@ -12,6 +18,145 @@ import {
 } from "../src/overrides/overrides.types";
 
 describe("OverridesService", () => {
+  it("replaces a private answer in place, preserving its identity and creation time", async () => {
+    const { service } = createHarness();
+    const original = await service.addAcceptedAnswer("card-meaning", createUser("owner"), {
+      answerKind: "meaning",
+      text: "single stroke",
+    });
+    const controller = new OverridesController(service);
+    const updated = await controller.replaceAcceptedAnswer(
+      "card-meaning",
+      original.id,
+      createUser("owner"),
+      { answerKind: "meaning", text: " SINGLE MARK! ", locale: "en-US", note: "new note" },
+    );
+    expect(updated).toMatchObject({
+      id: original.id,
+      createdAt: original.createdAt,
+      text: "SINGLE MARK!",
+      normalizedText: "single mark",
+      locale: "en-US",
+      note: "new note",
+    });
+    expect(
+      (await service.listCardOverrides("card-meaning", createUser("owner"))).overrides,
+    ).toEqual([updated]);
+  });
+
+  it("preserves the original on invalid input or a failed replacement write", async () => {
+    const { service, repository } = createHarness();
+    const original = await service.addAcceptedAnswer("card-meaning", createUser("owner"), {
+      answerKind: "meaning",
+      text: "single stroke",
+    });
+    for (const body of [
+      { answerKind: "meaning", text: "!!!" },
+      { answerKind: "reading", text: "いち" },
+    ]) {
+      await expect(
+        service.replaceAcceptedAnswer("card-meaning", original.id, createUser("owner"), body),
+      ).rejects.toThrow();
+    }
+    vi.spyOn(repository, "replaceAcceptedAnswer").mockRejectedValueOnce(new Error("write failed"));
+    await expect(
+      service.replaceAcceptedAnswer("card-meaning", original.id, createUser("owner"), {
+        answerKind: "meaning",
+        text: "replacement",
+      }),
+    ).rejects.toThrow("write failed");
+    expect(
+      (await service.listCardOverrides("card-meaning", createUser("owner"))).overrides,
+    ).toEqual([original]);
+  });
+
+  it("rejects another owner, another card, and missing IDs without changing any answers", async () => {
+    const { service } = createHarness();
+    const owner = createUser("owner");
+    const original = await service.addAcceptedAnswer("card-meaning", owner, {
+      answerKind: "meaning",
+      text: "single stroke",
+    });
+    for (const [cardId, id, user, answerKind] of [
+      ["card-meaning", original.id, createUser("other"), "meaning"],
+      ["card-reading", original.id, owner, "reading"],
+      ["card-meaning", "missing", owner, "meaning"],
+    ] as const) {
+      await expect(
+        service.replaceAcceptedAnswer(cardId, id, user, { answerKind, text: "replacement" }),
+      ).rejects.toThrow("Private accepted answer not found.");
+    }
+    expect((await service.listCardOverrides("card-meaning", owner)).overrides).toEqual([original]);
+  });
+
+  it("rejects normalized collisions without merging or deleting either answer", async () => {
+    const { service } = createHarness();
+    const owner = createUser("owner");
+    const first = await service.addAcceptedAnswer("card-meaning", owner, {
+      answerKind: "meaning",
+      text: "first",
+      locale: "en-US",
+    });
+    const second = await service.addAcceptedAnswer("card-meaning", owner, {
+      answerKind: "meaning",
+      text: "second",
+      locale: "en-US",
+    });
+    await expect(
+      service.replaceAcceptedAnswer("card-meaning", first.id, owner, {
+        answerKind: "meaning",
+        text: "SECOND!",
+        locale: "en-US",
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+    expect((await service.listCardOverrides("card-meaning", owner)).overrides).toEqual([
+      first,
+      second,
+    ]);
+    await expect(
+      service.replaceAcceptedAnswer("card-meaning", first.id, owner, {
+        answerKind: "meaning",
+        text: "FIRST!",
+        locale: "en-US",
+      }),
+    ).resolves.toMatchObject({ id: first.id, text: "FIRST!" });
+  });
+
+  it("lists exact locale/type notes for the owner and updates only the selected note", async () => {
+    const { service } = createHarness();
+    const owner = createUser("owner");
+    for (const locale of ["ru-RU", "en-US"] as const) {
+      for (const mnemonicType of ["story", "meaning", "reading"] as const) {
+        await service.savePrivateMnemonic("item-one", owner, {
+          locale,
+          mnemonicType,
+          body: `${locale}:${mnemonicType}`,
+        });
+      }
+    }
+    await service.savePrivateMnemonic("item-two", owner, { body: "other item" });
+    await service.savePrivateMnemonic("item-one", createUser("other"), { body: "other owner" });
+    const before = await service.listPrivateMnemonics("item-one", owner);
+    expect(before).toHaveLength(6);
+    await service.savePrivateMnemonic("item-one", owner, {
+      locale: "en-US",
+      mnemonicType: "reading",
+      body: "updated reading",
+    });
+    const after = await new OverridesController(service).listPrivateMnemonics("item-one", owner);
+    expect(after.filter((note) => note.body !== "updated reading")).toEqual(
+      before.filter((note) => note.locale !== "en-US" || note.mnemonicType !== "reading"),
+    );
+    expect(await service.listPrivateMnemonics("item-one", createUser("other"))).toMatchObject([
+      { body: "other owner" },
+    ]);
+    await service.deletePrivateMnemonic("item-one", owner, {
+      locale: "en-US",
+      mnemonicType: "reading",
+    });
+    expect(await service.listPrivateMnemonics("item-one", owner)).toHaveLength(5);
+  });
+
   it("accepts a private answer for the owner only", async () => {
     const { service } = createHarness();
 
@@ -318,6 +463,38 @@ class InMemoryOverridesRepository extends OverridesRepository {
     return true;
   }
 
+  async replaceAcceptedAnswer(
+    input: ReplaceAcceptedAnswerInput,
+  ): Promise<UserAcceptedAnswerRecord | null> {
+    const entry = [...this.acceptedAnswers.entries()].find(
+      ([, answer]) =>
+        answer.id === input.overrideId &&
+        answer.userId === input.userId &&
+        answer.learningCardId === input.cardId &&
+        answer.overrideType ===
+          (input.answerKind === "reading" ? "accepted-reading" : "accepted-meaning"),
+    );
+    if (entry === undefined) return null;
+    const key = [
+      input.userId,
+      input.cardId,
+      input.answerKind,
+      input.locale,
+      input.normalizedText,
+    ].join(":");
+    if (key !== entry[0] && this.acceptedAnswers.has(key)) throw new AcceptedAnswerCollisionError();
+    const updated = {
+      ...entry[1],
+      locale: input.locale,
+      text: input.text,
+      normalizedText: input.normalizedText,
+      note: input.note,
+    };
+    this.acceptedAnswers.delete(entry[0]);
+    this.acceptedAnswers.set(key, updated);
+    return updated;
+  }
+
   async upsertPrivateMnemonic(input: UpsertPrivateMnemonicInput): Promise<UserMnemonicRecord> {
     const key = [input.userId, input.learningItemId, input.locale, input.mnemonicType].join(":");
     const now = new Date("2026-06-18T09:00:00.000Z");
@@ -356,7 +533,87 @@ class InMemoryOverridesRepository extends OverridesRepository {
       )
       .map((mnemonic) => mnemonic.body);
   }
+
+  async listPrivateMnemonics(
+    userId: string,
+    learningItemId: string,
+  ): Promise<readonly UserMnemonicRecord[]> {
+    return [...this.mnemonics.values()].filter(
+      (note) => note.userId === userId && note.learningItemId === learningItemId,
+    );
+  }
 }
+
+describe("PrismaOverridesRepository replacement", () => {
+  const input: ReplaceAcceptedAnswerInput = {
+    userId: "owner",
+    cardId: "card-meaning",
+    overrideId: "original",
+    answerKind: "meaning",
+    locale: "en-US",
+    text: "new",
+    normalizedText: "new",
+    note: null,
+  };
+
+  it("uses one owner/card/type-scoped UPDATE without a delete or upsert", async () => {
+    const update = vi.fn().mockResolvedValue({
+      id: "original",
+      userId: "owner",
+      learningCardId: "card-meaning",
+      overrideType: "ACCEPTED_MEANING",
+      locale: "en-US",
+      text: "new",
+      normalizedText: "new",
+      note: null,
+      createdAt: new Date(0),
+      updatedAt: new Date(1),
+    });
+    const repository = new PrismaOverridesRepository({
+      db: { userItemOverride: { update } },
+    } as never);
+    expect(await repository.replaceAcceptedAnswer(input)).toMatchObject({
+      id: "original",
+      text: "new",
+    });
+    expect(update).toHaveBeenCalledExactlyOnceWith({
+      where: {
+        id: "original",
+        userId: "owner",
+        learningCardId: "card-meaning",
+        overrideType: "ACCEPTED_MEANING",
+      },
+      data: { locale: "en-US", text: "new", normalizedText: "new", note: null },
+    });
+  });
+
+  it("maps missing targets and unique collisions without a fallback write", async () => {
+    const update = vi
+      .fn()
+      .mockRejectedValueOnce({ code: "P2025" })
+      .mockRejectedValueOnce({ code: "P2002" });
+    const repository = new PrismaOverridesRepository({
+      db: { userItemOverride: { update } },
+    } as never);
+    await expect(repository.replaceAcceptedAnswer(input)).resolves.toBeNull();
+    await expect(repository.replaceAcceptedAnswer(input)).rejects.toBeInstanceOf(
+      AcceptedAnswerCollisionError,
+    );
+    expect(update).toHaveBeenCalledTimes(2);
+  });
+
+  it("scopes mnemonic reads to the authenticated owner and item", async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const repository = new PrismaOverridesRepository({
+      db: { userMnemonic: { findMany } },
+    } as never);
+    await expect(repository.listPrivateMnemonics("owner", "item-one")).resolves.toEqual([]);
+    expect(findMany).toHaveBeenCalledExactlyOnceWith({
+      where: { userId: "owner", learningItemId: "item-one" },
+      orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }],
+    });
+  });
+});
 
 function createHarness(): {
   readonly service: OverridesService;

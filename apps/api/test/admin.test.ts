@@ -2918,6 +2918,14 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
     return [];
   }
 
+  async replaceAcceptedAnswer(): Promise<UserAcceptedAnswerRecord | null> {
+    return null;
+  }
+
+  async listPrivateMnemonics(): Promise<readonly UserMnemonicRecord[]> {
+    return [];
+  }
+
   async upsertAcceptedAnswer(_input: UpsertAcceptedAnswerInput): Promise<UserAcceptedAnswerRecord> {
     throw new Error("Not implemented in admin tests.");
   }
