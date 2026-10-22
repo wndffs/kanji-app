@@ -100,6 +100,11 @@ backfill values or record the Prisma migration as applied. Run the complete
 source-checked migration after PostgreSQL CI succeeds, before any changed
 importer run. Regenerate Prisma Client after changing the schema.
 
+The database deployment workflow defaults `seed_starter` to false. A schema
+migration must not reseed shared demo targets/cards after reviewed course
+curation, because that would replace educational content reused by the pilot.
+Starter seeding is an explicit initialization operation, not part of this repair.
+
 Fixture tests cover all valid old levels, missing/invalid values, raw preservation,
 idempotent imports and an actual changed-checksum reimport preserving modern N5.
 Two focused tests in `apps/api/test/reviews-postgres.integration.test.ts` execute

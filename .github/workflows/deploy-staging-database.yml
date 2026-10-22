@@ -7,6 +7,11 @@ on:
         description: Failed migration to mark as rolled back before deploy (normally empty)
         required: false
         type: string
+      seed_starter:
+        description: Initialize starter demo (do not enable after editorial curation)
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -61,6 +66,7 @@ jobs:
         run: npm run db:migrate:deploy
 
       - name: Seed starter course
+        if: ${{ inputs.seed_starter == true }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           NODE_ENV: production
