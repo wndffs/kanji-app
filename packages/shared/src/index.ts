@@ -8,6 +8,13 @@ export const DEFAULT_TRANSLATION_DISPLAY_MODE = "ru";
 export const DEFAULT_SPEECH_RATE = 0.8;
 export const MIN_SPEECH_RATE = 0.5;
 export const MAX_SPEECH_RATE = 1.5;
+export type ReviewReminderPreferencesDto = {
+  readonly reviewRemindersEnabled: boolean;
+  readonly reviewReminderHour: number;
+};
+export type ReviewReminderClaimResponse = {
+  readonly shouldNotify: boolean;
+};
 export const WORKSPACE_STATUS = "Готово";
 
 export const CONTENT_QUALITY_POLICY_VERSION = "course-content-quality-v2" as const;

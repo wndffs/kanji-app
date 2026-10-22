@@ -1,1 +1,5 @@
-export type { CurrentUserDto, PublicUserDto, UserSettingsDto } from "./auth.types";
+export type {
+  PublicUserDto as CurrentUserDto,
+  PublicUserDto,
+  PublicUserSettingsDto as UserSettingsDto,
+} from "./auth.types";

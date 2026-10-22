@@ -12,9 +12,9 @@ import {
   normalizeInterfacePreferences,
 } from "@kanji-srs/shared";
 
-import { type UserSettingsDto } from "./auth.types";
+import { type PublicUserSettingsDto, type UserSettingsDto } from "./auth.types";
 
-export const DEFAULT_USER_SETTINGS: UserSettingsDto = {
+export const DEFAULT_USER_SETTINGS: PublicUserSettingsDto = {
   ...normalizeInterfacePreferences(undefined),
   locale: "ru-RU",
   translationDisplayMode: DEFAULT_TRANSLATION_DISPLAY_MODE,
@@ -26,6 +26,8 @@ export const DEFAULT_USER_SETTINGS: UserSettingsDto = {
   reviewOrderMode: "shuffled",
   strictMode: false,
   vacationStartedAt: null,
+  reviewRemindersEnabled: false,
+  reviewReminderHour: 9,
   speechVoiceUri: null,
   speechRate: DEFAULT_SPEECH_RATE,
   speechAutoplay: false,
@@ -35,7 +37,7 @@ export const DEFAULT_USER_SETTINGS: UserSettingsDto = {
   dashboardWidgets: DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
 };
 
-export function mergeUserSettings(input: Partial<UserSettingsDto> = {}): UserSettingsDto {
+export function mergeUserSettings(input: Partial<UserSettingsDto> = {}): PublicUserSettingsDto {
   return {
     ...normalizeInterfacePreferences(input),
     locale: "ru-RU",
@@ -57,6 +59,8 @@ export function mergeUserSettings(input: Partial<UserSettingsDto> = {}): UserSet
       : DEFAULT_USER_SETTINGS.reviewOrderMode,
     strictMode: input.strictMode ?? DEFAULT_USER_SETTINGS.strictMode,
     vacationStartedAt: normalizeVacationStartedAt(input.vacationStartedAt),
+    reviewRemindersEnabled: input.reviewRemindersEnabled === true,
+    reviewReminderHour: normalizeBoundedInteger(input.reviewReminderHour, 0, 23, 9),
     speechVoiceUri: normalizeSpeechVoiceUri(input.speechVoiceUri),
     speechRate: normalizeSpeechRate(input.speechRate),
     speechAutoplay: input.speechAutoplay ?? DEFAULT_USER_SETTINGS.speechAutoplay,

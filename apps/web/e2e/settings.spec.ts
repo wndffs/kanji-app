@@ -6,6 +6,128 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("settings", () => {
+  for (const outcome of ["granted", "denied", "unsupported"] as const) {
+    test(`review reminders require a direct gesture and Save (${outcome})`, async ({ page }) => {
+      await signIn(page);
+      await page.addInitScript((outcome) => {
+        const state = { requests: 0, gesture: false };
+        Object.assign(window, { __reminderPermissionTest: state });
+        if (outcome === "unsupported") {
+          Object.defineProperty(window, "Notification", { configurable: true, value: undefined });
+        } else {
+          class MockNotification {
+            static permission = "default";
+            static async requestPermission() {
+              state.requests++;
+              state.gesture = navigator.userActivation.isActive;
+              this.permission = outcome;
+              return outcome;
+            }
+          }
+          Object.defineProperty(window, "Notification", {
+            configurable: true,
+            value: MockNotification,
+          });
+        }
+      }, outcome);
+      const writes: Record<string, unknown>[] = [];
+      await page.route(`${API_BASE_URL}/auth/me`, (route) => route.fulfill({ json: createUser() }));
+      await page.route(`${API_BASE_URL}/users/settings`, (route) => {
+        const body = route.request().postDataJSON() as Record<string, unknown>;
+        writes.push(body);
+        return route.fulfill({
+          json: { ...createUser(), settings: { ...createUser().settings, ...body } },
+        });
+      });
+      await page.goto("/settings");
+      await expect(page.getByText("Загружаю настройки.")).toBeHidden();
+      const reminder = page.getByLabel("Напоминать о повторениях", { exact: true });
+      await expect(reminder).not.toBeChecked();
+      await expect(page.getByLabel("Час напоминания", { exact: true })).toHaveValue("9");
+      const permissionState = () =>
+        page.evaluate(
+          () =>
+            (
+              window as typeof window & {
+                __reminderPermissionTest: { requests: number; gesture: boolean };
+              }
+            ).__reminderPermissionTest,
+        );
+      expect((await permissionState()).requests).toBe(0);
+      await reminder.click();
+      if (outcome === "granted") {
+        await expect(reminder).toBeChecked();
+        expect(await permissionState()).toEqual({ requests: 1, gesture: true });
+        await page.getByLabel("Час напоминания", { exact: true }).fill("0");
+      } else {
+        await expect(reminder).not.toBeChecked();
+        await expect(
+          page.getByText(
+            outcome === "denied"
+              ? "Уведомления заблокированы в браузере."
+              : "Уведомления недоступны в этом браузере.",
+          ),
+        ).toBeVisible();
+      }
+      expect(writes).toHaveLength(0);
+      await page.getByRole("button", { name: "Сохранить", exact: true }).click();
+      await expect(page.getByText("Сохранено.")).toBeVisible();
+      expect(writes[0]).toMatchObject({
+        reviewReminderHour: outcome === "granted" ? 0 : 9,
+      });
+      if (outcome === "granted") expect(writes[0]?.reviewRemindersEnabled).toBe(true);
+      else expect(writes[0]).not.toHaveProperty("reviewRemindersEnabled");
+      if (outcome === "granted") {
+        await reminder.uncheck();
+        expect(writes).toHaveLength(1);
+        await page.getByRole("button", { name: "Сохранить", exact: true }).click();
+        await expect.poll(() => writes.length).toBe(2);
+        expect(writes[1]?.reviewRemindersEnabled).toBe(false);
+        expect((await permissionState()).requests).toBe(1);
+      }
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+    });
+  }
+
+  test("preserves an enabled account preference when this browser blocks notifications", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await page.addInitScript(() => {
+      Object.defineProperty(window, "Notification", {
+        configurable: true,
+        value: Object.assign(function () {}, {
+          permission: "denied",
+          requestPermission: () => {
+            throw new Error("Unexpected permission request");
+          },
+        }),
+      });
+    });
+    const savedUser = {
+      ...createUser(),
+      settings: { ...createUser().settings, reviewRemindersEnabled: true, reviewReminderHour: 9 },
+    };
+    await page.route(`${API_BASE_URL}/auth/me`, (route) => route.fulfill({ json: savedUser }));
+    let received: Record<string, unknown> | undefined;
+    await page.route(`${API_BASE_URL}/users/settings`, (route) => {
+      received = route.request().postDataJSON();
+      return route.fulfill({
+        json: { ...savedUser, settings: { ...savedUser.settings, ...received } },
+      });
+    });
+    await page.goto("/settings");
+    await expect(page.getByText("Загружаю настройки.")).toBeHidden();
+    await expect(page.getByLabel("Напоминать о повторениях", { exact: true })).toBeChecked();
+    await expect(page.getByText("Уведомления заблокированы в браузере.")).toBeVisible();
+    await page.getByRole("button", { name: "Сохранить", exact: true }).click();
+    await expect(page.getByText("Сохранено.")).toBeVisible();
+    expect(received).not.toHaveProperty("reviewRemindersEnabled");
+    await expect(page.getByLabel("Напоминать о повторениях", { exact: true })).toBeChecked();
+  });
+
   test("persists presentation preferences and restores server settings on reload", async ({
     page,
   }) => {
@@ -136,6 +258,8 @@ test.describe("settings", () => {
       soundFeedback: false,
       lessonPronunciationMode: "furigana",
       lessonRomaji: true,
+      reviewRemindersEnabled: false,
+      reviewReminderHour: 9,
     });
   });
 

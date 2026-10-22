@@ -57,6 +57,38 @@ describe("Auth and users", () => {
     expect(repository.defaultCourseEnrollmentUserIds).toEqual(["user-1"]);
     expect(session.user.settings).toMatchObject(DEFAULT_INTERFACE_PREFERENCES);
     expect(storedUser?.settings).toMatchObject(DEFAULT_INTERFACE_PREFERENCES);
+    expect(session.user.settings).toMatchObject({
+      reviewRemindersEnabled: false,
+      reviewReminderHour: 9,
+    });
+  });
+
+  it("validates and returns reminder preferences across registration and login", async () => {
+    const { authService } = createAuthHarness();
+    await expect(
+      authService.register({
+        email: "learner@example.test",
+        password: "correct-password",
+        settings: { reviewReminderHour: 24 },
+      }),
+    ).rejects.toThrow("reviewReminderHour must be an integer between 0 and 23.");
+    const session = await authService.register({
+      email: "learner@example.test",
+      password: "correct-password",
+      settings: { reviewRemindersEnabled: true, reviewReminderHour: 23, timezone: "Asia/Tokyo" },
+    });
+    const login = await authService.login({
+      email: "learner@example.test",
+      password: "correct-password",
+    });
+    for (const user of [session.user, login.user]) {
+      expect(user.settings).toMatchObject({
+        reviewRemindersEnabled: true,
+        reviewReminderHour: 23,
+        timezone: "Asia/Tokyo",
+      });
+      expect(user.settings).not.toHaveProperty("reviewReminderLastClaimedAt");
+    }
   });
 
   it("rejects duplicate registration by normalized email", async () => {
@@ -122,8 +154,8 @@ describe("Auth and users", () => {
   });
 
   it("protects the current user endpoint with bearer auth", async () => {
-    const { authGuard, authService } = createAuthHarness();
-    const usersController = new UsersController(authService);
+    const { authGuard, authService, repository } = createAuthHarness();
+    const usersController = new UsersController(authService, repository);
     const session = await authService.register({
       email: "learner@example.test",
       password: "correct-password",
@@ -154,8 +186,8 @@ describe("Auth and users", () => {
   });
 
   it("updates user settings after bearer auth", async () => {
-    const { authGuard, authService } = createAuthHarness();
-    const usersController = new UsersController(authService);
+    const { authGuard, authService, repository } = createAuthHarness();
+    const usersController = new UsersController(authService, repository);
     const session = await authService.register({
       email: "learner@example.test",
       password: "correct-password",
@@ -213,8 +245,8 @@ describe("Auth and users", () => {
   });
 
   it("enables and disables vacation mode independently from ordinary settings", async () => {
-    const { authService } = createAuthHarness();
-    const usersController = new UsersController(authService);
+    const { authService, repository } = createAuthHarness();
+    const usersController = new UsersController(authService, repository);
     const session = await authService.register({
       email: "learner@example.test",
       password: "correct-password",
@@ -240,8 +272,8 @@ describe("Auth and users", () => {
   });
 
   it("rejects incomplete or duplicate dashboard widget settings", async () => {
-    const { authService } = createAuthHarness();
-    const usersController = new UsersController(authService);
+    const { authService, repository } = createAuthHarness();
+    const usersController = new UsersController(authService, repository);
     const session = await authService.register({
       email: "learner@example.test",
       password: "correct-password",
@@ -270,8 +302,8 @@ describe("Auth and users", () => {
   });
 
   it("rejects invalid lesson and review ordering preferences", async () => {
-    const { authService } = createAuthHarness();
-    const usersController = new UsersController(authService);
+    const { authService, repository } = createAuthHarness();
+    const usersController = new UsersController(authService, repository);
     const session = await authService.register({
       email: "learner@example.test",
       password: "correct-password",
@@ -289,8 +321,8 @@ describe("Auth and users", () => {
   });
 
   it("rejects invalid study audio preferences", async () => {
-    const { authService } = createAuthHarness();
-    const usersController = new UsersController(authService);
+    const { authService, repository } = createAuthHarness();
+    const usersController = new UsersController(authService, repository);
     const session = await authService.register({
       email: "learner@example.test",
       password: "correct-password",
@@ -561,6 +593,9 @@ describe("PrismaUsersRepository", () => {
 });
 
 class InMemoryUsersRepository extends UsersRepository {
+  async claimReviewReminder(): Promise<boolean> {
+    throw new Error("Use the reminder transaction fixture for claims.");
+  }
   private readonly usersById = new Map<string, StoredUser>();
   private readonly usersByEmail = new Map<string, StoredUser>();
   private nextId = 1;

@@ -24,6 +24,7 @@ import {
 } from "../../../packages/db/src/main-course-word-content";
 
 import { AppConfigService } from "../src/config/app-config.service";
+import { PrismaUsersRepository } from "../src/auth/users.repository";
 import { PrismaService } from "../src/database/prisma.service";
 import { PrismaItemsRepository } from "../src/items/items.repository";
 import { PrismaCoursesRepository } from "../src/courses/courses.repository";
@@ -1342,6 +1343,40 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
       },
     );
   });
+  it("allows only one overlapping reminder claim without changing SRS state", async () => {
+    await withFixture(async (fixture) => {
+      const settings = await control.db.userSettings.create({
+        data: {
+          userId: fixture.userId,
+          reviewRemindersEnabled: true,
+          reviewReminderHour: 0,
+          timezone: "UTC",
+        },
+      });
+      const repositories = [
+        new PrismaUsersRepository(clients[1]!),
+        new PrismaUsersRepository(clients[2]!),
+      ];
+      const before = await readState(fixture);
+      const outcomes = await overlap(
+        "settings",
+        settings.id,
+        repositories.map((repository) => () => repository.claimReviewReminder(fixture.userId, NOW)),
+      );
+      expect(outcomes.every((outcome) => outcome.status === "fulfilled")).toBe(true);
+      expect(
+        outcomes.map((outcome) => (outcome.status === "fulfilled" ? outcome.value : null)).sort(),
+      ).toEqual([false, true]);
+      expect(
+        (await control.db.userSettings.findUniqueOrThrow({ where: { userId: fixture.userId } }))
+          .reviewReminderLastClaimedAt,
+      ).toEqual(NOW);
+      expect(await repositories[0]!.claimReviewReminder(fixture.userId, NOW)).toBe(false);
+      expect(await readState(fixture)).toEqual(before);
+      expect(await answers(fixture)).toEqual([]);
+    });
+  });
+
   it("repairs only proven legacy identities, preserving other metadata and remaining idempotent", async () => {
     const migration = await readFile(
       join(
@@ -2126,7 +2161,7 @@ function assertOneCommit<T>(outcomes: readonly PromiseSettledResult<T>[]): void 
 }
 
 async function overlap<T>(
-  row: "state" | "session" | "owner",
+  row: "state" | "session" | "owner" | "settings",
   id: string,
   operations: readonly (() => Promise<T>)[],
   beforeRelease?: () => Promise<void>,
@@ -2139,6 +2174,8 @@ async function overlap<T>(
         await tx.$queryRaw`SELECT id FROM "UserSrsState" WHERE id = ${id}::uuid FOR UPDATE`;
       } else if (row === "session") {
         await tx.$queryRaw`SELECT id FROM "ReviewSession" WHERE id = ${id}::uuid FOR UPDATE`;
+      } else if (row === "settings") {
+        await tx.$queryRaw`SELECT id FROM "UserSettings" WHERE id = ${id}::uuid FOR UPDATE`;
       } else {
         await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${id}::uuid FOR UPDATE`;
       }

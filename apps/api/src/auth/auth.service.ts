@@ -28,6 +28,7 @@ import {
   type AuthSessionDto,
   type CurrentUserDto,
   type LoginRequestDto,
+  type PublicUserDto,
   type RegisterRequestDto,
   type StoredUser,
   type UpdateUserSettingsRequestDto,
@@ -40,6 +41,8 @@ import { mergeUserSettings } from "./user-settings.defaults";
 import { UsersRepository } from "./users.repository";
 
 type UserSettingsUpdate = {
+  reviewRemindersEnabled?: boolean;
+  reviewReminderHour?: number;
   locale?: UserSettingsDto["locale"];
   translationDisplayMode?: UserSettingsDto["translationDisplayMode"];
   timezone?: UserSettingsDto["timezone"];
@@ -121,7 +124,7 @@ export class AuthService {
     return { ok: true };
   }
 
-  async authenticateToken(token: string): Promise<CurrentUserDto> {
+  async authenticateToken(token: string): Promise<PublicUserDto> {
     const payload = this.tokenService.verifySessionToken(token);
     const user = await this.usersRepository.findById(payload.sub);
 
@@ -132,7 +135,7 @@ export class AuthService {
     return toCurrentUser(user);
   }
 
-  async updateSettings(user: CurrentUserDto, body: unknown): Promise<CurrentUserDto> {
+  async updateSettings(user: CurrentUserDto, body: unknown): Promise<PublicUserDto> {
     const settings = parseUserSettingsUpdate(body);
     const updatedUser = await this.usersRepository.updateSettings(user.id, settings);
 
@@ -163,13 +166,13 @@ export class AuthService {
   }
 }
 
-function toCurrentUser(user: StoredUser): CurrentUserDto {
+function toCurrentUser(user: StoredUser): PublicUserDto {
   return {
     id: user.id,
     email: user.email,
     displayName: user.displayName,
     role: user.role,
-    settings: user.settings,
+    settings: mergeUserSettings(user.settings),
   };
 }
 
@@ -274,6 +277,22 @@ function parseUserSettings(
 
   if (record.timezone !== undefined) {
     settings.timezone = parseTimezone(readRequiredString(record, "timezone"));
+  }
+
+  if (record.reviewRemindersEnabled !== undefined) {
+    settings.reviewRemindersEnabled = parseBoolean(
+      record.reviewRemindersEnabled,
+      "reviewRemindersEnabled",
+    );
+  }
+
+  if (record.reviewReminderHour !== undefined) {
+    settings.reviewReminderHour = parseBoundedInteger(
+      record.reviewReminderHour,
+      "reviewReminderHour",
+      0,
+      23,
+    );
   }
 
   if (record.dailyLessonLimit !== undefined) {

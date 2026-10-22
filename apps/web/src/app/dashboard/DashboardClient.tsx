@@ -13,6 +13,8 @@ import {
 } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
+import { ReviewReminderNotifier } from "../../components/ReviewReminderNotifier";
+import { type ReviewReminderConfirmation } from "../../lib/review-reminders";
 import {
   ApiError,
   getCourses,
@@ -57,6 +59,8 @@ type CoursesState =
 export function DashboardClient() {
   const [state, setState] = useState<DashboardState>({ status: "checking" });
   const [coursesState, setCoursesState] = useState<CoursesState>({ status: "loading" });
+  const [reminderConfirmation, setReminderConfirmation] =
+    useState<ReviewReminderConfirmation | null>(null);
 
   useEffect(() => {
     const session = readStoredSession();
@@ -74,6 +78,12 @@ export function DashboardClient() {
       .then((dashboard) => {
         if (!cancelled) {
           setState({ status: "ready", dashboard });
+          setReminderConfirmation({
+            accountId: dashboard.user.id,
+            token: session.token,
+            dueReviews: dashboard.counts.dueReviews,
+            confirmedAt: Date.now(),
+          });
         }
       })
       .catch((error: unknown) => {
@@ -199,6 +209,12 @@ export function DashboardClient() {
       try {
         const dashboard = await getDashboard(session.token);
         setState({ status: "ready", dashboard });
+        setReminderConfirmation({
+          accountId: dashboard.user.id,
+          token: session.token,
+          dueReviews: dashboard.counts.dueReviews,
+          confirmedAt: Date.now(),
+        });
       } catch (error: unknown) {
         if (error instanceof ApiError && error.status === 401) {
           clearStoredSession();
@@ -282,12 +298,20 @@ export function DashboardClient() {
   }
 
   return (
-    <DashboardView
-      coursesState={coursesState}
-      dashboard={state.dashboard}
-      onCourseChange={(courseId) => void handleCourseChange(courseId)}
-      onDashboardWidgetsChange={handleDashboardWidgetsChange}
-    />
+    <>
+      {reminderConfirmation === null ? null : (
+        <ReviewReminderNotifier
+          key={reminderConfirmation.accountId}
+          confirmation={reminderConfirmation}
+        />
+      )}
+      <DashboardView
+        coursesState={coursesState}
+        dashboard={state.dashboard}
+        onCourseChange={(courseId) => void handleCourseChange(courseId)}
+        onDashboardWidgetsChange={handleDashboardWidgetsChange}
+      />
+    </>
   );
 }
 

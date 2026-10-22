@@ -11,6 +11,85 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("dashboard smoke", () => {
+  test("claims a fresh reminder once without a permission prompt and closes it on logout", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await page.addInitScript(() => {
+      const user = JSON.parse(localStorage.getItem("kanji-srs.user")!);
+      user.settings.reviewRemindersEnabled = true;
+      localStorage.setItem("kanji-srs.user", JSON.stringify(user));
+      const state = { notifications: [] as { title: string; options: unknown }[], closed: 0 };
+      Object.assign(window, { __reminderTest: state });
+      class MockNotification {
+        static permission = "granted";
+        static requestPermission() {
+          throw new Error("Unexpected permission request");
+        }
+        onclick: (() => void) | null = null;
+        constructor(title: string, options: unknown) {
+          state.notifications.push({ title, options });
+        }
+        close() {
+          state.closed++;
+        }
+      }
+      Object.defineProperty(window, "Notification", {
+        configurable: true,
+        value: MockNotification,
+      });
+    });
+    let claims = 0;
+    await page.route(`${API_BASE_URL}/courses`, (route) =>
+      route.fulfill({ json: buildCourseList("course-1") }),
+    );
+    await page.route(`${API_BASE_URL}/dashboard`, (route) => {
+      const dashboard = buildMinimalDashboard("course-1", "Базовый курс");
+      return route.fulfill({
+        json: { ...dashboard, counts: { ...dashboard.counts, dueReviews: 2 } },
+      });
+    });
+    await page.route(`${API_BASE_URL}/users/me/review-reminders/claim`, (route) => {
+      claims++;
+      expect(route.request().method()).toBe("POST");
+      expect(route.request().postDataJSON()).toEqual({});
+      return route.fulfill({ json: { shouldNotify: true } });
+    });
+    await page.goto("/dashboard");
+    const notificationState = () =>
+      page.evaluate(
+        () =>
+          (
+            window as typeof window & {
+              __reminderTest: {
+                notifications: { title: string; options: unknown }[];
+                closed: number;
+              };
+            }
+          ).__reminderTest,
+      );
+    await expect.poll(async () => (await notificationState()).notifications.length).toBe(1);
+    expect(claims).toBe(1);
+    expect((await notificationState()).notifications).toEqual([
+      {
+        title: "Пора повторить",
+        options: { body: "Повторения готовы. Можно продолжить занятия." },
+      },
+    ]);
+    await page.evaluate(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(claims).toBe(1);
+    await page.evaluate(() => {
+      localStorage.removeItem("kanji-srs.accessToken");
+      localStorage.removeItem("kanji-srs.user");
+      window.dispatchEvent(new Event("kanji-srs.auth-changed"));
+    });
+    await expect.poll(async () => (await notificationState()).closed).toBe(1);
+    expect(claims).toBe(1);
+  });
+
   test("loads the dashboard shell", async ({ page }) => {
     await page.goto("/dashboard");
 

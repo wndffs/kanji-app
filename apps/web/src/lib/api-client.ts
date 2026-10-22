@@ -125,6 +125,8 @@ export type UserSettingsDto = Partial<InterfacePreferences> & {
   readonly lessonPronunciationMode?: LessonPronunciationMode;
   readonly lessonRomaji?: boolean;
   readonly dashboardWidgets?: readonly DashboardWidgetPreferenceDto[];
+  readonly reviewRemindersEnabled?: boolean;
+  readonly reviewReminderHour?: number;
 };
 
 export type CurrentUserDto = {
@@ -201,6 +203,7 @@ export type ApiRequestOptions = {
   readonly token?: string | null;
   readonly body?: unknown;
   readonly fetchImpl?: typeof fetch;
+  readonly signal?: AbortSignal;
 };
 
 export class ApiError extends Error {
@@ -235,6 +238,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     cache: "no-store",
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
   };
   let response: Response;
   try {
@@ -1159,6 +1163,27 @@ export function deletePrivateMnemonic(
 
 export function getCurrentUser(token: string): Promise<CurrentUserDto> {
   return apiRequest<CurrentUserDto>("/auth/me", { token });
+}
+
+export async function claimReviewReminder(
+  token: string,
+  options: Pick<ApiRequestOptions, "signal" | "fetchImpl"> = {},
+): Promise<{ readonly shouldNotify: boolean }> {
+  const result = await apiRequest<unknown>("/users/me/review-reminders/claim", {
+    ...options,
+    method: "POST",
+    token,
+    body: {},
+  });
+  if (
+    typeof result !== "object" ||
+    result === null ||
+    !("shouldNotify" in result) ||
+    typeof result.shouldNotify !== "boolean"
+  ) {
+    throw new Error("Не удалось подтвердить напоминание.");
+  }
+  return { shouldNotify: result.shouldNotify };
 }
 
 export function updateUserSettings(

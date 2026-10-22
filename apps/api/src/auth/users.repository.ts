@@ -13,6 +13,7 @@ import {
 import { PrismaService } from "../database/prisma.service";
 import { type CreateUserInput, type StoredUser, type UserSettingsDto } from "./auth.types";
 import { DEFAULT_USER_SETTINGS, mergeUserSettings } from "./user-settings.defaults";
+import { claimReviewReminder } from "../users/review-reminder-claim";
 
 export abstract class UsersRepository {
   abstract findByEmail(email: string): Promise<StoredUser | null>;
@@ -20,6 +21,7 @@ export abstract class UsersRepository {
   abstract createUser(input: CreateUserInput): Promise<StoredUser>;
   abstract enrollInDefaultCourses(userId: string): Promise<void>;
   abstract updateSettings(userId: string, settings: Partial<UserSettingsDto>): Promise<StoredUser>;
+  abstract claimReviewReminder(userId: string, now: Date): Promise<boolean>;
   abstract setVacationMode(
     userId: string,
     enabled: boolean,
@@ -55,6 +57,8 @@ type PrismaUserWithSettings = {
     readonly reviewOrderMode: string;
     readonly strictMode: boolean;
     readonly vacationStartedAt: Date | null;
+    readonly reviewRemindersEnabled?: boolean;
+    readonly reviewReminderHour?: number;
     readonly speechVoiceUri: string | null;
     readonly speechRate: number;
     readonly speechAutoplay: boolean;
@@ -217,6 +221,10 @@ export class PrismaUsersRepository extends UsersRepository {
       };
     });
   }
+
+  async claimReviewReminder(userId: string, now: Date): Promise<boolean> {
+    return this.prisma.db.$transaction((db) => claimReviewReminder(db, userId, now));
+  }
 }
 
 function toStoredUser(user: PrismaUserWithSettings): StoredUser {
@@ -247,6 +255,8 @@ function toStoredUser(user: PrismaUserWithSettings): StoredUser {
               : undefined,
             strictMode: user.settings.strictMode,
             vacationStartedAt: user.settings.vacationStartedAt?.toISOString() ?? null,
+            reviewRemindersEnabled: user.settings.reviewRemindersEnabled,
+            reviewReminderHour: user.settings.reviewReminderHour,
             speechVoiceUri: user.settings.speechVoiceUri,
             speechRate: user.settings.speechRate,
             speechAutoplay: user.settings.speechAutoplay,

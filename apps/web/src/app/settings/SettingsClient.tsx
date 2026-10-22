@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import {
   DEFAULT_SPEECH_RATE,
@@ -35,6 +35,14 @@ import {
 import { formatReviewOrderMode, formatTranslationDisplayMode } from "../../lib/dashboard-format";
 import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import {
+  normalizeReviewReminderSettings,
+  parseReviewReminderHour,
+  requestReviewReminderPermission,
+  reviewReminderPermission,
+  reviewReminderPreferencePatch,
+  type ReviewReminderPermission,
+} from "../../lib/review-reminders";
+import {
   readInterfacePreferences,
   storeInterfacePreferences,
 } from "../../lib/interface-preferences";
@@ -54,6 +62,8 @@ type SettingsForm = InterfacePreferences & {
   readonly soundFeedback: boolean;
   readonly lessonPronunciationMode: LessonPronunciationMode;
   readonly lessonRomaji: boolean;
+  readonly reviewRemindersEnabled: boolean;
+  readonly reviewReminderHour: string;
 };
 
 type RemoteSettingsPayload = InterfacePreferences &
@@ -73,6 +83,8 @@ type RemoteSettingsPayload = InterfacePreferences &
     | "soundFeedback"
     | "lessonPronunciationMode"
     | "lessonRomaji"
+    | "reviewRemindersEnabled"
+    | "reviewReminderHour"
   >;
 
 const DEFAULT_TIMEZONE = "Europe/Moscow";
@@ -93,6 +105,9 @@ export function SettingsClient() {
   const [isVacationUpdating, setIsVacationUpdating] = useState(false);
   const [pendingVacationEnabled, setPendingVacationEnabled] = useState<boolean | null>(null);
   const [vacationMessage, setVacationMessage] = useState<string | null>(null);
+  const [reminderPermission, setReminderPermission] = useState<ReviewReminderPermission>("default");
+  const [permissionPending, setPermissionPending] = useState(false);
+  const permissionRequest = useRef(0);
   const speechPreview = useJapaneseSpeech({
     rate: Number(form.speechRate),
     voiceUri: form.speechVoiceUri === "" ? null : form.speechVoiceUri,
@@ -100,11 +115,14 @@ export function SettingsClient() {
 
   useEffect(() => {
     const session = readStoredSession();
+    setReminderPermission(reviewReminderPermission());
     setForm(createLocalSettingsForm());
 
     if (session === null) {
       setStatus("idle");
-      return;
+      return () => {
+        permissionRequest.current++;
+      };
     }
 
     setUser(session.user);
@@ -123,6 +141,9 @@ export function SettingsClient() {
         );
         setStatus("error");
       });
+    return () => {
+      permissionRequest.current++;
+    };
   }, []);
 
   function updateForm<Key extends keyof SettingsForm>(key: Key, value: SettingsForm[Key]): void {
@@ -134,6 +155,8 @@ export function SettingsClient() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    if (permissionPending) return;
+    setReminderPermission(reviewReminderPermission());
     setStatus("saving");
     setError(null);
 
@@ -147,7 +170,17 @@ export function SettingsClient() {
     }
 
     try {
-      const updated = await updateUserSettings(session.token, parseRemoteSettingsPayload(form));
+      if (session.user.id !== user?.id) {
+        throw new Error("Аккаунт изменился. Обновите страницу настроек.");
+      }
+      const updated = await updateUserSettings(session.token, {
+        ...parseRemoteSettingsPayload(form),
+        ...reviewReminderPreferencePatch(
+          form.reviewRemindersEnabled,
+          normalizeReviewReminderSettings(user.settings).reviewRemindersEnabled,
+          reviewReminderPermission(),
+        ),
+      });
       setUser(updated);
       setForm(createSettingsForm(updated.settings));
       updateStoredUser(updated);
@@ -156,6 +189,29 @@ export function SettingsClient() {
       setError(saveError instanceof Error ? saveError.message : "Не удалось сохранить настройки.");
       setStatus("error");
     }
+  }
+
+  async function handleReminderChange(enabled: boolean): Promise<void> {
+    const requestId = ++permissionRequest.current;
+    if (!enabled) {
+      updateForm("reviewRemindersEnabled", false);
+      return;
+    }
+    const session = readStoredSession();
+    if (session === null) return;
+    setPermissionPending(true);
+    // This invocation stays in the checkbox gesture, before any awaited work.
+    const permission = await requestReviewReminderPermission();
+    const current = readStoredSession();
+    if (permissionRequest.current !== requestId) return;
+    setPermissionPending(false);
+    setReminderPermission(permission);
+    updateForm(
+      "reviewRemindersEnabled",
+      permission === "granted" &&
+        current?.user.id === session.user.id &&
+        current.token === session.token,
+    );
   }
 
   async function handleVacationChange(enabled: boolean): Promise<void> {
@@ -195,7 +251,11 @@ export function SettingsClient() {
     (voice) => voice.voiceUri === form.speechVoiceUri,
   );
   const remoteControlsDisabled =
-    user === null || status === "loading" || status === "saving" || isVacationUpdating;
+    user === null ||
+    status === "loading" ||
+    status === "saving" ||
+    isVacationUpdating ||
+    permissionPending;
 
   return (
     <section className="settings-layout">
@@ -350,6 +410,35 @@ export function SettingsClient() {
           <span>Строгая проверка</span>
         </label>
         <fieldset className="settings-fieldset" disabled={remoteControlsDisabled}>
+          <legend>Напоминания в открытой вкладке</legend>
+          <label className="checkbox-row">
+            <input
+              checked={form.reviewRemindersEnabled}
+              onChange={(event) => void handleReminderChange(event.currentTarget.checked)}
+              type="checkbox"
+            />
+            <span>Напоминать о повторениях</span>
+          </label>
+          <label>
+            Час напоминания
+            <input
+              type="number"
+              min={0}
+              max={23}
+              inputMode="numeric"
+              value={form.reviewReminderHour}
+              onChange={(event) => updateForm("reviewReminderHour", event.currentTarget.value)}
+            />
+          </label>
+          {reminderPermission === "unsupported" ? (
+            <p className="muted">Уведомления недоступны в этом браузере.</p>
+          ) : reminderPermission === "denied" ? (
+            <p className="muted">Уведомления заблокированы в браузере.</p>
+          ) : reminderPermission === "default" ? (
+            <p className="muted">Разрешение на уведомления не выдано.</p>
+          ) : null}
+        </fieldset>
+        <fieldset className="settings-fieldset" disabled={remoteControlsDisabled}>
           <legend>Звук и произношение</legend>
           <div className="settings-grid">
             <label>
@@ -460,7 +549,11 @@ export function SettingsClient() {
         {status === "loading" ? <p className="muted">Загружаю настройки.</p> : null}
         {status === "saved" ? <p className="success-text">Сохранено.</p> : null}
         {error === null ? null : <p className="form-error">{error}</p>}
-        <button className="primary-action" disabled={status === "saving"} type="submit">
+        <button
+          className="primary-action"
+          disabled={status === "saving" || permissionPending}
+          type="submit"
+        >
           {status === "saving" ? "Сохраняю" : "Сохранить"}
         </button>
         {user === null ? (
@@ -490,6 +583,8 @@ function createLocalSettingsForm(): SettingsForm {
     soundFeedback: false,
     lessonPronunciationMode: "kana",
     lessonRomaji: false,
+    reviewRemindersEnabled: false,
+    reviewReminderHour: "9",
   };
 }
 
@@ -510,6 +605,8 @@ function createSettingsForm(settings: UserSettingsDto): SettingsForm {
     soundFeedback: settings.soundFeedback ?? false,
     lessonPronunciationMode: settings.lessonPronunciationMode ?? "kana",
     lessonRomaji: settings.lessonRomaji ?? false,
+    reviewRemindersEnabled: normalizeReviewReminderSettings(settings).reviewRemindersEnabled,
+    reviewReminderHour: String(normalizeReviewReminderSettings(settings).reviewReminderHour),
   };
 }
 
@@ -550,6 +647,7 @@ function parseRemoteSettingsPayload(form: SettingsForm): RemoteSettingsPayload {
     soundFeedback: form.soundFeedback,
     lessonPronunciationMode: form.lessonPronunciationMode,
     lessonRomaji: form.lessonRomaji,
+    reviewReminderHour: parseReviewReminderHour(form.reviewReminderHour),
   };
 }
 

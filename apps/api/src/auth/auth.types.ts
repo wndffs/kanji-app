@@ -5,6 +5,7 @@ import {
   type LessonOrderMode,
   type LessonPronunciationMode,
   type ReviewOrderMode,
+  type ReviewReminderPreferencesDto,
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
@@ -28,20 +29,27 @@ export type UserSettingsDto = {
   readonly lessonPronunciationMode?: LessonPronunciationMode;
   readonly lessonRomaji?: boolean;
   readonly dashboardWidgets?: readonly DashboardWidgetPreferenceDto[];
-} & Partial<InterfacePreferences>;
+} & Partial<InterfacePreferences> &
+  ReviewReminderPreferencesDto;
+
+export type PublicUserSettingsDto = UserSettingsDto;
+export type LegacyUserSettings = Omit<UserSettingsDto, keyof ReviewReminderPreferencesDto> &
+  Partial<ReviewReminderPreferencesDto>;
 
 export type CurrentUserDto = {
   readonly id: string;
   readonly email: string;
   readonly displayName: string | null;
   readonly role: UserRole;
-  readonly settings: UserSettingsDto;
+  readonly settings: LegacyUserSettings;
 };
 
-export type PublicUserDto = CurrentUserDto;
+export type PublicUserDto = Omit<CurrentUserDto, "settings"> & {
+  readonly settings: PublicUserSettingsDto;
+};
 
 export type AuthSessionDto = {
-  readonly user: CurrentUserDto;
+  readonly user: PublicUserDto;
   readonly accessToken: string;
   readonly tokenType: "Bearer";
   readonly expiresAt: string;
@@ -62,7 +70,7 @@ export type LoginRequestDto = {
 export type UpdateUserSettingsRequestDto = Partial<UserSettingsDto>;
 
 export type VacationModeResponseDto = {
-  readonly user: CurrentUserDto;
+  readonly user: PublicUserDto;
   readonly shiftedReviewCount: number;
   readonly vacationDurationSeconds: number;
 };
@@ -73,7 +81,7 @@ export type StoredUser = {
   readonly passwordHash: string;
   readonly displayName: string | null;
   readonly role: UserRole;
-  readonly settings: UserSettingsDto;
+  readonly settings: LegacyUserSettings;
 };
 
 export type CreateUserInput = {
