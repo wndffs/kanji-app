@@ -7,6 +7,7 @@ import {
   type AppLocale,
   type TranslationDisplayMode,
   isTranslationDisplayMode,
+  parseDeploymentRevision,
 } from "@kanji-srs/shared";
 
 export type ApiEnvironment = "development" | "test" | "production";
@@ -17,6 +18,7 @@ export const APP_ENV = Symbol("APP_ENV");
 
 export type ApiConfigSnapshot = {
   readonly environment: ApiEnvironment;
+  readonly deploymentRevision: string | null;
   readonly port: number;
   readonly webOrigin: string;
   readonly databaseUrl: string;
@@ -60,6 +62,10 @@ export class AppConfigService {
 
   get environment(): ApiEnvironment {
     return this.snapshot.environment;
+  }
+
+  get deploymentRevision(): string | null {
+    return this.snapshot.deploymentRevision;
   }
 
   get port(): number {
@@ -124,6 +130,7 @@ export function buildConfigSnapshot(env: NodeJS.ProcessEnv): ApiConfigSnapshot {
 
   return {
     environment,
+    deploymentRevision: parseDeploymentRevision(env.RENDER_GIT_COMMIT),
     port: parsePort(env.PORT),
     webOrigin: env.WEB_ORIGIN ?? "http://localhost:3000",
     databaseUrl,

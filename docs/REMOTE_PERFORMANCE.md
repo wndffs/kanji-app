@@ -79,6 +79,11 @@ that flag even for failed smoke checks, and uploads only that exact JSON path.
 No wildcard, raw response, token, email, password, UUID or private body is emitted.
 Reports contain fixed step labels, numeric timings/bytes, aggregates and optional
 fixed failure code/step/status. Status 0 means no HTTP status was obtained.
+They also contain fixed `web`/`api` deployment records: a validated full commit
+SHA or null, and an explicit-expectation match flag. Optional independent full
+SHA inputs can fail the run before readiness/account writes on a version
+mismatch. Unknown metadata is never inferred from the runner commit; see
+`DEPLOYMENT_REVISION.md` for the source, compatibility and privacy boundaries.
 CLI output is a fixed success marker followed by the same sanitized samples and
 aggregates, or a fixed failure code/step/status. No raw response is printed.
 

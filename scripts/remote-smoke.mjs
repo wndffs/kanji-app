@@ -16,6 +16,8 @@ const uuid = (value) =>
   /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/iu.test(value);
 const record = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const count = (value) => Number.isSafeInteger(value) && value >= 0;
+const gitRevision = (value) =>
+  typeof value === "string" && /^[a-f0-9]{40}$/iu.test(value) ? value.toLowerCase() : null;
 const reminderPreferences = (settings) =>
   typeof settings?.reviewRemindersEnabled === "boolean" &&
   Number.isInteger(settings.reviewReminderHour) &&
@@ -115,6 +117,8 @@ function configuration(env) {
   const generated = email === undefined && password === undefined;
   const slug = env.STAGING_SMOKE_COURSE_SLUG;
   const samples = Number(env.STAGING_SMOKE_SAMPLES ?? 3);
+  const expectedWeb = env.STAGING_EXPECTED_WEB_REVISION;
+  const expectedApi = env.STAGING_EXPECTED_API_REVISION;
   if (
     (!generated &&
       (typeof email !== "string" ||
@@ -124,7 +128,9 @@ function configuration(env) {
     (slug !== undefined && (!generated || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(slug))) ||
     !Number.isInteger(samples) ||
     samples < 1 ||
-    samples > 3
+    samples > 3 ||
+    (expectedWeb !== undefined && gitRevision(expectedWeb) === null) ||
+    (expectedApi !== undefined && gitRevision(expectedApi) === null)
   )
     throw new SmokeFailure("CONFIG_INVALID", "config");
   return {
@@ -133,6 +139,8 @@ function configuration(env) {
     generated,
     slug,
     samples,
+    expectedWeb: gitRevision(expectedWeb),
+    expectedApi: gitRevision(expectedApi),
     email: generated ? `audit-${randomBytes(20).toString("hex")}@example.test` : email,
     password: generated ? randomBytes(32).toString("base64url") : password,
   };
@@ -157,12 +165,23 @@ export function summarize(samples) {
 
 export async function runRemoteSmoke(env, { fetchImpl = fetch } = {}) {
   const samples = [];
+  const deployments = {
+    web: { revision: null, verified: false },
+    api: { revision: null, verified: false },
+  };
   let failure;
   let step = "config";
   const run = new AbortController();
   const runTimer = globalThis.setTimeout(() => run.abort(), RUN_TIMEOUT_MS);
   try {
     const config = configuration(env);
+    function checkRevision(service, value, expected, status) {
+      const revision = gitRevision(value);
+      requireShape(value === undefined || value === null || revision !== null, step, status);
+      deployments[service] = { revision, verified: expected !== null && expected === revision };
+      if (expected !== null && expected !== revision)
+        throw new SmokeFailure("DEPLOYMENT_MISMATCH", step, status);
+    }
     let token;
     let selectedCourseId;
     async function request(label, path, { method = "GET", body, web = false } = {}) {
@@ -263,10 +282,18 @@ export async function runRemoteSmoke(env, { fetchImpl = fetch } = {}) {
         }
       }
     }
-    const webHealth = (await request("web_health", "/api/health", { web: true })).value;
-    requireShape(webHealth?.ok === true && webHealth.service === "web", step);
-    const health = (await request("api_health", "/health")).value;
-    requireShape(health?.status === "ok" && health.service === "kanji-srs-api", step);
+    const webResponse = await request("web_health", "/api/health", { web: true });
+    const webHealth = webResponse.value;
+    requireShape(webHealth?.ok === true && webHealth.service === "web", step, webResponse.status);
+    checkRevision("web", webHealth.revision, config.expectedWeb, webResponse.status);
+    const apiResponse = await request("api_health", "/health");
+    const health = apiResponse.value;
+    requireShape(
+      health?.status === "ok" && health.service === "kanji-srs-api",
+      step,
+      apiResponse.status,
+    );
+    checkRevision("api", health.revision, config.expectedApi, apiResponse.status);
     const ready = (await request("api_ready", "/ready")).value;
     requireShape(
       ready?.status === "ready" &&
@@ -463,6 +490,7 @@ export async function runRemoteSmoke(env, { fetchImpl = fetch } = {}) {
     ...(failure ? { failure } : {}),
     samples,
     summary: summarize(samples),
+    deployments,
   };
 }
 
@@ -500,7 +528,7 @@ export async function main(env = process.env, options = {}) {
   if (report.ok) {
     console.log("REMOTE_SMOKE_OK");
     console.log(
-      `REMOTE_MEASUREMENTS ${JSON.stringify({ samples: report.samples, summary: report.summary })}`,
+      `REMOTE_MEASUREMENTS ${JSON.stringify({ samples: report.samples, summary: report.summary, deployments: report.deployments })}`,
     );
   } else
     console.log(

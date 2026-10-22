@@ -199,6 +199,15 @@ describe("database readiness", () => {
 });
 
 describe("readiness endpoint wiring", () => {
+  it("keeps deployment-aware liveness non-cacheable without a database query", () => {
+    expect(
+      Reflect.getMetadata(HEADERS_METADATA, HealthController.prototype.getHealth),
+    ).toContainEqual({
+      name: "Cache-Control",
+      value: "no-store",
+    });
+  });
+
   it("registers a separate GET /ready with non-cacheable HTTP responses", () => {
     const method = ReadinessController.prototype.getReadiness;
     expect(Reflect.getMetadata(PATH_METADATA, method)).toBe("ready");

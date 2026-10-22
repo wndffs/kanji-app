@@ -175,6 +175,9 @@ describe("remote smoke safety", () => {
     { STAGING_SMOKE_SAMPLES: "0" },
     { STAGING_SMOKE_SAMPLES: "1.5" },
     { STAGING_SMOKE_COURSE_SLUG: "../secret" },
+    { STAGING_EXPECTED_WEB_REVISION: "abc1234" },
+    { STAGING_EXPECTED_WEB_REVISION: "" },
+    { STAGING_EXPECTED_API_REVISION: privateText },
     {
       STAGING_SMOKE_EMAIL: "private@example.test",
       STAGING_SMOKE_PASSWORD: privateText,
@@ -233,6 +236,93 @@ describe("remote smoke safety", () => {
     const report = await runRemoteSmoke({ ...env, STAGING_SMOKE_SAMPLES: samples }, fixture());
     expect(report.ok).toBe(true);
     expect(report.samples).toHaveLength(5 * Number(samples));
+  });
+
+  it("matches independently expected web/API revisions without inferring runtime identity from runner source", async () => {
+    const web = "a".repeat(40);
+    const api = "b".repeat(40);
+    const mock = fixture((path) => {
+      if (path === "/api/health")
+        return json({ ok: true, service: "web", revision: web.toUpperCase() });
+      if (path === "/health")
+        return json({ status: "ok", service: "kanji-srs-api", revision: api });
+    });
+    const report = await runRemoteSmoke(
+      {
+        ...env,
+        STAGING_EXPECTED_WEB_REVISION: web,
+        STAGING_EXPECTED_API_REVISION: api.toUpperCase(),
+      },
+      mock,
+    );
+    expect(report.ok).toBe(true);
+    expect(report.deployments).toEqual({
+      web: { revision: web, verified: true },
+      api: { revision: api, verified: true },
+    });
+  });
+
+  it.each(["web-mismatch", "api-mismatch", "missing-web", "missing-api"])(
+    "rejects %s before readiness, registration or any study write",
+    async (scenario) => {
+      const expected = "a".repeat(40);
+      const web = scenario.startsWith("web")
+        ? "b".repeat(40)
+        : scenario === "missing-web"
+          ? null
+          : expected;
+      const api = scenario.startsWith("api")
+        ? "b".repeat(40)
+        : scenario === "missing-api"
+          ? null
+          : expected;
+      const mock = fixture((path) => {
+        if (path === "/api/health") return json({ ok: true, service: "web", revision: web });
+        if (path === "/health")
+          return json({ status: "ok", service: "kanji-srs-api", revision: api });
+      });
+      const report = await runRemoteSmoke(
+        {
+          ...env,
+          STAGING_EXPECTED_WEB_REVISION: expected,
+          STAGING_EXPECTED_API_REVISION: expected,
+        },
+        mock,
+      );
+      expect(report.failure).toEqual({
+        code: "DEPLOYMENT_MISMATCH",
+        step: scenario.includes("web") ? "web_health" : "api_health",
+        status: 200,
+      });
+      expect(mock.calls.every(({ init }) => init.method === "GET")).toBe(true);
+      expect(mock.calls.some(({ path }) => path === "/ready")).toBe(false);
+      expect(report.samples).toEqual([]);
+    },
+  );
+
+  it.each([privateText, 123, {}, "abc1234"])(
+    "rejects malformed deployment metadata without logging it %#",
+    async (revision) => {
+      const mock = fixture((path) =>
+        path === "/api/health" ? json({ ok: true, service: "web", revision }) : undefined,
+      );
+      const report = await runRemoteSmoke(env, mock);
+      expect(report.failure).toEqual({ code: "RESPONSE_INVALID", step: "web_health", status: 200 });
+      expect(report.deployments.web).toEqual({ revision: null, verified: false });
+      expect(JSON.stringify(report)).not.toContain(privateText);
+      expect(mock.calls).toHaveLength(1);
+    },
+  );
+
+  it("reports an observed revision as unverified when no expected revision was supplied", async () => {
+    const revision = "a".repeat(40);
+    const mock = fixture((path) =>
+      path === "/api/health" ? json({ ok: true, service: "web", revision }) : undefined,
+    );
+    const report = await runRemoteSmoke(env, mock);
+    expect(report.ok).toBe(true);
+    expect(report.deployments.web).toEqual({ revision, verified: false });
+    expect(report.deployments.api).toEqual({ revision: null, verified: false });
   });
 
   it("checks both separate kana paths, settings and bounded search with authenticated reads only", async () => {
@@ -617,7 +707,11 @@ describe("remote smoke safety", () => {
     expect(print.mock.calls[0]).toEqual(["REMOTE_SMOKE_OK"]);
     const output = print.mock.calls[1]![0] as string;
     const measurements = JSON.parse(output.replace(/^REMOTE_MEASUREMENTS /u, ""));
-    expect(Object.keys(measurements)).toEqual(["samples", "summary"]);
+    expect(Object.keys(measurements)).toEqual(["samples", "summary", "deployments"]);
+    expect(measurements.deployments).toEqual({
+      web: { revision: null, verified: false },
+      api: { revision: null, verified: false },
+    });
     expect(measurements.samples).toHaveLength(15);
     expect(measurements.summary).toHaveLength(5);
     expect(output).not.toContain(privateText);

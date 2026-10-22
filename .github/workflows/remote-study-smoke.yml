@@ -11,6 +11,14 @@ on:
         options:
           - v1
           - v2
+      expected_web_revision:
+        description: Expected full web commit SHA (blank skips matching)
+        required: false
+        type: string
+      expected_api_revision:
+        description: Expected full API commit SHA (blank skips matching)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -32,6 +40,8 @@ jobs:
           STAGING_WEB_URL: https://kanji-app-rho.vercel.app
           STAGING_API_URL: https://kanji-srs-api.onrender.com
           PILOT_VERSION: ${{ inputs.pilot }}
+          EXPECTED_WEB_REVISION_INPUT: ${{ inputs.expected_web_revision }}
+          EXPECTED_API_REVISION_INPUT: ${{ inputs.expected_api_revision }}
           STAGING_SMOKE_REPORT_PATH: ${{ runner.temp }}/remote-study-smoke.json
         run: |
           case "$PILOT_VERSION" in
@@ -39,6 +49,12 @@ jobs:
             v2) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v2 ;;
             *) echo "Unsupported pilot version."; exit 1 ;;
           esac
+          if [ -n "$EXPECTED_WEB_REVISION_INPUT" ]; then
+            export STAGING_EXPECTED_WEB_REVISION="$EXPECTED_WEB_REVISION_INPUT"
+          fi
+          if [ -n "$EXPECTED_API_REVISION_INPUT" ]; then
+            export STAGING_EXPECTED_API_REVISION="$EXPECTED_API_REVISION_INPUT"
+          fi
           npm run smoke:remote
       - name: Upload sanitized measurements
         if: ${{ always() && steps.audit.outputs.report_ready == 'true' }}

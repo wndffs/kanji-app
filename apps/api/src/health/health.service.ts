@@ -8,6 +8,7 @@ export type HealthResponse = {
   readonly status: "ok";
   readonly environment: string;
   readonly authMode: AuthMode;
+  readonly revision: string | null;
 };
 
 @Injectable()
@@ -20,6 +21,7 @@ export class HealthService {
       status: "ok",
       environment: this.config.environment,
       authMode: this.config.authMode,
+      revision: this.config.deploymentRevision,
     };
   }
 }

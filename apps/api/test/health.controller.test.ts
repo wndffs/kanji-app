@@ -20,6 +20,24 @@ describe("HealthController", () => {
       status: "ok",
       environment: "test",
       authMode: "dev",
+      revision: null,
     });
+  });
+
+  it("reports only the provider's validated revision without exposing other environment data", () => {
+    const revision = "abcdef0123456789abcdef0123456789abcdef01";
+    const service = new HealthService(
+      new AppConfigService({
+        RENDER_GIT_COMMIT: revision.toUpperCase(),
+        AUTH_TOKEN_SECRET: "private-token-secret",
+      }),
+    );
+    expect(service.getHealth().revision).toBe(revision);
+    expect(JSON.stringify(service.getHealth())).not.toContain("private-token-secret");
+    expect(
+      new HealthService(
+        new AppConfigService({ RENDER_GIT_COMMIT: "private-token-secret" }),
+      ).getHealth().revision,
+    ).toBeNull();
   });
 });
