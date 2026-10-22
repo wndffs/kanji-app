@@ -1,16 +1,16 @@
 import { Inject, Injectable, type NestMiddleware } from "@nestjs/common";
 
 import { ApiLogger } from "./api-logger.service";
+import { getRequestContext, setRequestPrivacyHeaders, type RequestTarget } from "./request-privacy";
 
-type RequestLike = {
+type RequestLike = RequestTarget & {
   readonly method?: string;
-  readonly originalUrl?: string;
-  readonly url?: string;
 };
 
 type ResponseLike = {
   readonly statusCode?: number;
-  on(event: "finish", listener: () => void): void;
+  setHeader(name: string, value: string): void;
+  once(event: "finish", listener: () => void): void;
 };
 
 type NextFunctionLike = () => void;
@@ -21,13 +21,16 @@ export class RequestLoggerMiddleware implements NestMiddleware {
 
   use(request: RequestLike, response: ResponseLike, next: NextFunctionLike): void {
     const startedAt = Date.now();
+    const { requestId, path } = getRequestContext(request);
+    setRequestPrivacyHeaders(response, requestId);
 
-    response.on("finish", () => {
+    response.once("finish", () => {
       this.logger.log(
         JSON.stringify({
           event: "http.request",
+          requestId,
           method: request.method ?? "UNKNOWN",
-          path: request.originalUrl ?? request.url ?? "unknown",
+          path,
           statusCode: response.statusCode ?? 0,
           durationMs: Date.now() - startedAt,
         }),

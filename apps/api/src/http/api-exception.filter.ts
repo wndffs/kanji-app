@@ -7,6 +7,12 @@ import {
 } from "@nestjs/common";
 
 import { type ApiLogger } from "../logging/api-logger.service";
+import {
+  getRequestContext,
+  sanitizeReflectedRequestTarget,
+  setRequestPrivacyHeaders,
+  type RequestTarget,
+} from "../logging/request-privacy";
 
 type ErrorResponse = {
   readonly statusCode: number;
@@ -14,16 +20,14 @@ type ErrorResponse = {
   readonly error: string;
   readonly timestamp: string;
   readonly path: string;
+  readonly requestId: string;
 };
 
 type HttpResponseLike = {
+  setHeader(name: string, value: string): void;
   status(statusCode: number): {
     json(body: ErrorResponse): void;
   };
-};
-
-type HttpRequestLike = {
-  readonly url?: string;
 };
 
 @Catch()
@@ -33,7 +37,9 @@ export class ApiExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const context = host.switchToHttp();
     const response = context.getResponse<HttpResponseLike>();
-    const request = context.getRequest<HttpRequestLike>();
+    const request = context.getRequest<RequestTarget>();
+    const { requestId, path } = getRequestContext(request);
+    setRequestPrivacyHeaders(response, requestId);
     const statusCode =
       exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
     const errorResponse = normalizeErrorResponse(exception, statusCode);
@@ -42,18 +48,27 @@ export class ApiExceptionFilter implements ExceptionFilter {
       this.logger.error(
         JSON.stringify({
           event: "api.error",
+          requestId,
           statusCode,
-          path: request.url ?? "unknown",
-          message: errorResponse.message,
+          path,
+          message: "Внутренняя ошибка сервера.",
         }),
       );
     }
 
     response.status(statusCode).json({
       ...errorResponse,
+      message:
+        typeof errorResponse.message === "string"
+          ? sanitizeReflectedRequestTarget(errorResponse.message, request)
+          : errorResponse.message.map((message) =>
+              sanitizeReflectedRequestTarget(message, request),
+            ),
+      error: sanitizeReflectedRequestTarget(errorResponse.error, request),
       statusCode,
       timestamp: new Date().toISOString(),
-      path: request.url ?? "unknown",
+      path,
+      requestId,
     });
   }
 }
@@ -61,7 +76,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
 function normalizeErrorResponse(
   exception: unknown,
   statusCode: number,
-): Omit<ErrorResponse, "statusCode" | "timestamp" | "path"> {
+): Omit<ErrorResponse, "statusCode" | "timestamp" | "path" | "requestId"> {
   if (exception instanceof HttpException) {
     const response = exception.getResponse();
 
