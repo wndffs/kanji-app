@@ -27,7 +27,7 @@ import {
   type TranslationBundleDto,
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
-import { romanizeKana } from "@kanji-srs/japanese";
+import { normalizeJapaneseReading, romanizeKana } from "@kanji-srs/japanese";
 
 import { JapaneseText } from "../../components/JapaneseText";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
@@ -1257,12 +1257,7 @@ function LessonStudyView({
             </div>
             <TextList
               textKind="reading"
-              texts={[
-                ...(lesson.item.reading === null
-                  ? []
-                  : [{ locale: "ru-RU" as const, text: lesson.item.reading }]),
-                ...collectCardAnswers(readingCards, displayMode),
-              ]}
+              texts={collectReadingTexts(readingCards, lesson.item.reading, displayMode)}
             />
           </section>
         ) : null}
@@ -1570,6 +1565,19 @@ function MemoryGroupList({
       ))}
     </div>
   );
+}
+
+function collectReadingTexts(
+  cards: readonly LearningCardDto[],
+  fallback: string | null,
+  displayMode: TranslationDisplayMode,
+): readonly LocalizedTextDto[] {
+  const answers = collectCardAnswers(cards, displayMode).map((answer) => answer.text);
+  const readings = answers.length ? answers : fallback === null ? [] : [fallback];
+  return [...new Set(readings.map(normalizeJapaneseReading).filter(Boolean))].map((text) => ({
+    locale: "ru-RU",
+    text,
+  }));
 }
 
 function collectCardAnswers(

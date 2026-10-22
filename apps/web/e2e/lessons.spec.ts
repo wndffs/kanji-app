@@ -52,6 +52,12 @@ test.describe("lesson session", () => {
       "true",
     );
     await expect(page.getByRole("heading", { name: "Чтения" })).toBeVisible();
+    const readings = page
+      .getByRole("heading", { name: "Чтения", exact: true })
+      .locator("xpath=ancestor::section[1]")
+      .getByRole("listitem");
+    await expect(readings).toHaveCount(1);
+    await expect(readings).toContainText("いち");
     await expect(page.getByText("Свяжите いち со значением один.")).toBeVisible();
     await page.getByRole("button", { name: "Озвучить чтение" }).click();
     await expect
@@ -643,7 +649,10 @@ const lessonQueueItem: LessonQueueItem = {
         ru: [{ locale: "ru-RU", text: "один", isPrimary: true, sourceKind: "curated" }],
         en: [{ locale: "en-US", text: "one", isPrimary: true, sourceKind: "curated" }],
       },
-      acceptedAnswers: [{ locale: "ru-RU", text: "いち", isPrimary: true, sourceKind: "curated" }],
+      acceptedAnswers: [
+        { locale: "ru-RU", text: "いち", isPrimary: true, sourceKind: "curated" },
+        { locale: "en-US", text: "イチ", isPrimary: true, sourceKind: "curated" },
+      ],
       blockedAnswers: [],
       sortOrder: 2,
     },
