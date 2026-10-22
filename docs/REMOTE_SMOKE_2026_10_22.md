@@ -86,6 +86,33 @@ Saved browser evidence includes `pilot-enrollment-confirmed-2026-10-22.png`,
 `pilot-private-answer-persisted-2026-10-22.png` in the agent-local visualization
 directory, outside the repository.
 
+## Expanded Pilot V2
+
+[Publication 39820406188](https://github.com/wndffs/kanji-app/actions/runs/39820406188)
+added the separately sealed v2 pilot: **53 components, 61 kanji, 60 words,
+174 items and 295 cards**. V1 remained unchanged; neither is additional raw
+dictionary content. Publication enrolled no users.
+
+The existing disposable audit profile explicitly added v2 through `/courses`.
+The success message stated that its current v1 course was unchanged. Separate
+selection on the dashboard then persisted v2 and showed five available lessons.
+Before enrollment, after enrollment and after selection, read-only Neon checks
+retained **160 SRS states**, full-row digest
+`5500e1242fb02d64ba1512677bd5ca39`, and private-override digest
+`5c32549f6e6eb8200c328532151fb6ac`. The latter verifies preservation of the
+private 月 answer. Current course changed only on explicit selection; v2 gained
+exactly one enrollment for this profile. The 153 earlier synthetic states remain
+fixtures, not whole-pilot learning evidence. No new answer or schedule write was
+made in this transition check. Screenshot: `pilot-v2-selected-live-2026-10-22.png`.
+
+[Manual remote smoke 39821968993](https://github.com/wndffs/kanji-app/actions/runs/39821968993)
+at runner commit `1b4a209` independently registered a fresh profile, enrolled and
+selected v2, validated reminder opt-out/hour-9 defaults and the exact disabled
+claim response, then passed three samples each for dashboard, lessons, reviews,
+characters and item. Reviews were empty and the first lesson was a component.
+Its timings are in `REMOTE_PERFORMANCE.md`; it is not mobile rendering or a
+runtime-SHA attestation.
+
 ## Automated Complement
 
 After the final runtime change `4a5a8b3`,
@@ -110,5 +137,6 @@ learner coverage.
 Task 124 remains incomplete: full-corpus quality/publication, complete remote
 desktop/mobile route coverage, storage/audio checks if enabled, retained-backup
 and application-recovery policy, rollback rehearsal and whole-product
-security/accessibility sign-off. The early isolated snapshot/count restore passed
-separately in run 39796378083; see `DATABASE_RESTORE_REHEARSAL.md` for exact limits.
+security/accessibility sign-off. The newer isolated snapshot/content-fingerprint
+restore passed in run 39821158337, matching all 45 public table counts and hashes;
+see `DATABASE_RESTORE_REHEARSAL.md` for exact limits and the older count-only run.

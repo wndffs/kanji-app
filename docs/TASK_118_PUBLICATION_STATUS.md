@@ -37,8 +37,14 @@ legacy-ID repair was applied by database run 39813849264 without seed, after
 42 real PostgreSQL tests passed. Before/after read-only snapshots retained its
 word/card IDs and answer digest; there were no SRS/private override rows for
 those two word cards at that snapshot. This is not a populated-progress claim.
-The finite pilot is unchanged at **40 components / 40 kanji / 20 words /
-160 cards**. It must not be counted again as new content or silently extended.
+The finite **v1** pilot is unchanged at **40 components / 40 kanji / 20 words /
+160 cards**. Separately sealed **v2** was published by
+[run 39820406188](https://github.com/wndffs/kanji-app/actions/runs/39820406188):
+**53 components / 61 kanji / 60 words / 295 cards**, reusing these same identities.
+Explicit live enrollment and course selection preserved the audit profile's
+SRS/private data. See `FOUNDATION_PILOT.md` for the exact version and proof.
+Neither pilot is additional content to add to main-course totals, and v1 is
+never silently extended or switched for existing learners.
 
 ### Previous editorial corpus: fourth kanji batch (2026-10-22)
 

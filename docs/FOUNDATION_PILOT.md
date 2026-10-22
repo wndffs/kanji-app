@@ -6,10 +6,10 @@ five-level pilot containing **40 components, 40 kanji and 20 words**, reusing
 60-level course and is not full Task128 or production-readiness approval.
 
 An explicitly selected, separately sealed `japanese-foundation-pilot-v2` is now
-available for independent parent planning/publication. It contains **53 components,
+published after independent parent planning/review. It contains **53 components,
 61 kanji and 60 words**, reusing **174 existing items and 295 existing cards** in
-five levels. This local change is not evidence that v2 has been live-planned or
-published. It never upgrades/enrolls v1 learners or changes their current course.
+five levels. Live plan and publication evidence is recorded below. Publication
+never automatically upgrades/enrolls v1 learners or changes their current course.
 
 ## Separate V2 Seal
 
@@ -296,7 +296,36 @@ was requested. The old test harness's invented 2026-10-23 approval dates were
 replaced with canonical 2026-10-22 dates for sealed validation; its synthetic
 persistence hash necessarily changed. This does not change the real v1 manifest
 or live content version. All 102 focused pilot tests passed after that fixture
-repair; v2 still requires its separate live plan/publication.
+repair. V2's separate live verification follows.
+
+## Verified V2 Publication: 2026-10-22
+
+Read-only [plan 39819668870](https://github.com/wndffs/kanji-app/actions/runs/39819668870)
+passed before explicit [publication 39820406188](https://github.com/wndffs/kanji-app/actions/runs/39820406188),
+job `119969876295`, at commit `1b4a209`. The
+[publication report](https://github.com/wndffs/kanji-app/actions/runs/39820406188/artifacts/12443544161)
+records course UUID `7236105a-d559-42bb-9abb-d1a1551323b4`, manifest-record UUID
+`4c599bc8-e28c-4527-9d9b-a99a3a7c8779`, **174 items / 295 cards / five levels**,
+and content version
+`98a522c5d6f4894fae2f001569aa59f8315c221502eee0da479905c3990fff9b`.
+The published source set has 60 original bilingual examples. The report's
+`enrolledUserId` is null: publication did not enroll or select a course for users.
+
+The live catalog then listed v2. Explicit enrollment on the disposable audit
+profile preserved the current v1 course; a separate dashboard selection saved
+v2 and exposed five new lessons under the existing daily cap. Read-only checks
+before enrollment, after enrollment and after selection retained exactly 160
+SRS rows and the same full-row state/private-override digests. Only the explicit
+enrollment and current-course selection changed. These 160 states include the
+previously disclosed 153 synthetic fixtures; this is preservation evidence, not
+proof of naturally learning the whole pilot. No scheduling answer was submitted.
+
+[Remote smoke 39821968993](https://github.com/wndffs/kanji-app/actions/runs/39821968993)
+separately created a fresh profile, explicitly selected v2 and passed dashboard,
+lesson, review, character and item response checks, including reminder defaults
+and a disabled reminder claim. See `REMOTE_PERFORMANCE.md` for measured timings
+and limits. V1 retains its original UUID/content version above. Neither pilot
+adds new dictionary identities or completes the main-course publication gate.
 
 ```sh
 npm exec -- vitest run packages/db/test/foundation-pilot.test.ts packages/db/test/foundation-pilot-publication.test.ts packages/db/test/content-quality-report.test.ts packages/db/test/content-quality.test.ts --no-cache --no-fsModuleCache --configLoader runner --maxWorkers=2
