@@ -109,7 +109,7 @@ describe("main-course content batches", () => {
     const batches = buildMainCourseContentBatches();
 
     expect(validateMainCourseContentBatches(batches)).toEqual([]);
-    expect(batches).toHaveLength(5);
+    expect(batches).toHaveLength(6);
     expect(batches[0]).toMatchObject({
       id: "task-118-foundation-kanji-01",
       version: "1",
@@ -289,7 +289,7 @@ describe("main-course content batches", () => {
   });
 
   it("uses distinct glyphs and stable free placements within the real Foundation blueprint", () => {
-    const batches = buildMainCourseContentBatches();
+    const batches = buildMainCourseContentBatches().slice(0, 5);
     const foundationLevels = new Set(
       buildMainCourseBlueprint()
         .levels.filter((level) => level.band === "FOUNDATION")

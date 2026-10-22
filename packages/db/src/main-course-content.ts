@@ -1,4 +1,5 @@
 import { buildMainCourseContentBatch05 } from "./main-course-content-05";
+import { buildMainCourseContentBatch06 } from "./main-course-content-06";
 import { buildMainCourseBlueprint } from "./main-course";
 
 export type MainCourseContentLocale = "ru-RU" | "en-US";
@@ -1513,6 +1514,7 @@ const MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
   TASK_118_FOUNDATION_BATCH_03,
   TASK_118_FOUNDATION_BATCH_04,
   buildMainCourseContentBatch05(),
+  buildMainCourseContentBatch06(),
 ];
 
 export function buildMainCourseContentBatches(): readonly MainCourseContentBatch[] {

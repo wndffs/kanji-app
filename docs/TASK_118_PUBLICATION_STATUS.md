@@ -14,7 +14,37 @@ continue.
 
 ## Verified staging evidence
 
-### Current editorial corpus: third word batch (2026-10-22)
+### Current Editorial Corpus: Fifth Word Batch (2026-10-22)
+
+[Run 39836574322](https://github.com/wndffs/kanji-app/actions/runs/39836574322)
+applied only kanji-05 and word-04, without starter seed or old-batch application.
+The subsequent [word-05 run 39837563210](https://github.com/wndffs/kanji-app/actions/runs/39837563210)
+opened level 6 and added twenty more vocabulary pairs and original examples.
+The main course remains DRAFT: **63 components, 81 kanji, 100 words, 244 items,
+425 cards and 100 original examples**, with six populated levels out of sixty.
+The exact finite set was independently checked by
+[V3 read-only plan 39838874891](https://github.com/wndffs/kanji-app/actions/runs/39838874891).
+
+| Source   | Manifest SHA-256                                                   | Successful Import Run                  |
+| -------- | ------------------------------------------------------------------ | -------------------------------------- |
+| kanji-05 | `95a4b69a331f200caa5044717cde9d628c3d3ad1d79600000c142a55967a3c1b` | `fa5174f8-616e-4568-a4a5-aee6fb50ab0c` |
+| word-04  | `81496c6ffcb91d0d7fa046b8f075b4b1aff6e2ccec7f69d48c48708bb043b5b6` | `ccbb85ea-2e61-4fe9-8dd3-5548c02742ce` |
+| word-05  | `e1fd34111d46183f4376934d9d55429c191524e7d319ec367b8bdb2c4d972f36` | `f1a5b9e7-54da-4275-9426-5b6891ad1ff0` |
+
+The [latest quality artifact](https://github.com/wndffs/kanji-app/actions/runs/39837563210/artifacts/12452454011)
+checked all 244 items with **zero blockers and zero warnings**, policy v2,
+content version `0f9dd5557d42e8b916920a943974c9505887fb5141c44d5229921440ba6b7459`.
+The earlier combined run checked 224 items with the same zero-issue result,
+content version `cbbd499304fc23daff817686fa77cbabe55e3bab952e510636a97c705a225a3a`.
+The live full-course gap is **2,219 kanji and 7,900 words**. V1/V2 seals,
+enrollments and existing card identities were not expanded automatically.
+
+Later word-06 and kanji-06 are separately AI-authored/independently AI-reviewed
+source manifests, not part of the V3 seal or this live checkpoint. Their
+prepared registry totals are 79 components, 101 kanji, 120 words, 300 items and
+521 cards. No new raw dictionary download or inferred modern JLPT values are used.
+
+### Previous Editorial Corpus: Third Word Batch (2026-10-22)
 
 [Selected curation run 39814286342](https://github.com/wndffs/kanji-app/actions/runs/39814286342)
 applied only `task-127-foundation-words-03@1`, with no old word/kanji batch

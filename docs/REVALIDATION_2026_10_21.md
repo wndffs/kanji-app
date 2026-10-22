@@ -167,6 +167,11 @@ are source-manifest totals until server application is independently confirmed.
 The separately reviewed word-06 reinforcement slice adds another twenty words
 at level 6 slots 21-40. Registry totals become 120 words and 120 examples;
 V3 remains frozen at 100 words. This slice does not silently expand any pilot.
+The first N5-band kanji slice adds sixteen components at level 6 slots 41-56 and
+twenty kanji at level 7 slots 1-20. Prepared main-course registry totals become
+79 components, 101 kanji, 120 words, 300 items and 521 cards. This is not a claim
+that those later sources are applied or part of V3. A future finite version must
+explicitly review mixed component/word level-6 completion policies before release.
 Existing reviewed manifests, pilot V1/V2 seals, card identities and learner
 enrollments are unchanged. Prepared source counts must not be reported as live
 or published counts before a successful curation/quality run. The next finite

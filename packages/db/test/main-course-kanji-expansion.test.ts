@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -7,7 +8,7 @@ import {
 
 describe("fifth source-checked kanji slice", () => {
   it("adds twenty distinct glyphs and ten components without occupying old placements", () => {
-    const registry = buildMainCourseContentBatches();
+    const registry = buildMainCourseContentBatches().slice(0, 5);
     const batch = registry[4]!;
     expect(registry).toHaveLength(5);
     expect(batch).toMatchObject({
@@ -94,5 +95,91 @@ describe("fifth source-checked kanji slice", () => {
     expect(byCharacter.get("林")!.componentKeys).toEqual(["component-tree"]);
     expect(byCharacter.get("森")!.componentKeys).toEqual(["component-tree"]);
     expect(byCharacter.get("夕")!.reading.sourceType).toBe("ja_on");
+  });
+});
+
+describe("first N5-band kanji slice", () => {
+  it("uses sixteen free component slots and twenty later kanji slots without moving Foundation", () => {
+    const registry = buildMainCourseContentBatches();
+    expect(registry).toHaveLength(6);
+    const batch = registry[5]!;
+    expect(batch).toMatchObject({
+      id: "task-118-course-kanji-06",
+      version: "1",
+      reviewedAt: "2026-10-22",
+      componentLevelNumber: 6,
+      componentSortOrderStart: 41,
+    });
+    expect(createHash("sha256").update(JSON.stringify(batch)).digest("hex")).toBe(
+      "74482be25706778fafe6e18b5ffc144718a3bf7a4181a5aacc8323516b223833",
+    );
+    expect(batch.components.map((item) => item.symbol)).toEqual([
+      "艹",
+      "化",
+      "午",
+      "牛",
+      "馬",
+      "鳥",
+      "魚",
+      "肉",
+      "米",
+      "食",
+      "欠",
+      "言",
+      "舌",
+      "売",
+      "聿",
+      "門",
+    ]);
+    expect(
+      batch.kanji.map((item) => [item.character, item.reading.source, item.reading.primary]),
+    ).toEqual([
+      ["花", "カ", "か"],
+      ["草", "ソウ", "そう"],
+      ["早", "ソウ", "そう"],
+      ["午", "ゴ", "ご"],
+      ["牛", "ギュウ", "ぎゅう"],
+      ["馬", "バ", "ば"],
+      ["鳥", "チョウ", "ちょう"],
+      ["魚", "ギョ", "ぎょ"],
+      ["肉", "ニク", "にく"],
+      ["米", "ベイ", "べい"],
+      ["食", "ショク", "しょく"],
+      ["飲", "イン", "いん"],
+      ["言", "ゲン", "げん"],
+      ["話", "ワ", "わ"],
+      ["読", "ドク", "どく"],
+      ["語", "ゴ", "ご"],
+      ["書", "ショ", "しょ"],
+      ["聞", "ブン", "ぶん"],
+      ["門", "モン", "もん"],
+      ["間", "カン", "かん"],
+    ]);
+    expect(
+      batch.kanji.every(
+        (item) =>
+          item.levelNumber === 7 && item.requireStrokeData && item.reading.sourceType === "ja_on",
+      ),
+    ).toBe(true);
+    expect(batch.kanji.map((item) => item.sortOrder)).toEqual(
+      Array.from({ length: 20 }, (_, i) => i + 1),
+    );
+    expect(validateMainCourseContentBatches(registry)).toEqual([]);
+    expect(
+      new Set(registry.flatMap((entry) => entry.kanji.map((item) => item.character))).size,
+    ).toBe(101);
+    expect(
+      new Set(registry.flatMap((entry) => entry.components.map((item) => item.symbol))).size,
+    ).toBe(79);
+    for (const item of batch.kanji) {
+      expect(item.meanings.ru.accepted).toContain(item.meanings.ru.primary);
+      expect(item.meanings.en.accepted).toContain(item.meanings.en.primary);
+      expect(item.componentKeys.length).toBeGreaterThan(0);
+      expect(Object.values(item.meaningMnemonic).every((text) => text.trim())).toBe(true);
+      expect(Object.values(item.readingMnemonic).every((text) => text.trim())).toBe(true);
+    }
+    const rice = batch.kanji.find((item) => item.character === "米")!;
+    expect(rice.meanings.en.accepted).toEqual(["rice"]);
+    expect(rice.meanings.ru.accepted).not.toContain("США");
   });
 });
