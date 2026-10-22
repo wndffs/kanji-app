@@ -221,6 +221,9 @@ type SentenceTargetRow = {
   readonly translationEn: string | null;
 };
 
+const LESSON_TARGET_BATCH_SIZE = 100;
+const LESSON_TARGET_TYPES = ["COMPONENT", "KANJI", "WORD", "SENTENCE"] as const;
+
 @Injectable()
 export class PrismaLessonsRepository extends LessonsRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
@@ -308,13 +311,15 @@ export class PrismaLessonsRepository extends LessonsRepository {
       enrollment.course.levels.flatMap((level) => level.items.map((entry) => entry.learningItem)),
     );
     const examplesByItem = await loadItemExampleSentences(this.prisma.db, lessonItems, 3);
+    const targets = await this.loadTargets(lessonItems);
 
     for (const enrollment of enrollments) {
       for (const level of enrollment.course.levels) {
         for (const item of level.items) {
-          const lessonItem = await this.toLessonItemRecord(
+          const lessonItem = this.toLessonItemRecord(
             item.learningItem,
             examplesByItem.get(item.learningItem.id) ?? [],
+            targets,
           );
 
           if (lessonItem.cards.length === 0) {
@@ -395,16 +400,16 @@ export class PrismaLessonsRepository extends LessonsRepository {
       deck.items.map((entry) => entry.learningItem),
       3,
     );
+    const targets = await this.loadTargets(deck.items.map((entry) => entry.learningItem));
 
-    const items = await Promise.all(
-      deck.items.map(async (entry) => ({
-        sortOrder: entry.sortOrder,
-        item: await this.toLessonItemRecord(
-          entry.learningItem,
-          examplesByItem.get(entry.learningItem.id) ?? [],
-        ),
-      })),
-    );
+    const items = deck.items.map((entry) => ({
+      sortOrder: entry.sortOrder,
+      item: this.toLessonItemRecord(
+        entry.learningItem,
+        examplesByItem.get(entry.learningItem.id) ?? [],
+        targets,
+      ),
+    }));
 
     return {
       id: deck.id,
@@ -668,10 +673,11 @@ export class PrismaLessonsRepository extends LessonsRepository {
     return session === null ? null : toSessionRecord(session);
   }
 
-  private async toLessonItemRecord(
+  private toLessonItemRecord(
     item: LearningItemRow,
     exampleSentences: readonly SentenceDto[],
-  ): Promise<LessonItemRecord> {
+    targets: ReadonlyMap<string, LessonTargetRecord>,
+  ): LessonItemRecord {
     const itemType = toItemKind(item.kind);
     const cards = item.cards
       .map((card) => toCardRecord(card, itemType))
@@ -682,7 +688,7 @@ export class PrismaLessonsRepository extends LessonsRepository {
       itemType,
       title: item.title,
       level: item.levelHint,
-      target: await this.findTarget(item),
+      target: requireLoadedTarget(item, targets),
       cards,
       dependencies: item.dependencies.map(toDependencyRecord),
       mnemonics: groupLessonMnemonics(item.mnemonics, item.userMnemonics),
@@ -691,131 +697,148 @@ export class PrismaLessonsRepository extends LessonsRepository {
     };
   }
 
-  private async findTarget(item: LearningItemRow): Promise<LessonTargetRecord> {
-    switch (item.targetType) {
-      case "COMPONENT":
-        return this.findComponentTarget(item.targetId);
-      case "KANJI":
-        return this.findKanjiTarget(item.targetId);
-      case "WORD":
-        return this.findWordTarget(item.targetId);
-      case "SENTENCE":
-        return this.findSentenceTarget(item.targetId);
-      default:
+  private async loadTargets(
+    items: readonly LearningItemRow[],
+  ): Promise<ReadonlyMap<string, LessonTargetRecord>> {
+    const idsByType = new Map<string, Set<string>>(
+      LESSON_TARGET_TYPES.map((type) => [type, new Set<string>()]),
+    );
+    for (const item of items) {
+      const ids = idsByType.get(item.targetType);
+      if (ids === undefined)
         throw new Error(`Unsupported learning item target type: ${item.targetType}`);
+      ids.add(item.targetId);
     }
+    const targets = new Map<string, LessonTargetRecord>();
+    for (const type of LESSON_TARGET_TYPES) {
+      const ids = [...idsByType.get(type)!];
+      for (let offset = 0; offset < ids.length; offset += LESSON_TARGET_BATCH_SIZE) {
+        const where = { id: { in: ids.slice(offset, offset + LESSON_TARGET_BATCH_SIZE) } };
+        switch (type) {
+          case "COMPONENT": {
+            const rows = await this.prisma.db.component.findMany({ where });
+            for (const row of rows) targets.set(targetKey(type, row.id), toComponentTarget(row));
+            break;
+          }
+          case "KANJI": {
+            const rows = await this.prisma.db.kanji.findMany({
+              where,
+              include: {
+                readings: { orderBy: kanjiReadingOrderBy() },
+                meanings: {
+                  orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }],
+                },
+              },
+            });
+            for (const row of rows) targets.set(targetKey(type, row.id), toKanjiTarget(row));
+            break;
+          }
+          case "WORD": {
+            const rows = await this.prisma.db.word.findMany({
+              where,
+              include: {
+                senses: { orderBy: [{ locale: "asc" }, { meaning: "asc" }] },
+              },
+            });
+            for (const row of rows) targets.set(targetKey(type, row.id), toWordTarget(row));
+            break;
+          }
+          case "SENTENCE": {
+            const rows = await this.prisma.db.sentence.findMany({ where });
+            for (const row of rows) targets.set(targetKey(type, row.id), toSentenceTarget(row));
+            break;
+          }
+        }
+      }
+    }
+    return targets;
   }
+}
 
-  private async findComponentTarget(id: string): Promise<LessonTargetRecord> {
-    const component = (await this.prisma.db.component.findUnique({
-      where: { id },
-    })) as ComponentTargetRow | null;
+function targetKey(type: string, id: string): string {
+  return `${type}:${id}`;
+}
 
-    if (component === null) {
-      throw new Error(`Missing component target ${id}.`);
-    }
+function requireLoadedTarget(
+  item: LearningItemRow,
+  targets: ReadonlyMap<string, LessonTargetRecord>,
+): LessonTargetRecord {
+  const target = targets.get(targetKey(item.targetType, item.targetId));
+  if (target === undefined)
+    throw new Error(`Missing ${item.targetType.toLowerCase()} target ${item.targetId}.`);
+  return target;
+}
 
-    return {
-      japanese: component.symbol,
-      reading: null,
-      jlptLevel: null,
-      translations: {
-        ru: [
-          localizedText("ru-RU", component.meaningRu, {
-            isPrimary: true,
-            sourceKind: toSourceKind(component.sourceKind),
-          }),
-        ],
-        en: [
-          localizedText("en-US", component.meaningEn, {
-            isPrimary: true,
-            sourceKind: toSourceKind(component.sourceKind),
-          }),
-        ],
-      },
-    };
-  }
+function toComponentTarget(component: ComponentTargetRow): LessonTargetRecord {
+  return {
+    japanese: component.symbol,
+    reading: null,
+    jlptLevel: null,
+    translations: {
+      ru: [
+        localizedText("ru-RU", component.meaningRu, {
+          isPrimary: true,
+          sourceKind: toSourceKind(component.sourceKind),
+        }),
+      ],
+      en: [
+        localizedText("en-US", component.meaningEn, {
+          isPrimary: true,
+          sourceKind: toSourceKind(component.sourceKind),
+        }),
+      ],
+    },
+  };
+}
 
-  private async findKanjiTarget(id: string): Promise<LessonTargetRecord> {
-    const kanji = (await this.prisma.db.kanji.findUnique({
-      where: { id },
-      include: {
-        readings: { orderBy: kanjiReadingOrderBy() },
-        meanings: { orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }] },
-      },
-    })) as KanjiTargetRow | null;
-
-    if (kanji === null) {
-      throw new Error(`Missing kanji target ${id}.`);
-    }
-
-    return {
-      japanese: kanji.character,
-      reading: kanji.readings[0]?.reading ?? null,
-      jlptLevel: formatJlptLevel(kanji.jlptLevel),
-      translations: groupLocalizedTexts(
-        kanji.meanings.map((meaning) =>
-          localizedText(toContentLocale(meaning.locale), meaning.meaning, {
-            isPrimary: meaning.isPrimary,
-            sourceKind: toSourceKind(meaning.sourceKind),
-          }),
-        ),
+function toKanjiTarget(kanji: KanjiTargetRow): LessonTargetRecord {
+  return {
+    japanese: kanji.character,
+    reading: kanji.readings[0]?.reading ?? null,
+    jlptLevel: formatJlptLevel(kanji.jlptLevel),
+    translations: groupLocalizedTexts(
+      kanji.meanings.map((meaning) =>
+        localizedText(toContentLocale(meaning.locale), meaning.meaning, {
+          isPrimary: meaning.isPrimary,
+          sourceKind: toSourceKind(meaning.sourceKind),
+        }),
       ),
-    };
-  }
+    ),
+  };
+}
 
-  private async findWordTarget(id: string): Promise<LessonTargetRecord> {
-    const word = (await this.prisma.db.word.findUnique({
-      where: { id },
-      include: {
-        senses: { orderBy: [{ locale: "asc" }, { meaning: "asc" }] },
-      },
-    })) as WordTargetRow | null;
-
-    if (word === null) {
-      throw new Error(`Missing word target ${id}.`);
-    }
-
-    return {
-      japanese: word.expression,
-      reading: word.reading,
-      jlptLevel: formatJlptLevel(word.jlptLevel),
-      translations: groupLocalizedTexts(
-        word.senses.map((sense, index) =>
-          localizedText(toContentLocale(sense.locale), sense.meaning, {
-            isPrimary: index === 0,
-            sourceKind: toSourceKind(sense.sourceKind),
-          }),
-        ),
+function toWordTarget(word: WordTargetRow): LessonTargetRecord {
+  return {
+    japanese: word.expression,
+    reading: word.reading,
+    jlptLevel: formatJlptLevel(word.jlptLevel),
+    translations: groupLocalizedTexts(
+      word.senses.map((sense, index) =>
+        localizedText(toContentLocale(sense.locale), sense.meaning, {
+          isPrimary: index === 0,
+          sourceKind: toSourceKind(sense.sourceKind),
+        }),
       ),
-    };
-  }
+    ),
+  };
+}
 
-  private async findSentenceTarget(id: string): Promise<LessonTargetRecord> {
-    const sentence = (await this.prisma.db.sentence.findUnique({
-      where: { id },
-    })) as SentenceTargetRow | null;
-
-    if (sentence === null) {
-      throw new Error(`Missing sentence target ${id}.`);
-    }
-
-    return {
-      japanese: sentence.japaneseText,
-      reading: sentence.readingText,
-      jlptLevel: null,
-      translations: {
-        ru:
-          sentence.translationRu === null
-            ? []
-            : [localizedText("ru-RU", sentence.translationRu, { isPrimary: true })],
-        en:
-          sentence.translationEn === null
-            ? []
-            : [localizedText("en-US", sentence.translationEn, { isPrimary: true })],
-      },
-    };
-  }
+function toSentenceTarget(sentence: SentenceTargetRow): LessonTargetRecord {
+  return {
+    japanese: sentence.japaneseText,
+    reading: sentence.readingText,
+    jlptLevel: null,
+    translations: {
+      ru:
+        sentence.translationRu === null
+          ? []
+          : [localizedText("ru-RU", sentence.translationRu, { isPrimary: true })],
+      en:
+        sentence.translationEn === null
+          ? []
+          : [localizedText("en-US", sentence.translationEn, { isPrimary: true })],
+    },
+  };
 }
 
 function toSessionRecord(row: SessionRow): LessonSessionRecord {

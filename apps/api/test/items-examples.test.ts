@@ -67,6 +67,15 @@ function harness(count = 1) {
   const findMany = vi.fn(async ({ where }: { where: { id: { in: string[] } } }) =>
     sentences.filter((sentence) => where.id.in.includes(sentence.id)),
   );
+  const wordTarget = (targetId: string) => ({
+    id: targetId,
+    expression: "本",
+    reading: targetId === items[0]?.targetId ? "ほん" : "もと",
+    jlptLevel: 5,
+    commonnessRank: null,
+    jmdictEntryId: null,
+    senses: [],
+  });
   const db = {
     $queryRaw,
     learningItem: {
@@ -80,51 +89,42 @@ function harness(count = 1) {
     dependency: { ...writes, findMany: vi.fn().mockResolvedValue([]) },
     userSrsState: { ...writes },
     word: {
-      findUnique: vi.fn(async ({ where }: { where: { id: string } }) => ({
-        id: where.id,
-        expression: "本",
-        reading: where.id === items[0]?.targetId ? "ほん" : "もと",
-        jlptLevel: 5,
-        commonnessRank: null,
-        jmdictEntryId: null,
-        senses: [],
-      })),
+      findUnique: vi.fn(async ({ where }: { where: { id: string } }) => wordTarget(where.id)),
+      findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) =>
+        where.id.in.map(wordTarget),
+      ),
     },
     sentence: { findMany },
     deck: {
-      findFirst: vi
-        .fn()
-        .mockResolvedValue({
-          id: id(5000),
-          title: "Words",
-          status: "READY",
-          items: items.map((learningItem, i) => ({ sortOrder: i, learningItem })),
-        }),
+      findFirst: vi.fn().mockResolvedValue({
+        id: id(5000),
+        title: "Words",
+        status: "READY",
+        items: items.map((learningItem, i) => ({ sortOrder: i, learningItem })),
+      }),
     },
     userSettings: { findUnique: vi.fn().mockResolvedValue({ currentCourseId: id(6000) }) },
     userEnrollment: {
-      findMany: vi
-        .fn()
-        .mockResolvedValue([
-          {
-            courseId: id(6000),
-            startedAt: new Date("2026-10-22T00:00:00Z"),
-            course: {
-              id: id(6000),
-              slug: "japanese-ru-n2",
-              levels: [
-                {
-                  levelNumber: 1,
-                  items: items.map((learningItem, i) => ({
-                    sortOrder: i,
-                    unlockPolicyJson: null,
-                    learningItem,
-                  })),
-                },
-              ],
-            },
+      findMany: vi.fn().mockResolvedValue([
+        {
+          courseId: id(6000),
+          startedAt: new Date("2026-10-22T00:00:00Z"),
+          course: {
+            id: id(6000),
+            slug: "japanese-ru-n2",
+            levels: [
+              {
+                levelNumber: 1,
+                items: items.map((learningItem, i) => ({
+                  sortOrder: i,
+                  unlockPolicyJson: null,
+                  learningItem,
+                })),
+              },
+            ],
           },
-        ]),
+        },
+      ]),
     },
   };
   return {
@@ -184,6 +184,8 @@ describe("direct word examples in Prisma item/lesson repositories", () => {
       expect(h.$queryRaw).toHaveBeenCalledTimes(2);
       expect(h.findMany).toHaveBeenCalledTimes(2);
       expect(h.db.learningItem.findUnique).not.toHaveBeenCalled();
+      expect(h.db.word.findUnique).not.toHaveBeenCalled();
+      expect(h.db.word.findMany).toHaveBeenCalledTimes(2);
       for (const write of Object.values(h.writes)) expect(write).not.toHaveBeenCalled();
       for (const [query] of h.$queryRaw.mock.calls) {
         expect(h.items.filter((item) => query.values.includes(item.targetId))).toHaveLength(
