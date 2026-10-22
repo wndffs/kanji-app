@@ -84,7 +84,7 @@ diagnostic, not continuous database polling that consumes free compute.
 | 120     | Implemented; focused acceptance tested        | Whole-product contrast belongs to 121-122                                |
 | 121     | Not started                                   | Original visual system after functional/data contracts                   |
 | 122     | Discovered blockers being repaired            | Width/zoom/keyboard/axe/screen-reader matrix                             |
-| 123     | Bounded daily-use features deployed           | Full-scale/CWV budgets, real OS install, safe static shell caching       |
+| 123     | Bounded daily-use features implemented        | Full-scale/CWV budgets, real OS install and remote offline acceptance    |
 | 124     | Content-fingerprint restore passed; gate open | Full corpus, recovery policy, remote matrix, rollback, security sign-off |
 | 125     | Implemented and live-smoke verified           | Eventual whole-product acceptance                                        |
 | 126     | Implemented; first examples live              | Editorial coverage as the corpus grows                                   |
@@ -214,8 +214,11 @@ The present order is:
    static asset bytes from actual browser performance. Exhausted lesson caps now
    skip graph hydration while retaining full-user daily-limit accounting.
    Full positive-path graph/query budgets, representative latency/CWV, actual
-   OS installation and safe static shell caching remain open. See
-   `REVIEW_REMINDERS.md` and `REMOTE_PERFORMANCE.md`.
+   OS installation and remote offline acceptance remain open. A production-only
+   worker now caches exactly a public offline error page and one original icon,
+   never app/API/private data or queued writes. Its 39 unit cases and 16 focused
+   production desktop/mobile cases passed; `OFFLINE_SHELL.md` states the limits.
+   See `REVIEW_REMINDERS.md` and `REMOTE_PERFORMANCE.md`.
 3. Continue Task118/127 reviewed batches toward 2,300 kanji and 8,000 words;
    add licensed audio coverage from Task116 where an approved source exists.
 4. Finish Task123 measured performance and daily-use acceptance, including

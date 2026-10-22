@@ -28,7 +28,4 @@ test("public manifest and home-screen icons are served without an account", asyn
     expect(bytes.readUInt32BE(20)).toBe(size);
   }
   await expect(page.getByRole("heading", { name: "Вход", exact: true })).toBeVisible();
-  expect(
-    await page.evaluate(() => navigator.serviceWorker.getRegistrations().then((r) => r.length)),
-  ).toBe(0);
 });

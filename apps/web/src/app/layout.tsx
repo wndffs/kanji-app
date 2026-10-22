@@ -5,6 +5,7 @@ import { APP_NAME } from "@kanji-srs/shared";
 
 import { AppShell } from "../components/AppShell";
 import { InterfacePreferencesSync } from "../components/InterfacePreferencesSync";
+import { OfflineShellRegistration } from "../components/OfflineShellRegistration";
 import { INTERFACE_PREFERENCES_BOOTSTRAP } from "../lib/interface-preferences";
 import "./globals.css";
 
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       </head>
       <body>
         <InterfacePreferencesSync />
+        <OfflineShellRegistration />
         <AppShell>{children}</AppShell>
       </body>
     </html>

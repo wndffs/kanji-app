@@ -15,10 +15,11 @@ node apps/web/scripts/generate-app-icons.mjs
 ```
 
 The generator uses the image codec already installed with Next. It is not a
-runtime step. Generated icons are committed; no service worker or cache is
-registered, and no authentication/queue/schedule response is cached by this
-feature. Installation metadata is not offline lesson/review support. Network
-errors must still leave writes unconfirmed.
+runtime step. Generated icons are committed. The later public offline shell
+registers a production-only service worker caching exactly `/offline.html` and
+the 192-pixel icon; see `OFFLINE_SHELL.md`. No authentication/queue/schedule
+response is cached. Installation metadata and a public error page are not
+offline lesson/review support. Network errors must still leave writes unconfirmed.
 
 Chrome's current [installation criteria](https://web.dev/articles/install-criteria)
 include HTTPS, manifest metadata and 192/512 icons; the browser also controls
@@ -29,7 +30,8 @@ support. No app is automatically installed on the user's computer.
 
 Focused unit and production-bundle desktop/mobile browser tests check manifest
 discovery/MIME, safe identity/launch fields, PNG sizes, Apple metadata, an intact
-login page and absence of service-worker registration. Actual OS installation,
+login page. Separate worker tests cover only the public offline fallback and
+registration failures, not device installation. Actual OS installation,
 standalone relaunch, device-specific masks and the full offline/reminder matrix
 remain manual acceptance before Task123 can be called complete.
 

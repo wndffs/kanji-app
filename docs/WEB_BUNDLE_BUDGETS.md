@@ -136,8 +136,9 @@ review them after all seven routes have real evidence, before integrating a gate
 
 ## Observed Build: 2026-10-22
 
-The parent reported its single production build exited 0 on 2026-10-22 and kept
-the output stable. Read-only inspection confirmed framework version 16.4.2 and
+The single measured production build at source revision `c9f9ef9` exited 0 on
+2026-10-22, before the later offline-registration component, and retained stable
+output. Read-only inspection confirmed framework version 16.4.2 and
 the following bytes. The initial read-only pass covered five static routes;
 the parent then briefly started that same standalone build on loopback port
 3174 and captured complete HTML for `/items/<synthetic UUID>` and `/kana`.

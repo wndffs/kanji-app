@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <title>Нет соединения | Кандзи SRS</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        color: #22262a;
+        background: #f7f8fa;
+        font:
+          16px/1.6 system-ui,
+          sans-serif;
+      }
+      main {
+        width: 100%;
+        max-width: 36rem;
+        margin: 12vh auto 0;
+        padding: 24px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 32px;
+        font-weight: 600;
+      }
+      img {
+        display: block;
+        flex: none;
+      }
+      h1 {
+        margin: 0 0 16px;
+        font-size: 28px;
+        line-height: 1.25;
+      }
+      p {
+        margin: 0 0 24px;
+      }
+      a {
+        color: #164eae;
+        text-underline-offset: 4px;
+        overflow-wrap: anywhere;
+      }
+      a:focus-visible {
+        outline: 2px solid #a8243b;
+        outline-offset: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="brand">
+        <img src="/icons/app-192.png" width="48" height="48" alt="" />Кандзи SRS
+      </div>
+      <h1>Нет соединения</h1>
+      <p>Не удалось загрузить страницу. Учебные данные сейчас недоступны.</p>
+      <a href="">Повторить подключение</a>
+    </main>
+  </body>
+</html>

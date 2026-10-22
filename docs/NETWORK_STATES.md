@@ -1,8 +1,9 @@
 # Network States
 
-This bounded Task123 web slice is not a cache/offline-shell implementation and
-does not provide background reminder support. No service worker is registered.
-Installation metadata does not make lessons or reviews available offline.
+This bounded Task123 API/input slice is separate from `OFFLINE_SHELL.md`, whose
+production-only worker caches two public files for failed full-page navigation.
+It never caches API responses or replays writes. Neither feature makes lessons
+or reviews available offline or provides background reminder support.
 
 The shell reports browser offline/online hints in Russian. An online event does
 not prove API reachability: the reconnecting notice explicitly leaves server
