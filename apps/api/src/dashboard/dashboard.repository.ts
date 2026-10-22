@@ -252,6 +252,16 @@ type SentenceTargetRow = {
   readonly translationEn: string | null;
 };
 
+type DashboardTargets = {
+  readonly component: ReadonlyMap<string, ComponentTargetRow>;
+  readonly kanji: ReadonlyMap<string, KanjiTargetRow>;
+  readonly word: ReadonlyMap<string, WordTargetRow>;
+  readonly sentence: ReadonlyMap<string, SentenceTargetRow>;
+};
+
+const DASHBOARD_TARGET_TYPES = ["COMPONENT", "KANJI", "WORD", "SENTENCE"] as const;
+const DASHBOARD_TARGET_BATCH_SIZE = 100;
+
 const dashboardActivityStateSelect = {
   id: true,
   learningCardId: true,
@@ -517,10 +527,11 @@ export class PrismaDashboardRepository extends DashboardRepository {
       orderBy: [{ wrongCount: "desc" }, { updatedAt: "desc" }, { id: "asc" }],
     })) as readonly LeechStateRow[];
 
+    const targets = await this.loadTargets(states.map((state) => state.learningCard.learningItem));
     const records: DashboardLeechSignalRecord[] = [];
 
     for (const state of states) {
-      const item = await this.toLeechItemRecord(state.learningCard.learningItem);
+      const item = await this.toLeechItemRecord(state.learningCard.learningItem, targets);
 
       records.push({
         id: state.id,
@@ -570,9 +581,14 @@ export class PrismaDashboardRepository extends DashboardRepository {
       (attempt) => attempt.userSrsState.learningCard.learningItem.id,
       limit,
     );
+    const targets = await this.loadTargets(
+      selected.map((attempt) => attempt.userSrsState.learningCard.learningItem),
+    );
 
     return Promise.all(
-      selected.map((attempt) => this.toRecentItemRecord(attempt.userSrsState, attempt.answeredAt)),
+      selected.map((attempt) =>
+        this.toRecentItemRecord(attempt.userSrsState, attempt.answeredAt, targets),
+      ),
     );
   }
 
@@ -601,6 +617,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
       },
     })) as readonly LeechLearningItemRow[];
     const itemById = new Map(items.map((item) => [item.id, item]));
+    const targets = await this.loadTargets(items);
 
     return Promise.all(
       orderedIds.flatMap((itemId) => {
@@ -609,7 +626,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
         return item === undefined
           ? []
           : [
-              this.toLeechItemRecord(item).then((hydrated) => ({
+              this.toLeechItemRecord(item, targets).then((hydrated) => ({
                 occurredAt: null,
                 item: hydrated,
                 srs: null,
@@ -688,8 +705,13 @@ export class PrismaDashboardRepository extends DashboardRepository {
       (state) => state.learningCard.learningItem.id,
       limit,
     );
+    const targets = await this.loadTargets(
+      selected.map((state) => state.learningCard.learningItem),
+    );
 
-    return Promise.all(selected.map((state) => this.toRecentItemRecord(state, state.burnedAt)));
+    return Promise.all(
+      selected.map((state) => this.toRecentItemRecord(state, state.burnedAt, targets)),
+    );
   }
 
   async listStudyActivity(
@@ -989,13 +1011,81 @@ export class PrismaDashboardRepository extends DashboardRepository {
     return rows;
   }
 
+  private async loadTargets(items: readonly LeechLearningItemRow[]): Promise<DashboardTargets> {
+    const idsByType = new Map<string, Set<string>>(
+      DASHBOARD_TARGET_TYPES.map((type) => [type, new Set<string>()]),
+    );
+
+    for (const item of items) {
+      const ids = idsByType.get(item.targetType);
+
+      if (ids === undefined) {
+        throw new Error(`Unsupported learning item target type: ${item.targetType}`);
+      }
+
+      ids.add(item.targetId);
+    }
+
+    const targets = {
+      component: new Map<string, ComponentTargetRow>(),
+      kanji: new Map<string, KanjiTargetRow>(),
+      word: new Map<string, WordTargetRow>(),
+      sentence: new Map<string, SentenceTargetRow>(),
+    };
+
+    for (const type of DASHBOARD_TARGET_TYPES) {
+      const ids = [...idsByType.get(type)!];
+
+      for (let offset = 0; offset < ids.length; offset += DASHBOARD_TARGET_BATCH_SIZE) {
+        const where = { id: { in: ids.slice(offset, offset + DASHBOARD_TARGET_BATCH_SIZE) } };
+
+        switch (type) {
+          case "COMPONENT": {
+            const rows = await this.prisma.db.component.findMany({ where });
+            for (const row of rows) targets.component.set(row.id, row);
+            break;
+          }
+          case "KANJI": {
+            const rows = await this.prisma.db.kanji.findMany({
+              where,
+              include: {
+                readings: { orderBy: kanjiReadingOrderBy() },
+                meanings: {
+                  orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }],
+                },
+              },
+            });
+            for (const row of rows) targets.kanji.set(row.id, row);
+            break;
+          }
+          case "WORD": {
+            const rows = await this.prisma.db.word.findMany({
+              where,
+              include: { senses: { orderBy: [{ locale: "asc" }, { meaning: "asc" }] } },
+            });
+            for (const row of rows) targets.word.set(row.id, row);
+            break;
+          }
+          case "SENTENCE": {
+            const rows = await this.prisma.db.sentence.findMany({ where });
+            for (const row of rows) targets.sentence.set(row.id, row);
+            break;
+          }
+        }
+      }
+    }
+
+    return targets;
+  }
+
   private async toRecentItemRecord(
     state: ActivityStateRow,
     occurredAt: Date | null,
+    targets: DashboardTargets,
   ): Promise<DashboardRecentItemRecord> {
     return {
       occurredAt,
-      item: await this.toLeechItemRecord(state.learningCard.learningItem),
+      item: await this.toLeechItemRecord(state.learningCard.learningItem, targets),
       srs: {
         stageIndex: state.stageIndex,
         availableAt: state.availableAt,
@@ -1009,16 +1099,17 @@ export class PrismaDashboardRepository extends DashboardRepository {
 
   private async toLeechItemRecord(
     item: LeechLearningItemRow,
+    targets: DashboardTargets,
   ): Promise<DashboardLeechSignalRecord["item"]> {
     switch (item.targetType) {
       case "COMPONENT":
-        return this.toLeechComponentItem(item);
+        return this.toLeechComponentItem(item, targets.component);
       case "KANJI":
-        return this.toLeechKanjiItem(item);
+        return this.toLeechKanjiItem(item, targets.kanji);
       case "WORD":
-        return this.toLeechWordItem(item);
+        return this.toLeechWordItem(item, targets.word);
       case "SENTENCE":
-        return this.toLeechSentenceItem(item);
+        return this.toLeechSentenceItem(item, targets.sentence);
       default:
         throw new Error(`Unsupported learning item target type: ${item.targetType}`);
     }
@@ -1026,10 +1117,14 @@ export class PrismaDashboardRepository extends DashboardRepository {
 
   private async toLeechComponentItem(
     item: LeechLearningItemRow,
+    targets?: ReadonlyMap<string, ComponentTargetRow>,
   ): Promise<DashboardLeechSignalRecord["item"]> {
-    const component = (await this.prisma.db.component.findUnique({
-      where: { id: item.targetId },
-    })) as ComponentTargetRow | null;
+    const component =
+      targets === undefined
+        ? ((await this.prisma.db.component.findUnique({
+            where: { id: item.targetId },
+          })) as ComponentTargetRow | null)
+        : (targets.get(item.targetId) ?? null);
 
     if (component === null) {
       throw new Error(`Missing component target ${item.targetId}.`);
@@ -1061,14 +1156,20 @@ export class PrismaDashboardRepository extends DashboardRepository {
 
   private async toLeechKanjiItem(
     item: LeechLearningItemRow,
+    targets?: ReadonlyMap<string, KanjiTargetRow>,
   ): Promise<DashboardLeechSignalRecord["item"]> {
-    const kanji = (await this.prisma.db.kanji.findUnique({
-      where: { id: item.targetId },
-      include: {
-        readings: { orderBy: kanjiReadingOrderBy() },
-        meanings: { orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }] },
-      },
-    })) as KanjiTargetRow | null;
+    const kanji =
+      targets === undefined
+        ? ((await this.prisma.db.kanji.findUnique({
+            where: { id: item.targetId },
+            include: {
+              readings: { orderBy: kanjiReadingOrderBy() },
+              meanings: {
+                orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }],
+              },
+            },
+          })) as KanjiTargetRow | null)
+        : (targets.get(item.targetId) ?? null);
 
     if (kanji === null) {
       throw new Error(`Missing kanji target ${item.targetId}.`);
@@ -1094,13 +1195,17 @@ export class PrismaDashboardRepository extends DashboardRepository {
 
   private async toLeechWordItem(
     item: LeechLearningItemRow,
+    targets?: ReadonlyMap<string, WordTargetRow>,
   ): Promise<DashboardLeechSignalRecord["item"]> {
-    const word = (await this.prisma.db.word.findUnique({
-      where: { id: item.targetId },
-      include: {
-        senses: { orderBy: [{ locale: "asc" }, { meaning: "asc" }] },
-      },
-    })) as WordTargetRow | null;
+    const word =
+      targets === undefined
+        ? ((await this.prisma.db.word.findUnique({
+            where: { id: item.targetId },
+            include: {
+              senses: { orderBy: [{ locale: "asc" }, { meaning: "asc" }] },
+            },
+          })) as WordTargetRow | null)
+        : (targets.get(item.targetId) ?? null);
 
     if (word === null) {
       throw new Error(`Missing word target ${item.targetId}.`);
@@ -1126,10 +1231,14 @@ export class PrismaDashboardRepository extends DashboardRepository {
 
   private async toLeechSentenceItem(
     item: LeechLearningItemRow,
+    targets?: ReadonlyMap<string, SentenceTargetRow>,
   ): Promise<DashboardLeechSignalRecord["item"]> {
-    const sentence = (await this.prisma.db.sentence.findUnique({
-      where: { id: item.targetId },
-    })) as SentenceTargetRow | null;
+    const sentence =
+      targets === undefined
+        ? ((await this.prisma.db.sentence.findUnique({
+            where: { id: item.targetId },
+          })) as SentenceTargetRow | null)
+        : (targets.get(item.targetId) ?? null);
 
     if (sentence === null) {
       throw new Error(`Missing sentence target ${item.targetId}.`);

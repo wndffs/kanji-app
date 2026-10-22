@@ -215,18 +215,20 @@ describe("PrismaDashboardRepository taught kanji readings", () => {
     expect(learningItemFindMany).toHaveBeenCalledOnce();
     expect(stateFindMany).toHaveBeenCalledTimes(2);
     expect(reviewAnswerFindMany).toHaveBeenCalledOnce();
-    expect(harness.kanjiFindUnique).toHaveBeenCalledTimes(4);
+    expect(harness.kanjiFindUnique).not.toHaveBeenCalled();
+    expect(harness.kanjiFindMany).toHaveBeenCalledTimes(4);
     expect(harness.kanji.readings).toEqual(testCase.readings);
     expectNoPrivateAnswers([leeches, mistakes, lessons, burned], itemQueries);
   });
 
   it("keeps word readings unchanged across dashboard displays", async () => {
-    const { repository } = buildDashboardHarness({
+    const harness = buildDashboardHarness({
       ...buildItem(),
       kind: "WORD",
       targetType: "WORD",
       targetId: WORD.id,
     });
+    const { repository } = harness;
     const results = [
       await repository.listLeechSignals("user-1", NOW),
       await repository.listRecentMistakeItems("user-1", NOW, 5),
@@ -237,6 +239,9 @@ describe("PrismaDashboardRepository taught kanji readings", () => {
     for (const records of results) {
       expect(records[0]?.item.reading).toBe(WORD.reading);
     }
+    expect(harness.wordFindMany).toHaveBeenCalledTimes(4);
+    expect(harness.wordFindUnique).not.toHaveBeenCalled();
+    expect(harness.kanjiFindMany).not.toHaveBeenCalled();
   });
 });
 
@@ -368,14 +373,17 @@ function buildDashboardHarness(item = buildItem(), kanji = buildKanji(RAW_READIN
   const reviewAnswerFindMany = vi
     .fn()
     .mockResolvedValue([{ answeredAt: NOW, userSrsState: state }]);
+  const kanjiFindMany = vi.fn().mockResolvedValue([kanji]);
   const kanjiFindUnique = vi.fn().mockResolvedValue(kanji);
+  const wordFindMany = vi.fn().mockResolvedValue([WORD]);
+  const wordFindUnique = vi.fn().mockResolvedValue(WORD);
   const repository = new PrismaDashboardRepository({
     db: {
       learningItem: { findMany: learningItemFindMany },
       userSrsState: { findMany: stateFindMany },
       reviewAnswer: { findMany: reviewAnswerFindMany },
-      kanji: { findUnique: kanjiFindUnique },
-      word: { findUnique: vi.fn().mockResolvedValue(WORD) },
+      kanji: { findMany: kanjiFindMany, findUnique: kanjiFindUnique },
+      word: { findMany: wordFindMany, findUnique: wordFindUnique },
     },
   } as never);
 
@@ -384,7 +392,10 @@ function buildDashboardHarness(item = buildItem(), kanji = buildKanji(RAW_READIN
     learningItemFindMany,
     stateFindMany,
     reviewAnswerFindMany,
+    kanjiFindMany,
     kanjiFindUnique,
+    wordFindMany,
+    wordFindUnique,
     kanji,
   };
 }

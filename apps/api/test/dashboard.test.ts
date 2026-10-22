@@ -219,29 +219,38 @@ describe("PrismaDashboardRepository", () => {
         levelHint: 1,
       },
     ]);
+    const componentFindMany = vi
+      .fn()
+      .mockImplementation(({ where }: { where: { id: { in: string[] } } }) =>
+        where.id.in.map((id) => ({
+          id,
+          symbol: id === "target-first" ? "一" : "口",
+          meaningRu: id,
+          meaningEn: id,
+          sourceKind: "PROJECT_AUTHORED",
+        })),
+      );
     const repository = new PrismaDashboardRepository({
       db: {
         learningItem: { findMany },
-        component: {
-          findUnique: vi.fn().mockImplementation(({ where }: { where: { id: string } }) => ({
-            symbol: where.id === "target-first" ? "一" : "口",
-            meaningRu: where.id,
-            meaningEn: where.id,
-            sourceKind: "PROJECT_AUTHORED",
-          })),
-        },
+        component: { findMany: componentFindMany },
       },
     } as never);
 
     const records = await repository.listAvailableLessonItems(["item-first", "item-second"], 5);
 
     expect(records.map((record) => record.item.id)).toEqual(["item-first", "item-second"]);
+    expect(records.map((record) => record.item.japanese)).toEqual(["一", "口"]);
     expect(records.every((record) => record.srs === null && record.occurredAt === null)).toBe(true);
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: { in: ["item-first", "item-second"] }, status: "PUBLISHED" },
       }),
     );
+    expect(componentFindMany).toHaveBeenCalledOnce();
+    expect(componentFindMany).toHaveBeenCalledWith({
+      where: { id: { in: ["target-second", "target-first"] } },
+    });
   });
 
   it("aggregates daily study activity with one database query", async () => {
