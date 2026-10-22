@@ -80,7 +80,7 @@ account write guards. These tests do not contact the deployment, database or liv
 accounts. Real deployment behavior and measured target attainment remain for a
 maintainer's reviewed manual dispatch. No external data or licence changes apply.
 
-## Verified Pilot Sample: 2026-10-22
+## Verified V1 Pilot Sample: 2026-10-22
 
 [Manual run 39811129567](https://github.com/wndffs/kanji-app/actions/runs/39811129567)
 at commit `cd10aa4` passed all response checks on the fixed Vercel/Render targets.
@@ -103,3 +103,29 @@ does not cover a populated backlog, a full 2,300-kanji course, audio playback,
 mobile rendering, browser CWV, p95, load tests or proven cold starts. The runtime
 deployment SHA is not asserted by this runner; the commit identifies the runner
 source, not an independent runtime-version attestation. Task123 remains open.
+
+## Verified V2 Pilot Sample: 2026-10-22
+
+[Manual run 39821968993](https://github.com/wndffs/kanji-app/actions/runs/39821968993),
+job `119975292932`, passed at runner commit `1b4a209`, explicitly selecting
+`v2`. Its generated profile enrolled in the published **174-item/295-card**
+pilot. The new reminder checks also passed: default opt-out/hour 9, no private
+last-claim timestamp in the public settings response, and exactly
+`{shouldNotify:false}` from the disabled claim. It did not request browser
+permission, enable reminders, submit answers or finish sessions.
+
+The [sanitized artifact](https://github.com/wndffs/kanji-app/actions/runs/39821968993/artifacts/12444129375)
+contains these fifteen sequential samples:
+
+| Endpoint   | Min / Median / Max, ms | Response bytes | Repeated samples above 2,000 ms |
+| ---------- | ---------------------- | -------------- | ------------------------------- |
+| Dashboard  | 389 / 504 / 693        | 6,125          | 0 of 2                          |
+| Lessons    | 799 / 887 / 1,096      | 24,407         | 0 of 2                          |
+| Reviews    | 139 / 143 / 154        | 60             | 0 of 2                          |
+| Characters | 204 / 261 / 431        | 76,394         | 0 of 2                          |
+| Item       | 569 / 599 / 613        | 14,365         | 0 of 2                          |
+
+The same limits as v1 apply: empty review backlog, first item a component,
+GitHub-hosted network path, no runtime-SHA attestation, and no browser rendering,
+CWV, mobile or full-course capacity claim. Neither pilot result demonstrates
+2,300-kanji/8,000-word production budgets or background notification delivery.
