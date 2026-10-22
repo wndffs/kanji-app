@@ -240,6 +240,29 @@ describe("LessonsService", () => {
     vi.useRealTimers();
   });
 
+  it("uses the reviewed meaning answer in word lessons, not an imported primary gloss", async () => {
+    const item = createItem("word-primary-test", "word", ["meaning-card"]);
+    Object.assign(item.target, {
+      translations: {
+        ru: [{ locale: "ru-RU", text: "учеба", sourceKind: "curated" }],
+        en: [
+          {
+            locale: "en-US",
+            text: "(a) raw dictionary meaning",
+            sourceKind: "imported",
+            isPrimary: true,
+          },
+        ],
+      },
+    });
+    const response = await createService({ courseItems: [createCourseItem(item, 1)] }).getQueue(
+      createUser("owner"),
+    );
+    expect(response.items[0]!.item.translations.primaryEn).toBe("study");
+    expect(response.items[0]!.cards[0]!.translations.primaryEn).toBe("study");
+    expect(response.items[0]!.item.translations.en).toHaveLength(1);
+  });
+
   it("returns no lessons without active enrollment", async () => {
     const service = createService({ courseItems: [] });
 

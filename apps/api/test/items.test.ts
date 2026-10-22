@@ -12,6 +12,27 @@ import {
 } from "../src/items/items.types";
 
 describe("ItemsService", () => {
+  it("shows curated word meanings instead of imported display-order artifacts", async () => {
+    const word = createItems().find((item) => item.itemType === "word")!;
+    Object.assign(word.target, {
+      translations: {
+        ru: [
+          localizedText("ru-RU", "1) сырое значение", { isPrimary: true, sourceKind: "imported" }),
+          localizedText("ru-RU", "школа", { sourceKind: "curated" }),
+        ],
+        en: [
+          localizedText("en-US", "(a) raw meaning", { isPrimary: true, sourceKind: "imported" }),
+          localizedText("en-US", "school", { sourceKind: "curated" }),
+        ],
+      },
+    });
+    const original = structuredClone(word.target);
+    const response = await createService([word]).getItemDetails(word.id, null);
+    expect(response.translations).toMatchObject({ primaryRu: "школа", primaryEn: "school" });
+    expect(response.translations.ru).toHaveLength(1);
+    expect(word.target).toEqual(original);
+  });
+
   it("searches by kanji character", async () => {
     const service = createService();
 

@@ -9,7 +9,7 @@ import {
 } from "@kanji-srs/srs";
 import { listBasicKana } from "@kanji-srs/japanese";
 import {
-  type BilingualTextDto,
+  buildLearningTranslationBundle as toTranslationBundle,
   type DashboardLeechCandidateDto,
   DEFAULT_TRANSLATION_DISPLAY_MODE,
   type DashboardDto,
@@ -19,7 +19,6 @@ import {
   type ItemSummary,
   type LeechScoreDto,
   type ReviewForecastBucketDto,
-  type TranslationBundleDto,
   type TranslationDisplayMode,
   normalizeDashboardWidgetPreferences,
 } from "@kanji-srs/shared";
@@ -1341,20 +1340,6 @@ function toLeechScoreDto(leech: LeechScoreResult): LeechScoreDto {
     stageDropCount: leech.stageDropCount,
     stageDropMagnitude: leech.stageDropMagnitude,
     reasons: leech.reasons,
-  };
-}
-
-function toTranslationBundle(
-  translations: BilingualTextDto,
-  displayMode: TranslationDisplayMode,
-): TranslationBundleDto {
-  return {
-    ...translations,
-    displayMode,
-    primaryRu:
-      translations.ru.find((text) => text.isPrimary)?.text ?? translations.ru[0]?.text ?? null,
-    primaryEn:
-      translations.en.find((text) => text.isPrimary)?.text ?? translations.en[0]?.text ?? null,
   };
 }
 

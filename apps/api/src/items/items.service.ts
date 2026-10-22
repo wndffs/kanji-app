@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from "@nes
 
 import {
   DEFAULT_TRANSLATION_DISPLAY_MODE,
+  buildLearningTranslationBundle as toTranslationBundle,
   type BilingualTextDto,
   type ItemDetails,
   type ItemRelationDto,
@@ -10,7 +11,6 @@ import {
   type LearningCardDto,
   type LocalizedTextDto,
   type SearchResponseDto,
-  type TranslationBundleDto,
   type TranslationDisplayMode,
   type UserOverrideDto,
 } from "@kanji-srs/shared";
@@ -282,7 +282,11 @@ function toItemSummary(item: ItemRecord, displayMode: TranslationDisplayMode): I
     slug: buildItemSlug(item),
     japanese: item.target.japanese,
     reading: item.target.reading,
-    translations: toTranslationBundle(item.target.translations, displayMode),
+    translations: toTranslationBundle(
+      item.target.translations,
+      displayMode,
+      item.cards.filter((card) => card.answerType === "meaning").flatMap((card) => card.answers),
+    ),
     level: item.level,
     jlptLevel: item.target.jlptLevel,
     srs: item.srs,
@@ -306,7 +310,11 @@ function toLearningCard(
       japanese: item.target.japanese,
       reading: item.target.reading,
     },
-    translations: toTranslationBundle(item.target.translations, displayMode),
+    translations: toTranslationBundle(
+      item.target.translations,
+      displayMode,
+      item.cards.filter((card) => card.answerType === "meaning").flatMap((card) => card.answers),
+    ),
     acceptedAnswers: card.answers.map((answer) => ({
       locale: answer.locale,
       text: answer.text,
@@ -346,20 +354,6 @@ function toUserOverrideKind(overrideType: ItemRecord["userOverrides"][number]["o
     default:
       return "accepted-answer";
   }
-}
-
-function toTranslationBundle(
-  translations: BilingualTextDto,
-  displayMode: TranslationDisplayMode,
-): TranslationBundleDto {
-  return {
-    ...translations,
-    displayMode,
-    primaryRu:
-      translations.ru.find((text) => text.isPrimary)?.text ?? translations.ru[0]?.text ?? null,
-    primaryEn:
-      translations.en.find((text) => text.isPrimary)?.text ?? translations.en[0]?.text ?? null,
-  };
 }
 
 function groupTextsByLocale(texts: readonly ItemTextRecord[]): BilingualTextDto {

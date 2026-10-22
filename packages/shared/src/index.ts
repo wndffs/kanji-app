@@ -1,5 +1,6 @@
 export * from "./interface-preferences";
 export * from "./jlpt";
+export * from "./learning-translations";
 
 export const APP_NAME = "Кандзи SRS";
 export const DEFAULT_APP_LOCALE = "ru-RU";

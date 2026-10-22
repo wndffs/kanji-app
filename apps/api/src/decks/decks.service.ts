@@ -2,13 +2,13 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from "@nes
 
 import {
   DEFAULT_TRANSLATION_DISPLAY_MODE,
+  buildLearningTranslationBundle as toTranslationBundle,
   type CreateTextDeckResponse,
   type DeckDetailsDto,
   type DeckDto,
   type DeckItemReasonDto,
   type DeckListResponse,
   type ItemSummary,
-  type TranslationBundleDto,
   type TranslationDisplayMode,
   type UpdateDeckStatusRequest,
 } from "@kanji-srs/shared";
@@ -550,20 +550,6 @@ function toItemSummary(item: TextDeckItemRecord, displayMode: TranslationDisplay
     level: item.level,
     jlptLevel: item.target.jlptLevel,
     srs: null,
-  };
-}
-
-function toTranslationBundle(
-  translations: TextDeckItemRecord["target"]["translations"],
-  displayMode: TranslationDisplayMode,
-): TranslationBundleDto {
-  return {
-    ...translations,
-    displayMode,
-    primaryRu:
-      translations.ru.find((text) => text.isPrimary)?.text ?? translations.ru[0]?.text ?? null,
-    primaryEn:
-      translations.en.find((text) => text.isPrimary)?.text ?? translations.en[0]?.text ?? null,
   };
 }
 
