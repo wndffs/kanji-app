@@ -32,11 +32,13 @@ import {
   savePrivateMnemonic,
 } from "../../lib/api-client";
 import {
+  AUTH_CHANGED_EVENT,
   clearStoredSession,
   readStoredSession,
   readTranslationDisplayMode,
 } from "../../lib/auth-storage";
 import { formatSrsStageName } from "../../lib/dashboard-format";
+import { itemReadingPresentation, resolveItemReadingPreferences } from "../../lib/item-reading";
 import {
   editMnemonicBody,
   resolveMnemonicForm,
@@ -88,6 +90,11 @@ const EMPTY_MNEMONIC_FORM: MnemonicFormState = {
 
 export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
   const liveDisplayMode = useTranslationDisplayMode();
+  const [readingPreferences, setReadingPreferences] = useState(() =>
+    resolveItemReadingPreferences(),
+  );
+  const [revealedReadings, setRevealedReadings] = useState<ReadonlySet<string>>(() => new Set());
+  const [hideReadingHints, setHideReadingHints] = useState(false);
   const [state, setState] = useState<ItemState>({ status: "loading" });
   const [acceptedForm, setAcceptedForm] = useState<AcceptedAnswerFormState>(EMPTY_ACCEPTED_FORM);
   const [mnemonicForm, setMnemonicForm] = useState<MnemonicFormState>(EMPTY_MNEMONIC_FORM);
@@ -100,6 +107,21 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
   const [isSavingMnemonic, setIsSavingMnemonic] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [confusablePairs, setConfusablePairs] = useState<readonly ConfusablePairSummaryDto[]>([]);
+
+  useEffect(() => {
+    const sync = () => {
+      setReadingPreferences(resolveItemReadingPreferences(readStoredSession()?.user.settings));
+      setRevealedReadings(new Set());
+      setHideReadingHints(false);
+    };
+    sync();
+    window.addEventListener(AUTH_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, sync);
+  }, []);
+
+  function revealReading(key: string): void {
+    setRevealedReadings((previous) => new Set([...previous, key]));
+  }
 
   const loadItem = useCallback(async () => {
     const version = ++itemLoadVersion.current;
@@ -128,6 +150,10 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
       }
       const scope = `${storedSession?.user.id ?? "guest"}:${item.id}`;
       const sameItem = loadedItemScope.current === scope;
+      if (!sameItem) {
+        setRevealedReadings(new Set());
+        setHideReadingHints(false);
+      }
       loadedItemScope.current = scope;
       setPrivateMnemonics(mnemonics);
       setAcceptedForm((previous) =>
@@ -426,6 +452,16 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
   const { item, token, timezone } = state;
   const displayMode = liveDisplayMode;
   const readingCards = item.cards.filter((card) => card.answerType === "reading");
+  const presentationPreferences = hideReadingHints
+    ? { ...readingPreferences, mode: "hide" as const }
+    : readingPreferences;
+  const reading = itemReadingPresentation(
+    item.wordDetails?.reading.trim() || item.reading,
+    presentationPreferences,
+    revealedReadings.has("item"),
+  );
+  const hideReadingAnswers = hideReadingHints && !revealedReadings.has("item");
+  const readingHidden = reading.hidden || (hideReadingAnswers && readingCards.length > 0);
   const privateOverrides = item.userOverrides.filter(
     (override) => override.kind === "accepted-answer",
   );
@@ -435,12 +471,28 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
 
   return (
     <section className="item-page">
+      {item.reading === null &&
+      item.cards.every((card) => card.answerType !== "reading") &&
+      item.exampleSentences.every((sentence) => sentence.readingText === null) ? null : (
+        <label className="checkbox-row">
+          <input
+            checked={hideReadingHints}
+            onChange={(event) => {
+              setHideReadingHints(event.target.checked);
+              setRevealedReadings(new Set());
+            }}
+            type="checkbox"
+          />
+          Скрыть подсказки чтения
+        </label>
+      )}
       <header className="item-hero panel">
         <div className="item-hero-main">
           <span className="eyebrow">{formatItemType(item.itemType)}</span>
           <JapaneseText
             as="h1"
             className="review-japanese"
+            furigana={reading.furigana}
             variant={item.itemType === "sentence" ? "sentence" : "display"}
           >
             {item.japanese}
@@ -448,10 +500,30 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
           <p>{formatTranslationBundle(item.translations, displayMode)}</p>
         </div>
         <dl className="lesson-facts">
-          <div>
-            <dt>Чтение</dt>
-            <dd>{item.reading ?? "нет"}</dd>
-          </div>
+          {reading.kana === null && !readingHidden ? null : (
+            <div>
+              <dt>Чтение</dt>
+              <dd>
+                {readingHidden ? (
+                  <button
+                    className="link-button"
+                    onClick={() => revealReading("item")}
+                    type="button"
+                  >
+                    Показать чтение
+                  </button>
+                ) : (
+                  <JapaneseText>{reading.kana}</JapaneseText>
+                )}
+              </dd>
+            </div>
+          )}
+          {reading.romaji === null ? null : (
+            <div>
+              <dt>Ромадзи</dt>
+              <dd>{reading.romaji}</dd>
+            </div>
+          )}
           <div>
             <dt>Уровень</dt>
             <dd>{item.level ?? "без уровня"}</dd>
@@ -529,11 +601,21 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
             </section>
           )}
 
-          <ItemReadingDetails displayMode={displayMode} item={item} readingCards={readingCards} />
+          <ItemReadingDetails
+            displayMode={displayMode}
+            item={item}
+            readingCards={readingCards}
+            kanaReading={reading.kana}
+            hideReadings={hideReadingAnswers}
+          />
 
           <section className="panel">
             <h2>Глобальные ответы</h2>
-            <CardAnswerList cards={item.cards} displayMode={displayMode} />
+            <CardAnswerList
+              cards={item.cards}
+              displayMode={displayMode}
+              hideReadings={hideReadingAnswers}
+            />
           </section>
 
           <SrsHistory
@@ -557,16 +639,37 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
               <p className="muted">Примеры для этого материала пока не добавлены.</p>
             ) : (
               <ul className="example-list">
-                {item.exampleSentences.map((sentence) => (
-                  <li key={sentence.id}>
-                    <JapaneseText variant="sentence">{sentence.japaneseText}</JapaneseText>
-                    {sentence.readingText === null ? null : <small>{sentence.readingText}</small>}
-                    <p>{formatSentenceTranslation(sentence, displayMode)}</p>
-                    {sentence.attribution === null ? null : (
-                      <SourceAttribution source={sentence.attribution} />
-                    )}
-                  </li>
-                ))}
+                {item.exampleSentences.map((sentence) => {
+                  const presentation = itemReadingPresentation(
+                    sentence.readingText,
+                    presentationPreferences,
+                    revealedReadings.has(sentence.id),
+                  );
+                  return (
+                    <li key={sentence.id}>
+                      <JapaneseText furigana={presentation.furigana} variant="sentence">
+                        {sentence.japaneseText}
+                      </JapaneseText>
+                      {presentation.kana === null ? null : (
+                        <small lang="ja">{presentation.kana}</small>
+                      )}
+                      {presentation.romaji === null ? null : <small>{presentation.romaji}</small>}
+                      {presentation.hidden ? (
+                        <button
+                          className="link-button"
+                          onClick={() => revealReading(sentence.id)}
+                          type="button"
+                        >
+                          Показать чтение примера
+                        </button>
+                      ) : null}
+                      <p>{formatSentenceTranslation(sentence, displayMode)}</p>
+                      {sentence.attribution === null ? null : (
+                        <SourceAttribution source={sentence.attribution} />
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>
@@ -961,9 +1064,11 @@ function PrivateOverridesList({
 function CardAnswerList({
   cards,
   displayMode,
+  hideReadings,
 }: {
   readonly cards: readonly LearningCardDto[];
   readonly displayMode: TranslationDisplayMode;
+  readonly hideReadings: boolean;
 }) {
   if (cards.length === 0) {
     return <p className="muted">Карточки для материала пока не добавлены.</p>;
@@ -976,11 +1081,16 @@ function CardAnswerList({
           <h3>
             {formatPromptType(card.promptType)} · {formatAnswerType(card.answerType)}
           </h3>
-          <TextList
-            textKind={card.answerType === "reading" ? "reading" : "localized"}
-            texts={filterCardAnswers(card, displayMode)}
-          />
-          {card.blockedAnswers.length === 0 ? null : (
+          {hideReadings && card.answerType === "reading" ? (
+            <p className="muted">Чтение скрыто.</p>
+          ) : (
+            <TextList
+              textKind={card.answerType === "reading" ? "reading" : "localized"}
+              texts={filterCardAnswers(card, displayMode)}
+            />
+          )}
+          {card.blockedAnswers.length === 0 ||
+          (hideReadings && card.answerType === "reading") ? null : (
             <p className="blocked-hint">
               Не принимайте как правильный ответ:{" "}
               {card.blockedAnswers.map((answer) => answer.text).join(", ")}
@@ -996,10 +1106,14 @@ function ItemReadingDetails({
   displayMode,
   item,
   readingCards,
+  kanaReading,
+  hideReadings,
 }: {
   readonly displayMode: TranslationDisplayMode;
   readonly item: ItemDetails;
   readonly readingCards: readonly LearningCardDto[];
+  readonly kanaReading: string | null;
+  readonly hideReadings: boolean;
 }) {
   if (item.kanjiDetails !== null) {
     const readingGroups = [
@@ -1065,12 +1179,14 @@ function ItemReadingDetails({
       <section className="panel" data-testid="word-study-details">
         <h2>Чтение и словарные сведения</h2>
         <dl className="lesson-facts">
-          <div>
-            <dt>Чтение</dt>
-            <dd>
-              <JapaneseText>{item.wordDetails.reading}</JapaneseText>
-            </dd>
-          </div>
+          {kanaReading === null ? null : (
+            <div>
+              <dt>Чтение</dt>
+              <dd>
+                <JapaneseText>{kanaReading}</JapaneseText>
+              </dd>
+            </div>
+          )}
           {item.wordDetails.commonnessRank === null ? null : (
             <div>
               <dt>Частотный ранг источника</dt>
@@ -1105,7 +1221,9 @@ function ItemReadingDetails({
   return (
     <section className="panel">
       <h2>Чтения</h2>
-      {item.reading === null && readingCards.length === 0 ? (
+      {hideReadings ? (
+        <p className="muted">Чтение скрыто.</p>
+      ) : item.reading === null && readingCards.length === 0 ? (
         <p className="muted">Для этого материала чтение не требуется.</p>
       ) : (
         <TextList

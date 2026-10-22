@@ -97,6 +97,36 @@ test.describe("item details", () => {
     await expect(page.getByText("одна черта", { exact: true })).toHaveCount(0);
   });
 
+  test("uses persisted furigana and explicit romaji on words and examples with local reveal", async ({
+    page,
+  }) => {
+    await signIn(page, { lessonPronunciationMode: "furigana", lessonRomaji: true });
+    await page.route(`${API_BASE_URL}/items/${WORD_ID}`, async (route) => {
+      await route.fulfill({ json: buildWordDetails() });
+    });
+    await page.goto(`/items/${WORD_ID}`);
+    await expect(page.locator(".item-hero-main ruby rt")).toHaveText("がっこう");
+    await expect(page.locator(".example-list ruby rt")).toHaveText("がっこうへいきます。");
+    await expect(page.locator(".item-hero").getByText("gakkou", { exact: true })).toBeVisible();
+    await page.getByLabel("Скрыть подсказки чтения").check();
+    await expect(page.locator(".item-hero-main ruby")).toHaveCount(0);
+    await expect(page.locator(".example-list ruby")).toHaveCount(0);
+    await expect(page.locator(".item-hero").getByText("gakkou", { exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Показать чтение", exact: true }).click();
+    await expect(page.locator(".item-hero").getByText("がっこう", { exact: true })).toBeVisible();
+    await expect(
+      page.locator(".example-list").getByText("がっこうへいきます。", { exact: true }),
+    ).toHaveCount(0);
+    await page.getByRole("button", { name: "Показать чтение примера", exact: true }).click();
+    await expect(
+      page.locator(".example-list").getByText("がっこうへいきます。", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("Project examples · LicenseRef-Project-Authored")).toBeVisible();
+    await page.reload();
+    await expect(page.getByLabel("Скрыть подсказки чтения")).not.toBeChecked();
+    await expect(page.locator(".item-hero-main ruby rt")).toHaveText("がっこう");
+  });
+
   test("adds a private synonym", async ({ page }) => {
     await signIn(page);
     await mockItemApi(page);
@@ -216,12 +246,15 @@ function privatePanel(page: Page, heading: string) {
   });
 }
 
-async function signIn(page: Page): Promise<void> {
+async function signIn(
+  page: Page,
+  preferences: { lessonPronunciationMode?: "kana" | "furigana"; lessonRomaji?: boolean } = {},
+): Promise<void> {
   await page.route(`${API_BASE_URL}/items/*/private-mnemonics`, async (route) => {
     await route.fulfill({ json: [] });
   });
   await page.addInitScript(
-    ({ accessToken }) => {
+    ({ accessToken, preferences }) => {
       window.localStorage.setItem("kanji-srs.accessToken", accessToken);
       window.localStorage.setItem("kanji-srs.translationDisplayMode", "ru-en");
       window.localStorage.setItem(
@@ -238,11 +271,12 @@ async function signIn(page: Page): Promise<void> {
             dailyLessonLimit: 20,
             reviewBudget: 100,
             strictMode: false,
+            ...preferences,
           },
         }),
       );
     },
-    { accessToken: ACCESS_TOKEN },
+    { accessToken: ACCESS_TOKEN, preferences },
   );
 }
 
