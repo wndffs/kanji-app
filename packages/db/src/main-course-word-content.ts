@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
-import { normalizeMeaning } from "@kanji-srs/japanese";
+import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
+import { buildMainCourseWordBatch02 } from "./main-course-word-content-02";
 
 import {
   type MainCourseAcceptedMeanings,
@@ -10,6 +11,7 @@ import {
 export type MainCourseWordContent = {
   readonly expression: string;
   readonly reading: string;
+  readonly acceptedReadings?: readonly string[];
   readonly jmdictEntryId: string;
   readonly sortOrder: number;
   readonly meanings: {
@@ -37,6 +39,7 @@ export type MainCourseWordBatch = {
   readonly sourceFile: string;
   readonly courseSlug: string;
   readonly levelNumber: number;
+  readonly sortOrderStart?: number;
   readonly words: readonly MainCourseWordContent[];
 };
 
@@ -570,12 +573,20 @@ export function buildMainCourseWordBatch(): MainCourseWordBatch {
   return FOUNDATION_WORD_BATCH;
 }
 
+export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
+  return [buildMainCourseWordBatch(), buildMainCourseWordBatch02()];
+}
+
 export function mainCourseWordBatchChecksum(batch: MainCourseWordBatch): string {
   return createHash("sha256").update(JSON.stringify(batch), "utf8").digest("hex");
 }
 
 export function wordHanCharacters(text: string): readonly string[] {
   return [...new Set([...text].filter((character) => /\p{Script=Han}/u.test(character)))];
+}
+
+export function mainCourseWordAcceptedReadings(content: MainCourseWordContent): readonly string[] {
+  return [content.reading, ...(content.acceptedReadings ?? [])];
 }
 
 export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonly string[] {
@@ -593,7 +604,14 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
   if (batch.reviewedAt !== null && !/^\d{4}-\d{2}-\d{2}$/u.test(batch.reviewedAt))
     issues.push("Word batch needs an ISO review date or null.");
   if (batch.words.length !== 20 || batch.levelNumber !== 5)
-    issues.push("The first word batch requires twenty words at level 5.");
+    issues.push("Each Foundation word batch requires twenty words at level 5.");
+  const sortOrderStart = batch.sortOrderStart ?? 1;
+  if (
+    !Number.isSafeInteger(sortOrderStart) ||
+    sortOrderStart < 1 ||
+    !Number.isSafeInteger(sortOrderStart + 19)
+  )
+    issues.push("Word batch requires a positive safe placement offset.");
   const identities = new Set<string>();
   const placements = new Set<number>();
   for (const content of batch.words) {
@@ -602,8 +620,8 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
     identities.add(identity);
     if (
       !Number.isInteger(content.sortOrder) ||
-      content.sortOrder < 1 ||
-      content.sortOrder > 20 ||
+      content.sortOrder < sortOrderStart ||
+      content.sortOrder > sortOrderStart + 19 ||
       placements.has(content.sortOrder)
     )
       issues.push(`Invalid or duplicate word placement ${content.sortOrder}.`);
@@ -614,6 +632,12 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
       !/^[ぁ-ゖー]+$/u.test(content.reading)
     )
       issues.push(`Invalid exact word identity ${identity}.`);
+    const acceptedReadings = mainCourseWordAcceptedReadings(content);
+    if (
+      acceptedReadings.some((reading) => !/^[ぁ-ゖー]+$/u.test(reading)) ||
+      new Set(acceptedReadings.map(normalizeJapaneseReading)).size !== acceptedReadings.length
+    )
+      issues.push(`Invalid or duplicate accepted readings for ${identity}.`);
     for (const [locale, meanings] of [
       ["ru-RU", content.meanings.ru],
       ["en-US", content.meanings.en],
@@ -643,6 +667,29 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
       !/^[ぁ-ゖー、。！？\s]+$/u.test(content.example.readingText)
     )
       issues.push(`Incomplete original example for ${identity}.`);
+  }
+  return issues;
+}
+
+export function validateMainCourseWordBatches(
+  batches: readonly MainCourseWordBatch[] = buildMainCourseWordBatches(),
+): readonly string[] {
+  const issues = batches.flatMap((batch) => validateMainCourseWordBatch(batch));
+  if (batches.length === 0) issues.push("Word batch registry must not be empty.");
+  const ids = new Set<string>();
+  const words = new Set<string>();
+  const slots = new Set<string>();
+  for (const batch of batches) {
+    if (ids.has(batch.id)) issues.push(`Duplicate word batch ID ${batch.id}.`);
+    ids.add(batch.id);
+    for (const content of batch.words) {
+      const identity = `${content.expression}:${content.reading}`;
+      if (words.has(identity)) issues.push(`Duplicate registered word ${identity}.`);
+      words.add(identity);
+      const slot = `${batch.courseSlug}:${batch.levelNumber}:${content.sortOrder}`;
+      if (slots.has(slot)) issues.push(`Duplicate registered word slot ${slot}.`);
+      slots.add(slot);
+    }
   }
   return issues;
 }

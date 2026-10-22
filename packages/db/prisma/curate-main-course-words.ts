@@ -13,8 +13,11 @@ import {
 import {
   AUTHORED_WORD_PART_OF_SPEECH,
   buildMainCourseWordBatch,
+  buildMainCourseWordBatches,
+  mainCourseWordAcceptedReadings,
   mainCourseWordBatchChecksum,
   validateMainCourseWordBatch,
+  validateMainCourseWordBatches,
   wordHanCharacters,
   type MainCourseWordBatch,
   type MainCourseWordContent,
@@ -166,6 +169,12 @@ export async function planMainCourseWordBatch(
   const words = [];
   for (const content of batch.words) {
     const word = await requireWordSource(db, content);
+    const sourceEvidence = wordEvidence(word);
+    const acceptedReadingEvidence = await requireAlternativeReadingSources(
+      db,
+      content,
+      sourceEvidence,
+    );
     const item = await findItem(db, "WORD", word.id, course.id);
     await checkPlacement(db, level.id, content.sortOrder, item);
     assertWritableItem(item, content);
@@ -177,13 +186,50 @@ export async function planMainCourseWordBatch(
     words.push({
       content,
       wordId: word.id,
-      sourceEvidence: wordEvidence(word),
+      sourceEvidence,
+      acceptedReadingEvidence,
       prerequisiteItemIds: wordHanCharacters(content.expression).map(
         (character) => kanjiItems.get(character)!,
       ),
     });
   }
   return { courseId: course.id, courseLevelId: level.id, words, kanjiPlacements };
+}
+
+export async function planMainCourseWordBatches(
+  db: Reader,
+  batches: readonly MainCourseWordBatch[] = buildMainCourseWordBatches(),
+) {
+  assertRegistry(batches);
+  const plans = [];
+  for (const batch of batches) {
+    plans.push({
+      batchId: batch.id,
+      checksumSha256: mainCourseWordBatchChecksum(batch),
+      plan: await planMainCourseWordBatch(db, batch),
+    });
+  }
+  return plans;
+}
+
+export async function applyMainCourseWordBatches(
+  prisma: PrismaClient,
+  options: { readonly batches?: readonly MainCourseWordBatch[]; readonly batchId?: string } = {},
+) {
+  const batches = options.batches ?? buildMainCourseWordBatches();
+  const selected = reviewedSelection(batches, options.batchId);
+  // Complete every registered read-only plan before creating even source/run metadata.
+  const plans = await planMainCourseWordBatches(prisma, batches);
+  const applied = [];
+  for (const batch of selected) applied.push(await applyMainCourseWordBatch(prisma, batch));
+  return {
+    status: "applied-reviewed-batches",
+    preflightedBatchIds: plans.map((entry) => entry.batchId),
+    skippedUnreviewedBatchIds: batches
+      .filter((batch) => batch.reviewedAt === null && batch.id !== options.batchId)
+      .map((batch) => batch.id),
+    batches: applied,
+  };
 }
 
 async function requireWordSource(db: Pick<Reader, "word">, content: MainCourseWordContent) {
@@ -303,6 +349,24 @@ function wordEvidence(word: Awaited<ReturnType<typeof requireWordSource>>) {
     checksumSha256: record.importRun.checksumSha256,
     licenseId: record.importRun.dataSource.licenseId,
   };
+}
+
+async function requireAlternativeReadingSources(
+  db: Pick<Reader, "word">,
+  content: MainCourseWordContent,
+  primaryEvidence: ReturnType<typeof wordEvidence>,
+) {
+  const alternatives = [];
+  for (const reading of content.acceptedReadings ?? []) {
+    const word = await requireWordSource(db, { ...content, reading });
+    const sourceEvidence = wordEvidence(word);
+    if (JSON.stringify(sourceEvidence) !== JSON.stringify(primaryEvidence))
+      throw new Error(
+        `Alternative reading ${content.expression}/${reading} must share the primary successful JMdict source evidence.`,
+      );
+    alternatives.push({ reading, wordId: word.id, sourceEvidence });
+  }
+  return alternatives;
 }
 
 async function findItem(
@@ -532,6 +596,13 @@ async function applyWord(
     JSON.stringify(wordEvidence(word)) !== JSON.stringify(entry.sourceEvidence)
   )
     throw new Error(`JMdict evidence changed after preflight for ${content.expression}.`);
+  if (
+    JSON.stringify(await requireAlternativeReadingSources(db, content, wordEvidence(word))) !==
+    JSON.stringify(entry.acceptedReadingEvidence)
+  )
+    throw new Error(
+      `Alternative reading evidence changed after preflight for ${content.expression}.`,
+    );
   const existing = await findItem(db, "WORD", word.id, plan.courseId);
   assertWritableItem(existing, content);
   await checkPlacement(db, plan.courseLevelId, content.sortOrder, existing);
@@ -649,14 +720,12 @@ async function applyWord(
     });
     const answers =
       promptType === "READING"
-        ? [
-            {
-              locale: "ru-RU",
-              text: content.reading,
-              normalizedText: normalizeJapaneseReading(content.reading),
-              isPrimary: true,
-            },
-          ]
+        ? mainCourseWordAcceptedReadings(content).map((reading, index) => ({
+            locale: "ru-RU",
+            text: reading,
+            normalizedText: normalizeJapaneseReading(reading),
+            isPrimary: index === 0,
+          }))
         : (
             [
               ["ru-RU", content.meanings.ru],
@@ -748,6 +817,14 @@ async function applyWord(
     },
   });
   const sourceRecordId = exampleSourceId(batch, content);
+  const rawJson = toJson({
+    batchId: batch.id,
+    word: content,
+    sourceEvidence: entry.sourceEvidence,
+    ...(entry.acceptedReadingEvidence.length === 0
+      ? {}
+      : { acceptedReadingEvidence: entry.acceptedReadingEvidence }),
+  });
   const record = await db.importedRecord.upsert({
     where: {
       importRunId_recordType_sourceRecordId: {
@@ -757,13 +834,13 @@ async function applyWord(
       },
     },
     update: {
-      rawJson: toJson({ batchId: batch.id, word: content, sourceEvidence: entry.sourceEvidence }),
+      rawJson,
     },
     create: {
       importRunId: metadata.importRunId,
       recordType: "PROJECT_AUTHORED",
       sourceRecordId,
-      rawJson: toJson({ batchId: batch.id, word: content, sourceEvidence: entry.sourceEvidence }),
+      rawJson,
     },
   });
   const sentenceData = {
@@ -812,6 +889,27 @@ function assertManifest(batch: MainCourseWordBatch): void {
   const issues = validateMainCourseWordBatch(batch);
   if (issues.length) throw new Error(`Invalid word batch: ${issues.join("; ")}`);
 }
+function assertRegistry(batches: readonly MainCourseWordBatch[]): void {
+  const issues = validateMainCourseWordBatches(batches);
+  if (issues.length) throw new Error(`Invalid word batch registry: ${issues.join("; ")}`);
+}
+function reviewedSelection(
+  batches: readonly MainCourseWordBatch[],
+  batchId?: string,
+): readonly MainCourseWordBatch[] {
+  assertRegistry(batches);
+  if (batchId !== undefined) {
+    const selected = batches.find((batch) => batch.id === batchId);
+    if (selected === undefined) throw new Error(`Unknown registered word batch ${batchId}.`);
+    requireReview(selected);
+    return [selected];
+  }
+  const reviewed = batches.filter((batch) => batch.reviewedAt !== null);
+  if (reviewed.length === 0)
+    throw new Error("No independently reviewed word batches are available for application.");
+  for (const batch of reviewed) requireReview(batch);
+  return reviewed;
+}
 function requireReview(batch: MainCourseWordBatch): void {
   assertManifest(batch);
   if (batch.reviewedAt === null)
@@ -832,23 +930,46 @@ function stats(batch: MainCourseWordBatch): Prisma.InputJsonObject {
   };
 }
 
+export function parseMainCourseWordCurationArgs(
+  args: readonly string[],
+  batches: readonly MainCourseWordBatch[] = buildMainCourseWordBatches(),
+) {
+  const invalid = () =>
+    new Error(
+      "Use no arguments to apply reviewed batches, --validate-only, or --preflight-only; optionally select --batch <registered-id> once.",
+    );
+  let mode: "apply" | "validate-only" | "preflight-only" = "apply";
+  let batchId: string | undefined;
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index];
+    if (arg === "--validate-only" || arg === "--preflight-only") {
+      if (mode !== "apply") throw invalid();
+      mode = arg.slice(2) as "validate-only" | "preflight-only";
+    } else if (arg === "--batch") {
+      const value = args[++index];
+      if (batchId !== undefined || value === undefined || value.startsWith("--")) throw invalid();
+      if (!batches.some((batch) => batch.id === value))
+        throw new Error(`Unknown registered word batch ${value}.`);
+      batchId = value;
+    } else throw invalid();
+  }
+  return { mode, ...(batchId === undefined ? {} : { batchId }) };
+}
+
 async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  if (
-    args.some((arg) => !["--validate-only", "--preflight-only"].includes(arg)) ||
-    new Set(args).size !== args.length ||
-    args.length > 1
-  )
-    throw new Error("Use no arguments to apply, --validate-only, or --preflight-only.");
-  const batch = buildMainCourseWordBatch();
-  assertManifest(batch);
-  if (process.argv.includes("--validate-only")) {
+  const batches = buildMainCourseWordBatches();
+  const options = parseMainCourseWordCurationArgs(process.argv.slice(2), batches);
+  assertRegistry(batches);
+  if (options.mode === "validate-only") {
     console.log(
       JSON.stringify(
         {
-          status: "valid-manifest",
-          checksumSha256: mainCourseWordBatchChecksum(batch),
-          ...stats(batch),
+          status: "valid-manifests",
+          selectedBatchId: options.batchId ?? null,
+          batches: batches.map((batch) => ({
+            checksumSha256: mainCourseWordBatchChecksum(batch),
+            ...stats(batch),
+          })),
         },
         null,
         2,
@@ -856,8 +977,8 @@ async function main(): Promise<void> {
     );
     return;
   }
-  const preflightOnly = args.includes("--preflight-only");
-  if (!preflightOnly) requireReview(batch);
+  const preflightOnly = options.mode === "preflight-only";
+  if (!preflightOnly) reviewedSelection(batches, options.batchId);
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is required for live word curation.");
   const prisma = new PrismaClient({ datasourceUrl: withNeonConnectionDefaults(url) });
@@ -865,10 +986,17 @@ async function main(): Promise<void> {
     const result = preflightOnly
       ? {
           status: "preflight-passed",
-          checksumSha256: mainCourseWordBatchChecksum(batch),
-          words: (await planMainCourseWordBatch(prisma, batch)).words.length,
+          selectedBatchId: options.batchId ?? null,
+          batches: (await planMainCourseWordBatches(prisma, batches)).map((entry) => ({
+            batchId: entry.batchId,
+            checksumSha256: entry.checksumSha256,
+            words: entry.plan.words.length,
+          })),
         }
-      : await applyMainCourseWordBatch(prisma, batch);
+      : await applyMainCourseWordBatches(prisma, {
+          batches,
+          ...(options.batchId === undefined ? {} : { batchId: options.batchId }),
+        });
     console.log(JSON.stringify(result, null, 2));
   } finally {
     await prisma.$disconnect();

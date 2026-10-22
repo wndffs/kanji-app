@@ -3,17 +3,157 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   applyMainCourseWordBatch,
+  applyMainCourseWordBatches,
   planMainCourseWordBatch,
+  planMainCourseWordBatches,
 } from "../prisma/curate-main-course-words";
 import { buildMainCourseBlueprint } from "../src/main-course";
 import { buildMainCourseContentBatches } from "../src/main-course-content";
 import {
   AUTHORED_WORD_PART_OF_SPEECH,
   buildMainCourseWordBatch,
+  buildMainCourseWordBatches,
+  type MainCourseWordBatch,
   type MainCourseWordContent,
 } from "../src/main-course-word-content";
 
 describe("bounded vocabulary curation", () => {
+  it("preflights the whole registry, including an unselected last word, before any mutation", async () => {
+    const batches = registryFixtureBatches();
+    const fixture = harness(batches);
+    fixture.state.words.get(batches[1]!.words.at(-1)!.expression)!.importedRecord.importRun.status =
+      "FAILED";
+    await expect(
+      applyMainCourseWordBatches(fixture.db, { batches, batchId: batches[0]!.id }),
+    ).rejects.toThrow("provenance");
+    expect(fixture.readWord).toHaveBeenCalledTimes(45);
+    expect(fixture.mutations).toEqual([]);
+    expect(fixture.transaction).not.toHaveBeenCalled();
+  });
+
+  it("preflights pending registry entries read-only and applies only reviewed batches by default", async () => {
+    const batches = registryFixtureBatches().map((batch, index) =>
+      index === 1 ? { ...batch, reviewedAt: null } : batch,
+    );
+    const fixture = harness(batches);
+    expect(
+      (await planMainCourseWordBatches(fixture.db, batches)).map(
+        (entry) => entry.plan.words.length,
+      ),
+    ).toEqual([20, 20]);
+    expect(fixture.mutations).toEqual([]);
+    const result = await applyMainCourseWordBatches(fixture.db, { batches });
+    expect(result).toMatchObject({
+      preflightedBatchIds: batches.map((batch) => batch.id),
+      skippedUnreviewedBatchIds: [batches[1]!.id],
+      batches: [{ batchId: batches[0]!.id, words: 20 }],
+    });
+    expect(fixture.state.cards.size).toBe(40);
+    expect([...fixture.state.items.values()].filter((item) => item.kind === "WORD")).toHaveLength(
+      20,
+    );
+    expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
+    expect(buildMainCourseWordBatches()[1]!.reviewedAt).toBe("2026-10-22");
+  });
+
+  it("blocks unknown, conflicting and explicitly selected pending batches before database reads", async () => {
+    const batches = registryFixtureBatches().map((batch, index) =>
+      index === 1 ? { ...batch, reviewedAt: null } : batch,
+    );
+    for (const options of [
+      { batches, batchId: "unknown" },
+      { batches, batchId: batches[1]!.id },
+      { batches: [batches[0]!, { ...batches[1]!, id: batches[0]!.id }] },
+    ]) {
+      const fixture = harness(batches);
+      await expect(applyMainCourseWordBatches(fixture.db, options)).rejects.toThrow();
+      expect(fixture.readCourse).not.toHaveBeenCalled();
+      expect(fixture.mutations).toEqual([]);
+    }
+    expect(buildMainCourseWordBatches()[1]!.reviewedAt).toBe("2026-10-22");
+  });
+
+  it("applies only a selected new batch without recreating first-batch answers or touching private progress", async () => {
+    const batches = registryFixtureBatches().map((batch) => ({
+      ...batch,
+      reviewedAt: "2026-10-22",
+    }));
+    const fixture = harness(batches);
+    await applyMainCourseWordBatch(fixture.db, batches[0]);
+    const protectedBefore = structuredClone(fixture.state);
+    const privateBefore = structuredClone(fixture.privateRows);
+    const result = await applyMainCourseWordBatches(fixture.db, {
+      batches,
+      batchId: batches[1]!.id,
+    });
+    expect(result.batches.map((batch) => batch.batchId)).toEqual([batches[1]!.id]);
+    expect(fixture.state.cards.size).toBe(80);
+    expect(fixture.state.mnemonics.size).toBe(160);
+    expect(fixture.state.hints.size).toBe(160);
+    for (const name of Object.keys(protectedBefore) as (keyof typeof protectedBefore)[]) {
+      for (const [identity, row] of protectedBefore[name])
+        expect(fixture.state[name].get(identity), `${name}:${identity}`).toEqual(row);
+    }
+    expect(fixture.privateRows).toEqual(privateBefore);
+    expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
+    const identities = fixture.identities();
+    await applyMainCourseWordBatches(fixture.db, { batches, batchId: batches[1]!.id });
+    expect(fixture.identities()).toEqual(identities);
+    for (const [identity, answer] of protectedBefore.answers)
+      expect(fixture.state.answers.get(identity)).toEqual(answer);
+  });
+
+  it.each(["unknown", "other-entry", "missing-en", "other-locale", "other-record"])(
+    "rejects %s alternative reading on the last word before any mutation",
+    async (condition) => {
+      const fixture = alternativeReadingFixture();
+      if (condition === "unknown") fixture.state.words.delete("日本:にっぽん");
+      if (condition === "other-entry") fixture.alternative.jmdictEntryId = "jmdict:0";
+      if (condition === "missing-en")
+        fixture.alternative.senses = fixture.alternative.senses.filter(
+          (sense) => sense.locale !== "en-US",
+        );
+      if (condition === "other-locale")
+        fixture.alternative.senses = fixture.alternative.senses.map((sense) =>
+          sense.locale === "en-US" ? { ...sense, locale: "de-DE" } : sense,
+        );
+      if (condition === "other-record") {
+        fixture.alternative.importedRecord = structuredClone(fixture.alternative.importedRecord);
+        fixture.alternative.importedRecord.id = "other-record";
+        fixture.alternative.jmdictImportedRecordId = "other-record";
+      }
+      await expect(applyMainCourseWordBatch(fixture.db, fixture.batch)).rejects.toThrow();
+      expect(fixture.mutations).toEqual([]);
+      expect(fixture.transaction).not.toHaveBeenCalled();
+    },
+  );
+
+  it("accepts source-verified primary and alternate readings on the same two cards with only the primary marked primary", async () => {
+    const fixture = alternativeReadingFixture();
+    const result = await applyMainCourseWordBatch(fixture.db, fixture.batch);
+    expect(result).toMatchObject({ words: 20, cards: 40, examples: 20 });
+    const item = fixture.state.items.get(key({ targetType: "WORD", targetId: "word-日本" }))!;
+    const cards = [...fixture.state.cards.values()].filter(
+      (card) => card.learningItemId === item.id,
+    );
+    expect(cards).toHaveLength(2);
+    const reading = cards.find((card) => card.promptType === "READING")!;
+    expect(
+      [...fixture.state.answers.values()]
+        .filter((answer) => answer.learningCardId === reading.id)
+        .map((answer) => [answer.text, answer.isPrimary]),
+    ).toEqual([
+      ["にほん", true],
+      ["にっぽん", false],
+    ]);
+    expect(
+      [...fixture.state.items.values()].some(
+        (candidate) => candidate.targetId === fixture.alternative.id,
+      ),
+    ).toBe(false);
+    expect(fixture.state.cards.size).toBe(40);
+    expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
+  });
   it("blocks all reads and writes for an unreviewed manifest", async () => {
     const fixture = harness();
     await expect(
@@ -450,10 +590,41 @@ function wordSource(content: MainCourseWordContent) {
   };
 }
 
-function harness() {
-  const batch = { ...buildMainCourseWordBatch(), reviewedAt: "2026-10-22" };
+function registryFixtureBatches(): readonly MainCourseWordBatch[] {
+  return buildMainCourseWordBatches();
+}
+
+function alternativeReadingFixture() {
+  const first = buildMainCourseWordBatch();
+  const japan = buildMainCourseWordBatches()[1]!.words.find(
+    (content) => content.expression === "日本",
+  )!;
+  const batch = { ...first, words: [...first.words.slice(0, -1), { ...japan, sortOrder: 20 }] };
+  const fixture = harness([batch]);
+  const alternative = fixture.state.words.get("日本:にっぽん")!;
+  return { ...fixture, alternative };
+}
+
+function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordBatch()]) {
+  const batch = { ...batches[0]!, reviewedAt: "2026-10-22" };
+  const words = new Map<string, ReturnType<typeof wordSource>>();
+  for (const content of batches.flatMap((entry) => entry.words)) {
+    const primary = wordSource(content);
+    primary.importedRecord.rawJson.readingElements = [
+      content.reading,
+      ...(content.acceptedReadings ?? []),
+    ].map((reading) => ({ reading, restrictions: [] }));
+    words.set(content.expression, primary);
+    for (const reading of content.acceptedReadings ?? [])
+      words.set(`${content.expression}:${reading}`, {
+        ...primary,
+        id: `${primary.id}:${reading}`,
+        reading,
+        senses: [...primary.senses],
+      });
+  }
   const state = {
-    words: new Map(batch.words.map((content) => [content.expression, wordSource(content)])),
+    words,
     items: new Map<string, Row>(),
     placements: new Map<string, Row>(),
     cards: new Map<string, Row>(),
@@ -561,7 +732,13 @@ function harness() {
     }: {
       where: { expression_reading: { expression: string; reading: string } };
     }) => {
-      const word = state.words.get(where.expression_reading.expression);
+      const primary = state.words.get(where.expression_reading.expression);
+      const word =
+        primary?.reading === where.expression_reading.reading
+          ? primary
+          : state.words.get(
+              `${where.expression_reading.expression}:${where.expression_reading.reading}`,
+            );
       if (word === undefined || word.reading !== where.expression_reading.reading) return null;
       return {
         ...word,

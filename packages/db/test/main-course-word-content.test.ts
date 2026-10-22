@@ -8,8 +8,11 @@ import { describe, expect, it } from "vitest";
 import { buildMainCourseContentBatches } from "../src/main-course-content";
 import {
   buildMainCourseWordBatch,
+  buildMainCourseWordBatches,
   mainCourseWordBatchChecksum,
+  mainCourseWordAcceptedReadings,
   validateMainCourseWordBatch,
+  validateMainCourseWordBatches,
   wordHanCharacters,
 } from "../src/main-course-word-content";
 
@@ -147,31 +150,253 @@ describe("first bounded main-course vocabulary manifest", () => {
       { cwd: root, encoding: "utf8", env: { ...process.env, DATABASE_URL: "" } },
     );
     expect(JSON.parse(stdout)).toMatchObject({
-      status: "valid-manifest",
-      reviewedAt: "2026-10-22",
-      words: 20,
-      cards: 40,
-      examples: 20,
-      checksumSha256: mainCourseWordBatchChecksum(buildMainCourseWordBatch()),
+      status: "valid-manifests",
+      selectedBatchId: null,
+      batches: [
+        {
+          batchId: "task-127-foundation-words-01",
+          reviewedAt: "2026-10-22",
+          words: 20,
+          cards: 40,
+          examples: 20,
+          checksumSha256: mainCourseWordBatchChecksum(buildMainCourseWordBatch()),
+        },
+        {
+          batchId: "task-127-foundation-words-02",
+          reviewedAt: "2026-10-22",
+          checksumSha256: "0110505331b1066653f4b62ce20f4c8bbb98e94ccf701eafac26ecda9a0e6a4f",
+          words: 20,
+          cards: 40,
+          examples: 20,
+        },
+      ],
     });
   });
 
-  it.each([["--prefligt-only"], ["--validate-only", "--preflight-only"]])(
-    "rejects unsafe or ambiguous CLI flags before database construction: %s",
-    (...args) => {
-      const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+  it.each([
+    ["--prefligt-only"],
+    ["--validate-only", "--preflight-only"],
+    ["--validate-only", "--validate-only"],
+    ["--batch"],
+    ["--batch", "--validate-only"],
+    ["--batch", "task-127-foundation-words-02", "--batch", "task-127-foundation-words-02"],
+    ["--batch", "task-127-foundation-words-02", "--unknown"],
+  ])("rejects unsafe or ambiguous CLI flags before database construction: %s", (...args) => {
+    const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+    const result = spawnSync(
+      process.execPath,
+      [
+        join(root, "node_modules/tsx/dist/cli.mjs"),
+        join(root, "packages/db/prisma/curate-main-course-words.ts"),
+        ...args,
+      ],
+      { cwd: root, encoding: "utf8", env: { ...process.env, DATABASE_URL: "" } },
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Use no arguments to apply");
+    expect(result.stderr).not.toContain("DATABASE_URL is required");
+  });
+
+  it("rejects an unknown selected batch and requires a database URL for an approved selection before client construction", () => {
+    const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+    for (const [id, message] of [
+      ["unknown", "Unknown registered word batch"],
+      ["task-127-foundation-words-02", "DATABASE_URL is required"],
+    ]) {
       const result = spawnSync(
         process.execPath,
         [
           join(root, "node_modules/tsx/dist/cli.mjs"),
           join(root, "packages/db/prisma/curate-main-course-words.ts"),
-          ...args,
+          "--batch",
+          id!,
         ],
         { cwd: root, encoding: "utf8", env: { ...process.env, DATABASE_URL: "" } },
       );
       expect(result.status).toBe(1);
-      expect(result.stderr).toContain("Use no arguments to apply");
-      expect(result.stderr).not.toContain("DATABASE_URL is required");
+      expect(result.stderr).toContain(message);
+      if (id === "unknown") expect(result.stderr).not.toContain("DATABASE_URL is required");
+      else expect(result.stderr).not.toContain("needs independent parent review");
+    }
+  });
+
+  it("dry-validates a selected batch while still reporting the whole registered preflight set", () => {
+    const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+    const stdout = execFileSync(
+      process.execPath,
+      [
+        join(root, "node_modules/tsx/dist/cli.mjs"),
+        join(root, "packages/db/prisma/curate-main-course-words.ts"),
+        "--batch",
+        "task-127-foundation-words-02",
+        "--validate-only",
+      ],
+      { cwd: root, encoding: "utf8", env: { ...process.env, DATABASE_URL: "" } },
+    );
+    expect(JSON.parse(stdout)).toMatchObject({
+      status: "valid-manifests",
+      selectedBatchId: "task-127-foundation-words-02",
+      batches: [
+        { batchId: "task-127-foundation-words-01" },
+        { batchId: "task-127-foundation-words-02", reviewedAt: "2026-10-22" },
+      ],
+    });
+  });
+});
+
+describe("second bounded vocabulary batch and registry", () => {
+  it("adds the exact approved twenty pairs at level 5 slots 21-40 without changing the frozen first batch", () => {
+    const [first, second] = buildMainCourseWordBatches();
+    expect(first).toBe(buildMainCourseWordBatch());
+    expect(Object.hasOwn(first!, "sortOrderStart")).toBe(false);
+    expect(mainCourseWordBatchChecksum(first!)).toBe(
+      "1ceeb2467961f707e57047ab0c46a91badaa048f036ac3299a5a7d0685f99daf",
+    );
+    expect(second).toMatchObject({
+      id: "task-127-foundation-words-02",
+      version: "1",
+      authoredAt: "2026-10-22",
+      reviewedAt: "2026-10-22",
+      levelNumber: 5,
+      sortOrderStart: 21,
+    });
+    expect(mainCourseWordBatchChecksum(second!)).toBe(
+      "0110505331b1066653f4b62ce20f4c8bbb98e94ccf701eafac26ecda9a0e6a4f",
+    );
+    expect(validateMainCourseWordBatches()).toEqual([]);
+    expect(
+      second!.words.map((word) => [word.expression, word.reading, word.jmdictEntryId]),
+    ).toEqual([
+      ["本", "ほん", "jmdict:1522150"],
+      ["日本", "にほん", "jmdict:1582710"],
+      ["一人", "ひとり", "jmdict:1576150"],
+      ["二人", "ふたり", "jmdict:1582670"],
+      ["大人", "おとな", "jmdict:1414170"],
+      ["男子", "だんし", "jmdict:1420070"],
+      ["女子", "じょし", "jmdict:1345140"],
+      ["火山", "かざん", "jmdict:1193910"],
+      ["水田", "すいでん", "jmdict:1371890"],
+      ["上下", "じょうげ", "jmdict:1352710"],
+      ["左右", "さゆう", "jmdict:1290810"],
+      ["一月", "いちがつ", "jmdict:1162120"],
+      ["二月", "にがつ", "jmdict:1461560"],
+      ["三月", "さんがつ", "jmdict:1300250"],
+      ["一日", "いちにち", "jmdict:1576260"],
+      ["二日", "ふつか", "jmdict:1462900"],
+      ["三日", "みっか", "jmdict:1301330"],
+      ["十日", "とおか", "jmdict:1335000"],
+      ["国", "くに", "jmdict:1592250"],
+      ["中", "なか", "jmdict:1423310"],
+    ]);
+    expect(second!.words.map((word) => word.sortOrder)).toEqual(
+      Array.from({ length: 20 }, (_, index) => 21 + index),
+    );
+  });
+
+  it("has eighty RU/EN mnemonic texts, eighty hints and twenty varied original examples with no other scripts", () => {
+    const second = buildMainCourseWordBatches()[1]!;
+    const earlierHan = new Set(
+      buildMainCourseContentBatches().flatMap((batch) =>
+        batch.kanji.map((kanji) => kanji.character),
+      ),
+    );
+    for (const kind of ["Mnemonic", "Hint"] as const) {
+      const texts = second.words.flatMap((word) => [
+        ...Object.values(word[`meaning${kind}`]),
+        ...Object.values(word[`reading${kind}`]),
+      ]);
+      expect(texts).toHaveLength(80);
+      expect(texts.every((text) => text.trim().length > 0)).toBe(true);
+    }
+    for (const word of second.words) {
+      expect(word.example.japaneseText).toMatch(/^[\p{Script=Han}ぁ-ゖー、。！？\s]+$/u);
+      expect(word.example.readingText).toMatch(/^[ぁ-ゖー、。！？\s]+$/u);
+      expect(word.example.japaneseText).toContain(word.expression);
+      expect(
+        wordHanCharacters(word.example.japaneseText).every((character) =>
+          earlierHan.has(character),
+        ),
+      ).toBe(true);
+      expect(word.example.readingText).toContain(word.reading);
+      expect(Object.values(word.example).every((text) => text.trim())).toBe(true);
+    }
+    expect(
+      second.words.filter((word) => word.example.japaneseText.endsWith("です。")).length,
+    ).toBeLessThan(5);
+    const words = new Map(second.words.map((word) => [word.expression, word]));
+    expect(words.get("一日")!.meanings.en.accepted).toEqual(["one day", "a whole day"]);
+    expect(words.get("一日")!.reading).toBe("いちにち");
+    for (const [expression, meaning] of [
+      ["一月", "January"],
+      ["二月", "February"],
+      ["三月", "March"],
+    ])
+      expect(words.get(expression!)!.meanings.en.accepted).toEqual([meaning]);
+    for (const [expression, en, ru] of [
+      ["二日", ["two days", "second day of the month"], ["два дня", "второе число"]],
+      ["三日", ["three days", "third day of the month"], ["три дня", "третье число"]],
+      ["十日", ["ten days", "tenth day of the month"], ["десять дней", "десятое число"]],
+    ] as const) {
+      expect(words.get(expression)!.meanings.en.accepted).toEqual(en);
+      expect(words.get(expression)!.meanings.ru.accepted).toEqual(ru);
+    }
+    expect(
+      second.words
+        .filter((word) => word.acceptedReadings !== undefined)
+        .map((word) => [word.expression, mainCourseWordAcceptedReadings(word)]),
+    ).toEqual([
+      ["日本", ["にほん", "にっぽん"]],
+      ["一人", ["ひとり", "いちにん"]],
+      ["二人", ["ふたり", "ににん"]],
+      ["水田", ["すいでん", "みずた"]],
+      ["左右", ["さゆう", "そう"]],
+    ]);
+    expect(
+      buildMainCourseWordBatch().words.every((word) => !Object.hasOwn(word, "acceptedReadings")),
+    ).toBe(true);
+  });
+
+  it.each([
+    { acceptedReadings: ["ほん"] },
+    { acceptedReadings: ["ホン"] },
+    { acceptedReadings: ["ほ ん"] },
+    { acceptedReadings: ["ほーん", "ほーん"] },
+  ])(
+    "rejects invalid or normalized-duplicate extra readings $acceptedReadings",
+    ({ acceptedReadings }) => {
+      const batch = buildMainCourseWordBatches()[1]!;
+      const invalid = {
+        ...batch,
+        words: [{ ...batch.words[0]!, acceptedReadings }, ...batch.words.slice(1)],
+      };
+      expect(validateMainCourseWordBatch(invalid)).toContain(
+        "Invalid or duplicate accepted readings for 本:ほん.",
+      );
+    },
+  );
+
+  it.each(["batch-id", "word", "slot", "offset", "empty"])(
+    "rejects cross-batch %s conflicts",
+    (condition) => {
+      const [first, second] = buildMainCourseWordBatches();
+      const invalid =
+        condition === "batch-id"
+          ? { ...second!, id: first!.id }
+          : condition === "word"
+            ? {
+                ...second!,
+                words: [{ ...first!.words[0]!, sortOrder: 21 }, ...second!.words.slice(1)],
+              }
+            : condition === "slot"
+              ? {
+                  ...second!,
+                  sortOrderStart: 1,
+                  words: second!.words.map((word, index) => ({ ...word, sortOrder: index + 1 })),
+                }
+              : { ...second!, sortOrderStart: 0 };
+      expect(
+        validateMainCourseWordBatches(condition === "empty" ? [] : [first!, invalid]).length,
+      ).toBeGreaterThan(0);
     },
   );
 });
