@@ -74,23 +74,23 @@ diagnostic, not continuous database polling that consumes free compute.
 
 ## Revalidated Roadmap
 
-| Task    | State                                         | Remaining Proof                                                           |
-| ------- | --------------------------------------------- | ------------------------------------------------------------------------- |
-| 111-115 | Implemented, bounded tests                    | Full corpus and whole-product accessibility                               |
-| 116     | Listening mechanism implemented               | Real licensed assets, storage/CORS, coverage                              |
-| 117     | Research deferred                             | Approved source/license before integration                                |
-| 118     | In progress; blocks full release              | 2,239 kanji, 7,940 vocabulary, 55 empty levels, rollout                   |
-| 119     | Implemented; live batch verified              | Same audit over eventual full corpus                                      |
-| 120     | Implemented; focused acceptance tested        | Whole-product contrast belongs to 121-122                                 |
-| 121     | Not started                                   | Original visual system after functional/data contracts                    |
-| 122     | Discovered blockers being repaired            | Width/zoom/keyboard/axe/screen-reader matrix                              |
-| 123     | Bounded daily-use features deployed           | Full-scale/bundle/CWV budgets, real OS install, safe static shell caching |
-| 124     | Content-fingerprint restore passed; gate open | Full corpus, recovery policy, remote matrix, rollback, security sign-off  |
-| 125     | Implemented and live-smoke verified           | Eventual whole-product acceptance                                         |
-| 126     | Implemented; first examples live              | Editorial coverage as the corpus grows                                    |
-| 127     | Repeatable editorial batches in use           | Remaining reviewed corpus, not only importer capacity                     |
-| 128     | V1 preserved; expanded V2 published           | Complete remote mobile matrix and later versioned expansion               |
-| 129     | Migrated and live verified                    | No inferred modern JLPT coverage claim                                    |
+| Task    | State                                         | Remaining Proof                                                          |
+| ------- | --------------------------------------------- | ------------------------------------------------------------------------ |
+| 111-115 | Implemented, bounded tests                    | Full corpus and whole-product accessibility                              |
+| 116     | Listening mechanism implemented               | Real licensed assets, storage/CORS, coverage                             |
+| 117     | Research deferred                             | Approved source/license before integration                               |
+| 118     | In progress; blocks full release              | 2,239 kanji, 7,940 vocabulary, 55 empty levels, rollout                  |
+| 119     | Implemented; live batch verified              | Same audit over eventual full corpus                                     |
+| 120     | Implemented; focused acceptance tested        | Whole-product contrast belongs to 121-122                                |
+| 121     | Not started                                   | Original visual system after functional/data contracts                   |
+| 122     | Discovered blockers being repaired            | Width/zoom/keyboard/axe/screen-reader matrix                             |
+| 123     | Bounded daily-use features deployed           | Full-scale/CWV budgets, real OS install, safe static shell caching       |
+| 124     | Content-fingerprint restore passed; gate open | Full corpus, recovery policy, remote matrix, rollback, security sign-off |
+| 125     | Implemented and live-smoke verified           | Eventual whole-product acceptance                                        |
+| 126     | Implemented; first examples live              | Editorial coverage as the corpus grows                                   |
+| 127     | Repeatable editorial batches in use           | Remaining reviewed corpus, not only importer capacity                    |
+| 128     | V1 preserved; expanded V2 published           | Complete remote mobile matrix and later versioned expansion              |
+| 129     | Migrated and live verified                    | No inferred modern JLPT coverage claim                                   |
 
 Order: correctness/CI, Task 119 before more Task 118 publication, independent
 Task 120, contracts below, reviewed editorial batches, final visual refresh,
@@ -209,9 +209,13 @@ The present order is:
    Bounded manual remote measurements passed on both pilots, with no repeated
    study-GET sample above the initial 2-second target. Optional foreground
    reminders are deployed: explicit permission/opt-out, IANA timezone, atomic
-   24-hour/local-day claim, no background push or polling. Full graph/query,
-   bundle/CWV budgets, actual OS installation and safe static shell caching
-   remain open. See `REVIEW_REMINDERS.md` and `REMOTE_PERFORMANCE.md`.
+   24-hour/local-day claim, no background push or polling. Seven local routes
+   passed starting initial JS/CSS budgets; `WEB_BUNDLE_BUDGETS.md` distinguishes
+   static asset bytes from actual browser performance. Exhausted lesson caps now
+   skip graph hydration while retaining full-user daily-limit accounting.
+   Full positive-path graph/query budgets, representative latency/CWV, actual
+   OS installation and safe static shell caching remain open. See
+   `REVIEW_REMINDERS.md` and `REMOTE_PERFORMANCE.md`.
 3. Continue Task118/127 reviewed batches toward 2,300 kanji and 8,000 words;
    add licensed audio coverage from Task116 where an approved source exists.
 4. Finish Task123 measured performance and daily-use acceptance, including

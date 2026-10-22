@@ -49,8 +49,8 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      - name: Remote smoke guardrails
-        run: npx vitest run scripts/remote-smoke.test.ts
+      - name: Smoke and bundle-measurement guardrails
+        run: npx vitest run scripts/remote-smoke.test.ts scripts/measure-web-bundles.test.ts
 
       - name: Build
         run: npm run build
