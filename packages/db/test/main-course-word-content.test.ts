@@ -169,6 +169,13 @@ describe("first bounded main-course vocabulary manifest", () => {
           cards: 40,
           examples: 20,
         },
+        {
+          batchId: "task-127-foundation-words-03",
+          reviewedAt: "2026-10-22",
+          words: 20,
+          cards: 40,
+          examples: 20,
+        },
       ],
     });
   });
@@ -239,6 +246,7 @@ describe("first bounded main-course vocabulary manifest", () => {
       batches: [
         { batchId: "task-127-foundation-words-01" },
         { batchId: "task-127-foundation-words-02", reviewedAt: "2026-10-22" },
+        { batchId: "task-127-foundation-words-03", reviewedAt: "2026-10-22" },
       ],
     });
   });
@@ -396,6 +404,152 @@ describe("second bounded vocabulary batch and registry", () => {
               : { ...second!, sortOrderStart: 0 };
       expect(
         validateMainCourseWordBatches(condition === "empty" ? [] : [first!, invalid]).length,
+      ).toBeGreaterThan(0);
+    },
+  );
+});
+
+describe("reviewed third vocabulary batch", () => {
+  it("adds twenty distinct beginner words at free slots with verified source identities", () => {
+    const batches = buildMainCourseWordBatches();
+    expect(batches).toHaveLength(3);
+    const third = batches[2]!;
+    expect(third).toMatchObject({
+      id: "task-127-foundation-words-03",
+      version: "1",
+      authoredAt: "2026-10-22",
+      reviewedAt: "2026-10-22",
+      levelNumber: 5,
+      sortOrderStart: 41,
+    });
+    expect(third.reviewNotes).toContain("Independently reviewed and corrected by the parent agent");
+    expect(third.reviewNotes).toContain("AI-authored");
+    expect(third.reviewNotes).toContain("no provenance exception");
+    expect(mainCourseWordBatchChecksum(third)).toBe(
+      "ef7090a4cea8c4b74c04a3cebfe85dc9832d64e1b7d071e409232287e7cf2ff4",
+    );
+    expect(third.words.map((word) => [word.expression, word.reading])).toEqual([
+      ["口", "くち"],
+      ["目", "め"],
+      ["耳", "みみ"],
+      ["手", "て"],
+      ["足", "あし"],
+      ["雨", "あめ"],
+      ["空", "そら"],
+      ["天気", "てんき"],
+      ["空気", "くうき"],
+      ["先生", "せんせい"],
+      ["学生", "がくせい"],
+      ["大学", "だいがく"],
+      ["大学生", "だいがくせい"],
+      ["小学生", "しょうがくせい"],
+      ["一年生", "いちねんせい"],
+      ["文学", "ぶんがく"],
+      ["四月", "しがつ"],
+      ["五月", "ごがつ"],
+      ["出口", "でぐち"],
+      ["人口", "じんこう"],
+    ]);
+    expect(third.words.map((word) => word.sortOrder)).toEqual(
+      Array.from({ length: 20 }, (_, i) => 41 + i),
+    );
+    expect(third.words.map((word) => [word.expression, word.jmdictEntryId])).toEqual([
+      ["口", "jmdict:1275640"],
+      ["目", "jmdict:1604890"],
+      ["耳", "jmdict:1317170"],
+      ["手", "jmdict:1327190"],
+      ["足", "jmdict:1404630"],
+      ["雨", "jmdict:1171900"],
+      ["空", "jmdict:1245290"],
+      ["天気", "jmdict:1438690"],
+      ["空気", "jmdict:1245470"],
+      ["先生", "jmdict:1387990"],
+      ["学生", "jmdict:1206900"],
+      ["大学", "jmdict:1413240"],
+      ["大学生", "jmdict:1413260"],
+      ["小学生", "jmdict:1347880"],
+      ["一年生", "jmdict:1165580"],
+      ["文学", "jmdict:1505190"],
+      ["四月", "jmdict:1307180"],
+      ["五月", "jmdict:1268170"],
+      ["出口", "jmdict:1338850"],
+      ["人口", "jmdict:1367300"],
+    ]);
+    expect(
+      third.words
+        .filter((word) => word.jmdictEntryId === "jmdict:0")
+        .map((word) => word.expression),
+    ).toEqual([]);
+    expect(third.words.every((word) => !Object.hasOwn(word, "acceptedReadings"))).toBe(true);
+    expect(
+      new Set(batches.flatMap((batch) => batch.words.map((word) => word.expression))).size,
+    ).toBe(60);
+    expect(validateMainCourseWordBatches()).toEqual([]);
+    const earlier = new Map(
+      buildMainCourseContentBatches().flatMap((batch) =>
+        batch.kanji.map((kanji) => [kanji.character, kanji.levelNumber] as const),
+      ),
+    );
+    for (const word of third.words) {
+      for (const character of wordHanCharacters(word.expression + word.example.japaneseText)) {
+        expect(earlier.has(character), `${word.expression}: ${character}`).toBe(true);
+        expect(earlier.get(character)).toBeLessThan(third.levelNumber);
+      }
+      expect(word.example.japaneseText).toContain(word.expression);
+      expect(word.example.japaneseText).toMatch(/^[\p{Script=Han}ぁ-ゖー、。！？\s]+$/u);
+      expect(word.example.readingText).toMatch(/^[ぁ-ゖー、。！？\s]+$/u);
+      expect(word.example.readingText).toContain(word.reading);
+      expect(Object.values(word.example).every((text) => text.trim())).toBe(true);
+      for (const text of [
+        word.meaningMnemonic,
+        word.readingMnemonic,
+        word.meaningHint,
+        word.readingHint,
+      ])
+        expect(Object.values(text).every((value) => value.trim())).toBe(true);
+      expect(mainCourseWordAcceptedReadings(word)).toEqual([word.reading]);
+    }
+    const words = new Map(third.words.map((word) => [word.expression, word]));
+    expect(words.get("空")!.meanings.en.accepted).toEqual(["sky"]);
+    expect(words.get("四月")!.meanings.en.accepted).toEqual(["April"]);
+    expect(words.get("五月")!.meanings.en.accepted).toEqual(["May"]);
+    expect(words.get("小学生")!.meanings.en.accepted).not.toContain("child");
+  });
+
+  it("rejects third-batch collisions without weakening registry validation", () => {
+    const [first, second, third] = buildMainCourseWordBatches();
+    expect(
+      validateMainCourseWordBatches([
+        first!,
+        second!,
+        {
+          ...third!,
+          sortOrderStart: 21,
+          words: third!.words.map((word, index) => ({ ...word, sortOrder: 21 + index })),
+        },
+      ]),
+    ).toContain("Duplicate registered word slot japanese-ru-n2:5:21.");
+    expect(
+      validateMainCourseWordBatches([
+        first!,
+        second!,
+        {
+          ...third!,
+          words: [{ ...first!.words[0]!, sortOrder: 41 }, ...third!.words.slice(1)],
+        },
+      ]),
+    ).toContain("Duplicate registered word 山:やま.");
+  });
+
+  it.each(["jmdict:0", "jmdict:01", "jmdict:-1"])(
+    "rejects unresolved or noncanonical source ID %s",
+    (jmdictEntryId) => {
+      const batch = buildMainCourseWordBatches()[2]!;
+      expect(
+        validateMainCourseWordBatch({
+          ...batch,
+          words: [{ ...batch.words[0]!, jmdictEntryId }, ...batch.words.slice(1)],
+        }).length,
       ).toBeGreaterThan(0);
     },
   );

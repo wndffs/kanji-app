@@ -18,6 +18,62 @@ import {
 } from "../src/main-course-word-content";
 
 describe("bounded vocabulary curation", () => {
+  it("blocks an unreviewed third batch before any database read or write", async () => {
+    const batches = thirdPendingFixtureBatches();
+    const fixture = harness(batches);
+    await expect(
+      applyMainCourseWordBatches(fixture.db, {
+        batches,
+        batchId: batches[2]!.id,
+      }),
+    ).rejects.toThrow("needs independent parent review");
+    await expect(applyMainCourseWordBatch(fixture.db, batches[2]!)).rejects.toThrow(
+      "needs independent parent review",
+    );
+    expect(fixture.readCourse).not.toHaveBeenCalled();
+    expect(fixture.readWord).not.toHaveBeenCalled();
+    expect(fixture.transaction).not.toHaveBeenCalled();
+    expect(fixture.mutations).toEqual([]);
+  });
+
+  it("preflights all three batches with synthetic evidence and skips pending third-batch writes", async () => {
+    const batches = thirdPendingFixtureBatches();
+    // Synthetic database fixtures are not live source evidence.
+    const fixture = harness(batches);
+    const plans = await planMainCourseWordBatches(fixture.db, batches);
+    expect(plans.map((entry) => entry.plan.words.length)).toEqual([20, 20, 20]);
+    expect(fixture.mutations).toEqual([]);
+    const result = await applyMainCourseWordBatches(fixture.db, { batches });
+    expect(result).toMatchObject({
+      preflightedBatchIds: batches.map((batch) => batch.id),
+      skippedUnreviewedBatchIds: [batches[2]!.id],
+      batches: [{ batchId: batches[0]!.id }, { batchId: batches[1]!.id }],
+    });
+    expect(fixture.state.cards.size).toBe(80);
+    for (const word of batches[2]!.words)
+      expect(
+        [...fixture.state.items.values()].some(
+          (item) => item.targetId === `word-${word.expression}`,
+        ),
+      ).toBe(false);
+    expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
+  });
+
+  it("does not bypass pending third-batch source failures when applying an approved selection", async () => {
+    const batches = thirdPendingFixtureBatches();
+    const fixture = harness(batches);
+    fixture.state.words.get(batches[2]!.words.at(-1)!.expression)!.importedRecord.importRun.status =
+      "FAILED";
+    await expect(
+      applyMainCourseWordBatches(fixture.db, {
+        batches,
+        batchId: batches[0]!.id,
+      }),
+    ).rejects.toThrow("provenance");
+    expect(fixture.mutations).toEqual([]);
+    expect(fixture.transaction).not.toHaveBeenCalled();
+  });
+
   it("preflights the whole registry, including an unselected last word, before any mutation", async () => {
     const batches = registryFixtureBatches();
     const fixture = harness(batches);
@@ -590,8 +646,15 @@ function wordSource(content: MainCourseWordContent) {
   };
 }
 
+function thirdPendingFixtureBatches(): readonly MainCourseWordBatch[] {
+  return buildMainCourseWordBatches().map((batch, index) =>
+    index === 2 ? { ...batch, reviewedAt: null } : batch,
+  );
+}
+
 function registryFixtureBatches(): readonly MainCourseWordBatch[] {
-  return buildMainCourseWordBatches();
+  // Preserve the approved two-batch scenarios independently of pending additions.
+  return buildMainCourseWordBatches().slice(0, 2);
 }
 
 function alternativeReadingFixture() {

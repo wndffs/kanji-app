@@ -573,8 +573,549 @@ export function buildMainCourseWordBatch(): MainCourseWordBatch {
   return FOUNDATION_WORD_BATCH;
 }
 
+const FOUNDATION_WORD_BATCH_03: MainCourseWordBatch = {
+  id: "task-127-foundation-words-03",
+  version: "1",
+  authoredAt: "2026-10-22",
+  reviewedAt: "2026-10-22",
+  reviewNotes:
+    "AI-authored independent RU/EN teaching copy and original JP/kana/RU/EN examples. Independently reviewed and corrected by the parent agent on 2026-10-22; all twenty exact spelling/reading pairs have live successful bilingual licensed JMdict evidence. The legacy starter identity for 口 requires the separately tested source-bound migration before application; no provenance exception is allowed. Prerequisite kanji04 was applied with zero quality blockers. Preserves earlier batch/pilot versions and existing target/card identities. Full database preflight remains mandatory. Not a human-review claim or full Task127 completion.",
+  sourceFile: "packages/db/src/main-course-word-content.ts",
+  courseSlug: "japanese-ru-n2",
+  levelNumber: 5,
+  sortOrderStart: 41,
+  words: [
+    word(
+      "口",
+      "くち",
+      "1275640",
+      ["рот"],
+      ["mouth"],
+      [
+        "Представьте рамку 口 как рот, который открывается перед словом.",
+        "Picture the frame 口 as a mouth opening before a word.",
+      ],
+      [
+        "У одного края рта поставьте く, у другого ち: рот произносит くち.",
+        "Put く at one corner of a mouth and ち at the other: the mouth says くち.",
+      ],
+      [
+        "Часть лица; здесь не вход и не счётный суффикс.",
+        "The body part, not an entrance or a counter here.",
+      ],
+      ["く・ち, не онное こう.", "く・ち, not the on reading こう."],
+      [
+        "口をあけてください。",
+        "くちをあけてください。",
+        "Откройте рот, пожалуйста.",
+        "Please open your mouth.",
+      ],
+    ),
+    word(
+      "目",
+      "め",
+      "1604890",
+      ["глаз"],
+      ["eye"],
+      [
+        "Внутренние линии 目 напоминают глаз, который смотрит на страницу.",
+        "The inner lines of 目 suggest an eye looking at a page.",
+      ],
+      [
+        "Нарисуйте один глаз и подпишите одним знаком め: короткое имя глаза.",
+        "Draw one eye and label it with the single kana め: a short name for an eye.",
+      ],
+      [
+        "Глаз как орган зрения; не порядковый суффикс.",
+        "An eye as the organ of sight, not an ordinal suffix.",
+      ],
+      ["Один короткий め; не もく.", "One short め, not もく."],
+      [
+        "目をとじてやすみます。",
+        "めをとじてやすみます。",
+        "Я закрываю глаза и отдыхаю.",
+        "I close my eyes and rest.",
+      ],
+    ),
+    word(
+      "耳",
+      "みみ",
+      "1317170",
+      ["ухо"],
+      ["ear"],
+      [
+        "Представьте контур 耳 у головы: ухо улавливает тихий звук.",
+        "Picture the outline 耳 beside a head: an ear catches a quiet sound.",
+      ],
+      [
+        "Два уха получают одинаковую подпись み: вместе пара напоминает みみ.",
+        "Give each of two ears the label み: the pair reminds you of みみ.",
+      ],
+      ["Орган слуха; не само умение слушать.", "The organ of hearing, not the skill of listening."],
+      [
+        "Повторите み два раза: みみ, без долгого гласного.",
+        "Repeat み twice: みみ, with no long vowel.",
+      ],
+      [
+        "耳をすませると、雨のおとがきこえます。",
+        "みみをすませると、あめのおとがきこえます。",
+        "Если прислушаться, слышен шум дождя.",
+        "If you listen carefully, you can hear the rain.",
+      ],
+    ),
+    word(
+      "手",
+      "て",
+      "1327190",
+      ["рука", "кисть руки"],
+      ["hand"],
+      [
+        "Поперечные штрихи 手 становятся пальцами руки, которой держат книгу.",
+        "The cross strokes of 手 become fingers of a hand holding a book.",
+      ],
+      [
+        "На ладони поместите единственный знак て: короткая подпись руки.",
+        "Place the single kana て on a palm: a short label for a hand.",
+      ],
+      [
+        "Кисть руки; здесь не способ действия и не исполнитель.",
+        "A hand, not a method or a person performing an action here.",
+      ],
+      ["Только て; не しゅ и не длинное てえ.", "Only て, not しゅ or a long てえ."],
+      [
+        "手をあらってから、ごはんをたべます。",
+        "てをあらってから、ごはんをたべます。",
+        "Перед едой я мою руки.",
+        "I wash my hands before eating.",
+      ],
+    ),
+    word(
+      "足",
+      "あし",
+      "1404630",
+      ["нога", "стопа"],
+      ["foot", "leg"],
+      [
+        "Нижняя часть 足 делает шаг: слово называет ногу или стопу.",
+        "The lower part of 足 takes a step: the word names a leg or foot.",
+      ],
+      [
+        "Перед шагом отметьте пятку знаком あ, а носок знаком し: あし.",
+        "Before a step, label the heel あ and the toes し: あし.",
+      ],
+      [
+        "Часть тела, позволяющая стоять и ходить; не достаточность.",
+        "The body part used for standing and walking, not sufficiency.",
+      ],
+      ["あ・し, а не онное そく.", "あ・し, not the on reading そく."],
+      [
+        "足がつかれたので、すこしやすみます。",
+        "あしがつかれたので、すこしやすみます。",
+        "Ноги устали, поэтому я немного отдохну.",
+        "My legs are tired, so I will rest a little.",
+      ],
+    ),
+    word(
+      "雨",
+      "あめ",
+      "1171900",
+      ["дождь"],
+      ["rain"],
+      [
+        "Капли внутри 雨 падают на землю: речь о дожде, не просто о воде.",
+        "The drops inside 雨 fall to the ground: this is rain, not just water.",
+      ],
+      [
+        "Первую каплю подпишите あ, следующую め: дождь напоминает あめ.",
+        "Label the first drop あ and the next め: the rain reminds you of あめ.",
+      ],
+      [
+        "Осадки в виде капель воды; не конфета с тем же звучанием.",
+        "Water falling as drops, not the candy word with the same kana.",
+      ],
+      ["あ・め; здесь не онное う.", "あ・め, not the on reading う here."],
+      [
+        "雨がやむまで、ここでまちましょう。",
+        "あめがやむまで、ここでまちましょう。",
+        "Давайте подождём здесь, пока дождь не прекратится.",
+        "Let's wait here until the rain stops.",
+      ],
+    ),
+    word(
+      "空",
+      "そら",
+      "1245290",
+      ["небо"],
+      ["sky"],
+      [
+        "Посмотрите вверх над 山: открытое пространство 空 здесь называется небом.",
+        "Look above 山: the open space 空 here is called the sky.",
+      ],
+      [
+        "На одном краю неба мысленно напишите そ, на другом ら: そら.",
+        "Write そ at one edge of an imagined sky and ら at the other: そら.",
+      ],
+      [
+        "Небо над нами; не пустой предмет и не воздух.",
+        "The sky above us, not an empty object or air.",
+      ],
+      ["そ・ら; не くう и не から.", "そ・ら, not くう or から."],
+      [
+        "空に月が出ています。",
+        "そらにつきがでています。",
+        "На небе видна луна.",
+        "The moon is out in the sky.",
+      ],
+    ),
+    word(
+      "天気",
+      "てんき",
+      "1438690",
+      ["погода"],
+      ["weather"],
+      [
+        "Небо 天 и его состояние 気 вместе задают погоду за окном.",
+        "Sky 天 and its condition 気 together suggest the weather outside.",
+      ],
+      [
+        "Небо даёт てん, состояние добавляет き: てんき.",
+        "Sky supplies てん and the condition adds き: てんき.",
+      ],
+      ["Состояние погоды; здесь не прогноз погоды.", "The weather itself, not a weather forecast."],
+      ["てん・き: после ん идёт короткое き.", "てん・き: a short き follows ん."],
+      [
+        "天気がいいので、山へ行きます。",
+        "てんきがいいので、やまへいきます。",
+        "Погода хорошая, поэтому я пойду в горы.",
+        "The weather is good, so I am going to the mountains.",
+      ],
+    ),
+    word(
+      "空気",
+      "くうき",
+      "1245470",
+      ["воздух"],
+      ["air"],
+      [
+        "Между небом 空 и нами движется невидимое 気: представьте окружающий воздух.",
+        "Invisible 気 moves between the sky 空 and us: picture the surrounding air.",
+      ],
+      [
+        "Для 空 протяните くう, затем коротко добавьте き: くうき.",
+        "Hold くう for 空, then add a short き: くうき.",
+      ],
+      [
+        "Воздух, которым дышат; переносная атмосфера компании здесь не цель.",
+        "The air we breathe; a group's figurative atmosphere is not the taught sense here.",
+      ],
+      [
+        "Сохраните две моры く・う перед き; не くき.",
+        "Keep two morae く・う before き, not くき.",
+      ],
+      [
+        "山の空気はすずしいです。",
+        "やまのくうきはすずしいです。",
+        "Горный воздух прохладный.",
+        "The mountain air is cool.",
+      ],
+    ),
+    word(
+      "先生",
+      "せんせい",
+      "1387990",
+      ["учитель", "преподаватель"],
+      ["teacher", "instructor"],
+      [
+        "Тот, кто прошёл путь раньше 先, помогает другим учиться: представьте своего учителя.",
+        "Someone who traveled the path earlier 先 helps others learn: picture your teacher.",
+      ],
+      [
+        "У доски разместите せん, на столе учителя せい: вместе せんせい.",
+        "Put せん on the board and せい on the teacher's desk: together, せんせい.",
+      ],
+      [
+        "Человек, который учит; обращение к врачу этим словом здесь не изучается.",
+        "A person who teaches; its use as a title for a doctor is not taught here.",
+      ],
+      ["せん・せい; пишите конечное い, не せんせ.", "せん・せい; write the final い, not せんせ."],
+      [
+        "先生にこの本をかりました。",
+        "せんせいにこのほんをかりました。",
+        "Я взял эту книгу у учителя почитать.",
+        "I borrowed this book from my teacher.",
+      ],
+    ),
+    word(
+      "学生",
+      "がくせい",
+      "1206900",
+      ["студент", "учащийся"],
+      ["student"],
+      [
+        "Учёба 学 становится занятием человека 生: представьте учащегося с книгой.",
+        "Study 学 becomes a person's 生 occupation: picture a student with a book.",
+      ],
+      [
+        "На книге напишите がく, на месте учащегося せい: がくせい.",
+        "Write がく on a book and せい at the student's seat: がくせい.",
+      ],
+      [
+        "Учащийся, обычно студент; не сам учитель.",
+        "A student, commonly at college or university, not the teacher.",
+      ],
+      ["がく・せい: здесь нет маленькой っ.", "がく・せい: there is no small っ here."],
+      [
+        "学生たちはここで本をよんでいます。",
+        "がくせいたちはここでほんをよんでいます。",
+        "Студенты здесь читают книги.",
+        "The students are reading books here.",
+      ],
+    ),
+    word(
+      "大学",
+      "だいがく",
+      "1413240",
+      ["университет", "вуз"],
+      ["university"],
+      [
+        "Большая 大 учёба 学 напоминает университет, где изучают целые области знаний.",
+        "Big 大 study 学 suggests a university where entire fields are studied.",
+      ],
+      [
+        "Соедините большое だい и учебное がく без паузы: だいがく.",
+        "Join big だい and study がく without a pause: だいがく.",
+      ],
+      [
+        "Высшее учебное заведение; не любая школа.",
+        "An institution of higher education, not just any school.",
+      ],
+      ["だい・がく, без удвоенной согласной.", "だい・がく, with no doubled consonant."],
+      [
+        "大学は川のそばにあります。",
+        "だいがくはかわのそばにあります。",
+        "Университет находится рядом с рекой.",
+        "The university is beside the river.",
+      ],
+    ),
+    word(
+      "大学生",
+      "だいがくせい",
+      "1413260",
+      ["студент университета", "студент вуза"],
+      ["university student", "college student"],
+      [
+        "К университету 大学 добавьте учащегося 生: получается студент вуза.",
+        "Add a student 生 to university 大学: a university student.",
+      ],
+      [
+        "Сначала произнесите университет だいがく, затем добавьте учащегося せい: だいがくせい.",
+        "Say university だいがく first, then add the student ending せい: だいがくせい.",
+      ],
+      [
+        "Именно учащийся вуза, не университет как здание.",
+        "Specifically a university student, not the university building.",
+      ],
+      ["だい・がく・せい; сохраните все три части.", "だい・がく・せい; keep all three parts."],
+      [
+        "あの人は大学生で、ここではたらいています。",
+        "あのひとはだいがくせいで、ここではたらいています。",
+        "Тот человек — студент университета и работает здесь.",
+        "That person is a university student and works here.",
+      ],
+    ),
+    word(
+      "小学生",
+      "しょうがくせい",
+      "1347880",
+      ["ученик начальной школы", "ученица начальной школы"],
+      ["elementary school student", "primary school pupil"],
+      [
+        "Маленький 小 учащийся 学生 помогает вспомнить ученика начальной школы.",
+        "A small 小 student 学生 helps you remember an elementary school pupil.",
+      ],
+      [
+        "Добавьте маленькое しょう к учащемуся がくせい: しょうがくせい.",
+        "Add small しょう to student がくせい: しょうがくせい.",
+      ],
+      [
+        "Учащийся начальной школы, не любой ребёнок.",
+        "An elementary school pupil, not just any child.",
+      ],
+      [
+        "しょう・がく・せい: маленькая ょ и следующий う обязательны.",
+        "しょう・がく・せい: keep the small ょ and the following う.",
+      ],
+      [
+        "小学生たちが手をあげました。",
+        "しょうがくせいたちがてをあげました。",
+        "Ученики начальной школы подняли руки.",
+        "The elementary school pupils raised their hands.",
+      ],
+    ),
+    word(
+      "一年生",
+      "いちねんせい",
+      "1165580",
+      ["первоклассник", "ученик первого класса", "первокурсник"],
+      ["first-year student", "first grader"],
+      [
+        "Один 一 год 年 учёбы у учащегося 生: первый класс или первый курс.",
+        "One 一 year 年 of study for a student 生: the first school grade or college year.",
+      ],
+      [
+        "Соедините один いち, год ねん и учащегося せい: いちねんせい.",
+        "Join one いち, year ねん and student せい: いちねんせい.",
+      ],
+      [
+        "Учащийся первого года; слово не ограничено только начальной школой.",
+        "A student in their first year; the word is not limited to elementary school.",
+      ],
+      [
+        "いち・ねん・せい; не заменяйте начало на ひと.",
+        "いち・ねん・せい; do not replace the beginning with ひと.",
+      ],
+      [
+        "一年生に本をよんであげました。",
+        "いちねんせいにほんをよんであげました。",
+        "Я почитал книгу первокласснику.",
+        "I read a book to a first grader.",
+      ],
+    ),
+    word(
+      "文学",
+      "ぶんがく",
+      "1505190",
+      ["литература"],
+      ["literature"],
+      [
+        "Тексты 文 становятся областью изучения 学: представьте литературу на книжной полке.",
+        "Texts 文 become a field of study 学: picture literature on a bookshelf.",
+      ],
+      [
+        "Текст даёт ぶん, учёба даёт がく: вместе ぶんがく.",
+        "Text gives ぶん and study gives がく: together, ぶんがく.",
+      ],
+      [
+        "Литература как искусство или предмет изучения; не отдельное предложение.",
+        "Literature as an art or field of study, not a single sentence.",
+      ],
+      ["ぶん・がく, с ん перед が.", "ぶん・がく, with ん before が."],
+      [
+        "大学で日本の文学をまなびたいです。",
+        "だいがくでにほんのぶんがくをまなびたいです。",
+        "Я хочу изучать японскую литературу в университете.",
+        "I want to study Japanese literature at university.",
+      ],
+    ),
+    word(
+      "四月",
+      "しがつ",
+      "1307180",
+      ["апрель"],
+      ["April"],
+      [
+        "Четыре 四 и месяц 月 ставят апрель на четвёртое место календаря.",
+        "Four 四 and month 月 put April fourth in the calendar.",
+      ],
+      [
+        "Для четвёртого месяца выберите し и присоедините がつ: しがつ.",
+        "For the fourth month choose し and attach がつ: しがつ.",
+      ],
+      [
+        "Название месяца апреля, не длительность четыре месяца.",
+        "The month April, not a duration of four months.",
+      ],
+      ["し・がつ, не よんがつ.", "し・がつ, not よんがつ."],
+      [
+        "四月に大学へ行きます。",
+        "しがつにだいがくへいきます。",
+        "В апреле я пойду в университет.",
+        "I will go to university in April.",
+      ],
+    ),
+    word(
+      "五月",
+      "ごがつ",
+      "1268170",
+      ["май"],
+      ["May"],
+      [
+        "Пять 五 у календарного месяца 月 отмечает май, пятый месяц года.",
+        "Five 五 beside calendar month 月 marks May, the fifth month of the year.",
+      ],
+      ["Счётное ご соединяется с месяцем がつ: ごがつ.", "Counting ご joins month がつ: ごがつ."],
+      [
+        "Май как месяц календаря; не пять месяцев подряд.",
+        "May as a calendar month, not five months in duration.",
+      ],
+      [
+        "ご・がつ: обе начальные согласные звонкие.",
+        "ご・がつ: both initial consonants are voiced.",
+      ],
+      [
+        "五月にこの山をあるきました。",
+        "ごがつにこのやまをあるきました。",
+        "В мае я гулял по этой горе.",
+        "I walked on this mountain in May.",
+      ],
+    ),
+    word(
+      "出口",
+      "でぐち",
+      "1338850",
+      ["выход"],
+      ["exit"],
+      [
+        "Выходить 出 через проём 口: представьте выход из здания.",
+        "Go out 出 through an opening 口: picture a building's exit.",
+      ],
+      [
+        "Выход даёт で, а рот くち меняет начальную согласную на ぐ: でぐち.",
+        "Going out gives で and mouth くち voices its first consonant to ぐ: でぐち.",
+      ],
+      [
+        "Место выхода, не сам глагол выходить.",
+        "A place to leave through, not the verb to go out.",
+      ],
+      ["で・ぐ・ち; середина ぐ, не く.", "で・ぐ・ち; the middle kana is ぐ, not く."],
+      [
+        "出口は右にあります。",
+        "でぐちはみぎにあります。",
+        "Выход находится справа.",
+        "The exit is on the right.",
+      ],
+    ),
+    word(
+      "人口",
+      "じんこう",
+      "1367300",
+      ["население", "численность населения"],
+      ["population"],
+      [
+        "Человек 人 и рот 口 напоминают счёт жителей, а не размер страны.",
+        "Person 人 and mouth 口 suggest counting inhabitants, not measuring a country's area.",
+      ],
+      [
+        "Человека прочтите じん, рот в сложении — こう: じんこう.",
+        "Read person as じん and mouth in this compound as こう: じんこう.",
+      ],
+      [
+        "Население места или его численность; не площадь территории.",
+        "The inhabitants of a place or their number, not its land area.",
+      ],
+      ["じん・こう, с конечным う; не じんこ.", "じん・こう, with final う, not じんこ."],
+      [
+        "この国の人口をしらべています。",
+        "このくにのじんこうをしらべています。",
+        "Я изучаю численность населения этой страны.",
+        "I am looking up this country's population.",
+      ],
+    ),
+  ].map((content, index) => ({ ...content, sortOrder: 41 + index })),
+};
+
 export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
-  return [buildMainCourseWordBatch(), buildMainCourseWordBatch02()];
+  return [buildMainCourseWordBatch(), buildMainCourseWordBatch02(), FOUNDATION_WORD_BATCH_03];
 }
 
 export function mainCourseWordBatchChecksum(batch: MainCourseWordBatch): string {
@@ -627,7 +1168,7 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
       issues.push(`Invalid or duplicate word placement ${content.sortOrder}.`);
     placements.add(content.sortOrder);
     if (
-      !/^jmdict:\d+$/u.test(content.jmdictEntryId) ||
+      !/^jmdict:[1-9]\d*$/u.test(content.jmdictEntryId) ||
       wordHanCharacters(content.expression).length === 0 ||
       !/^[ぁ-ゖー]+$/u.test(content.reading)
     )
