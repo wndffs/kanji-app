@@ -27,6 +27,31 @@ const id = "00000000-0000-4000-8000-000000000001";
 const privateText = "PRIVATE-email@example.test-password-token-body";
 const json = (value: unknown) => Response.json(value);
 type Call = { path: string; init: RequestInit };
+function kanaPath(script: string) {
+  const characters = script === "hiragana" ? ["あ", "い"] : ["ア", "イ"];
+  return {
+    script,
+    masteryThreshold: 3,
+    masteredCount: 0,
+    totalCount: 2,
+    units: [
+      {
+        id: `${script}-vowels`,
+        script,
+        unlocked: true,
+        complete: false,
+        masteredCount: 0,
+        totalCount: 2,
+        items: characters.map((character, index) => ({
+          character,
+          script,
+          romaji: index === 0 ? "a" : "i",
+          mastered: false,
+        })),
+      },
+    ],
+  };
+}
 function fixture(
   override?: (path: string, init: RequestInit) => Response | Promise<Response> | undefined,
 ) {
@@ -43,6 +68,18 @@ function fixture(
       "/auth/register": { accessToken: privateText },
       "/auth/login": { accessToken: privateText },
       "/auth/me": { settings: { reviewRemindersEnabled: false, reviewReminderHour: 9 } },
+      "/users/settings": {
+        reviewRemindersEnabled: false,
+        reviewReminderHour: 9,
+        translationDisplayMode: "ru",
+        timezone: "Europe/Moscow",
+      },
+      "/kana/lessons": kanaPath(new URL(input).searchParams.get("script") ?? "hiragana"),
+      "/search": {
+        query: "月",
+        items: [{ id }],
+        pagination: { page: 1, limit: 5, total: 1, hasNextPage: false },
+      },
       "/users/me/review-reminders/claim": { shouldNotify: false },
       "/courses/available": { courses: [{ id, slug: "pilot" }], nextCursor: null },
       "/courses/enroll": { courses: [{ id, enrollmentStatus: "active" }], currentCourseId: null },
@@ -197,6 +234,114 @@ describe("remote smoke safety", () => {
     expect(report.ok).toBe(true);
     expect(report.samples).toHaveLength(5 * Number(samples));
   });
+
+  it("checks both separate kana paths, settings and bounded search with authenticated reads only", async () => {
+    const mock = fixture();
+    expect((await runRemoteSmoke(env, mock)).ok).toBe(true);
+    const reads = mock.fetchImpl.mock.calls.filter(([input]) =>
+      ["/kana/lessons", "/users/settings", "/search"].includes(new URL(input).pathname),
+    );
+    expect(reads.map(([input]) => new URL(input).pathname + new URL(input).search)).toEqual([
+      "/users/settings",
+      "/kana/lessons?script=hiragana",
+      "/kana/lessons?script=katakana",
+      "/search?q=%E6%9C%88&page=1&limit=5",
+    ]);
+    for (const [, init] of reads) {
+      expect(init.method).toBe("GET");
+      expect(init.body).toBeUndefined();
+      expect(init.headers).toHaveProperty("Authorization", `Bearer ${privateText}`);
+    }
+    expect(
+      mock.calls.some(({ path }) => path.includes("practice") || path.endsWith("/answer")),
+    ).toBe(false);
+  });
+
+  it.each([
+    ["/users/settings", "settings", { reviewRemindersEnabled: false, reviewReminderHour: 9 }],
+    [
+      "/users/settings",
+      "settings",
+      {
+        reviewRemindersEnabled: false,
+        reviewReminderHour: 9,
+        translationDisplayMode: "fr",
+        timezone: "UTC",
+      },
+    ],
+    [
+      "/users/settings",
+      "settings",
+      {
+        reviewRemindersEnabled: false,
+        reviewReminderHour: 9,
+        translationDisplayMode: "ru",
+        timezone: "UTC",
+        reviewReminderLastClaimedAt: privateText,
+      },
+    ],
+    ["/kana/lessons", "kana_hiragana", { ...kanaPath("hiragana"), script: "katakana" }],
+    ["/kana/lessons", "kana_hiragana", { ...kanaPath("hiragana"), units: [] }],
+    ["/kana/lessons", "kana_hiragana", { ...kanaPath("hiragana"), totalCount: 3 }],
+    ["/kana/lessons", "kana_hiragana", { ...kanaPath("hiragana"), masteredCount: 3 }],
+    [
+      "/kana/lessons",
+      "kana_hiragana",
+      {
+        ...kanaPath("hiragana"),
+        units: [{ ...kanaPath("hiragana").units[0], script: "katakana" }],
+      },
+    ],
+    [
+      "/kana/lessons",
+      "kana_hiragana",
+      {
+        ...kanaPath("hiragana"),
+        units: [
+          {
+            ...kanaPath("hiragana").units[0],
+            items: [kanaPath("hiragana").units[0].items[0], kanaPath("hiragana").units[0].items[0]],
+          },
+        ],
+      },
+    ],
+    [
+      "/search",
+      "search",
+      {
+        query: privateText,
+        items: [],
+        pagination: { page: 1, limit: 5, total: 0, hasNextPage: false },
+      },
+    ],
+    [
+      "/search",
+      "search",
+      {
+        query: "月",
+        items: [{ id: privateText }],
+        pagination: { page: 1, limit: 5, total: 1, hasNextPage: false },
+      },
+    ],
+    [
+      "/search",
+      "search",
+      {
+        query: "月",
+        items: Array.from({ length: 6 }, () => ({ id })),
+        pagination: { page: 1, limit: 5, total: 6, hasNextPage: false },
+      },
+    ],
+  ])(
+    "rejects malformed read-only route data for %s without leaking it",
+    async (path, step, response) => {
+      const mock = fixture((candidate) => (candidate === path ? json(response) : undefined));
+      const report = await runRemoteSmoke(env, mock);
+      expect(report.failure).toEqual({ code: "RESPONSE_INVALID", step, status: 200 });
+      expect(mock.calls.at(-1)?.path).toBe(path);
+      expect(JSON.stringify(report)).not.toContain(privateText);
+    },
+  );
 
   it("uses configured credentials only for login, with no fallback registration or other writes", async () => {
     const mock = fixture();

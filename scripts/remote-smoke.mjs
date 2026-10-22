@@ -16,6 +16,64 @@ const uuid = (value) =>
   /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/iu.test(value);
 const record = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const count = (value) => Number.isSafeInteger(value) && value >= 0;
+const reminderPreferences = (settings) =>
+  typeof settings?.reviewRemindersEnabled === "boolean" &&
+  Number.isInteger(settings.reviewReminderHour) &&
+  settings.reviewReminderHour >= 0 &&
+  settings.reviewReminderHour <= 23 &&
+  !Object.hasOwn(settings, "reviewReminderLastClaimedAt");
+
+function validKanaPath(value, script) {
+  if (
+    value?.script !== script ||
+    !count(value.masteryThreshold) ||
+    value.masteryThreshold === 0 ||
+    !count(value.masteredCount) ||
+    !count(value.totalCount) ||
+    value.totalCount === 0 ||
+    value.totalCount > 256 ||
+    value.masteredCount > value.totalCount ||
+    !Array.isArray(value.units) ||
+    value.units.length === 0 ||
+    value.units.length > 64
+  )
+    return false;
+  const characters = new Set();
+  let total = 0;
+  let mastered = 0;
+  for (const unit of value.units) {
+    if (
+      unit?.script !== script ||
+      typeof unit.id !== "string" ||
+      !unit.id ||
+      typeof unit.unlocked !== "boolean" ||
+      typeof unit.complete !== "boolean" ||
+      !count(unit.totalCount) ||
+      !count(unit.masteredCount) ||
+      unit.masteredCount > unit.totalCount ||
+      !Array.isArray(unit.items) ||
+      unit.items.length !== unit.totalCount
+    )
+      return false;
+    total += unit.totalCount;
+    mastered += unit.masteredCount;
+    if (total > 256) return false;
+    for (const item of unit.items) {
+      if (
+        item?.script !== script ||
+        typeof item.character !== "string" ||
+        !item.character ||
+        characters.has(item.character) ||
+        typeof item.romaji !== "string" ||
+        !item.romaji ||
+        typeof item.mastered !== "boolean"
+      )
+        return false;
+      characters.add(item.character);
+    }
+  }
+  return total === value.totalCount && mastered === value.masteredCount;
+}
 
 class SmokeFailure extends Error {
   constructor(code, step, status = 0) {
@@ -237,11 +295,7 @@ export async function runRemoteSmoke(env, { fetchImpl = fetch } = {}) {
     token = session.accessToken;
     const profile = (await request("reminder_preferences", "/auth/me")).value;
     requireShape(
-      typeof profile?.settings?.reviewRemindersEnabled === "boolean" &&
-        Number.isInteger(profile.settings.reviewReminderHour) &&
-        profile.settings.reviewReminderHour >= 0 &&
-        profile.settings.reviewReminderHour <= 23 &&
-        !Object.hasOwn(profile.settings, "reviewReminderLastClaimedAt") &&
+      reminderPreferences(profile?.settings) &&
         (!config.generated ||
           (profile.settings.reviewRemindersEnabled === false &&
             profile.settings.reviewReminderHour === 9)),
@@ -318,6 +372,32 @@ export async function runRemoteSmoke(env, { fetchImpl = fetch } = {}) {
         step,
       );
     }
+    const settings = (await request("settings", "/users/settings")).value;
+    requireShape(
+      reminderPreferences(settings) &&
+        ["ru", "en", "ru-en"].includes(settings.translationDisplayMode) &&
+        typeof settings.timezone === "string" &&
+        settings.timezone.length > 0,
+      step,
+    );
+    for (const script of ["hiragana", "katakana"]) {
+      const path = (await request(`kana_${script}`, `/kana/lessons?script=${script}`)).value;
+      requireShape(validKanaPath(path, script), step);
+    }
+    const search = (await request("search", "/search?q=%E6%9C%88&page=1&limit=5")).value;
+    requireShape(
+      search?.query === "月" &&
+        Array.isArray(search.items) &&
+        search.items.length > 0 &&
+        search.items.length <= 5 &&
+        search.items.every((item) => uuid(item?.id)) &&
+        search.pagination?.page === 1 &&
+        search.pagination.limit === 5 &&
+        count(search.pagination.total) &&
+        search.pagination.total >= search.items.length &&
+        typeof search.pagination.hasNextPage === "boolean",
+      step,
+    );
     async function measure(label, path, validate) {
       let first;
       for (let index = 1; index <= config.samples; index++) {

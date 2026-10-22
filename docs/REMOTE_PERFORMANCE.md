@@ -38,6 +38,14 @@ The runner checks web/API health and API database readiness once, authenticates
 once, then sequentially samples dashboard, lesson queue, review queue, character
 hub and a UUID-validated first lesson item endpoint. Each authenticated study GET
 has three samples by default; `STAGING_SMOKE_SAMPLES` permits only 1, 2 or 3.
+Before timing those five routes, it reads `/users/settings`, both explicit
+`/kana/lessons?script=hiragana|katakana` paths and the fixed public search query
+月 with page 1/limit 5. Settings must expose only a supported translation mode
+and public reminder preferences. Kana responses must match the requested script,
+have bounded consistent unit/item counts and no duplicate characters. Search
+must have a nonempty, bounded UUID-identified result page. These four reads are
+response checks, not additional latency samples. No kana-practice GET is made:
+that route can create a session. No kana answer/progress or settings write occurs.
 Every response is streamed with a 2 MiB decoded-body byte cap. Each request has a
 75-second deadline including body consumption; the whole API run has a five-minute
 deadline. Timeout/error paths abort requests, cancel readers and clear timers.
