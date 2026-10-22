@@ -148,6 +148,15 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
     })));
   });
 
+  it("finds a taught reading through hiragana, katakana and half-width input", async () => {
+    await withFixture(async (fixture) => {
+      await control.db.learningCard.update({ where: { id: fixture.cardIds[0] }, data: { promptType: "READING", answerType: "READING" } });
+      await control.db.learningAnswer.create({ data: { learningCardId: fixture.cardIds[0], text: "ガッコウ", normalizedText: "がっこう", answerKind: "READING", locale: "ru-RU", isPrimary: true } });
+      for (const query of ["がっこう", "ガッコウ", "ｶﾞｯｺｳ"])
+        expect((await findPublishedItemSearchPage(control.db, { query, page: 1, limit: 50 })).ids).toContain(fixture.itemId);
+    });
+  });
+
   it.each([false, true])(
     "commits only one overlapping same-card answer (same session: %s)",
     async (sameSession) => {

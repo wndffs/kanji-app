@@ -1,5 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { ITEM_KINDS, type SearchFilters } from "@kanji-srs/shared";
+import { normalizeKanaSearchReading } from "@kanji-srs/japanese";
+
+const KATAKANA = Array.from({ length: 0x30f6 - 0x30a1 + 1 }, (_, index) => String.fromCodePoint(0x30a1 + index)).join("");
+const HIRAGANA = Array.from(KATAKANA, (character) => String.fromCodePoint(character.codePointAt(0)! - 0x60)).join("");
 
 export type PublishedItemSearch = SearchFilters & {
   readonly query: string;
@@ -19,6 +23,8 @@ export async function findPublishedItemSearchPage(
   if (params.level !== undefined && (!Number.isInteger(params.level) || params.level < 1 || params.level > 60)) throw new Error("Invalid search level.");
   const kindFilter = params.itemType === undefined ? Prisma.empty : Prisma.sql`AND li.kind = ${params.itemType.toUpperCase()}::"LearningItemKind"`;
   const levelFilter = params.level === undefined ? Prisma.empty : Prisma.sql`AND li."levelHint" = ${params.level}`;
+  const kana = normalizeKanaSearchReading(query);
+  const readingMatch = (column: Prisma.Sql) => kana === null ? Prisma.sql`FALSE` : Prisma.sql`POSITION(${kana} IN TRANSLATE(${column}, ${KATAKANA}, ${HIRAGANA})) > 0`;
   // POSITION treats %, _ and backslashes literally; every user value stays bound.
   const rows = await db.$queryRaw<{ ids: string[]; total: bigint }[]>(Prisma.sql`
     WITH matched AS (
@@ -29,7 +35,8 @@ export async function findPublishedItemSearchPage(
         OR EXISTS (
           SELECT 1 FROM "LearningAnswer" a JOIN "LearningCard" c ON c.id = a."learningCardId"
           WHERE c."learningItemId" = li.id AND a."sourceKind" <> 'USER_PRIVATE'
-            AND POSITION(LOWER(${query}) IN LOWER(a.text)) > 0
+            AND (POSITION(LOWER(${query}) IN LOWER(a.text)) > 0
+              OR (a."answerKind" = 'READING' AND ${readingMatch(Prisma.sql`a.text`)}))
         )
         OR (li."targetType" = 'COMPONENT' AND EXISTS (
           SELECT 1 FROM "Component" t WHERE t.id = li."targetId" AND (
@@ -44,18 +51,18 @@ export async function findPublishedItemSearchPage(
         ))
         OR (li."targetType" = 'KANJI' AND (
           EXISTS (SELECT 1 FROM "Kanji" t WHERE t.id = li."targetId" AND POSITION(${query} IN t.character) > 0)
-          OR EXISTS (SELECT 1 FROM "KanjiReading" r WHERE r."kanjiId" = li."targetId" AND POSITION(${query} IN r.reading) > 0)
+          OR EXISTS (SELECT 1 FROM "KanjiReading" r WHERE r."kanjiId" = li."targetId" AND (POSITION(${query} IN r.reading) > 0 OR ${readingMatch(Prisma.sql`r.reading`)}))
           OR EXISTS (SELECT 1 FROM "KanjiMeaning" m WHERE m."kanjiId" = li."targetId" AND POSITION(LOWER(${query}) IN LOWER(m.meaning)) > 0)
         ))
         OR (li."targetType" = 'WORD' AND (
           EXISTS (SELECT 1 FROM "Word" t WHERE t.id = li."targetId" AND (
-            POSITION(${query} IN t.expression) > 0 OR POSITION(${query} IN t.reading) > 0
+            POSITION(${query} IN t.expression) > 0 OR POSITION(${query} IN t.reading) > 0 OR ${readingMatch(Prisma.sql`t.reading`)}
           ))
           OR EXISTS (SELECT 1 FROM "WordSense" m WHERE m."wordId" = li."targetId" AND POSITION(LOWER(${query}) IN LOWER(m.meaning)) > 0)
         ))
         OR (li."targetType" = 'SENTENCE' AND EXISTS (
           SELECT 1 FROM "Sentence" t WHERE t.id = li."targetId" AND (
-            POSITION(${query} IN t."japaneseText") > 0 OR POSITION(${query} IN t."readingText") > 0
+            POSITION(${query} IN t."japaneseText") > 0 OR POSITION(${query} IN t."readingText") > 0 OR ${readingMatch(Prisma.sql`t."readingText"`)}
             OR POSITION(LOWER(${query}) IN LOWER(t."translationRu")) > 0
             OR POSITION(LOWER(${query}) IN LOWER(t."translationEn")) > 0
           )

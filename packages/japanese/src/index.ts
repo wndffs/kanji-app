@@ -111,6 +111,11 @@ export function normalizeJapaneseReading(input: string): string {
   return normalizeKana(input).replace(WHITESPACE_PATTERN, "");
 }
 
+export function normalizeKanaSearchReading(input: string): string | null {
+  const value = normalizeJapaneseReading(input);
+  return value !== "" && /^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u.test(value) ? value : null;
+}
+
 export function normalizeRussianMeaning(input: string): string {
   return input
     .normalize("NFKC")
