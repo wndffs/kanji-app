@@ -6,7 +6,9 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("search UI", () => {
-  test("keeps pages and filters through navigation, reload and back", async ({ page }, testInfo) => {
+  test("keeps pages and filters through navigation, reload and back", async ({
+    page,
+  }, testInfo) => {
     await signIn(page);
     await page.route(`${API_BASE_URL}/search?*`, async (route) => {
       const url = new URL(route.request().url());
@@ -14,7 +16,13 @@ test.describe("search UI", () => {
       expect(route.request().headers().authorization).toBe(`Bearer ${ACCESS_TOKEN}`);
       expect(url.searchParams.get("itemType")).toBe("kanji");
       expect(url.searchParams.get("level")).toBe("1");
-      await route.fulfill({ json: { query: "学", items: [{ ...kanjiSummary, id: `page-${current}` }], pagination: { page: current, limit: 20, total: 40, hasNextPage: current === 1 } } });
+      await route.fulfill({
+        json: {
+          query: "学",
+          items: [{ ...kanjiSummary, id: `page-${current}` }],
+          pagination: { page: current, limit: 20, total: 40, hasNextPage: current === 1 },
+        },
+      });
     });
     await page.goto("/search?q=学&itemType=kanji&level=1");
     await expect(page.locator(".search-result-card")).toHaveAttribute("href", "/items/page-1");
@@ -24,7 +32,9 @@ test.describe("search UI", () => {
     await page.reload();
     await expect(page.getByLabel("Тип материала")).toHaveValue("kanji");
     await expect(page.getByLabel("Учебный уровень")).toHaveValue("1");
-    await expect(page.getByRole("navigation", { name: "Страницы поиска" })).toContainText("Страница 2 из 2");
+    await expect(page.getByRole("navigation", { name: "Страницы поиска" })).toContainText(
+      "Страница 2 из 2",
+    );
     await page.screenshot({ path: testInfo.outputPath("search-pagination.png"), fullPage: true });
     await page.goBack();
     await expect(page.locator(".search-result-card")).toHaveAttribute("href", "/items/page-1");
@@ -36,13 +46,19 @@ test.describe("search UI", () => {
     await signIn(page);
     let release!: () => void;
     let started!: () => void;
-    const gate = new Promise<void>((resolve) => { release = resolve; });
-    const pending = new Promise<void>((resolve) => { started = resolve; });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const pending = new Promise<void>((resolve) => {
+      started = resolve;
+    });
     await page.route(`${API_BASE_URL}/search?*`, async (route) => {
       if (new URL(route.request().url()).searchParams.get("q") === "old") {
         started();
         await gate;
-        await route.fulfill({ json: { ...buildSearchResponse("学"), query: "old" } }).catch(() => undefined);
+        await route
+          .fulfill({ json: { ...buildSearchResponse("学"), query: "old" } })
+          .catch(() => undefined);
       } else await route.fulfill({ json: buildSearchResponse("school") });
     });
     try {
@@ -50,18 +66,29 @@ test.describe("search UI", () => {
       await pending;
       await page.getByLabel("Запрос").fill("school");
       await page.getByRole("button", { name: "Искать", exact: true }).click();
-      await expect(page.getByRole("region", { name: "Результаты поиска" }).getByText("学校", { exact: true })).toBeVisible();
+      await expect(
+        page.getByRole("region", { name: "Результаты поиска" }).getByText("学校", { exact: true }),
+      ).toBeVisible();
       release();
-      await expect(page.locator(".search-result-card")).toHaveAttribute("href", `/items/${wordSummary.id}`);
-    } finally { release(); }
+      await expect(page.locator(".search-result-card")).toHaveAttribute(
+        "href",
+        `/items/${wordSummary.id}`,
+      );
+    } finally {
+      release();
+    }
   });
 
   test("a late unauthorized response cannot clear a newer login", async ({ page }) => {
     await signIn(page);
     let release!: () => void;
     let started!: () => void;
-    const gate = new Promise<void>((resolve) => { release = resolve; });
-    const pending = new Promise<void>((resolve) => { started = resolve; });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const pending = new Promise<void>((resolve) => {
+      started = resolve;
+    });
     await page.route(`${API_BASE_URL}/search?*`, async (route) => {
       if (route.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`) {
         started();
@@ -76,10 +103,17 @@ test.describe("search UI", () => {
         localStorage.setItem("kanji-srs.accessToken", "new-token");
         window.dispatchEvent(new Event("kanji-srs.auth-changed"));
       });
-      await expect(page.locator(".search-result-card")).toHaveAttribute("href", `/items/${wordSummary.id}`);
+      await expect(page.locator("a.search-result-card")).toHaveAttribute(
+        "href",
+        `/items/${wordSummary.id}`,
+      );
       release();
-      expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe("new-token");
-    } finally { release(); }
+      expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe(
+        "new-token",
+      );
+    } finally {
+      release();
+    }
   });
 
   test("searches by kanji and opens the item page", async ({ page }) => {
@@ -92,7 +126,9 @@ test.describe("search UI", () => {
     await page.getByRole("button", { name: "Искать" }).click();
 
     await expect(page.getByRole("region", { name: "Результаты поиска" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Результаты поиска" }).getByText("Кандзи", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Результаты поиска" }).getByText("Кандзи", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByText("学", { exact: true })).toBeVisible();
     await expect(page.getByText("учеба / study")).toBeVisible();
     await expect(page.getByText("がく")).toBeVisible();

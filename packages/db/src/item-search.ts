@@ -2,8 +2,12 @@ import { Prisma } from "@prisma/client";
 import { ITEM_KINDS, type SearchFilters } from "@kanji-srs/shared";
 import { normalizeKanaSearchReading } from "@kanji-srs/japanese";
 
-const KATAKANA = Array.from({ length: 0x30f6 - 0x30a1 + 1 }, (_, index) => String.fromCodePoint(0x30a1 + index)).join("");
-const HIRAGANA = Array.from(KATAKANA, (character) => String.fromCodePoint(character.codePointAt(0)! - 0x60)).join("");
+const KATAKANA = Array.from({ length: 0x30f6 - 0x30a1 + 1 }, (_, index) =>
+  String.fromCodePoint(0x30a1 + index),
+).join("");
+const HIRAGANA = Array.from(KATAKANA, (character) =>
+  String.fromCodePoint(character.codePointAt(0)! - 0x60),
+).join("");
 
 export type PublishedItemSearch = SearchFilters & {
   readonly query: string;
@@ -16,15 +20,34 @@ export async function findPublishedItemSearchPage(
   params: PublishedItemSearch,
 ): Promise<{ readonly ids: readonly string[]; readonly total: number }> {
   const { query, page, limit } = params;
-  if (!Number.isSafeInteger(page) || page < 1 || page > 10_000 || !Number.isInteger(limit) || limit < 1 || limit > 50)
+  if (
+    !Number.isSafeInteger(page) ||
+    page < 1 ||
+    page > 10_000 ||
+    !Number.isInteger(limit) ||
+    limit < 1 ||
+    limit > 50
+  )
     throw new Error("Invalid search page bounds.");
   const offset = (page - 1) * limit;
-  if (params.itemType !== undefined && !ITEM_KINDS.includes(params.itemType)) throw new Error("Invalid search item type.");
-  if (params.level !== undefined && (!Number.isInteger(params.level) || params.level < 1 || params.level > 60)) throw new Error("Invalid search level.");
-  const kindFilter = params.itemType === undefined ? Prisma.empty : Prisma.sql`AND li.kind = ${params.itemType.toUpperCase()}::"LearningItemKind"`;
-  const levelFilter = params.level === undefined ? Prisma.empty : Prisma.sql`AND li."levelHint" = ${params.level}`;
+  if (params.itemType !== undefined && !ITEM_KINDS.includes(params.itemType))
+    throw new Error("Invalid search item type.");
+  if (
+    params.level !== undefined &&
+    (!Number.isInteger(params.level) || params.level < 1 || params.level > 60)
+  )
+    throw new Error("Invalid search level.");
+  const kindFilter =
+    params.itemType === undefined
+      ? Prisma.empty
+      : Prisma.sql`AND li.kind = ${params.itemType.toUpperCase()}::"LearningItemKind"`;
+  const levelFilter =
+    params.level === undefined ? Prisma.empty : Prisma.sql`AND li."levelHint" = ${params.level}`;
   const kana = normalizeKanaSearchReading(query);
-  const readingMatch = (column: Prisma.Sql) => kana === null ? Prisma.sql`FALSE` : Prisma.sql`POSITION(${kana} IN TRANSLATE(${column}, ${KATAKANA}, ${HIRAGANA})) > 0`;
+  const readingMatch = (column: Prisma.Sql) =>
+    kana === null
+      ? Prisma.sql`FALSE`
+      : Prisma.sql`POSITION(${kana} IN TRANSLATE(${column}, ${KATAKANA}, ${HIRAGANA})) > 0`;
   // POSITION treats %, _ and backslashes literally; every user value stays bound.
   const rows = await db.$queryRaw<{ ids: string[]; total: bigint }[]>(Prisma.sql`
     WITH matched AS (

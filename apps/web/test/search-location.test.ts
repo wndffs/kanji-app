@@ -3,7 +3,9 @@ import { parseSearchFilters, parseSearchPage, searchHref } from "../src/lib/sear
 
 describe("search locations", () => {
   it("preserves validated filters when changing pages", () => {
-    expect(searchHref("本", 3, parseSearchFilters("kanji", "7"))).toBe("/search?q=%E6%9C%AC&page=3&itemType=kanji&level=7");
+    expect(searchHref("本", 3, parseSearchFilters("kanji", "7"))).toBe(
+      "/search?q=%E6%9C%AC&page=3&itemType=kanji&level=7",
+    );
     expect(parseSearchFilters("kana", "61")).toEqual({});
     expect(parseSearchFilters(null, null)).toEqual({});
   });

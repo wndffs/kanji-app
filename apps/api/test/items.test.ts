@@ -19,9 +19,12 @@ describe("ItemsService", () => {
     expect(result.pagination.total).toBe(1);
   });
 
-  it.each([{ itemType: "kana" }, { level: "0" }, { level: "61" }, { level: "1.5" }])("rejects invalid search filters %o", async (filter) => {
-    await expect(createService().search({ q: "one", ...filter }, null)).rejects.toThrow();
-  });
+  it.each([{ itemType: "kana" }, { level: "0" }, { level: "61" }, { level: "1.5" }])(
+    "rejects invalid search filters %o",
+    async (filter) => {
+      await expect(createService().search({ q: "one", ...filter }, null)).rejects.toThrow();
+    },
+  );
 
   it("shows curated word meanings instead of imported display-order artifacts", async () => {
     const word = createItems().find((item) => item.itemType === "word")!;

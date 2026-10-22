@@ -1,6 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { findPublishedItemSearchPage, loadItemExampleSentences, resolvePrimaryTaughtReading } from "@kanji-srs/db";
+import {
+  findPublishedItemSearchPage,
+  loadItemExampleSentences,
+  resolvePrimaryTaughtReading,
+} from "@kanji-srs/db";
 import { calculateLeechScore, type LeechScoreResult } from "@kanji-srs/srs";
 import {
   formatKanjiJlptLevel,
@@ -43,7 +47,10 @@ export abstract class ItemsRepository {
     character: string,
     options: ItemLookupOptions,
   ): Promise<ItemRecord | null>;
-  abstract searchItems(params: SearchParams, options: ItemLookupOptions): Promise<ItemSearchPageRecord>;
+  abstract searchItems(
+    params: SearchParams,
+    options: ItemLookupOptions,
+  ): Promise<ItemSearchPageRecord>;
   abstract findItemReviewHistory(
     learningItemId: string,
     userId: string,
@@ -256,7 +263,12 @@ export class PrismaItemsRepository extends ItemsRepository {
   async findItemById(id: string, options: ItemLookupOptions): Promise<ItemRecord | null> {
     const item = await this.findLearningItem({ id }, options);
 
-    return item === null ? null : this.toItemRecord(item, { ...options, relationDepth: options.includeRelations === false ? 0 : 1 });
+    return item === null
+      ? null
+      : this.toItemRecord(item, {
+          ...options,
+          relationDepth: options.includeRelations === false ? 0 : 1,
+        });
   }
 
   async findKanjiItemByCharacter(
@@ -285,12 +297,19 @@ export class PrismaItemsRepository extends ItemsRepository {
     return item === null ? null : this.toItemRecord(item, { ...options, relationDepth: 1 });
   }
 
-  async searchItems(params: SearchParams, options: ItemLookupOptions): Promise<ItemSearchPageRecord> {
+  async searchItems(
+    params: SearchParams,
+    options: ItemLookupOptions,
+  ): Promise<ItemSearchPageRecord> {
     const page = await findPublishedItemSearchPage(this.prisma.db, params);
     const records: ItemRecord[] = [];
 
     for (const id of page.ids) {
-      const item = await this.findItemById(id, { ...options, includeExamples: false, includeRelations: false });
+      const item = await this.findItemById(id, {
+        ...options,
+        includeExamples: false,
+        includeRelations: false,
+      });
 
       if (item !== null) {
         records.push(item);

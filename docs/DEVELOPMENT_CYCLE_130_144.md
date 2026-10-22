@@ -10,23 +10,23 @@ This is a bounded development cycle, not completion of the full 2,300-kanji /
 8,000-word release. Documentation, test repairs and follow-up fixes do not count
 as extra tasks. Existing pilot seals, enrollments and SRS identities stay intact.
 
-| ID  | Scope                            | Acceptance                                                                                                     | State   |
-| --- | -------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------- |
+| ID  | Scope                            | Acceptance                                                                                                     | State                       |
+| --- | -------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------- |
 | 130 | Published-item visibility        | Public detail, history and discovery exclude unpublished items; admin remains separate                         | Implemented; checks pending |
 | 131 | Server-paged search              | Only the requested stable page is hydrated; total and page metadata stay correct                               | Implemented; checks pending |
 | 132 | Search page navigation           | Previous/next pages and reload/back preserve URL query and page                                                | Implemented; checks pending |
 | 133 | Search type/level filters        | Validated filters work end-to-end and reset pagination deliberately                                            | Implemented; checks pending |
 | 134 | Kana-aware search                | Hiragana/katakana reading variants match without changing stored answers or source evidence                    | Implemented; checks pending |
 | 135 | Search request isolation         | Stale responses and auth changes cannot overwrite the current search or clear a newer session                  | Implemented; checks pending |
-| 136 | Bounded related-item hydration   | Related lists use bounded selections and do not recursively hydrate unused detail graphs                       | Planned |
-| 137 | Bounded character-target loading | Deduplicated 100-ID reads retain order, all cards, SRS state and legacy JLPT metadata                          | Planned |
-| 138 | Batched review targets           | Scheduled/practice queues avoid per-card target reads and preserve card-specific answers                       | Planned |
-| 139 | Batched dashboard targets        | Activity/leeches hydrate shared targets once per bounded batch without changing counts or SRS                  | Planned |
-| 140 | Bounded text-deck lookups        | Token/target queries stay bounded and preserve prerequisite-safe match results                                 | Planned |
-| 141 | Item history request lifecycle   | History pagination remains item/user scoped through navigation, retries and auth changes                       | Planned |
-| 142 | Study audio lifecycle            | Navigation, preference changes and unmount stop obsolete playback without false completion                     | Planned |
-| 143 | Editorial registry inventory     | A source-only command reports hashes, levels, prerequisites and finite-pilot inclusion without database writes | Planned |
-| 144 | Next finite pilot seal           | Explicit N5/mixed-level policy and exact source/count closure; V1/V2/V3 unchanged                              | Planned |
+| 136 | Bounded related-item hydration   | Related lists use bounded selections and do not recursively hydrate unused detail graphs                       | Planned                     |
+| 137 | Bounded character-target loading | Deduplicated 100-ID reads retain order, all cards, SRS state and legacy JLPT metadata                          | Planned                     |
+| 138 | Batched review targets           | Scheduled/practice queues avoid per-card target reads and preserve card-specific answers                       | Planned                     |
+| 139 | Batched dashboard targets        | Activity/leeches hydrate shared targets once per bounded batch without changing counts or SRS                  | Planned                     |
+| 140 | Bounded text-deck lookups        | Token/target queries stay bounded and preserve prerequisite-safe match results                                 | Planned                     |
+| 141 | Item history request lifecycle   | History pagination remains item/user scoped through navigation, retries and auth changes                       | Planned                     |
+| 142 | Study audio lifecycle            | Navigation, preference changes and unmount stop obsolete playback without false completion                     | Planned                     |
+| 143 | Editorial registry inventory     | A source-only command reports hashes, levels, prerequisites and finite-pilot inclusion without database writes | Planned                     |
+| 144 | Next finite pilot seal           | Explicit N5/mixed-level policy and exact source/count closure; V1/V2/V3 unchanged                              | Planned                     |
 
 The later entries require a scoped code inspection before implementation. If a
 proposed gap is already solved, record that evidence and replace it with a real

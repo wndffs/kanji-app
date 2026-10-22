@@ -113,7 +113,9 @@ export function normalizeJapaneseReading(input: string): string {
 
 export function normalizeKanaSearchReading(input: string): string | null {
   const value = normalizeJapaneseReading(input);
-  return value !== "" && /^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u.test(value) ? value : null;
+  return value !== "" && /^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u.test(value)
+    ? value
+    : null;
 }
 
 export function normalizeRussianMeaning(input: string): string {

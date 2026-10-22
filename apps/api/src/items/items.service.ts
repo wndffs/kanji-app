@@ -168,7 +168,12 @@ function parseSearchParams(rawQuery: ParsedSearchQuery): SearchParams {
     query,
     ...(itemType === undefined ? {} : { itemType: itemType as ItemKind }),
     ...(level === undefined ? {} : { level: parsePositiveInteger(level, 1, "level", 60) }),
-    page: parsePositiveInteger(getSingleQueryValue(rawQuery.page), DEFAULT_SEARCH_PAGE, "page", 10_000),
+    page: parsePositiveInteger(
+      getSingleQueryValue(rawQuery.page),
+      DEFAULT_SEARCH_PAGE,
+      "page",
+      10_000,
+    ),
     limit: parsePositiveInteger(
       getSingleQueryValue(rawQuery.limit),
       DEFAULT_SEARCH_LIMIT,

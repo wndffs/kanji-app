@@ -14,11 +14,15 @@ export function searchHref(query: string, page = 1, filters: SearchFilters = {})
   if (filters.level !== undefined) params.set("level", String(filters.level));
   return `/search?${params.toString()}`;
 }
-export function parseSearchFilters(itemType: string | null, rawLevel: string | null): SearchFilters {
+export function parseSearchFilters(
+  itemType: string | null,
+  rawLevel: string | null,
+): SearchFilters {
   const level = Number(rawLevel);
   return {
-    ...((ITEM_KINDS as readonly string[]).includes(itemType ?? "") ? { itemType: itemType as ItemKind } : {}),
+    ...((ITEM_KINDS as readonly string[]).includes(itemType ?? "")
+      ? { itemType: itemType as ItemKind }
+      : {}),
     ...(Number.isInteger(level) && level >= 1 && level <= 60 ? { level } : {}),
   };
 }
-

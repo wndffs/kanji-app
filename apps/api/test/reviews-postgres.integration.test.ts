@@ -131,29 +131,80 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
   });
 
   it("pages literal published search results without duplicating matching cards or exposing drafts", async () => {
-    await withFixture(async (first) => withFixture(async (second) => withFixture(async (draft) => {
-      const query = `поиск-${first.itemId}-%_'\\`;
-      for (const [index, fixture] of [first, second, draft].entries())
-        await control.db.learningItem.update({ where: { id: fixture.itemId }, data: {
-          title: query, levelHint: index + 1, status: index === 2 ? "DRAFT" : "PUBLISHED",
-        } });
-      await control.db.learningAnswer.createMany({ data: first.cardIds.map((learningCardId) => ({
-        learningCardId, text: query, normalizedText: query, locale: "ru-RU", answerKind: "MEANING", isPrimary: true,
-      })) });
-      expect(await findPublishedItemSearchPage(control.db, { query, page: 1, limit: 1 })).toEqual({ ids: [first.itemId], total: 2 });
-      expect(await findPublishedItemSearchPage(control.db, { query, page: 2, limit: 1 })).toEqual({ ids: [second.itemId], total: 2 });
-      expect(await findPublishedItemSearchPage(control.db, { query, page: 3, limit: 1 })).toEqual({ ids: [], total: 2 });
-      expect(await findPublishedItemSearchPage(control.db, { query, page: 1, limit: 20, itemType: "component", level: 2 })).toEqual({ ids: [second.itemId], total: 1 });
-      expect(await findPublishedItemSearchPage(control.db, { query, page: 1, limit: 20, itemType: "word" })).toEqual({ ids: [], total: 0 });
-    })));
+    await withFixture(async (first) =>
+      withFixture(async (second) =>
+        withFixture(async (draft) => {
+          const query = `поиск-${first.itemId}-%_'\\`;
+          for (const [index, fixture] of [first, second, draft].entries())
+            await control.db.learningItem.update({
+              where: { id: fixture.itemId },
+              data: {
+                title: query,
+                levelHint: index + 1,
+                status: index === 2 ? "DRAFT" : "PUBLISHED",
+              },
+            });
+          await control.db.learningAnswer.createMany({
+            data: first.cardIds.map((learningCardId) => ({
+              learningCardId,
+              text: query,
+              normalizedText: query,
+              locale: "ru-RU",
+              answerKind: "MEANING",
+              isPrimary: true,
+            })),
+          });
+          expect(
+            await findPublishedItemSearchPage(control.db, { query, page: 1, limit: 1 }),
+          ).toEqual({ ids: [first.itemId], total: 2 });
+          expect(
+            await findPublishedItemSearchPage(control.db, { query, page: 2, limit: 1 }),
+          ).toEqual({ ids: [second.itemId], total: 2 });
+          expect(
+            await findPublishedItemSearchPage(control.db, { query, page: 3, limit: 1 }),
+          ).toEqual({ ids: [], total: 2 });
+          expect(
+            await findPublishedItemSearchPage(control.db, {
+              query,
+              page: 1,
+              limit: 20,
+              itemType: "component",
+              level: 2,
+            }),
+          ).toEqual({ ids: [second.itemId], total: 1 });
+          expect(
+            await findPublishedItemSearchPage(control.db, {
+              query,
+              page: 1,
+              limit: 20,
+              itemType: "word",
+            }),
+          ).toEqual({ ids: [], total: 0 });
+        }),
+      ),
+    );
   });
 
   it("finds a taught reading through hiragana, katakana and half-width input", async () => {
     await withFixture(async (fixture) => {
-      await control.db.learningCard.update({ where: { id: fixture.cardIds[0] }, data: { promptType: "READING", answerType: "READING" } });
-      await control.db.learningAnswer.create({ data: { learningCardId: fixture.cardIds[0], text: "ガッコウ", normalizedText: "がっこう", answerKind: "READING", locale: "ru-RU", isPrimary: true } });
+      await control.db.learningCard.update({
+        where: { id: fixture.cardIds[0] },
+        data: { promptType: "READING", answerType: "READING" },
+      });
+      await control.db.learningAnswer.create({
+        data: {
+          learningCardId: fixture.cardIds[0],
+          text: "ガッコウ",
+          normalizedText: "がっこう",
+          answerKind: "READING",
+          locale: "ru-RU",
+          isPrimary: true,
+        },
+      });
       for (const query of ["がっこう", "ガッコウ", "ｶﾞｯｺｳ"])
-        expect((await findPublishedItemSearchPage(control.db, { query, page: 1, limit: 50 })).ids).toContain(fixture.itemId);
+        expect(
+          (await findPublishedItemSearchPage(control.db, { query, page: 1, limit: 50 })).ids,
+        ).toContain(fixture.itemId);
     });
   });
 
