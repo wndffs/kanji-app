@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
+import { buildMainCourseBlueprint } from "./main-course";
 import { buildMainCourseWordBatch02 } from "./main-course-word-content-02";
+import { buildMainCourseWordBatch04 } from "./main-course-word-content-04";
+import { buildMainCourseWordBatch05 } from "./main-course-word-content-05";
 
 import {
   type MainCourseAcceptedMeanings,
@@ -1115,7 +1118,13 @@ const FOUNDATION_WORD_BATCH_03: MainCourseWordBatch = {
 };
 
 export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
-  return [buildMainCourseWordBatch(), buildMainCourseWordBatch02(), FOUNDATION_WORD_BATCH_03];
+  return [
+    buildMainCourseWordBatch(),
+    buildMainCourseWordBatch02(),
+    FOUNDATION_WORD_BATCH_03,
+    buildMainCourseWordBatch04(),
+    buildMainCourseWordBatch05(),
+  ];
 }
 
 export function mainCourseWordBatchChecksum(batch: MainCourseWordBatch): string {
@@ -1144,8 +1153,9 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
   }
   if (batch.reviewedAt !== null && !/^\d{4}-\d{2}-\d{2}$/u.test(batch.reviewedAt))
     issues.push("Word batch needs an ISO review date or null.");
-  if (batch.words.length !== 20 || batch.levelNumber !== 5)
-    issues.push("Each Foundation word batch requires twenty words at level 5.");
+  if (batch.words.length !== 20) issues.push("Each word batch requires twenty words.");
+  if (!buildMainCourseBlueprint().levels.some((level) => level.levelNumber === batch.levelNumber))
+    issues.push("Word batch requires a registered course level.");
   const sortOrderStart = batch.sortOrderStart ?? 1;
   if (
     !Number.isSafeInteger(sortOrderStart) ||

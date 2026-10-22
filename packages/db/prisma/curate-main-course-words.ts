@@ -109,8 +109,8 @@ export async function planMainCourseWordBatch(
   const blueprintLevel = buildMainCourseBlueprint().levels.find(
     (candidate) => candidate.levelNumber === batch.levelNumber,
   );
-  if (level?.band !== "FOUNDATION" || blueprintLevel?.band !== "FOUNDATION")
-    throw new Error("Words require the registered Foundation level 5.");
+  if (level === undefined || blueprintLevel === undefined || level.band !== blueprintLevel.band)
+    throw new Error("Words require a course level matching the registered curriculum band.");
 
   const [license, source] = await Promise.all([
     db.license.findUnique({ where: { name: LICENSE_NAME } }),
@@ -147,11 +147,16 @@ export async function planMainCourseWordBatch(
     const expectedLevel = course.levels.find(
       (candidate) => candidate.levelNumber === registered.levelNumber,
     );
+    const expectedBlueprintLevel = buildMainCourseBlueprint().levels.find(
+      (candidate) => candidate.levelNumber === registered.levelNumber,
+    );
     if (
       item === null ||
       item.kind !== "KANJI" ||
       item.status !== "PUBLISHED" ||
-      expectedLevel?.band !== "FOUNDATION" ||
+      expectedLevel === undefined ||
+      expectedBlueprintLevel === undefined ||
+      expectedLevel.band !== expectedBlueprintLevel.band ||
       item.courseLevelItems.length !== 1 ||
       item.courseLevelItems[0]?.courseLevelId !== expectedLevel.id ||
       item.courseLevelItems[0]?.sortOrder !== registered.sortOrder
@@ -193,7 +198,13 @@ export async function planMainCourseWordBatch(
       ),
     });
   }
-  return { courseId: course.id, courseLevelId: level.id, words, kanjiPlacements };
+  return {
+    courseId: course.id,
+    courseLevelId: level.id,
+    curriculumBand: level.band,
+    words,
+    kanjiPlacements,
+  };
 }
 
 export async function planMainCourseWordBatches(
@@ -677,7 +688,7 @@ async function applyWord(
       kind: "WORD",
       title: `Слово ${content.expression}`,
       levelHint: batch.levelNumber,
-      curriculumBand: "FOUNDATION",
+      curriculumBand: plan.curriculumBand,
     },
     create: {
       kind: "WORD",
@@ -685,7 +696,7 @@ async function applyWord(
       targetId: word.id,
       title: `Слово ${content.expression}`,
       levelHint: batch.levelNumber,
-      curriculumBand: "FOUNDATION",
+      curriculumBand: plan.curriculumBand,
       status: "DRAFT",
     },
   });

@@ -18,6 +18,61 @@ import {
 } from "../src/main-course-word-content";
 
 describe("bounded vocabulary curation", () => {
+  it.each([
+    [6, "N5"],
+    [16, "N4"],
+    [28, "N3"],
+    [44, "N2"],
+    [60, "N2"],
+  ] as const)(
+    "curates a reviewed batch at registered level %i with its %s band",
+    async (levelNumber, band) => {
+      const batch = { ...buildMainCourseWordBatch(), levelNumber };
+      const fixture = harness([batch]);
+      expect(await planMainCourseWordBatch(fixture.db, batch)).toMatchObject({
+        courseLevelId: `level-${levelNumber}`,
+        curriculumBand: band,
+      });
+      await applyMainCourseWordBatch(fixture.db, batch);
+      const items = [...fixture.state.items.values()].filter((item) => item.kind === "WORD");
+      expect(items).toHaveLength(20);
+      expect(
+        items.every((item) => item.curriculumBand === band && item.levelHint === levelNumber),
+      ).toBe(true);
+      const before = structuredClone(fixture.state.cards);
+      const privateBefore = structuredClone(fixture.privateRows);
+      await applyMainCourseWordBatch(fixture.db, batch);
+      expect(fixture.state.cards).toEqual(before);
+      expect(fixture.privateRows).toEqual(privateBefore);
+    },
+  );
+
+  it("rejects a destination band's drift before source reads or writes", async () => {
+    const batch = { ...buildMainCourseWordBatch(), levelNumber: 6 };
+    const fixture = harness([batch]);
+    fixture.readCourse.mockResolvedValueOnce({
+      id: "main",
+      levels: buildMainCourseBlueprint().levels.map((level) => ({
+        ...level,
+        id: `level-${level.levelNumber}`,
+        band: level.levelNumber === 6 ? "FOUNDATION" : level.band,
+      })),
+    });
+    await expect(applyMainCourseWordBatch(fixture.db, batch)).rejects.toThrow(
+      "registered curriculum band",
+    );
+    expect(fixture.readWord).not.toHaveBeenCalled();
+    expect(fixture.mutations).toEqual([]);
+  });
+
+  it("still refuses same-level kanji when placing words outside Foundation", async () => {
+    const batch = { ...buildMainCourseWordBatch(), levelNumber: 3 };
+    const fixture = harness([batch]);
+    // The first word 山 is itself a reviewed level-3 prerequisite.
+    await expect(applyMainCourseWordBatch(fixture.db, batch)).rejects.toThrow("earlier kanji");
+    expect(fixture.mutations).toEqual([]);
+  });
+
   it("blocks an unreviewed third batch before any database read or write", async () => {
     const batches = thirdPendingFixtureBatches();
     const fixture = harness(batches);
@@ -647,9 +702,9 @@ function wordSource(content: MainCourseWordContent) {
 }
 
 function thirdPendingFixtureBatches(): readonly MainCourseWordBatch[] {
-  return buildMainCourseWordBatches().map((batch, index) =>
-    index === 2 ? { ...batch, reviewedAt: null } : batch,
-  );
+  return buildMainCourseWordBatches()
+    .slice(0, 3)
+    .map((batch, index) => (index === 2 ? { ...batch, reviewedAt: null } : batch));
 }
 
 function registryFixtureBatches(): readonly MainCourseWordBatch[] {
