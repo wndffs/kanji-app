@@ -1,0 +1,35 @@
+name: Manual Remote Study Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run one bounded audit
+        id: audit
+        env:
+          STAGING_WEB_URL: https://kanji-app-rho.vercel.app
+          STAGING_API_URL: https://kanji-srs-api.onrender.com
+          STAGING_SMOKE_COURSE_SLUG: japanese-foundation-pilot-v1
+          STAGING_SMOKE_REPORT_PATH: ${{ runner.temp }}/remote-study-smoke.json
+        run: npm run smoke:remote
+      - name: Upload sanitized measurements
+        if: ${{ always() && steps.audit.outputs.report_ready == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: remote-study-smoke
+          path: ${{ runner.temp }}/remote-study-smoke.json
+          if-no-files-found: error
+          retention-days: 7
