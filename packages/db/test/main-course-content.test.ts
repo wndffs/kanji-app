@@ -1,5 +1,8 @@
+import { createHash } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 
+import { buildMainCourseBlueprint } from "../src/main-course";
 import {
   buildMainCourseContentBatches,
   type MainCourseContentBatch,
@@ -11,7 +14,7 @@ describe("main-course content batches", () => {
     const batches = buildMainCourseContentBatches();
 
     expect(validateMainCourseContentBatches(batches)).toEqual([]);
-    expect(batches).toHaveLength(1);
+    expect(batches).toHaveLength(2);
     expect(batches[0]).toMatchObject({
       id: "task-118-foundation-kanji-01",
       version: "1",
@@ -44,26 +47,161 @@ describe("main-course content batches", () => {
     ]);
   });
 
-  it("keeps every kanji bilingual, source-backed, and prerequisite-safe", () => {
-    const batch = requiredBatch();
-    const componentKeys = new Set(batch.components.map((item) => item.key));
+  it("preserves the entire first manifest, including its card identities and placements", () => {
+    expect(createHash("sha256").update(JSON.stringify(requiredBatch())).digest("hex")).toBe(
+      "34676566c590fd19d10349e6bb07c75d01471fc618872fa103db2e676fd138b8",
+    );
+    expect(requiredBatch()).not.toHaveProperty("componentSortOrderStart");
+  });
 
-    for (const item of batch.kanji) {
-      expect(item.meanings.ru.primary).not.toBe("");
-      expect(item.meanings.en.primary).not.toBe("");
-      expect(item.meanings.ru.accepted).toContain(item.meanings.ru.primary);
-      expect(item.meanings.en.accepted).toContain(item.meanings.en.primary);
-      expect(item.reading.source).not.toBe("");
-      expect(item.reading.accepted).toContain(item.reading.primary);
-      expect(item.requireStrokeData).toBe(true);
-      expect(item.levelNumber).toBeGreaterThan(batch.componentLevelNumber);
-      expect(item.componentKeys.length).toBeGreaterThan(0);
-      expect(item.componentKeys.every((key) => componentKeys.has(key))).toBe(true);
-      expect(item.meaningMnemonic.ru).not.toBe("");
-      expect(item.meaningMnemonic.en).not.toBe("");
-      expect(item.readingMnemonic.ru).not.toBe("");
-      expect(item.readingMnemonic.en).not.toBe("");
+  it("adds only the reviewed bounded second batch with source-exact hiragana answers", () => {
+    const batch = buildMainCourseContentBatches()[1]!;
+    expect(batch).toMatchObject({
+      id: "task-118-foundation-kanji-02",
+      reviewedAt: "2026-10-22",
+      authoredAt: "2026-10-22",
+      componentSortOrderStart: 27,
+    });
+    expect(batch.reviewNotes).toContain("independently reviewed and corrected by the parent agent");
+    expect(batch.components).toHaveLength(14);
+    expect(batch.kanji.map((item) => item.character).join("")).toBe(
+      "山川木水火土金石上下右左百千円力女男子田",
+    );
+    expect(batch.kanji.map((item) => [item.reading.source, item.reading.accepted])).toEqual([
+      ["サン", ["さん"]],
+      ["セン", ["せん"]],
+      ["ボク", ["ぼく"]],
+      ["スイ", ["すい"]],
+      ["カ", ["か"]],
+      ["ド", ["ど"]],
+      ["キン", ["きん"]],
+      ["セキ", ["せき"]],
+      ["ジョウ", ["じょう"]],
+      ["カ", ["か"]],
+      ["ウ", ["う"]],
+      ["サ", ["さ"]],
+      ["ヒャク", ["ひゃく"]],
+      ["セン", ["せん"]],
+      ["エン", ["えん"]],
+      ["リョク", ["りょく"]],
+      ["ジョ", ["じょ"]],
+      ["ダン", ["だん"]],
+      ["シ", ["し"]],
+      ["デン", ["でん"]],
+    ]);
+    expect(batch.kanji.every((item) => item.requireStrokeData)).toBe(true);
+  });
+
+  it("uses distinct glyphs and stable free placements within the real Foundation blueprint", () => {
+    const batches = buildMainCourseContentBatches();
+    const foundationLevels = new Set(
+      buildMainCourseBlueprint()
+        .levels.filter((level) => level.band === "FOUNDATION")
+        .map((level) => level.levelNumber),
+    );
+    expect([...foundationLevels]).toEqual([1, 2, 3, 4, 5]);
+    const slots: string[] = [];
+    const symbols = batches.flatMap((batch) => batch.components.map((content) => content.symbol));
+    expect(new Set(symbols).size).toBe(40);
+    for (const batch of batches) {
+      expect(foundationLevels.has(batch.componentLevelNumber)).toBe(true);
+      slots.push(
+        ...batch.components.map(
+          (_, index) =>
+            `${batch.componentLevelNumber}:${(batch.componentSortOrderStart ?? 1) + index}`,
+        ),
+      );
+      for (const item of batch.kanji) {
+        expect(foundationLevels.has(item.levelNumber)).toBe(true);
+        slots.push(`${item.levelNumber}:${item.sortOrder}`);
+      }
     }
+    expect(new Set(slots).size).toBe(slots.length);
+    expect(batches[1]?.kanji.map((item) => `${item.levelNumber}:${item.sortOrder}`)).toEqual([
+      "2:8",
+      "2:9",
+      "2:10",
+      "2:11",
+      "2:12",
+      "2:13",
+      "2:14",
+      "2:15",
+      "3:6",
+      "3:7",
+      "3:8",
+      "3:9",
+      "3:10",
+      "3:11",
+      "3:12",
+      "4:9",
+      "4:10",
+      "4:11",
+      "4:12",
+      "4:13",
+    ]);
+  });
+
+  it("keeps every kanji bilingual, source-backed, and prerequisite-safe", () => {
+    const componentKeys = new Set<string>();
+    for (const batch of buildMainCourseContentBatches()) {
+      for (const component of batch.components) componentKeys.add(component.key);
+
+      for (const item of batch.kanji) {
+        expect(item.meanings.ru.primary).not.toBe("");
+        expect(item.meanings.en.primary).not.toBe("");
+        expect(item.meanings.ru.accepted).toContain(item.meanings.ru.primary);
+        expect(item.meanings.en.accepted).toContain(item.meanings.en.primary);
+        expect(item.reading.source).not.toBe("");
+        expect(item.reading.accepted).toContain(item.reading.primary);
+        expect(item.requireStrokeData).toBe(true);
+        expect(item.levelNumber).toBeGreaterThan(batch.componentLevelNumber);
+        expect(item.componentKeys.length).toBeGreaterThan(0);
+        expect(item.componentKeys.every((key) => componentKeys.has(key))).toBe(true);
+        expect(item.meaningMnemonic.ru).not.toBe("");
+        expect(item.meaningMnemonic.en).not.toBe("");
+        expect(item.readingMnemonic.ru).not.toBe("");
+        expect(item.readingMnemonic.en).not.toBe("");
+      }
+    }
+  });
+
+  it("rejects component offsets that collide with prior placements and forward references", () => {
+    const [first, second] = buildMainCourseContentBatches() as readonly [
+      MainCourseContentBatch,
+      MainCourseContentBatch,
+    ];
+    expect(
+      validateMainCourseContentBatches([first, { ...second, componentSortOrderStart: 26 }]),
+    ).toContain("duplicate component placement 1:26");
+    expect(validateMainCourseContentBatches([second, first])).toContain(
+      `${second.id} kanji 山 references missing component-mountain`,
+    );
+  });
+
+  it("rejects cross-course, later-level and repeated component prerequisites", () => {
+    const [first, second] = buildMainCourseContentBatches() as readonly [
+      MainCourseContentBatch,
+      MainCourseContentBatch,
+    ];
+    expect(
+      validateMainCourseContentBatches([{ ...first, courseSlug: "other-course" }, second]),
+    ).toContain(`${second.id} kanji 山 references another course's component-mountain`);
+    expect(
+      validateMainCourseContentBatches([{ ...first, componentLevelNumber: 5, kanji: [] }, second]),
+    ).toContain(`${second.id} kanji 山 needs earlier component-mountain`);
+    const mountain = second.kanji[0]!;
+    expect(
+      validateMainCourseContentBatches([
+        first,
+        {
+          ...second,
+          kanji: [
+            { ...mountain, componentKeys: ["component-mountain", "component-mountain"] },
+            ...second.kanji.slice(1),
+          ],
+        },
+      ]),
+    ).toContain(`${second.id} kanji 山 repeats a component reference`);
   });
 
   it("rejects duplicate placements and missing component references", () => {
@@ -104,6 +242,24 @@ describe("main-course content batches", () => {
     expect(validateMainCourseContentBatches([invalid])).toContain(
       `${batch.id} kanji ${first.character} has an invalid taught reading`,
     );
+  });
+
+  it("does not accept an untaught reading or katakana as a source-exact hiragana answer", () => {
+    const batch = requiredBatch();
+    const first = requiredKanji(batch, 0);
+    for (const accepted of [
+      ["にち", "じつ"],
+      ["にち", "ニチ"],
+    ]) {
+      expect(
+        validateMainCourseContentBatches([
+          {
+            ...batch,
+            kanji: [{ ...first, reading: { ...first.reading, accepted } }, ...batch.kanji.slice(1)],
+          },
+        ]),
+      ).toContain(`${batch.id} kanji 日 has an invalid taught reading`);
+    }
   });
 });
 

@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { PrismaClient, type Prisma } from "@prisma/client";
 
@@ -11,7 +13,6 @@ import {
   validateMainCourseContentBatches,
 } from "../src/main-course-content";
 
-const prisma = new PrismaClient();
 const CURATION_SOURCE_NAME = "Kanji SRS main-course curation";
 const CURATION_LICENSE_NAME = "Project-authored main-course content";
 const TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 30_000 } as const;
@@ -43,18 +44,178 @@ async function main(): Promise<void> {
     return;
   }
 
-  const results = [];
+  for (const batch of batches) requireParentReview(batch);
+  const prisma = new PrismaClient();
 
-  for (const batch of batches) {
-    results.push(await applyBatch(batch));
+  try {
+    const results = [];
+    for (const batch of batches) {
+      results.push(await applyMainCourseContentBatch(prisma, batch, batches));
+    }
+    console.log(JSON.stringify({ status: "success", batches: results }, null, 2));
+  } finally {
+    await prisma.$disconnect();
   }
-
-  console.log(JSON.stringify({ status: "success", batches: results }, null, 2));
 }
 
-async function applyBatch(batch: MainCourseContentBatch) {
+type PreflightDatabase = Pick<
+  Prisma.TransactionClient,
+  "course" | "component" | "kanji" | "learningItem" | "courseLevelItem"
+>;
+
+export async function planMainCourseContentBatch(
+  db: PreflightDatabase,
+  batch: MainCourseContentBatch,
+  registry: readonly MainCourseContentBatch[] = buildMainCourseContentBatches(),
+) {
+  const issues = validateMainCourseContentBatches(registry);
+  if (issues.length > 0) {
+    throw new Error(`Main-course content is invalid: ${issues.join("; ")}`);
+  }
+  const batchIndex = registry.findIndex((entry) => entry.id === batch.id);
+  const registered = registry[batchIndex];
+  if (registered === undefined || checksum(registered) !== checksum(batch)) {
+    throw new Error(`Batch ${batch.id} does not match the registered manifest.`);
+  }
+
+  const course = await db.course.findUnique({
+    where: { slug: batch.courseSlug },
+    select: { id: true, levels: { select: { id: true, levelNumber: true, band: true } } },
+  });
+  if (course === null) {
+    throw new Error(`Main course ${batch.courseSlug} is missing. Run npm run db:seed first.`);
+  }
+  const levelByNumber = new Map(course.levels.map((level) => [level.levelNumber, level]));
+  const componentDefinitions = new Map(
+    registry.slice(0, batchIndex + 1).flatMap((entry) =>
+      entry.components.map(
+        (content, index) =>
+          [
+            content.key,
+            {
+              content,
+              batch: entry,
+              sortOrder: (entry.componentSortOrderStart ?? 1) + index,
+            },
+          ] as const,
+      ),
+    ),
+  );
+  for (const levelNumber of new Set([
+    batch.componentLevelNumber,
+    ...batch.kanji.map((item) => item.levelNumber),
+  ])) {
+    const level = levelByNumber.get(levelNumber);
+    if (level === undefined || level.band !== "FOUNDATION") {
+      throw new Error(`Main course ${batch.courseSlug} needs Foundation level ${levelNumber}.`);
+    }
+  }
+
+  const priorComponentLearningItemIds = new Map<string, string>();
+  const componentKeys = new Set([
+    ...batch.components.map((content) => content.key),
+    ...batch.kanji.flatMap((content) => content.componentKeys),
+  ]);
+  for (const key of componentKeys) {
+    const definition = componentDefinitions.get(key);
+    if (definition === undefined || definition.batch.courseSlug !== batch.courseSlug) {
+      throw new Error(`Unregistered component prerequisite ${key}.`);
+    }
+    const component = await db.component.findUnique({
+      where: { symbol: definition.content.symbol },
+      select: { id: true, sourceKind: true },
+    });
+    if (component !== null && component.sourceKind !== "PROJECT_AUTHORED") {
+      throw new Error(`Component ${key} is not project-authored.`);
+    }
+    const item =
+      component === null ? null : await findPlacedItem(db, "COMPONENT", component.id, course.id);
+    const levelId = requiredLevelId(levelByNumber, definition.batch.componentLevelNumber);
+    if (definition.batch.id !== batch.id) {
+      if (
+        item === null ||
+        item.kind !== "COMPONENT" ||
+        item.status !== "PUBLISHED" ||
+        !item.courseLevelItems.some(
+          (placement) =>
+            placement.courseLevelId === levelId && placement.sortOrder === definition.sortOrder,
+        )
+      ) {
+        throw new Error(
+          `Prior component ${key} is not published at its registered main-course placement.`,
+        );
+      }
+      priorComponentLearningItemIds.set(key, item.id);
+    }
+    await checkPlacement(db, levelId, definition.sortOrder, item);
+  }
+
+  // Read every source and placement before source metadata or learning content is mutated.
+  for (const content of batch.kanji) {
+    const kanji = await requireKanjiEvidence(db, content);
+    const item = await findPlacedItem(db, "KANJI", kanji.id, course.id);
+    await checkPlacement(
+      db,
+      requiredLevelId(levelByNumber, content.levelNumber),
+      content.sortOrder,
+      item,
+    );
+  }
+  return { courseId: course.id, levelByNumber, priorComponentLearningItemIds };
+}
+
+async function findPlacedItem(
+  db: PreflightDatabase,
+  targetType: "COMPONENT" | "KANJI",
+  targetId: string,
+  courseId: string,
+) {
+  return db.learningItem.findUnique({
+    where: { targetType_targetId: { targetType, targetId } },
+    select: {
+      id: true,
+      kind: true,
+      status: true,
+      courseLevelItems: {
+        where: { courseLevel: { courseId } },
+        select: { courseLevelId: true, sortOrder: true },
+      },
+    },
+  });
+}
+
+async function checkPlacement(
+  db: PreflightDatabase,
+  courseLevelId: string,
+  sortOrder: number,
+  item: Awaited<ReturnType<typeof findPlacedItem>>,
+): Promise<void> {
+  if (
+    item?.courseLevelItems.some(
+      (placement) => placement.courseLevelId !== courseLevelId || placement.sortOrder !== sortOrder,
+    )
+  ) {
+    throw new Error(`Refusing to move existing main-course placement for ${item.id}.`);
+  }
+  const occupied = await db.courseLevelItem.findUnique({
+    where: { courseLevelId_sortOrder: { courseLevelId, sortOrder } },
+    select: { learningItemId: true },
+  });
+  if (occupied !== null && occupied.learningItemId !== item?.id) {
+    throw new Error(`Course level placement ${courseLevelId}:${sortOrder} is already occupied.`);
+  }
+}
+
+export async function applyMainCourseContentBatch(
+  prisma: PrismaClient,
+  batch: MainCourseContentBatch,
+  registry: readonly MainCourseContentBatch[] = buildMainCourseContentBatches(),
+) {
+  requireParentReview(batch);
+  const { courseId, levelByNumber, priorComponentLearningItemIds } =
+    await planMainCourseContentBatch(prisma, batch, registry);
   const checksumSha256 = checksum(batch);
-  const dataSourceId = await upsertCurationSource();
+  const dataSourceId = await upsertCurationSource(prisma);
   const importRun = await prisma.importRun.upsert({
     where: {
       dataSourceId_checksumSha256: {
@@ -81,49 +242,7 @@ async function applyBatch(batch: MainCourseContentBatch) {
   });
 
   try {
-    const course = await prisma.course.findUnique({
-      where: { slug: batch.courseSlug },
-      select: {
-        id: true,
-        levels: {
-          where: {
-            levelNumber: {
-              in: [
-                batch.componentLevelNumber,
-                ...new Set(batch.kanji.map((item) => item.levelNumber)),
-              ],
-            },
-          },
-          select: { id: true, levelNumber: true, band: true },
-        },
-      },
-    });
-
-    if (course === null) {
-      throw new Error(`Main course ${batch.courseSlug} is missing. Run npm run db:seed first.`);
-    }
-
-    const levelByNumber = new Map(course.levels.map((level) => [level.levelNumber, level]));
-    const requiredLevels = new Set([
-      batch.componentLevelNumber,
-      ...batch.kanji.map((item) => item.levelNumber),
-    ]);
-
-    for (const levelNumber of requiredLevels) {
-      const level = levelByNumber.get(levelNumber);
-
-      if (level === undefined) {
-        throw new Error(`Main course ${batch.courseSlug} is missing level ${levelNumber}.`);
-      }
-
-      if (level.band !== "FOUNDATION") {
-        throw new Error(
-          `Task 118 foundation batch cannot target ${level.band} level ${levelNumber}.`,
-        );
-      }
-    }
-
-    const componentLearningItemIds = new Map<string, string>();
+    const componentLearningItemIds = new Map(priorComponentLearningItemIds);
 
     for (const [index, componentContent] of batch.components.entries()) {
       const learningItemId = await prisma.$transaction(
@@ -134,8 +253,8 @@ async function applyBatch(batch: MainCourseContentBatch) {
             batch,
             importRun.id,
             requiredLevelId(levelByNumber, batch.componentLevelNumber),
-            course.id,
-            index + 1,
+            courseId,
+            (batch.componentSortOrderStart ?? 1) + index,
           ),
         TRANSACTION_OPTIONS,
       );
@@ -151,7 +270,7 @@ async function applyBatch(batch: MainCourseContentBatch) {
             batch,
             importRun.id,
             requiredLevelId(levelByNumber, kanjiContent.levelNumber),
-            course.id,
+            courseId,
             componentLearningItemIds,
           ),
         TRANSACTION_OPTIONS,
@@ -192,7 +311,7 @@ async function applyBatch(batch: MainCourseContentBatch) {
   }
 }
 
-async function upsertCurationSource(): Promise<string> {
+async function upsertCurationSource(prisma: PrismaClient): Promise<string> {
   const license = await prisma.license.upsert({
     where: { name: CURATION_LICENSE_NAME },
     update: {
@@ -301,6 +420,82 @@ async function applyComponent(
   return learningItem.id;
 }
 
+async function requireKanjiEvidence(
+  db: Pick<PreflightDatabase, "kanji">,
+  content: MainCourseKanjiContent,
+) {
+  const kanji = await db.kanji.findUnique({
+    where: { character: content.character },
+    select: {
+      id: true,
+      kanjidicImportedRecordId: true,
+      importedRecord: { select: { recordType: true, rawJson: true } },
+      readings: {
+        orderBy: [{ priority: "asc" }, { reading: "asc" }],
+        select: { reading: true, priority: true, readingType: true },
+      },
+      strokeGraphic: { select: { id: true, importedRecord: { select: { recordType: true } } } },
+    },
+  });
+
+  if (
+    kanji === null ||
+    kanji.kanjidicImportedRecordId === null ||
+    kanji.importedRecord?.recordType !== "KANJIDIC2_CHARACTER"
+  ) {
+    throw new Error(
+      `Kanji ${content.character} is missing imported KANJIDIC2 evidence. Run the content import first.`,
+    );
+  }
+
+  if (
+    content.requireStrokeData &&
+    kanji.strokeGraphic?.importedRecord?.recordType !== "KANJIVG_CHARACTER"
+  ) {
+    throw new Error(`Kanji ${content.character} is missing required KanjiVG stroke data.`);
+  }
+
+  const sourceReading = normalizeReading(content.reading.source);
+  const raw = kanji.importedRecord.rawJson;
+  const sourceSupported =
+    isJsonObject(raw) &&
+    raw.literal === content.character &&
+    Array.isArray(raw.readings) &&
+    raw.readings.some(
+      (reading) =>
+        isJsonObject(reading) &&
+        reading.sourceType === "ja_on" &&
+        reading.reading === content.reading.source,
+    );
+  if (
+    !sourceSupported ||
+    !kanji.readings.some(
+      (reading) =>
+        reading.readingType === "ONYOMI" && normalizeReading(reading.reading) === sourceReading,
+    )
+  ) {
+    throw new Error(
+      `Kanji ${content.character} reading ${content.reading.source} is not supported by KANJIDIC2.`,
+    );
+  }
+
+  if (
+    normalizeReading(content.reading.primary) !== sourceReading ||
+    normalizeReading(kanji.readings[0]?.reading ?? "") !== sourceReading ||
+    kanji.readings[0]?.readingType !== "ONYOMI"
+  ) {
+    throw new Error(
+      `Kanji ${content.character} taught reading must match its first KANJIDIC2 reading.`,
+    );
+  }
+
+  return kanji;
+}
+
+function isJsonObject(value: Prisma.JsonValue): value is Prisma.JsonObject {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 async function applyKanji(
   db: Prisma.TransactionClient,
   content: MainCourseKanjiContent,
@@ -310,47 +505,7 @@ async function applyKanji(
   courseId: string,
   componentLearningItemIds: ReadonlyMap<string, string>,
 ): Promise<void> {
-  const kanji = await db.kanji.findUnique({
-    where: { character: content.character },
-    select: {
-      id: true,
-      kanjidicImportedRecordId: true,
-      readings: {
-        orderBy: [{ priority: "asc" }, { reading: "asc" }],
-        select: { reading: true, priority: true },
-      },
-      strokeGraphic: { select: { id: true } },
-    },
-  });
-
-  if (kanji === null || kanji.kanjidicImportedRecordId === null) {
-    throw new Error(
-      `Kanji ${content.character} is missing imported KANJIDIC2 evidence. Run the content import first.`,
-    );
-  }
-
-  if (content.requireStrokeData && kanji.strokeGraphic === null) {
-    throw new Error(`Kanji ${content.character} is missing required KanjiVG stroke data.`);
-  }
-
-  const sourceReading = normalizeReading(content.reading.source);
-  if (!kanji.readings.some((reading) => normalizeReading(reading.reading) === sourceReading)) {
-    throw new Error(
-      `Kanji ${content.character} reading ${content.reading.source} is not supported by KANJIDIC2.`,
-    );
-  }
-
-  if (
-    normalizeReading(content.reading.primary) !== sourceReading ||
-    normalizeReading(kanji.readings[0]?.reading ?? "") !== sourceReading
-  ) {
-    throw new Error(
-      `Kanji ${content.character} taught reading must match its first KANJIDIC2 reading.`,
-    );
-  }
-
-  await syncMeanings(db, kanji.id, "ru-RU", content.meanings.ru);
-  await syncMeanings(db, kanji.id, "en-US", content.meanings.en);
+  const kanji = await requireKanjiEvidence(db, content);
 
   const componentIds = content.componentKeys.map((key) => {
     const learningItemId = componentLearningItemIds.get(key);
@@ -361,7 +516,7 @@ async function applyKanji(
 
     return learningItemId;
   });
-  const componentItems = await db.learningItem.findMany({
+  const availableItems = await db.learningItem.findMany({
     where: {
       id: { in: componentIds },
       targetType: "COMPONENT",
@@ -370,15 +525,21 @@ async function applyKanji(
     select: { id: true, targetId: true },
   });
 
-  if (componentItems.length !== componentIds.length) {
+  const itemById = new Map(availableItems.map((item) => [item.id, item]));
+  const componentItems = componentIds.map((id) => itemById.get(id));
+  if (componentItems.some((item) => item === undefined)) {
     throw new Error(`Kanji ${content.character} has an unavailable component prerequisite.`);
   }
+  const orderedComponentItems = componentItems.filter((item) => item !== undefined);
+
+  await syncMeanings(db, kanji.id, "ru-RU", content.meanings.ru);
+  await syncMeanings(db, kanji.id, "en-US", content.meanings.en);
 
   await db.kanjiComponent.deleteMany({
     where: { kanjiId: kanji.id, sourceKind: "PROJECT_AUTHORED" },
   });
   await db.kanjiComponent.createMany({
-    data: componentItems.map((item, index) => ({
+    data: orderedComponentItems.map((item, index) => ({
       kanjiId: kanji.id,
       componentId: item.targetId,
       position: `curated-${index + 1}`,
@@ -437,7 +598,7 @@ async function applyKanji(
     where: { learningItemId: learningItem.id, dependencyType: "PREREQUISITE" },
   });
   await db.dependency.createMany({
-    data: componentItems.map((item) => ({
+    data: orderedComponentItems.map((item) => ({
       learningItemId: learningItem.id,
       prerequisiteItemId: item.id,
       dependencyType: "PREREQUISITE",
@@ -680,6 +841,8 @@ function batchStats(batch: MainCourseContentBatch): Prisma.InputJsonObject {
     batchId: batch.id,
     version: batch.version,
     reviewedAt: batch.reviewedAt,
+    ...(batch.authoredAt === undefined ? {} : { authoredAt: batch.authoredAt }),
+    ...(batch.reviewNotes === undefined ? {} : { reviewNotes: batch.reviewNotes }),
     components: batch.components.length,
     kanji: batch.kanji.length,
     cards: batch.components.length + batch.kanji.length * 2,
@@ -703,11 +866,20 @@ function toJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
-void main()
-  .catch((error: unknown) => {
+function requireParentReview(batch: MainCourseContentBatch): void {
+  if (batch.reviewedAt === null) {
+    throw new Error(
+      `Batch ${batch.id} needs independent parent review and reviewedAt before live application.`,
+    );
+  }
+}
+
+if (
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+) {
+  void main().catch((error: unknown) => {
     console.error(error);
     process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
   });
+}
