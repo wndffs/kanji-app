@@ -248,7 +248,7 @@ export class PrismaItemsRepository extends ItemsRepository {
   }
 
   async itemExists(id: string): Promise<boolean> {
-    return (await this.prisma.db.learningItem.count({ where: { id } })) > 0;
+    return (await this.prisma.db.learningItem.count({ where: { id, status: "PUBLISHED" } })) > 0;
   }
 
   async findItemById(id: string, options: ItemLookupOptions): Promise<ItemRecord | null> {
@@ -358,7 +358,7 @@ export class PrismaItemsRepository extends ItemsRepository {
     options: ItemLookupOptions,
   ): Promise<LearningItemRow | null> {
     const item = await this.prisma.db.learningItem.findUnique({
-      where,
+      where: { ...where, status: "PUBLISHED" },
       include: {
         cards: {
           orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
@@ -398,7 +398,7 @@ export class PrismaItemsRepository extends ItemsRepository {
       },
     });
 
-    return item as LearningItemRow | null;
+    return item?.status === "PUBLISHED" ? (item as LearningItemRow) : null;
   }
 
   private async findMatchingItemIds(query: string): Promise<readonly string[]> {
@@ -417,7 +417,7 @@ export class PrismaItemsRepository extends ItemsRepository {
       answers,
     ] = await Promise.all([
       this.prisma.db.learningItem.findMany({
-        where: { title: contains },
+        where: { title: contains, status: "PUBLISHED" },
         select: { id: true },
         orderBy: { title: "asc" },
       }),
@@ -469,7 +469,7 @@ export class PrismaItemsRepository extends ItemsRepository {
         select: { id: true },
       }),
       this.prisma.db.learningAnswer.findMany({
-        where: { text: contains },
+        where: { text: contains, learningCard: { learningItem: { status: "PUBLISHED" } } },
         select: { learningCard: { select: { learningItemId: true } } },
       }),
     ]);
@@ -520,6 +520,7 @@ export class PrismaItemsRepository extends ItemsRepository {
       where: {
         targetType,
         targetId: { in: uniqueTargetIds },
+        status: "PUBLISHED",
       },
       select: { id: true },
     });
