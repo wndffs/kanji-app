@@ -19,23 +19,36 @@ test.describe("item details", () => {
     await mockItemApi(page);
     let release!: () => void;
     let started!: () => void;
-    const gate = new Promise<void>((resolve) => { release = resolve; });
-    const pending = new Promise<void>((resolve) => { started = resolve; });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const pending = new Promise<void>((resolve) => {
+      started = resolve;
+    });
     await page.route(`${API_BASE_URL}/items/${ITEM_ID}`, async (route) => {
       const item = buildItemDetails([], null);
       if (route.request().headers().authorization === "Bearer new-token") {
-        Object.assign(item, { reviewHistory: { items: [], nextCursor: null }, srs: null, nextReviewAt: null });
+        Object.assign(item, {
+          reviewHistory: { items: [], nextCursor: null },
+          srs: null,
+          nextReviewAt: null,
+        });
       }
       await route.fulfill({ json: item });
     });
     await page.route(`${API_BASE_URL}/items/${ITEM_ID}/history?cursor=older`, async (route) => {
       started();
       await gate;
-      await route.fulfill({ status: 401, json: { message: "Old login expired" } }).catch(() => undefined);
+      await route
+        .fulfill({ status: 401, json: { message: "Old login expired" } })
+        .catch(() => undefined);
     });
     try {
       await page.goto(`/items/${ITEM_ID}`);
-      await page.getByTestId("item-srs-history").getByRole("button", { name: "Показать более ранние" }).click();
+      await page
+        .getByTestId("item-srs-history")
+        .getByRole("button", { name: "Показать более ранние" })
+        .click();
       await pending;
       await page.evaluate(() => {
         localStorage.setItem("kanji-srs.accessToken", "new-token");
@@ -45,17 +58,28 @@ test.describe("item details", () => {
       });
       await expect(page.getByTestId("item-srs-history")).toContainText("ещё нет истории");
       release();
-      expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe("new-token");
+      expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe(
+        "new-token",
+      );
       await expect(page.getByText("Old login expired")).toHaveCount(0);
-    } finally { release(); }
+    } finally {
+      release();
+    }
   });
 
-  test("deduplicates overlapping history pages without duplicating SRS events", async ({ page }) => {
+  test("deduplicates overlapping history pages without duplicating SRS events", async ({
+    page,
+  }) => {
     await signIn(page);
     await mockItemApi(page);
     const entry = buildItemDetails([], null).reviewHistory.items[0]!;
     await page.route(`${API_BASE_URL}/items/${ITEM_ID}/history?cursor=older`, async (route) => {
-      await route.fulfill({ json: { items: [entry, { ...entry, id: "older-distinct", result: "manual-ignore" }], nextCursor: null } });
+      await route.fulfill({
+        json: {
+          items: [entry, { ...entry, id: "older-distinct", result: "manual-ignore" }],
+          nextCursor: null,
+        },
+      });
     });
     await page.goto(`/items/${ITEM_ID}`);
     const history = page.getByTestId("item-srs-history");

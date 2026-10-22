@@ -15,8 +15,14 @@ describe("search hydration boundaries", () => {
     );
     expect(result).toEqual({ items: [{ id: "page-21" }, { id: "page-22" }], total: 2300 });
     expect(hydrate.mock.calls).toEqual([
-      ["page-21", { userId: "owner", includeExamples: false, includeRelations: false, summaryOnly: true }],
-      ["page-22", { userId: "owner", includeExamples: false, includeRelations: false, summaryOnly: true }],
+      [
+        "page-21",
+        { userId: "owner", includeExamples: false, includeRelations: false, summaryOnly: true },
+      ],
+      [
+        "page-22",
+        { userId: "owner", includeExamples: false, includeRelations: false, summaryOnly: true },
+      ],
     ]);
   });
 });

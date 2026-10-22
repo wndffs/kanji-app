@@ -149,26 +149,26 @@ export class PrismaCharactersRepository extends CharactersRepository {
     const distinctIds = [...new Set(targetIds)];
     for (let offset = 0; offset < distinctIds.length; offset += 100) {
       const rows = (await this.prisma.db.kanji.findMany({
-      where: { id: { in: distinctIds.slice(offset, offset + 100) } },
-      select: {
-        id: true,
-        character: true,
-        jlptLevel: true,
-        legacyJlptLevel: true,
-        readings: {
-          orderBy: kanjiReadingOrderBy(),
-          select: { reading: true },
-        },
-        meanings: {
-          where: { locale: { in: ["ru-RU", "en-US"] } },
-          orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }],
-          select: {
-            locale: true,
-            meaning: true,
-            isPrimary: true,
+        where: { id: { in: distinctIds.slice(offset, offset + 100) } },
+        select: {
+          id: true,
+          character: true,
+          jlptLevel: true,
+          legacyJlptLevel: true,
+          readings: {
+            orderBy: kanjiReadingOrderBy(),
+            select: { reading: true },
+          },
+          meanings: {
+            where: { locale: { in: ["ru-RU", "en-US"] } },
+            orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }],
+            select: {
+              locale: true,
+              meaning: true,
+              isPrimary: true,
+            },
           },
         },
-      },
       })) as readonly KanjiRow[];
       kanjiRows.push(...rows);
     }

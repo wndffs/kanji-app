@@ -35,7 +35,7 @@ unmet acceptance slice; do not count a no-op or an existing feature as completed
 ## Checkpoints
 
 - Development complete: 15/15.
-- Acceptance checked: 0/15.
+- Local acceptance checked: 15/15; final remote CI pending.
 - Publication threshold reached: no.
 - No manual curation/publication workflow before the threshold.
 - Automatic application deploys and CI on authorized pushes remain enabled.
@@ -46,3 +46,25 @@ unmet acceptance slice; do not count a no-op or an existing feature as completed
 Checks are grouped by changed modules, normally after several functional
 commits. Any failed acceptance remains open until repaired. No background
 servers, browser tabs or temporary repository files should be left behind.
+
+## Batched Acceptance Evidence
+
+All implemented rows above have now passed local acceptance; their original
+pending labels record implementation checkpoints, not the current gate state.
+
+- Search/visibility/normalization/API-client unit batch: 82 passed.
+- Target hydration/API regression batch: 226 cases passed after repairing one
+  obsolete query-order assertion; dashboard batching adds 82 focused cases.
+- Editorial inventory: 20 passed and the source-only CLI reports zero issues.
+- Finite pilot family: 193 focused tests passed, including V4 and unchanged
+  V1/V2/V3 seals. Remote smoke tooling: 112 tests passed.
+- Search desktop/mobile flows passed after correcting skeleton/result selectors;
+  the final filtered pagination pair also passed. Item/history flows: 8 passed.
+- Listening audio flows: 8 passed; kana speech lifecycle: 2 passed after opening
+  the listening assessment fixture rather than a recognition exercise.
+- Relevant API, DB and web typechecks, changed-file ESLint and formatting passed.
+- Initial remote Study integrity run `39849159528` passed against PostgreSQL.
+  Initial CI quality passed, but two browser pagination assertions needed the
+  selector repair above; a final push must receive fresh green CI before writes.
+
+No Neon curation or pilot publication has been dispatched at this checkpoint.

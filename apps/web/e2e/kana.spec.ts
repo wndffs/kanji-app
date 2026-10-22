@@ -22,6 +22,8 @@ test.describe("kana lessons", () => {
     await signIn(page);
     await mockKanaApi(page);
     await page.goto("/kana");
+    await page.getByRole("tab", { name: "Проверка", exact: true }).click();
+    await page.getByRole("button", { name: "っか: прогресс 0 из 3" }).click();
     const speak = page.getByRole("button", { name: "Воспроизвести произношение" });
     await expect(speak).toBeEnabled();
     await speak.click();

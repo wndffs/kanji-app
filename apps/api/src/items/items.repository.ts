@@ -382,7 +382,12 @@ export class PrismaItemsRepository extends ItemsRepository {
     if (options.summaryOnly) {
       const item = await this.prisma.db.learningItem.findUnique({
         where: { ...where, status: "PUBLISHED" },
-        include: { cards: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }], include: { answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] } } } },
+        include: {
+          cards: {
+            orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+            include: { answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] } },
+          },
+        },
       });
       return item?.status === "PUBLISHED" ? item : null;
     }
@@ -444,10 +449,9 @@ export class PrismaItemsRepository extends ItemsRepository {
         }),
       ),
     );
-    const attributions = options.summaryOnly ? [] : [
-      ...target.attributions,
-      ...(await this.findAttributions(target.sourceRecordIds)),
-    ];
+    const attributions = options.summaryOnly
+      ? []
+      : [...target.attributions, ...(await this.findAttributions(target.sourceRecordIds))];
     const itemType = toItemKind(item.kind);
     const cards = (item.cards ?? []).map((card) => toCardRecord(card, item.id, itemType));
     const userOverrides = cards.flatMap((card) => card.userOverrides);
@@ -673,13 +677,22 @@ export class PrismaItemsRepository extends ItemsRepository {
       const rows = await this.prisma.db.learningItem.findMany({
         where: { id: { in: relatedIds.slice(offset, offset + 100) }, status: "PUBLISHED" },
         include: {
-          cards: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }], include: { answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] } } },
+          cards: {
+            orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+            include: { answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] } },
+          },
         },
       });
       for (const row of rows) {
-        hydrated.set(row.id, await this.toItemRecord(row, {
-          ...options, relationDepth: 0, includeExamples: false, summaryOnly: true,
-        }));
+        hydrated.set(
+          row.id,
+          await this.toItemRecord(row, {
+            ...options,
+            relationDepth: 0,
+            includeExamples: false,
+            summaryOnly: true,
+          }),
+        );
       }
     }
     const groups: ItemRelationGroupRecord[] = [];

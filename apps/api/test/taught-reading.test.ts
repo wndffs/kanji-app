@@ -62,7 +62,10 @@ function harness(hasTaughtReading = true) {
     },
     dependency: { findMany: vi.fn().mockResolvedValue([]) },
     kanjiComponent: { findMany: vi.fn().mockResolvedValue([]) },
-    kanji: { findUnique: vi.fn().mockResolvedValue(kanji), findMany: vi.fn().mockResolvedValue([{ id: "kanji-rice", ...kanji }]) },
+    kanji: {
+      findUnique: vi.fn().mockResolvedValue(kanji),
+      findMany: vi.fn().mockResolvedValue([{ id: "kanji-rice", ...kanji }]),
+    },
     userSrsState: {
       findMany: vi.fn().mockResolvedValue(
         cards.map((card) => ({

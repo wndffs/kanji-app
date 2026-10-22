@@ -149,22 +149,26 @@ export class PrismaDecksRepository extends DecksRepository {
     const ids = [...new Set(learningItemIds)];
     for (let offset = 0; offset < ids.length; offset += 100) {
       const rows = (await this.prisma.db.dependency.findMany({
-      where: {
-        learningItemId: { in: ids.slice(offset, offset + 100) },
-        dependencyType: "PREREQUISITE",
-        prerequisiteItem: {
-          status: "PUBLISHED",
+        where: {
+          learningItemId: { in: ids.slice(offset, offset + 100) },
+          dependencyType: "PREREQUISITE",
+          prerequisiteItem: {
+            status: "PUBLISHED",
+          },
         },
-      },
-      include: {
-        prerequisiteItem: { include: { cards: primaryTaughtReadingCards } },
-      },
-      orderBy: [{ learningItemId: "asc" }, { prerequisiteItemId: "asc" }],
+        include: {
+          prerequisiteItem: { include: { cards: primaryTaughtReadingCards } },
+        },
+        orderBy: [{ learningItemId: "asc" }, { prerequisiteItemId: "asc" }],
       })) as readonly DependencyRow[];
       dependencies.push(...rows);
     }
 
-    dependencies.sort((left, right) => left.learningItemId.localeCompare(right.learningItemId) || left.prerequisiteItem.id.localeCompare(right.prerequisiteItem.id));
+    dependencies.sort(
+      (left, right) =>
+        left.learningItemId.localeCompare(right.learningItemId) ||
+        left.prerequisiteItem.id.localeCompare(right.prerequisiteItem.id),
+    );
     const records: TextDeckPrerequisiteRecord[] = [];
     const hydrated = new Map<string, TextDeckItemRecord>();
 
@@ -296,17 +300,20 @@ export class PrismaDecksRepository extends DecksRepository {
     const candidates = [...new Set(tokens.wordCandidates)];
     for (let offset = 0; offset < candidates.length; offset += 100) {
       const rows = (await this.prisma.db.word.findMany({
-      where: {
-        expression: { in: candidates.slice(offset, offset + 100) },
-      },
-      include: {
-        senses: { orderBy: [{ locale: "asc" }, { meaning: "asc" }] },
-      },
-      orderBy: [{ commonnessRank: "asc" }, { expression: "asc" }, { reading: "asc" }],
+        where: {
+          expression: { in: candidates.slice(offset, offset + 100) },
+        },
+        include: {
+          senses: { orderBy: [{ locale: "asc" }, { meaning: "asc" }] },
+        },
+        orderBy: [{ commonnessRank: "asc" }, { expression: "asc" }, { reading: "asc" }],
       })) as readonly WordRow[];
       words.push(...rows);
     }
-    const items = await this.findMatchedItems("WORD", words.map((word) => word.id));
+    const items = await this.findMatchedItems(
+      "WORD",
+      words.map((word) => word.id),
+    );
     const wordById = new Map(words.map((word) => [word.id, word]));
     const matches: TextDeckMatchRecord[] = [];
 
@@ -339,18 +346,21 @@ export class PrismaDecksRepository extends DecksRepository {
     const characters = [...new Set(tokens.kanjiCharacters)];
     for (let offset = 0; offset < characters.length; offset += 100) {
       const rows = (await this.prisma.db.kanji.findMany({
-      where: {
-        character: { in: characters.slice(offset, offset + 100) },
-      },
-      include: {
-        readings: { orderBy: kanjiReadingOrderBy() },
-        meanings: { orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }] },
-      },
-      orderBy: [{ frequencyRank: "asc" }, { character: "asc" }],
+        where: {
+          character: { in: characters.slice(offset, offset + 100) },
+        },
+        include: {
+          readings: { orderBy: kanjiReadingOrderBy() },
+          meanings: { orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }] },
+        },
+        orderBy: [{ frequencyRank: "asc" }, { character: "asc" }],
       })) as readonly KanjiRow[];
       kanji.push(...rows);
     }
-    const items = await this.findMatchedItems("KANJI", kanji.map((row) => row.id));
+    const items = await this.findMatchedItems(
+      "KANJI",
+      kanji.map((row) => row.id),
+    );
     const kanjiById = new Map(kanji.map((row) => [row.id, row]));
     const matches: TextDeckMatchRecord[] = [];
 
@@ -372,12 +382,19 @@ export class PrismaDecksRepository extends DecksRepository {
     return matches;
   }
 
-  private async findMatchedItems(targetType: "WORD" | "KANJI", targetIds: readonly string[]): Promise<readonly LearningItemRow[]> {
+  private async findMatchedItems(
+    targetType: "WORD" | "KANJI",
+    targetIds: readonly string[],
+  ): Promise<readonly LearningItemRow[]> {
     const ids = [...new Set(targetIds)];
     const items: LearningItemRow[] = [];
     for (let offset = 0; offset < ids.length; offset += 100) {
       const rows = await this.prisma.db.learningItem.findMany({
-        where: { status: "PUBLISHED", targetType, targetId: { in: ids.slice(offset, offset + 100) } },
+        where: {
+          status: "PUBLISHED",
+          targetType,
+          targetId: { in: ids.slice(offset, offset + 100) },
+        },
         ...(targetType === "KANJI" ? { include: { cards: primaryTaughtReadingCards } } : {}),
         orderBy: [{ levelHint: "asc" }, { title: "asc" }, { id: "asc" }],
       });
@@ -399,19 +416,19 @@ export class PrismaDecksRepository extends DecksRepository {
     const started = new Set<string>();
     for (let offset = 0; offset < uniqueItemIds.length; offset += 100) {
       const states = await this.prisma.db.userSrsState.findMany({
-      where: {
-        userId: ownerUserId,
-        learningCard: {
-          learningItemId: { in: uniqueItemIds.slice(offset, offset + 100) },
-        },
-      },
-      select: {
-        learningCard: {
-          select: {
-            learningItemId: true,
+        where: {
+          userId: ownerUserId,
+          learningCard: {
+            learningItemId: { in: uniqueItemIds.slice(offset, offset + 100) },
           },
         },
-      },
+        select: {
+          learningCard: {
+            select: {
+              learningItemId: true,
+            },
+          },
+        },
       });
       for (const state of states) started.add(state.learningCard.learningItemId);
     }

@@ -103,7 +103,12 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
       window.removeEventListener("storage", sync);
     };
   }, []);
-  if (scope === null) return <section className="page-stack" aria-busy="true"><h1>Материал</h1></section>;
+  if (scope === null)
+    return (
+      <section className="page-stack" aria-busy="true">
+        <h1>Материал</h1>
+      </section>
+    );
   return <ItemDetailsScreen key={`${scope}:${lookup.type}:${lookup.value}`} lookup={lookup} />;
 }
 
@@ -150,7 +155,8 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
     setIsLoadingHistory(false);
     const storedSession = readStoredSession();
     const token = storedSession?.token ?? null;
-    const isCurrent = () => version === itemLoadVersion.current && (readStoredSession()?.token ?? null) === token;
+    const isCurrent = () =>
+      version === itemLoadVersion.current && (readStoredSession()?.token ?? null) === token;
     const displayMode =
       storedSession?.user.settings.translationDisplayMode ?? readTranslationDisplayMode();
     const timezone =
@@ -405,7 +411,8 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
       state.status !== "ready" ||
       state.token === null ||
       state.item.reviewHistory.nextCursor === null ||
-      isLoadingHistory || historyRequest.current !== null
+      isLoadingHistory ||
+      historyRequest.current !== null
     ) {
       return;
     }
@@ -415,28 +422,41 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
     const controller = new AbortController();
     historyRequest.current = controller;
     const version = itemLoadVersion.current;
-    const { id: itemId, reviewHistory: { nextCursor: cursor } } = state.item;
+    const {
+      id: itemId,
+      reviewHistory: { nextCursor: cursor },
+    } = state.item;
     const token = state.token;
-    const isCurrent = () => !controller.signal.aborted && historyRequest.current === controller && version === itemLoadVersion.current && readStoredSession()?.token === token;
+    const isCurrent = () =>
+      !controller.signal.aborted &&
+      historyRequest.current === controller &&
+      version === itemLoadVersion.current &&
+      readStoredSession()?.token === token;
 
     try {
-      const page = await getItemReviewHistory(
-        itemId,
-        cursor,
-        token,
-        { signal: controller.signal },
-      );
+      const page = await getItemReviewHistory(itemId, cursor, token, { signal: controller.signal });
       if (!isCurrent()) return;
 
       setState((current) =>
-        current.status !== "ready" || current.item.id !== itemId || current.token !== token || current.item.reviewHistory.nextCursor !== cursor
+        current.status !== "ready" ||
+        current.item.id !== itemId ||
+        current.token !== token ||
+        current.item.reviewHistory.nextCursor !== cursor
           ? current
           : {
               ...current,
               item: {
                 ...current.item,
                 reviewHistory: {
-                  items: [...current.item.reviewHistory.items, ...page.items.filter((entry) => !current.item.reviewHistory.items.some((existing) => existing.id === entry.id))],
+                  items: [
+                    ...current.item.reviewHistory.items,
+                    ...page.items.filter(
+                      (entry) =>
+                        !current.item.reviewHistory.items.some(
+                          (existing) => existing.id === entry.id,
+                        ),
+                    ),
+                  ],
                   nextCursor: page.nextCursor,
                 },
               },
