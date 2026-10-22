@@ -22,7 +22,7 @@ as extra tasks. Existing pilot seals, enrollments and SRS identities stay intact
 | 137 | Bounded character-target loading | Deduplicated 100-ID reads retain order, all cards, SRS state and legacy JLPT metadata                          | Implemented; checks pending |
 | 138 | Batched review targets           | Scheduled/practice queues avoid per-card target reads and preserve card-specific answers                       | Implemented; checks pending |
 | 139 | Batched dashboard targets        | Activity/leeches hydrate shared targets once per bounded batch without changing counts or SRS                  | Planned                     |
-| 140 | Bounded text-deck lookups        | Token/target queries stay bounded and preserve prerequisite-safe match results                                 | Planned                     |
+| 140 | Bounded text-deck lookups        | Token/target queries stay bounded and preserve prerequisite-safe match results                                 | Implemented; checks pending |
 | 141 | Item history request lifecycle   | History pagination remains item/user scoped through navigation, retries and auth changes                       | Planned                     |
 | 142 | Study audio lifecycle            | Navigation, preference changes and unmount stop obsolete playback without false completion                     | Planned                     |
 | 143 | Editorial registry inventory     | A source-only command reports hashes, levels, prerequisites and finite-pilot inclusion without database writes | Local acceptance passed; source-only |
@@ -34,7 +34,7 @@ unmet acceptance slice; do not count a no-op or an existing feature as completed
 
 ## Checkpoints
 
-- Development complete: 11/15.
+- Development complete: 12/15.
 - Acceptance checked: 0/15.
 - Publication threshold reached: no.
 - No manual curation/publication workflow before the threshold.

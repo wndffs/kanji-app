@@ -126,10 +126,8 @@ export class PrismaDecksRepository extends DecksRepository {
   }
 
   async findTextMatches(tokens: TextDeckTokenLookup): Promise<readonly TextDeckMatchRecord[]> {
-    const [wordMatches, kanjiMatches] = await Promise.all([
-      this.findWordMatches(tokens),
-      this.findKanjiMatches(tokens),
-    ]);
+    const wordMatches = await this.findWordMatches(tokens);
+    const kanjiMatches = await this.findKanjiMatches(tokens);
 
     return [...wordMatches, ...kanjiMatches].sort(
       (left, right) =>
@@ -147,9 +145,12 @@ export class PrismaDecksRepository extends DecksRepository {
       return [];
     }
 
-    const dependencies = (await this.prisma.db.dependency.findMany({
+    const dependencies: DependencyRow[] = [];
+    const ids = [...new Set(learningItemIds)];
+    for (let offset = 0; offset < ids.length; offset += 100) {
+      const rows = (await this.prisma.db.dependency.findMany({
       where: {
-        learningItemId: { in: [...new Set(learningItemIds)] },
+        learningItemId: { in: ids.slice(offset, offset + 100) },
         dependencyType: "PREREQUISITE",
         prerequisiteItem: {
           status: "PUBLISHED",
@@ -159,14 +160,23 @@ export class PrismaDecksRepository extends DecksRepository {
         prerequisiteItem: { include: { cards: primaryTaughtReadingCards } },
       },
       orderBy: [{ learningItemId: "asc" }, { prerequisiteItemId: "asc" }],
-    })) as readonly DependencyRow[];
+      })) as readonly DependencyRow[];
+      dependencies.push(...rows);
+    }
 
+    dependencies.sort((left, right) => left.learningItemId.localeCompare(right.learningItemId) || left.prerequisiteItem.id.localeCompare(right.prerequisiteItem.id));
     const records: TextDeckPrerequisiteRecord[] = [];
+    const hydrated = new Map<string, TextDeckItemRecord>();
 
     for (const dependency of dependencies) {
+      let item = hydrated.get(dependency.prerequisiteItem.id);
+      if (item === undefined) {
+        item = await this.toItemRecord(dependency.prerequisiteItem);
+        hydrated.set(item.id, item);
+      }
       records.push({
         sourceItemId: dependency.learningItemId,
-        item: await this.toItemRecord(dependency.prerequisiteItem),
+        item,
       });
     }
 
@@ -282,23 +292,21 @@ export class PrismaDecksRepository extends DecksRepository {
       return [];
     }
 
-    const words = (await this.prisma.db.word.findMany({
+    const words: WordRow[] = [];
+    const candidates = [...new Set(tokens.wordCandidates)];
+    for (let offset = 0; offset < candidates.length; offset += 100) {
+      const rows = (await this.prisma.db.word.findMany({
       where: {
-        expression: { in: [...tokens.wordCandidates] },
+        expression: { in: candidates.slice(offset, offset + 100) },
       },
       include: {
         senses: { orderBy: [{ locale: "asc" }, { meaning: "asc" }] },
       },
       orderBy: [{ commonnessRank: "asc" }, { expression: "asc" }, { reading: "asc" }],
-    })) as readonly WordRow[];
-    const items = await this.prisma.db.learningItem.findMany({
-      where: {
-        status: "PUBLISHED",
-        targetType: "WORD",
-        targetId: { in: words.map((word) => word.id) },
-      },
-      orderBy: [{ levelHint: "asc" }, { title: "asc" }, { id: "asc" }],
-    });
+      })) as readonly WordRow[];
+      words.push(...rows);
+    }
+    const items = await this.findMatchedItems("WORD", words.map((word) => word.id));
     const wordById = new Map(words.map((word) => [word.id, word]));
     const matches: TextDeckMatchRecord[] = [];
 
@@ -327,25 +335,22 @@ export class PrismaDecksRepository extends DecksRepository {
       return [];
     }
 
-    const kanji = (await this.prisma.db.kanji.findMany({
+    const kanji: KanjiRow[] = [];
+    const characters = [...new Set(tokens.kanjiCharacters)];
+    for (let offset = 0; offset < characters.length; offset += 100) {
+      const rows = (await this.prisma.db.kanji.findMany({
       where: {
-        character: { in: [...tokens.kanjiCharacters] },
+        character: { in: characters.slice(offset, offset + 100) },
       },
       include: {
         readings: { orderBy: kanjiReadingOrderBy() },
         meanings: { orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }] },
       },
       orderBy: [{ frequencyRank: "asc" }, { character: "asc" }],
-    })) as readonly KanjiRow[];
-    const items = await this.prisma.db.learningItem.findMany({
-      where: {
-        status: "PUBLISHED",
-        targetType: "KANJI",
-        targetId: { in: kanji.map((row) => row.id) },
-      },
-      include: { cards: primaryTaughtReadingCards },
-      orderBy: [{ levelHint: "asc" }, { title: "asc" }, { id: "asc" }],
-    });
+      })) as readonly KanjiRow[];
+      kanji.push(...rows);
+    }
+    const items = await this.findMatchedItems("KANJI", kanji.map((row) => row.id));
     const kanjiById = new Map(kanji.map((row) => [row.id, row]));
     const matches: TextDeckMatchRecord[] = [];
 
@@ -367,6 +372,20 @@ export class PrismaDecksRepository extends DecksRepository {
     return matches;
   }
 
+  private async findMatchedItems(targetType: "WORD" | "KANJI", targetIds: readonly string[]): Promise<readonly LearningItemRow[]> {
+    const ids = [...new Set(targetIds)];
+    const items: LearningItemRow[] = [];
+    for (let offset = 0; offset < ids.length; offset += 100) {
+      const rows = await this.prisma.db.learningItem.findMany({
+        where: { status: "PUBLISHED", targetType, targetId: { in: ids.slice(offset, offset + 100) } },
+        ...(targetType === "KANJI" ? { include: { cards: primaryTaughtReadingCards } } : {}),
+        orderBy: [{ levelHint: "asc" }, { title: "asc" }, { id: "asc" }],
+      });
+      items.push(...rows);
+    }
+    return items;
+  }
+
   private async findStartedItemIds(
     ownerUserId: string,
     learningItemIds: readonly string[],
@@ -377,11 +396,13 @@ export class PrismaDecksRepository extends DecksRepository {
       return new Set();
     }
 
-    const states = await this.prisma.db.userSrsState.findMany({
+    const started = new Set<string>();
+    for (let offset = 0; offset < uniqueItemIds.length; offset += 100) {
+      const states = await this.prisma.db.userSrsState.findMany({
       where: {
         userId: ownerUserId,
         learningCard: {
-          learningItemId: { in: uniqueItemIds },
+          learningItemId: { in: uniqueItemIds.slice(offset, offset + 100) },
         },
       },
       select: {
@@ -391,9 +412,10 @@ export class PrismaDecksRepository extends DecksRepository {
           },
         },
       },
-    });
-
-    return new Set(states.map((state) => state.learningCard.learningItemId));
+      });
+      for (const state of states) started.add(state.learningCard.learningItemId);
+    }
+    return started;
   }
 
   private async toItemRecord(item: LearningItemRow): Promise<TextDeckItemRecord> {
