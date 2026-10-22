@@ -21,17 +21,24 @@ dates. The planner then requires:
 - Every persisted curation record matches its approved manifest payload. Word
   records must also match their actual JMdict target's dictionary-evidence IDs,
   version, checksum and license ID. JSONB object ordering is not significant.
-- The known structured main course has exactly the 100 expected published
-  placements, with the original target identities, levels, slots and unlock
-  policies. Hidden extra placements are rejected, including in later levels.
+- The known structured main course has exactly one placement for each of the
+  100 registered pilot targets, with the original target identities, levels,
+  slots and unlock policies. The query matches the three exact target-type/ID
+  sets and reads at most 101 rows. Duplicate or moved pilot-target placements
+  are rejected, including in later levels; unrelated main-course items are allowed.
 - All direct prerequisites exactly match the registered manifest, are inside
   this finite set and occupy earlier levels. Components have no prerequisites;
   kanji require their registered components at stage 1; words require their
   spelling kanji at stage 2. There is no global fallback or dependency waiver.
-- The existing full quality loader visits every item in keyset pages of at most
-  100, including the terminal page after an exact 100-row page. Every current
-  policy issue, blocker or warning, prevents publication. Missing, repeated,
-  unordered or unexpected quality rows also fail closed.
+- The existing full quality loader visits all 100 pilot items in both courses,
+  using an internal exact item-ID scope and keyset pages of at most 100,
+  including the terminal page after an exact 100-row page. Every current policy
+  issue, blocker or warning on these items prevents publication. Missing,
+  repeated, unordered or unexpected scoped quality rows also fail closed.
+  The internal scope requires 1–100 distinct nonempty UUIDs, intersects with the
+  course and cursor, and rejects invalid input before reading the database.
+  Public full-course reports remain unfiltered by default; quality rules and
+  source/prerequisite checks are not weakened for the finite pilot.
 - Card slots and accepted answers match the approved manifests: a meaning card
   for each component and meaning/reading cards for each kanji and word. Their
   existing card IDs are retained, not recreated.
@@ -108,9 +115,9 @@ content checksum with the outside plan. It creates/reuses only the pilot course,
 its five levels and its 100 placements, using the existing item IDs. The new
 placements use a single bounded `createMany` with duplicate skipping, rather
 than 100 sequential network upserts; existing placements are validated before
-that call and never updated by it. The new
-course stays draft until full pilot quality and repeated main-course quality
-match the original snapshot inside that transaction. Any mismatch or database
+that call and never updated by it. The new course stays draft until full pilot
+quality and repeated main-course quality for the same 100 pilot item IDs match
+the original snapshot inside that transaction. Any mismatch or database
 error rolls back the whole publication. There is no automatic serialization
 retry; the operator can rerun a fresh plan after resolving a conflict.
 
@@ -165,14 +172,25 @@ enrollment input; explicit CLI enrollment remains an operator-only action.
 
 The pilot shares global items/cards by design. Later edits to those shared
 objects can affect both courses; this publisher detects relevant drift when
-planning/reapplying, not continuously at API runtime. Once the main course grows
-beyond the exact 100 source placements, this finite v1 planner deliberately
-refuses automatic expansion. This is not a general course publishing mechanism.
+planning/reapplying, not continuously at API runtime. The main course may grow
+with unrelated components, kanji or words, including later batches and slots.
+Those items never enter the frozen pilot's placement set, quality snapshot or
+content version. Query scoping itself is not hashed, so the unchanged original
+100-item corpus retains its previous checksum. The pilot still requires exactly
+100 items, 160 cards and five levels; extra pilot placements (including unrelated
+items) remain invalid. Changing registered targets, shared content, original
+identities or provenance still fails closed. This is not a general course
+publishing mechanism or a quality waiver for the expanded main course; inspect
+that course's full unfiltered quality report separately.
 
 Focused tests use synthetic persistence fixtures, the real quality validator and
 a stubbed quality-page loader. They exercise stable reapplication with reversed
 ORM collections and recreated incidental IDs both between runs and between
 preflight and the transaction, plus rejection of actual content/identity drift.
+They also preserve the pre-scope fixture checksum across unrelated main-course
+expansion before, during and after publication, while rejecting duplicate/moved
+finite placements and extra pilot items. Quality-loader tests cover invalid
+scopes, course/cursor intersections, terminal pages and unchanged global reporting.
 The CLI parser is tested without constructing Prisma, including malformed and
 conflicting flags; subprocess checks also confirm early CLI failure. Existing quality-loader tests remain the separate
 coverage of its database projection/pagination. No PostgreSQL/network/browser
@@ -181,6 +199,6 @@ dependencies, educational content, copyrighted assets or source-license changes
 are introduced.
 
 ```sh
-npm exec -- vitest run packages/db/test/foundation-pilot.test.ts packages/db/test/foundation-pilot-publication.test.ts --no-cache --no-fsModuleCache --configLoader runner --maxWorkers=2
+npm exec -- vitest run packages/db/test/foundation-pilot.test.ts packages/db/test/foundation-pilot-publication.test.ts packages/db/test/content-quality-report.test.ts packages/db/test/content-quality.test.ts --no-cache --no-fsModuleCache --configLoader runner --maxWorkers=2
 npm exec -- tsc -p packages/db/tsconfig.json --noEmit --incremental false
 ```

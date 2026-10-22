@@ -25,6 +25,8 @@ export type ContentQualityPageOptions = {
   readonly limit?: number;
   readonly code?: ContentQualityIssueCode;
   readonly courseSlug?: string;
+  /** Internal finite-publication scope; public reports remain unfiltered by default. */
+  readonly itemIds?: readonly string[];
 };
 
 const SOURCE_INCLUDE = {
@@ -39,6 +41,20 @@ export async function loadContentQualityItems(
   const limit = options.limit ?? 50;
   if (!Number.isInteger(limit) || limit < 1 || limit > 100)
     throw new Error("Content quality page limit must be between 1 and 100.");
+  const itemIds = options.itemIds;
+  if (
+    itemIds !== undefined &&
+    (!Array.isArray(itemIds) ||
+      itemIds.length < 1 ||
+      itemIds.length > 100 ||
+      Array.from(itemIds).some(
+        (id) =>
+          typeof id !== "string" ||
+          !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/iu.test(id),
+      ) ||
+      new Set(itemIds.map((id) => id.toLowerCase())).size !== itemIds.length)
+  )
+    throw new Error("Content quality itemIds must contain 1 to 100 unique UUIDs.");
   const courseSlug = options.courseSlug ?? "japanese-ru-n2";
   const placements = {
     where: { courseLevel: { course: { slug: courseSlug } } },
@@ -49,7 +65,14 @@ export async function loadContentQualityItems(
     where: {
       status: "PUBLISHED",
       courseLevelItems: { some: { courseLevel: { course: { slug: courseSlug } } } },
-      ...(options.cursor === undefined ? {} : { id: { gt: options.cursor } }),
+      ...(itemIds === undefined && options.cursor === undefined
+        ? {}
+        : {
+            id: {
+              ...(itemIds === undefined ? {} : { in: [...itemIds] }),
+              ...(options.cursor === undefined ? {} : { gt: options.cursor }),
+            },
+          }),
     },
     take: limit,
     orderBy: { id: "asc" },

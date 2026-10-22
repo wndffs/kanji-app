@@ -315,7 +315,19 @@ export async function planFoundationPilot(db: PilotReader, options: FoundationPi
     }
   const { targetIds, wordEvidence } = await resolveTargets(db, manifest);
   const placements = await db.courseLevelItem.findMany({
-    where: { courseLevel: { courseId: sourceCourse.id } },
+    where: {
+      courseLevel: { courseId: sourceCourse.id },
+      learningItem: {
+        OR: (["COMPONENT", "KANJI", "WORD"] as const).map((targetType) => ({
+          targetType,
+          targetId: {
+            in: manifest.targets
+              .filter((target) => target.kind === targetType)
+              .map((target) => targetIds.get(target.key)!),
+          },
+        })),
+      },
+    },
     take: 101,
     orderBy: { id: "asc" },
     select: {
@@ -344,7 +356,7 @@ export async function planFoundationPilot(db: PilotReader, options: FoundationPi
   });
   if (placements.length !== 100)
     throw new Error(
-      "Pilot requires exactly 100 main-course placements, with no hidden extra items.",
+      "Pilot requires exactly 100 main-course placements for its registered targets.",
     );
   const byTarget = new Map(
     placements.map((placement) => [
@@ -644,6 +656,7 @@ async function scanQuality(
   expected: readonly { learningItemId: string; kind: string; answers: PilotTarget["answers"] }[],
 ) {
   const byId = new Map(expected.map((item) => [item.learningItemId, item]));
+  const itemIds = [...byId.keys()];
   const found = new Set<string>();
   const items: unknown[] = [];
   let cursor: string | undefined;
@@ -651,6 +664,7 @@ async function scanQuality(
     const page = await loadContentQualityItems(db, {
       courseSlug,
       limit: 100,
+      itemIds,
       ...(cursor === undefined ? {} : { cursor }),
     });
     if (page.length > 100) throw new Error("Quality loader exceeded bounded page size.");

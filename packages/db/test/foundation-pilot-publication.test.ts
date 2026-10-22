@@ -29,6 +29,10 @@ describe("finite pilot publication", () => {
   it("plans read-only, checks all 100 items and reads the terminal bounded quality page", async () => {
     const fixture = harness();
     const plan = await planFoundationPilot(fixture.db, { manifest: fixture.manifest });
+    // Captured before query scoping: the original finite payload must retain its hash.
+    expect(plan.contentVersion).toBe(
+      "a0f4dfb958915787d304708a329cd540d9b3fbaae29c5ad5172770bef28c3e7d",
+    );
     expect(plan.items).toHaveLength(100);
     expect(plan.sourceChecksums).toHaveLength(3);
     expect(plan.contentVersion).toMatch(/^[a-f0-9]{64}$/u);
@@ -37,13 +41,75 @@ describe("finite pilot publication", () => {
     expect(loadContentQualityItems).toHaveBeenNthCalledWith(1, fixture.db, {
       courseSlug: "japanese-ru-n2",
       limit: 100,
+      itemIds: plan.items.map((item) => item.learningItemId),
     });
     expect(loadContentQualityItems).toHaveBeenNthCalledWith(2, fixture.db, {
       courseSlug: "japanese-ru-n2",
       limit: 100,
+      itemIds: plan.items.map((item) => item.learningItemId),
       cursor: fixture.quality.at(-1)!.id,
     });
+    expect(vi.mocked(fixture.db.courseLevelItem.findMany).mock.calls[0]?.[0]).toMatchObject({
+      where: {
+        courseLevel: { courseId: "main" },
+        learningItem: {
+          OR: (["COMPONENT", "KANJI", "WORD"] as const).map((targetType) => ({
+            targetType,
+            targetId: {
+              in: plan.items
+                .filter((item) => item.kind === targetType)
+                .map((item) => item.targetId),
+            },
+          })),
+        },
+      },
+      take: 101,
+    });
   });
+
+  it.each(["before publication", "after publication", "during preflight"])(
+    "ignores unrelated main expansion %s without changing the frozen version or membership",
+    async (when) => {
+      const fixture = harness();
+      const baseline = await planFoundationPilot(fixture.db, { manifest: fixture.manifest });
+      const first =
+        when === "after publication"
+          ? await publishFoundationPilot(fixture.db, { manifest: fixture.manifest })
+          : null;
+      const identities = fixture.identities();
+      if (when === "during preflight")
+        fixture.beforeTransaction = () => addUnrelatedMainItems(fixture);
+      else addUnrelatedMainItems(fixture);
+      const result = await publishFoundationPilot(fixture.db, { manifest: fixture.manifest });
+      expect(result.contentVersion).toBe(baseline.contentVersion);
+      expect(result.counts).toEqual({
+        components: 40,
+        kanji: 40,
+        words: 20,
+        items: 100,
+        cards: 160,
+      });
+      expect(fixture.pilotPlacements("main")).toHaveLength(120);
+      expect(
+        new Set(fixture.pilotPlacements(result.courseId).map((row) => row.learningItemId)),
+      ).toEqual(new Set(baseline.items.map((item) => item.learningItemId)));
+      expect(
+        [...fixture.state.levels.values()].filter((level) => level.courseId === result.courseId),
+      ).toHaveLength(5);
+      if (first !== null) {
+        expect(result).toEqual(first);
+        expect(fixture.identities().courses).toEqual(identities.courses);
+        expect(fixture.identities().levels).toEqual(identities.levels);
+        expect(fixture.identities().records).toEqual(identities.records);
+        expect(fixture.identities().runs).toEqual(identities.runs);
+      }
+      for (const [, options] of vi.mocked(loadContentQualityItems).mock.calls) {
+        expect(options?.itemIds).toEqual(baseline.items.map((item) => item.learningItemId));
+        expect(options?.limit).toBe(100);
+      }
+      expect(fixture.forbidden).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([0, 1, 2])(
     "blocks unreviewed source %i before reading or mutating the database",
@@ -100,21 +166,24 @@ describe("finite pilot publication", () => {
     expect(fixture.mutations).toEqual([]);
   });
 
-  it.each(["missing", "extra", "draft", "wrong-slot"])(
+  it.each(["missing", "duplicate", "duplicate-and-missing", "draft", "wrong-slot", "wrong-level"])(
     "rejects %s main-course placements",
     async (condition) => {
       const fixture = harness();
       const first = [...fixture.state.placements.values()][0]!;
       if (condition === "missing") fixture.state.placements.delete(first.id);
-      if (condition === "extra")
+      if (condition === "duplicate" || condition === "duplicate-and-missing")
         fixture.state.placements.set("extra", {
           ...first,
           id: "extra",
-          learningItemId: "unregistered",
+          courseLevelId: "main-level-60",
         });
+      if (condition === "duplicate-and-missing")
+        fixture.state.placements.delete([...fixture.state.placements.keys()][1]!);
       if (condition === "draft")
         fixture.state.items.get(String(first.learningItemId))!.status = "DRAFT";
       if (condition === "wrong-slot") first.sortOrder = 99;
+      if (condition === "wrong-level") first.courseLevelId = "main-level-60";
       await expect(
         publishFoundationPilot(fixture.db, { manifest: fixture.manifest }),
       ).rejects.toThrow();
@@ -180,6 +249,18 @@ describe("finite pilot publication", () => {
       publishFoundationPilot(fixture.db, { manifest: fixture.manifest }),
     ).rejects.toThrow("unexpected");
     expect(loadContentQualityItems).toHaveBeenCalledTimes(2);
+    expect(fixture.mutations).toEqual([]);
+  });
+
+  it("rejects an oversized scoped quality page without publication writes", async () => {
+    const fixture = harness();
+    vi.mocked(loadContentQualityItems).mockResolvedValueOnce([
+      ...fixture.quality,
+      fixture.quality[0]!,
+    ]);
+    await expect(
+      publishFoundationPilot(fixture.db, { manifest: fixture.manifest }),
+    ).rejects.toThrow("exceeded bounded page size");
     expect(fixture.mutations).toEqual([]);
   });
 
@@ -337,6 +418,7 @@ describe("finite pilot publication", () => {
   it("rejects replacement LearningItem IDs even when target, cards and prerequisites remain equivalent", async () => {
     const fixture = harness();
     await publishFoundationPilot(fixture.db, { manifest: fixture.manifest });
+    addUnrelatedMainItems(fixture);
     const originalId = fixture.quality[0]!.id;
     const replacementId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
     const original = fixture.state.items.get(originalId)!;
@@ -396,12 +478,14 @@ describe("finite pilot publication", () => {
       const fixture = harness();
       const published = await publishFoundationPilot(fixture.db, { manifest: fixture.manifest });
       const placement = fixture.pilotPlacements(published.courseId)[0]!;
-      if (condition === "extra")
+      if (condition === "extra") {
+        addUnrelatedMainItems(fixture);
         fixture.state.placements.set("extra", {
           ...placement,
           id: "extra",
-          learningItemId: "foreign-item",
+          learningItemId: "10000000-0000-4000-8000-000000000001",
         });
+      }
       if (condition === "move") placement.sortOrder = 99;
       if (condition === "missing") fixture.state.placements.delete(placement.id);
       if (condition === "hash")
@@ -513,6 +597,39 @@ describe("finite pilot publication", () => {
 });
 
 type Row = Record<string, unknown> & { id: string };
+function addUnrelatedMainItems(fixture: ReturnType<typeof harness>) {
+  const component = [...fixture.state.items.values()].find((item) => item.kind === "COMPONENT")!;
+  for (let index = 0; index < 20; index++) {
+    const id = `10000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`;
+    fixture.state.items.set(id, {
+      id,
+      kind: "WORD",
+      targetType: "WORD",
+      // A different target type with the same UUID must not match the component target set.
+      targetId: index === 0 ? component.targetId : `unrelated-word-${index}`,
+      status: "PUBLISHED",
+      dependencies: [],
+      hints: [],
+    });
+    fixture.state.placements.set(`a-extra-main-${index}`, {
+      id: `a-extra-main-${index}`,
+      learningItemId: id,
+      courseLevelId: "main-level-5",
+      sortOrder: 21 + index,
+      unlockPolicyJson: null,
+    });
+    fixture.quality.push({
+      ...fixture.quality[0]!,
+      id,
+      kind: "WORD",
+      targetType: "WORD",
+      cards: [],
+      hasExample: false,
+    });
+  }
+  fixture.quality.sort((a, b) => a.id.localeCompare(b.id));
+}
+
 function unorderedContentFixture() {
   const fixture = harness();
   for (let index = 0; index < fixture.quality.length; index++) {
@@ -858,7 +975,9 @@ function harness() {
   };
   vi.mocked(loadContentQualityItems).mockImplementation(async (_db, options) => {
     const rows = quality.filter(
-      (item) => options?.cursor === undefined || item.id > options.cursor,
+      (item) =>
+        (options?.itemIds === undefined || options.itemIds.includes(item.id)) &&
+        (options?.cursor === undefined || item.id > options.cursor),
     );
     if (options?.cursor !== undefined && fixture.extraQuality)
       return [{ ...quality[0]!, id: "ffffffff-ffff-4fff-8fff-ffffffffffff" }];
@@ -902,9 +1021,32 @@ function harness() {
     },
     courseLevelItem: {
       findMany: vi.fn(
-        async ({ where, take }: { where: { courseLevel: { courseId: string } }; take: number }) =>
+        async ({
+          where,
+          take,
+        }: {
+          where: {
+            courseLevel: { courseId: string };
+            learningItem?: {
+              OR: readonly { targetType: string; targetId: { in: readonly string[] } }[];
+            };
+          };
+          take: number;
+        }) =>
           fixture
             .pilotPlacements(where.courseLevel.courseId)
+            .filter((row) => {
+              if (where.learningItem === undefined) return true;
+              const item = state.items.get(String(row.learningItemId));
+              return (
+                item !== undefined &&
+                where.learningItem.OR.some(
+                  (filter) =>
+                    item.targetType === filter.targetType &&
+                    filter.targetId.in.includes(String(item.targetId)),
+                )
+              );
+            })
             .sort((a, b) => a.id.localeCompare(b.id))
             .slice(0, take)
             .map((row) => ({

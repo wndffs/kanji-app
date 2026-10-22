@@ -3,12 +3,14 @@ import type { Prisma } from "@prisma/client";
 import {
   collectContentQualityReport,
   getContentQualityPage,
+  loadContentQualityItems,
   type ContentQualityDatabase,
 } from "../src/content-quality-report";
 
 function databaseFixture(count: number) {
   const rows = Array.from({ length: count }, (_, index) => ({
     id: `00000000-0000-0000-0000-${String(index + 1).padStart(12, "0")}`,
+    courseSlug: "japanese-ru-n2",
     targetId: `component-${index}`,
     kind: "COMPONENT",
     targetType: "COMPONENT",
@@ -21,10 +23,22 @@ function databaseFixture(count: number) {
       { sortOrder: index + 1, courseLevel: { levelNumber: 1, band: "FOUNDATION" } },
     ],
   }));
-  const findMany = vi.fn(async (args: { take: number; where: { id?: { gt: string } } }) =>
-    rows
-      .filter((row) => args.where.id === undefined || row.id > args.where.id.gt)
-      .slice(0, args.take),
+  const findMany = vi.fn(
+    async (args: {
+      take: number;
+      where: {
+        id?: { gt?: string; in?: readonly string[] };
+        courseLevelItems: { some: { courseLevel: { course: { slug: string } } } };
+      };
+    }) =>
+      rows
+        .filter(
+          (row) =>
+            row.courseSlug === args.where.courseLevelItems.some.courseLevel.course.slug &&
+            (args.where.id?.in === undefined || args.where.id.in.includes(row.id)) &&
+            (args.where.id?.gt === undefined || row.id > args.where.id.gt),
+        )
+        .slice(0, args.take),
   );
   const db = {
     learningItem: { findMany },
@@ -50,6 +64,86 @@ function databaseFixture(count: number) {
 }
 
 describe("bounded content-quality reporting", () => {
+  it("intersects internal item IDs with the course and keyset cursor without changing the default report", async () => {
+    const { db, rows, findMany } = databaseFixture(201);
+    const itemIds = rows
+      .slice(0, 200)
+      .filter((_, index) => index % 2 === 0)
+      .map((row) => row.id);
+    const first = await getContentQualityPage(db, { itemIds, limit: 100 });
+    expect(first.scannedItems).toBe(100);
+    expect(first.nextCursor).toBe(itemIds.at(-1));
+    const terminal = await getContentQualityPage(db, {
+      itemIds,
+      limit: 100,
+      cursor: first.nextCursor!,
+    });
+    expect(terminal.scannedItems).toBe(0);
+    expect(terminal.nextCursor).toBeNull();
+    expect(findMany.mock.calls[0]?.[0]).toMatchObject({
+      take: 100,
+      where: {
+        status: "PUBLISHED",
+        id: { in: itemIds },
+        courseLevelItems: { some: { courseLevel: { course: { slug: "japanese-ru-n2" } } } },
+      },
+    });
+    expect(findMany.mock.calls[1]?.[0].where.id).toEqual({ in: itemIds, gt: first.nextCursor });
+    findMany.mockClear();
+    expect((await collectContentQualityReport(db)).scannedItems).toBe(201);
+    expect(findMany.mock.calls[0]?.[0].where).not.toHaveProperty("id");
+    expect(findMany.mock.calls.map(([args]) => args.take)).toEqual([100, 100, 100]);
+  });
+
+  it("never returns a requested ID from another course or at/before the cursor", async () => {
+    const { db, rows, findMany } = databaseFixture(3);
+    rows[0]!.courseSlug = "finite-pilot";
+    rows[1]!.courseSlug = "finite-pilot";
+    const itemIds = rows.map((row) => row.id);
+    const result = await loadContentQualityItems(db, {
+      courseSlug: "finite-pilot",
+      itemIds,
+      cursor: rows[0]!.id,
+      limit: 100,
+    });
+    expect(result.map((item) => item.id)).toEqual([rows[1]!.id]);
+    expect(findMany.mock.calls[0]?.[0].where).toMatchObject({
+      id: { in: itemIds, gt: rows[0]!.id },
+      courseLevelItems: { some: { courseLevel: { course: { slug: "finite-pilot" } } } },
+    });
+  });
+
+  it.each([
+    { name: "empty", itemIds: [] },
+    { name: "null", itemIds: null },
+    { name: "not an array", itemIds: "00000000-0000-0000-0000-000000000001" },
+    { name: "empty ID", itemIds: [""] },
+    { name: "whitespace", itemIds: [" "] },
+    { name: "malformed UUID", itemIds: ["item-1"] },
+    { name: "wrong type", itemIds: [123] },
+    { name: "sparse array", itemIds: Array(1) },
+    { name: "duplicate", itemIds: Array(2).fill("00000000-0000-0000-0000-000000000001") },
+    {
+      name: "case-equivalent duplicate",
+      itemIds: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA"],
+    },
+    {
+      name: "101 unique IDs",
+      itemIds: Array.from(
+        { length: 101 },
+        (_, index) => `00000000-0000-0000-0000-${String(index + 1).padStart(12, "0")}`,
+      ),
+    },
+  ])("rejects $name itemIds before any database read", async ({ itemIds }) => {
+    const { db, findMany } = databaseFixture(1);
+    await expect(
+      loadContentQualityItems(db, { itemIds: itemIds as readonly string[] }),
+    ).rejects.toThrow("1 to 100 unique UUIDs");
+    expect(findMany).not.toHaveBeenCalled();
+    expect(db.component.findMany).not.toHaveBeenCalled();
+    expect(db.$queryRaw).not.toHaveBeenCalled();
+  });
+
   it("uses direct word-example aggregates without loading sentence LearningItems or unbounded reverse dependencies", async () => {
     const { db, rows, findMany } = databaseFixture(1);
     Object.assign(rows[0], {
