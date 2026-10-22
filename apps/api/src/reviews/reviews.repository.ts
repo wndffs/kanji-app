@@ -1,4 +1,10 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 
 import { parseCourseLevelPassPolicy, Prisma, type CourseLevelPassPolicy } from "@kanji-srs/db";
 import {
@@ -21,6 +27,7 @@ import {
   type FinishedReviewSessionRecord,
   type PracticeSessionRecord,
   type RecordReviewAnswerInput,
+  type RecordReviewCorrectionInput,
   type ReviewAnswerRecord,
   type ReviewAnswerTargetRecord,
   type ReviewBlockedAnswerRecord,
@@ -28,10 +35,18 @@ import {
   type ReviewQueueRecord,
   type ResumablePracticeSource,
   type ReviewSessionRecord,
+  type ReviewSessionProgressRecord,
+  type ScheduledReviewAnswerRecord,
   type ReviewSrsStateRecord,
   type ReviewTargetRecord,
   type UpdatePracticeSessionProgressInput,
 } from "./reviews.types";
+import {
+  createScheduledReviewState,
+  getPendingReviewCardIds,
+  MAX_SCHEDULED_REVIEW_CARDS,
+  parseScheduledReviewState,
+} from "./review-session-state";
 
 export abstract class ReviewsRepository {
   abstract listDueReviewCards(
@@ -78,6 +93,19 @@ export abstract class ReviewsRepository {
     now: Date,
   ): Promise<PracticeSessionRecord | null>;
   abstract createReviewSession(userId: string, now: Date): Promise<ReviewSessionRecord>;
+  abstract startScheduledReviewSession(
+    userId: string,
+    now: Date,
+    cardIds: readonly string[],
+  ): Promise<ReviewSessionProgressRecord & { readonly resumed: boolean }>;
+  abstract findActiveReviewSession(userId: string): Promise<ReviewSessionProgressRecord | null>;
+  abstract findReviewSessionProgress(
+    userId: string,
+    sessionId: string,
+  ): Promise<ReviewSessionProgressRecord | null>;
+  abstract recordReviewCorrection(
+    input: RecordReviewCorrectionInput,
+  ): Promise<ReviewSessionProgressRecord>;
   abstract findAnswerTarget(
     userId: string,
     sessionId: string,
@@ -167,6 +195,7 @@ type ReviewAnswerWithStateRow = {
 };
 
 type ReviewAnswerSummaryRow = {
+  readonly learningCardId: string;
   readonly result: string;
   readonly previousStageIndex: number | null;
   readonly nextStageIndex: number | null;
@@ -583,6 +612,150 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     return toSessionRecord(session);
   }
 
+  async startScheduledReviewSession(
+    userId: string,
+    now: Date,
+    cardIds: readonly string[],
+  ): Promise<ReviewSessionProgressRecord & { readonly resumed: boolean }> {
+    const state = createScheduledReviewState(cardIds);
+    return this.runReviewTransaction(async (tx) => {
+      // Serialize starts by owner; READ COMMITTED sees a session created while waiting for this lock.
+      const owners = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "User" WHERE id = ${userId}::uuid FOR UPDATE
+      `;
+      if (owners.length === 0) throw new NotFoundException("Пользователь не найден.");
+      const active = await this.findResumableSession(tx, userId);
+      if (active !== null) {
+        return { ...(await this.readReviewProgress(tx, active)), resumed: true };
+      }
+      if (cardIds.length === 0) {
+        throw new BadRequestException("Сейчас нет карточек для планового повторения.");
+      }
+      const dueCount = await tx.userSrsState.count({
+        where: {
+          userId,
+          learningCardId: { in: [...cardIds] },
+          burnedAt: null,
+          availableAt: { lte: now },
+        },
+      });
+      if (dueCount !== cardIds.length) {
+        throw new ConflictException("Очередь повторений изменилась. Обновите страницу.");
+      }
+      const session = await tx.reviewSession.create({
+        data: {
+          userId,
+          startedAt: now,
+          mode: "REVIEW",
+          statsJson: { ...state } as Prisma.InputJsonObject,
+        },
+      });
+      return { session: toSessionRecord(session), answers: [], resumed: false };
+    }, "ReadCommitted");
+  }
+
+  async findActiveReviewSession(userId: string): Promise<ReviewSessionProgressRecord | null> {
+    return this.runReviewTransaction(async (tx) => {
+      const session = await this.findResumableSession(tx, userId);
+      return session === null ? null : this.readReviewProgress(tx, session);
+    });
+  }
+
+  async findReviewSessionProgress(
+    userId: string,
+    sessionId: string,
+  ): Promise<ReviewSessionProgressRecord | null> {
+    return this.runReviewTransaction(async (tx) => {
+      const session = await tx.reviewSession.findFirst({
+        where: { id: sessionId, userId, mode: "REVIEW" },
+      });
+      return session === null ? null : this.readReviewProgress(tx, session);
+    });
+  }
+
+  async recordReviewCorrection(
+    input: RecordReviewCorrectionInput,
+  ): Promise<ReviewSessionProgressRecord> {
+    return this.runReviewTransaction(async (tx) => {
+      const session = await tx.reviewSession.findFirst({
+        where: { id: input.sessionId, userId: input.userId, mode: "REVIEW" },
+      });
+      if (session === null) throw new NotFoundException("Сессия повторений не найдена.");
+      const record = await this.readReviewProgress(tx, session);
+      const state = record.session.reviewState;
+      if (
+        !state ||
+        !state.scheduledCardIds.includes(input.cardId) ||
+        !record.answers.some(
+          (answer) =>
+            answer.cardId === input.cardId &&
+            (answer.result === "wrong" || answer.result === "reveal"),
+        )
+      )
+        throw new NotFoundException("Карточка исправления не найдена в этой сессии.");
+      if (state.correctedCardIds.includes(input.cardId)) return record;
+      if (session.finishedAt !== null)
+        throw new NotFoundException("Активная сессия повторений не найдена.");
+      const nextState = { ...state, correctedCardIds: [...state.correctedCardIds, input.cardId] };
+      const updated = await tx.reviewSession.updateMany({
+        where: {
+          id: input.sessionId,
+          userId: input.userId,
+          mode: "REVIEW",
+          finishedAt: null,
+          statsJson: { equals: { ...input.expectedState } as Prisma.InputJsonObject },
+        },
+        data: { statsJson: { ...nextState } as Prisma.InputJsonObject },
+      });
+      if (updated.count === 0)
+        throw new ConflictException("Прогресс исправлений изменился. Обновите сессию.");
+      return { ...record, session: { ...record.session, reviewState: nextState } };
+    });
+  }
+
+  private findResumableSession(tx: Prisma.TransactionClient, userId: string) {
+    return tx.reviewSession.findFirst({
+      where: {
+        userId,
+        mode: "REVIEW",
+        finishedAt: null,
+        statsJson: { path: ["reviewVersion"], equals: 1 },
+      },
+      orderBy: [{ startedAt: "desc" }, { id: "desc" }],
+    });
+  }
+
+  private async readReviewProgress(
+    tx: Prisma.TransactionClient,
+    session: ReviewSessionRow,
+  ): Promise<ReviewSessionProgressRecord> {
+    const rows = await tx.reviewAnswer.findMany({
+      where: { reviewSessionId: session.id, userSrsState: { userId: session.userId } },
+      select: {
+        learningCardId: true,
+        result: true,
+        previousStageIndex: true,
+        nextStageIndex: true,
+        detailsJson: true,
+      },
+      orderBy: [{ answeredAt: "asc" }, { id: "asc" }],
+      take: MAX_SCHEDULED_REVIEW_CARDS + 1,
+    });
+    const answers: ScheduledReviewAnswerRecord[] = rows.map((answer) => ({
+      cardId: answer.learningCardId,
+      result: toSrsReviewResult(answer.result),
+      srsTransition: toPersistedSrsTransition(answer),
+    }));
+    const record = { session: toSessionRecord(session), answers };
+    if (answers.length > MAX_SCHEDULED_REVIEW_CARDS) {
+      throw new ConflictException("Сессия превышает допустимый размер.");
+    }
+    if (record.session.reviewState) {
+      getPendingReviewCardIds(record.session.reviewState, answers);
+    }
+    return record;
+  }
+
   async findAnswerTarget(
     userId: string,
     sessionId: string,
@@ -601,6 +774,9 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     if (session === null) {
       return null;
     }
+
+    const reviewState = parseScheduledReviewState(session.statsJson);
+    if (reviewState !== null && !reviewState.scheduledCardIds.includes(cardId)) return null;
 
     const state = (await this.prisma.db.userSrsState.findFirst({
       where: {
@@ -657,11 +833,16 @@ export class PrismaReviewsRepository extends ReviewsRepository {
           mode: "REVIEW",
           finishedAt: null,
         },
-        select: { id: true },
+        select: { id: true, statsJson: true },
       });
 
       if (session === null) {
         throw new NotFoundException("Active review session not found.");
+      }
+
+      const reviewState = parseScheduledReviewState(session.statsJson);
+      if (reviewState !== null && !reviewState.scheduledCardIds.includes(input.cardId)) {
+        throw new NotFoundException("Карточка не входит в эту сессию повторений.");
       }
 
       const existingAnswer = await tx.reviewAnswer.findFirst({
@@ -746,16 +927,32 @@ export class PrismaReviewsRepository extends ReviewsRepository {
         return null;
       }
 
+      const reviewState = parseScheduledReviewState(session.statsJson);
       const answers = (await tx.reviewAnswer.findMany({
-        where: { reviewSessionId: sessionId },
+        where: { reviewSessionId: sessionId, userSrsState: { userId } },
         select: {
+          learningCardId: true,
           result: true,
           previousStageIndex: true,
           nextStageIndex: true,
           detailsJson: true,
         },
         orderBy: [{ answeredAt: "asc" }, { id: "asc" }],
+        ...(reviewState === null ? {} : { take: MAX_SCHEDULED_REVIEW_CARDS + 1 }),
       })) as readonly ReviewAnswerSummaryRow[];
+      if (reviewState !== null) {
+        const pending = getPendingReviewCardIds(
+          reviewState,
+          answers.map((answer) => ({
+            cardId: answer.learningCardId,
+            result: toSrsReviewResult(answer.result),
+            srsTransition: toPersistedSrsTransition(answer),
+          })),
+        );
+        if (pending.scheduled.length > 0 || pending.corrections.length > 0) {
+          throw new ConflictException("В сессии остались повторения или неисправленные ошибки.");
+        }
+      }
       const summary = buildReviewSessionSummary({
         answers: answers.map((answer) => ({
           result: toSrsReviewResult(answer.result),
@@ -773,7 +970,10 @@ export class PrismaReviewsRepository extends ReviewsRepository {
         },
         data: {
           finishedAt: now,
-          statsJson: { ...summary } as Prisma.InputJsonObject,
+          statsJson:
+            reviewState === null
+              ? ({ ...summary } as Prisma.InputJsonObject)
+              : ({ ...reviewState, summary: { ...summary } } as Prisma.InputJsonObject),
         },
       });
 
@@ -790,9 +990,10 @@ export class PrismaReviewsRepository extends ReviewsRepository {
 
   private async runReviewTransaction<T>(
     callback: (tx: Prisma.TransactionClient) => Promise<T>,
+    isolationLevel: Prisma.TransactionIsolationLevel = "Serializable",
   ): Promise<T> {
     try {
-      return await this.prisma.db.$transaction(callback, { isolationLevel: "Serializable" });
+      return await this.prisma.db.$transaction(callback, { isolationLevel });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
         throw new ConflictException("Review progress changed. Reload the session.");
@@ -1289,6 +1490,7 @@ function toSessionRecord(row: ReviewSessionRow): ReviewSessionRecord {
     startedAt: row.startedAt,
     finishedAt: row.finishedAt,
     mode: toSessionMode(row.mode),
+    ...(row.mode === "REVIEW" ? { reviewState: parseScheduledReviewState(row.statsJson) } : {}),
   };
 }
 

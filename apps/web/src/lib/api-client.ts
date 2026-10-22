@@ -41,6 +41,10 @@ import {
   type ActiveLessonSessionResponse,
   type ActiveConfusablePracticeSessionResponse,
   type ActivePracticeSessionResponse,
+  type ActiveReviewSessionResponse,
+  type ReviewCorrectionRequest,
+  type ReviewCorrectionResponse,
+  type ReviewSessionProgressDto,
   type AppLocale,
   type CardAnswerType,
   type CharacterHubResponseDto,
@@ -158,6 +162,11 @@ export type ReviewSessionDto = {
 
 export type StartReviewSessionResponse = {
   readonly session: ReviewSessionDto;
+  readonly items?: readonly ReviewQueueItem[];
+  readonly currentIndex?: number;
+  readonly corrections?: readonly ReviewQueueItem[];
+  readonly progress?: ReviewSessionProgressDto;
+  readonly resumed?: boolean;
 };
 
 export type FinishReviewSessionResponse = {
@@ -888,6 +897,25 @@ export function abandonLessonSession(
 
 export function getReviewQueue(token: string): Promise<ReviewQueueResponse> {
   return apiRequest<ReviewQueueResponse>("/reviews/queue", { token });
+}
+
+export function getActiveReviewSession(token: string): Promise<ActiveReviewSessionResponse> {
+  return apiRequest<ActiveReviewSessionResponse>("/reviews/active", { token });
+}
+
+export function submitReviewCorrection(
+  token: string,
+  sessionId: string,
+  request: ReviewCorrectionRequest,
+): Promise<ReviewCorrectionResponse> {
+  return apiRequest<ReviewCorrectionResponse>(
+    `/reviews/${encodeURIComponent(sessionId)}/correction`,
+    {
+      method: "POST",
+      token,
+      body: request,
+    },
+  );
 }
 
 export function getPracticeQueue(

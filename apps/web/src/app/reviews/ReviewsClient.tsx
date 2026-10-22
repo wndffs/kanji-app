@@ -19,6 +19,8 @@ import {
   type LocalizedTextDto,
   type ListeningPlaybackEvidenceDto,
   type ReviewAnswerResponse,
+  type ReviewCorrectionResponse,
+  type ReviewSessionProgressDto,
   type ReviewOrderMode,
   type ReviewQueueItem,
   type ReviewSessionSummaryDto,
@@ -32,9 +34,11 @@ import {
   ApiError,
   addPrivateAcceptedAnswer,
   finishReviewSession,
+  getActiveReviewSession,
   getReviewQueue,
   startReviewSession,
   submitReviewAnswer,
+  submitReviewCorrection,
   updateUserSettings,
   type ReviewSessionDto,
 } from "../../lib/api-client";
@@ -75,7 +79,14 @@ export function ReviewsClient() {
   const [session, setSession] = useState<ReviewSessionDto | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answer, setAnswer] = useState("");
-  const [feedback, setFeedback] = useState<ReviewAnswerResponse | null>(null);
+  const [feedback, setFeedback] = useState<ReviewAnswerResponse | ReviewCorrectionResponse | null>(
+    null,
+  );
+  const [corrections, setCorrections] = useState<readonly ReviewQueueItem[]>([]);
+  const [isCorrecting, setIsCorrecting] = useState(false);
+  const [resumable, setResumable] = useState(false);
+  const [scheduledOffset, setScheduledOffset] = useState(0);
+  const [scheduledTotal, setScheduledTotal] = useState(0);
   const [progress, setProgress] = useState<ReviewProgress>(INITIAL_PROGRESS);
   const [finishedSummary, setFinishedSummary] = useState<ReviewSessionSummaryDto | null>(null);
   const [isStarting, setIsStarting] = useState(false);
@@ -90,8 +101,10 @@ export function ReviewsClient() {
   });
   const answerInputRef = useRef<HTMLInputElement>(null);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
+  const requestRevision = useRef(0);
 
   const loadQueue = useCallback(async () => {
+    const revision = ++requestRevision.current;
     const storedSession = readStoredSession();
 
     if (storedSession === null) {
@@ -106,19 +119,52 @@ export function ReviewsClient() {
     setFeedback(null);
     setProgress(INITIAL_PROGRESS);
     setFinishedSummary(null);
+    setCorrections([]);
+    setIsCorrecting(false);
+    setResumable(false);
+    setScheduledOffset(0);
     setFormError(null);
     setSessionError(null);
 
     try {
-      const queue = await getReviewQueue(storedSession.token);
+      const [queue, savedActive] = await Promise.all([
+        getReviewQueue(storedSession.token),
+        getActiveReviewSession(storedSession.token).catch((error: unknown) => {
+          // Older API deployments have no resumable-session endpoint.
+          if (error instanceof ApiError && error.status === 404) return null;
+          throw error;
+        }),
+      ]);
+      if (revision !== requestRevision.current) return;
+      const active = queue.vacationStartedAt == null ? savedActive : null;
+      if (active?.session !== undefined && active.session !== null && active.progress !== null) {
+        if (active.currentIndex >= active.items.length && active.corrections.length === 0) {
+          const finished = await finishReviewSession(storedSession.token, active.session.id);
+          if (revision !== requestRevision.current) return;
+          setFinishedSummary(finished.summary);
+        } else {
+          const correcting = active.currentIndex >= active.items.length;
+          setSession(active.session);
+          setResumable(true);
+          setCorrections(active.corrections);
+          setIsCorrecting(correcting);
+          setCurrentIndex(correcting ? 0 : active.currentIndex);
+          setProgress(toReviewProgress(active.progress));
+          setScheduledTotal(active.progress.scheduledTotal);
+          setScheduledOffset(active.progress.scheduledAnswered - active.currentIndex);
+        }
+      } else {
+        setScheduledTotal(queue.items.length);
+      }
       setQueueState({
         status: "ready",
         token: storedSession.token,
-        queue: queue.items,
+        queue: active?.session != null ? active.items : queue.items,
         orderMode: queue.orderMode ?? storedSession.user.settings.reviewOrderMode ?? "shuffled",
         vacationStartedAt: queue.vacationStartedAt ?? null,
       });
     } catch (error: unknown) {
+      if (revision !== requestRevision.current) return;
       if (error instanceof ApiError && error.status === 401) {
         clearStoredSession();
         setQueueState({ status: "unauthenticated" });
@@ -135,9 +181,16 @@ export function ReviewsClient() {
 
   useEffect(() => {
     void loadQueue();
+    return () => {
+      requestRevision.current += 1;
+    };
   }, [loadQueue]);
 
-  const activeQueue = queueState.status === "ready" ? queueState.queue : [];
+  const activeQueue = isCorrecting
+    ? corrections
+    : queueState.status === "ready"
+      ? queueState.queue
+      : [];
   const currentItem = session === null ? null : (activeQueue[currentIndex] ?? null);
   const totalCount = activeQueue.length;
   const progressLabel = useMemo(() => {
@@ -145,8 +198,10 @@ export function ReviewsClient() {
       return "";
     }
 
-    return `${currentIndex + 1} из ${totalCount}`;
-  }, [currentIndex, currentItem, totalCount]);
+    return isCorrecting
+      ? `${currentIndex + 1} из ${totalCount}`
+      : `${scheduledOffset + currentIndex + 1} из ${scheduledTotal}`;
+  }, [currentIndex, currentItem, totalCount, isCorrecting, scheduledOffset, scheduledTotal]);
 
   useEffect(() => {
     if (
@@ -162,7 +217,7 @@ export function ReviewsClient() {
 
   useEffect(() => {
     setListeningEvidence({ completed: false, playCount: 0 });
-  }, [currentItem?.card.id]);
+  }, [currentItem?.card.id, isCorrecting, currentIndex]);
 
   useEffect(() => {
     if (feedback !== null) {
@@ -181,11 +236,22 @@ export function ReviewsClient() {
 
     try {
       const response = await startReviewSession(queueState.token);
+      const items = response.items ?? queueState.queue;
+      const index = response.currentIndex ?? 0;
+      const correcting = index >= items.length && (response.corrections?.length ?? 0) > 0;
+      setQueueState({ ...queueState, queue: items });
       setSession(response.session);
-      setCurrentIndex(0);
+      setResumable(response.progress !== undefined);
+      setScheduledTotal(response.progress?.scheduledTotal ?? items.length);
+      setScheduledOffset((response.progress?.scheduledAnswered ?? 0) - index);
+      setCorrections(response.corrections ?? []);
+      setIsCorrecting(correcting);
+      setCurrentIndex(correcting ? 0 : index);
       setAnswer("");
       setFeedback(null);
-      setProgress(INITIAL_PROGRESS);
+      setProgress(
+        response.progress === undefined ? INITIAL_PROGRESS : toReviewProgress(response.progress),
+      );
     } catch (error: unknown) {
       setSessionError(error instanceof Error ? error.message : "Не удалось начать повторение.");
     } finally {
@@ -264,20 +330,23 @@ export function ReviewsClient() {
     setIsSubmitting(true);
 
     try {
-      const response = await submitReviewAnswer(queueState.token, session.id, {
+      const request = {
         cardId: currentItem.card.id,
         answer: trimmedAnswer,
         answerType: currentItem.card.answerType,
         answeredAt: new Date().toISOString(),
         listeningEvidence:
           currentItem.card.promptType === "listening" ? listeningEvidence : undefined,
-      });
+      };
+      const response = isCorrecting
+        ? await submitReviewCorrection(queueState.token, session.id, request)
+        : await submitReviewAnswer(queueState.token, session.id, request);
 
       if (!response.retry) {
         playAnswerSound(response.accepted);
       }
       setFeedback(response);
-      if (!response.retry) {
+      if (!response.retry && !isCorrecting) {
         setProgress((previous) => ({
           answered: previous.answered + 1,
           accepted: previous.accepted + (response.accepted ? 1 : 0),
@@ -300,14 +369,14 @@ export function ReviewsClient() {
     const nextIndex = currentIndex + 1;
     setSessionError(null);
 
-    if (feedback.retry) {
+    if (feedback.retry || ("corrected" in feedback && !feedback.corrected)) {
       setAnswer("");
       setFeedback(null);
       setFormError(null);
       return;
     }
 
-    if (nextIndex < queueState.queue.length) {
+    if (nextIndex < activeQueue.length) {
       setCurrentIndex(nextIndex);
       setAnswer("");
       setFeedback(null);
@@ -318,6 +387,23 @@ export function ReviewsClient() {
     setIsContinuing(true);
 
     try {
+      if (resumable && !isCorrecting) {
+        const active = await getActiveReviewSession(queueState.token);
+        if (active.session?.id !== session.id) {
+          throw new Error(
+            "Сессия изменилась. Перезагрузите страницу, чтобы восстановить прогресс.",
+          );
+        }
+        if (active.corrections.length > 0) {
+          setCorrections(active.corrections);
+          setIsCorrecting(true);
+          setCurrentIndex(0);
+          setAnswer("");
+          setFeedback(null);
+          setFormError(null);
+          return;
+        }
+      }
       const response = await finishReviewSession(queueState.token, session.id);
       setFinishedSummary(response.summary);
       setSession(null);
@@ -453,7 +539,7 @@ export function ReviewsClient() {
     );
   }
 
-  if (queueState.queue.length === 0) {
+  if (queueState.queue.length === 0 && !isCorrecting) {
     const vacationActive = queueState.vacationStartedAt !== null;
 
     return (
@@ -544,7 +630,8 @@ export function ReviewsClient() {
       <header className="review-session-header">
         <div>
           <span className="eyebrow">{progressLabel}</span>
-          <h1>Повторение</h1>
+          <h1>{isCorrecting ? "Исправление ошибок" : "Повторение"}</h1>
+          {isCorrecting ? <p className="muted">Без изменения SRS</p> : null}
         </div>
         <div className="review-progress">
           <span>Принято: {progress.accepted}</span>
@@ -587,6 +674,7 @@ export function ReviewsClient() {
         <FeedbackPanel
           answer={answer}
           feedback={feedback}
+          correction={isCorrecting}
           item={currentItem}
           onContinue={() => void handleContinue()}
           continueButtonRef={continueButtonRef}
@@ -662,6 +750,7 @@ function ReviewQueuePreview({ queue }: { readonly queue: readonly ReviewQueueIte
 function FeedbackPanel({
   answer,
   feedback,
+  correction,
   item,
   onContinue,
   continueButtonRef,
@@ -670,7 +759,8 @@ function FeedbackPanel({
   token,
 }: {
   readonly answer: string;
-  readonly feedback: ReviewAnswerResponse;
+  readonly feedback: ReviewAnswerResponse | ReviewCorrectionResponse;
+  readonly correction: boolean;
   readonly item: ReviewQueueItem;
   readonly onContinue: () => void;
   readonly continueButtonRef: RefObject<HTMLButtonElement | null>;
@@ -739,7 +829,11 @@ function FeedbackPanel({
           ref={continueButtonRef}
           type="button"
         >
-          {isContinuing ? "Завершаю..." : feedback.retry ? "Ответить снова" : "Дальше"}
+          {isContinuing
+            ? "Завершаю..."
+            : feedback.retry || (correction && "corrected" in feedback && !feedback.corrected)
+              ? "Ответить снова"
+              : "Дальше"}
         </button>
       </div>
 
@@ -756,17 +850,24 @@ function FeedbackPanel({
             displayMode={displayMode}
           />
         </div>
-        <div>
-          <h3>Изменение SRS</h3>
-          <p>
-            {formatSrsTransition(feedback.srsTransition)} ·{" "}
-            {formatSrsStageName(feedback.previousSrs.stageName)} →{" "}
-            {formatSrsStageName(feedback.nextSrs.stageName)}
-            {feedback.nextSrs.availableAt === null
-              ? ""
-              : ` · ${new Date(feedback.nextSrs.availableAt).toLocaleString("ru-RU")}`}
-          </p>
-        </div>
+        {"srsTransition" in feedback ? (
+          <div>
+            <h3>Изменение SRS</h3>
+            <p>
+              {formatSrsTransition(feedback.srsTransition)} ·{" "}
+              {formatSrsStageName(feedback.previousSrs.stageName)} →{" "}
+              {formatSrsStageName(feedback.nextSrs.stageName)}
+              {feedback.nextSrs.availableAt === null
+                ? ""
+                : ` · ${new Date(feedback.nextSrs.availableAt).toLocaleString("ru-RU")}`}
+            </p>
+          </div>
+        ) : (
+          <div>
+            <h3>SRS</h3>
+            <p>Без изменений</p>
+          </div>
+        )}
       </div>
 
       {item.card.promptType === "listening" && item.card.audio != null ? (
@@ -826,6 +927,14 @@ function FeedbackPanel({
       </form>
     </section>
   );
+}
+
+function toReviewProgress(progress: ReviewSessionProgressDto): ReviewProgress {
+  return {
+    answered: progress.original.totalAnswers,
+    accepted: progress.original.correctAnswers,
+    missed: progress.original.incorrectAnswers,
+  };
 }
 
 function ExpectedAnswers({

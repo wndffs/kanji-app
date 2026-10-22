@@ -24,6 +24,21 @@ export class ReviewsController {
     return this.reviewsService.startSession(currentUser);
   }
 
+  @Get("active")
+  getActiveSession(@CurrentUser() currentUser: CurrentUserDto) {
+    return this.reviewsService.getActiveSession(currentUser);
+  }
+
+  @Post(":sessionId/correction")
+  submitCorrection(
+    @Param("sessionId") sessionId: string,
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Body() body: unknown,
+  ) {
+    this.rateLimitService.assertAllowed("review-answer-user", currentUser.id);
+    return this.reviewsService.submitCorrection(sessionId, currentUser, body);
+  }
+
   @Get("practice/queue")
   getPracticeQueue(
     @CurrentUser() currentUser: CurrentUserDto,

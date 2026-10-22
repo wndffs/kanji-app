@@ -10,6 +10,7 @@ import { calculateNextReview, DEFAULT_SRS_STAGES } from "@kanji-srs/srs";
 import { AppConfigService } from "../src/config/app-config.service";
 import { PrismaService } from "../src/database/prisma.service";
 import { PrismaReviewsRepository } from "../src/reviews/reviews.repository";
+import { createScheduledReviewState } from "../src/reviews/review-session-state";
 import {
   type RecordReviewAnswerInput,
   type ReviewSrsStateRecord,
@@ -218,10 +219,192 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
     });
   });
 
+  it("serializes overlapping starts on the real owner row and reuses one snapshot", async () => {
+    await withFixture(async (fixture) => {
+      const outcomes = await overlap("owner", fixture.userId, [
+        () => writers[0].startScheduledReviewSession(fixture.userId, NOW, [fixture.cardIds[0]]),
+        () => writers[1].startScheduledReviewSession(fixture.userId, NOW, [fixture.cardIds[0]]),
+      ]);
+      expect(outcomes.every((outcome) => outcome.status === "fulfilled")).toBe(true);
+      const started = outcomes.map((outcome) => {
+        if (outcome.status !== "fulfilled") throw outcome.reason;
+        return outcome.value;
+      });
+      expect(started[0]!.session.id).toBe(started[1]!.session.id);
+      expect(started.map((result) => result.resumed).sort()).toEqual([false, true]);
+      expect(
+        await control.db.reviewSession.count({
+          where: {
+            userId: fixture.userId,
+            mode: "REVIEW",
+            finishedAt: null,
+            statsJson: { path: ["reviewVersion"], equals: 1 },
+          },
+        }),
+      ).toBe(1);
+      expect((await writers[1].findActiveReviewSession(fixture.userId))?.session.id).toBe(
+        started[0]!.session.id,
+      );
+      expect(await readState(fixture)).toEqual(fixture.state);
+      expect(await answers(fixture)).toEqual([]);
+    });
+  });
+
+  it("resumes wrong/reveal originals, gates finish and preserves scheduling/history across idempotent correction replay", async () => {
+    await withFixture(async (fixture) => {
+      const state = createScheduledReviewState([fixture.cardIds[0]]);
+      const started = await writers[0].startScheduledReviewSession(
+        fixture.userId,
+        NOW,
+        state.scheduledCardIds,
+      );
+      await expect(
+        writers[1].finishReviewSession(fixture.userId, started.session.id, NOW),
+      ).rejects.toBeInstanceOf(ConflictException);
+      const original = answerInput(fixture, started.session.id, "wrong");
+      await writers[0].recordReviewAnswer({
+        ...original,
+        recordedResult: "reveal",
+        responseResult: "reveal",
+      });
+      const scheduled = await readState(fixture);
+      const history = await answers(fixture);
+      expect(scheduled.availableAt!.getTime()).toBeGreaterThan(NOW.getTime());
+      expect(await writers[1].findActiveReviewSession(fixture.userId)).toMatchObject({
+        session: { id: started.session.id, reviewState: state },
+        answers: [{ cardId: fixture.cardIds[0], result: "reveal" }],
+      });
+      expect(
+        await writers[1].listPracticeCardsByIds(fixture.userId, [fixture.cardIds[0]]),
+      ).toHaveLength(1);
+      await expect(
+        writers[1].finishReviewSession(fixture.userId, started.session.id, NOW),
+      ).rejects.toBeInstanceOf(ConflictException);
+      const input = {
+        userId: fixture.userId,
+        sessionId: started.session.id,
+        cardId: fixture.cardIds[0],
+        expectedState: state,
+      };
+      await writers[0].recordReviewCorrection(input);
+      const finished = await writers[1].finishReviewSession(
+        fixture.userId,
+        started.session.id,
+        NOW,
+      );
+      expect(finished?.summary).toMatchObject({
+        totalAnswers: 1,
+        incorrectAnswers: 1,
+        accuracyPercent: 0,
+      });
+      const replayed = await writers[0].recordReviewCorrection(input);
+      expect(replayed.session.finishedAt).toEqual(NOW);
+      expect(replayed.session.reviewState?.correctedCardIds).toEqual([fixture.cardIds[0]]);
+      expect(await writers[1].findActiveReviewSession(fixture.userId)).toBeNull();
+      expect(await readState(fixture)).toEqual(scheduled);
+      expect(await answers(fixture)).toEqual(history);
+    });
+  });
+
+  it("rejects overlapping correction overwrites and preserves both corrections after a refreshed retry", async () => {
+    await withFixture(async (fixture) => {
+      const secondState = await control.db.userSrsState.create({
+        data: {
+          userId: fixture.userId,
+          learningCardId: fixture.cardIds[1],
+          srsSystemId: fixture.systemId,
+          stageIndex: 4,
+          availableAt: fixture.state.availableAt,
+          wrongCount: 1,
+          correctStreak: 2,
+        },
+        select: stateSelect,
+      });
+      const snapshot = createScheduledReviewState(fixture.cardIds.slice(0, 2));
+      const started = await writers[0].startScheduledReviewSession(
+        fixture.userId,
+        NOW,
+        snapshot.scheduledCardIds,
+      );
+      await writers[0].recordReviewAnswer(answerInput(fixture, started.session.id, "wrong"));
+      await writers[1].recordReviewAnswer(
+        answerInput(
+          {
+            ...fixture,
+            state: secondState,
+            cardIds: [fixture.cardIds[1], fixture.cardIds[0], fixture.cardIds[2]],
+          },
+          started.session.id,
+          "wrong",
+        ),
+      );
+      const readSchedules = () =>
+        control.db.userSrsState.findMany({
+          where: { userId: fixture.userId },
+          orderBy: { id: "asc" },
+        });
+      const readHistory = () =>
+        control.db.reviewAnswer.findMany({
+          where: { reviewSessionId: started.session.id },
+          orderBy: { id: "asc" },
+        });
+      const beforeSchedules = await readSchedules();
+      const beforeHistory = await readHistory();
+      const outcomes = await overlap(
+        "session",
+        started.session.id,
+        snapshot.scheduledCardIds.map(
+          (cardId, index) => () =>
+            writers[index]!.recordReviewCorrection({
+              userId: fixture.userId,
+              sessionId: started.session.id,
+              cardId,
+              expectedState: snapshot,
+            }),
+        ),
+      );
+      assertOneCommit(outcomes);
+      const reloaded = await writers[1].findReviewSessionProgress(
+        fixture.userId,
+        started.session.id,
+      );
+      const current = reloaded!.session.reviewState!;
+      expect(current.correctedCardIds).toHaveLength(1);
+      const remaining = snapshot.scheduledCardIds.find(
+        (id) => !current.correctedCardIds.includes(id),
+      )!;
+      await writers[0].recordReviewCorrection({
+        userId: fixture.userId,
+        sessionId: started.session.id,
+        cardId: remaining,
+        expectedState: current,
+      });
+      expect(
+        (await writers[1].finishReviewSession(fixture.userId, started.session.id, NOW))?.summary,
+      ).toMatchObject({
+        totalAnswers: 2,
+        incorrectAnswers: 2,
+        accuracyPercent: 0,
+      });
+      expect(await readSchedules()).toEqual(beforeSchedules);
+      expect(await readHistory()).toEqual(beforeHistory);
+    });
+  });
+
   it("rejects foreign owners and non-review session modes without changing their rows", async () => {
     await withFixture(async (fixture) => {
       const input = answerInput(fixture, fixture.sessionIds[0], "correct");
       const foreign = await writers[0].createReviewSession(fixture.otherUserId, NOW);
+      const correction = {
+        userId: fixture.userId,
+        sessionId: foreign.id,
+        cardId: input.cardId,
+        expectedState: createScheduledReviewState([input.cardId]),
+      };
+      await expect(writers[0].recordReviewCorrection(correction)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(await writers[0].findReviewSessionProgress(fixture.userId, foreign.id)).toBeNull();
       await expect(
         writers[0].recordReviewAnswer({ ...input, sessionId: foreign.id }),
       ).rejects.toBeInstanceOf(NotFoundException);
@@ -256,6 +439,10 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
         await expect(
           writers[0].finishReviewSession(fixture.userId, session.id, NOW),
         ).resolves.toBeNull();
+        await expect(
+          writers[0].recordReviewCorrection({ ...correction, sessionId: session.id }),
+        ).rejects.toBeInstanceOf(NotFoundException);
+        expect(await writers[0].findReviewSessionProgress(fixture.userId, session.id)).toBeNull();
         expect(await control.db.reviewSession.findUnique({ where: { id: session.id } })).toEqual(
           session,
         );
@@ -589,7 +776,7 @@ function createPractice(fixture: Fixture, source: ResumablePracticeSource) {
   });
 }
 
-function assertOneCommit(outcomes: readonly PromiseSettledResult<void>[]): void {
+function assertOneCommit<T>(outcomes: readonly PromiseSettledResult<T>[]): void {
   expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
   const rejected = outcomes.filter((outcome) => outcome.status === "rejected");
   expect(rejected).toHaveLength(1);
@@ -597,7 +784,7 @@ function assertOneCommit(outcomes: readonly PromiseSettledResult<void>[]): void 
 }
 
 async function overlap<T>(
-  row: "state" | "session",
+  row: "state" | "session" | "owner",
   id: string,
   operations: readonly (() => Promise<T>)[],
   beforeRelease?: () => Promise<void>,
@@ -608,8 +795,10 @@ async function overlap<T>(
     async (tx) => {
       if (row === "state") {
         await tx.$queryRaw`SELECT id FROM "UserSrsState" WHERE id = ${id}::uuid FOR UPDATE`;
-      } else {
+      } else if (row === "session") {
         await tx.$queryRaw`SELECT id FROM "ReviewSession" WHERE id = ${id}::uuid FOR UPDATE`;
+      } else {
+        await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${id}::uuid FOR UPDATE`;
       }
       locked.resolve();
       await release.promise;

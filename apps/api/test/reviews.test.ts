@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util";
+import { BadRequestException, ConflictException, NotFoundException } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { validateAnswer, type AnswerKind } from "@kanji-srs/japanese";
@@ -9,13 +11,19 @@ import { buildReviewSessionSummary } from "../src/reviews/review-summary";
 import { PrismaReviewsRepository, ReviewsRepository } from "../src/reviews/reviews.repository";
 import { ReviewsService } from "../src/reviews/reviews.service";
 import {
+  createScheduledReviewState,
+  getPendingReviewCardIds,
+} from "../src/reviews/review-session-state";
+import {
   type CreatePracticeSessionInput,
   type FinishedReviewSessionRecord,
   type PracticeSessionRecord,
   type RecordReviewAnswerInput,
+  type RecordReviewCorrectionInput,
   type ReviewAnswerTargetRecord,
   type ReviewQueueRecord,
   type ReviewSessionRecord,
+  type ReviewSessionProgressRecord,
   type UpdatePracticeSessionProgressInput,
 } from "../src/reviews/reviews.types";
 
@@ -217,6 +225,11 @@ describe("ReviewsService", () => {
     await service.submitAnswer(session.session.id, createUser("owner"), {
       cardId: "card-late",
       answer: "wrong answer",
+      answerType: "meaning",
+    });
+    await service.submitCorrection(session.session.id, createUser("owner"), {
+      cardId: "card-late",
+      answer: "late answer",
       answerType: "meaning",
     });
     vi.setSystemTime(new Date(NOW.getTime() + 90_000));
@@ -570,6 +583,298 @@ describe("ReviewsService", () => {
   });
 });
 
+describe("resumable scheduled review corrections", () => {
+  const user = createUser("owner", { reviewOrderMode: "oldest-first" });
+  const singleCardUser = createUser("owner", { reviewOrderMode: "oldest-first", reviewBudget: 1 });
+  const request = { cardId: "card-meaning", answer: "incorrect", answerType: "meaning" } as const;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("returns the full empty contract and does not create an empty scheduled session", async () => {
+    const { repository, service } = createHarness();
+    const emptyUser = createUser("other");
+    const empty = { session: null, items: [], currentIndex: 0, corrections: [], progress: null };
+    expect(await service.getActiveSession(emptyUser)).toEqual(empty);
+    await expect(service.startSession(emptyUser)).rejects.toBeInstanceOf(BadRequestException);
+    expect(await repository.findActiveReviewSession(emptyUser.id)).toBeNull();
+  });
+
+  it("restores pending-only cards in snapshot order without merging the new due queue", async () => {
+    const { repository, service } = createHarness();
+    const queue = await service.getQueue(user);
+    const started = await service.startSession(user);
+    expect(started.items?.map((item) => item.card.id)).toEqual(
+      queue.items.map((item) => item.card.id),
+    );
+    await service.submitAnswer(started.session.id, user, request);
+    Object.assign(repository.getState("state-future"), { availableAt: DUE_AT });
+    const reloaded = new ReviewsService(
+      repository,
+      new FakeOverridesService(repository) as unknown as OverridesService,
+    );
+    const active = await reloaded.getActiveSession(user);
+    expect(active).toMatchObject({
+      session: started.session,
+      currentIndex: 0,
+      progress: {
+        scheduledTotal: 2,
+        scheduledAnswered: 1,
+        correctionsRequired: 1,
+        original: { totalAnswers: 1, incorrectAnswers: 1, accuracyPercent: 0 },
+      },
+    });
+    expect(active.items.map((item) => item.card.id)).toEqual(["card-late"]);
+    expect(active.corrections.map((item) => item.card.id)).toEqual(["card-meaning"]);
+    expect(JSON.stringify(active)).not.toContain("study answer");
+    expect(JSON.stringify(active)).not.toContain("single stroke");
+    const resumed = await reloaded.startSession(singleCardUser);
+    expect(resumed.session.id).toBe(started.session.id);
+    expect(resumed.resumed).toBe(true);
+    expect(resumed.items).toEqual(active.items);
+    expect((await reloaded.getActiveSession(createUser("other"))).session).toBeNull();
+  });
+
+  it("keeps wrong cards accessible after rescheduling and rejects unfinished scheduling and corrections", async () => {
+    const { repository, service } = createHarness();
+    const started = await service.startSession(user);
+    await expect(service.finishSession(started.session.id, user)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    await service.submitAnswer(started.session.id, user, request);
+    await service.submitAnswer(started.session.id, user, {
+      cardId: "card-late",
+      answer: "late answer",
+      answerType: "meaning",
+    });
+    expect(repository.getState("state-due").availableAt!.getTime()).toBeGreaterThan(NOW.getTime());
+    expect((await service.getQueue(user)).items).toEqual([]);
+    const active = await service.getActiveSession(user);
+    expect(active.items).toEqual([]);
+    expect(active.currentIndex).toBe(0);
+    expect(active.corrections.map((item) => item.card.id)).toEqual([request.cardId]);
+    await expect(service.finishSession(started.session.id, user)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+  });
+
+  it("retries ordinary wrong and blocked answers without SRS/history writes, accepts private answers, and replays after finish", async () => {
+    const { repository, service } = createHarness();
+    const started = await service.startSession(singleCardUser);
+    await service.submitAnswer(started.session.id, user, { ...request, answer: "line" });
+    const beforeState = structuredClone(repository.getState("state-due"));
+    const beforeAnswers = structuredClone(repository.recordedAnswers);
+    expect(await service.submitCorrection(started.session.id, user, request)).toMatchObject({
+      accepted: false,
+      result: "wrong",
+      corrected: false,
+      alreadyCorrected: false,
+      retry: false,
+    });
+    expect(
+      await service.submitCorrection(started.session.id, user, { ...request, answer: "line" }),
+    ).toMatchObject({
+      accepted: false,
+      result: "blocked",
+      corrected: false,
+      retry: false,
+      feedback: { blockedReason: "Too broad for this card." },
+    });
+    const correct = { ...request, answer: "single stroke" };
+    const response = await service.submitCorrection(started.session.id, user, correct);
+    expect(response).toMatchObject({
+      accepted: true,
+      corrected: true,
+      alreadyCorrected: false,
+      retry: false,
+      progress: {
+        correctedCardIds: [request.cardId],
+        original: { totalAnswers: 1, correctAnswers: 0, incorrectAnswers: 1, accuracyPercent: 0 },
+      },
+    });
+    expect(await service.submitCorrection(started.session.id, user, correct)).toMatchObject({
+      accepted: true,
+      corrected: true,
+      alreadyCorrected: true,
+    });
+    // A second device's stale wrong answer must still receive the authoritative completed state.
+    const otherDevice = new ReviewsService(
+      repository,
+      new FakeOverridesService(repository) as unknown as OverridesService,
+    );
+    expect(await otherDevice.submitCorrection(started.session.id, user, request)).toMatchObject({
+      accepted: false,
+      corrected: true,
+      alreadyCorrected: true,
+      retry: false,
+    });
+    const finished = await service.finishSession(started.session.id, user);
+    expect(finished.summary).toMatchObject({
+      totalAnswers: 1,
+      correctAnswers: 0,
+      incorrectAnswers: 1,
+      accuracyPercent: 0,
+    });
+    expect(await otherDevice.submitCorrection(started.session.id, user, correct)).toMatchObject({
+      accepted: true,
+      corrected: true,
+      alreadyCorrected: true,
+    });
+    expect((await otherDevice.getActiveSession(user)).session).toBeNull();
+    expect(repository.getState("state-due")).toEqual(beforeState);
+    expect(repository.recordedAnswers).toEqual(beforeAnswers);
+  });
+
+  it("treats an alternative reading as a neutral correction retry without changing the original mistake", async () => {
+    const { repository, service } = createHarness();
+    const started = await service.startSession(singleCardUser);
+    await service.submitAnswer(started.session.id, user, request);
+    const before = structuredClone(repository.getState("state-due"));
+    const related = {
+      validateAnswerForUser: vi.fn().mockResolvedValue({
+        ...validateAnswer({ answerKind: "reading", answer: "ひと", acceptedAnswers: ["いち"] }),
+        relatedAnswer: "ひと",
+      }),
+    } as unknown as OverridesService;
+    const corrections = new ReviewsService(repository, related);
+    expect(
+      await corrections.submitCorrection(started.session.id, user, { ...request, answer: "ひと" }),
+    ).toMatchObject({
+      accepted: false,
+      corrected: false,
+      retry: true,
+      feedback: { diagnostic: { kind: "alternative-reading", matchedAnswer: "ひと" } },
+      progress: { correctedCardIds: [], original: { totalAnswers: 1, incorrectAnswers: 1 } },
+    });
+    expect(repository.recordedAnswers).toHaveLength(1);
+    expect(repository.getState("state-due")).toEqual(before);
+  });
+
+  it.each(["revealRequested", "manualIgnore"] as const)(
+    "requires corrections for reveal but not ignored originals (%s)",
+    async (flag) => {
+      const { service } = createHarness();
+      const started = await service.startSession(singleCardUser);
+      await service.submitAnswer(started.session.id, user, { ...request, [flag]: true });
+      const active = await service.getActiveSession(user);
+      if (flag === "revealRequested") {
+        expect(active.corrections.map((item) => item.card.id)).toEqual([request.cardId]);
+        await expect(service.finishSession(started.session.id, user)).rejects.toBeInstanceOf(
+          ConflictException,
+        );
+        await service.submitCorrection(started.session.id, user, {
+          ...request,
+          answer: "study answer",
+        });
+      } else {
+        expect(active.corrections).toEqual([]);
+        expect(active.progress?.original.ignoredAnswers).toBe(1);
+        await expect(
+          service.submitCorrection(started.session.id, user, {
+            ...request,
+            answer: "study answer",
+          }),
+        ).rejects.toBeInstanceOf(NotFoundException);
+      }
+      await expect(service.finishSession(started.session.id, user)).resolves.toBeDefined();
+    },
+  );
+
+  it("rejects foreign owners, cross-session originals, non-missed cards and wrong answer types", async () => {
+    const { repository, service } = createHarness();
+    const started = await service.startSession(user);
+    await service.submitAnswer(started.session.id, user, request);
+    await service.submitAnswer(started.session.id, user, {
+      cardId: "card-late",
+      answer: "late answer",
+      answerType: "meaning",
+    });
+    const legacy = await repository.createReviewSession(user.id, NOW);
+    for (const [sessionId, caller, body] of [
+      [started.session.id, createUser("other"), request],
+      [legacy.id, user, request],
+      [started.session.id, user, { ...request, cardId: "card-late" }],
+      [started.session.id, user, { ...request, cardId: "card-future" }],
+    ] as const) {
+      await expect(service.submitCorrection(sessionId, caller, body)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    }
+    await expect(
+      service.submitCorrection(started.session.id, user, { ...request, answerType: "reading" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(repository.recordedAnswers).toHaveLength(2);
+  });
+
+  it("does not report correction success when its persistence CAS fails", async () => {
+    const { repository, service } = createHarness();
+    const started = await service.startSession(singleCardUser);
+    await service.submitAnswer(started.session.id, user, request);
+    vi.spyOn(repository, "recordReviewCorrection").mockRejectedValueOnce(
+      new ConflictException("stale snapshot"),
+    );
+    await expect(
+      service.submitCorrection(started.session.id, user, { ...request, answer: "study answer" }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect((await service.getActiveSession(user)).corrections.map((item) => item.card.id)).toEqual([
+      request.cardId,
+    ]);
+    expect(repository.recordedAnswers).toHaveLength(1);
+  });
+
+  it("reuses reading normalization and requires listening playback before accepting corrections", async () => {
+    const { repository, service } = createHarness();
+    const card = repository.getCard(request.cardId);
+    Object.assign(card, {
+      answerType: "reading",
+      promptType: "reading",
+      blockedAnswers: [],
+      acceptedAnswers: [
+        { locale: "ja-JP", text: "がく", normalizedText: "がく", answerKind: "reading" },
+      ],
+    });
+    const started = await service.startSession(singleCardUser);
+    const readingRequest = { ...request, answer: "ちがう", answerType: "reading" };
+    await service.submitAnswer(started.session.id, user, readingRequest);
+    const before = structuredClone(repository.getState("state-due"));
+    Object.assign(card, { promptType: "listening" });
+    await expect(
+      service.submitCorrection(started.session.id, user, { ...readingRequest, answer: "ガク" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    Object.assign(card, { promptType: "reading" });
+    expect(
+      await service.submitCorrection(started.session.id, user, {
+        ...readingRequest,
+        answer: "ガク",
+      }),
+    ).toMatchObject({
+      accepted: true,
+      corrected: true,
+      normalizedAnswer: "がく",
+    });
+    expect(repository.recordedAnswers).toHaveLength(1);
+    expect(repository.getState("state-due")).toEqual(before);
+  });
+
+  it("preserves legacy finish behavior and excludes legacy sessions from resumable active state", async () => {
+    const { repository, service } = createHarness();
+    const legacy = await repository.createReviewSession(user.id, NOW);
+    await service.submitAnswer(legacy.id, user, request);
+    expect((await service.getActiveSession(user)).session).toBeNull();
+    expect((await service.finishSession(legacy.id, user)).summary).toMatchObject({
+      totalAnswers: 1,
+      incorrectAnswers: 1,
+    });
+  });
+});
+
 describe("PrismaReviewsRepository course progress events", () => {
   it("records every newly unlocked item and the completed level in the answer transaction", async () => {
     const userUnlockEvent = { createMany: vi.fn().mockResolvedValue({ count: 2 }) };
@@ -898,6 +1203,84 @@ class InMemoryReviewsRepository extends ReviewsRepository {
     return session;
   }
 
+  async startScheduledReviewSession(userId: string, now: Date, cardIds: readonly string[]) {
+    const active = await this.findActiveReviewSession(userId);
+    if (active) return { ...active, resumed: true };
+    const reviewState = createScheduledReviewState(cardIds);
+    if (cardIds.length === 0)
+      throw new BadRequestException("Сейчас нет карточек для планового повторения.");
+    const due = await this.listDueReviewCards(userId, now, 100);
+    if (cardIds.some((id) => !due.some((entry) => entry.card.id === id)))
+      throw new ConflictException("Queue changed.");
+    const created = await this.createReviewSession(userId, now);
+    const session = { ...created, reviewState };
+    this.sessions.set(session.id, session);
+    return { session, answers: [], resumed: false };
+  }
+
+  async findActiveReviewSession(userId: string): Promise<ReviewSessionProgressRecord | null> {
+    const session = [...this.sessions.values()]
+      .reverse()
+      .find(
+        (candidate) =>
+          candidate.userId === userId &&
+          candidate.mode === "review" &&
+          candidate.finishedAt === null &&
+          candidate.reviewState,
+      );
+    return session ? this.progressFor(session) : null;
+  }
+
+  async findReviewSessionProgress(
+    userId: string,
+    sessionId: string,
+  ): Promise<ReviewSessionProgressRecord | null> {
+    const session = this.sessions.get(sessionId);
+    return session?.userId === userId && session.mode === "review"
+      ? this.progressFor(session)
+      : null;
+  }
+
+  async recordReviewCorrection(
+    input: RecordReviewCorrectionInput,
+  ): Promise<ReviewSessionProgressRecord> {
+    const record = await this.findReviewSessionProgress(input.userId, input.sessionId);
+    const state = record?.session.reviewState;
+    if (
+      !record ||
+      !state ||
+      !state.scheduledCardIds.includes(input.cardId) ||
+      !record.answers.some(
+        (answer) =>
+          answer.cardId === input.cardId &&
+          (answer.result === "wrong" || answer.result === "reveal"),
+      )
+    )
+      throw new NotFoundException();
+    if (state.correctedCardIds.includes(input.cardId)) return record;
+    if (record.session.finishedAt !== null) throw new NotFoundException();
+    if (!isDeepStrictEqual(state, input.expectedState)) throw new ConflictException();
+    const session = {
+      ...record.session,
+      reviewState: { ...state, correctedCardIds: [...state.correctedCardIds, input.cardId] },
+    };
+    this.sessions.set(session.id, session);
+    return this.progressFor(session);
+  }
+
+  private progressFor(session: ReviewSessionRecord): ReviewSessionProgressRecord {
+    return {
+      session,
+      answers: this.recordedAnswers
+        .filter((answer) => answer.sessionId === session.id && answer.userId === session.userId)
+        .map((answer) => ({
+          cardId: answer.cardId,
+          result: answer.recordedResult,
+          srsTransition: answer.srsTransition,
+        })),
+    };
+  }
+
   async findAnswerTarget(
     userId: string,
     sessionId: string,
@@ -909,9 +1292,16 @@ class InMemoryReviewsRepository extends ReviewsRepository {
       (candidate) => candidate.state.userId === userId && candidate.card.id === cardId,
     );
 
-    if (session === undefined || session.userId !== userId || session.finishedAt !== null) {
+    if (
+      session === undefined ||
+      session.userId !== userId ||
+      session.mode !== "review" ||
+      session.finishedAt !== null
+    ) {
       return null;
     }
+
+    if (session.reviewState && !session.reviewState.scheduledCardIds.includes(cardId)) return null;
 
     if (record === undefined) {
       return null;
@@ -935,16 +1325,36 @@ class InMemoryReviewsRepository extends ReviewsRepository {
   }
 
   async recordReviewAnswer(input: RecordReviewAnswerInput): Promise<void> {
-    this.recordedAnswers.push(input);
-    this.answeredSessionCards.add(
-      getAnsweredSessionCardKey(input.sessionId, input.stateId, input.cardId),
-    );
-
+    const session = this.sessions.get(input.sessionId);
+    if (
+      !session ||
+      session.userId !== input.userId ||
+      session.mode !== "review" ||
+      session.finishedAt !== null ||
+      (session.reviewState && !session.reviewState.scheduledCardIds.includes(input.cardId))
+    )
+      throw new NotFoundException();
+    if (
+      this.answeredSessionCards.has(
+        getAnsweredSessionCardKey(input.sessionId, input.stateId, input.cardId),
+      )
+    )
+      throw new ConflictException();
     const record = this.states.get(input.stateId);
 
     if (record === undefined) {
       throw new Error(`Unknown state ${input.stateId}.`);
     }
+    if (
+      record.state.userId !== input.userId ||
+      record.card.id !== input.cardId ||
+      !isDeepStrictEqual(record.state, input.expectedState)
+    )
+      throw new ConflictException();
+    this.recordedAnswers.push(input);
+    this.answeredSessionCards.add(
+      getAnsweredSessionCardKey(input.sessionId, input.stateId, input.cardId),
+    );
 
     this.states.set(input.stateId, {
       ...record,
@@ -968,10 +1378,22 @@ class InMemoryReviewsRepository extends ReviewsRepository {
   ): Promise<FinishedReviewSessionRecord | null> {
     const session = this.sessions.get(sessionId);
 
-    if (session === undefined || session.userId !== userId || session.finishedAt !== null) {
+    if (
+      session === undefined ||
+      session.userId !== userId ||
+      session.mode !== "review" ||
+      session.finishedAt !== null
+    ) {
       return null;
     }
 
+    if (session.reviewState) {
+      const pending = getPendingReviewCardIds(
+        session.reviewState,
+        this.progressFor(session).answers,
+      );
+      if (pending.scheduled.length || pending.corrections.length) throw new ConflictException();
+    }
     const finished = { ...session, finishedAt: now };
     this.sessions.set(sessionId, finished);
 

@@ -542,6 +542,38 @@ export type PracticeAnswerResponse = Omit<
   "previousSrs" | "nextSrs" | "srsTransition"
 >;
 
+export type ResumableReviewSessionDto = {
+  readonly id: string;
+  readonly startedAt: string;
+  readonly mode: "review";
+};
+
+export type ReviewSessionProgressDto = {
+  readonly scheduledTotal: number;
+  readonly scheduledAnswered: number;
+  readonly correctionsRequired: number;
+  readonly correctedCardIds: readonly string[];
+  readonly original: ReviewSessionSummaryDto;
+};
+
+export type ActiveReviewSessionResponse = {
+  readonly session: ResumableReviewSessionDto | null;
+  // Pending scheduled cards only, in the persisted snapshot order.
+  readonly items: readonly ReviewQueueItem[];
+  readonly currentIndex: number;
+  // Pending wrong/reveal corrections only; original results remain in progress.original.
+  readonly corrections: readonly ReviewQueueItem[];
+  readonly progress: ReviewSessionProgressDto | null;
+};
+
+export type ReviewCorrectionRequest = PracticeAnswerRequest;
+
+export type ReviewCorrectionResponse = PracticeAnswerResponse & {
+  readonly corrected: boolean;
+  readonly alreadyCorrected: boolean;
+  readonly progress: ReviewSessionProgressDto;
+};
+
 export type PracticeSessionAnswerResponse = {
   readonly answer: PracticeAnswerResponse;
   readonly session: PracticeSessionDto;

@@ -17,6 +17,8 @@ import {
 import {
   DEFAULT_TRANSLATION_DISPLAY_MODE,
   type ActivePracticeSessionResponse,
+  type ActiveReviewSessionResponse,
+  type ReviewCorrectionResponse,
   type FinishPracticeSessionResponse,
   type LocalizedTextDto,
   type PracticeAnswerRequest,
@@ -53,9 +55,15 @@ import {
   type ReviewQueueRecord,
   type ReviewQueueResponse,
   type ReviewSrsStateRecord,
+  type ReviewSessionProgressRecord,
   type StartReviewSessionResponse,
   type SubmitReviewAnswerResponse,
 } from "./reviews.types";
+import {
+  getPendingReviewCardIds,
+  isMissedReviewAnswer,
+  toReviewSessionProgress,
+} from "./review-session-state";
 
 const DEFAULT_REVIEW_QUEUE_LIMIT = 100;
 const MAX_REVIEW_ANSWER_LENGTH = 500;
@@ -100,14 +108,126 @@ export class ReviewsService {
 
   async startSession(user: CurrentUserDto): Promise<StartReviewSessionResponse> {
     assertScheduledReviewsAvailable(user);
-    const session = await this.reviewsRepository.createReviewSession(user.id, new Date());
+    const active = await this.reviewsRepository.findActiveReviewSession(user.id);
+    const now = new Date();
+    const record =
+      active === null
+        ? await this.reviewsRepository.startScheduledReviewSession(
+            user.id,
+            now,
+            (await this.getQueue(user)).items.map((item) => item.card.id),
+          )
+        : { ...active, resumed: true };
+    const response = await this.toActiveReviewSessionResponse(record);
 
     return {
       session: {
-        id: session.id,
-        startedAt: session.startedAt.toISOString(),
-        mode: session.mode,
+        id: record.session.id,
+        startedAt: record.session.startedAt.toISOString(),
+        mode: record.session.mode,
       },
+      items: response.items,
+      currentIndex: 0,
+      corrections: response.corrections,
+      progress: response.progress!,
+      resumed: record.resumed,
+    };
+  }
+
+  async getActiveSession(user: CurrentUserDto): Promise<ActiveReviewSessionResponse> {
+    const record = await this.reviewsRepository.findActiveReviewSession(user.id);
+    return record === null
+      ? { session: null, items: [], currentIndex: 0, corrections: [], progress: null }
+      : this.toActiveReviewSessionResponse(record);
+  }
+
+  private async toActiveReviewSessionResponse(
+    record: ReviewSessionProgressRecord,
+  ): Promise<ActiveReviewSessionResponse> {
+    const state = record.session.reviewState;
+    if (!state) throw new ConflictException("Сессия не поддерживает восстановление.");
+    const pending = getPendingReviewCardIds(state, record.answers);
+    const ids = [...pending.scheduled, ...pending.corrections];
+    const records = await this.reviewsRepository.listPracticeCardsByIds(record.session.userId, ids);
+    if (records.length !== ids.length) {
+      throw new ConflictException("В сессии есть недоступные карточки. Обновите страницу.");
+    }
+    const byId = new Map(records.map((entry) => [entry.card.id, toReviewQueueItem(entry)]));
+    return {
+      session: {
+        id: record.session.id,
+        startedAt: record.session.startedAt.toISOString(),
+        mode: "review",
+      },
+      items: pending.scheduled.map((id) => byId.get(id)!),
+      currentIndex: 0,
+      corrections: pending.corrections.map((id) => byId.get(id)!),
+      progress: toReviewSessionProgress(record, new Date()),
+    };
+  }
+
+  async submitCorrection(
+    sessionId: string,
+    user: CurrentUserDto,
+    body: unknown,
+  ): Promise<ReviewCorrectionResponse> {
+    const request = parsePracticeAnswerRequest(body);
+    let record = await this.reviewsRepository.findReviewSessionProgress(user.id, sessionId);
+    const state = record?.session.reviewState;
+    if (
+      !record ||
+      !state ||
+      !state.scheduledCardIds.includes(request.cardId) ||
+      !record.answers.some(
+        (answer) => answer.cardId === request.cardId && isMissedReviewAnswer(answer),
+      )
+    ) {
+      throw new NotFoundException("Карточка исправления не найдена в этой сессии.");
+    }
+    const alreadyCorrected = state.correctedCardIds.includes(request.cardId);
+    if (record.session.finishedAt !== null && !alreadyCorrected) {
+      throw new NotFoundException("Активная сессия повторений не найдена.");
+    }
+    const target = await this.reviewsRepository.findPracticeCard(user.id, request.cardId);
+    if (target === null) throw new NotFoundException("Карточка исправления недоступна.");
+    if (target.card.answerType !== request.answerType) {
+      throw new BadRequestException(`Тип ответа для этой карточки: ${target.card.answerType}.`);
+    }
+    assertListeningPlayback(target.card, request.listeningEvidence);
+    const validation = await this.overridesService.validateAnswerForUser({
+      userId: user.id,
+      cardId: request.cardId,
+      answerKind: request.answerType,
+      answer: request.answer,
+    });
+    if (validation.accepted) {
+      record = await this.reviewsRepository.recordReviewCorrection({
+        userId: user.id,
+        sessionId,
+        cardId: request.cardId,
+        expectedState: state,
+      });
+    }
+    const corrected = record.session.reviewState!.correctedCardIds.includes(request.cardId);
+    return {
+      cardId: request.cardId,
+      accepted: validation.accepted,
+      result: validation.result,
+      normalizedAnswer: validation.normalizedAnswer,
+      matchedAnswer: validation.matchedAnswer,
+      retry: validation.relatedAnswer !== undefined && validation.relatedAnswer !== null,
+      corrected,
+      alreadyCorrected,
+      feedback: {
+        message: getPracticeFeedbackMessage(validation.result, validation.relatedAnswer),
+        expected: toExpectedPracticeAnswers(
+          target.card,
+          user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE,
+        ),
+        blockedReason: getPracticeBlockedReason(target.card, validation.matchedAnswer),
+        diagnostic: toPracticeAnswerDiagnostic(validation.relatedAnswer),
+      },
+      progress: toReviewSessionProgress(record, new Date()),
     };
   }
 

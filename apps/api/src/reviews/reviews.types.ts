@@ -9,6 +9,7 @@ import {
   type PracticeSource,
   type ReviewAnswerResponse,
   type ReviewAnswerResultType,
+  type ReviewSessionProgressDto,
   type ReviewOrderMode,
   type ReviewQueueItem,
   type ReviewSessionSummaryDto,
@@ -23,6 +24,31 @@ export type ReviewSessionRecord = {
   readonly startedAt: Date;
   readonly finishedAt: Date | null;
   readonly mode: "review" | "lesson-quiz" | "extra-practice";
+  readonly reviewState?: ScheduledReviewState | null;
+};
+
+export type ScheduledReviewState = {
+  readonly reviewVersion: 1;
+  readonly scheduledCardIds: readonly string[];
+  readonly correctedCardIds: readonly string[];
+};
+
+export type ScheduledReviewAnswerRecord = {
+  readonly cardId: string;
+  readonly result: SrsReviewResult;
+  readonly srsTransition: ReviewSrsTransition;
+};
+
+export type ReviewSessionProgressRecord = {
+  readonly session: ReviewSessionRecord;
+  readonly answers: readonly ScheduledReviewAnswerRecord[];
+};
+
+export type RecordReviewCorrectionInput = {
+  readonly userId: string;
+  readonly sessionId: string;
+  readonly cardId: string;
+  readonly expectedState: ScheduledReviewState;
 };
 
 export type ReviewSrsStateRecord = {
@@ -177,6 +203,11 @@ export type StartReviewSessionResponse = {
     readonly startedAt: string;
     readonly mode: ReviewSessionRecord["mode"];
   };
+  readonly items?: readonly ReviewQueueItem[];
+  readonly currentIndex?: number;
+  readonly corrections?: readonly ReviewQueueItem[];
+  readonly progress?: ReviewSessionProgressDto;
+  readonly resumed?: boolean;
 };
 
 export type FinishReviewSessionResponse = {

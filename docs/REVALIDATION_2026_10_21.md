@@ -88,6 +88,10 @@ or mark raw glosses reviewed just to reach a number.
 
 ## Task 125: Corrective Retrieval
 
+Implementation added on 2026-10-22; API and browser acceptance checks are
+described in `REVIEW_CORRECTIONS.md`. Extended real-PostgreSQL cases and remote
+deployment are verified separately before claiming the cloud rollout complete.
+
 - Keep exactly one scheduling answer per card/session; preserve original error,
   penalty, due date and review accuracy.
 - Re-present missed cards after intervening cards or at batch end. A correct

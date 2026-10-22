@@ -2,6 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 
 import {
   type ContentLocale,
+  type ActiveReviewSessionResponse,
   type InterfacePreferences,
   type ReviewAnswerResponse,
   type ReviewQueueItem,
@@ -25,6 +26,138 @@ type CapturedReviewAnswerRequest = {
 };
 
 test.describe("review session", () => {
+  test("keeps an active snapshot paused during vacation and resumes it afterwards", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockReviewApi(page, { resumable: true });
+    let vacation = false;
+    await page.route(`${API_BASE_URL}/reviews/queue`, async (route) => {
+      await route.fulfill({
+        json: {
+          items: vacation ? [] : [reviewQueueItem],
+          orderMode: "shuffled",
+          vacationStartedAt: vacation ? "2026-10-21T09:00:00.000Z" : null,
+        },
+      });
+    });
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение" }).click();
+    await expect(page.getByLabel("Ответ значением")).toBeVisible();
+    vacation = true;
+    await page.reload();
+    await expect(page.getByText("Режим отпуска включён.", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Ответ значением")).toBeHidden();
+    vacation = false;
+    await page.reload();
+    await expect(page.getByLabel("Ответ значением")).toBeVisible();
+    await page.getByLabel("Ответ значением").fill("солнце");
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: "Дальше" }).click();
+    await expect(page.getByText("Сессия завершена.")).toBeVisible();
+  });
+
+  test("resumes only unanswered scheduled cards and preserves the original position", async ({
+    page,
+  }) => {
+    const answerRequests: CapturedReviewAnswerRequest[] = [];
+    await signIn(page);
+    await mockReviewApi(page, {
+      resumable: true,
+      queue: [reviewQueueItem, secondReviewQueueItem],
+      answerRequests,
+    });
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение" }).click();
+    await page.getByLabel("Ответ значением").fill("солнце");
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("region", { name: "Результат ответа" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByText("2 из 2", { exact: true })).toBeVisible();
+    await expect(page.getByText("月", { exact: true })).toBeVisible();
+    await page.getByLabel("Ответ значением").fill("луна");
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: "Дальше" }).click();
+    await expect(page.getByText("Сессия завершена.")).toBeVisible();
+    await expect(page.getByText("100%", { exact: true })).toBeVisible();
+    expect(answerRequests.map((request) => request.cardId)).toEqual([
+      reviewQueueItem.card.id,
+      secondReviewQueueItem.card.id,
+    ]);
+  });
+
+  test("corrects misses after scheduled cards without changing original review accuracy", async ({
+    page,
+  }) => {
+    const answerRequests: CapturedReviewAnswerRequest[] = [];
+    const correctionRequests: string[] = [];
+    await signIn(page);
+    await mockReviewApi(page, {
+      resumable: true,
+      queue: [reviewQueueItem, secondReviewQueueItem],
+      answerRequests,
+      correctionRequests,
+    });
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение" }).click();
+    await page.getByLabel("Ответ значением").fill("wrong");
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: "Дальше" }).click();
+    await expect(page.getByText("月", { exact: true })).toBeVisible();
+    await page.getByLabel("Ответ значением").fill("луна");
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: "Дальше" }).click();
+    await expect(page.getByRole("heading", { name: "Исправление ошибок" })).toBeVisible();
+    await expect(page.getByText("日", { exact: true })).toBeVisible();
+    await page.getByLabel("Ответ значением").fill("still wrong");
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Без изменений", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Ответить снова" }).click();
+    await expect(page.getByLabel("Ответ значением")).toBeFocused();
+    await page.getByLabel("Ответ значением").fill("солнце");
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: "Дальше" }).click();
+    await expect(page.getByText("Сессия завершена.")).toBeVisible();
+    await expect(page.getByText("50%", { exact: true })).toBeVisible();
+    expect(answerRequests).toHaveLength(2);
+    expect(correctionRequests).toEqual(["still wrong", "солнце"]);
+  });
+
+  test("resumes corrections after reload and never treats a failed write as completion", async ({
+    page,
+  }) => {
+    const answerRequests: CapturedReviewAnswerRequest[] = [];
+    const correctionRequests: string[] = [];
+    await signIn(page);
+    await mockReviewApi(page, {
+      resumable: true,
+      answerRequests,
+      correctionRequests,
+      failCorrectionOnce: true,
+    });
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение" }).click();
+    await page.getByLabel("Ответ значением").fill("wrong");
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: "Дальше" }).click();
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Исправление ошибок" })).toBeVisible();
+    await page.getByLabel("Ответ значением").fill("солнце");
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Не удалось сохранить исправление." }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Ответ значением")).toHaveValue("солнце");
+    await expect(page.getByText("Сессия завершена.")).toBeHidden();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("region", { name: "Результат ответа" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByText("Сессия завершена.")).toBeVisible();
+    await expect(page.getByText("0%", { exact: true })).toBeVisible();
+    expect(answerRequests).toHaveLength(1);
+    expect(correctionRequests).toEqual(["солнце", "солнце"]);
+  });
+
   for (const preset of ["standard", "large", "extra-large"] as const) {
     test(`keeps ${preset} Japanese text readable without horizontal overflow`, async ({
       page,
@@ -389,6 +522,11 @@ async function signIn(
   soundFeedback = false,
   presentation: Partial<InterfacePreferences> = {},
 ): Promise<void> {
+  await page.route(`${API_BASE_URL}/reviews/active`, async (route) => {
+    await route.fulfill({
+      json: { session: null, items: [], currentIndex: 0, corrections: [], progress: null },
+    });
+  });
   await page.addInitScript(
     ({
       accessToken,
@@ -477,6 +615,9 @@ async function mockReviewApi(
     readonly answerRequests?: CapturedReviewAnswerRequest[];
     readonly failAudio?: boolean;
     readonly queue?: readonly ReviewQueueItem[];
+    readonly resumable?: boolean;
+    readonly correctionRequests?: string[];
+    readonly failCorrectionOnce?: boolean;
   } = {},
 ): Promise<() => { readonly queueRequests: number; readonly savedSettings: unknown }> {
   const privateAnswers = new Set<string>();
@@ -485,6 +626,41 @@ async function mockReviewApi(
   let reviewOrderMode = "shuffled";
   let savedSettings: unknown = null;
   const completedAnswers: ReviewAnswerResponse[] = [];
+  const corrected = new Set<string>();
+  let active = false;
+  let correctionFailed = false;
+  const session = {
+    id: SESSION_ID,
+    startedAt: "2026-06-22T08:00:00.000Z",
+    mode: "review" as const,
+  };
+  function activeResponse(): ActiveReviewSessionResponse {
+    if (!active)
+      return { session: null, items: [], currentIndex: 0, corrections: [], progress: null };
+    const missed = completedAnswers.filter((answer) => !answer.accepted);
+    return {
+      session,
+      items: queue.filter(
+        (item) => !completedAnswers.some((answer) => answer.cardId === item.card.id),
+      ),
+      currentIndex: 0,
+      corrections: queue.filter(
+        (item) =>
+          missed.some((answer) => answer.cardId === item.card.id) && !corrected.has(item.card.id),
+      ),
+      progress: {
+        scheduledTotal: queue.length,
+        scheduledAnswered: completedAnswers.length,
+        correctionsRequired: missed.length,
+        correctedCardIds: [...corrected],
+        original: createSessionSummary(completedAnswers),
+      },
+    };
+  }
+
+  await page.route(`${API_BASE_URL}/reviews/active`, async (route) => {
+    await route.fulfill({ json: activeResponse() });
+  });
 
   await page.route("https://media.example.test/**", async (route) => {
     if (options.failAudio) {
@@ -535,6 +711,7 @@ async function mockReviewApi(
   });
 
   await page.route(`${API_BASE_URL}/reviews/start`, async (route) => {
+    if (options.resumable) active = true;
     await route.fulfill({
       json: {
         session: {
@@ -542,6 +719,45 @@ async function mockReviewApi(
           startedAt: "2026-06-22T08:00:00.000Z",
           mode: "review",
         },
+        ...(options.resumable ? activeResponse() : {}),
+      },
+    });
+  });
+
+  await page.route(`${API_BASE_URL}/reviews/${SESSION_ID}/correction`, async (route) => {
+    const body = route.request().postDataJSON() as {
+      readonly answer: string;
+      readonly cardId: string;
+    };
+    options.correctionRequests?.push(body.answer);
+    if (options.failCorrectionOnce && !correctionFailed) {
+      correctionFailed = true;
+      await route.fulfill({ status: 503, json: { message: "Не удалось сохранить исправление." } });
+      return;
+    }
+    const item = queue.find((candidate) => candidate.card.id === body.cardId)!;
+    const accepted =
+      getExpectedAnswerTexts(item).includes(body.answer) || privateAnswers.has(body.answer);
+    const response = createAnswerResponse({
+      answer: body.answer,
+      accepted,
+      item,
+      result: accepted ? "correct" : "wrong",
+    });
+    const {
+      previousSrs: _previous,
+      nextSrs: _next,
+      srsTransition: _transition,
+      ...answer
+    } = response;
+    const alreadyCorrected = corrected.has(body.cardId);
+    if (accepted) corrected.add(body.cardId);
+    await route.fulfill({
+      json: {
+        ...answer,
+        corrected: accepted,
+        alreadyCorrected,
+        progress: activeResponse().progress,
       },
     });
   });
@@ -596,6 +812,12 @@ async function mockReviewApi(
   });
 
   await page.route(`${API_BASE_URL}/reviews/${SESSION_ID}/finish`, async (route) => {
+    const pending = activeResponse();
+    if (options.resumable && (pending.items.length > 0 || pending.corrections.length > 0)) {
+      await route.fulfill({ status: 409, json: { message: "Есть незавершённые шаги." } });
+      return;
+    }
+    active = false;
     await route.fulfill({
       json: {
         session: {
