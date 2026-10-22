@@ -43,3 +43,16 @@ Verification: focused normalization/API/persistence tests, prepaint bootstrap
 tests, desktop/mobile settings save/reload/OS-theme tests, and all three study
 text presets. These are not a claim that the separate whole-product visual,
 contrast, zoom, or accessibility audits (Tasks 121-122) are complete.
+
+## Item Reading Hints
+
+Item pages also use the saved lesson pronunciation style (`kana` or `furigana`)
+and explicit `lessonRomaji` opt-in. Full known readings are displayed without
+inventing per-character ruby alignment. Examples follow the same presentation;
+translations and attribution remain visible.
+
+The item-page checkbox hides automatic reading hints locally. Item and example
+readings can be revealed separately. This is not a new persisted `hide` enum,
+an assessment mode, or a guarantee that dictionary evidence/mnemonics contain no
+readings. Navigation to another item, authentication/preference changes and
+reload reset the local choice. On/kun source evidence is never removed.

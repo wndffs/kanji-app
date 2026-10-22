@@ -68,7 +68,7 @@ describe("bounded vocabulary curation", () => {
   it("still refuses same-level kanji when placing words outside Foundation", async () => {
     const batch = { ...buildMainCourseWordBatch(), levelNumber: 3 };
     const fixture = harness([batch]);
-    // The first word 山 is itself a reviewed level-3 prerequisite.
+    // The batch includes reviewed level-3 prerequisites such as 上.
     await expect(applyMainCourseWordBatch(fixture.db, batch)).rejects.toThrow("earlier kanji");
     expect(fixture.mutations).toEqual([]);
   });

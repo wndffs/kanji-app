@@ -33,7 +33,9 @@ describe("main-course content batches", () => {
     expect(batch.kanji.map((item) => item.character).join("")).toBe(
       "四五六七八九口目耳手足雨空天気先生学小文",
     );
-    const characters = batches.flatMap((entry) => entry.kanji.map((item) => item.character));
+    const characters = batches
+      .slice(0, 4)
+      .flatMap((entry) => entry.kanji.map((item) => item.character));
     expect(characters).toHaveLength(61);
     expect(new Set(characters).size).toBe(61);
     expect(batch.kanji.every((item) => [2, 3, 4].includes(item.levelNumber))).toBe(true);
@@ -93,7 +95,7 @@ describe("main-course content batches", () => {
     const batches = buildMainCourseContentBatches();
 
     expect(validateMainCourseContentBatches(batches)).toEqual([]);
-    expect(batches).toHaveLength(4);
+    expect(batches).toHaveLength(5);
     expect(batches[0]).toMatchObject({
       id: "task-118-foundation-kanji-01",
       version: "1",
@@ -282,7 +284,7 @@ describe("main-course content batches", () => {
     expect([...foundationLevels]).toEqual([1, 2, 3, 4, 5]);
     const slots: string[] = [];
     const symbols = batches.flatMap((batch) => batch.components.map((content) => content.symbol));
-    expect(new Set(symbols).size).toBe(53);
+    expect(new Set(symbols).size).toBe(63);
     for (const batch of batches) {
       expect(foundationLevels.has(batch.componentLevelNumber)).toBe(true);
       slots.push(

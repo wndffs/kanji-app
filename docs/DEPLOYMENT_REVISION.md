@@ -52,6 +52,11 @@ echoing it. Reports never include arbitrary environment or response content.
 The focused shared/API/web/runner suites passed **153 cases**. They cover invalid
 metadata privacy, null defaults, exact independent matches, mismatches before
 account writes, legacy compatibility and no-store/dynamic health contracts.
-Scoped lint and shared/API/web typechecks passed. Live provider-variable
-availability and an expectation-matched remote dispatch remain deployment proof;
-passing local tests alone do not establish those facts.
+Scoped lint and shared/API/web typechecks passed. Both live public health routes
+then reported `ec537ac6f3d8432efb3e562f7f3055ee8b6a2192`.
+[Remote run 39830339138](https://github.com/wndffs/kanji-app/actions/runs/39830339138)
+passed with that independently observed full SHA supplied for both services;
+its report marks both revisions `verified: true`. It also exercised the V2
+pilot, kana, settings, bounded search and repeated study reads. This establishes
+the metadata match for that run, not browser performance, later deployments or
+binary attestation. Passing local tests alone does not establish a live match.

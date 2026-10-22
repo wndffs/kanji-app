@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildMainCourseContentBatches } from "../src/main-course-content";
 import {
   buildMainCourseWordBatches,
+  mainCourseWordBatchChecksum,
   validateMainCourseWordBatches,
   wordHanCharacters,
 } from "../src/main-course-word-content";
@@ -45,6 +46,9 @@ describe("calendar and next-level vocabulary expansion", () => {
       levelNumber: 5,
       sortOrderStart: 61,
     });
+    expect(mainCourseWordBatchChecksum(batch)).toBe(
+      "81496c6ffcb91d0d7fa046b8f075b4b1aff6e2ccec7f69d48c48708bb043b5b6",
+    );
     expect(batch.words.map((word) => [word.expression, word.reading, word.jmdictEntryId])).toEqual([
       ["六月", "ろくがつ", "jmdict:1561330"],
       ["七月", "しちがつ", "jmdict:1319280"],
@@ -91,6 +95,9 @@ describe("calendar and next-level vocabulary expansion", () => {
       levelNumber: 6,
       sortOrderStart: 1,
     });
+    expect(mainCourseWordBatchChecksum(batch)).toBe(
+      "e1fd34111d46183f4376934d9d55429c191524e7d319ec367b8bdb2c4d972f36",
+    );
     expect(batch.words.map((word) => word.sortOrder)).toEqual(
       Array.from({ length: 20 }, (_, i) => i + 1),
     );

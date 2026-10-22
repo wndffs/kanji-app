@@ -148,6 +148,26 @@ The third reviewed 20-word batch and fourth kanji batch are now applied. All
 - Separate imported/reviewed/placed/published/enrolled counts.
 - Test interruption, reapplication, checksum changes and progress preservation.
 
+### Next Functional Batch (Prepared, Not Yet Applied)
+
+Vocabulary batches 04 and 05 add forty source-checked words and forty original
+JP/kana/RU/EN examples. Batch 04 completes the calendar months and irregular
+dates at level 5 slots 61-80. Batch 05 opens level 6 slots 1-20 with school,
+age/status, time and everyday compounds. The reusable writer now checks the
+destination and prerequisite bands against the actual 60-level blueprint rather
+than hardcoding Foundation level 5. A course band's name does not assign an
+official modern JLPT value to any dictionary row.
+
+These sources are AI-authored and independently AI-reviewed, not human-reviewed.
+Kanji batch 05 adds twenty more signs and ten components, using existing licensed
+KANJIDIC2/KanjiVG records. Prepared totals are 63 components, 81 kanji, 100 words,
+244 placements, 425 cards and 100 examples across six populated levels. These
+are source-manifest totals until server application is independently confirmed.
+Existing reviewed manifests, pilot V1/V2 seals, card identities and learner
+enrollments are unchanged. Prepared source counts must not be reported as live
+or published counts before a successful curation/quality run. The next finite
+pilot must be separately sealed and explicitly enrolled; no silent upgrades.
+
 ## Task 128: Finite-Corpus Pilot
 
 V1 was published by run 39784436544; separately sealed v2 was published by 39820406188. Course/catalog enrollment is

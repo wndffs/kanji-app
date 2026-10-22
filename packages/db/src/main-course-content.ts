@@ -1,3 +1,5 @@
+import { buildMainCourseContentBatch05 } from "./main-course-content-05";
+
 export type MainCourseContentLocale = "ru-RU" | "en-US";
 
 export type MainCourseLocalizedText = {
@@ -1509,6 +1511,7 @@ const MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
   TASK_118_FOUNDATION_BATCH_02,
   TASK_118_FOUNDATION_BATCH_03,
   TASK_118_FOUNDATION_BATCH_04,
+  buildMainCourseContentBatch05(),
 ];
 
 export function buildMainCourseContentBatches(): readonly MainCourseContentBatch[] {
