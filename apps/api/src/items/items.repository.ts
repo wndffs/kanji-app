@@ -309,6 +309,7 @@ export class PrismaItemsRepository extends ItemsRepository {
         ...options,
         includeExamples: false,
         includeRelations: false,
+        summaryOnly: true,
       });
 
       if (item !== null) {
@@ -385,15 +386,15 @@ export class PrismaItemsRepository extends ItemsRepository {
           orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
           include: {
             answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] },
-            blockedAnswers: { orderBy: { text: "asc" } },
-            audioAsset: {
+            blockedAnswers: options.summaryOnly ? false : { orderBy: { text: "asc" } },
+            audioAsset: options.summaryOnly ? false : {
               include: {
                 dataSource: true,
                 license: true,
               },
             },
             userOverrides:
-              options.userId === undefined
+              options.summaryOnly || options.userId === undefined
                 ? false
                 : {
                     where: { userId: options.userId },
@@ -401,16 +402,16 @@ export class PrismaItemsRepository extends ItemsRepository {
                   },
           },
         },
-        mnemonics: { orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }, { version: "desc" }] },
+        mnemonics: options.summaryOnly ? false : { orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }, { version: "desc" }] },
         userMnemonics:
-          options.userId === undefined
+          options.summaryOnly || options.userId === undefined
             ? false
             : {
                 where: { userId: options.userId },
                 orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }],
               },
-        hints: { orderBy: [{ locale: "asc" }, { hintType: "asc" }, { version: "desc" }] },
-        dependencies: {
+        hints: options.summaryOnly ? false : { orderBy: [{ locale: "asc" }, { hintType: "asc" }, { version: "desc" }] },
+        dependencies: options.summaryOnly ? false : {
           include: {
             prerequisiteItem: true,
           },
@@ -426,7 +427,7 @@ export class PrismaItemsRepository extends ItemsRepository {
     item: LearningItemRow,
     options: HydrationOptions,
   ): Promise<ItemRecord> {
-    const target = await this.findTarget(item);
+    const target = await this.findTarget(item, options.summaryOnly === true);
     const relationGroups = await this.findRelationGroups(item, options);
     const relations = relationGroups.flatMap((group) =>
       group.items.map(
@@ -436,7 +437,7 @@ export class PrismaItemsRepository extends ItemsRepository {
         }),
       ),
     );
-    const attributions = [
+    const attributions = options.summaryOnly ? [] : [
       ...target.attributions,
       ...(await this.findAttributions(target.sourceRecordIds)),
     ];
@@ -660,27 +661,20 @@ export class PrismaItemsRepository extends ItemsRepository {
         ),
       ),
     ];
-    const hydratedEntries = await Promise.all(
-      relatedIds.map(async (id): Promise<readonly [string, ItemRecord] | null> => {
-        const relatedRow = await this.findLearningItem({ id }, options);
-
-        if (relatedRow === null) {
-          return null;
-        }
-
-        return [
-          id,
-          await this.toItemRecord(relatedRow, {
-            ...options,
-            relationDepth: options.relationDepth - 1,
-            includeExamples: false,
-          }),
-        ];
-      }),
-    );
-    const hydrated = new Map(
-      hydratedEntries.filter((entry): entry is readonly [string, ItemRecord] => entry !== null),
-    );
+    const hydrated = new Map<string, ItemRecord>();
+    for (let offset = 0; offset < relatedIds.length; offset += 100) {
+      const rows = await this.prisma.db.learningItem.findMany({
+        where: { id: { in: relatedIds.slice(offset, offset + 100) }, status: "PUBLISHED" },
+        include: {
+          cards: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }], include: { answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] } } },
+        },
+      });
+      for (const row of rows) {
+        hydrated.set(row.id, await this.toItemRecord(row, {
+          ...options, relationDepth: 0, includeExamples: false, summaryOnly: true,
+        }));
+      }
+    }
     const groups: ItemRelationGroupRecord[] = [];
 
     for (const kind of RELATION_GROUP_ORDER) {
@@ -720,12 +714,12 @@ export class PrismaItemsRepository extends ItemsRepository {
     });
   }
 
-  private async findTarget(item: LearningItemRow): Promise<ItemTargetRecord> {
+  private async findTarget(item: LearningItemRow, summaryOnly = false): Promise<ItemTargetRecord> {
     switch (item.targetType) {
       case "COMPONENT":
         return this.findComponentTarget(item.targetId);
       case "KANJI":
-        return this.findKanjiTarget(item.targetId);
+        return this.findKanjiTarget(item.targetId, summaryOnly);
       case "WORD":
         return this.findWordTarget(item.targetId);
       case "SENTENCE":
@@ -790,13 +784,13 @@ export class PrismaItemsRepository extends ItemsRepository {
     };
   }
 
-  private async findKanjiTarget(id: string): Promise<ItemTargetRecord> {
+  private async findKanjiTarget(id: string, summaryOnly = false): Promise<ItemTargetRecord> {
     const kanji = (await this.prisma.db.kanji.findUnique({
       where: { id },
       include: {
         readings: { orderBy: kanjiReadingOrderBy() },
         meanings: { orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }] },
-        strokeGraphic: true,
+        strokeGraphic: !summaryOnly,
       },
     })) as KanjiRow | null;
 
@@ -804,7 +798,7 @@ export class PrismaItemsRepository extends ItemsRepository {
       throw new Error(`Missing kanji target ${id}.`);
     }
 
-    const strokeGraphic = toStrokeGraphic(kanji.strokeGraphic);
+    const strokeGraphic = toStrokeGraphic(summaryOnly ? null : kanji.strokeGraphic);
 
     return {
       japanese: kanji.character,

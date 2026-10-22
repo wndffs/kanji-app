@@ -134,6 +134,7 @@ export type ItemLookupOptions = {
   readonly userId?: string;
   readonly includeExamples?: boolean;
   readonly includeRelations?: boolean;
+  readonly summaryOnly?: boolean;
 };
 
 export type SearchLookupOptions = ItemLookupOptions;
