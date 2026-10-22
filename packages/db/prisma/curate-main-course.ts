@@ -523,6 +523,8 @@ async function requireKanjiEvidence(
   }
 
   const sourceReading = normalizeReading(content.reading.source);
+  const sourceType = content.reading.sourceType ?? "ja_on";
+  const readingType = sourceType === "ja_kun" ? "KUNYOMI" : "ONYOMI";
   const raw = kanji.importedRecord.rawJson;
   const sourceSupported =
     isJsonObject(raw) &&
@@ -531,14 +533,14 @@ async function requireKanjiEvidence(
     raw.readings.some(
       (reading) =>
         isJsonObject(reading) &&
-        reading.sourceType === "ja_on" &&
+        reading.sourceType === sourceType &&
         reading.reading === content.reading.source,
     );
   if (
     !sourceSupported ||
     !kanji.readings.some(
       (reading) =>
-        reading.readingType === "ONYOMI" && normalizeReading(reading.reading) === sourceReading,
+        reading.readingType === readingType && normalizeReading(reading.reading) === sourceReading,
     )
   ) {
     throw new Error(
@@ -549,7 +551,7 @@ async function requireKanjiEvidence(
   if (
     normalizeReading(content.reading.primary) !== sourceReading ||
     normalizeReading(kanji.readings[0]?.reading ?? "") !== sourceReading ||
-    kanji.readings[0]?.readingType !== "ONYOMI"
+    kanji.readings[0]?.readingType !== readingType
   ) {
     throw new Error(
       `Kanji ${content.character} taught reading must match its first KANJIDIC2 reading.`,

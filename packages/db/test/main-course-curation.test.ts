@@ -10,6 +10,74 @@ import { buildMainCourseBlueprint } from "../src/main-course";
 import { buildMainCourseContentBatches } from "../src/main-course-content";
 
 describe("main-course curation preflight and application", () => {
+  it("supports an explicitly sourced kun reading without rewriting raw readings or private progress", async () => {
+    const fixture = curationFixture();
+    const original = fixture.registry[1]!;
+    const batch = {
+      ...original,
+      kanji: original.kanji.map((item) =>
+        item.character !== "田"
+          ? item
+          : {
+              ...item,
+              reading: {
+                source: "た",
+                sourceType: "ja_kun" as const,
+                primary: "た",
+                accepted: ["た"],
+              },
+            },
+      ),
+    };
+    const source = fixture.state.kanji.get("田")!;
+    source.importedRecord.rawJson.readings = [{ reading: "た", sourceType: "ja_kun" }];
+    source.readings = [
+      { reading: "た", readingType: "KUNYOMI", priority: 0 },
+      { reading: "デン", readingType: "ONYOMI", priority: 1 },
+    ];
+    const before = structuredClone({ source, privateRows: fixture.privateRows });
+    const registry = [fixture.registry[0]!, batch];
+    await planMainCourseContentBatch(fixture.db, batch, registry);
+    expect(fixture.mutations).toEqual([]);
+    await applyMainCourseContentBatch(fixture.db, batch, registry);
+    const item = fixture.state.items.get("KANJI:kanji-田")!;
+    const card = [...fixture.state.cards.values()].find(
+      (card) => card.learningItemId === item.id && card.promptType === "READING",
+    )!;
+    expect(
+      fixture.state.answers
+        .filter((answer) => answer.learningCardId === card.id)
+        .map((answer) => answer.text),
+    ).toEqual(["た"]);
+    expect(source).toEqual(before.source);
+    expect(fixture.privateRows).toEqual(before.privateRows);
+    expect(fixture.privateMutation).not.toHaveBeenCalled();
+    source.importedRecord.rawJson.readings[0]!.sourceType = "ja_on";
+    await expect(planMainCourseContentBatch(fixture.db, batch, registry)).rejects.toThrow(
+      "not supported by KANJIDIC2",
+    );
+  });
+
+  it("blocks a pending fourth-batch fixture and default-all before database access", async () => {
+    const fixture = curationFixture();
+    const approved = buildMainCourseContentBatches();
+    const pending = { ...approved[3]!, reviewedAt: null };
+    const registry = [...approved.slice(0, 3), pending];
+    expect(pending.reviewedAt).toBeNull();
+    await expect(applyMainCourseContentBatch(fixture.db, pending, registry)).rejects.toThrow(
+      "needs independent parent review",
+    );
+    await expect(
+      applyMainCourseContentBatches(fixture.db, { registry, batchId: pending.id }),
+    ).rejects.toThrow("needs independent parent review");
+    await expect(applyMainCourseContentBatches(fixture.db, { registry })).rejects.toThrow(
+      "needs independent parent review",
+    );
+    expect(fixture.readCourse).not.toHaveBeenCalled();
+    expect(fixture.transaction).not.toHaveBeenCalled();
+    expect(fixture.mutations).toEqual([]);
+  });
+
   it("plans the pending one-kanji bridge using the published prior stroke, without creating components", async () => {
     const fixture = curationFixture(true);
     const bridge = fixture.registry[2]!;

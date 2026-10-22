@@ -13,11 +13,87 @@ import {
 } from "../src/main-course-content";
 
 describe("main-course content batches", () => {
+  it("registers the independently reviewed fourth batch without duplicating earlier characters", () => {
+    const batches = buildMainCourseContentBatches();
+    const batch = batches[3]!;
+    expect(batch).toMatchObject({
+      id: "task-118-foundation-kanji-04",
+      version: "1",
+      reviewedAt: "2026-10-22",
+      authoredAt: "2026-10-22",
+      componentLevelNumber: 1,
+      componentSortOrderStart: 41,
+    });
+    expect(batch.reviewNotes).toContain("Independently reviewed by the parent agent");
+    expect(batch.reviewNotes).toContain("AI-authored");
+    expect(createHash("sha256").update(JSON.stringify(batch)).digest("hex")).toBe(
+      "5547b31673a20cffdfc817b0a95bd8b3e202108529c844f5090e0234fefa7850",
+    );
+    expect(batch.components).toHaveLength(13);
+    expect(batch.kanji.map((item) => item.character).join("")).toBe(
+      "四五六七八九口目耳手足雨空天気先生学小文",
+    );
+    const characters = batches.flatMap((entry) => entry.kanji.map((item) => item.character));
+    expect(characters).toHaveLength(61);
+    expect(new Set(characters).size).toBe(61);
+    expect(batch.kanji.every((item) => [2, 3, 4].includes(item.levelNumber))).toBe(true);
+    expect(batch.kanji.map((item) => [item.reading.source, item.reading.accepted])).toEqual([
+      ["シ", ["し"]],
+      ["ゴ", ["ご"]],
+      ["ロク", ["ろく"]],
+      ["シチ", ["しち"]],
+      ["ハチ", ["はち"]],
+      ["キュウ", ["きゅう"]],
+      ["くち", ["くち"]],
+      ["モク", ["もく"]],
+      ["ジ", ["じ"]],
+      ["シュ", ["しゅ"]],
+      ["ソク", ["そく"]],
+      ["ウ", ["う"]],
+      ["クウ", ["くう"]],
+      ["テン", ["てん"]],
+      ["キ", ["き"]],
+      ["セン", ["せん"]],
+      ["セイ", ["せい"]],
+      ["ガク", ["がく"]],
+      ["ショウ", ["しょう"]],
+      ["ブン", ["ぶん"]],
+    ]);
+    expect(validateMainCourseContentBatches(batches)).toEqual([]);
+    const mouth = batch.kanji.find((item) => item.character === "口")!;
+    expect(mouth.reading.sourceType).toBe("ja_kun");
+    const invalid = structuredClone(batch);
+    Object.assign(invalid.kanji.find((item) => item.character === "口")!.reading, {
+      sourceType: "pinyin",
+    });
+    expect(validateMainCourseContentBatches([...batches.slice(0, 3), invalid])).toContain(
+      `${batch.id} kanji 口 has an invalid taught reading`,
+    );
+    expect(validateMainCourseContentBatches([batch])).toContain(
+      `${batch.id} kanji 四 references missing component-enclosure`,
+    );
+    expect(
+      validateMainCourseContentBatches([
+        ...batches.slice(0, 3),
+        { ...batch, componentSortOrderStart: 40 },
+      ]),
+    ).toContain("duplicate component placement 1:40");
+    expect(
+      validateMainCourseContentBatches([
+        ...batches.slice(0, 3),
+        {
+          ...batch,
+          kanji: [{ ...batch.kanji[0]!, levelNumber: 2, sortOrder: 21 }, ...batch.kanji.slice(1)],
+        },
+      ]),
+    ).toContain("duplicate kanji placement 2:21");
+  });
+
   it("defines the reviewed Task 118 foundation batch", () => {
     const batches = buildMainCourseContentBatches();
 
     expect(validateMainCourseContentBatches(batches)).toEqual([]);
-    expect(batches).toHaveLength(3);
+    expect(batches).toHaveLength(4);
     expect(batches[0]).toMatchObject({
       id: "task-118-foundation-kanji-01",
       version: "1",
@@ -95,7 +171,7 @@ describe("main-course content batches", () => {
         .map((content) => content.sortOrder)
         .sort((a, b) => a - b),
     ).toEqual(Array.from({ length: 15 }, (_, index) => index + 1));
-    expect(batches.flatMap((batch) => batch.components)).toHaveLength(40);
+    expect(batches.slice(0, 3).flatMap((batch) => batch.components)).toHaveLength(40);
     expect(validateMainCourseContentBatches([bridge])).toContain(
       `${bridge.id} kanji 一 references missing component-one-stroke`,
     );
@@ -206,7 +282,7 @@ describe("main-course content batches", () => {
     expect([...foundationLevels]).toEqual([1, 2, 3, 4, 5]);
     const slots: string[] = [];
     const symbols = batches.flatMap((batch) => batch.components.map((content) => content.symbol));
-    expect(new Set(symbols).size).toBe(40);
+    expect(new Set(symbols).size).toBe(53);
     for (const batch of batches) {
       expect(foundationLevels.has(batch.componentLevelNumber)).toBe(true);
       slots.push(

@@ -80,10 +80,56 @@ fe1998be5842a0ca2f233670318949c51d82c58d68068851c3859f8e3560af92
 
 Database preflight checks the entire batch before its first write: source
 readings, KanjiVG evidence, earlier components and free/stable placement slots.
-The current lesson target summary uses the first KANJIDIC2 priority reading;
-the taught reading must match it. For 木 this is ボク/ぼく, while vocabulary
+The current lesson target summary uses the first stored priority reading;
+the taught reading must match it and have exact raw KANJIDIC2 evidence of the
+declared type. `sourceType` defaults to `ja_on` for unchanged earlier manifests;
+explicit `ja_kun` is also supported, never inferred from an arbitrary answer.
+For 木 the taught reading is ボク/ぼく, while vocabulary
 will independently teach き. A future curated-reading selection must change
 all display/quality contracts together, not silently alter imported priorities.
+
+## Approved Fourth Kanji Batch
+
+`task-118-foundation-kanji-04@1` is AI-authored and was independently reviewed by
+the parent on 2026-10-22 (`reviewedAt: 2026-10-22`). Approval is not a human-review
+claim or live rollout proof. It adds 20
+kanji: `四五六七八九口目耳手足雨空天気先生学小文`, with 13 original reusable
+components at level 1 slots 41-53: 五, 七, 九, 亠, 耳, 手, 足, 雨, 穴, 气, 小, 生, 文.
+It reuses registered earlier components where the shapes actually occur.
+Component cues for 気, 先 and 学 are explicitly partial visual aids, not complete
+decompositions or historical etymologies.
+
+Candidate placements are level 2 slots 22-27, level 3 slots 13-18 and level 4
+slots 14-21. The full registry therefore describes 53 components and 61 kanji;
+these are manifest counts, not live publication counts. All first-three approved
+manifests and the separate frozen word and pilot manifests remain unchanged.
+
+Source readings (exact KANJIDIC2 string -> sole accepted answer):
+
+```text
+四 シ -> し       五 ゴ -> ご       六 ロク -> ろく
+七 シチ -> しち   八 ハチ -> はち   九 キュウ -> きゅう
+口 くち -> くち   目 モク -> もく   耳 ジ -> じ
+手 シュ -> しゅ   足 ソク -> そく   雨 ウ -> う
+空 クウ -> くう   天 テン -> てん   気 キ -> き
+先 セン -> せん   生 セイ -> せい   学 ガク -> がく
+小 ショウ -> しょう               文 ブン -> ぶん
+```
+
+Read-only Neon queries verified successful licensed KANJIDIC2/KanjiVG evidence
+and exact source readings for all 20, without downloading dictionaries again.
+Nineteen teach source on-readings. For 口 the existing published demo card already
+teaches `くち`, which is exactly supported by `ja_kun` source evidence and the
+first stored KUNYOMI reading. Keeping it avoids silently changing a learned card
+to `こう`; source priorities, old card identities and SRS states are not rewritten.
+Other source readings are not silently added as accepted answers to these cards.
+The parent reviewed the component shapes, meanings and independent teaching copy.
+No modern JLPT values are inferred from legacy source metadata. Educational
+copy is original project content; imported KANJIDIC2/KanjiVG evidence and its
+existing license/attribution tracking remain separate.
+
+Approved manifest SHA-256:
+`5547b31673a20cffdfc817b0a95bd8b3e202108529c844f5090e0234fefa7850`.
 
 ## Apply
 
@@ -118,9 +164,9 @@ The curation command:
 - is idempotent and can resume safely after a partial failure.
 
 No selection means all registered batches, preserving the existing default.
-All current manifests are approved. All selected batches must still be reviewed
+All four current manifests are approved. All selected batches must still be reviewed
 before any application starts; a future pending batch prevents default-all
-application until approval. Negative tests use explicit pending fixture clones,
+application until approval. Negative tests cover explicit pending fixture clones,
 never modifications to the approved manifests. The CLI uses
 `withNeonConnectionDefaults` and disconnects in `finally`.
 
@@ -143,6 +189,21 @@ order publishes 一 at its registered earlier placement before 一人/一月/一
 are checked. It avoids reapplying either old kanji batch or old published word
 answers. Blank selections retain the workflow's default-all behavior. Successful
 live rollout evidence is recorded in `TASK_118_PUBLICATION_STATUS.md`.
+
+For a new kanji-only addition without reapplying any vocabulary, explicitly use:
+
+```text
+kanji_batch = task-118-foundation-kanji-04
+word_batch = <empty>
+skip_words = true
+```
+
+`scripts/staging-curation-selection.mjs` rejects `skip_words` without an explicit
+kanji batch, conflicting word selection, malformed IDs or nonboolean input before
+database writes. Its fixed boolean outputs gate validation/preflight/application
+steps. Unknown but syntactically valid batch IDs are still rejected by each
+registered-manifest CLI before migrations. The full main-course quality report
+always runs, even when vocabulary writes are skipped. This mode never runs seed.
 
 ## Verification
 

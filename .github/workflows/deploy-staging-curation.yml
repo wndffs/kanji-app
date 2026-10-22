@@ -11,6 +11,10 @@ on:
         description: Optional registered word batch ID (empty reapplies all curation)
         required: false
         type: string
+      skip_words:
+        description: Skip all vocabulary writes (requires kanji_batch and empty word_batch)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -29,6 +33,7 @@ jobs:
       NODE_ENV: production
       WORD_BATCH: ${{ inputs.word_batch }}
       KANJI_BATCH: ${{ inputs.kanji_batch }}
+      SKIP_WORDS: ${{ inputs.skip_words }}
 
     steps:
       - name: Check out repository
@@ -43,6 +48,13 @@ jobs:
       - name: Install dependencies
         run: npm ci --include=dev
 
+      - name: Verify selection guardrails
+        run: npm exec -- vitest run scripts/staging-curation-selection.test.ts --no-cache --no-fsModuleCache --configLoader runner --maxWorkers=1
+
+      - name: Resolve explicit curation selection before database writes
+        id: selection
+        run: node scripts/staging-curation-selection.mjs >> "$GITHUB_OUTPUT"
+
       - name: Generate Prisma client
         run: npm run db:generate
 
@@ -54,6 +66,7 @@ jobs:
           fi
 
       - name: Validate selected word manifests before any database writes
+        if: ${{ steps.selection.outputs.apply_words == 'true' }}
         shell: bash
         run: |
           args=()
@@ -61,7 +74,7 @@ jobs:
           npm run db:curate:words -- --validate-only "${args[@]}"
 
       - name: Validate selected kanji manifests before any database writes
-        if: ${{ inputs.kanji_batch != '' || inputs.word_batch == '' }}
+        if: ${{ steps.selection.outputs.apply_kanji == 'true' }}
         shell: bash
         run: |
           args=()
@@ -72,7 +85,7 @@ jobs:
         run: npm run db:migrate:deploy
 
       - name: Apply versioned main-course curation
-        if: ${{ inputs.kanji_batch != '' || inputs.word_batch == '' }}
+        if: ${{ steps.selection.outputs.apply_kanji == 'true' }}
         shell: bash
         run: |
           args=()
@@ -80,6 +93,7 @@ jobs:
           npm run db:curate -- "${args[@]}"
 
       - name: Preflight reviewed vocabulary without mutations
+        if: ${{ steps.selection.outputs.apply_words == 'true' }}
         shell: bash
         run: |
           args=()
@@ -87,6 +101,7 @@ jobs:
           npm run db:curate:words -- --preflight-only "${args[@]}"
 
       - name: Apply reviewed vocabulary and original examples
+        if: ${{ steps.selection.outputs.apply_words == 'true' }}
         shell: bash
         run: |
           args=()
