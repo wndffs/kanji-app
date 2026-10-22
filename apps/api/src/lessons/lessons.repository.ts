@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { loadItemExampleSentences } from "@kanji-srs/db";
+import { loadItemExampleSentences, resolvePrimaryTaughtReading } from "@kanji-srs/db";
 import {
   formatKanjiJlptLevel,
   type ContentLocale,
@@ -688,13 +688,17 @@ export class PrismaLessonsRepository extends LessonsRepository {
     const cards = item.cards
       .map((card) => toCardRecord(card, itemType))
       .filter(isLessonCardEligible);
+    const target = requireLoadedTarget(item, targets);
 
     return {
       id: item.id,
       itemType,
       title: item.title,
       level: item.levelHint,
-      target: requireLoadedTarget(item, targets),
+      target:
+        itemType === "kanji"
+          ? { ...target, reading: resolvePrimaryTaughtReading(item.cards, target.reading) }
+          : target,
       cards,
       dependencies: item.dependencies.map(toDependencyRecord),
       mnemonics: groupLessonMnemonics(item.mnemonics, item.userMnemonics),

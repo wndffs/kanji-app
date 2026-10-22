@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { loadItemExampleSentences } from "@kanji-srs/db";
+import { loadItemExampleSentences, resolvePrimaryTaughtReading } from "@kanji-srs/db";
 import { calculateLeechScore, type LeechScoreResult } from "@kanji-srs/srs";
 import {
   formatKanjiJlptLevel,
@@ -562,7 +562,10 @@ export class PrismaItemsRepository extends ItemsRepository {
       title: item.title,
       level: item.levelHint,
       status: item.status,
-      target,
+      target:
+        itemType === "kanji"
+          ? { ...target, reading: resolvePrimaryTaughtReading(item.cards, target.reading) }
+          : target,
       cards,
       mnemonics: [
         ...(item.mnemonics ?? []).map(toTextRecord),

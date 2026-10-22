@@ -167,6 +167,34 @@ async function load(h: ReturnType<typeof harness>, source: "course" | "deck") {
 }
 
 describe.each(["course", "deck"] as const)("%s lesson target batching", (source) => {
+  it("uses the item's primary taught reading without changing shared dictionary targets or cards", async () => {
+    const first = item("KANJI", 1);
+    const second = item("KANJI", 2, first.targetId);
+    for (const [entry, text] of [
+      [first, "ひと"],
+      [second, "いち"],
+    ] as const) {
+      entry.cards.push({
+        ...entry.cards[0]!,
+        id: `${entry.id}-reading`,
+        promptType: "READING",
+        answerType: "READING",
+        sortOrder: 2,
+        answers: [
+          { locale: "ja-JP", text, normalizedText: text, answerKind: "READING", isPrimary: true },
+        ],
+      });
+    }
+    const h = harness([first, second]);
+    const before = structuredClone(h.tables.kanji.rows);
+    const records = await load(h, source);
+    expect(records.map((row) => row.target.reading)).toEqual(["ひと", "いち"]);
+    expect(records.map((row) => row.cards.length)).toEqual([2, 2]);
+    expect(h.tables.kanji.findMany).toHaveBeenCalledTimes(1);
+    expect(h.tables.kanji.rows).toEqual(before);
+    expect(records[0]!.cards[1]!.answers[0]?.text).toBe("ひと");
+  });
+
   it("labels the source edition instead of showing legacy level 4 as N4", async () => {
     const h = harness([item("KANJI", 1)]);
     Object.assign(h.tables.kanji.rows[0]!, { jlptLevel: null, legacyJlptLevel: 4 });

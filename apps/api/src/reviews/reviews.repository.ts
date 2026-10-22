@@ -6,7 +6,14 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 
-import { parseCourseLevelPassPolicy, Prisma, type CourseLevelPassPolicy } from "@kanji-srs/db";
+import {
+  parseCourseLevelPassPolicy,
+  primaryTaughtReadingCards,
+  resolvePrimaryTaughtReading,
+  Prisma,
+  type CourseLevelPassPolicy,
+  type PrimaryTaughtReadingCard,
+} from "@kanji-srs/db";
 import {
   formatKanjiJlptLevel,
   type ContentLocale,
@@ -166,6 +173,7 @@ type LearningItemRow = {
   readonly targetType: string;
   readonly targetId: string;
   readonly levelHint: number | null;
+  readonly cards?: readonly PrimaryTaughtReadingCard[];
 };
 
 type LearningAnswerRow = {
@@ -357,7 +365,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
         learningItem: { status: "PUBLISHED", targetType: "KANJI" },
       },
       include: {
-        learningItem: true,
+        learningItem: { include: { cards: primaryTaughtReadingCards } },
         answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] },
         blockedAnswers: { orderBy: { text: "asc" } },
         audioAsset: {
@@ -1077,7 +1085,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       id: item.id,
       itemType: toItemKind(item.kind),
       japanese: kanji.character,
-      reading: kanji.readings[0]?.reading ?? null,
+      reading: resolvePrimaryTaughtReading(item.cards, kanji.readings[0]?.reading ?? null),
       level: item.levelHint,
       jlptLevel: formatKanjiJlptLevel(kanji.jlptLevel, kanji.legacyJlptLevel),
     };
@@ -1426,7 +1434,7 @@ const stateInclude = {
   },
   learningCard: {
     include: {
-      learningItem: true,
+      learningItem: { include: { cards: primaryTaughtReadingCards } },
       answers: { orderBy: [{ isPrimary: "desc" as const }, { text: "asc" as const }] },
       blockedAnswers: { orderBy: { text: "asc" as const } },
       audioAsset: {
