@@ -1,9 +1,82 @@
 # Finite Foundation Pilot
 
-Task128 publishes only `japanese-foundation-pilot-v1`: a separate, versioned
+Task128 defaults to `japanese-foundation-pilot-v1`: a separate, versioned
 five-level pilot containing **40 components, 40 kanji and 20 words**, reusing
 **100 existing learning items and 160 existing cards**. It is not the completed
 60-level course and is not full Task128 or production-readiness approval.
+
+An explicitly selected, separately sealed `japanese-foundation-pilot-v2` is now
+available for independent parent planning/publication. It contains **53 components,
+61 kanji and 60 words**, reusing **174 existing items and 295 existing cards** in
+five levels. This local change is not evidence that v2 has been live-planned or
+published. It never upgrades/enrolls v1 learners or changes their current course.
+
+## Separate V2 Seal
+
+`buildFoundationPilotManifest()` retains its v1 signature and defaults.
+`buildFoundationPilotManifestV2()` uses only these seven named approved
+version-1 source batches, in this order, never every future registry entry:
+
+| Source                       | SHA-256                                                            |
+| ---------------------------- | ------------------------------------------------------------------ |
+| task-118-foundation-kanji-01 | `34676566c590fd19d10349e6bb07c75d01471fc618872fa103db2e676fd138b8` |
+| task-118-foundation-kanji-02 | `99268635c984603c30a1a53c2beb0bcd63a53316b9cb3a83b4e51c54e1c18714` |
+| task-118-foundation-kanji-03 | `fe1998be5842a0ca2f233670318949c51d82c58d68068851c3859f8e3560af92` |
+| task-118-foundation-kanji-04 | `5547b31673a20cffdfc817b0a95bd8b3e202108529c844f5090e0234fefa7850` |
+| task-127-foundation-words-01 | `1ceeb2467961f707e57047ab0c46a91badaa048f036ac3299a5a7d0685f99daf` |
+| task-127-foundation-words-02 | `0110505331b1066653f4b62ce20f4c8bbb98e94ccf701eafac26ecda9a0e6a4f` |
+| task-127-foundation-words-03 | `ef7090a4cea8c4b74c04a3cebfe85dc9832d64e1b7d071e409232287e7cf2ff4` |
+
+V2 stable publication-record UUID: `4c599bc8-e28c-4527-9d9b-a99a3a7c8779`.
+V1 UUID stays `c5d6546d-6f29-451e-bbc5-a0ba4b887048`.
+The complete v1 canonical manifest was captured before the refactor and remains
+`f2febe7e3a1e5a11800530c7992819ab2c3a06f5c33ae3dd0f5218de68c68b86`;
+its ordinary ordered JSON SHA-256 remains
+`8b3108bb59b3b3329f6bb56469923f696824139b2ee0870086cb90eaae5e3fc7`.
+V2 canonical manifest SHA-256 is
+`4d2f3aab0b2b160774ab5a2ca19a675f28423c48561218abca4c8737c47d53e1`.
+These manifest seals are not live course content-version hashes.
+
+The common publisher accepts only canonical equality with one of the two known
+sealed manifests and exact approved registry/source hashes. Altered counts,
+targets, answers, source records/IDs/order, approval dates or level policies
+fail before any database read. Caller-provided counts or slugs do not define
+an arbitrary publishable course. V1 has no new manifest fields and keeps its
+original 100-item/160-card identity, version and metadata shape.
+
+V2 retains the five verified word02 alternate reading answers: 日本/にっぽん,
+一人/いちにん, 二人/ににん, 水田/みずた and 左右/そう. Each word still has
+one primary reading and one reading card. The planner resolves the canonical
+alternate Word rows and requires identical source evidence and exact stored
+`acceptedReadingEvidence`; it never creates alternative targets/cards.
+Word spelling and every example's Han characters must have an earlier kanji
+inside the same finite set. Full current quality gates remain mandatory.
+
+Use the explicit version only after independent parent review:
+
+```sh
+npm run db:publish:pilot -- --pilot v2 --validate-only
+npm run db:publish:pilot -- --pilot v2 --plan
+npm run db:publish:pilot -- --pilot v2 --publish
+```
+
+Omitting `--pilot` still selects v1 and omitting a mode still means read-only
+plan. `--pilot v1` is accepted explicitly; missing, invalid or duplicate pilot
+flags are rejected before Prisma construction. An optional `--enroll-user-id
+UUID` remains limited to one explicitly requested user; neither pilot performs
+automatic enrollment or current-course changes by default. The workflow adds
+a `pilot` choice (`v1` default, `v2` explicit), guards both fixed enums and uses
+`foundation-pilot-<v1|v2>-<mode>-<run-id>` artifacts.
+
+Placement scans use the sealed expected item count plus one: 101 for v1 and
+175 for v2, with exact expected-count checks (100/174), including reapplication.
+Source-record scans likewise request their exact expected count plus one.
+Quality loader page/scoped-ID limits remain 100: v2 uses sorted disjoint scopes
+of 100 and 74 UUIDs, including terminal-page verification for a full 100-row
+page. It scans all 174 rows, not only the first scope. Missing, repeated,
+out-of-scope or unordered results reject publication. V1's query order and
+canonical quality snapshot remain unchanged. The sections below describe the
+original v1 operator evidence; those historical runs do not prove v2 publication.
 
 The source course remains `japanese-ru-n2`, whether currently `DRAFT` or
 `PUBLISHED`. This tool never publishes or updates that course, changes its

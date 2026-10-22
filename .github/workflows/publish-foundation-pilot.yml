@@ -11,6 +11,14 @@ on:
         options:
           - plan
           - publish
+      pilot:
+        description: Sealed finite pilot version
+        required: true
+        default: v1
+        type: choice
+        options:
+          - v1
+          - v2
 
 permissions:
   contents: read
@@ -21,13 +29,14 @@ concurrency:
 
 jobs:
   pilot:
-    name: Verify or publish the 100-item foundation pilot
+    name: Verify or publish the selected finite foundation pilot
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
       NODE_ENV: production
       PILOT_MODE: ${{ inputs.mode }}
+      PILOT_VERSION: ${{ inputs.pilot }}
 
     steps:
       - name: Check out repository
@@ -46,7 +55,17 @@ jobs:
         run: npm run db:generate
 
       - name: Validate the finite manifest without database access
-        run: npm run db:publish:pilot -- --validate-only
+        shell: bash
+        run: |
+          case "$PILOT_VERSION" in
+            v1|v2) ;;
+            *) echo "Unsupported pilot version."; exit 1 ;;
+          esac
+          case "$PILOT_MODE" in
+            plan|publish) ;;
+            *) echo "Unsupported pilot mode."; exit 1 ;;
+          esac
+          npm run db:publish:pilot -- --pilot "$PILOT_VERSION" --validate-only
 
       - name: Plan or explicitly publish the pilot
         shell: bash
@@ -59,13 +78,17 @@ jobs:
             plan|publish) ;;
             *) echo "Unsupported pilot mode."; exit 1 ;;
           esac
-          npm run db:publish:pilot -- "--$PILOT_MODE" | tee "$RUNNER_TEMP/foundation-pilot-report.txt"
+          case "$PILOT_VERSION" in
+            v1|v2) ;;
+            *) echo "Unsupported pilot version."; exit 1 ;;
+          esac
+          npm run db:publish:pilot -- --pilot "$PILOT_VERSION" "--$PILOT_MODE" | tee "$RUNNER_TEMP/foundation-pilot-$PILOT_VERSION-report.txt"
 
       - name: Upload pilot result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: foundation-pilot-${{ inputs.mode }}-${{ github.run_id }}
-          path: ${{ runner.temp }}/foundation-pilot-report.txt
+          name: foundation-pilot-${{ inputs.pilot }}-${{ inputs.mode }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/foundation-pilot-${{ inputs.pilot }}-report.txt
           if-no-files-found: warn
           retention-days: 90

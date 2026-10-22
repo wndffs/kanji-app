@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -78,6 +79,21 @@ describe("foundation pilot CLI arguments before Prisma construction", () => {
 });
 
 describe("finite Foundation pilot manifest", () => {
+  it("pins v1 canonical bytes captured before the v2 refactor", () => {
+    const manifest = buildFoundationPilotManifest();
+    expect(createHash("sha256").update(JSON.stringify(manifest)).digest("hex")).toBe(
+      "8b3108bb59b3b3329f6bb56469923f696824139b2ee0870086cb90eaae5e3fc7",
+    );
+    const canonical = JSON.stringify(manifest, (_key, value: unknown) =>
+      value !== null && typeof value === "object" && !Array.isArray(value)
+        ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+        : value,
+    );
+    expect(createHash("sha256").update(canonical).digest("hex")).toBe(
+      "f2febe7e3a1e5a11800530c7992819ab2c3a06f5c33ae3dd0f5218de68c68b86",
+    );
+    expect(FOUNDATION_PILOT_RECORD_ID).toBe("c5d6546d-6f29-451e-bbc5-a0ba4b887048");
+  });
   it("defines only the separate five-level 40/40/20 pilot without changing source manifests", () => {
     const before = JSON.stringify([buildMainCourseContentBatches(), buildMainCourseWordBatch()]);
     const manifest = buildFoundationPilotManifest();
@@ -178,11 +194,37 @@ describe("finite Foundation pilot manifest", () => {
     });
   });
 
+  it("dry-validates explicitly selected v2 without changing the default v1 CLI", () => {
+    const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+    const output = execFileSync(
+      process.execPath,
+      [
+        join(root, "node_modules/tsx/dist/cli.mjs"),
+        join(root, "packages/db/prisma/publish-foundation-pilot.ts"),
+        "--pilot",
+        "v2",
+        "--validate-only",
+      ],
+      { cwd: root, encoding: "utf8", env: { ...process.env, DATABASE_URL: "" } },
+    );
+    expect(JSON.parse(output)).toMatchObject({
+      status: "valid-finite-manifest",
+      slug: "japanese-foundation-pilot-v2",
+      levels: 5,
+      counts: { items: 174, cards: 295 },
+      manifestRecordId: "4c599bc8-e28c-4527-9d9b-a99a3a7c8779",
+    });
+    expect(JSON.parse(output).sources).toHaveLength(7);
+  });
+
   it.each([
     { args: ["--publish", "--unknown"], error: "Supported flags:" },
     { args: ["--unknown", "--publish"], error: "Supported flags:" },
     { args: ["--plan", "--validate-only"], error: "one publication mode" },
     { args: ["--publish", "--enroll-user-id", "all-users"], error: "one explicit UUID" },
+    { args: ["--pilot"], error: "--pilot once" },
+    { args: ["--pilot", "v3"], error: "--pilot once" },
+    { args: ["--pilot", "v2", "--pilot", "v1"], error: "--pilot once" },
   ])("rejects invalid CLI arguments before database setup: $args", ({ args, error }) => {
     const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
     const result = spawnSync(

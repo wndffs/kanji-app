@@ -6,7 +6,8 @@ import { PrismaClient } from "@prisma/client";
 import { withNeonConnectionDefaults } from "../src/connection-defaults";
 import {
   buildFoundationPilotManifest,
-  FOUNDATION_PILOT_RECORD_ID,
+  buildFoundationPilotManifestV2,
+  foundationPilotRecordId,
   planFoundationPilot,
   publishFoundationPilot,
 } from "../src/foundation-pilot";
@@ -14,12 +15,20 @@ import {
 export function parseFoundationPilotArgs(args: readonly string[]): {
   mode: "validate-only" | "plan" | "publish";
   enrollUserId?: string;
+  pilot?: "v1" | "v2";
 } {
   let mode: "validate-only" | "plan" | "publish" | undefined;
   let enrollUserId: string | undefined;
+  let pilot: "v1" | "v2" | undefined;
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
-    if (arg === "--enroll-user-id") {
+    if (arg === "--pilot") {
+      const value = args[index + 1];
+      if (pilot !== undefined || (value !== "v1" && value !== "v2"))
+        throw new Error("Provide --pilot once with v1 or v2.");
+      pilot = value;
+      index++;
+    } else if (arg === "--enroll-user-id") {
       const id = args[index + 1];
       if (
         enrollUserId !== undefined ||
@@ -35,7 +44,7 @@ export function parseFoundationPilotArgs(args: readonly string[]): {
       mode = arg === "--validate-only" ? "validate-only" : arg === "--plan" ? "plan" : "publish";
     } else {
       throw new Error(
-        "Supported flags: --validate-only, --plan, --publish, --enroll-user-id UUID.",
+        "Supported flags: --validate-only, --plan, --publish, --enroll-user-id UUID, --pilot v1|v2.",
       );
     }
   }
@@ -43,12 +52,18 @@ export function parseFoundationPilotArgs(args: readonly string[]): {
     throw new Error(
       "--enroll-user-id requires database planning or publication, not --validate-only.",
     );
-  return { mode: mode ?? "plan", ...(enrollUserId === undefined ? {} : { enrollUserId }) };
+  return {
+    mode: mode ?? "plan",
+    ...(enrollUserId === undefined ? {} : { enrollUserId }),
+    ...(pilot === undefined ? {} : { pilot }),
+  };
 }
 
 async function main(): Promise<void> {
-  const { mode, enrollUserId } = parseFoundationPilotArgs(process.argv.slice(2));
-  const manifest = buildFoundationPilotManifest();
+  const { mode, enrollUserId, pilot } = parseFoundationPilotArgs(process.argv.slice(2));
+  const manifest =
+    pilot === "v2" ? buildFoundationPilotManifestV2() : buildFoundationPilotManifest();
+  const manifestRecordId = foundationPilotRecordId(manifest);
   if (mode === "validate-only") {
     console.log(
       JSON.stringify(
@@ -57,7 +72,7 @@ async function main(): Promise<void> {
           slug: manifest.slug,
           counts: manifest.counts,
           levels: manifest.levels.length,
-          manifestRecordId: FOUNDATION_PILOT_RECORD_ID,
+          manifestRecordId,
           sources: manifest.sources.map(({ records: _records, ...source }) => source),
         },
         null,
@@ -68,7 +83,7 @@ async function main(): Promise<void> {
   }
   if (manifest.sources.some((source) => source.reviewedAt === null))
     throw new Error(
-      "All three source batches require independent parent review before database planning or publication.",
+      "All selected source batches require independent parent review before database planning or publication.",
     );
   const url = process.env.DATABASE_URL;
   if (!url)
@@ -90,7 +105,7 @@ async function main(): Promise<void> {
               counts: manifest.counts,
               contentVersion: "contentVersion" in result ? result.contentVersion : undefined,
               existingPilotId: "existingPilotId" in result ? result.existingPilotId : undefined,
-              manifestRecordId: FOUNDATION_PILOT_RECORD_ID,
+              manifestRecordId,
               enrollUserId: enrollUserId ?? null,
             },
         null,

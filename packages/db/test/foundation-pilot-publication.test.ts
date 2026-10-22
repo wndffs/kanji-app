@@ -4,8 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { loadContentQualityItems } from "../src/content-quality-report";
 import { validateQualityItem, type QualityItem } from "../src/content-quality";
-import { buildMainCourseContentBatches } from "../src/main-course-content";
-import { buildMainCourseWordBatch } from "../src/main-course-word-content";
 import {
   buildFoundationPilotManifest,
   FOUNDATION_PILOT_RECORD_ID,
@@ -29,9 +27,9 @@ describe("finite pilot publication", () => {
   it("plans read-only, checks all 100 items and reads the terminal bounded quality page", async () => {
     const fixture = harness();
     const plan = await planFoundationPilot(fixture.db, { manifest: fixture.manifest });
-    // Captured before query scoping: the original finite payload must retain its hash.
+    // Canonical approval dates replace the old synthetic date override; persistence IDs remain synthetic.
     expect(plan.contentVersion).toBe(
-      "a0f4dfb958915787d304708a329cd540d9b3fbaae29c5ad5172770bef28c3e7d",
+      "65fa9382cdb2970bf3a6ed26a908b67d569df768f04a0f75b1e19c768853d5f4",
     );
     expect(plan.items).toHaveLength(100);
     expect(plan.sourceChecksums).toHaveLength(3);
@@ -708,15 +706,8 @@ function unorderedContentFixture() {
 }
 
 function harness() {
-  // These approval dates exist only in synthetic fixtures, not in source manifests.
-  const manifest = buildFoundationPilotManifest(
-    buildMainCourseContentBatches()
-      .filter((batch) =>
-        ["task-118-foundation-kanji-01", "task-118-foundation-kanji-02"].includes(batch.id),
-      )
-      .map((batch) => ({ ...batch, reviewedAt: "2026-10-23" })),
-    { ...buildMainCourseWordBatch(), reviewedAt: "2026-10-23" },
-  );
+  // Keep the approved seal intact; only the database persistence is synthetic.
+  const manifest = structuredClone(buildFoundationPilotManifest());
   const state = {
     courses: new Map<string, Row>(),
     levels: new Map<string, Row>(),

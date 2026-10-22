@@ -13,6 +13,8 @@ import {
 } from "./main-course-content";
 import {
   buildMainCourseWordBatch,
+  buildMainCourseWordBatches,
+  mainCourseWordAcceptedReadings,
   mainCourseWordBatchChecksum,
   validateMainCourseWordBatch,
   wordHanCharacters,
@@ -21,6 +23,41 @@ import {
 
 export const FOUNDATION_PILOT_SLUG = "japanese-foundation-pilot-v1";
 export const FOUNDATION_PILOT_RECORD_ID = "c5d6546d-6f29-451e-bbc5-a0ba4b887048";
+export const FOUNDATION_PILOT_V2_SLUG = "japanese-foundation-pilot-v2";
+export const FOUNDATION_PILOT_V2_RECORD_ID = "4c599bc8-e28c-4527-9d9b-a99a3a7c8779";
+const KANJI_SOURCE_IDS = ["01", "02", "03", "04"].map(
+  (suffix) => `task-118-foundation-kanji-${suffix}`,
+);
+const WORD_SOURCE_IDS = ["01", "02", "03"].map((suffix) => `task-127-foundation-words-${suffix}`);
+const SOURCE_HASHES: Readonly<Record<string, string>> = {
+  [KANJI_SOURCE_IDS[0]!]: "34676566c590fd19d10349e6bb07c75d01471fc618872fa103db2e676fd138b8",
+  [KANJI_SOURCE_IDS[1]!]: "99268635c984603c30a1a53c2beb0bcd63a53316b9cb3a83b4e51c54e1c18714",
+  [KANJI_SOURCE_IDS[2]!]: "fe1998be5842a0ca2f233670318949c51d82c58d68068851c3859f8e3560af92",
+  [KANJI_SOURCE_IDS[3]!]: "5547b31673a20cffdfc817b0a95bd8b3e202108529c844f5090e0234fefa7850",
+  [WORD_SOURCE_IDS[0]!]: "1ceeb2467961f707e57047ab0c46a91badaa048f036ac3299a5a7d0685f99daf",
+  [WORD_SOURCE_IDS[1]!]: "0110505331b1066653f4b62ce20f4c8bbb98e94ccf701eafac26ecda9a0e6a4f",
+  [WORD_SOURCE_IDS[2]!]: "ef7090a4cea8c4b74c04a3cebfe85dc9832d64e1b7d071e409232287e7cf2ff4",
+};
+const PILOTS = {
+  v1: {
+    slug: FOUNDATION_PILOT_SLUG,
+    recordId: FOUNDATION_PILOT_RECORD_ID,
+    version: "1",
+    counts: { components: 40, kanji: 40, words: 20, items: 100, cards: 160 },
+    kanjiIds: KANJI_SOURCE_IDS.slice(0, 2),
+    wordIds: WORD_SOURCE_IDS.slice(0, 1),
+    canonicalChecksum: "f2febe7e3a1e5a11800530c7992819ab2c3a06f5c33ae3dd0f5218de68c68b86",
+  },
+  v2: {
+    slug: FOUNDATION_PILOT_V2_SLUG,
+    recordId: FOUNDATION_PILOT_V2_RECORD_ID,
+    version: "2",
+    counts: { components: 53, kanji: 61, words: 60, items: 174, cards: 295 },
+    kanjiIds: KANJI_SOURCE_IDS,
+    wordIds: WORD_SOURCE_IDS,
+    canonicalChecksum: "4d2f3aab0b2b160774ab5a2ca19a675f28423c48561218abca4c8737c47d53e1",
+  },
+} as const;
 const SOURCE_COURSE_SLUG = "japanese-ru-n2";
 const PUBLICATION_SOURCE = "Kanji SRS foundation pilot publication";
 const PUBLICATION_LICENSE = "Project-authored foundation pilot metadata";
@@ -66,21 +103,42 @@ export function buildFoundationPilotManifest(
   ),
   words: MainCourseWordBatch = buildMainCourseWordBatch(),
 ) {
+  return buildPilotManifest(kanjiBatches, [words], "v1");
+}
+
+export function buildFoundationPilotManifestV2(
+  kanjiBatches: readonly MainCourseContentBatch[] = buildMainCourseContentBatches().filter(
+    (batch) => KANJI_SOURCE_IDS.includes(batch.id),
+  ),
+  wordBatches: readonly MainCourseWordBatch[] = buildMainCourseWordBatches().filter((batch) =>
+    WORD_SOURCE_IDS.includes(batch.id),
+  ),
+) {
+  return buildPilotManifest(kanjiBatches, wordBatches, "v2");
+}
+
+function buildPilotManifest(
+  kanjiBatches: readonly MainCourseContentBatch[],
+  wordBatches: readonly MainCourseWordBatch[],
+  pilot: keyof typeof PILOTS,
+) {
+  const definition = PILOTS[pilot];
   const issues = [
     ...validateMainCourseContentBatches(kanjiBatches),
-    ...validateMainCourseWordBatch(words),
+    ...wordBatches.flatMap(validateMainCourseWordBatch),
   ];
   if (issues.length) throw new Error(`Invalid pilot sources: ${issues.join("; ")}`);
   if (
-    kanjiBatches.map((batch) => batch.id).join(",") !==
-      "task-118-foundation-kanji-01,task-118-foundation-kanji-02" ||
-    words.id !== "task-127-foundation-words-01" ||
-    [...kanjiBatches, words].some(
+    kanjiBatches.map((batch) => batch.id).join(",") !== definition.kanjiIds.join(",") ||
+    wordBatches.map((batch) => batch.id).join(",") !== definition.wordIds.join(",") ||
+    [...kanjiBatches, ...wordBatches].some(
       (batch) => batch.version !== "1" || batch.courseSlug !== SOURCE_COURSE_SLUG,
     )
   )
     throw new Error(
-      "Pilot v1 requires exactly the three registered version-1 main-course batches.",
+      pilot === "v1"
+        ? "Pilot v1 requires exactly the three registered version-1 main-course batches."
+        : "Pilot v2 requires exactly the seven registered version-1 main-course batches.",
     );
   const targets: PilotTarget[] = [];
   const sources: SourceBatch[] = [];
@@ -126,50 +184,56 @@ export function buildFoundationPilotManifest(
       records,
     });
   }
-  const wordRecords: SourceBatch["records"][number][] = [];
-  for (const content of words.words) {
-    const key = `word:${content.expression}:${content.reading}`;
-    targets.push({
-      key,
-      kind: "WORD",
-      expression: content.expression,
-      reading: content.reading,
-      jmdictEntryId: content.jmdictEntryId,
-      levelNumber: words.levelNumber,
-      sortOrder: content.sortOrder,
-      prerequisiteKeys: wordHanCharacters(content.expression).map(
-        (character) => `kanji:${character}`,
-      ),
-      requiredStage: 2,
-      answers: answers(content.meanings.ru.accepted, content.meanings.en.accepted, [
-        content.reading,
-      ]),
-    });
-    wordRecords.push({
-      sourceRecordId: `${words.id}:example:${content.jmdictEntryId}:${content.expression}:${content.reading}`,
-      content,
-      wordKey: key,
+  for (const words of wordBatches) {
+    const wordRecords: SourceBatch["records"][number][] = [];
+    for (const content of words.words) {
+      const key = `word:${content.expression}:${content.reading}`;
+      targets.push({
+        key,
+        kind: "WORD",
+        expression: content.expression,
+        reading: content.reading,
+        jmdictEntryId: content.jmdictEntryId,
+        levelNumber: words.levelNumber,
+        sortOrder: content.sortOrder,
+        prerequisiteKeys: wordHanCharacters(content.expression).map(
+          (character) => `kanji:${character}`,
+        ),
+        requiredStage: 2,
+        answers: answers(
+          content.meanings.ru.accepted,
+          content.meanings.en.accepted,
+          pilot === "v1" ? [content.reading] : mainCourseWordAcceptedReadings(content),
+        ),
+      });
+      wordRecords.push({
+        sourceRecordId: `${words.id}:example:${content.jmdictEntryId}:${content.expression}:${content.reading}`,
+        content,
+        wordKey: key,
+      });
+    }
+    sources.push({
+      id: words.id,
+      version: words.version,
+      reviewedAt: words.reviewedAt,
+      sourceFile: words.sourceFile,
+      dataSourceName: "Kanji SRS main-course word curation",
+      checksumSha256: mainCourseWordBatchChecksum(words),
+      records: wordRecords,
     });
   }
-  sources.push({
-    id: words.id,
-    version: words.version,
-    reviewedAt: words.reviewedAt,
-    sourceFile: words.sourceFile,
-    dataSourceName: "Kanji SRS main-course word curation",
-    checksumSha256: mainCourseWordBatchChecksum(words),
-    records: wordRecords,
-  });
   if (
-    targets.filter((target) => target.kind === "COMPONENT").length !== 40 ||
-    targets.filter((target) => target.kind === "KANJI").length !== 40 ||
-    targets.filter((target) => target.kind === "WORD").length !== 20
+    targets.filter((target) => target.kind === "COMPONENT").length !==
+      definition.counts.components ||
+    targets.filter((target) => target.kind === "KANJI").length !== definition.counts.kanji ||
+    targets.filter((target) => target.kind === "WORD").length !== definition.counts.words
   )
-    throw new Error("Pilot v1 requires exactly 40 components, 40 kanji and 20 words.");
+    throw new Error(`Pilot ${pilot} requires its exact sealed component, kanji and word counts.`);
   const keys = new Map(targets.map((target) => [target.key, target]));
   if (
-    keys.size !== 100 ||
-    new Set(targets.map((target) => `${target.levelNumber}:${target.sortOrder}`)).size !== 100 ||
+    keys.size !== definition.counts.items ||
+    new Set(targets.map((target) => `${target.levelNumber}:${target.sortOrder}`)).size !==
+      definition.counts.items ||
     targets.some(
       (target) =>
         target.levelNumber < 1 ||
@@ -180,15 +244,26 @@ export function buildFoundationPilotManifest(
     )
   )
     throw new Error("Pilot placements and earlier prerequisite closure are invalid.");
+  for (const words of wordBatches)
+    for (const content of words.words)
+      if (
+        wordHanCharacters(content.example.japaneseText).some(
+          (character) =>
+            !keys.has(`kanji:${character}`) ||
+            keys.get(`kanji:${character}`)!.levelNumber >= words.levelNumber,
+        )
+      )
+        throw new Error(`Pilot example needs an earlier registered kanji: ${content.expression}.`);
+  const label =
+    pilot === "v1" ? "40 компонентов, 40 кандзи и 20 слов" : "53 компонента, 61 кандзи и 60 слов";
   return {
-    version: "1",
-    slug: FOUNDATION_PILOT_SLUG,
+    version: definition.version,
+    slug: definition.slug,
     sourceCourseSlug: SOURCE_COURSE_SLUG,
-    titleRu: "Пилот основ: 40 компонентов, 40 кандзи и 20 слов",
-    descriptionRu:
-      "Отдельный пилот из 5 уровней: 40 компонентов, 40 кандзи и 20 слов. Это не полный курс до N2.",
+    titleRu: `Пилот основ: ${label}`,
+    descriptionRu: `Отдельный пилот из 5 уровней: ${label}. Это не полный курс до N2.`,
     targetLevel: "FOUNDATION",
-    counts: { components: 40, kanji: 40, words: 20, items: 100, cards: 160 },
+    counts: { ...definition.counts },
     levels: Array.from({ length: 5 }, (_, index) => ({
       levelNumber: index + 1,
       titleRu: `Основа: этап ${index + 1}`,
@@ -196,7 +271,7 @@ export function buildFoundationPilotManifest(
         index === 0
           ? "Компоненты пилотного курса."
           : index === 4
-            ? "Первые 20 слов пилотного курса."
+            ? `Первые ${definition.counts.words} слов пилотного курса.`
             : "Кандзи пилотного курса.",
       passPolicyJson: createCourseLevelPassPolicy(
         index === 0 ? "COMPONENT" : index === 4 ? "WORD" : "KANJI",
@@ -276,12 +351,12 @@ const COURSE_SELECT = {
 } as const satisfies Prisma.CourseSelect;
 
 export async function planFoundationPilot(db: PilotReader, options: FoundationPilotOptions = {}) {
-  const manifest = options.manifest ?? buildFoundationPilotManifest();
-  requireApproved(manifest);
+  const context = requireApproved(options.manifest ?? buildFoundationPilotManifest());
+  const manifest = context.manifest;
   validateEnrollmentId(options.enrollUserId);
   const [sourceCourse, existingPilot] = await Promise.all([
     db.course.findUnique({ where: { slug: SOURCE_COURSE_SLUG }, select: COURSE_SELECT }),
-    db.course.findUnique({ where: { slug: FOUNDATION_PILOT_SLUG }, select: COURSE_SELECT }),
+    db.course.findUnique({ where: { slug: context.slug }, select: COURSE_SELECT }),
   ]);
   if (
     sourceCourse === null ||
@@ -301,7 +376,7 @@ export async function planFoundationPilot(db: PilotReader, options: FoundationPi
       existingPilot.descriptionRu !== manifest.descriptionRu ||
       existingPilot.targetLevel !== manifest.targetLevel)
   )
-    throw new Error("Existing pilot identity or metadata does not match v1.");
+    throw new Error("Existing pilot identity or metadata does not match its sealed version.");
   if (existingPilot !== null)
     for (const level of existingPilot.levels) {
       const expected = manifest.levels.find(
@@ -316,7 +391,7 @@ export async function planFoundationPilot(db: PilotReader, options: FoundationPi
       )
         throw new Error("Existing pilot has unexpected level metadata.");
     }
-  const { targetIds, wordEvidence } = await resolveTargets(db, manifest);
+  const { targetIds, wordEvidence, acceptedReadingEvidence } = await resolveTargets(db, manifest);
   const placements = await db.courseLevelItem.findMany({
     where: {
       courseLevel: { courseId: sourceCourse.id },
@@ -331,7 +406,7 @@ export async function planFoundationPilot(db: PilotReader, options: FoundationPi
         })),
       },
     },
-    take: 101,
+    take: context.counts.items + 1,
     orderBy: { id: "asc" },
     select: {
       learningItemId: true,
@@ -357,9 +432,9 @@ export async function planFoundationPilot(db: PilotReader, options: FoundationPi
       },
     },
   });
-  if (placements.length !== 100)
+  if (placements.length !== context.counts.items)
     throw new Error(
-      "Pilot requires exactly 100 main-course placements for its registered targets.",
+      `Pilot requires exactly ${context.counts.items} main-course placements for its registered targets.`,
     );
   const byTarget = new Map(
     placements.map((placement) => [
@@ -396,7 +471,7 @@ export async function planFoundationPilot(db: PilotReader, options: FoundationPi
       dependencies: canonicalCollection(placement.learningItem.dependencies),
     };
   });
-  if (new Set(items.map((item) => item.learningItemId)).size !== 100)
+  if (new Set(items.map((item) => item.learningItemId)).size !== context.counts.items)
     throw new Error("Pilot target identities are not unique.");
   const byKey = new Map(items.map((item) => [item.key, item]));
   for (const item of items) {
@@ -415,7 +490,7 @@ export async function planFoundationPilot(db: PilotReader, options: FoundationPi
     )
       throw new Error(`Missing, external or non-earlier prerequisite for ${item.key}.`);
   }
-  const sourceChecksums = await verifySources(db, manifest, wordEvidence);
+  const sourceChecksums = await verifySources(db, manifest, wordEvidence, acceptedReadingEvidence);
   const quality = await scanQuality(db, SOURCE_COURSE_SLUG, items);
   const manifestChecksum = hash(canonical(manifest));
   const contentVersion = hash(
@@ -428,7 +503,7 @@ export async function planFoundationPilot(db: PilotReader, options: FoundationPi
     }),
   );
   const record = await db.importedRecord.findUnique({
-    where: { id: FOUNDATION_PILOT_RECORD_ID },
+    where: { id: context.recordId },
     include: { importRun: { include: { dataSource: { include: { license: true } } } } },
   });
   if (record !== null || existingPilot !== null) {
@@ -454,7 +529,7 @@ export async function planFoundationPilot(db: PilotReader, options: FoundationPi
       );
     const prior = await db.courseLevelItem.findMany({
       where: { courseLevel: { courseId: existingPilot.id } },
-      take: 101,
+      take: context.counts.items + 1,
       orderBy: { id: "asc" },
       select: {
         learningItemId: true,
@@ -464,8 +539,8 @@ export async function planFoundationPilot(db: PilotReader, options: FoundationPi
       },
     });
     if (
-      prior.length !== 100 ||
-      existingPilot.levels.length !== 5 ||
+      prior.length !== context.counts.items ||
+      existingPilot.levels.length !== manifest.levels.length ||
       prior.some(
         (placement) =>
           !items.some(
@@ -525,7 +600,11 @@ async function resolveTargets(db: PilotReader, manifest: FoundationPilotManifest
     }),
     db.word.findMany({
       where: {
-        OR: words.map((target) => ({ expression: target.expression, reading: target.reading! })),
+        OR: words.flatMap((target) =>
+          target.answers
+            .filter((answer) => answer.promptType === "READING")
+            .map((answer) => ({ expression: target.expression, reading: answer.text })),
+        ),
       },
       select: {
         id: true,
@@ -585,13 +664,45 @@ async function resolveTargets(db: PilotReader, manifest: FoundationPilotManifest
       ] as const;
     }),
   );
-  return { targetIds: resolved, wordEvidence };
+  const acceptedReadingEvidence = new Map<
+    string,
+    {
+      reading: string;
+      wordId: string;
+      sourceEvidence: NonNullable<ReturnType<typeof wordEvidence.get>>;
+    }[]
+  >();
+  for (const target of words) {
+    const primary = wordEvidence.get(target.key);
+    const alternatives = [];
+    for (const answer of target.answers.filter(
+      (answer) => answer.promptType === "READING" && !answer.isPrimary,
+    )) {
+      const row = wordRows.find(
+        (row) => row.expression === target.expression && row.reading === answer.text,
+      );
+      const evidence = wordEvidence.get(`word:${target.expression}:${answer.text}`);
+      if (
+        row === undefined ||
+        row.jmdictEntryId !== target.jmdictEntryId ||
+        evidence === undefined ||
+        canonical(evidence) !== canonical(primary)
+      )
+        throw new Error(
+          `Missing matching alternate word provenance for ${target.key}/${answer.text}.`,
+        );
+      alternatives.push({ reading: answer.text, wordId: row.id, sourceEvidence: evidence });
+    }
+    acceptedReadingEvidence.set(target.key, alternatives);
+  }
+  return { targetIds: resolved, wordEvidence, acceptedReadingEvidence };
 }
 
 async function verifySources(
   db: PilotReader,
   manifest: FoundationPilotManifest,
   wordEvidence: Awaited<ReturnType<typeof resolveTargets>>["wordEvidence"],
+  acceptedReadingEvidence: Awaited<ReturnType<typeof resolveTargets>>["acceptedReadingEvidence"],
 ) {
   const verified = [];
   for (const source of manifest.sources) {
@@ -608,7 +719,7 @@ async function verifySources(
           checksumSha256: source.checksumSha256,
         },
       },
-      include: { records: { take: 101, orderBy: { sourceRecordId: "asc" } } },
+      include: { records: { take: source.records.length + 1, orderBy: { sourceRecordId: "asc" } } },
     });
     if (
       run === null ||
@@ -635,7 +746,9 @@ async function verifySources(
           (!isObject(raw) ||
             raw.batchId !== source.id ||
             !wordEvidence.has(expected.wordKey) ||
-            canonical(raw.sourceEvidence) !== canonical(wordEvidence.get(expected.wordKey))))
+            canonical(raw.sourceEvidence) !== canonical(wordEvidence.get(expected.wordKey)) ||
+            canonical(raw.acceptedReadingEvidence ?? []) !==
+              canonical(acceptedReadingEvidence.get(expected.wordKey) ?? [])))
       )
         throw new Error(
           `Curation record does not match approved manifest: ${expected.sourceRecordId}.`,
@@ -660,68 +773,74 @@ async function scanQuality(
 ) {
   const byId = new Map(expected.map((item) => [item.learningItemId, item]));
   const itemIds = [...byId.keys()];
+  const scopedIds = itemIds.length > 100 ? [...itemIds].sort() : itemIds;
   const found = new Set<string>();
   const items: unknown[] = [];
-  let cursor: string | undefined;
-  while (true) {
-    const page = await loadContentQualityItems(db, {
-      courseSlug,
-      limit: 100,
-      itemIds,
-      ...(cursor === undefined ? {} : { cursor }),
-    });
-    if (page.length > 100) throw new Error("Quality loader exceeded bounded page size.");
-    let previousId = cursor;
-    for (const item of page) {
-      const target = byId.get(item.id);
-      if (
-        target === undefined ||
-        found.has(item.id) ||
-        (previousId !== undefined && item.id <= previousId)
-      )
-        throw new Error("Quality scan contains unexpected, repeated or unordered pilot items.");
-      previousId = item.id;
-      const issues = validateQualityItem(item);
-      if (issues.length)
-        throw new Error(
-          `Pilot quality must have zero blockers and warnings: ${item.id}/${issues[0]!.code}.`,
+  for (let offset = 0; offset < scopedIds.length; offset += 100) {
+    const scope = scopedIds.slice(offset, offset + 100);
+    let cursor: string | undefined;
+    while (true) {
+      const page = await loadContentQualityItems(db, {
+        courseSlug,
+        limit: 100,
+        itemIds: scope,
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      if (page.length > 100) throw new Error("Quality loader exceeded bounded page size.");
+      let previousId = cursor;
+      for (const item of page) {
+        const target = byId.get(item.id);
+        if (
+          target === undefined ||
+          !scope.includes(item.id) ||
+          found.has(item.id) ||
+          (previousId !== undefined && item.id <= previousId)
+        )
+          throw new Error("Quality scan contains unexpected, repeated or unordered pilot items.");
+        previousId = item.id;
+        const issues = validateQualityItem(item);
+        if (issues.length)
+          throw new Error(
+            `Pilot quality must have zero blockers and warnings: ${item.id}/${issues[0]!.code}.`,
+          );
+        const pairs = item.cards
+          .map((card) => `${card.promptType}:${card.answerType}:${card.locale}`)
+          .sort();
+        const expectedPairs =
+          target.kind === "COMPONENT"
+            ? ["MEANING:MEANING:ru-RU"]
+            : ["MEANING:MEANING:ru-RU", "READING:READING:ru-RU"];
+        if (canonical(pairs) !== canonical(expectedPairs))
+          throw new Error(`Pilot card identities differ from manifest slots for ${item.id}.`);
+        const actualAnswers = item.cards.flatMap((card) =>
+          card.answers.map((answer) => ({
+            promptType: card.promptType,
+            locale: answer.locale,
+            text: answer.text,
+            isPrimary: answer.isPrimary,
+            sourceKind: answer.sourceKind,
+          })),
         );
-      const pairs = item.cards
-        .map((card) => `${card.promptType}:${card.answerType}:${card.locale}`)
-        .sort();
-      const expectedPairs =
-        target.kind === "COMPONENT"
-          ? ["MEANING:MEANING:ru-RU"]
-          : ["MEANING:MEANING:ru-RU", "READING:READING:ru-RU"];
-      if (canonical(pairs) !== canonical(expectedPairs))
-        throw new Error(`Pilot card identities differ from manifest slots for ${item.id}.`);
-      const actualAnswers = item.cards.flatMap((card) =>
-        card.answers.map((answer) => ({
-          promptType: card.promptType,
-          locale: answer.locale,
-          text: answer.text,
-          isPrimary: answer.isPrimary,
-          sourceKind: answer.sourceKind,
-        })),
-      );
-      const expectedAnswers = target.answers.map((answer) => ({
-        ...answer,
-        sourceKind: "PROJECT_AUTHORED",
-      }));
-      if (
-        canonical(actualAnswers.map(canonical).sort()) !==
-        canonical(expectedAnswers.map(canonical).sort())
-      )
-        throw new Error(`Pilot answers differ from the approved manifest for ${item.id}.`);
-      found.add(item.id);
-      items.push(qualitySnapshot(item));
+        const expectedAnswers = target.answers.map((answer) => ({
+          ...answer,
+          sourceKind: "PROJECT_AUTHORED",
+        }));
+        if (
+          canonical(actualAnswers.map(canonical).sort()) !==
+          canonical(expectedAnswers.map(canonical).sort())
+        )
+          throw new Error(`Pilot answers differ from the approved manifest for ${item.id}.`);
+        found.add(item.id);
+        items.push(qualitySnapshot(item));
+      }
+      if (page.length < 100) break;
+      const next = page.at(-1)!.id;
+      if (next === cursor) throw new Error("Quality cursor did not advance.");
+      cursor = next;
     }
-    if (page.length < 100) break;
-    const next = page.at(-1)!.id;
-    if (next === cursor) throw new Error("Quality cursor did not advance.");
-    cursor = next;
   }
-  if (found.size !== 100) throw new Error("Quality scan did not cover all 100 pilot items.");
+  if (found.size !== expected.length)
+    throw new Error(`Quality scan did not cover all ${expected.length} pilot items.`);
   return { policyVersion: CONTENT_QUALITY_POLICY_VERSION, items };
 }
 
@@ -781,6 +900,7 @@ export async function publishFoundationPilot(
     )
       throw new Error("Pilot content changed after read-only preflight.");
     const manifest = plan.manifest;
+    const context = requireApproved(manifest);
     const course = await db.course.upsert({
       where: { slug: manifest.slug },
       update: {},
@@ -885,10 +1005,10 @@ export async function publishFoundationPilot(
       },
     });
     await db.importedRecord.upsert({
-      where: { id: FOUNDATION_PILOT_RECORD_ID },
+      where: { id: context.recordId },
       update: {},
       create: {
-        id: FOUNDATION_PILOT_RECORD_ID,
+        id: context.recordId,
         importRunId: run.id,
         sourceRecordId: manifest.slug,
         recordType: "PROJECT_AUTHORED",
@@ -917,7 +1037,7 @@ export async function publishFoundationPilot(
       slug: manifest.slug,
       courseId: course.id,
       contentVersion: plan.contentVersion,
-      manifestRecordId: FOUNDATION_PILOT_RECORD_ID,
+      manifestRecordId: context.recordId,
       counts: manifest.counts,
       enrolledUserId: options.enrollUserId ?? null,
     };
@@ -945,20 +1065,32 @@ async function checkPublicationSource(db: PilotReader) {
   return source;
 }
 
-function requireApproved(manifest: FoundationPilotManifest): void {
+export function foundationPilotRecordId(manifest: FoundationPilotManifest): string {
+  return requireApproved(manifest).recordId;
+}
+
+function requireApproved(manifest: FoundationPilotManifest) {
+  const context = Object.values(PILOTS).find((pilot) => pilot.slug === manifest.slug);
+  const expected =
+    context?.slug === FOUNDATION_PILOT_SLUG
+      ? buildFoundationPilotManifest()
+      : context?.slug === FOUNDATION_PILOT_V2_SLUG
+        ? buildFoundationPilotManifestV2()
+        : null;
   if (
-    manifest.slug !== FOUNDATION_PILOT_SLUG ||
-    manifest.sourceCourseSlug !== SOURCE_COURSE_SLUG ||
-    manifest.version !== "1" ||
-    manifest.targets.length !== 100 ||
-    manifest.sources.length !== 3 ||
-    manifest.sources.some(
+    context === undefined ||
+    expected === null ||
+    hash(canonical(expected)) !== context.canonicalChecksum ||
+    canonical(manifest) !== canonical(expected) ||
+    expected.sources.some(
       (source) => source.reviewedAt === null || !/^\d{4}-\d{2}-\d{2}$/u.test(source.reviewedAt),
-    )
+    ) ||
+    expected.sources.some((source) => source.checksumSha256 !== SOURCE_HASHES[source.id])
   )
     throw new Error(
-      "Pilot requires the exact three independently reviewed finite source manifests.",
+      "Pilot requires the exact sealed independently reviewed finite source manifests.",
     );
+  return { ...context, manifest: structuredClone(expected) };
 }
 function validateEnrollmentId(id: string | undefined): void {
   if (
