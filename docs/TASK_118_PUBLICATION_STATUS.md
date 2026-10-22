@@ -14,7 +14,35 @@ continue.
 
 ## Verified staging evidence
 
-### Current editorial corpus (2026-10-22)
+### Current editorial corpus: fourth kanji batch (2026-10-22)
+
+[Selected curation run 39810338839](https://github.com/wndffs/kanji-app/actions/runs/39810338839)
+applied only `task-118-foundation-kanji-04@1`, with `skip_words=true` and no
+starter seed. It adds thirteen components and twenty kanji
+(`四五六七八九口目耳手足雨空天気先生学小文`). Manifest SHA-256:
+`5547b31673a20cffdfc817b0a95bd8b3e202108529c844f5090e0234fefa7850`;
+successful import run `d4da2176-6ace-4575-8ab0-786612de2811`.
+
+Read-only Neon counts confirm **53 components, 61 kanji, 40 words, 154 placements
+and 255 cards**. The course remains **DRAFT**, with 60 defined levels, only five
+populated levels and 40 original bilingual word examples. The
+[quality artifact](https://github.com/wndffs/kanji-app/actions/runs/39810338839/artifacts/12439857071)
+scanned all **154 items, with 0 blockers and 0 warnings**, policy v2, content
+version `a8163b329a3a7dd4f48007eeb5e9c097210a207bbe863e2d8bb72c030ca17f79`.
+
+The existing published 口 target/cards are reused and retain the source-backed
+reading **くち** (`ja_kun`), rather than changing a learned answer to こう or
+rewriting imported reading priorities. The 53 additional placed card references
+are not 53 new global cards. Old word batches and the pilot were not reapplied.
+The separately published pilot remains **40 components / 40 kanji / 20 words /
+160 cards**, verified by the same read-only inventory. Main-course growth is not
+automatically published into that finite pilot.
+
+There are **2,239 kanji and 7,960 words** remaining against the full target.
+Content was AI-authored and independently reviewed by the parent agent with live
+licensed-source verification; this is not a human-review or full-release claim.
+
+### Previous editorial corpus: second word batch (2026-10-22)
 
 [Selected curation run 39795992224](https://github.com/wndffs/kanji-app/actions/runs/39795992224)
 successfully applied only `task-118-foundation-kanji-03@1` and

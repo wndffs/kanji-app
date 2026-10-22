@@ -19,8 +19,8 @@ private editing, with two independent reviewers. Local checks are focused;
 cloud CI runs broader checks. This does not claim exhaustive review of every
 file, accessibility state or production-scale query.
 
-- Main course, updated 2026-10-22: **41 placed kanji, 40 placed vocabulary,
-  40 components and 40 bilingual examples**. Its combined 121-item/202-card batches passed a live quality
+- Main course, updated 2026-10-22: **61 placed kanji, 40 placed vocabulary,
+  53 components and 40 bilingual examples**. Its combined 154-item/255-card batches passed a live quality
   report with zero blockers and warnings. The
   course is still DRAFT, not a published 2,300-kanji/8,000-word course.
 - Raw corpus: 13,108 KANJIDIC2 entries, 30,000 bilingual JMdict pairs, 6,702
@@ -77,7 +77,7 @@ diagnostic, not continuous database polling that consumes free compute.
 | 111-115 | Implemented, bounded tests                     | Full corpus and whole-product accessibility                              |
 | 116     | Listening mechanism implemented                | Real licensed assets, storage/CORS, coverage                             |
 | 117     | Research deferred                              | Approved source/license before integration                               |
-| 118     | In progress; blocks full release               | 2,259 kanji, 7,960 vocabulary, 55 empty levels, rollout                  |
+| 118     | In progress; blocks full release               | 2,239 kanji, 7,960 vocabulary, 55 empty levels, rollout                  |
 | 119     | Implemented; live batch verified               | Same audit over eventual full corpus                                     |
 | 120     | Implemented; focused acceptance tested         | Whole-product contrast belongs to 121-122                                |
 | 121     | Not started                                    | Original visual system after functional/data contracts                   |
@@ -199,8 +199,11 @@ The present order is:
 2. The selected Task118/127 rollout and Task124 isolated read-only restore
    rehearsal passed. The latter matched all 45 public table counts in a fresh
    PostgreSQL 18 service; it is not full disaster-recovery sign-off. Task123
-   target hydration is deduplicated and batched at 100 IDs, and static install
-   metadata/icons are implemented. Full graph/card/latency budgets, actual OS
+   target and prerequisite-card hydration are deduplicated and sequentially
+   batched at 100 IDs. Network interruption preserves unconfirmed review input
+   without automatic retries; static install metadata/icons are implemented.
+   A bounded manual remote measurement workflow is available. Full graph/latency
+   budgets, actual OS
    installation, safe offline behavior and reminders remain open.
 3. Continue Task118/127 reviewed batches toward 2,300 kanji and 8,000 words;
    add licensed audio coverage from Task116 where an approved source exists.
