@@ -1,0 +1,67 @@
+name: Database restore rehearsal
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-database
+  cancel-in-progress: false
+
+jobs:
+  restore-rehearsal:
+    name: Read-only Neon snapshot to isolated PostgreSQL 18
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: kanji_restore
+          POSTGRES_PASSWORD: integration-restore-only
+          POSTGRES_DB: kanji_restore
+        ports:
+          - 5432:5432
+        options: >-
+          --log-driver=none
+          --health-cmd "pg_isready -U kanji_restore -d kanji_restore"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install committed dependencies
+        run: npm ci --include=dev
+
+      - name: Generate Prisma client without applying schema
+        run: npm run db:generate
+
+      - name: Run restore guardrail tests
+        run: npm exec -- vitest run packages/db/test/database-restore.test.ts --no-cache --no-fsModuleCache --configLoader runner --maxWorkers=1
+
+      - name: Rehearse read-only public snapshot and local restore
+        id: rehearsal
+        env:
+          SOURCE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          INTEGRATION_RESTORE_DATABASE_URL: postgresql://kanji_restore:integration-restore-only@127.0.0.1:5432/kanji_restore
+          RESTORE_POSTGRES_CONTAINER_ID: ${{ job.services.postgres.id }}
+        run: npm run db:restore:verify
+
+      - name: Upload sanitized aggregate report only
+        if: ${{ always() && steps.rehearsal.outputs.report_ready == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-restore-report-${{ github.run_id }}
+          path: ${{ runner.temp }}/database-restore-report.json
+          if-no-files-found: warn
+          retention-days: 14
