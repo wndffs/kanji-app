@@ -32,8 +32,12 @@ Seed no longer overwrites an existing word's dictionary ID. Real PostgreSQL run
 test attempt exposed a temporary-table prepared-plan collision; its query was
 fixed without changing the migration's acceptance guards.
 
-Apply the migration without starter seed before this batch. The curator has no
-legacy-ID bypass. Editorial approval alone is not a successful live rollout.
+Database run 39813849264 applied the migration without starter seed. Read-only
+checks confirmed the same word/card IDs and unchanged answer digest, with no
+SRS/private override rows on those two word cards. The curator has no legacy-ID
+bypass. Curation run 39814286342 then applied only word03 successfully; its full
+174-item main-course quality report has zero blockers/warnings. See
+`TASK_118_PUBLICATION_STATUS.md` for hashes, import identity and exact counts.
 
 The table lists direct word prerequisites and the full union needed by the word
 plus its original example. Every listed kanji is registered at an earlier level

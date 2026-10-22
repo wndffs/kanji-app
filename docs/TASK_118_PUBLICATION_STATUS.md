@@ -14,7 +14,33 @@ continue.
 
 ## Verified staging evidence
 
-### Current editorial corpus: fourth kanji batch (2026-10-22)
+### Current editorial corpus: third word batch (2026-10-22)
+
+[Selected curation run 39814286342](https://github.com/wndffs/kanji-app/actions/runs/39814286342)
+applied only `task-127-foundation-words-03@1`, with no old word/kanji batch
+reapplication and no seed. Twenty words add forty card references and twenty
+original JP/kana/RU/EN examples. Their exact successful bilingual JMdict pairs
+were independently checked before application. Manifest SHA-256:
+`ef7090a4cea8c4b74c04a3cebfe85dc9832d64e1b7d071e409232287e7cf2ff4`;
+successful import run `1273d66a-12bb-4490-a696-c43cbfc6661b`.
+
+Read-only Neon counts confirm **53 components, 61 kanji, 60 words, 174 placements
+and 295 cards**. There are **60 original bilingual examples**, 60 defined levels
+and five populated levels; the main course remains **DRAFT**. The
+[quality artifact](https://github.com/wndffs/kanji-app/actions/runs/39814286342/artifacts/12441512421)
+scanned all **174 items, with 0 blockers and 0 warnings**, policy v2, content
+version `6312c7f7016ba29980a82391008c90282672dde7a84cb2aa110e13afa950961a`.
+Remaining full-course target: **2,239 kanji and 7,940 words**.
+
+Word 口 reuses the existing demo identity/cards. The separately source-checked
+legacy-ID repair was applied by database run 39813849264 without seed, after
+42 real PostgreSQL tests passed. Before/after read-only snapshots retained its
+word/card IDs and answer digest; there were no SRS/private override rows for
+those two word cards at that snapshot. This is not a populated-progress claim.
+The finite pilot is unchanged at **40 components / 40 kanji / 20 words /
+160 cards**. It must not be counted again as new content or silently extended.
+
+### Previous editorial corpus: fourth kanji batch (2026-10-22)
 
 [Selected curation run 39810338839](https://github.com/wndffs/kanji-app/actions/runs/39810338839)
 applied only `task-118-foundation-kanji-04@1`, with `skip_words=true` and no
