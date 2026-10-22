@@ -49,6 +49,7 @@ type KanjiRow = {
   readonly id: string;
   readonly character: string;
   readonly jlptLevel: number | null;
+  readonly legacyJlptLevel?: number | null;
   readonly readings: readonly { readonly reading: string }[];
   readonly meanings: readonly {
     readonly locale: string;
@@ -144,6 +145,7 @@ export class PrismaCharactersRepository extends CharactersRepository {
         id: true,
         character: true,
         jlptLevel: true,
+        legacyJlptLevel: true,
         readings: {
           orderBy: kanjiReadingOrderBy(),
           select: { reading: true },
@@ -219,6 +221,7 @@ function toKanjiRecord(
     meaningRu: findPrimaryMeaning(kanji.meanings, "ru-RU"),
     meaningEn: findPrimaryMeaning(kanji.meanings, "en-US"),
     jlptLevel: kanji.jlptLevel,
+    legacyJlptLevel: kanji.legacyJlptLevel ?? null,
     level,
     band: band.toLowerCase() as CharacterHubKanjiRecord["band"],
     sortOrder,

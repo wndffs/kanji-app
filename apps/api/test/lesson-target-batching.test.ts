@@ -167,6 +167,13 @@ async function load(h: ReturnType<typeof harness>, source: "course" | "deck") {
 }
 
 describe.each(["course", "deck"] as const)("%s lesson target batching", (source) => {
+  it("labels the source edition instead of showing legacy level 4 as N4", async () => {
+    const h = harness([item("KANJI", 1)]);
+    Object.assign(h.tables.kanji.rows[0]!, { jlptLevel: null, legacyJlptLevel: 4 });
+    const records = await load(h, source);
+    expect(records[0]!.target.jlptLevel).toBe("до 2010: 4");
+  });
+
   it("hydrates 101 words in two bounded calls, without per-item queries or dropping locked source items", async () => {
     const items = Array.from({ length: 101 }, (_, index) => item("WORD", index + 1)).reverse();
     const h = harness(items);

@@ -49,9 +49,7 @@ function toKanjiSection(course: CharacterHubCourseRecord | null): CharacterHubKa
     };
   }
 
-  const items = course.levels.flatMap((level) =>
-    level.kanji.map((kanji) => toKanjiDto(kanji)),
-  );
+  const items = course.levels.flatMap((level) => level.kanji.map((kanji) => toKanjiDto(kanji)));
   const currentLevel = findCurrentLevel(course.levels);
 
   return {
@@ -112,6 +110,7 @@ function toKanjiDto(kanji: CharacterHubKanjiRecord): CharacterHubKanjiItemDto {
     level: kanji.level,
     band: kanji.band,
     jlptLevel: toJlptLevel(kanji.jlptLevel),
+    legacyJlptLevel: kanji.legacyJlptLevel ?? null,
     studyState,
     stageIndex: representative?.stageIndex ?? null,
     stageName: representative?.stageName ?? null,
@@ -154,9 +153,7 @@ function findCurrentLevel(levels: readonly CharacterHubCourseLevelRecord[]): num
   return current?.level ?? withPolicyItems.at(-1)?.level ?? levels.at(-1)?.level ?? 0;
 }
 
-function toJlptLevel(
-  value: number | null,
-): CharacterHubKanjiItemDto["jlptLevel"] {
+function toJlptLevel(value: number | null): CharacterHubKanjiItemDto["jlptLevel"] {
   return value !== null && value >= 1 && value <= 5
     ? (`n${value}` as CharacterHubKanjiItemDto["jlptLevel"])
     : null;

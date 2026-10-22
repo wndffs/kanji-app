@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 
 import {
+  formatKanjiJlptLevel,
   type AdminApplyMainCourseEnrollmentRolloutResponse,
   type AdminApplyCourseAllocationResponse,
   type AdminContentStatus,
@@ -2477,6 +2478,7 @@ export class PrismaAdminRepository extends AdminRepository {
     })) as {
       readonly character: string;
       readonly jlptLevel: number | null;
+      readonly legacyJlptLevel?: number | null;
       readonly kanjidicSourceId: string | null;
       readonly readings: readonly { readonly reading: string }[];
       readonly meanings: readonly {
@@ -2494,7 +2496,7 @@ export class PrismaAdminRepository extends AdminRepository {
       japanese: kanji.character,
       reading: kanji.readings[0]?.reading ?? null,
       meanings: pickMeanings(kanji.meanings),
-      jlptLevel: formatJlptLevel(kanji.jlptLevel),
+      jlptLevel: formatKanjiJlptLevel(kanji.jlptLevel, kanji.legacyJlptLevel),
       sourceRecordIds: kanji.kanjidicSourceId === null ? [] : [kanji.kanjidicSourceId],
       attributions: [],
     };
@@ -3255,7 +3257,7 @@ function toKanjiCandidate(row: ImportedKanjiCandidateRow): ImportedCandidateRank
     japanese: row.character,
     reading: row.readings[0]?.reading ?? null,
     meanings: pickCandidateMeanings(row.meanings),
-    jlptLevel: formatImportedKanjiJlptLevel(row.jlptLevel),
+    jlptLevel: formatCurrentJlptLevel(row.jlptLevel),
     sourcePriority: row.frequencyRank,
     schoolGrade: row.grade,
     hasStrokeData: row.strokeGraphic !== null,
@@ -3293,7 +3295,7 @@ function toImportedKanjiDetails(row: ImportedKanjiDetailsRow): AdminImportedCand
     reading: readings[0]?.text ?? null,
     readings,
     meanings: pickImportedDetailsMeanings(row.meanings),
-    jlptLevel: formatImportedKanjiJlptLevel(row.jlptLevel),
+    jlptLevel: formatCurrentJlptLevel(row.jlptLevel),
     sourcePriority: row.frequencyRank,
     schoolGrade: row.grade,
     strokeCount: row.strokeCount,
@@ -3391,7 +3393,7 @@ function toCandidatePlanKanjiInput(row: CandidatePlanKanjiRow): CurriculumCandid
     japanese: row.character,
     reading: row.readings[0]?.reading ?? null,
     meanings: candidateCoverageMeanings(row.meanings),
-    jlptLevel: formatImportedKanjiJlptLevel(row.jlptLevel),
+    jlptLevel: formatCurrentJlptLevel(row.jlptLevel),
     sourcePriority: row.frequencyRank,
     schoolGrade: row.grade,
     hasStrokeData: row.strokeGraphic !== null,
@@ -3450,22 +3452,6 @@ function uniqueCandidateMeanings(
         .filter((meaning) => meaning !== ""),
     ),
   ].slice(0, 3);
-}
-
-function formatImportedKanjiJlptLevel(
-  level: number | null,
-): ImportedCandidateRankingInput["jlptLevel"] {
-  switch (level) {
-    case 5:
-    case 4:
-      return "N5";
-    case 3:
-      return "N4";
-    case 2:
-      return "N2";
-    default:
-      return null;
-  }
 }
 
 function formatCurrentJlptLevel(level: number | null): ImportedCandidateRankingInput["jlptLevel"] {

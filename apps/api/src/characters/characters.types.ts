@@ -20,6 +20,7 @@ export type CharacterHubKanjiRecord = {
   readonly meaningRu: string | null;
   readonly meaningEn: string | null;
   readonly jlptLevel: number | null;
+  readonly legacyJlptLevel?: number | null;
   readonly level: number;
   readonly band: CourseBand;
   readonly sortOrder: number;

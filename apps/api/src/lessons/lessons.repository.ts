@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 
 import { loadItemExampleSentences } from "@kanji-srs/db";
 import {
+  formatKanjiJlptLevel,
   type ContentLocale,
   type LessonHintGroupDto,
   type LessonHintPurpose,
@@ -191,6 +192,7 @@ type ComponentTargetRow = {
 type KanjiTargetRow = {
   readonly character: string;
   readonly jlptLevel: number | null;
+  readonly legacyJlptLevel?: number | null;
   readonly readings: readonly {
     readonly reading: string;
     readonly priority: number;
@@ -795,7 +797,7 @@ function toKanjiTarget(kanji: KanjiTargetRow): LessonTargetRecord {
   return {
     japanese: kanji.character,
     reading: kanji.readings[0]?.reading ?? null,
-    jlptLevel: formatJlptLevel(kanji.jlptLevel),
+    jlptLevel: formatKanjiJlptLevel(kanji.jlptLevel, kanji.legacyJlptLevel),
     translations: groupLocalizedTexts(
       kanji.meanings.map((meaning) =>
         localizedText(toContentLocale(meaning.locale), meaning.meaning, {

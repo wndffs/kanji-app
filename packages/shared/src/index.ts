@@ -1,4 +1,5 @@
 export * from "./interface-preferences";
+export * from "./jlpt";
 
 export const APP_NAME = "Кандзи SRS";
 export const DEFAULT_APP_LOCALE = "ru-RU";
@@ -1249,6 +1250,7 @@ export type CharacterHubKanjiItemDto = {
   readonly level: number;
   readonly band: CourseBand;
   readonly jlptLevel: "n5" | "n4" | "n3" | "n2" | "n1" | null;
+  readonly legacyJlptLevel?: number | null;
   readonly studyState: CharacterHubKanjiStudyState;
   readonly stageIndex: number | null;
   readonly stageName: string | null;
@@ -1925,7 +1927,7 @@ export type AdminCurriculumCandidatePlanItemDto = {
 };
 
 export type AdminCurriculumCandidatePlanSummaryDto = {
-  readonly policyVersion: "independent-frequency-prerequisites-v3";
+  readonly policyVersion: "independent-frequency-prerequisites-v4-modern-jlpt";
   readonly targetItems: Readonly<Record<"kanji" | "word", number>>;
   readonly existingItems: Readonly<Record<"kanji" | "word", number>>;
   readonly candidateSlots: Readonly<Record<"kanji" | "word", number>>;

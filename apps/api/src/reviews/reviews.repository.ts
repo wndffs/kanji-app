@@ -8,6 +8,7 @@ import {
 
 import { parseCourseLevelPassPolicy, Prisma, type CourseLevelPassPolicy } from "@kanji-srs/db";
 import {
+  formatKanjiJlptLevel,
   type ContentLocale,
   type PracticeSource,
   type ReviewSrsTransition,
@@ -209,6 +210,7 @@ type ComponentTargetRow = {
 type KanjiTargetRow = {
   readonly character: string;
   readonly jlptLevel: number | null;
+  readonly legacyJlptLevel?: number | null;
   readonly readings: readonly {
     readonly reading: string;
     readonly priority: number;
@@ -1059,6 +1061,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       select: {
         character: true,
         jlptLevel: true,
+        legacyJlptLevel: true,
         readings: {
           select: { reading: true, priority: true },
           orderBy: kanjiReadingOrderBy(),
@@ -1076,7 +1079,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       japanese: kanji.character,
       reading: kanji.readings[0]?.reading ?? null,
       level: item.levelHint,
-      jlptLevel: formatJlptLevel(kanji.jlptLevel),
+      jlptLevel: formatKanjiJlptLevel(kanji.jlptLevel, kanji.legacyJlptLevel),
     };
   }
 

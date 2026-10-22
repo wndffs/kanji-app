@@ -1063,7 +1063,7 @@ async function mockAdminApi(
       planVersion: "plan-version-one",
       generatedAt: "2026-07-13T12:01:00.000Z",
       summary: {
-        policyVersion: "independent-frequency-prerequisites-v3",
+        policyVersion: "independent-frequency-prerequisites-v4-modern-jlpt",
         targetItems: { kanji: 2_300, word: 8_000 },
         existingItems: { kanji: 2, word: 4 },
         candidateSlots: { kanji: 2_298, word: 7_996 },

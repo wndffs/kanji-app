@@ -309,7 +309,10 @@ model Kanji {
   character                String              @unique
   strokeCount              Int?
   grade                    Int?
+  /// Independently curated modern JLPT N1-N5 metadata, never inferred from KANJIDIC2 jlpt.
   jlptLevel                Int?
+  /// KANJIDIC2's pre-2010 four-level JLPT classification (1-4).
+  legacyJlptLevel          Int?
   frequencyRank            Int?
   kanjidicSourceId         String?             @unique
   kanjidicImportedRecordId String?             @db.Uuid
@@ -324,6 +327,7 @@ model Kanji {
   confusablePairsAsRight   KanjiConfusablePair[] @relation("ConfusableRightKanji")
 
   @@index([jlptLevel])
+  @@index([legacyJlptLevel])
   @@index([frequencyRank])
   @@index([kanjidicSourceId])
   @@index([kanjidicImportedRecordId])

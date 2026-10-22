@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 
 import { parseCourseLevelPassPolicy, Prisma } from "@kanji-srs/db";
+import { formatKanjiJlptLevel } from "@kanji-srs/shared";
 
 import { resolveCurrentCourseId } from "../courses/current-course";
 import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
@@ -213,6 +214,7 @@ type ComponentTargetRow = {
 type KanjiTargetRow = {
   readonly character: string;
   readonly jlptLevel: number | null;
+  readonly legacyJlptLevel?: number | null;
   readonly readings: readonly {
     readonly reading: string;
     readonly priority: number;
@@ -1076,7 +1078,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
         ),
       ),
       level: item.levelHint,
-      jlptLevel: formatJlptLevel(kanji.jlptLevel),
+      jlptLevel: formatKanjiJlptLevel(kanji.jlptLevel, kanji.legacyJlptLevel),
     };
   }
 

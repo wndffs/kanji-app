@@ -451,7 +451,7 @@ frequency-and-prerequisite policy to active course work plus unassigned source
 rows. It ranks kanji and vocabulary separately, fills only the remaining
 2,300/8,000 target slots, and excludes a word when one of its kanji is absent
 from both the active course and selected kanji plan. Policy
-`independent-frequency-prerequisites-v3` raises each word to at least the latest
+`independent-frequency-prerequisites-v4-modern-jlpt` raises each word to at least the latest
 band of its prerequisite kanji and proposes at most one expression-reading
 representative from each JMdict entry. The representative prefers source
 frequency, conventional orthography, the primary KANJIDIC2 reading for a
@@ -461,6 +461,11 @@ remaining representatives are ordered by prerequisite-safe band, score, and
 source frequency. The response includes a band summary and one page selected
 with `itemType=kanji|word`, `offset`, and a maximum `limit` of 100. Rejected
 targets are excluded before pool limits and ranking are applied.
+
+Kanji's current N-level comes only from modern `jlptLevel` metadata. The separate
+KANJIDIC2 `legacyJlptLevel` field is not interpreted as a modern level in ranking
+or filters. Study/item displays explicitly label that evidence as `до 2010`;
+the character hub exposes it separately from its modern JLPT filter values.
 
 Planning reads lightweight, source-ordered pools capped at 5,000 kanji and
 40,000 words. `poolTruncated` makes that bound explicit. Selection remains an

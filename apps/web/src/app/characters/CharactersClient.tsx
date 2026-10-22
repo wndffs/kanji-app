@@ -82,9 +82,7 @@ export function CharactersClient() {
         setState({
           status: "error",
           message:
-            error instanceof Error
-              ? error.message
-              : "Не удалось загрузить прогресс по символам.",
+            error instanceof Error ? error.message : "Не удалось загрузить прогресс по символам.",
         });
       });
 
@@ -149,9 +147,7 @@ export function CharactersClient() {
 
       {state.status === "ready" && query.tab !== "kanji" ? (
         <KanaCharacterPanel
-          section={
-            query.tab === "hiragana" ? state.hub.kana.hiragana : state.hub.kana.katakana
-          }
+          section={query.tab === "hiragana" ? state.hub.kana.hiragana : state.hub.kana.katakana}
         />
       ) : null}
 
@@ -183,8 +179,8 @@ function KanaCharacterPanel({ section }: { readonly section: CharacterHubKanaSec
           <p className="character-hub-model">Прогресс каны: освоение в уроках, не SRS</p>
           <h2>{TAB_LABELS[section.script]}</h2>
           <p>
-            Освоено {section.masteredCount} из {section.totalCount}, начато{" "}
-            {section.attemptedCount}.
+            Освоено {section.masteredCount} из {section.totalCount}, начато {section.attemptedCount}
+            .
           </p>
         </div>
         <div
@@ -231,7 +227,10 @@ function KanaCharacterPanel({ section }: { readonly section: CharacterHubKanaSec
         )}
       </section>
 
-      <ol className="character-hub-kana-units" aria-label={`Все уроки: ${TAB_LABELS[section.script]}`}>
+      <ol
+        className="character-hub-kana-units"
+        aria-label={`Все уроки: ${TAB_LABELS[section.script]}`}
+      >
         {section.units.map((unit) => (
           <li className={unit.unlocked ? undefined : "is-locked"} key={unit.id}>
             <header>
@@ -420,7 +419,12 @@ function KanjiCharacterPanel({
                 </div>
                 <div className="character-hub-kanji-meta">
                   <span>Ур. {item.level}</span>
-                  <span>{item.jlptLevel?.toUpperCase() ?? "JLPT —"}</span>
+                  <span>
+                    {item.jlptLevel?.toUpperCase() ??
+                      (item.legacyJlptLevel == null
+                        ? "JLPT —"
+                        : `JLPT до 2010: ${item.legacyJlptLevel}`)}
+                  </span>
                   <span className={`state-${item.studyState}`}>
                     {STUDY_STATE_LABELS[item.studyState]}
                   </span>
@@ -473,10 +477,7 @@ function formatMeanings(
   return values.length === 0 ? "Значение уточняется" : values.join(" · ");
 }
 
-function filtersEqual(
-  left: CharacterHubKanjiFilters,
-  right: CharacterHubKanjiFilters,
-): boolean {
+function filtersEqual(left: CharacterHubKanjiFilters, right: CharacterHubKanjiFilters): boolean {
   return (
     left.level === right.level &&
     left.band === right.band &&

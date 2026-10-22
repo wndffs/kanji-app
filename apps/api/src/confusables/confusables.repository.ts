@@ -1,6 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { type AdminContentStatus, type ContentLocale } from "@kanji-srs/shared";
+import {
+  formatKanjiJlptLevel,
+  type AdminContentStatus,
+  type ContentLocale,
+} from "@kanji-srs/shared";
 
 import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
 import { PrismaService } from "../database/prisma.service";
@@ -58,11 +62,13 @@ type PairRow = {
     readonly id: string;
     readonly character: string;
     readonly jlptLevel: number | null;
+    readonly legacyJlptLevel?: number | null;
   };
   readonly rightKanji: {
     readonly id: string;
     readonly character: string;
     readonly jlptLevel: number | null;
+    readonly legacyJlptLevel?: number | null;
   };
 };
 
@@ -93,6 +99,7 @@ type KanjiComparisonRow = {
   readonly id: string;
   readonly character: string;
   readonly jlptLevel: number | null;
+  readonly legacyJlptLevel?: number | null;
   readonly readings: readonly { readonly reading: string; readonly priority: number }[];
   readonly meanings: readonly {
     readonly locale: string;
@@ -123,8 +130,8 @@ type WordComparisonRow = {
 };
 
 const pairInclude = {
-  leftKanji: { select: { id: true, character: true, jlptLevel: true } },
-  rightKanji: { select: { id: true, character: true, jlptLevel: true } },
+  leftKanji: { select: { id: true, character: true, jlptLevel: true, legacyJlptLevel: true } },
+  rightKanji: { select: { id: true, character: true, jlptLevel: true, legacyJlptLevel: true } },
 } as const;
 
 @Injectable()
@@ -210,7 +217,7 @@ export class PrismaConfusablesRepository extends ConfusablesRepository {
 
     const kanji = await this.prisma.db.kanji.findUnique({
       where: { id: item.targetId },
-      select: { character: true, jlptLevel: true },
+      select: { character: true, jlptLevel: true, legacyJlptLevel: true },
     });
 
     return kanji === null
@@ -220,7 +227,7 @@ export class PrismaConfusablesRepository extends ConfusablesRepository {
           itemId: item.id,
           character: kanji.character,
           level: item.levelHint,
-          jlptLevel: formatJlptLevel(kanji.jlptLevel),
+          jlptLevel: formatKanjiJlptLevel(kanji.jlptLevel, kanji.legacyJlptLevel),
         };
   }
 
@@ -568,7 +575,7 @@ function toKanjiRef(
     itemId: item.id,
     character: kanji.character,
     level: item.levelHint,
-    jlptLevel: formatJlptLevel(kanji.jlptLevel),
+    jlptLevel: formatKanjiJlptLevel(kanji.jlptLevel, kanji.legacyJlptLevel),
   };
 }
 
@@ -590,10 +597,6 @@ function toStatus(value: string): AdminContentStatus {
     default:
       return "draft";
   }
-}
-
-function formatJlptLevel(value: number | null): string | null {
-  return value === null ? null : `N${value}`;
 }
 
 function localized(locale: ContentLocale, text: string, sourceKind: string) {

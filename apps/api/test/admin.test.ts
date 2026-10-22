@@ -485,7 +485,7 @@ describe("AdminService", () => {
     expect(firstPage).toMatchObject({
       planVersion: "candidate-plan-version-one",
       summary: {
-        policyVersion: "independent-frequency-prerequisites-v3",
+        policyVersion: "independent-frequency-prerequisites-v4-modern-jlpt",
         selectedItems: { kanji: 0, word: 2 },
       },
       page: {
@@ -1024,77 +1024,85 @@ describe("AdminService", () => {
     });
   });
 
-  it("maps kanji source details without leaking unsupported meaning locales", async () => {
-    const findFirst = vi.fn().mockResolvedValue({
-      id: "kanji-one",
-      character: "一",
-      strokeCount: 1,
-      grade: 1,
-      jlptLevel: 4,
-      frequencyRank: 2,
-      readings: [
-        { reading: "イチ", readingType: "ONYOMI" },
-        { reading: "ひと.つ", readingType: "KUNYOMI" },
-      ],
-      meanings: [
-        { locale: "en-US", meaning: "one" },
-        { locale: "fr-FR", meaning: "un" },
-        { locale: "ru-RU", meaning: "один" },
-      ],
-      strokeGraphic: { id: "stroke-one" },
-      importedRecord: {
-        sourceRecordId: "4e00",
-        importRun: {
-          id: "run-kanjidic2",
-          sourceVersion: "2026-07",
-          sourceFileName: "kanjidic2.xml.gz",
-          checksumSha256: "sha256-kanjidic2",
-          dataSource: {
-            name: "KANJIDIC2",
-            homepageUrl: "https://www.edrdg.org/wiki/index.php/KANJIDIC_Project",
-            attributionText: "KANJIDIC2 data.",
-            license: { name: "EDRDG License" },
+  it.each([
+    { modern: 5, legacy: 4, expected: "N5" },
+    { modern: null, legacy: 4, expected: null },
+    { modern: null, legacy: 2, expected: null },
+  ])(
+    "maps source details with modern=$modern / legacy=$legacy",
+    async ({ modern, legacy, expected }) => {
+      const findFirst = vi.fn().mockResolvedValue({
+        id: "kanji-one",
+        character: "一",
+        strokeCount: 1,
+        grade: 1,
+        jlptLevel: modern,
+        legacyJlptLevel: legacy,
+        frequencyRank: 2,
+        readings: [
+          { reading: "イチ", readingType: "ONYOMI" },
+          { reading: "ひと.つ", readingType: "KUNYOMI" },
+        ],
+        meanings: [
+          { locale: "en-US", meaning: "one" },
+          { locale: "fr-FR", meaning: "un" },
+          { locale: "ru-RU", meaning: "один" },
+        ],
+        strokeGraphic: { id: "stroke-one" },
+        importedRecord: {
+          sourceRecordId: "4e00",
+          importRun: {
+            id: "run-kanjidic2",
+            sourceVersion: "2026-07",
+            sourceFileName: "kanjidic2.xml.gz",
+            checksumSha256: "sha256-kanjidic2",
+            dataSource: {
+              name: "KANJIDIC2",
+              homepageUrl: "https://www.edrdg.org/wiki/index.php/KANJIDIC_Project",
+              attributionText: "KANJIDIC2 data.",
+              license: { name: "EDRDG License" },
+            },
           },
         },
-      },
-    });
-    const repository = new PrismaAdminRepository({
-      db: { kanji: { findFirst } },
-    } as never);
+      });
+      const repository = new PrismaAdminRepository({
+        db: { kanji: { findFirst } },
+      } as never);
 
-    await expect(repository.findImportedCandidateDetails("kanji", "kanji-one")).resolves.toEqual(
-      expect.objectContaining({
-        itemType: "kanji",
-        reading: "イチ",
-        readings: [
-          { text: "イチ", type: "on" },
-          { text: "ひと.つ", type: "kun" },
-        ],
-        meanings: { ru: ["один"], en: ["one"] },
-        jlptLevel: "N5",
-        schoolGrade: 1,
-        strokeCount: 1,
-        hasStrokeData: true,
-        source: expect.objectContaining({
-          name: "KANJIDIC2",
-          sourceRecordId: "4e00",
-          checksumSha256: "sha256-kanjidic2",
-        }),
-      }),
-    );
-    expect(findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        select: expect.objectContaining({
-          meanings: expect.objectContaining({
-            where: {
-              locale: { in: ["ru-RU", "en-US"] },
-              sourceKind: "IMPORTED",
-            },
+      await expect(repository.findImportedCandidateDetails("kanji", "kanji-one")).resolves.toEqual(
+        expect.objectContaining({
+          itemType: "kanji",
+          reading: "イチ",
+          readings: [
+            { text: "イチ", type: "on" },
+            { text: "ひと.つ", type: "kun" },
+          ],
+          meanings: { ru: ["один"], en: ["one"] },
+          jlptLevel: expected,
+          schoolGrade: 1,
+          strokeCount: 1,
+          hasStrokeData: true,
+          source: expect.objectContaining({
+            name: "KANJIDIC2",
+            sourceRecordId: "4e00",
+            checksumSha256: "sha256-kanjidic2",
           }),
         }),
-      }),
-    );
-  });
+      );
+      expect(findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({
+            meanings: expect.objectContaining({
+              where: {
+                locale: { in: ["ru-RU", "en-US"] },
+                sourceKind: "IMPORTED",
+              },
+            }),
+          }),
+        }),
+      );
+    },
+  );
 
   it("validates and rejects missing imported candidate details", async () => {
     const adminService = new AdminService(new InMemoryAdminRepository());

@@ -3,6 +3,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { loadItemExampleSentences } from "@kanji-srs/db";
 import { calculateLeechScore, type LeechScoreResult } from "@kanji-srs/srs";
 import {
+  formatKanjiJlptLevel,
   type ItemKind,
   type SourceAttributionDto,
   type SrsStateSummaryDto,
@@ -139,6 +140,7 @@ type ComponentRow = {
 type KanjiRow = {
   readonly character: string;
   readonly jlptLevel: number | null;
+  readonly legacyJlptLevel?: number | null;
   readonly kanjidicSourceId: string | null;
   readonly readings: readonly {
     readonly reading: string;
@@ -911,7 +913,7 @@ export class PrismaItemsRepository extends ItemsRepository {
     return {
       japanese: kanji.character,
       reading: kanji.readings[0]?.reading ?? null,
-      jlptLevel: formatJlptLevel(kanji.jlptLevel),
+      jlptLevel: formatKanjiJlptLevel(kanji.jlptLevel, kanji.legacyJlptLevel),
       translations: groupLocalizedTexts(
         kanji.meanings.map((meaning) =>
           localizedText(toContentLocale(meaning.locale), meaning.meaning, {

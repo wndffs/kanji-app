@@ -10,6 +10,28 @@ import {
 const API_BASE_URL = "http://localhost:3001";
 
 test.describe("character hub", () => {
+  test("shows the legacy JLPT edition without adding a modern filter level", async ({ page }) => {
+    await signIn(page);
+    const hub = buildHub();
+    await page.route(`${API_BASE_URL}/characters`, (route) =>
+      route.fulfill({
+        json: {
+          ...hub,
+          kanji: {
+            ...hub.kanji,
+            filters: { ...hub.kanji.filters, jlptLevels: ["n5"] },
+            items: [{ ...hub.kanji.items[0], jlptLevel: null, legacyJlptLevel: 4 }],
+          },
+        },
+      }),
+    );
+    await page.goto("/characters?tab=kanji");
+    await expect(page.getByText("JLPT до 2010: 4", { exact: true })).toBeVisible();
+    await expect(
+      page.getByLabel("JLPT").getByRole("option", { name: "N4", exact: true }),
+    ).toHaveCount(0);
+  });
+
   test("keeps kana mastery and kanji SRS navigation distinct", async ({ page }) => {
     await signIn(page);
     await page.route(`${API_BASE_URL}/characters`, async (route) => {
@@ -156,12 +178,7 @@ function buildKanaSection(
   };
 }
 
-function buildKanaItem(
-  script: KanaScript,
-  character: string,
-  romaji: string,
-  mastered: boolean,
-) {
+function buildKanaItem(script: KanaScript, character: string, romaji: string, mastered: boolean) {
   return {
     character,
     script,

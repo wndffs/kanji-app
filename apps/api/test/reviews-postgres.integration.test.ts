@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { ConflictException, NotFoundException } from "@nestjs/common";
@@ -1180,7 +1182,240 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
       ).toBe(0);
     });
   }, 45_000);
+  it("backfills JLPT only from successful source-bound legacy evidence without changing other modern values or raw records", async () => {
+    const fixtures: LegacyJlptCase[] = [
+      ...[1, 2, 3, 4].map((level) => ({
+        name: `old-${level}`,
+        modern: level,
+        old: level,
+        expectedModern: null,
+        expectedLegacy: level,
+      })),
+      { name: "modern-N5", modern: 5, old: 4, expectedModern: 5, expectedLegacy: 4 },
+      { name: "manual-different", modern: 3, old: 4, expectedModern: 3, expectedLegacy: 4 },
+      { name: "unknown-modern", modern: null, old: 4, expectedModern: null, expectedLegacy: 4 },
+      ...[5, 0, -1, 2.5, "4", null, undefined, { level: 4 }].map((old, index) => ({
+        name: `invalid-old-${index}`,
+        modern: 4,
+        old,
+        expectedModern: 4,
+        expectedLegacy: null,
+      })),
+      {
+        name: "pending",
+        modern: 4,
+        old: 4,
+        runStatus: "PENDING",
+        expectedModern: 4,
+        expectedLegacy: null,
+      },
+      {
+        name: "failed",
+        modern: 4,
+        old: 4,
+        runStatus: "FAILED",
+        expectedModern: 4,
+        expectedLegacy: null,
+      },
+      {
+        name: "wrong-source",
+        modern: 4,
+        old: 4,
+        sourceName: "JMdict",
+        expectedModern: 4,
+        expectedLegacy: null,
+      },
+      {
+        name: "wrong-record-type",
+        modern: 4,
+        old: 4,
+        recordType: "PROJECT_AUTHORED",
+        expectedModern: 4,
+        expectedLegacy: null,
+      },
+      {
+        name: "unlinked",
+        modern: 4,
+        old: 4,
+        unlinked: true,
+        expectedModern: 4,
+        expectedLegacy: null,
+      },
+      {
+        name: "wrong-literal",
+        modern: 4,
+        old: 4,
+        mismatchLiteral: true,
+        expectedModern: 4,
+        expectedLegacy: null,
+      },
+      {
+        name: "wrong-source-id",
+        modern: 4,
+        old: 4,
+        mismatchSourceId: true,
+        expectedModern: 4,
+        expectedLegacy: null,
+      },
+      {
+        name: "noncanonical-source-id",
+        modern: 4,
+        old: 4,
+        noncanonicalSourceId: true,
+        expectedModern: 4,
+        expectedLegacy: null,
+      },
+    ];
+    await withLegacyJlptMigrationFixture(fixtures, async (db, migration, rows) => {
+      const recordsBefore = await db.$queryRaw`SELECT * FROM "ImportedRecord" ORDER BY "id"`;
+      await db.$executeRawUnsafe(migration);
+      const after = await db.$queryRaw<
+        LegacyJlptRow[]
+      >`SELECT "id", "jlptLevel", "legacyJlptLevel", "updatedAt" FROM "Kanji" ORDER BY "id"`;
+      for (const fixture of rows) {
+        const actual = after.find((row) => row.id === fixture.id)!;
+        expect(actual, fixture.name).toMatchObject({
+          id: fixture.id,
+          jlptLevel: fixture.expectedModern,
+          legacyJlptLevel: fixture.expectedLegacy,
+        });
+        if (fixture.expectedLegacy === null) {
+          expect(actual.updatedAt, fixture.name).toEqual(LEGACY_JLPT_FIXTURE_UPDATED_AT);
+        } else {
+          expect(actual.updatedAt.getTime(), fixture.name).toBeGreaterThan(
+            LEGACY_JLPT_FIXTURE_UPDATED_AT.getTime(),
+          );
+        }
+      }
+      expect(await db.$queryRaw`SELECT * FROM "ImportedRecord" ORDER BY "id"`).toEqual(
+        recordsBefore,
+      );
+    });
+  });
+
+  it("reapplies the JLPT migration idempotently without erasing later same-value manual modern edits", async () => {
+    await withLegacyJlptMigrationFixture(
+      [
+        { name: "later-manual-N4", modern: 4, old: 4, expectedModern: null, expectedLegacy: 4 },
+        { name: "later-manual-N5", modern: 4, old: 4, expectedModern: null, expectedLegacy: 4 },
+      ],
+      async (db, migration, rows) => {
+        // Match the planned additive pre-deploy step; the full migration must still add its check.
+        await db.$executeRawUnsafe('ALTER TABLE "Kanji" ADD COLUMN "legacyJlptLevel" INTEGER');
+        await db.$executeRawUnsafe(
+          'CREATE INDEX "Kanji_legacyJlptLevel_idx" ON "Kanji"("legacyJlptLevel")',
+        );
+        await db.$executeRawUnsafe(migration);
+        expect(
+          await db.$queryRaw`SELECT conname FROM pg_catalog.pg_constraint WHERE conrelid = '"Kanji"'::regclass AND conname = 'Kanji_legacyJlptLevel_check'`,
+        ).toHaveLength(1);
+        const readRows = () =>
+          db.$queryRaw<
+            LegacyJlptRow[]
+          >`SELECT "id", "jlptLevel", "legacyJlptLevel", "updatedAt" FROM "Kanji" ORDER BY "id"`;
+        const first = await readRows();
+        expect(first).toHaveLength(2);
+        expect(first.every((row) => row.jlptLevel === null && row.legacyJlptLevel === 4)).toBe(
+          true,
+        );
+        expect(first.every((row) => row.updatedAt > LEGACY_JLPT_FIXTURE_UPDATED_AT)).toBe(true);
+        // CURRENT_TIMESTAMP is constant within this test transaction; a distinct sentinel detects writes on rerun.
+        await db.$executeRaw`UPDATE "Kanji" SET "updatedAt" = TIMESTAMP '2001-01-01 00:00:00'`;
+        const beforeRerun = await readRows();
+        await db.$executeRawUnsafe(migration);
+        expect(await readRows()).toEqual(beforeRerun);
+
+        await db.$executeRaw`UPDATE "Kanji" SET "jlptLevel" = 4 WHERE "id" = ${rows[0]!.id}::uuid`;
+        await db.$executeRaw`UPDATE "Kanji" SET "jlptLevel" = 5 WHERE "id" = ${rows[1]!.id}::uuid`;
+        const manual = await readRows();
+        await db.$executeRawUnsafe(migration);
+        await db.$executeRawUnsafe(migration);
+        expect(await readRows()).toEqual(manual);
+        expect(manual.find((row) => row.id === rows[0]!.id)).toMatchObject({
+          jlptLevel: 4,
+          legacyJlptLevel: 4,
+        });
+        expect(manual.find((row) => row.id === rows[1]!.id)).toMatchObject({
+          jlptLevel: 5,
+          legacyJlptLevel: 4,
+        });
+      },
+    );
+  });
 });
+
+const LEGACY_JLPT_FIXTURE_UPDATED_AT = new Date("2000-01-01T00:00:00.000Z");
+type LegacyJlptRow = {
+  id: string;
+  jlptLevel: number | null;
+  legacyJlptLevel: number | null;
+  updatedAt: Date;
+};
+type LegacyJlptCase = {
+  readonly name: string;
+  readonly modern: number | null;
+  readonly old: unknown;
+  readonly expectedModern: number | null;
+  readonly expectedLegacy: number | null;
+  readonly runStatus?: string;
+  readonly sourceName?: string;
+  readonly recordType?: string;
+  readonly unlinked?: boolean;
+  readonly mismatchLiteral?: boolean;
+  readonly mismatchSourceId?: boolean;
+  readonly noncanonicalSourceId?: boolean;
+};
+
+async function withLegacyJlptMigrationFixture(
+  fixtures: readonly LegacyJlptCase[],
+  run: (
+    db: Prisma.TransactionClient,
+    migration: string,
+    rows: readonly (LegacyJlptCase & { id: string })[],
+  ) => Promise<void>,
+): Promise<void> {
+  const migration = await readFile(
+    join(
+      __dirname,
+      "../../../packages/db/prisma/migrations/20261022160000_separate_legacy_kanji_jlpt/migration.sql",
+    ),
+    "utf8",
+  );
+  await control.db.$transaction(
+    async (db) => {
+      // All migration names resolve to connection-local temporary tables, never public fixtures.
+      await db.$executeRawUnsafe(
+        'CREATE TEMP TABLE "DataSource" ("id" UUID PRIMARY KEY, "name" TEXT NOT NULL) ON COMMIT DROP',
+      );
+      await db.$executeRawUnsafe(
+        'CREATE TEMP TABLE "ImportRun" ("id" UUID PRIMARY KEY, "dataSourceId" UUID NOT NULL, "status" "ImportRunStatus" NOT NULL) ON COMMIT DROP',
+      );
+      await db.$executeRawUnsafe(
+        'CREATE TEMP TABLE "ImportedRecord" ("id" UUID PRIMARY KEY, "importRunId" UUID NOT NULL, "recordType" "ImportedRecordType" NOT NULL, "sourceRecordId" TEXT NOT NULL, "rawJson" JSONB NOT NULL) ON COMMIT DROP',
+      );
+      await db.$executeRawUnsafe(
+        'CREATE TEMP TABLE "Kanji" ("id" UUID PRIMARY KEY, "character" TEXT NOT NULL, "jlptLevel" INTEGER, "kanjidicSourceId" TEXT, "kanjidicImportedRecordId" UUID, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT TIMESTAMP \'2000-01-01 00:00:00\') ON COMMIT DROP',
+      );
+      const rows = fixtures.map((fixture) => ({ ...fixture, id: randomUUID() }));
+      for (const [index, fixture] of rows.entries()) {
+        const character = String.fromCodePoint(0x4e00 + index);
+        const sourceId = fixture.noncanonicalSourceId
+          ? "kanjidic2:not-this-character"
+          : `kanjidic2:${character.codePointAt(0)!.toString(16)}`;
+        const raw = {
+          literal: fixture.mismatchLiteral ? "日" : character,
+          misc: { jlptLevel: fixture.old },
+        };
+        await db.$executeRaw`INSERT INTO "DataSource" ("id", "name") VALUES (${fixture.id}::uuid, ${fixture.sourceName ?? "KANJIDIC2"})`;
+        await db.$executeRaw`INSERT INTO "ImportRun" ("id", "dataSourceId", "status") VALUES (${fixture.id}::uuid, ${fixture.id}::uuid, ${fixture.runStatus ?? "SUCCESS"}::"ImportRunStatus")`;
+        await db.$executeRaw`INSERT INTO "ImportedRecord" ("id", "importRunId", "recordType", "sourceRecordId", "rawJson") VALUES (${fixture.id}::uuid, ${fixture.id}::uuid, ${fixture.recordType ?? "KANJIDIC2_CHARACTER"}::"ImportedRecordType", ${fixture.mismatchSourceId ? "kanjidic2:mismatch" : sourceId}, ${JSON.stringify(raw)}::jsonb)`;
+        await db.$executeRaw`INSERT INTO "Kanji" ("id", "character", "jlptLevel", "kanjidicSourceId", "kanjidicImportedRecordId") VALUES (${fixture.id}::uuid, ${character}, ${fixture.modern}, ${sourceId}, ${fixture.unlinked ? null : fixture.id}::uuid)`;
+      }
+      await run(db, migration, rows);
+    },
+    { timeout: 15_000 },
+  );
+}
 
 function requireSafeDatabaseUrl(value: string): string {
   const unsafe = () =>

@@ -12,6 +12,21 @@ import {
 import type { KanaService } from "../src/kana/kana.service";
 
 describe("CharactersService", () => {
+  it("keeps pre-2010 levels out of modern JLPT filters", async () => {
+    const course = buildCourse();
+    const legacy = { ...buildKanji("日", null), jlptLevel: null, legacyJlptLevel: 4 };
+    const service = new CharactersService(
+      new StubKanaService() as KanaService,
+      new StubCharactersRepository({
+        ...course,
+        levels: [{ ...course.levels[0]!, kanji: [legacy] }],
+      }),
+    );
+    const response = await service.getHub(buildUser());
+    expect(response.kanji.filters.jlptLevels).toEqual([]);
+    expect(response.kanji.items[0]).toMatchObject({ jlptLevel: null, legacyJlptLevel: 4 });
+  });
+
   it("keeps kana mastery and kanji SRS progress as separate sections", async () => {
     const service = new CharactersService(
       new StubKanaService() as KanaService,
@@ -128,9 +143,7 @@ class StubCharactersRepository extends CharactersRepository {
   }
 }
 
-function buildKanaSection(
-  script: "hiragana" | "katakana",
-): CharacterHubKanaSectionDto {
+function buildKanaSection(script: "hiragana" | "katakana"): CharacterHubKanaSectionDto {
   return {
     progressModel: "mastery",
     script,

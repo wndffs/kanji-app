@@ -37,6 +37,7 @@ export type KanjiDic2CharacterDto = {
   readonly codepoint: string;
   readonly strokeCount: number | null;
   readonly grade: number | null;
+  /** Historical DTO name: pre-2010 JLPT 1-4 only, not modern N1-N5. */
   readonly jlptLevel: number | null;
   readonly frequencyRank: number | null;
   readonly readings: readonly KanjiDic2ReadingDto[];
@@ -302,7 +303,7 @@ export async function importKanjiDic2Xml(
         update: {
           strokeCount: character.strokeCount,
           grade: character.grade,
-          jlptLevel: character.jlptLevel,
+          legacyJlptLevel: character.jlptLevel,
           frequencyRank: character.frequencyRank,
           kanjidicSourceId: character.sourceRecordId,
           kanjidicImportedRecordId: importedRecord.id,
@@ -311,7 +312,8 @@ export async function importKanjiDic2Xml(
           character: character.character,
           strokeCount: character.strokeCount,
           grade: character.grade,
-          jlptLevel: character.jlptLevel,
+          jlptLevel: null,
+          legacyJlptLevel: character.jlptLevel,
           frequencyRank: character.frequencyRank,
           kanjidicSourceId: character.sourceRecordId,
           kanjidicImportedRecordId: importedRecord.id,
@@ -387,6 +389,7 @@ function parseCharacterBlock(block: string): KanjiDic2CharacterDto {
   }
 
   const miscBlock = extractOptionalElement(block, "misc") ?? "";
+  const sourceJlptLevel = parseOptionalInteger(extractOptionalText(miscBlock, "jlpt"));
   const readingElements = extractAttributedElements(block, "reading");
   const meaningElements = extractAttributedElements(block, "meaning");
   const selectedReadings = readingElements
@@ -418,7 +421,10 @@ function parseCharacterBlock(block: string): KanjiDic2CharacterDto {
     codepoint: codepoint.toLowerCase(),
     strokeCount: parseOptionalInteger(extractOptionalText(miscBlock, "stroke_count")),
     grade: parseOptionalInteger(extractOptionalText(miscBlock, "grade")),
-    jlptLevel: parseOptionalInteger(extractOptionalText(miscBlock, "jlpt")),
+    jlptLevel:
+      sourceJlptLevel !== null && sourceJlptLevel >= 1 && sourceJlptLevel <= 4
+        ? sourceJlptLevel
+        : null,
     frequencyRank: parseOptionalInteger(extractOptionalText(miscBlock, "freq")),
     readings,
     meanings,
@@ -428,7 +434,7 @@ function parseCharacterBlock(block: string): KanjiDic2CharacterDto {
       misc: {
         strokeCount: parseOptionalInteger(extractOptionalText(miscBlock, "stroke_count")),
         grade: parseOptionalInteger(extractOptionalText(miscBlock, "grade")),
-        jlptLevel: parseOptionalInteger(extractOptionalText(miscBlock, "jlpt")),
+        jlptLevel: sourceJlptLevel,
         frequencyRank: parseOptionalInteger(extractOptionalText(miscBlock, "freq")),
       },
       readings: selectedReadings,

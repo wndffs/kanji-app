@@ -49,6 +49,7 @@ describe("KANJIDIC2 importer", () => {
       frequencyRank: 574,
     });
     expect(parsed.characters[0]?.raw).toMatchObject({
+      misc: { jlptLevel: 4 },
       readings: [
         { reading: "ニチ", sourceType: "ja_on" },
         { reading: "ジツ", sourceType: "ja_on" },
@@ -61,6 +62,35 @@ describe("KANJIDIC2 importer", () => {
     });
     expect(JSON.stringify(parsed.characters[0]?.raw)).not.toContain("ri4");
     expect(JSON.stringify(parsed.characters[0]?.raw)).not.toContain("jour");
+  });
+
+  it.each([1, 2, 3, 4])("parses old JLPT %i without converting it to a modern N level", (level) => {
+    const parsed = parseKanjiDic2Xml(
+      fixtureXml.replaceAll("<jlpt>4</jlpt>", `<jlpt>${level}</jlpt>`),
+    );
+    expect(parsed.characters[0]).toMatchObject({
+      jlptLevel: level,
+      raw: { misc: { jlptLevel: level } },
+    });
+  });
+
+  it.each([0, 5, -1])(
+    "retains invalid source JLPT %i in raw evidence, not the legacy DTO",
+    (level) => {
+      const parsed = parseKanjiDic2Xml(
+        fixtureXml.replaceAll("<jlpt>4</jlpt>", `<jlpt>${level}</jlpt>`),
+      );
+      expect(parsed.characters[0]).toMatchObject({
+        jlptLevel: null,
+        raw: { misc: { jlptLevel: level } },
+      });
+    },
+  );
+
+  it("does not accept a fractional source JLPT value as an integer", () => {
+    expect(() =>
+      parseKanjiDic2Xml(fixtureXml.replaceAll("<jlpt>4</jlpt>", "<jlpt>2.5</jlpt>")),
+    ).toThrow("integer field is invalid");
   });
 
   it("writes DB records idempotently for the same source IDs", async () => {
@@ -85,6 +115,44 @@ describe("KANJIDIC2 importer", () => {
     expect(
       [...db.kanjiRows.values()].every((row) => row.kanjidicImportedRecordId !== undefined),
     ).toBe(true);
+    expect([...db.kanjiRows.values()].map((row) => [row.jlptLevel, row.legacyJlptLevel])).toEqual([
+      [null, 4],
+      [null, 4],
+      [null, null],
+    ]);
+    expect(db.kanjiUpserts.every((args) => !Object.hasOwn(args.update, "jlptLevel"))).toBe(true);
+  });
+
+  it("preserves a manual modern N5 through actual reimport writes, including changed legacy evidence", async () => {
+    const db = new InMemoryKanjiDic2Db();
+    db.kanjiRows.set("日", { id: "manual-day", character: "日", jlptLevel: 5 });
+    await importKanjiDic2Xml(db, fixtureXml, { sourceFileName: "kanjidic2-small.xml" });
+    const originalRecords = structuredClone([...db.importedRecords.values()]);
+    await importKanjiDic2Xml(db, fixtureXml.replaceAll("<jlpt>4</jlpt>", "<jlpt>2</jlpt>"), {
+      sourceFileName: "kanjidic2-small-updated.xml",
+    });
+
+    expect(db.importRuns.size).toBe(2);
+    expect(db.importedRecordUpsertCount).toBe(6);
+    expect(db.kanjiRows.get("日")).toMatchObject({
+      id: "manual-day",
+      jlptLevel: 5,
+      legacyJlptLevel: 2,
+    });
+    expect([...db.importedRecords.values()].slice(0, 3)).toEqual(originalRecords);
+    expect(db.kanjiUpserts.every((args) => !Object.hasOwn(args.update, "jlptLevel"))).toBe(true);
+    expect(db.kanjiUpserts.every((args) => args.create.jlptLevel === null)).toBe(true);
+  });
+
+  it("does not persist an invalid old level 5 as either a legacy or a new modern level", async () => {
+    const db = new InMemoryKanjiDic2Db();
+    await importKanjiDic2Xml(db, fixtureXml.replaceAll("<jlpt>4</jlpt>", "<jlpt>5</jlpt>"), {
+      sourceFileName: "kanjidic2-invalid-jlpt.xml",
+    });
+    expect(db.kanjiRows.get("日")).toMatchObject({ jlptLevel: null, legacyJlptLevel: null });
+    expect([...db.importedRecords.values()][0]).toMatchObject({
+      rawJson: { misc: { jlptLevel: 5 } },
+    });
   });
 
   it("retries a failed run with the same checksum", async () => {
@@ -142,6 +210,7 @@ class InMemoryKanjiDic2Db implements KanjiDic2ImportDatabase {
   readonly kanjiRows = new Map<string, Record<string, unknown>>();
   readonly readingRows = new Map<string, Record<string, unknown>>();
   readonly meaningRows = new Map<string, Record<string, unknown>>();
+  readonly kanjiUpserts: Parameters<KanjiDic2ImportDatabase["kanji"]["upsert"]>[0][] = [];
   importedRecordUpsertCount = 0;
   private nextId = 1;
 
@@ -200,6 +269,7 @@ class InMemoryKanjiDic2Db implements KanjiDic2ImportDatabase {
 
   readonly kanji = {
     upsert: async (args: Parameters<KanjiDic2ImportDatabase["kanji"]["upsert"]>[0]) => {
+      this.kanjiUpserts.push(args);
       return this.upsert(this.kanjiRows, args.where.character, args.update, args.create);
     },
   };

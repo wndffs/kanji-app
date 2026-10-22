@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 
 import { type Prisma } from "@kanji-srs/db";
 import {
+  formatKanjiJlptLevel,
   type ContentLocale,
   type DeckItemReasonCode,
   type DeckItemReasonDto,
@@ -69,6 +70,7 @@ type KanjiRow = {
   readonly character: string;
   readonly frequencyRank: number | null;
   readonly jlptLevel: number | null;
+  readonly legacyJlptLevel?: number | null;
   readonly readings: readonly {
     readonly reading: string;
     readonly priority: number;
@@ -543,7 +545,7 @@ function toKanjiTargetRecord(kanji: KanjiRow): TextDeckTargetRecord {
   return {
     japanese: kanji.character,
     reading: kanji.readings[0]?.reading ?? null,
-    jlptLevel: formatJlptLevel(kanji.jlptLevel),
+    jlptLevel: formatKanjiJlptLevel(kanji.jlptLevel, kanji.legacyJlptLevel),
     frequencyRank: kanji.frequencyRank,
     translations: groupLocalizedTexts(
       kanji.meanings.map((meaning) =>

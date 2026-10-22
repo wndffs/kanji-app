@@ -12,7 +12,7 @@ import {
 } from "./imported-candidate-ranking";
 
 export const CURRICULUM_CANDIDATE_POLICY_VERSION =
-  "independent-frequency-prerequisites-v3" as const;
+  "independent-frequency-prerequisites-v4-modern-jlpt" as const;
 
 export type CurriculumCandidatePlanSource = ImportedCandidateRankingInput & {
   readonly sourceGroupId: string | null;
