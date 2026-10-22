@@ -74,5 +74,11 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
+      - name: Build production web app
+        run: npm run build --workspace @kanji-srs/web
+
       - name: Run web smoke tests
+        env:
+          WEB_SMOKE_PRODUCTION: "1"
+          WEB_SMOKE_WORKERS: "2"
         run: npm run test:smoke --workspace @kanji-srs/web

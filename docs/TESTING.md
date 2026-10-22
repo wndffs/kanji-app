@@ -14,6 +14,17 @@ The runner owns and closes its server/browser subprocesses, uses the actual
 Playwright exit status and has a finite suite deadline. `WEB_SMOKE_PORT` selects
 another port when needed; do not reuse or stop an unrelated existing server.
 
+CI builds the production bundle and sets `WEB_SMOKE_PRODUCTION=1` so browser
+checks run without Fast Refresh. This follows the
+[Next.js production-testing recommendation](https://nextjs.org/docs/app/guides/testing/playwright).
+Local checks default to development mode for fast focused iterations. To
+reproduce production, build the web workspace first, then set
+`WEB_SMOKE_PRODUCTION=1` before the smoke command. Both modes use the same
+assertions and close their subprocesses.
+Production mode runs the generated standalone server, with its static/public
+assets copied into the ignored build directory. It does not use `next start`
+against a standalone configuration or depend on development-only overlays.
+
 ## PostgreSQL 18 Study Integrity
 
 The dedicated `.github/workflows/study-integrity.yml` workflow runs on pull

@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
+import { cpSync, existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { clearTimeout, setTimeout } from "node:timers";
 import { setTimeout as wait } from "node:timers/promises";
 
@@ -9,19 +11,33 @@ const baseURL = `http://${hostname}:${port}`;
 const isWindows = process.platform === "win32";
 const playwrightArgs = process.argv.slice(2);
 const require = createRequire(import.meta.url);
+const production = process.env.WEB_SMOKE_PRODUCTION === "1";
 const suiteTimeoutMs = Number(process.env.WEB_SMOKE_TIMEOUT_MS ?? 600_000);
 if (!Number.isInteger(suiteTimeoutMs) || suiteTimeoutMs < 1) {
   throw new Error("WEB_SMOKE_TIMEOUT_MS must be a positive integer.");
 }
 
 const server = spawnNodeCli(
-  "next/dist/bin/next",
-  ["dev", "--webpack", "--port", String(port), "--hostname", hostname],
+  production ? prepareProductionServer() : "next/dist/bin/next",
+  production ? [] : ["dev", "--webpack", "--port", String(port), "--hostname", hostname],
   {
     WEB_SMOKE_HOST: hostname,
     WEB_SMOKE_PORT: String(port),
+    ...(production ? { PORT: String(port), HOSTNAME: hostname } : {}),
   },
 );
+
+function prepareProductionServer() {
+  const serverFile = resolve(".next/standalone/apps/web/server.js");
+  if (!existsSync(serverFile)) {
+    throw new Error("Production smoke requires npm run build --workspace @kanji-srs/web first.");
+  }
+  const directory = dirname(serverFile);
+  cpSync(resolve(".next/static"), resolve(directory, ".next/static"), { recursive: true });
+  if (existsSync("public"))
+    cpSync(resolve("public"), resolve(directory, "public"), { recursive: true });
+  return serverFile;
+}
 
 try {
   await waitForServer(baseURL);

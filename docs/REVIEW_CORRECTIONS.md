@@ -54,6 +54,12 @@ compatibility. Browser cases cover desktop/mobile correction, interrupted
 scheduled prompts, reload, vacation and failed saves. The PostgreSQL integrity
 workflow also includes real versioned-session/correction cases.
 
+[Task 125 PostgreSQL run 39747194550](https://github.com/wndffs/kanji-app/actions/runs/39747194550)
+passed all 30 cases on 2026-10-22, including concurrent starts, resumable
+wrong/reveal originals and overlapping correction writes. This proves the
+repository behavior against a real isolated database, not a whole-production
+or full-corpus certification.
+
 Queues remain capped at 100 cards. The existing target hydration queries are
 not a claim of a measured low query count; production-scale latency/query
 budgets remain Task 123. A withdrawn/unavailable snapshot card produces a

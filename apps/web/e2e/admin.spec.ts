@@ -259,7 +259,7 @@ test.describe("admin curation", () => {
     const pagination = page.getByTestId("admin-review-queue-pagination");
 
     await expect(itemHeader).toContainText("Кандзи 一");
-    await page.getByRole("button", { name: "Опубликовать" }).click();
+    await page.getByRole("button", { name: "Опубликовать", exact: true }).click();
 
     await expect(page.getByText("Материал сохранён. Открыт следующий материал.")).toBeVisible();
     await expect(queue).toContainText("Кандзи 二");
@@ -274,7 +274,7 @@ test.describe("admin curation", () => {
     await mockAdminApi(page, { failQueueRefreshAfterItemSave: true });
 
     await page.goto("/admin");
-    await page.getByRole("button", { name: "Опубликовать" }).click();
+    await page.getByRole("button", { name: "Опубликовать", exact: true }).click();
 
     await expect(page.getByText("Материал сохранён.", { exact: true })).toBeVisible();
     await expect(page.getByText(/Изменения сохранены, но очередь не обновилась/u)).toBeVisible();
