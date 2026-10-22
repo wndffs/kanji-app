@@ -9,15 +9,15 @@ import {
 } from "../src/main-course-word-content";
 
 describe("calendar and next-level vocabulary expansion", () => {
-  it("keeps five distinct reviewed twenty-word slices and original earlier prerequisites", () => {
+  it("keeps six distinct reviewed twenty-word slices and original earlier prerequisites", () => {
     const batches = buildMainCourseWordBatches();
-    expect(batches).toHaveLength(5);
+    expect(batches).toHaveLength(6);
     expect(validateMainCourseWordBatches(batches)).toEqual([]);
     expect(
       new Set(
         batches.flatMap((batch) => batch.words.map((word) => `${word.expression}:${word.reading}`)),
       ).size,
-    ).toBe(100);
+    ).toBe(120);
     const earlier = new Map(
       buildMainCourseContentBatches().flatMap((batch) =>
         batch.kanji.map((item) => [item.character, item.levelNumber] as const),
@@ -124,6 +124,48 @@ describe("calendar and next-level vocabulary expansion", () => {
       ["出国", "しゅっこく", "jmdict:1580020"],
       ["会社", "かいしゃ", "jmdict:1198550"],
     ]);
+  });
+
+  it("adds a separately reviewed reinforcement slice without changing the sealed v3 set", () => {
+    const batch = buildMainCourseWordBatches()[5]!;
+    expect(batch).toMatchObject({
+      id: "task-127-course-words-06",
+      levelNumber: 6,
+      sortOrderStart: 21,
+    });
+    expect(mainCourseWordBatchChecksum(batch)).toBe(
+      "8a9e0cef7dc10ec355125ffb7bb989d96cd531d0f85767280b735b6ad9790858",
+    );
+    expect(batch.words.map((word) => word.sortOrder)).toEqual(
+      Array.from({ length: 20 }, (_, i) => i + 21),
+    );
+    expect(batch.words.map((word) => [word.expression, word.reading, word.jmdictEntryId])).toEqual([
+      ["入口", "いりぐち", "jmdict:1582820"],
+      ["入学", "にゅうがく", "jmdict:1465850"],
+      ["休み", "やすみ", "jmdict:1227500"],
+      ["休日", "きゅうじつ", "jmdict:1228040"],
+      ["体", "からだ", "jmdict:1409140"],
+      ["体力", "たいりょく", "jmdict:1409760"],
+      ["林", "はやし", "jmdict:1555440"],
+      ["森林", "しんりん", "jmdict:1362530"],
+      ["森", "もり", "jmdict:1362490"],
+      ["犬", "いぬ", "jmdict:1258330"],
+      ["夕日", "ゆうひ", "jmdict:1542750"],
+      ["名", "な", "jmdict:1531330"],
+      ["外", "そと", "jmdict:1203250"],
+      ["国外", "こくがい", "jmdict:1286270"],
+      ["王", "おう", "jmdict:1629200"],
+      ["王国", "おうこく", "jmdict:1181480"],
+      ["玉", "たま", "jmdict:1240530"],
+      ["白", "しろ", "jmdict:1474900"],
+      ["糸", "いと", "jmdict:1311450"],
+      ["車", "くるま", "jmdict:1323080"],
+    ]);
+    const byWord = new Map(batch.words.map((word) => [word.expression, word]));
+    expect(byWord.get("玉")!.meanings.en.accepted).toEqual(["ball", "sphere", "gem", "jewel"]);
+    expect(byWord.get("白")!.meanings.ru.accepted).toEqual(["белый цвет"]);
+    expect(byWord.get("夕日")!.reading).toBe("ゆうひ");
+    expect(batch.words.every((word) => word.acceptedReadings === undefined)).toBe(true);
   });
 
   it.each([0, -1, 1.5, 61, NaN, Infinity])(

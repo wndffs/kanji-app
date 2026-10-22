@@ -160,9 +160,12 @@ official modern JLPT value to any dictionary row.
 
 These sources are AI-authored and independently AI-reviewed, not human-reviewed.
 Kanji batch 05 adds twenty more signs and ten components, using existing licensed
-KANJIDIC2/KanjiVG records. Prepared totals are 63 components, 81 kanji, 100 words,
+KANJIDIC2/KanjiVG records. Prepared V3 totals are 63 components, 81 kanji, 100 words,
 244 placements, 425 cards and 100 examples across six populated levels. These
 are source-manifest totals until server application is independently confirmed.
+The separately reviewed word-06 reinforcement slice adds another twenty words
+at level 6 slots 21-40. Registry totals become 120 words and 120 examples;
+V3 remains frozen at 100 words. This slice does not silently expand any pilot.
 Existing reviewed manifests, pilot V1/V2 seals, card identities and learner
 enrollments are unchanged. Prepared source counts must not be reported as live
 or published counts before a successful curation/quality run. The next finite

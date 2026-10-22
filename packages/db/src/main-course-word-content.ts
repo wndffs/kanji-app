@@ -5,6 +5,7 @@ import { buildMainCourseBlueprint } from "./main-course";
 import { buildMainCourseWordBatch02 } from "./main-course-word-content-02";
 import { buildMainCourseWordBatch04 } from "./main-course-word-content-04";
 import { buildMainCourseWordBatch05 } from "./main-course-word-content-05";
+import { buildMainCourseWordBatch06 } from "./main-course-word-content-06";
 
 import {
   type MainCourseAcceptedMeanings,
@@ -1124,6 +1125,7 @@ export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
     FOUNDATION_WORD_BATCH_03,
     buildMainCourseWordBatch04(),
     buildMainCourseWordBatch05(),
+    buildMainCourseWordBatch06(),
   ];
 }
 

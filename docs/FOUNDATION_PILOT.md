@@ -34,6 +34,8 @@ These are prepared source seals, not proof of database application/publication.
 After curation and quality checks, use `--pilot v3 --plan` before the explicit
 `--pilot v3 --publish`. Neither action silently enrolls users or selects V3.
 V1/V2 source/canonical seals and default CLI behavior are unchanged.
+The later `task-127-course-words-06` slice is deliberately outside V3's ten-source
+seal, even though its twenty words are registered in the main-course writer.
 
 ## Separate V2 Seal
 
