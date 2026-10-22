@@ -8,70 +8,136 @@ import { useStudyAudioPreferences } from "../lib/use-study-audio-preferences";
 
 type PlaybackStatus = "loading" | "ready" | "playing" | "completed" | "error";
 
-export function ListeningPrompt({
-  audio,
-  onEvidenceChange,
-}: {
+type ListeningPromptProps = {
   readonly audio: AudioAssetDto | null | undefined;
   readonly onEvidenceChange: (evidence: ListeningPlaybackEvidenceDto) => void;
-}) {
+};
+
+export function ListeningPrompt(props: ListeningPromptProps) {
+  return (
+    <ListeningPlayback key={JSON.stringify([props.audio?.id, props.audio?.mediaUrl])} {...props} />
+  );
+}
+
+function ListeningPlayback({ audio, onEvidenceChange }: ListeningPromptProps) {
   const preferences = useStudyAudioPreferences();
   const audioRef = useRef<HTMLAudioElement>(null);
   const onEvidenceChangeRef = useRef(onEvidenceChange);
+  const activeRef = useRef(false);
+  const generationRef = useRef(0);
+  const playRequestedRef = useRef(false);
+  const playingRef = useRef(false);
   const autoplayAttemptedRef = useRef(false);
   const playCountRef = useRef(0);
   const completedRef = useRef(false);
-  const [status, setStatus] = useState<PlaybackStatus>("loading");
+  const [status, setStatus] = useState<PlaybackStatus>(
+    audio?.mediaUrl === null || audio?.mediaUrl === undefined ? "error" : "loading",
+  );
 
   useEffect(() => {
     onEvidenceChangeRef.current = onEvidenceChange;
   }, [onEvidenceChange]);
 
-  const resetEvidence = useCallback(() => {
-    playCountRef.current = 0;
-    completedRef.current = false;
-    autoplayAttemptedRef.current = false;
-    setStatus(audio?.mediaUrl === null || audio?.mediaUrl === undefined ? "error" : "loading");
-    onEvidenceChangeRef.current({ completed: false, playCount: 0 });
-  }, [audio?.id, audio?.mediaUrl]);
-
   useEffect(() => {
-    resetEvidence();
+    const element = audioRef.current;
+    activeRef.current = true;
+    onEvidenceChangeRef.current({ completed: false, playCount: 0 });
+
+    const pause = () => {
+      generationRef.current += 1;
+      const wasRequested = playRequestedRef.current;
+      playRequestedRef.current = false;
+      playingRef.current = false;
+      element?.pause();
+
+      if (wasRequested) {
+        setStatus(completedRef.current ? "completed" : "ready");
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") pause();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", pause);
 
     return () => {
-      audioRef.current?.pause();
+      activeRef.current = false;
+      generationRef.current += 1;
+      playRequestedRef.current = false;
+      playingRef.current = false;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", pause);
+      element?.pause();
     };
-  }, [resetEvidence]);
+  }, []);
 
   const play = useCallback(
     async (autoplay = false): Promise<void> => {
       const element = audioRef.current;
+
+      if (!activeRef.current || document.visibilityState === "hidden") return;
 
       if (element === null || audio?.mediaUrl === null || audio?.mediaUrl === undefined) {
         setStatus("error");
         return;
       }
 
+      const generation = ++generationRef.current;
+      playRequestedRef.current = true;
+      playingRef.current = false;
+      setStatus("playing");
+
       try {
         element.currentTime = 0;
         await element.play();
+
+        // A pending play can settle after this source was removed or hidden.
+        if (!activeRef.current || !playRequestedRef.current) element.pause();
       } catch {
+        if (!activeRef.current || generation !== generationRef.current) return;
+
+        playRequestedRef.current = false;
+        playingRef.current = false;
         setStatus(autoplay ? "ready" : "error");
       }
     },
     [audio?.mediaUrl],
   );
 
-  function handleCanPlay(): void {
-    setStatus((current) => (current === "completed" ? current : "ready"));
+  const handleCanPlay = useCallback((): void => {
+    if (!activeRef.current) return;
 
-    if (preferences.speechAutoplay && !autoplayAttemptedRef.current) {
+    setStatus((current) => (current === "completed" || current === "playing" ? current : "ready"));
+
+    if (
+      preferences.speechAutoplay &&
+      document.visibilityState !== "hidden" &&
+      !autoplayAttemptedRef.current
+    ) {
       autoplayAttemptedRef.current = true;
       void play(true);
     }
-  }
+  }, [play, preferences.speechAutoplay]);
+
+  useEffect(() => {
+    if (
+      audioRef.current !== null &&
+      audioRef.current.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA
+    ) {
+      handleCanPlay();
+    }
+  }, [handleCanPlay]);
 
   function handlePlay(): void {
+    if (!activeRef.current || !playRequestedRef.current || document.visibilityState === "hidden") {
+      audioRef.current?.pause();
+      return;
+    }
+
+    if (playingRef.current) return;
+
+    playingRef.current = true;
     playCountRef.current += 1;
     setStatus("playing");
     onEvidenceChangeRef.current({
@@ -81,12 +147,30 @@ export function ListeningPrompt({
   }
 
   function handleEnded(): void {
+    if (
+      !activeRef.current ||
+      !playRequestedRef.current ||
+      !playingRef.current ||
+      !audioRef.current?.ended ||
+      document.visibilityState === "hidden"
+    ) {
+      return;
+    }
+
+    generationRef.current += 1;
+    playRequestedRef.current = false;
+    playingRef.current = false;
     completedRef.current = true;
     setStatus("completed");
     onEvidenceChangeRef.current({ completed: true, playCount: playCountRef.current });
   }
 
   function handleError(): void {
+    if (!activeRef.current) return;
+
+    generationRef.current += 1;
+    playRequestedRef.current = false;
+    playingRef.current = false;
     setStatus("error");
     onEvidenceChangeRef.current({
       completed: completedRef.current,
@@ -94,14 +178,23 @@ export function ListeningPrompt({
     });
   }
 
+  function handlePause(): void {
+    if (!activeRef.current || audioRef.current?.ended || !playRequestedRef.current) return;
+
+    generationRef.current += 1;
+    playRequestedRef.current = false;
+    playingRef.current = false;
+    setStatus(completedRef.current ? "completed" : "ready");
+  }
+
   return (
     <section className="listening-prompt" aria-label="Аудиозадание">
       {audio?.mediaUrl === null || audio?.mediaUrl === undefined ? null : (
         <audio
-          key={audio.id}
           onCanPlay={handleCanPlay}
           onEnded={handleEnded}
           onError={handleError}
+          onPause={handlePause}
           onPlay={handlePlay}
           preload="auto"
           ref={audioRef}

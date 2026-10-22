@@ -307,6 +307,121 @@ test.describe("review session", () => {
     await expect(page.getByText("солнце")).toBeVisible();
   });
 
+  test("pauses hidden listening audio without completing or grading it", async ({ page }) => {
+    const answerRequests: CapturedReviewAnswerRequest[] = [];
+    await signIn(page);
+    await mockReviewApi(page, { answerRequests, queue: [listeningReviewQueueItem] });
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение" }).click();
+    const play = page.getByRole("button", { name: "Воспроизвести аудио", exact: true });
+    await expect(play).toBeEnabled();
+    await page.locator(".listening-prompt audio").evaluate((element: HTMLAudioElement) => {
+      element.play = () => {
+        element.dispatchEvent(new Event("play"));
+        return Promise.resolve();
+      };
+      element.pause = () => {
+        element.dataset.pauses = String(Number(element.dataset.pauses ?? 0) + 1);
+      };
+    });
+    await play.click();
+    await expect(page.getByText("Дослушайте запись до конца.")).toBeVisible();
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        get: () => "hidden",
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect(page.locator(".listening-prompt audio")).toHaveAttribute("data-pauses", "1");
+    await expect(page.getByLabel("Ответ чтением")).toBeDisabled();
+    await expect(play).toBeEnabled();
+    expect(answerRequests).toEqual([]);
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        get: () => "visible",
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await play.click();
+    await expect(page.getByLabel("Ответ чтением")).toBeDisabled();
+    await expect(page.getByText("Запись прослушана. Можно отвечать.")).toHaveCount(0);
+  });
+
+  test("retires the old audio element and ignores its pending replay after the next listening card", async ({
+    page,
+  }) => {
+    const second: ReviewQueueItem = {
+      ...listeningReviewQueueItem,
+      card: {
+        ...listeningReviewQueueItem.card,
+        id: "listening-second",
+        learningItemId: "word-second",
+        prompt: { japanese: "二つ", reading: "ふたつ" },
+        audio: {
+          ...listeningReviewQueueItem.card.audio!,
+          id: "audio-second",
+          learningItemId: "word-second",
+          mediaUrl: "https://media.example.test/futatsu.wav",
+        },
+      },
+      item: {
+        ...listeningReviewQueueItem.item,
+        id: "word-second",
+        japanese: "二つ",
+        reading: "ふたつ",
+      },
+    };
+    await signIn(page);
+    await mockReviewApi(page, { queue: [listeningReviewQueueItem, second] });
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение" }).click();
+    await page.getByRole("button", { name: "Воспроизвести аудио", exact: true }).click();
+    await expect(page.getByText("Запись прослушана. Можно отвечать.")).toBeVisible();
+    await page.locator(".listening-prompt audio").evaluate((element: HTMLAudioElement) => {
+      const audit = window as typeof window & {
+        __retiredPauses: number;
+        __rejectReplay: () => void;
+      };
+      audit.__retiredPauses = 0;
+      const pause = element.pause.bind(element);
+      element.pause = () => {
+        audit.__retiredPauses++;
+        pause();
+      };
+      element.play = () =>
+        new Promise<void>((_resolve, reject) => {
+          audit.__rejectReplay = () => reject(new Error("retired replay"));
+        });
+    });
+    await page.getByRole("button", { name: "Воспроизвести аудио ещё раз" }).click();
+    await page.getByLabel("Ответ чтением").fill("ひとつ");
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Верно", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Дальше", exact: true }).click();
+    await expect(page.locator(".listening-prompt audio")).toHaveAttribute(
+      "src",
+      second.card.audio!.mediaUrl!,
+    );
+    await expect(
+      page.getByRole("button", { name: "Воспроизвести аудио", exact: true }),
+    ).toBeEnabled();
+    await page.evaluate(() =>
+      (window as typeof window & { __rejectReplay: () => void }).__rejectReplay(),
+    );
+    expect(
+      await page.evaluate(
+        () => (window as typeof window & { __retiredPauses: number }).__retiredPauses,
+      ),
+    ).toBeGreaterThan(0);
+    await expect(
+      page.getByRole("button", { name: "Воспроизвести аудио", exact: true }),
+    ).toBeEnabled();
+    await expect(page.getByLabel("Ответ чтением")).toBeDisabled();
+    await expect(page.getByText("retired replay")).toHaveCount(0);
+  });
+
   test("requires completed audio and reveals licensed listening metadata", async ({ page }) => {
     const answerRequests: CapturedReviewAnswerRequest[] = [];
 

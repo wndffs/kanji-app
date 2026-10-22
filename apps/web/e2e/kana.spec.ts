@@ -18,6 +18,71 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "kana-token";
 
 test.describe("kana lessons", () => {
+  test("cancels obsolete kana speech on preferences, hiding and navigation", async ({ page }) => {
+    await signIn(page);
+    await mockKanaApi(page);
+    await page.goto("/kana");
+    const speak = page.getByRole("button", { name: "Воспроизвести произношение" });
+    await expect(speak).toBeEnabled();
+    await speak.click();
+    await speak.click();
+    const beforePreferences = await page.evaluate(
+      () => (window as typeof window & { __speechCancels: number }).__speechCancels,
+    );
+    await page.evaluate(() => {
+      const audit = window as typeof window & { __speechEnds: (() => void)[] };
+      audit.__speechEnds[0]?.();
+      const user = JSON.parse(localStorage.getItem("kanji-srs.user")!);
+      localStorage.setItem(
+        "kanji-srs.user",
+        JSON.stringify({ ...user, settings: { ...user.settings, speechRate: 1.1 } }),
+      );
+      window.dispatchEvent(new Event("kanji-srs.auth-changed"));
+    });
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => (window as typeof window & { __speechCancels: number }).__speechCancels,
+        ),
+      )
+      .toBeGreaterThan(beforePreferences);
+    await speak.click();
+    const beforeHidden = await page.evaluate(
+      () => (window as typeof window & { __speechCancels: number }).__speechCancels,
+    );
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        get: () => "hidden",
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => (window as typeof window & { __speechCancels: number }).__speechCancels,
+        ),
+      )
+      .toBeGreaterThan(beforeHidden);
+    await page.evaluate(() =>
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        get: () => "visible",
+      }),
+    );
+    await speak.click();
+    const beforeNavigation = await page.evaluate(
+      () => (window as typeof window & { __speechCancels: number }).__speechCancels,
+    );
+    await page.getByRole("link", { name: "Поиск", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Поиск", exact: true })).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => (window as typeof window & { __speechCancels: number }).__speechCancels,
+      ),
+    ).toBeGreaterThan(beforeNavigation);
+  });
+
   for (const lateStatus of [200, 401]) {
     test(`keeps katakana selected after a late hiragana response (${lateStatus})`, async ({
       page,
@@ -253,9 +318,16 @@ async function signIn(
 ): Promise<void> {
   await page.addInitScript(
     ({ accessToken, audioSettings: storedAudioSettings }) => {
-      const speechWindow = window as typeof window & { __spokenKana: string[] };
+      const speechWindow = window as typeof window & {
+        __spokenKana: string[];
+        __speechCancels: number;
+        __speechEnds: (() => void)[];
+      };
       speechWindow.__spokenKana = [];
+      speechWindow.__speechCancels = 0;
+      speechWindow.__speechEnds = [];
       class MockSpeechSynthesisUtterance {
+        onend: (() => void) | null = null;
         lang = "";
         pitch = 1;
         rate = 1;
@@ -275,7 +347,9 @@ async function signIn(
         configurable: true,
         value: {
           addEventListener: () => undefined,
-          cancel: () => undefined,
+          cancel: () => {
+            speechWindow.__speechCancels++;
+          },
           getVoices: () => [
             {
               default: true,
@@ -287,6 +361,7 @@ async function signIn(
           removeEventListener: () => undefined,
           speak: (utterance: MockSpeechSynthesisUtterance) => {
             speechWindow.__spokenKana.push(utterance.text);
+            speechWindow.__speechEnds.push(() => utterance.onend?.());
           },
         },
       });

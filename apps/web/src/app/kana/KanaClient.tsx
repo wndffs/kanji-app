@@ -218,12 +218,14 @@ export function KanaClient({
     }
 
     kanaSpeech.speak(buildKanaSpeechText(currentLessonItem));
+    return kanaSpeech.cancel;
   }, [
     currentLessonItem,
     exerciseKind,
     feedback,
     kanaSpeech.available,
     kanaSpeech.autoplay,
+    kanaSpeech.cancel,
     kanaSpeech.speak,
     lessonPhase,
     mode,
