@@ -5,7 +5,8 @@
 Manual browser checks against [Vercel](https://kanji-app-rho.vercel.app) and
 [Render](https://kanji-srs-api.onrender.com), with read-only verification in
 Neon PostgreSQL 18. A new disposable audit profile was used; no existing
-learner account was changed. Credentials are not recorded here.
+learner account was changed. Its narrowly scoped synthetic progress and due-date
+fixtures are disclosed below. Credentials are not recorded here.
 
 This is bounded deployment evidence for Tasks 120, 125 and 124, not full-course
 release approval, a complete mobile audit or backup-restore certification.
@@ -40,7 +41,62 @@ release approval, a complete mobile audit or backup-restore certification.
   database available. Render liveness remains `/health`, not a continuous
   database poll.
 
+## Published Pilot Acceptance
+
+The independently versioned pilot was published by
+[run 39784436544](https://github.com/wndffs/kanji-app/actions/runs/39784436544):
+40 components, 40 kanji, 20 words, 100 items and 160 cards. These reuse main-course
+identities; they are not additional dictionary content.
+
+- `/courses` listed the published pilot but not the DRAFT main course. Explicit
+  enrollment reported success while preserving the current starter course.
+  Selecting the pilot separately persisted the new current course and reused
+  the account's two existing component states, with no duplicate SRS state.
+- To reach one complete prerequisite chain without waiting through every
+  neighboring item, 153 missing states were inserted for this generated audit
+  account only, for pilot cards whose component/kanji/word target was **not 月**.
+  They used stage 2 and future availability. Conflict-ignore preserved the two
+  original states. This is synthetic fixture progress, not evidence of learning
+  the entire pilot or naturally earning those stages.
+- The actual UI then taught component 月, accepted `луна`, and created one new
+  stage-1 state. Kanji 月 unlocked next, displayed the distinct meaning `месяц`
+  and historical JLPT label `до 2010: 4`, then accepted `げつ` and `месяц` in its
+  mandatory quiz, creating two new stage-1 states.
+- Only those two exact new audit-profile kanji states had their due timestamps
+  advanced to test reviews. The actual three-card session answered their meaning
+  and reading plus an already-due original component card: **3 answers, 3 correct,
+  0 errors, 100% accuracy**. Both kanji cards advanced to stage 2 before the word
+  became available. No global stage interval was changed.
+- Word 月 then unlocked. Its lesson showed curated `луна / moon`, the word reading
+  `つき` rather than kanji `げつ`, and the original example `月がよく見えます。`
+  with kana, Russian and English plus project attribution. The mandatory quiz
+  accepted `つき` and `луна`; completion reported **one item and two SRS cards**.
+- A subsequent owner/item-scoped read-only query returned exactly five 月 states:
+  component meaning at stage 1, kanji meaning/reading at stage 2 with one
+  scheduling answer each, and word meaning/reading at stage 1 with no review yet.
+- The item's global meaning list remained `луна / moon`, while raw dictionary
+  senses remained separately labeled as dictionary data. A private Russian answer
+  `лунный диск` was added through the UI and remained visible after reload. It did
+  not replace the global meanings or answers. Cross-user isolation is additionally
+  covered by automated owner-boundary tests, not claimed from this one login.
+
+Saved browser evidence includes `pilot-enrollment-confirmed-2026-10-22.png`,
+`pilot-kanji-reading-2026-10-22.png`, `pilot-kanji-review-complete-2026-10-22.png`,
+`pilot-word-example-bilingual-2026-10-22.png` and
+`pilot-private-answer-persisted-2026-10-22.png` in the agent-local visualization
+directory, outside the repository.
+
 ## Automated Complement
+
+After the final runtime change `4a5a8b3`,
+[CI run 39798323986](https://github.com/wndffs/kanji-app/actions/runs/39798323986)
+recorded **175 passed production-bundle browser cases** across desktop/mobile,
+including the new installation metadata cases; the mobile-only sticky-input
+case was intentionally skipped in the desktop project. Its quality job completed scoped
+workspace lint, typechecks, unit tests and builds. The ordinary API unit run's
+27 intentional PostgreSQL skips are not claimed as coverage: the separate
+[Study integrity run 39798323604](https://github.com/wndffs/kanji-app/actions/runs/39798323604)
+actually passed **41 cases against PostgreSQL 18**.
 
 [CI run 39748375728](https://github.com/wndffs/kanji-app/actions/runs/39748375728)
 passed quality and the complete production-bundle browser smoke job.
@@ -52,5 +108,7 @@ learner coverage.
 ## Still Required
 
 Task 124 remains incomplete: full-corpus quality/publication, complete remote
-desktop/mobile route coverage, storage/audio checks if enabled, backup restore,
-rollback rehearsal and whole-product security/accessibility sign-off.
+desktop/mobile route coverage, storage/audio checks if enabled, retained-backup
+and application-recovery policy, rollback rehearsal and whole-product
+security/accessibility sign-off. The early isolated snapshot/count restore passed
+separately in run 39796378083; see `DATABASE_RESTORE_REHEARSAL.md` for exact limits.

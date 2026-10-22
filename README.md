@@ -4,6 +4,14 @@ Personal Russian-localized Japanese kanji and vocabulary SRS web application.
 
 This repository is an npm TypeScript monorepo with a tiny project-authored starter course for local development and smoke testing. The seed is deliberately small and is not copied from WaniKani or external decks.
 
+## Current Roadmap
+
+See [the revalidated roadmap](docs/REVALIDATION_2026_10_21.md) for current execution
+order, shipped functionality and remaining acceptance gates. Task numbers are
+stable identifiers, not execution order. [Publication status](docs/TASK_118_PUBLICATION_STATUS.md)
+distinguishes raw dictionary capacity, curated main-course content and the
+separately published finite pilot; none should be reported as a complete course.
+
 ## Requirements
 
 - Node.js 22.12 or newer (supported even-numbered Node releases)

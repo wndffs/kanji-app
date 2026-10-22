@@ -93,12 +93,13 @@ These sources describe mechanics only. They are not content sources.
 
 ## Cross-task engineering rules
 
-### Revalidated order (2026-10-21)
+### Revalidated order (updated 2026-10-22)
 
 Current evidence, honest completion states and additional acceptance-sized
-Tasks 125-128 are recorded in `REVALIDATION_2026_10_21.md`. Read that record
+Tasks 125-129 are recorded in `REVALIDATION_2026_10_21.md`. Read that record
 alongside this specification; implementation is not proof of full-corpus
-publication or final production readiness.
+publication or final production readiness. Its explicit execution-order section
+takes precedence over ascending task IDs; existing IDs are never renumbered.
 
 Task 119 implementation must precede further mass publication in Task 118.
 Structural quality gates prevent bad batches from being amplified; Task 118

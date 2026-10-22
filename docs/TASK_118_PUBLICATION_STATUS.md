@@ -14,7 +14,60 @@ continue.
 
 ## Verified staging evidence
 
-### Current editorial batches (2026-10-22)
+### Current editorial corpus (2026-10-22)
+
+[Selected curation run 39795992224](https://github.com/wndffs/kanji-app/actions/runs/39795992224)
+successfully applied only `task-118-foundation-kanji-03@1` and
+`task-127-foundation-words-02@1`; old published batches were not reapplied.
+The bridge reuses the existing demo 一 target/cards at main-course level 2,
+slot 21. The word batch adds twenty words, forty meaning/reading cards and twenty
+original JP/kana/RU/EN examples at level 5, slots 21-40. Five dictionary-confirmed
+alternate readings are accepted on their existing reading cards, not duplicated
+as new SRS cards. No seed or new external dictionary import was run.
+
+| Batch    | SHA-256                                                            | Successful import run                  |
+| -------- | ------------------------------------------------------------------ | -------------------------------------- |
+| Kanji 03 | `fe1998be5842a0ca2f233670318949c51d82c58d68068851c3859f8e3560af92` | `1ffe0ec6-b81a-4276-9725-9005a89a8d89` |
+| Word 02  | `0110505331b1066653f4b62ce20f4c8bbb98e94ccf701eafac26ecda9a0e6a4f` | `2bdc929a-4eaf-48be-a642-11f2eaa7c41d` |
+
+The main course now contains **40 components, 41 kanji, 40 words, 121 placements,
+202 cards and 40 original bilingual examples**. Read-only Neon counts confirmed
+these totals, **DRAFT** status, 60 defined levels and only five populated levels.
+The complete main-course quality report in the
+[run artifact](https://github.com/wndffs/kanji-app/actions/runs/39795992224/artifacts/12433926958)
+scanned all **121 items with 0 blockers and 0 warnings**, policy v2, content
+version `0db1fe8f38b0e22ec6ac4caebc8b96136f1abc7ac82a0c167e358f602881b9fa`.
+
+There are **2,259 kanji and 7,960 words** remaining against the full target. The
+published pilot stays at **40 components / 40 kanji / 20 words / 160 cards**;
+new main-course content is not automatically enrolled or added to its version.
+The corpus report's `publishedCourse` totals count distinct items reachable
+through any published course, including the separate starter demo, not DRAFT
+main-course placements. Its 42 kanji/22 words must not be mistaken for the
+main-course totals or added to the pilot as new content.
+
+### First vocabulary batch (2026-10-22)
+
+[Curation run 39772153454](https://github.com/wndffs/kanji-app/actions/runs/39772153454)
+successfully reapplied both kanji batches and the first reviewed word batch,
+`task-127-foundation-words-01@1`, from cached source identities. The word manifest
+SHA-256 is `1ceeb2467961f707e57047ab0c46a91badaa048f036ac3299a5a7d0685f99daf`;
+its import run is `dfa8086c-7a96-4f98-908f-c9ed67a6665d`.
+
+After that run the main course had **40 components, 40 kanji, 20 words, 100 placements,
+160 learning cards and 20 project-authored bilingual examples**. The
+[quality artifact](https://github.com/wndffs/kanji-app/actions/runs/39772153454/artifacts/12423651717)
+reports **100 scanned items, 0 blockers and 0 warnings** under
+`course-content-quality-v2`. Content version:
+`ee716c17b483164b91caf81304fabf2420a525ce56e6767b327f9855bcf6288f`.
+
+The main course remained **DRAFT**, with **2,260 kanji and 7,980 words**
+remaining at that snapshot. The separate finite Foundation
+pilot is tracked in `FOUNDATION_PILOT.md`; it reuses these cards and must not be
+added to the main-course totals as new content. AI-authored/editor-reviewed
+content is not represented as human-reviewed.
+
+### Second kanji batch (2026-10-22, before vocabulary)
 
 [Curation run 39750138315](https://github.com/wndffs/kanji-app/actions/runs/39750138315)
 successfully applied both versioned batches to Neon. Batch 02 adds 14 reusable
@@ -24,13 +77,13 @@ before application. Its SHA-256 is
 `99268635c984603c30a1a53c2beb0bcd63a53316b9cb3a83b4e51c54e1c18714`;
 import run `d031e0e4-90b7-4927-a8ee-6b0f0fb0d94b`.
 
-The combined main-course result is **40 components, 40 kanji, 80 placements
+At that snapshot, the combined main-course result was **40 components, 40 kanji, 80 placements
 and 120 learning cards**. The
 [quality artifact](https://github.com/wndffs/kanji-app/actions/runs/39750138315/artifacts/12413576549)
 reports **80 scanned items, 0 blockers, 0 warnings**. Content version:
 `db58a36b2db43ace1603544c3e0204fcd06433d279e0892744ccf75d909d1828`.
-Main-course vocabulary remains **0** and the course remains **DRAFT**. The
-remaining main-course targets are **2,260 kanji and 8,000 vocabulary pairs**.
+Main-course vocabulary was **0** and the course remained **DRAFT**. The
+remaining targets then were **2,260 kanji and 8,000 vocabulary pairs**.
 AI-authored/editor-reviewed batches are not represented as human-reviewed.
 
 ### First editorial batch (2026-10-21)

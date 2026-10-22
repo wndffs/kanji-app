@@ -32,3 +32,9 @@ discovery/MIME, safe identity/launch fields, PNG sizes, Apple metadata, an intac
 login page and absence of service-worker registration. Actual OS installation,
 standalone relaunch, device-specific masks and the full offline/reminder matrix
 remain manual acceptance before Task123 can be called complete.
+
+On 2026-10-22 Vercel marked commit `4a5a8b3` deployed successfully. Its live
+`/manifest.webmanifest` exposed the expected static metadata, and the in-app
+browser decoded `/icons/app-512.png` as 512 by 512 pixels. This verifies the
+published files, not OS installation. The local production build passed both
+desktop/mobile installation-metadata cases and all three focused unit cases.

@@ -100,6 +100,15 @@ backfill values or record the Prisma migration as applied. Run the complete
 source-checked migration after PostgreSQL CI succeeds, before any changed
 importer run. Regenerate Prisma Client after changing the schema.
 
+That complete migration subsequently succeeded in
+[database run 39785278290](https://github.com/wndffs/kanji-app/actions/runs/39785278290).
+The explicit starter-seed step was skipped. Read-only Neon verification found
+日 and 月 with modern level NULL and legacy level 4, while the independently
+seeded modern N5 values for 一 and 口 remained unchanged. The live item/search
+and kanji lesson showed `до 2010: 4`, not `N4`.
+[Study integrity run 39784656267](https://github.com/wndffs/kanji-app/actions/runs/39784656267)
+passed 41 actual PostgreSQL 18 cases, including the source-checked migration tests.
+
 The database deployment workflow defaults `seed_starter` to false. A schema
 migration must not reseed shared demo targets/cards after reviewed course
 curation, because that would replace educational content reused by the pilot.

@@ -141,8 +141,8 @@ After both manifests have final approval, this path pure-validates first,
 applies selected kanji 03, then preflights/applies selected word batch 02. That
 order publishes 一 at its registered earlier placement before 一人/一月/一日
 are checked. It avoids reapplying either old kanji batch or old published word
-answers. Blank selections retain the workflow's default-all behavior. Workflow
-wiring belongs to the parent; this slice does not edit workflows or approval dates.
+answers. Blank selections retain the workflow's default-all behavior. Successful
+live rollout evidence is recorded in `TASK_118_PUBLICATION_STATUS.md`.
 
 ## Verification
 

@@ -35,3 +35,11 @@ The Blueprint must be synced to the existing service before these settings
 are effective; editing the file alone does not prove cloud configuration.
 Manual deployments remain available. Check that a docs-only push is skipped
 and a subsequent runtime push reaches Ready/Live before claiming rollout.
+
+On 2026-10-22 a Blueprint sync did not populate the existing service's ignored
+paths. The exact `render.yaml` ignored-path list was therefore saved directly in
+that service's **Settings > Build Filters** and its persisted values were checked.
+Evidence: `render-build-filters-2026-10-22.png`, outside the repository. This
+confirms configuration, not yet a docs-only skip. A subsequent live API response
+did expose the curated-meaning repair from `6c1e7ab`; a complete skip/build
+acceptance pair still needs observation.

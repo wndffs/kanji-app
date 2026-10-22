@@ -155,6 +155,14 @@ needs a new pilot version, not replacement under this UUID or slug.
 
 ## Optional Explicit Enrollment
 
+The manual publish run
+[39784436544](https://github.com/wndffs/kanji-app/actions/runs/39784436544)
+succeeded on 2026-10-22. The earlier attempt timed out while writing placements;
+bounded `createMany` placement insertion fixed that without changing the content
+version. The successful default publication enrolled no users. Subsequent actual
+catalog enrollment and a component-to-kanji-to-word browser chain are recorded
+with their synthetic-fixture limits in `REMOTE_SMOKE_2026_10_22.md`.
+
 `--publish --enroll-user-id UUID` is opt-in for one existing user only. It adds a
 missing enrollment with `ACTIVE` status but never reactivates or modifies an
 existing enrollment, including `PAUSED`. Missing settings are created with the
@@ -182,6 +190,15 @@ items) remain invalid. Changing registered targets, shared content, original
 identities or provenance still fails closed. This is not a general course
 publishing mechanism or a quality waiver for the expanded main course; inspect
 that course's full unfiltered quality report separately.
+
+After live main-course expansion to 121 items/202 cards, read-only plan
+[39798186965](https://github.com/wndffs/kanji-app/actions/runs/39798186965)
+returned the same existing pilot UUID, manifest-record UUID and content version
+`44cfcf60a4ce70a0af3452e46ac81dd7fae581b4301ac8410db3395729bd5870`,
+still 100 items/160 cards. Its
+[plan artifact](https://github.com/wndffs/kanji-app/actions/runs/39798186965/artifacts/12433569208)
+records this actual post-expansion check; no publication/enrollment write was
+requested by that run.
 
 Focused tests use synthetic persistence fixtures, the real quality validator and
 a stubbed quality-page loader. They exercise stable reapplication with reversed

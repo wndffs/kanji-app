@@ -132,7 +132,24 @@ provider/system schemas, global roles/ACLs and application-level recovery checks
 are outside this rehearsal. The archive checksum identifies this dump; it is not
 a source/target row-equivalence proof.
 
-## Local Verification
+## Live Rehearsal Evidence
+
+The first manual run
+[39796378083](https://github.com/wndffs/kanji-app/actions/runs/39796378083)
+succeeded on 2026-10-22 at commit `a7ea9b4`, job `119886926195`. Both source and
+restored PostgreSQL reported 18.6; `pg_dump` and `pg_restore` were 18.6. All **45
+public table inventories/counts matched**, including private/progress tables.
+The temporary custom archive was **21,457,424 bytes**, SHA-256
+`5372d53d46eda0e19caecf2c663dd4ae87af7dd55ae052f6df397cd678ec8433`.
+The owned archive was removed before success, and the service teardown succeeded.
+
+The [only uploaded artifact](https://github.com/wndffs/kanji-app/actions/runs/39796378083/artifacts/12432979321)
+contains the sanitized report, not the archive or user rows. The workflow's 59
+guardrail tests passed before the actual restore. This verifies this bounded
+snapshot/count flow, not retained-backup policy, row fingerprints, application
+recovery, roles/ACLs, provider schemas or full Task124 approval.
+
+## Focused Local Checks
 
 Only pure guardrails and mocked subprocess/Prisma interleavings run locally:
 
