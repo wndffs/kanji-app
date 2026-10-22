@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
 import { clearTimeout, setTimeout } from "node:timers";
 import { setTimeout as wait } from "node:timers/promises";
 
@@ -7,14 +8,15 @@ const hostname = process.env.WEB_SMOKE_HOST ?? "127.0.0.1";
 const baseURL = `http://${hostname}:${port}`;
 const isWindows = process.platform === "win32";
 const playwrightArgs = process.argv.slice(2);
+const require = createRequire(import.meta.url);
 const suiteTimeoutMs = Number(process.env.WEB_SMOKE_TIMEOUT_MS ?? 600_000);
 if (!Number.isInteger(suiteTimeoutMs) || suiteTimeoutMs < 1) {
   throw new Error("WEB_SMOKE_TIMEOUT_MS must be a positive integer.");
 }
 
-const server = spawnCommand(
-  "npm",
-  ["exec", "--", "next", "dev", "--webpack", "--port", String(port), "--hostname", hostname],
+const server = spawnNodeCli(
+  "next/dist/bin/next",
+  ["dev", "--webpack", "--port", String(port), "--hostname", hostname],
   {
     WEB_SMOKE_HOST: hostname,
     WEB_SMOKE_PORT: String(port),
@@ -38,11 +40,11 @@ try {
   process.exit(process.exitCode ?? 0);
 }
 
-function spawnCommand(command, args, env = {}) {
-  const child = spawn(resolveCommand(command), args, {
+function spawnNodeCli(command, args, env = {}) {
+  const child = spawn(process.execPath, [require.resolve(command), ...args], {
     detached: !isWindows,
     env: { ...process.env, ...env },
-    shell: isWindows,
+    shell: false,
     stdio: "inherit",
     windowsHide: true,
   });
@@ -56,16 +58,16 @@ function spawnCommand(command, args, env = {}) {
 
 function runPlaywright(env = {}) {
   return new Promise((resolve) => {
-    const args = ["exec", "--", "playwright", "test", ...playwrightArgs];
+    const args = [require.resolve("@playwright/test/cli"), "test", ...playwrightArgs];
 
     if (process.env.WEB_SMOKE_WORKERS !== undefined && !hasWorkerArg(playwrightArgs)) {
       args.push("--workers", process.env.WEB_SMOKE_WORKERS);
     }
 
-    const child = spawn(resolveCommand("npm"), args, {
+    const child = spawn(process.execPath, args, {
       detached: !isWindows,
       env: { ...process.env, ...env },
-      shell: isWindows,
+      shell: false,
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     });
@@ -161,8 +163,4 @@ function runDetached(command, args) {
     child.on("exit", () => resolve());
     child.on("error", () => resolve());
   });
-}
-
-function resolveCommand(command) {
-  return isWindows ? `${command}.cmd` : command;
 }

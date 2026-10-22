@@ -1,5 +1,19 @@
 # Testing
 
+## Focused Browser Checks on Windows
+
+The smoke runner starts installed Next.js and Playwright CLI modules directly
+with Node, without a command shell. Regular-expression filters containing spaces
+or `|` therefore stay one argument instead of becoming `cmd.exe` pipelines.
+
+```powershell
+npm run test:smoke --workspace @kanji-srs/web -- e2e/reviews.spec.ts --grep 'resumes only|corrects misses' --workers=1
+```
+
+The runner owns and closes its server/browser subprocesses, uses the actual
+Playwright exit status and has a finite suite deadline. `WEB_SMOKE_PORT` selects
+another port when needed; do not reuse or stop an unrelated existing server.
+
 ## PostgreSQL 18 Study Integrity
 
 The dedicated `.github/workflows/study-integrity.yml` workflow runs on pull
