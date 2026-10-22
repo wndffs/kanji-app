@@ -2,8 +2,9 @@ import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { PrismaClient, type Prisma } from "@prisma/client";
+import { PrismaClient, type CourseBand, type Prisma } from "@prisma/client";
 import { withNeonConnectionDefaults } from "../src/connection-defaults";
+import { buildMainCourseBlueprint } from "../src/main-course";
 
 import {
   buildMainCourseContentBatches,
@@ -168,21 +169,35 @@ export async function planMainCourseContentBatch(
       ),
     ),
   );
-  for (const levelNumber of new Set([
-    batch.componentLevelNumber,
-    ...batch.kanji.map((item) => item.levelNumber),
-  ])) {
-    const level = levelByNumber.get(levelNumber);
-    if (level === undefined || level.band !== "FOUNDATION") {
-      throw new Error(`Main course ${batch.courseSlug} needs Foundation level ${levelNumber}.`);
-    }
-  }
-
-  const priorComponentLearningItemIds = new Map<string, string>();
   const componentKeys = new Set([
     ...batch.components.map((content) => content.key),
     ...batch.kanji.flatMap((content) => content.componentKeys),
   ]);
+  const usedLevels = new Set([
+    ...(batch.components.length > 0 ? [batch.componentLevelNumber] : []),
+    ...batch.kanji.map((item) => item.levelNumber),
+  ]);
+  for (const key of componentKeys) {
+    const definition = componentDefinitions.get(key);
+    if (definition === undefined || definition.batch.courseSlug !== batch.courseSlug) {
+      throw new Error(`Unregistered component prerequisite ${key}.`);
+    }
+    usedLevels.add(definition.batch.componentLevelNumber);
+  }
+  const blueprintLevels = new Map(
+    buildMainCourseBlueprint().levels.map((level) => [level.levelNumber, level]),
+  );
+  for (const levelNumber of usedLevels) {
+    const level = levelByNumber.get(levelNumber);
+    const expected = blueprintLevels.get(levelNumber);
+    if (level === undefined || expected === undefined || level.band !== expected.band) {
+      throw new Error(
+        `Main course ${batch.courseSlug} needs level ${levelNumber} matching the registered curriculum band.`,
+      );
+    }
+  }
+
+  const priorComponentLearningItemIds = new Map<string, string>();
   for (const key of componentKeys) {
     const definition = componentDefinitions.get(key);
     if (definition === undefined || definition.batch.courseSlug !== batch.courseSlug) {
@@ -320,6 +335,7 @@ export async function applyMainCourseContentBatch(
             batch,
             importRun.id,
             requiredLevelId(levelByNumber, batch.componentLevelNumber),
+            levelByNumber.get(batch.componentLevelNumber)!.band,
             courseId,
             (batch.componentSortOrderStart ?? 1) + index,
           ),
@@ -337,6 +353,7 @@ export async function applyMainCourseContentBatch(
             batch,
             importRun.id,
             requiredLevelId(levelByNumber, kanjiContent.levelNumber),
+            levelByNumber.get(kanjiContent.levelNumber)!.band,
             courseId,
             componentLearningItemIds,
           ),
@@ -423,6 +440,7 @@ async function applyComponent(
   batch: MainCourseContentBatch,
   importRunId: string,
   courseLevelId: string,
+  curriculumBand: CourseBand,
   courseId: string,
   sortOrder: number,
 ): Promise<string> {
@@ -461,7 +479,7 @@ async function applyComponent(
       kind: "COMPONENT",
       title: `Компонент ${content.symbol}`,
       levelHint: batch.componentLevelNumber,
-      curriculumBand: "FOUNDATION",
+      curriculumBand,
       status: "PUBLISHED",
     },
     create: {
@@ -470,7 +488,7 @@ async function applyComponent(
       targetId: component.id,
       title: `Компонент ${content.symbol}`,
       levelHint: batch.componentLevelNumber,
-      curriculumBand: "FOUNDATION",
+      curriculumBand,
       status: "PUBLISHED",
     },
   });
@@ -571,6 +589,7 @@ async function applyKanji(
   batch: MainCourseContentBatch,
   importRunId: string,
   courseLevelId: string,
+  curriculumBand: CourseBand,
   courseId: string,
   componentLearningItemIds: ReadonlyMap<string, string>,
 ): Promise<void> {
@@ -628,7 +647,7 @@ async function applyKanji(
       kind: "KANJI",
       title: `Кандзи ${content.character}`,
       levelHint: content.levelNumber,
-      curriculumBand: "FOUNDATION",
+      curriculumBand,
       status: "PUBLISHED",
     },
     create: {
@@ -637,7 +656,7 @@ async function applyKanji(
       targetId: kanji.id,
       title: `Кандзи ${content.character}`,
       levelHint: content.levelNumber,
-      curriculumBand: "FOUNDATION",
+      curriculumBand,
       status: "PUBLISHED",
     },
   });

@@ -13,6 +13,20 @@ import {
 } from "../src/main-course-content";
 
 describe("main-course content batches", () => {
+  it.each([0, 61, 1.5, NaN, Infinity])(
+    "rejects unregistered component and kanji level %s in pure validation",
+    (levelNumber) => {
+      const first = requiredBatch();
+      expect(
+        validateMainCourseContentBatches([{ ...first, componentLevelNumber: levelNumber }]),
+      ).toContain(`${first.id} has an invalid component level`);
+      expect(
+        validateMainCourseContentBatches([
+          { ...first, kanji: [{ ...first.kanji[0]!, levelNumber }] },
+        ]),
+      ).toContain(`${first.id} kanji 日 has an invalid placement`);
+    },
+  );
   it("registers the independently reviewed fourth batch without duplicating earlier characters", () => {
     const batches = buildMainCourseContentBatches();
     const batch = batches[3]!;

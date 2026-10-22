@@ -1,4 +1,5 @@
 import { buildMainCourseContentBatch05 } from "./main-course-content-05";
+import { buildMainCourseBlueprint } from "./main-course";
 
 export type MainCourseContentLocale = "ru-RU" | "en-US";
 
@@ -1529,6 +1530,9 @@ export function validateMainCourseContentBatches(
   const componentLevels = new Map<string, number>();
   const kanjiCharacters = new Set<string>();
   const placements = new Set<string>();
+  const registeredLevels = new Set(
+    buildMainCourseBlueprint().levels.map((level) => level.levelNumber),
+  );
 
   for (const batch of batches) {
     if (batchIds.has(batch.id)) {
@@ -1548,7 +1552,10 @@ export function validateMainCourseContentBatches(
       issues.push(`${batch.id} has empty review metadata`);
     }
 
-    if (!Number.isInteger(batch.componentLevelNumber) || batch.componentLevelNumber < 1) {
+    if (
+      !Number.isInteger(batch.componentLevelNumber) ||
+      !registeredLevels.has(batch.componentLevelNumber)
+    ) {
       issues.push(`${batch.id} has an invalid component level`);
     }
 
@@ -1609,6 +1616,7 @@ export function validateMainCourseContentBatches(
 
       if (
         !Number.isInteger(item.levelNumber) ||
+        !registeredLevels.has(item.levelNumber) ||
         item.levelNumber <= batch.componentLevelNumber ||
         !Number.isInteger(item.sortOrder) ||
         item.sortOrder < 1

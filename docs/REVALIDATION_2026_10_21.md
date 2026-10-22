@@ -153,9 +153,10 @@ The third reviewed 20-word batch and fourth kanji batch are now applied. All
 Vocabulary batches 04 and 05 add forty source-checked words and forty original
 JP/kana/RU/EN examples. Batch 04 completes the calendar months and irregular
 dates at level 5 slots 61-80. Batch 05 opens level 6 slots 1-20 with school,
-age/status, time and everyday compounds. The reusable writer now checks the
-destination and prerequisite bands against the actual 60-level blueprint rather
-than hardcoding Foundation level 5. A course band's name does not assign an
+age/status, time and everyday compounds. The reusable word, kanji and component
+writers now check destination and prerequisite bands against the actual 60-level
+blueprint rather than hardcoding Foundation destinations. Pure validation also
+rejects levels outside that blueprint. A course band's name does not assign an
 official modern JLPT value to any dictionary row.
 
 These sources are AI-authored and independently AI-reviewed, not human-reviewed.

@@ -10,6 +10,123 @@ import { buildMainCourseBlueprint } from "../src/main-course";
 import { buildMainCourseContentBatches } from "../src/main-course-content";
 
 describe("main-course curation preflight and application", () => {
+  it.each([
+    [6, 7, "N5"],
+    [16, 17, "N4"],
+    [28, 29, "N3"],
+    [44, 45, "N2"],
+  ] as const)(
+    "persists blueprint bands at component level %i and kanji level %i (%s) on create and rerun",
+    async (componentLevelNumber, kanjiLevelNumber, band) => {
+      const fixture = curationFixture();
+      const batch = {
+        ...fixture.batch,
+        componentLevelNumber,
+        kanji: fixture.batch.kanji.map((content) => ({
+          ...content,
+          levelNumber: kanjiLevelNumber,
+        })),
+      };
+      const registry = [fixture.registry[0]!, batch];
+      const sourceBefore = structuredClone(fixture.state.kanji);
+      const priorPlacements = structuredClone([...fixture.state.placements]);
+      const plan = await planMainCourseContentBatch(fixture.db, batch, registry);
+      expect(plan.levelByNumber.get(componentLevelNumber)?.band).toBe(band);
+      expect(plan.levelByNumber.get(kanjiLevelNumber)?.band).toBe(band);
+      expect(plan.priorComponentLearningItemIds.size).toBeGreaterThan(0);
+      expect(fixture.mutations).toEqual([]);
+
+      await applyMainCourseContentBatch(fixture.db, batch, registry);
+      for (const content of batch.components)
+        expect(fixture.state.items.get(`COMPONENT:${content.key}`)).toMatchObject({
+          curriculumBand: band,
+          levelHint: componentLevelNumber,
+        });
+      for (const content of batch.kanji)
+        expect(fixture.state.items.get(`KANJI:kanji-${content.character}`)).toMatchObject({
+          curriculumBand: band,
+          levelHint: kanjiLevelNumber,
+        });
+      const componentItem = fixture.state.items.get(`COMPONENT:${batch.components[0]!.key}`)!;
+      const kanjiItem = fixture.state.items.get(`KANJI:kanji-${batch.kanji[0]!.character}`)!;
+      const card = [...fixture.state.cards.values()].find(
+        (entry) => entry.learningItemId === kanjiItem.id && entry.promptType === "READING",
+      )!;
+      fixture.privateRows.srs.learningCardId = card.id;
+      fixture.privateRows.override.learningCardId = card.id;
+      fixture.privateRows.mnemonic.learningItemId = kanjiItem.id;
+      const privateBefore = structuredClone(fixture.privateRows);
+      const identities = structuredClone(identitySnapshot(fixture));
+      // Exercise the update branch rather than only preserving the create result.
+      Object.assign(componentItem, { curriculumBand: "FOUNDATION" });
+      Object.assign(kanjiItem, { curriculumBand: "FOUNDATION" });
+      await applyMainCourseContentBatch(fixture.db, batch, registry);
+      expect(identitySnapshot(fixture)).toEqual(identities);
+      expect(fixture.state.kanji).toEqual(sourceBefore);
+      expect(fixture.privateRows).toEqual(privateBefore);
+      expect(fixture.privateMutation).not.toHaveBeenCalled();
+      for (const [key, placement] of priorPlacements)
+        expect(fixture.state.placements.get(key)).toEqual(placement);
+    },
+  );
+
+  it.each([
+    ["destination-component", 6, "FOUNDATION"],
+    ["destination-kanji", 7, "N4"],
+    ["prior-component", 1, "N5"],
+    ["missing-destination-component", 6, null],
+    ["missing-destination-kanji", 7, null],
+    ["missing-prior-component", 1, null],
+  ] as const)(
+    "blocks %s level drift before source reads or mutations",
+    async (_kind, levelNumber, band) => {
+      const fixture = curationFixture();
+      const batch = {
+        ...fixture.batch,
+        componentLevelNumber: 6,
+        kanji: fixture.batch.kanji.map((content) => ({ ...content, levelNumber: 7 })),
+      };
+      fixture.readCourse.mockResolvedValue({
+        id: "main-course",
+        levels: buildMainCourseBlueprint()
+          .levels.filter((level) => band !== null || level.levelNumber !== levelNumber)
+          .map((level) => ({
+            ...level,
+            id: `level-${level.levelNumber}`,
+            band: level.levelNumber === levelNumber && band !== null ? band : level.band,
+          })),
+      });
+      await expect(
+        applyMainCourseContentBatch(fixture.db, batch, [fixture.registry[0]!, batch]),
+      ).rejects.toThrow("registered curriculum band");
+      expect(fixture.db.component.findUnique).not.toHaveBeenCalled();
+      expect(fixture.db.kanji.findUnique).not.toHaveBeenCalled();
+      expect(fixture.transaction).not.toHaveBeenCalled();
+      expect(fixture.mutations).toEqual([]);
+    },
+  );
+
+  it.each(["component", "kanji"])(
+    "rejects unregistered %s level 61 without writes",
+    async (kind) => {
+      const fixture = curationFixture();
+      const batch = {
+        ...fixture.batch,
+        componentLevelNumber: kind === "component" ? 61 : 6,
+        kanji: fixture.batch.kanji.map((content) => ({
+          ...content,
+          levelNumber: kind === "component" ? 62 : 61,
+        })),
+      };
+      await expect(
+        applyMainCourseContentBatch(fixture.db, batch, [fixture.registry[0]!, batch]),
+      ).rejects.toThrow();
+      expect(fixture.mutations).toEqual([]);
+      expect(fixture.transaction).not.toHaveBeenCalled();
+      expect(fixture.db.kanji.findUnique).not.toHaveBeenCalled();
+    },
+  );
+
   it("supports an explicitly sourced kun reading without rewriting raw readings or private progress", async () => {
     const fixture = curationFixture();
     const original = fixture.registry[1]!;
