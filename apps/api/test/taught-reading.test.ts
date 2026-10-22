@@ -55,6 +55,7 @@ function harness(hasTaughtReading = true) {
     meanings: [],
   };
   const db = {
+    $queryRaw: vi.fn().mockResolvedValue([]),
     learningItem: { findUnique: vi.fn().mockResolvedValue(item) },
     learningCard: {
       findMany: vi.fn().mockResolvedValue(cards.map((card) => ({ ...card, learningItem: item }))),
@@ -127,7 +128,7 @@ describe("taught kanji readings in API hydration", () => {
     const h = harness();
     const before = structuredClone(h.item);
     const repository = new PrismaReviewsRepository({ db: h.db } as never);
-    const result = await repository.listDueQueue("owner", new Date(), 10);
+    const result = await repository.listDueReviewCards("owner", new Date(), 10);
     expect(result.map((row) => row.card.target.reading)).toEqual(["こめ", "こめ"]);
     expect(result.map((row) => row.state.stageIndex)).toEqual([1, 1]);
     expect(h.db.userSrsState.findMany).toHaveBeenCalledWith(

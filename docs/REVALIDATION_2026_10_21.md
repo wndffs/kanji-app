@@ -19,9 +19,9 @@ private editing, with two independent reviewers. Local checks are focused;
 cloud CI runs broader checks. This does not claim exhaustive review of every
 file, accessibility state or production-scale query.
 
-- Main course, updated 2026-10-22: **61 placed kanji, 60 placed vocabulary,
-  53 components and 60 bilingual examples**. Its combined 174-item/295-card batches passed a live quality
-  report with zero blockers and warnings. The
+- Main course, updated 2026-10-22: **81 placed kanji, 100 placed vocabulary,
+  63 components and 100 bilingual examples**. Its combined 244-item/425-card batches passed a live quality
+  report with zero blockers and warnings in run 39837563210. The
   course is still DRAFT, not a published 2,300-kanji/8,000-word course.
 - Raw corpus: 13,108 KANJIDIC2 entries, 30,000 bilingual JMdict pairs, 6,702
   KanjiVG graphics. Imported evidence is not editorial publication.
@@ -79,7 +79,7 @@ diagnostic, not continuous database polling that consumes free compute.
 | 111-115 | Implemented, bounded tests                    | Full corpus and whole-product accessibility                              |
 | 116     | Listening mechanism implemented               | Real licensed assets, storage/CORS, coverage                             |
 | 117     | Research deferred                             | Approved source/license before integration                               |
-| 118     | In progress; blocks full release              | 2,239 kanji, 7,940 vocabulary, 55 empty levels, rollout                  |
+| 118     | In progress; blocks full release              | 2,219 kanji, 7,900 vocabulary, 54 empty levels, rollout                  |
 | 119     | Implemented; live batch verified              | Same audit over eventual full corpus                                     |
 | 120     | Implemented; focused acceptance tested        | Whole-product contrast belongs to 121-122                                |
 | 121     | Not started                                   | Original visual system after functional/data contracts                   |
@@ -136,9 +136,9 @@ run 39772153454; no sentence learning cards were created.
 The first 20-word versioned batch is applied to Neon with stable target/card
 identities. Reapplication, interruption and source preflight have PostgreSQL
 regressions. This completes a bounded batch, not the eventual 8,000 words.
-The third reviewed 20-word batch and fourth kanji batch are now applied. All
-174 main-course items passed quality v2 with zero blockers/warnings in run
-39814286342; exact counts/hashes are in `TASK_118_PUBLICATION_STATUS.md`.
+The fifth reviewed 20-word batch and fifth kanji batch are now applied. All
+244 main-course items passed quality v2 with zero blockers/warnings in run
+39837563210; exact counts/hashes are in `TASK_118_PUBLICATION_STATUS.md`.
 
 - Resolve components across versioned batches with stable placement offsets,
   preserving existing cards, private content and progress.
@@ -148,7 +148,7 @@ The third reviewed 20-word batch and fourth kanji batch are now applied. All
 - Separate imported/reviewed/placed/published/enrolled counts.
 - Test interruption, reapplication, checksum changes and progress preservation.
 
-### Next Functional Batch (Prepared, Not Yet Applied)
+### Functional Expansion and Publication Boundary
 
 Vocabulary batches 04 and 05 add forty source-checked words and forty original
 JP/kana/RU/EN examples. Batch 04 completes the calendar months and irregular
@@ -162,8 +162,9 @@ official modern JLPT value to any dictionary row.
 These sources are AI-authored and independently AI-reviewed, not human-reviewed.
 Kanji batch 05 adds twenty more signs and ten components, using existing licensed
 KANJIDIC2/KanjiVG records. Prepared V3 totals are 63 components, 81 kanji, 100 words,
-244 placements, 425 cards and 100 examples across six populated levels. These
-are source-manifest totals until server application is independently confirmed.
+244 placements, 425 cards and 100 examples across six populated levels. Selected
+curation runs 39836574322 and 39837563210 confirmed these totals. The V3 read-only
+plan also passed in run 39838874891, but V3 was not published or enrolled.
 The separately reviewed word-06 reinforcement slice adds another twenty words
 at level 6 slots 21-40. Registry totals become 120 words and 120 examples;
 V3 remains frozen at 100 words. This slice does not silently expand any pilot.
@@ -176,6 +177,15 @@ Existing reviewed manifests, pilot V1/V2 seals, card identities and learner
 enrollments are unchanged. Prepared source counts must not be reported as live
 or published counts before a successful curation/quality run. The next finite
 pilot must be separately sealed and explicitly enrolled; no silent upgrades.
+The user's latest direction is development and push only: do not manually apply
+word-06/kanji-06, publish V3, switch courses or start database workflows without
+new authorization. Existing automatic CI/deploy on push is unchanged.
+
+Kanji presentation now resolves the global primary reading from the teaching
+card, with dictionary order only as a fallback. Reading evidence remains in
+source order, and personal accepted answers do not replace the taught primary.
+New curation may choose a verified secondary ON/KUN reading without rewriting
+KANJIDIC2 priorities or changing existing sealed manifests.
 
 ## Task 128: Finite-Corpus Pilot
 

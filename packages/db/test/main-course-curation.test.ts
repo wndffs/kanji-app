@@ -647,7 +647,14 @@ type Dependency = {
   dependencyType: string;
   requiredStage: number;
 };
-type Answer = { learningCardId: string; text: string; sourceKind: string };
+type Answer = {
+  learningCardId: string;
+  text: string;
+  sourceKind: string;
+  locale: string;
+  answerKind: string;
+  isPrimary: boolean;
+};
 type KanjiFixture = {
   id: string;
   kanjidicSourceId: string;
