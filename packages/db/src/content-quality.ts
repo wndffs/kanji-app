@@ -1,6 +1,7 @@
 import { normalizeJapaneseReading, normalizeMeaning, validateAnswer } from "@kanji-srs/japanese";
 import { type ContentQualityIssueDto } from "@kanji-srs/shared";
 import { buildMainCourseBlueprint } from "./main-course";
+import { type WordExampleQuality } from "./word-examples";
 
 type QualityAnswer = {
   readonly text: string;
@@ -44,6 +45,7 @@ export type QualityItem = {
   readonly hasStrokes: boolean;
   readonly hasPartOfSpeech: boolean;
   readonly hasExample: boolean;
+  readonly exampleEvidence?: WordExampleQuality;
   readonly targetMeaningsValid?: boolean;
   readonly validStageIndices?: readonly number[];
   readonly cards: readonly QualityCard[];
@@ -279,8 +281,14 @@ export function validateQualityItem(item: QualityItem): readonly ContentQualityI
     add(
       "missing-example",
       "У слова пока нет опубликованного примера.",
-      "Добавьте атрибутированный пример или зарегистрируйте редакторское исключение.",
+      "Добавьте проверенный пример с японским текстом, RU/EN и лицензированным источником.",
       "blocker",
+    );
+  if (item.kind === "WORD" && (item.exampleEvidence?.invalidExampleCount ?? 0) > 0)
+    add(
+      "invalid-source",
+      "У слова есть опубликованный пример без полного RU/EN текста или подтверждённого лицензированного происхождения.",
+      "Исправьте каждый опубликованный пример или снимите его связь с публикации; другой корректный пример не отменяет ошибку.",
     );
   const placement = item.placements[0];
   if (

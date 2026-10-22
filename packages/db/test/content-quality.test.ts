@@ -159,6 +159,23 @@ const invalid: Record<ContentQualityIssueCode, (item: QualityItem) => QualityIte
 };
 
 describe("shared course-content quality rules", () => {
+  it("blocks a bad published word example even alongside a valid example", () => {
+    const issues = validateQualityItem({
+      ...validItem(),
+      kind: "WORD",
+      targetType: "WORD",
+      hasExample: true,
+      exampleEvidence: { hasExample: true, invalidExampleCount: 1, fingerprint: "mixed" },
+    });
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        code: "invalid-source",
+        severity: "blocker",
+        message: expect.stringContaining("пример"),
+      }),
+    );
+    expect(issues.some((issue) => issue.code === "missing-example")).toBe(false);
+  });
   it("rejects prerequisites with a stage absent from the configured SRS system", () => {
     expect(validateQualityItem({ ...validItem(), validStageIndices: [1, 2, 3] })).toContainEqual(
       expect.objectContaining({ code: "invalid-prerequisite" }),

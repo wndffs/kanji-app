@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { Prisma } from "@prisma/client";
 import {
   collectContentQualityReport,
   getContentQualityPage,
@@ -49,6 +50,54 @@ function databaseFixture(count: number) {
 }
 
 describe("bounded content-quality reporting", () => {
+  it("uses direct word-example aggregates without loading sentence LearningItems or unbounded reverse dependencies", async () => {
+    const { db, rows, findMany } = databaseFixture(1);
+    Object.assign(rows[0], {
+      kind: "WORD",
+      targetType: "WORD",
+      targetId: "00000000-0000-4000-8000-000000009999",
+    });
+    vi.mocked(db.word.findMany).mockResolvedValue([
+      {
+        id: rows[0].targetId,
+        expression: "ほん",
+        reading: "ほん",
+        importedRecord: null,
+        senses: [
+          {
+            locale: "ru-RU",
+            sourceKind: "PROJECT_AUTHORED",
+            meaning: "книга",
+            partOfSpeech: "noun",
+          },
+        ],
+      },
+    ] as never);
+    let evidence = { hasExample: true, invalidExampleCount: 1, fingerprint: "mixed" };
+    Object.assign(db, {
+      $queryRaw: vi.fn(async (query: Prisma.Sql) =>
+        query.sql.includes("bool_or") ? [{ itemId: rows[0].id, ...evidence }] : [],
+      ),
+    });
+    const mixed = await getContentQualityPage(db, { code: "invalid-source", limit: 1 });
+    expect(mixed.issues).toContainEqual(
+      expect.objectContaining({
+        code: "invalid-source",
+        severity: "blocker",
+        message: expect.stringContaining("пример"),
+      }),
+    );
+    expect(findMany.mock.calls[0]?.[0]).not.toHaveProperty("include.prerequisiteFor");
+    expect(db.sentence.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: [] } } }),
+    );
+    evidence = { hasExample: false, invalidExampleCount: 0, fingerprint: "empty" };
+    expect((await getContentQualityPage(db, { code: "missing-example" })).issues).toHaveLength(1);
+    evidence = { hasExample: true, invalidExampleCount: 0, fingerprint: "valid-v1" };
+    const first = await collectContentQualityReport(db);
+    evidence = { ...evidence, fingerprint: "valid-v2" };
+    expect((await collectContentQualityReport(db)).contentVersion).not.toBe(first.contentVersion);
+  });
   it("scans consecutive keyset pages and bounds the retained issue sample", async () => {
     const { db, findMany } = databaseFixture(201);
     const report = await collectContentQualityReport(db, { maxIssues: 2 });

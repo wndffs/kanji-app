@@ -9,6 +9,7 @@ export * from "./main-course";
 export * from "./content-quality";
 export * from "./content-quality-report";
 export * from "./connection-defaults";
+export * from "./word-examples";
 
 export type DatabaseConnectionConfig = {
   databaseUrl: string;

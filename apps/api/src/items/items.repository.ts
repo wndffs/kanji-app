@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 
+import { loadItemExampleSentences } from "@kanji-srs/db";
 import { calculateLeechScore, type LeechScoreResult } from "@kanji-srs/srs";
 import {
   type ItemKind,
@@ -191,12 +192,6 @@ type SentenceRow = {
   } | null;
   readonly license: {
     readonly name: string;
-  };
-};
-
-type SentenceDependencyRow = {
-  readonly learningItem: {
-    readonly targetId: string;
   };
 };
 
@@ -555,7 +550,9 @@ export class PrismaItemsRepository extends ItemsRepository {
     const userOverrides = cards.flatMap((card) => card.userOverrides);
     const srsDetails = await this.findItemSrsDetails(item.id, options.userId);
     const exampleSentences =
-      options.includeExamples === false ? [] : await this.findExampleSentences(item.id);
+      options.includeExamples === false
+        ? []
+        : ((await loadItemExampleSentences(this.prisma.db, [item], 5)).get(item.id) ?? []);
 
     return {
       id: item.id,
@@ -823,71 +820,6 @@ export class PrismaItemsRepository extends ItemsRepository {
       select: { id: true },
       orderBy: [{ levelHint: "asc" }, { title: "asc" }, { id: "asc" }],
     });
-  }
-
-  private async findExampleSentences(learningItemId: string) {
-    const dependencies = (await this.prisma.db.dependency.findMany({
-      where: {
-        prerequisiteItemId: learningItemId,
-        dependencyType: "PREREQUISITE",
-        learningItem: {
-          targetType: "SENTENCE",
-          status: "PUBLISHED",
-        },
-      },
-      select: {
-        learningItem: {
-          select: { targetId: true },
-        },
-      },
-      orderBy: [{ learningItem: { levelHint: "asc" } }, { learningItemId: "asc" }],
-    })) as readonly SentenceDependencyRow[];
-    const targetIds = [
-      ...new Set(dependencies.map((dependency) => dependency.learningItem.targetId)),
-    ];
-
-    if (targetIds.length === 0) {
-      return [];
-    }
-
-    const sentences = (await this.prisma.db.sentence.findMany({
-      where: {
-        id: { in: targetIds },
-        translationRu: { not: null },
-        translationEn: { not: null },
-      },
-      include: {
-        dataSource: { include: { license: true } },
-        license: true,
-      },
-    })) as readonly SentenceRow[];
-    const sentenceById = new Map(sentences.map((sentence) => [sentence.id, sentence]));
-
-    return targetIds
-      .flatMap((id) => {
-        const sentence = sentenceById.get(id);
-
-        if (
-          sentence === undefined ||
-          sentence.translationRu === null ||
-          sentence.translationEn === null
-        ) {
-          return [];
-        }
-
-        return [
-          {
-            id: sentence.id,
-            japaneseText: sentence.japaneseText,
-            readingText: sentence.readingText,
-            translationRu: sentence.translationRu,
-            translationEn: sentence.translationEn,
-            difficulty: sentence.difficulty,
-            attribution: toSentenceAttribution(sentence),
-          },
-        ];
-      })
-      .slice(0, 5);
   }
 
   private async findTarget(item: LearningItemRow): Promise<ItemTargetRecord> {

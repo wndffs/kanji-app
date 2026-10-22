@@ -4,11 +4,20 @@ import { setTimeout as delay } from "node:timers/promises";
 import { ConflictException, NotFoundException } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { Prisma } from "@kanji-srs/db";
+import {
+  Prisma,
+  getContentQualityPage,
+  loadItemExampleSentences,
+  loadWordExampleQuality,
+  writeWordExample,
+  type ExampleItemRef,
+} from "@kanji-srs/db";
 import { calculateNextReview, DEFAULT_SRS_STAGES } from "@kanji-srs/srs";
 
 import { AppConfigService } from "../src/config/app-config.service";
 import { PrismaService } from "../src/database/prisma.service";
+import { PrismaItemsRepository } from "../src/items/items.repository";
+import { PrismaLessonsRepository } from "../src/lessons/lessons.repository";
 import { PrismaReviewsRepository } from "../src/reviews/reviews.repository";
 import { createScheduledReviewState } from "../src/reviews/review-session-state";
 import {
@@ -584,6 +593,291 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
       expect(await answers(fixture)).toEqual([]);
     });
   });
+
+  it("reads direct authored examples without a sentence LearningItem and really upserts duplicate links without SRS writes", async () => {
+    await withFixture(async (base) =>
+      withWordExamplesFixture(base, 2, async (fixture) => {
+        const input = {
+          wordId: fixture.items[0]!.targetId,
+          sentenceId: fixture.sentenceIds[0]!,
+          status: "PUBLISHED" as const,
+        };
+        const schedules = await readState(base);
+        const originalAnswers = await answers(base);
+        const spelling = await control.db.word.findUniqueOrThrow({
+          where: { id: input.wordId },
+          select: { expression: true },
+        });
+        await control.db.word.update({
+          where: { id: fixture.items[1]!.targetId },
+          data: { expression: spelling.expression, reading: "もと" },
+        });
+        const [first, simultaneous] = await Promise.all([
+          writeWordExample(control.db, input),
+          writeWordExample(control.db, input),
+        ]);
+        expect(simultaneous.id).toBe(first.id);
+        expect((await writeWordExample(control.db, input)).id).toBe(first.id);
+        expect(await control.db.wordExample.count({ where: { wordId: input.wordId } })).toBe(1);
+        await expect(control.db.wordExample.create({ data: input })).rejects.toMatchObject({
+          code: "P2002",
+        });
+        const item = await new PrismaItemsRepository(control).findItemById(
+          fixture.items[0]!.id,
+          {},
+        );
+        expect(item?.exampleSentences).toHaveLength(1);
+        expect(item?.exampleSentences[0]?.attribution).toMatchObject({
+          licenseName: fixture.licenseName,
+          attributionText: "Independent integration fixture authors.",
+          sourceName: expect.stringContaining("авторский пример проекта"),
+        });
+        const lessons = await new PrismaLessonsRepository(control).listCourseLessonItems(
+          base.userId,
+        );
+        expect(lessons[0]?.item.exampleSentences).toHaveLength(1);
+        expect(lessons[1]?.item.target.reading).toBe("もと");
+        expect(lessons[1]?.item.exampleSentences).toEqual([]);
+        expect(
+          await control.db.learningItem.count({
+            where: { targetType: "SENTENCE", targetId: { in: fixture.sentenceIds } },
+          }),
+        ).toBe(0);
+        expect(
+          await control.db.learningCard.count({
+            where: { learningItemId: { in: fixture.items.map((item) => item.id) } },
+          }),
+        ).toBe(2);
+        expect(
+          await control.db.dependency.count({
+            where: { prerequisiteItemId: fixture.items[0]!.id },
+          }),
+        ).toBe(0);
+        expect(
+          await control.db.userSrsState.count({
+            where: { learningCard: { learningItemId: fixture.items[0]!.id } },
+          }),
+        ).toBe(0);
+        expect(await readState(base)).toEqual(schedules);
+        expect(await answers(base)).toEqual(originalAnswers);
+      }),
+    );
+  });
+
+  it("uses real lateral 3/5 per-word limits across 101 words and consecutive quality pages", async () => {
+    await withFixture(async (base) =>
+      withWordExamplesFixture(base, 101, async (fixture) => {
+        await control.db.wordExample.createMany({
+          data: fixture.items.flatMap((item) =>
+            fixture.sentenceIds.map((sentenceId, sortOrder) => ({
+              wordId: item.targetId,
+              sentenceId,
+              sortOrder,
+              status: "PUBLISHED" as const,
+            })),
+          ),
+        });
+        const three = await loadItemExampleSentences(control.db, fixture.items, 3);
+        const five = await loadItemExampleSentences(control.db, fixture.items, 5);
+        expect(three.size).toBe(101);
+        expect(five.size).toBe(101);
+        for (const item of fixture.items) {
+          expect(three.get(item.id)?.map((sentence) => sentence.id)).toEqual(
+            fixture.sentenceIds.slice(0, 3),
+          );
+          expect(five.get(item.id)?.map((sentence) => sentence.id)).toEqual(
+            fixture.sentenceIds.slice(0, 5),
+          );
+        }
+        const first = await getContentQualityPage(control.db, {
+          courseSlug: fixture.courseSlug,
+          code: "missing-example",
+          limit: 100,
+        });
+        expect(first.scannedItems).toBe(100);
+        expect(first.issues).toEqual([]);
+        expect(first.nextCursor).not.toBeNull();
+        const second = await getContentQualityPage(control.db, {
+          courseSlug: fixture.courseSlug,
+          code: "missing-example",
+          cursor: first.nextCursor!,
+          limit: 100,
+        });
+        expect(second.scannedItems).toBe(1);
+        expect(second.issues).toEqual([]);
+        expect(second.nextCursor).toBeNull();
+      }),
+    );
+  });
+
+  it("omits real draft links, preserves strict legacy/non-word fallback and does not resurrect a draft through legacy relations", async () => {
+    await withFixture(async (base) =>
+      withWordExamplesFixture(base, 1, async (fixture) => {
+        const item = fixture.items[0]!;
+        const sentenceId = fixture.sentenceIds[0]!;
+        const legacyId = randomUUID();
+        fixture.extraItemIds.push(legacyId);
+        await control.db.learningItem.create({
+          data: {
+            id: legacyId,
+            kind: "SENTENCE",
+            targetType: "SENTENCE",
+            targetId: sentenceId,
+            title: "Legacy example fixture",
+            status: "PUBLISHED",
+            dependencies: {
+              create: [item.id, base.itemId].map((prerequisiteItemId) => ({
+                prerequisiteItemId,
+                dependencyType: "PREREQUISITE",
+              })),
+            },
+          },
+        });
+        expect((await loadItemExampleSentences(control.db, [item], 3)).get(item.id)).toHaveLength(
+          1,
+        );
+        await writeWordExample(control.db, { wordId: item.targetId, sentenceId, status: "DRAFT" });
+        expect(
+          (await loadItemExampleSentences(control.db, [item], 3)).get(item.id),
+        ).toBeUndefined();
+        const component = { id: base.itemId, targetType: "COMPONENT", targetId: base.componentId };
+        expect(
+          (await loadItemExampleSentences(control.db, [component], 3)).get(component.id),
+        ).toHaveLength(1);
+        await writeWordExample(control.db, {
+          wordId: item.targetId,
+          sentenceId,
+          status: "PUBLISHED",
+        });
+        expect((await loadItemExampleSentences(control.db, [item], 3)).get(item.id)).toHaveLength(
+          1,
+        );
+        await control.db.dataSource.update({
+          where: { id: fixture.dataSourceId },
+          data: { attributionText: "" },
+        });
+        expect(
+          (await loadItemExampleSentences(control.db, [component], 3)).get(component.id),
+        ).toBeUndefined();
+        expect((await loadWordExampleQuality(control.db, [item])).get(item.id)).toMatchObject({
+          hasExample: false,
+          invalidExampleCount: 1,
+        });
+      }),
+    );
+  });
+
+  it("blocks a bad published license beyond the display cap even with other good examples", async () => {
+    await withFixture(async (base) =>
+      withWordExamplesFixture(base, 1, async (fixture) => {
+        const item = fixture.items[0]!;
+        await control.db.wordExample.createMany({
+          data: fixture.sentenceIds.map((sentenceId, sortOrder) => ({
+            wordId: item.targetId,
+            sentenceId,
+            sortOrder,
+            status: "PUBLISHED",
+          })),
+        });
+        const badLicense = await control.db.license.create({
+          data: { name: `private-example-${randomUUID()}`, scope: "USER_PRIVATE" },
+        });
+        fixture.licenseIds.push(badLicense.id);
+        await control.db.sentence.update({
+          where: { id: fixture.sentenceIds.at(-1)! },
+          data: { licenseId: badLicense.id },
+        });
+        expect((await loadItemExampleSentences(control.db, [item], 5)).get(item.id)).toHaveLength(
+          5,
+        );
+        expect((await loadWordExampleQuality(control.db, [item])).get(item.id)).toMatchObject({
+          hasExample: true,
+          invalidExampleCount: 1,
+        });
+        const page = await getContentQualityPage(control.db, {
+          courseSlug: fixture.courseSlug,
+          code: "invalid-source",
+        });
+        expect(page.issues).toContainEqual(
+          expect.objectContaining({
+            learningItemId: item.id,
+            severity: "blocker",
+            message: expect.stringContaining("пример"),
+          }),
+        );
+      }),
+    );
+  });
+
+  it("requires successful versioned imported-sentence provenance in real SQL", async () => {
+    await withFixture(async (base) =>
+      withWordExamplesFixture(base, 1, async (fixture) => {
+        const item = fixture.items[0]!;
+        const sentenceId = fixture.sentenceIds[0]!;
+        const license = await control.db.license.create({
+          data: { name: `open-example-${randomUUID()}`, scope: "OPEN_DATA" },
+        });
+        fixture.licenseIds.push(license.id);
+        await control.db.dataSource.update({
+          where: { id: fixture.dataSourceId },
+          data: { licenseId: license.id },
+        });
+        const run = await control.db.importRun.create({
+          data: {
+            dataSourceId: fixture.dataSourceId,
+            sourceFileName: "integration-only.tsv",
+            sourceVersion: "fixture-v1",
+            checksumSha256: "a".repeat(64),
+            status: "SUCCESS",
+            finishedAt: NOW,
+          },
+        });
+        const record = await control.db.importedRecord.create({
+          data: {
+            importRunId: run.id,
+            sourceRecordId: "example-1",
+            recordType: "TATOEBA_SENTENCE",
+            rawJson: {},
+          },
+        });
+        await control.db.sentence.update({
+          where: { id: sentenceId },
+          data: {
+            licenseId: license.id,
+            importedRecordId: record.id,
+            sourceId: record.sourceRecordId,
+          },
+        });
+        await writeWordExample(control.db, {
+          wordId: item.targetId,
+          sentenceId,
+          status: "PUBLISHED",
+        });
+        expect((await loadItemExampleSentences(control.db, [item], 3)).get(item.id)).toHaveLength(
+          1,
+        );
+        await control.db.importRun.update({ where: { id: run.id }, data: { status: "FAILED" } });
+        expect(
+          (await loadItemExampleSentences(control.db, [item], 3)).get(item.id),
+        ).toBeUndefined();
+        await control.db.importRun.update({
+          where: { id: run.id },
+          data: { status: "SUCCESS", sourceVersion: "" },
+        });
+        expect((await loadWordExampleQuality(control.db, [item])).get(item.id)).toMatchObject({
+          hasExample: false,
+          invalidExampleCount: 1,
+        });
+        await control.db.importRun.update({
+          where: { id: run.id },
+          data: { sourceVersion: "fixture-v1", checksumSha256: "invalid" },
+        });
+        expect(
+          (await loadItemExampleSentences(control.db, [item], 3)).get(item.id),
+        ).toBeUndefined();
+      }),
+    );
+  });
 });
 
 function requireSafeDatabaseUrl(value: string): string {
@@ -641,6 +935,130 @@ type Fixture = {
   readonly sessionIds: readonly [string, string];
   readonly state: ReviewSrsStateRecord;
 };
+
+type WordExamplesFixture = {
+  readonly items: readonly ExampleItemRef[];
+  readonly sentenceIds: string[];
+  readonly dataSourceId: string;
+  readonly licenseName: string;
+  readonly licenseIds: string[];
+  readonly extraItemIds: string[];
+  readonly courseSlug: string;
+};
+
+async function withWordExamplesFixture(
+  base: Fixture,
+  wordCount: number,
+  run: (fixture: WordExamplesFixture) => Promise<void>,
+) {
+  const suffix = randomUUID();
+  const items = Array.from({ length: wordCount }, () => ({
+    id: randomUUID(),
+    targetId: randomUUID(),
+    targetType: "WORD",
+  }));
+  const sentenceIds = Array.from({ length: 7 }, () => randomUUID());
+  const licenseId = randomUUID();
+  const dataSourceId = randomUUID();
+  const courseId = randomUUID();
+  const courseLevelId = randomUUID();
+  const courseSlug = `word-examples-${suffix}`;
+  const licenseName = `Named project-authored fixture license ${suffix}`;
+  const fixture: WordExamplesFixture = {
+    items,
+    sentenceIds,
+    dataSourceId,
+    licenseName,
+    courseSlug,
+    licenseIds: [licenseId],
+    extraItemIds: [],
+  };
+  await control.db.$transaction(async (tx) => {
+    await tx.license.create({
+      data: { id: licenseId, name: licenseName, scope: "PROJECT_AUTHORED" },
+    });
+    await tx.dataSource.create({
+      data: {
+        id: dataSourceId,
+        name: `Project examples ${suffix}`,
+        licenseId,
+        attributionText: "Independent integration fixture authors.",
+        homepageUrl: "https://example.test/authored-fixtures",
+      },
+    });
+    await tx.word.createMany({
+      data: items.map((item, index) => ({
+        id: item.targetId,
+        expression: `fixture-${suffix}-${index}`,
+        reading: "ほん",
+      })),
+    });
+    await tx.learningItem.createMany({
+      data: items.map((item) => ({
+        id: item.id,
+        targetId: item.targetId,
+        kind: "WORD",
+        targetType: "WORD",
+        title: "Word example fixture",
+        status: "PUBLISHED",
+        curriculumBand: "FOUNDATION",
+      })),
+    });
+    await tx.learningCard.createMany({
+      data: items.map((item) => ({
+        learningItemId: item.id,
+        cardType: "REVIEW",
+        promptType: "MEANING",
+        answerType: "MEANING",
+        locale: "ru-RU",
+      })),
+    });
+    await tx.sentence.createMany({
+      data: sentenceIds.map((id, index) => ({
+        id,
+        japaneseText: `本を読みます。${index}`,
+        translationRu: "Читаю книгу.",
+        translationEn: "I read a book.",
+        licenseId,
+        dataSourceId,
+      })),
+    });
+    await tx.course.create({
+      data: {
+        id: courseId,
+        slug: courseSlug,
+        titleRu: "Example integration fixture",
+        status: "PUBLISHED",
+      },
+    });
+    await tx.courseLevel.create({
+      data: { id: courseLevelId, courseId, levelNumber: 1, titleRu: "Fixture" },
+    });
+    await tx.courseLevelItem.createMany({
+      data: items.map((item, index) => ({
+        courseLevelId,
+        learningItemId: item.id,
+        sortOrder: index + 1,
+      })),
+    });
+    await tx.userEnrollment.create({ data: { userId: base.userId, courseId } });
+  });
+  try {
+    await run(fixture);
+  } finally {
+    await control.db.$transaction([
+      control.db.learningItem.deleteMany({
+        where: { id: { in: [...items.map((item) => item.id), ...fixture.extraItemIds] } },
+      }),
+      control.db.course.deleteMany({ where: { id: courseId } }),
+      control.db.word.deleteMany({ where: { id: { in: items.map((item) => item.targetId) } } }),
+      control.db.sentence.deleteMany({ where: { id: { in: sentenceIds } } }),
+      control.db.importRun.deleteMany({ where: { dataSourceId } }),
+      control.db.dataSource.deleteMany({ where: { id: dataSourceId } }),
+      control.db.license.deleteMany({ where: { id: { in: fixture.licenseIds } } }),
+    ]);
+  }
+}
 
 async function withFixture(run: (fixture: Fixture) => Promise<void>): Promise<void> {
   const ids = {

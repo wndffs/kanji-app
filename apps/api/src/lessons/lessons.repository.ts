@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 
+import { loadItemExampleSentences } from "@kanji-srs/db";
 import {
   type ContentLocale,
   type LessonHintGroupDto,
@@ -7,7 +8,6 @@ import {
   type LessonMnemonicGroupDto,
   type LessonMnemonicPurpose,
   type SentenceDto,
-  type SourceAttributionDto,
 } from "@kanji-srs/shared";
 
 import { PrismaService } from "../database/prisma.service";
@@ -151,29 +151,6 @@ type BlockedAnswerRow = {
 type DependencyRow = {
   readonly prerequisiteItemId: string;
   readonly requiredStage: number | null;
-};
-
-type LessonSentenceDependencyRow = {
-  readonly prerequisiteItemId: string;
-  readonly learningItem: {
-    readonly targetId: string;
-  };
-};
-
-type LessonSentenceExampleRow = {
-  readonly id: string;
-  readonly japaneseText: string;
-  readonly readingText: string | null;
-  readonly translationRu: string | null;
-  readonly translationEn: string | null;
-  readonly difficulty: number | null;
-  readonly dataSource: {
-    readonly name: string;
-    readonly homepageUrl: string | null;
-    readonly attributionText: string;
-    readonly license: { readonly name: string };
-  } | null;
-  readonly license: { readonly name: string };
 };
 
 type ProgressRow = {
@@ -330,9 +307,7 @@ export class PrismaLessonsRepository extends LessonsRepository {
     const lessonItems = enrollments.flatMap((enrollment) =>
       enrollment.course.levels.flatMap((level) => level.items.map((entry) => entry.learningItem)),
     );
-    const examplesByItem = await this.findExampleSentencesByItem(
-      lessonItems.map((item) => item.id),
-    );
+    const examplesByItem = await loadItemExampleSentences(this.prisma.db, lessonItems, 3);
 
     for (const enrollment of enrollments) {
       for (const level of enrollment.course.levels) {
@@ -415,8 +390,10 @@ export class PrismaLessonsRepository extends LessonsRepository {
       return null;
     }
 
-    const examplesByItem = await this.findExampleSentencesByItem(
-      deck.items.map((entry) => entry.learningItem.id),
+    const examplesByItem = await loadItemExampleSentences(
+      this.prisma.db,
+      deck.items.map((entry) => entry.learningItem),
+      3,
     );
 
     const items = await Promise.all(
@@ -714,81 +691,6 @@ export class PrismaLessonsRepository extends LessonsRepository {
     };
   }
 
-  private async findExampleSentencesByItem(
-    learningItemIds: readonly string[],
-  ): Promise<ReadonlyMap<string, readonly SentenceDto[]>> {
-    const uniqueItemIds = [...new Set(learningItemIds)];
-
-    if (uniqueItemIds.length === 0) {
-      return new Map();
-    }
-
-    const dependencies = (await this.prisma.db.dependency.findMany({
-      where: {
-        prerequisiteItemId: { in: uniqueItemIds },
-        dependencyType: "PREREQUISITE",
-        learningItem: { targetType: "SENTENCE", status: "PUBLISHED" },
-      },
-      select: {
-        prerequisiteItemId: true,
-        learningItem: { select: { targetId: true } },
-      },
-      orderBy: [
-        { prerequisiteItemId: "asc" },
-        { learningItem: { levelHint: "asc" } },
-        { learningItemId: "asc" },
-      ],
-    })) as readonly LessonSentenceDependencyRow[];
-    const sentenceIds = [
-      ...new Set(dependencies.map((dependency) => dependency.learningItem.targetId)),
-    ];
-
-    if (sentenceIds.length === 0) {
-      return new Map();
-    }
-
-    const sentences = (await this.prisma.db.sentence.findMany({
-      where: {
-        id: { in: sentenceIds },
-        translationRu: { not: null },
-        translationEn: { not: null },
-      },
-      include: {
-        dataSource: { include: { license: true } },
-        license: true,
-      },
-    })) as readonly LessonSentenceExampleRow[];
-    const sentenceById = new Map(sentences.map((sentence) => [sentence.id, sentence]));
-    const examplesByItem = new Map<string, SentenceDto[]>();
-
-    for (const dependency of dependencies) {
-      const sentence = sentenceById.get(dependency.learningItem.targetId);
-      const examples = examplesByItem.get(dependency.prerequisiteItemId) ?? [];
-
-      if (
-        sentence === undefined ||
-        sentence.translationRu === null ||
-        sentence.translationEn === null ||
-        examples.length >= 3
-      ) {
-        continue;
-      }
-
-      examples.push({
-        id: sentence.id,
-        japaneseText: sentence.japaneseText,
-        readingText: sentence.readingText,
-        translationRu: sentence.translationRu,
-        translationEn: sentence.translationEn,
-        difficulty: sentence.difficulty,
-        attribution: toSentenceAttribution(sentence),
-      });
-      examplesByItem.set(dependency.prerequisiteItemId, examples);
-    }
-
-    return examplesByItem;
-  }
-
   private async findTarget(item: LearningItemRow): Promise<LessonTargetRecord> {
     switch (item.targetType) {
       case "COMPONENT":
@@ -1007,24 +909,6 @@ function toBlockedAnswerRecord(answer: BlockedAnswerRow): LessonBlockedAnswerRec
     locale: "ru-RU",
     text: answer.text,
     normalizedText: answer.normalizedText,
-  };
-}
-
-function toSentenceAttribution(sentence: LessonSentenceExampleRow): SourceAttributionDto {
-  if (sentence.dataSource === null) {
-    return {
-      sourceName: "Unknown sentence source",
-      licenseName: sentence.license.name,
-      attributionText: "",
-      sourceUrl: null,
-    };
-  }
-
-  return {
-    sourceName: sentence.dataSource.name,
-    licenseName: sentence.dataSource.license.name,
-    attributionText: sentence.dataSource.attributionText,
-    sourceUrl: sentence.dataSource.homepageUrl,
   };
 }
 

@@ -428,6 +428,7 @@ model Word {
   updatedAt              DateTime        @updatedAt
   importedRecord         ImportedRecord? @relation("WordImportedRecord", fields: [jmdictImportedRecordId], references: [id], onDelete: SetNull)
   senses                 WordSense[]
+  examples               WordExample[]
 
   @@unique([expression, reading])
   @@index([expression])
@@ -472,6 +473,7 @@ model Sentence {
   dataSource       DataSource?     @relation(fields: [dataSourceId], references: [id], onDelete: SetNull)
   importedRecord   ImportedRecord? @relation("SentenceImportedRecord", fields: [importedRecordId], references: [id], onDelete: SetNull)
   license          License         @relation(fields: [licenseId], references: [id], onDelete: Restrict)
+  wordExamples     WordExample[]
 
   @@unique([dataSourceId, sourceId])
   @@index([japaneseText])
@@ -479,6 +481,22 @@ model Sentence {
   @@index([sourceId])
   @@index([importedRecordId])
   @@index([licenseId])
+}
+
+model WordExample {
+  id         String        @id @default(uuid()) @db.Uuid
+  wordId     String        @db.Uuid
+  sentenceId String        @db.Uuid
+  sortOrder  Int           @default(0)
+  status     ContentStatus @default(DRAFT)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @default(now()) @updatedAt
+  word       Word          @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  sentence   Sentence      @relation(fields: [sentenceId], references: [id], onDelete: Cascade)
+
+  @@unique([wordId, sentenceId])
+  @@index([wordId, status, sortOrder, id])
+  @@index([sentenceId])
 }
 
 model LearningItem {

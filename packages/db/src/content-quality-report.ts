@@ -14,6 +14,7 @@ import {
   type QualityPlacement,
   type QualitySource,
 } from "./content-quality";
+import { loadWordExampleQuality } from "./word-examples";
 
 export type ContentQualityDatabase = Pick<
   Prisma.TransactionClient,
@@ -68,16 +69,12 @@ export async function loadContentQualityItems(
         include: { prerequisiteItem: { include: { courseLevelItems: placements } } },
         orderBy: { id: "asc" },
       },
-      prerequisiteFor: {
-        where: { learningItem: { kind: "SENTENCE", status: "PUBLISHED" } },
-        select: { learningItem: { select: { targetId: true } } },
-      },
     },
   });
   if (rows.length === 0) return [];
   const targetIds = (kind: string) =>
     rows.filter((row) => row.targetType === kind).map((row) => row.targetId);
-  const [kanji, words, components, sentences, cycles, systems] = await Promise.all([
+  const [kanji, words, components, sentences, cycles, systems, examples] = await Promise.all([
     db.kanji.findMany({
       where: { id: { in: targetIds("KANJI") } },
       include: {
@@ -96,10 +93,7 @@ export async function loadContentQualityItems(
     db.sentence.findMany({
       where: {
         id: {
-          in: [
-            ...targetIds("SENTENCE"),
-            ...rows.flatMap((row) => row.prerequisiteFor.map((dep) => dep.learningItem.targetId)),
-          ],
+          in: targetIds("SENTENCE"),
         },
       },
       include: { importedRecord: { include: SOURCE_INCLUDE }, license: true },
@@ -118,6 +112,7 @@ export async function loadContentQualityItems(
       orderBy: { slug: "asc" },
       include: { stages: { select: { stageIndex: true }, orderBy: { stageIndex: "asc" } } },
     }),
+    loadWordExampleQuality(db, rows),
   ]);
   const validStageIndices =
     (systems.find((system) => system.slug === "default-mvp") ?? systems[0])?.stages.map(
@@ -195,18 +190,8 @@ export async function loadContentQualityItems(
         character?.strokeGraphic !== undefined &&
         validSource(character.strokeGraphic.importedRecord),
       hasPartOfSpeech: word?.senses.some((sense) => sense.partOfSpeech.trim() !== "") ?? false,
-      hasExample: row.prerequisiteFor.some((dep) => {
-        const example = sentenceMap.get(dep.learningItem.targetId);
-        return (
-          example !== undefined &&
-          example.translationRu !== null &&
-          example.translationEn !== null &&
-          example.license.name.trim() !== "" &&
-          (example.importedRecord === null
-            ? example.license.scope === "PROJECT_AUTHORED"
-            : validSource(example.importedRecord))
-        );
-      }),
+      hasExample: examples.get(row.id)?.hasExample ?? false,
+      exampleEvidence: examples.get(row.id),
       cards: row.cards.map((card) => ({
         ...card,
         audioValid:
