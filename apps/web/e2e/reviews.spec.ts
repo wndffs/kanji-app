@@ -325,10 +325,19 @@ test.describe("review session", () => {
 
     const playButton = page.getByRole("button", { name: "Воспроизвести аудио" });
     await expect(playButton).toBeEnabled();
+    const audio = page.locator(".listening-prompt audio");
+    await audio.evaluate((element: HTMLAudioElement) => {
+      let completed = 0;
+      element.addEventListener("ended", () => {
+        element.dataset.auditCompletions = String(++completed);
+      });
+    });
     await playButton.click();
 
+    await expect(audio).toHaveAttribute("data-audit-completions", "1");
     await expect(page.getByText("Запись прослушана. Можно отвечать.")).toBeVisible();
     await page.getByRole("button", { name: "Воспроизвести аудио ещё раз" }).click();
+    await expect(audio).toHaveAttribute("data-audit-completions", "2");
     await expect(page.getByText("Запись прослушана. Можно отвечать.")).toBeVisible();
     await expect(answerInput).toBeEnabled();
     await answerInput.fill("ひとつ");
