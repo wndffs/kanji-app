@@ -99,7 +99,7 @@ test.describe("item details", () => {
 
   test("uses persisted furigana and explicit romaji on words and examples with local reveal", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await signIn(page, { lessonPronunciationMode: "furigana", lessonRomaji: true });
     await page.route(`${API_BASE_URL}/items/${WORD_ID}`, async (route) => {
       await route.fulfill({ json: buildWordDetails() });
@@ -125,6 +125,7 @@ test.describe("item details", () => {
     await page.reload();
     await expect(page.getByLabel("Скрыть подсказки чтения")).not.toBeChecked();
     await expect(page.locator(".item-hero-main ruby rt")).toHaveText("がっこう");
+    await page.screenshot({ path: testInfo.outputPath("item-reading-preferences.png") });
   });
 
   test("adds a private synonym", async ({ page }) => {

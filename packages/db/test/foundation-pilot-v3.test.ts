@@ -124,7 +124,8 @@ describe("finite pilot v3 preparation", () => {
       if (condition === "count") manifest.counts.items++;
       if (condition === "source") manifest.sources.at(-1)!.checksumSha256 = "0".repeat(64);
       if (condition === "answer") manifest.targets[0]!.answers = [];
-      if (condition === "policy") manifest.levels[5]!.passPolicyJson.itemKind = "KANJI";
+      if (condition === "policy")
+        Object.assign(manifest.levels[5]!.passPolicyJson, { itemKind: "KANJI" });
       if (condition === "order") manifest.targets.reverse();
       const access = vi.fn(() => {
         throw new Error("Unexpected database access");

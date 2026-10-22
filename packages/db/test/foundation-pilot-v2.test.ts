@@ -161,7 +161,7 @@ describe("sealed finite pilot v2", () => {
   });
 
   it("rejects corrupted registered source payloads as well as injected manifest payloads", async () => {
-    const batches = buildMainCourseContentBatches();
+    const batches = buildMainCourseContentBatches().slice(0, 4);
     const manifest = buildFoundationPilotManifestV2(
       batches.map((batch, index) => (index === 3 ? { ...batch, reviewedAt: null } : batch)),
     );
@@ -179,7 +179,7 @@ describe("sealed finite pilot v2", () => {
     });
     for (const args of [
       ["--pilot"],
-      ["--pilot", "v3"],
+      ["--pilot", "v4"],
       ["--pilot", "--publish"],
       ["--pilot", "v2", "--pilot", "v1"],
       ["--pilot", "v2", "--pilot", "v2"],
