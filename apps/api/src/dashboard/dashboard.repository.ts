@@ -1,6 +1,12 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { parseCourseLevelPassPolicy, Prisma } from "@kanji-srs/db";
+import {
+  parseCourseLevelPassPolicy,
+  primaryTaughtReadingCards,
+  Prisma,
+  resolvePrimaryTaughtReading,
+  type PrimaryTaughtReadingCard,
+} from "@kanji-srs/db";
 import { formatKanjiJlptLevel } from "@kanji-srs/shared";
 
 import { resolveCurrentCourseId } from "../courses/current-course";
@@ -105,6 +111,7 @@ type LeechLearningItemRow = {
   readonly targetType: string;
   readonly targetId: string;
   readonly levelHint: number | null;
+  readonly cards: readonly PrimaryTaughtReadingCard[];
 };
 
 type LeechReviewAnswerRow = {
@@ -263,6 +270,7 @@ const dashboardActivityStateSelect = {
           targetType: true,
           targetId: true,
           levelHint: true,
+          cards: primaryTaughtReadingCards,
         },
       },
     },
@@ -487,6 +495,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
                 targetType: true,
                 targetId: true,
                 levelHint: true,
+                cards: primaryTaughtReadingCards,
               },
             },
           },
@@ -588,6 +597,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
         targetType: true,
         targetId: true,
         levelHint: true,
+        cards: primaryTaughtReadingCards,
       },
     })) as readonly LeechLearningItemRow[];
     const itemById = new Map(items.map((item) => [item.id, item]));
@@ -1068,7 +1078,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
       id: item.id,
       itemType: "kanji",
       japanese: kanji.character,
-      reading: kanji.readings[0]?.reading ?? null,
+      reading: resolvePrimaryTaughtReading(item.cards, kanji.readings[0]?.reading ?? null),
       translations: groupLocalizedTexts(
         kanji.meanings.map((meaning) =>
           dashboardLocalizedText(toContentLocale(meaning.locale), meaning.meaning, {

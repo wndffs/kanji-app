@@ -1,6 +1,11 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { parseCourseLevelPassPolicy } from "@kanji-srs/db";
+import {
+  parseCourseLevelPassPolicy,
+  primaryTaughtReadingCards,
+  resolvePrimaryTaughtReading,
+  type PrimaryTaughtReadingCard,
+} from "@kanji-srs/db";
 
 import { resolveCurrentCourseId } from "../courses/current-course";
 import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
@@ -25,7 +30,7 @@ type CourseRow = {
         readonly id: string;
         readonly kind: string;
         readonly targetId: string;
-        readonly cards: readonly {
+        readonly cards: readonly (PrimaryTaughtReadingCard & {
           readonly id: string;
           readonly srsStates: readonly {
             readonly stageIndex: number;
@@ -39,7 +44,7 @@ type CourseRow = {
               }[];
             };
           }[];
-        }[];
+        })[];
       };
     }[];
   }[];
@@ -100,6 +105,7 @@ export class PrismaCharactersRepository extends CharactersRepository {
                     cards: {
                       orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
                       select: {
+                        ...primaryTaughtReadingCards.select,
                         id: true,
                         srsStates: {
                           where: { userId },
@@ -217,7 +223,7 @@ function toKanjiRecord(
   return {
     id: item.id,
     character: kanji.character,
-    reading: kanji.readings[0]?.reading ?? null,
+    reading: resolvePrimaryTaughtReading(item.cards, kanji.readings[0]?.reading ?? null),
     meaningRu: findPrimaryMeaning(kanji.meanings, "ru-RU"),
     meaningEn: findPrimaryMeaning(kanji.meanings, "en-US"),
     jlptLevel: kanji.jlptLevel,

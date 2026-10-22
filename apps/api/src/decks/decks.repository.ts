@@ -1,6 +1,11 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { type Prisma } from "@kanji-srs/db";
+import {
+  primaryTaughtReadingCards,
+  resolvePrimaryTaughtReading,
+  type PrimaryTaughtReadingCard,
+  type Prisma,
+} from "@kanji-srs/db";
 import {
   formatKanjiJlptLevel,
   type ContentLocale,
@@ -45,6 +50,7 @@ type LearningItemRow = {
   readonly targetId: string;
   readonly title: string;
   readonly levelHint: number | null;
+  readonly cards?: readonly PrimaryTaughtReadingCard[];
 };
 
 type DependencyRow = {
@@ -150,7 +156,7 @@ export class PrismaDecksRepository extends DecksRepository {
         },
       },
       include: {
-        prerequisiteItem: true,
+        prerequisiteItem: { include: { cards: primaryTaughtReadingCards } },
       },
       orderBy: [{ learningItemId: "asc" }, { prerequisiteItemId: "asc" }],
     })) as readonly DependencyRow[];
@@ -229,7 +235,7 @@ export class PrismaDecksRepository extends DecksRepository {
       include: {
         items: {
           orderBy: { sortOrder: "asc" },
-          include: { learningItem: true },
+          include: { learningItem: { include: { cards: primaryTaughtReadingCards } } },
         },
       },
     })) as DeckRow | null;
@@ -337,6 +343,7 @@ export class PrismaDecksRepository extends DecksRepository {
         targetType: "KANJI",
         targetId: { in: kanji.map((row) => row.id) },
       },
+      include: { cards: primaryTaughtReadingCards },
       orderBy: [{ levelHint: "asc" }, { title: "asc" }, { id: "asc" }],
     });
     const kanjiById = new Map(kanji.map((row) => [row.id, row]));
@@ -404,7 +411,7 @@ export class PrismaDecksRepository extends DecksRepository {
       case "COMPONENT":
         return this.findComponentTarget(item.targetId);
       case "KANJI":
-        return this.findKanjiTarget(item.targetId);
+        return this.findKanjiTarget(item);
       case "WORD":
         return this.findWordTarget(item.targetId);
       case "SENTENCE":
@@ -445,9 +452,9 @@ export class PrismaDecksRepository extends DecksRepository {
     };
   }
 
-  private async findKanjiTarget(id: string): Promise<TextDeckTargetRecord> {
+  private async findKanjiTarget(item: LearningItemRow): Promise<TextDeckTargetRecord> {
     const kanji = (await this.prisma.db.kanji.findUnique({
-      where: { id },
+      where: { id: item.targetId },
       include: {
         readings: { orderBy: kanjiReadingOrderBy() },
         meanings: { orderBy: [{ isPrimary: "desc" }, { locale: "asc" }, { meaning: "asc" }] },
@@ -455,10 +462,10 @@ export class PrismaDecksRepository extends DecksRepository {
     })) as KanjiRow | null;
 
     if (kanji === null) {
-      throw new Error(`Missing kanji target ${id}.`);
+      throw new Error(`Missing kanji target ${item.targetId}.`);
     }
 
-    return toKanjiTargetRecord(kanji);
+    return toKanjiTargetRecord(item, kanji);
   }
 
   private async findWordTarget(id: string): Promise<TextDeckTargetRecord> {
@@ -520,7 +527,7 @@ function toKanjiItemRecord(item: LearningItemRow, kanji: KanjiRow): TextDeckItem
     itemType: "kanji",
     title: item.title,
     level: item.levelHint,
-    target: toKanjiTargetRecord(kanji),
+    target: toKanjiTargetRecord(item, kanji),
   };
 }
 
@@ -541,10 +548,10 @@ function toWordTargetRecord(word: WordRow): TextDeckTargetRecord {
   };
 }
 
-function toKanjiTargetRecord(kanji: KanjiRow): TextDeckTargetRecord {
+function toKanjiTargetRecord(item: LearningItemRow, kanji: KanjiRow): TextDeckTargetRecord {
   return {
     japanese: kanji.character,
-    reading: kanji.readings[0]?.reading ?? null,
+    reading: resolvePrimaryTaughtReading(item.cards, kanji.readings[0]?.reading ?? null),
     jlptLevel: formatKanjiJlptLevel(kanji.jlptLevel, kanji.legacyJlptLevel),
     frequencyRank: kanji.frequencyRank,
     translations: groupLocalizedTexts(
