@@ -26,10 +26,12 @@ file, accessibility state or production-scale query.
 - Raw corpus: 13,108 KANJIDIC2 entries, 30,000 bilingual JMdict pairs, 6,702
   KanjiVG graphics. Imported evidence is not editorial publication.
 - The published starter demo is separate: 2 kanji/2 words.
-- The separately published Foundation pilot now offers **40 components, 40 kanji,
-  20 words and 160 cards**, reusing the same main-course identities. Explicit
-  catalog enrollment and a live component/kanji/word lesson-and-review chain
-  passed; `REMOTE_SMOKE_2026_10_22.md` discloses the audit-only progress fixtures.
+- Published Foundation **v1** retains **40 components, 40 kanji, 20 words and
+  160 cards**. Separately sealed **v2** now offers **53 components, 61 kanji,
+  60 words and 295 cards**, reusing main-course identities. Explicit v2 enrollment
+  and selection preserved the audit profile's SRS/private data; v1's live
+  component/kanji/word chain is not whole-pilot completion. See
+  `REMOTE_SMOKE_2026_10_22.md` for the disclosed synthetic progress fixtures.
 - Kana practice has desktop/mobile regressions. Target lists have 115 Hiragana
   and 113 Katakana entries including combinations/special units, not that many
   basic characters.
@@ -72,23 +74,23 @@ diagnostic, not continuous database polling that consumes free compute.
 
 ## Revalidated Roadmap
 
-| Task    | State                                          | Remaining Proof                                                          |
-| ------- | ---------------------------------------------- | ------------------------------------------------------------------------ |
-| 111-115 | Implemented, bounded tests                     | Full corpus and whole-product accessibility                              |
-| 116     | Listening mechanism implemented                | Real licensed assets, storage/CORS, coverage                             |
-| 117     | Research deferred                              | Approved source/license before integration                               |
-| 118     | In progress; blocks full release               | 2,239 kanji, 7,940 vocabulary, 55 empty levels, rollout                  |
-| 119     | Implemented; live batch verified               | Same audit over eventual full corpus                                     |
-| 120     | Implemented; focused acceptance tested         | Whole-product contrast belongs to 121-122                                |
-| 121     | Not started                                    | Original visual system after functional/data contracts                   |
-| 122     | Discovered blockers being repaired             | Width/zoom/keyboard/axe/screen-reader matrix                             |
-| 123     | Not complete                                   | Measured budgets, installability, offline, reminders                     |
-| 124     | Bounded restore passed; full gate open         | Full corpus, recovery policy, remote matrix, rollback, security sign-off |
-| 125     | Implemented and live-smoke verified            | Eventual whole-product acceptance                                        |
-| 126     | Implemented; first examples live               | Editorial coverage as the corpus grows                                   |
-| 127     | Repeatable editorial batches in use            | Remaining reviewed corpus, not only importer capacity                    |
-| 128     | Published finite pilot; desktop chain verified | Complete remote mobile matrix and later versioned expansion              |
-| 129     | Migrated and live verified                     | No inferred modern JLPT coverage claim                                   |
+| Task    | State                                         | Remaining Proof                                                           |
+| ------- | --------------------------------------------- | ------------------------------------------------------------------------- |
+| 111-115 | Implemented, bounded tests                    | Full corpus and whole-product accessibility                               |
+| 116     | Listening mechanism implemented               | Real licensed assets, storage/CORS, coverage                              |
+| 117     | Research deferred                             | Approved source/license before integration                                |
+| 118     | In progress; blocks full release              | 2,239 kanji, 7,940 vocabulary, 55 empty levels, rollout                   |
+| 119     | Implemented; live batch verified              | Same audit over eventual full corpus                                      |
+| 120     | Implemented; focused acceptance tested        | Whole-product contrast belongs to 121-122                                 |
+| 121     | Not started                                   | Original visual system after functional/data contracts                    |
+| 122     | Discovered blockers being repaired            | Width/zoom/keyboard/axe/screen-reader matrix                              |
+| 123     | Bounded daily-use features deployed           | Full-scale/bundle/CWV budgets, real OS install, safe static shell caching |
+| 124     | Content-fingerprint restore passed; gate open | Full corpus, recovery policy, remote matrix, rollback, security sign-off  |
+| 125     | Implemented and live-smoke verified           | Eventual whole-product acceptance                                         |
+| 126     | Implemented; first examples live              | Editorial coverage as the corpus grows                                    |
+| 127     | Repeatable editorial batches in use           | Remaining reviewed corpus, not only importer capacity                     |
+| 128     | V1 preserved; expanded V2 published           | Complete remote mobile matrix and later versioned expansion               |
+| 129     | Migrated and live verified                    | No inferred modern JLPT coverage claim                                    |
 
 Order: correctness/CI, Task 119 before more Task 118 publication, independent
 Task 120, contracts below, reviewed editorial batches, final visual refresh,
@@ -134,9 +136,9 @@ run 39772153454; no sentence learning cards were created.
 The first 20-word versioned batch is applied to Neon with stable target/card
 identities. Reapplication, interruption and source preflight have PostgreSQL
 regressions. This completes a bounded batch, not the eventual 8,000 words.
-The second reviewed 20-word batch and the prerequisite bridge 一 were applied
-successfully by run 39795992224. All 121 main-course items passed quality v2 with
-zero blockers/warnings; exact counts/hashes are in `TASK_118_PUBLICATION_STATUS.md`.
+The third reviewed 20-word batch and fourth kanji batch are now applied. All
+174 main-course items passed quality v2 with zero blockers/warnings in run
+39814286342; exact counts/hashes are in `TASK_118_PUBLICATION_STATUS.md`.
 
 - Resolve components across versioned batches with stable placement offsets,
   preserving existing cards, private content and progress.
@@ -148,9 +150,10 @@ zero blockers/warnings; exact counts/hashes are in `TASK_118_PUBLICATION_STATUS.
 
 ## Task 128: Finite-Corpus Pilot
 
-Implemented and published by run 39784436544. Course/catalog enrollment is
+V1 was published by run 39784436544; separately sealed v2 was published by 39820406188. Course/catalog enrollment is
 add-only and separate from current-course selection. The pilot content version
 remains pinned to its original 100 items when unrelated main-course batches grow.
+V2 has its own 174-item/295-card content seal and never silently upgrades v1.
 Local desktop/mobile catalog regressions and live desktop prerequisite/typed
 quiz/SRS/private-answer checks passed; the full remote mobile matrix is still open.
 
@@ -194,27 +197,32 @@ Task numbers are stable identifiers, not a strict execution sequence. New
 findings receive new IDs without renumbering existing commits or specifications.
 The present order is:
 
-1. Task128 publication/enrollment and the bounded live desktop chain are done.
+1. Task128 v1/v2 publication/enrollment and the bounded live desktop chain are done.
    Task129's JLPT repair is also deployed. Neither means full release approval.
 2. The selected Task118/127 rollout and Task124 isolated read-only restore
-   rehearsal passed. The latter matched all 45 public table counts in a fresh
-   PostgreSQL 18 service; it is not full disaster-recovery sign-off. Task123
+   rehearsal passed. Its newer version-2 run 39821158337 matched all 45 public
+   table counts and content SHA-256 values in a fresh PostgreSQL 18 service;
+   it is not full disaster-recovery sign-off. Task123
    target and prerequisite-card hydration are deduplicated and sequentially
    batched at 100 IDs. Network interruption preserves unconfirmed review input
    without automatic retries; static install metadata/icons are implemented.
-   A bounded manual remote measurement workflow is available. Full graph/latency
-   budgets, actual OS
-   installation, safe offline behavior and reminders remain open.
+   Bounded manual remote measurements passed on both pilots, with no repeated
+   study-GET sample above the initial 2-second target. Optional foreground
+   reminders are deployed: explicit permission/opt-out, IANA timezone, atomic
+   24-hour/local-day claim, no background push or polling. Full graph/query,
+   bundle/CWV budgets, actual OS installation and safe static shell caching
+   remain open. See `REVIEW_REMINDERS.md` and `REMOTE_PERFORMANCE.md`.
 3. Continue Task118/127 reviewed batches toward 2,300 kanji and 8,000 words;
    add licensed audio coverage from Task116 where an approved source exists.
-4. Finish Task123 daily-use and measured performance improvements, including
-   safe offline behavior and explicit reminder opt-in/out. Do not start a visual
+4. Finish Task123 measured performance and daily-use acceptance, including
+   installability and safe static-shell behavior. Foreground reminder opt-in/out
+   and no-false-completion offline guards are implemented. Do not start a visual
    refresh while these functional contracts are still changing.
 5. Task121 original configurable visual system after functional/data contracts.
 6. Task122 whole-product responsive, keyboard and accessibility acceptance.
 7. Task124 final release: complete corpus, remote route matrix, recovery/rollback,
-   security and accessibility sign-off. The early count-based restore rehearsal
-   is intentionally narrower than this final gate.
+   security and accessibility sign-off. The isolated content-fingerprint restore
+   rehearsal is intentionally narrower than this final gate.
 
 Task119, Task120, Task125 and Task126 provide implemented prerequisites.
 Task117 pitch-accent research remains deferred pending source/license approval.
