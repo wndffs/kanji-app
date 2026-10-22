@@ -242,6 +242,13 @@ type SentenceTargetRow = {
   readonly translationEn: string | null;
 };
 
+type ReviewTargetRows = {
+  components: Map<string, ComponentTargetRow>;
+  kanji: Map<string, KanjiTargetRow>;
+  words: Map<string, WordTargetRow>;
+  sentences: Map<string, SentenceTargetRow>;
+};
+
 @Injectable()
 export class PrismaReviewsRepository extends ReviewsRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
@@ -272,7 +279,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     })) as readonly UserSrsStateRow[];
 
     return filterEligibleQueueRecords(
-      await Promise.all(states.map((state) => this.toQueueRecord(state))),
+      await this.toQueueRecords(states),
     );
   }
 
@@ -302,7 +309,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       })) as readonly ReviewAnswerWithStateRow[];
 
       return filterEligibleQueueRecords(
-        await Promise.all(attempts.map((attempt) => this.toQueueRecord(attempt.userSrsState))),
+        await this.toQueueRecords(attempts.map((attempt) => attempt.userSrsState)),
       );
     }
 
@@ -324,7 +331,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     })) as readonly UserSrsStateRow[];
 
     return filterEligibleQueueRecords(
-      await Promise.all(states.map((state) => this.toQueueRecord(state))),
+      await this.toQueueRecords(states),
     );
   }
 
@@ -382,9 +389,8 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       return card === undefined ? [] : [card];
     });
 
-    return Promise.all(
-      ordered.map(async (card) => toCardRecord(card, await this.findTarget(card.learningItem))),
-    );
+    const targets = await this.loadTargets(ordered.map((card) => card.learningItem));
+    return Promise.all(ordered.map(async (card) => toCardRecord(card, await this.findTarget(card.learningItem, targets))));
   }
 
   async listPracticeCardsByIds(
@@ -410,7 +416,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     });
 
     return filterEligibleQueueRecords(
-      await Promise.all(orderedStates.map((state) => this.toQueueRecord(state))),
+      await this.toQueueRecords(orderedStates),
     );
   }
 
@@ -1013,8 +1019,59 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     }
   }
 
-  private async toQueueRecord(state: UserSrsStateRow): Promise<ReviewQueueRecord> {
-    const target = await this.findTarget(state.learningCard.learningItem);
+  private async loadTargets(items: readonly LearningItemRow[]): Promise<ReviewTargetRows> {
+    const types = ["COMPONENT", "KANJI", "WORD", "SENTENCE"] as const;
+    const ids = new Map<string, Set<string>>(types.map((type) => [type, new Set<string>()]));
+    for (const item of items) {
+      const group = ids.get(item.targetType);
+      if (group === undefined) throw new Error(`Unsupported learning item target type: ${item.targetType}`);
+      group.add(item.targetId);
+    }
+    const targets: ReviewTargetRows = { components: new Map(), kanji: new Map(), words: new Map(), sentences: new Map() };
+    for (const type of types) {
+      const distinct = [...ids.get(type)!];
+      for (let offset = 0; offset < distinct.length; offset += 100) {
+        const where = { id: { in: distinct.slice(offset, offset + 100) } };
+        switch (type) {
+          case "COMPONENT": {
+            const rows = await this.prisma.db.component.findMany({ where, select: { id: true, symbol: true } });
+            for (const row of rows) targets.components.set(row.id, row);
+            break;
+          }
+          case "KANJI": {
+            const rows = await this.prisma.db.kanji.findMany({ where, select: {
+              id: true, character: true, jlptLevel: true, legacyJlptLevel: true,
+              readings: { select: { reading: true, priority: true }, orderBy: kanjiReadingOrderBy() },
+            } });
+            for (const row of rows) targets.kanji.set(row.id, row);
+            break;
+          }
+          case "WORD": {
+            const rows = await this.prisma.db.word.findMany({ where, select: {
+              id: true, expression: true, reading: true, jlptLevel: true,
+              senses: { where: { locale: { in: ["ru-RU", "en-US"] } }, orderBy: [{ locale: "asc" }, { meaning: "asc" }], select: { locale: true, meaning: true } },
+            } });
+            for (const row of rows) targets.words.set(row.id, row);
+            break;
+          }
+          case "SENTENCE": {
+            const rows = await this.prisma.db.sentence.findMany({ where, select: { id: true, japaneseText: true, readingText: true, translationRu: true, translationEn: true } });
+            for (const row of rows) targets.sentences.set(row.id, row);
+            break;
+          }
+        }
+      }
+    }
+    return targets;
+  }
+
+  private async toQueueRecords(states: readonly UserSrsStateRow[]): Promise<readonly ReviewQueueRecord[]> {
+    const targets = await this.loadTargets(states.map((state) => state.learningCard.learningItem));
+    return Promise.all(states.map((state) => this.toQueueRecord(state, targets)));
+  }
+
+  private async toQueueRecord(state: UserSrsStateRow, targets?: ReviewTargetRows): Promise<ReviewQueueRecord> {
+    const target = await this.findTarget(state.learningCard.learningItem, targets);
 
     return {
       state: toSrsStateRecord(state),
@@ -1028,23 +1085,23 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     };
   }
 
-  private async findTarget(item: LearningItemRow): Promise<ReviewTargetRecord> {
+  private async findTarget(item: LearningItemRow, targets?: ReviewTargetRows): Promise<ReviewTargetRecord> {
     switch (item.targetType) {
       case "COMPONENT":
-        return this.findComponentTarget(item);
+        return this.findComponentTarget(item, targets === undefined ? undefined : targets.components.get(item.targetId) ?? null);
       case "KANJI":
-        return this.findKanjiTarget(item);
+        return this.findKanjiTarget(item, targets === undefined ? undefined : targets.kanji.get(item.targetId) ?? null);
       case "WORD":
-        return this.findWordTarget(item);
+        return this.findWordTarget(item, targets === undefined ? undefined : targets.words.get(item.targetId) ?? null);
       case "SENTENCE":
-        return this.findSentenceTarget(item);
+        return this.findSentenceTarget(item, targets === undefined ? undefined : targets.sentences.get(item.targetId) ?? null);
       default:
         throw new Error(`Unsupported learning item target type: ${item.targetType}`);
     }
   }
 
-  private async findComponentTarget(item: LearningItemRow): Promise<ReviewTargetRecord> {
-    const component = (await this.prisma.db.component.findUnique({
+  private async findComponentTarget(item: LearningItemRow, cached?: ComponentTargetRow | null): Promise<ReviewTargetRecord> {
+    const component = cached !== undefined ? cached : (await this.prisma.db.component.findUnique({
       where: { id: item.targetId },
       select: { symbol: true },
     })) as ComponentTargetRow | null;
@@ -1063,8 +1120,8 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     };
   }
 
-  private async findKanjiTarget(item: LearningItemRow): Promise<ReviewTargetRecord> {
-    const kanji = (await this.prisma.db.kanji.findUnique({
+  private async findKanjiTarget(item: LearningItemRow, cached?: KanjiTargetRow | null): Promise<ReviewTargetRecord> {
+    const kanji = cached !== undefined ? cached : (await this.prisma.db.kanji.findUnique({
       where: { id: item.targetId },
       select: {
         character: true,
@@ -1091,8 +1148,8 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     };
   }
 
-  private async findWordTarget(item: LearningItemRow): Promise<ReviewTargetRecord> {
-    const word = (await this.prisma.db.word.findUnique({
+  private async findWordTarget(item: LearningItemRow, cached?: WordTargetRow | null): Promise<ReviewTargetRecord> {
+    const word = cached !== undefined ? cached : (await this.prisma.db.word.findUnique({
       where: { id: item.targetId },
       select: {
         expression: true,
@@ -1136,8 +1193,8 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     };
   }
 
-  private async findSentenceTarget(item: LearningItemRow): Promise<ReviewTargetRecord> {
-    const sentence = (await this.prisma.db.sentence.findUnique({
+  private async findSentenceTarget(item: LearningItemRow, cached?: SentenceTargetRow | null): Promise<ReviewTargetRecord> {
+    const sentence = cached !== undefined ? cached : (await this.prisma.db.sentence.findUnique({
       where: { id: item.targetId },
       select: {
         japaneseText: true,
