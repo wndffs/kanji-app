@@ -19,8 +19,9 @@ private editing, with two independent reviewers. Local checks are focused;
 cloud CI runs broader checks. This does not claim exhaustive review of every
 file, accessibility state or production-scale query.
 
-- Main course: **20 placed kanji, 0 placed vocabulary, 26 components**. Its
-  46-item/66-card batch passed a live quality report with zero blockers. The
+- Main course, updated 2026-10-22: **40 placed kanji, 0 placed vocabulary,
+  40 components**. Its combined 80-item/120-card batches passed a live quality
+  report with zero blockers and warnings. The
   course is still DRAFT, not a published 2,300-kanji/8,000-word course.
 - Raw corpus: 13,108 KANJIDIC2 entries, 30,000 bilingual JMdict pairs, 6,702
   KanjiVG graphics. Imported evidence is not editorial publication.
@@ -72,7 +73,7 @@ diagnostic, not continuous database polling that consumes free compute.
 | 111-115 | Implemented, bounded tests             | Full corpus and whole-product accessibility                                  |
 | 116     | Listening mechanism implemented        | Real licensed assets, storage/CORS, coverage                                 |
 | 117     | Research deferred                      | Approved source/license before integration                                   |
-| 118     | In progress; blocks full release       | 2,280 kanji, 8,000 vocabulary, 60 levels, rollout                            |
+| 118     | In progress; blocks full release       | 2,260 kanji, 8,000 vocabulary, 60 levels, rollout                            |
 | 119     | Implemented; live batch verified       | Same audit over eventual full corpus                                         |
 | 120     | Implemented; focused acceptance tested | Whole-product contrast belongs to 121-122                                    |
 | 121     | Not started                            | Original visual system after functional/data contracts                       |
@@ -89,8 +90,9 @@ or mark raw glosses reviewed just to reach a number.
 ## Task 125: Corrective Retrieval
 
 Implementation added on 2026-10-22; API and browser acceptance checks are
-described in `REVIEW_CORRECTIONS.md`. Extended real-PostgreSQL cases and remote
-deployment are verified separately before claiming the cloud rollout complete.
+described in `REVIEW_CORRECTIONS.md`. All 30 PostgreSQL 18 integrity cases passed.
+The live starter-account lesson, review, reload and corrective retrieval flow
+is recorded in `REMOTE_SMOKE_2026_10_22.md`; full-product release remains open.
 
 - Keep exactly one scheduling answer per card/session; preserve original error,
   penalty, due date and review accuracy.

@@ -60,6 +60,11 @@ wrong/reveal originals and overlapping correction writes. This proves the
 repository behavior against a real isolated database, not a whole-production
 or full-corpus certification.
 
+The [remote smoke record](REMOTE_SMOKE_2026_10_22.md) additionally verifies an
+actual Vercel/Render session: reload resumed the pending card, correction kept
+the original 50% accuracy, and Neon retained exactly two scheduling answers
+for two cards. Only the new test profile's initial due times were accelerated.
+
 Queues remain capped at 100 cards. The existing target hydration queries are
 not a claim of a measured low query count; production-scale latency/query
 budgets remain Task 123. A withdrawn/unavailable snapshot card produces a

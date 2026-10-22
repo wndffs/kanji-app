@@ -32,6 +32,20 @@ All 20 kanji require an imported KANJIDIC2 target, exact source reading
 evidence, and KanjiVG stroke data. The command fails instead of publishing an
 item when any of those checks is missing.
 
+`task-118-foundation-kanji-02@1` adds 14 components at level 1 slots 27-40 and
+20 more kanji across levels 2-4. It reuses only explicitly registered earlier
+components at their verified published main-course placements. The original
+batch checksum and all existing card/placement identities remain unchanged.
+Every batch must have independent parent-agent review before application;
+pending authorship is valid for inspection, not permission to publish.
+
+Database preflight checks the entire batch before its first write: source
+readings, KanjiVG evidence, earlier components and free/stable placement slots.
+The current lesson target summary uses the first KANJIDIC2 priority reading;
+the taught reading must match it. For 木 this is ボク/ぼく, while vocabulary
+will independently teach き. A future curated-reading selection must change
+all display/quality contracts together, not silently alter imported priorities.
+
 ## Apply
 
 Apply migrations and the main-course shell before curation. The open-data
@@ -67,7 +81,7 @@ After applying a batch:
 1. Download the workflow corpus-report artifact.
 2. Confirm the curation import run is `SUCCESS` and its checksum matches the
    command output.
-3. Confirm the 20 kanji are published and placed in levels 2-4.
+3. Confirm each batch's kanji are published and placed in levels 2-4.
 4. Confirm all component prerequisites are published at level 1.
 5. Inspect one early, middle, and late item in lessons and reviews.
 6. Run the main-course allocation and publication-readiness reports.

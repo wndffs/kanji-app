@@ -3,7 +3,7 @@
 ## Status
 
 - Task: 118
-- Updated: 2026-10-21
+- Updated: 2026-10-22
 - State: **IN PROGRESS**
 - Main course publication approved: **no**
 
@@ -14,7 +14,26 @@ continue.
 
 ## Verified staging evidence
 
-### Current editorial batch (2026-10-21)
+### Current editorial batches (2026-10-22)
+
+[Curation run 39750138315](https://github.com/wndffs/kanji-app/actions/runs/39750138315)
+successfully applied both versioned batches to Neon. Batch 02 adds 14 reusable
+components and 20 kanji (`山川木水火土金石上下右左百千円力女男子田`).
+All 20 source readings and traced stroke graphics were independently checked
+before application. Its SHA-256 is
+`99268635c984603c30a1a53c2beb0bcd63a53316b9cb3a83b4e51c54e1c18714`;
+import run `d031e0e4-90b7-4927-a8ee-6b0f0fb0d94b`.
+
+The combined main-course result is **40 components, 40 kanji, 80 placements
+and 120 learning cards**. The
+[quality artifact](https://github.com/wndffs/kanji-app/actions/runs/39750138315/artifacts/12413576549)
+reports **80 scanned items, 0 blockers, 0 warnings**. Content version:
+`db58a36b2db43ace1603544c3e0204fcd06433d279e0892744ccf75d909d1828`.
+Main-course vocabulary remains **0** and the course remains **DRAFT**. The
+remaining main-course targets are **2,260 kanji and 8,000 vocabulary pairs**.
+AI-authored/editor-reviewed batches are not represented as human-reviewed.
+
+### First editorial batch (2026-10-21)
 
 [Curation run 39606493648](https://github.com/wndffs/kanji-app/actions/runs/39606493648)
 successfully applied `task-118-foundation-kanji-01@1` to Neon. Its checksummed
@@ -29,8 +48,8 @@ reports 46 scanned items, **0 blockers and 0 warnings**, under
 `3bb0c4e57999a1bb7e6fefafcdfe0706e11a7f6a493e0c9acaa9de55a32530fc`.
 This is a bounded-batch result, not a full-course readiness pass.
 
-Main-course vocabulary remains **0**; the course remains **DRAFT**. Remaining
-main-course targets are **2,280 kanji and 8,000 vocabulary pairs**. The older
+At that snapshot, main-course vocabulary was **0** and the course remained
+**DRAFT**, with **2,280 kanji and 8,000 vocabulary pairs** remaining. The older
 published starter demo remains separate and must not be added to main-course
 placement counts without verified allocation. Do not report 30,000 raw words
 as 30,000 teachable words.
