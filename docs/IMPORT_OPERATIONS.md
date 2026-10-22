@@ -161,6 +161,14 @@ data, component prerequisite, or course level is missing. The standalone
 `Deploy staging curation` workflow applies the same command without downloading
 the source corpus again.
 
+Vocabulary registry planning shares bounded course and prerequisite-kanji reads
+within one calculation (at most 512 entries per cache). Overflow is read normally,
+not skipped. Each batch still checks exact registered placement and curriculum
+band. Word, source, and license evidence remains uncached. A later plan or selected
+write starts fresh, and each applied word revalidates its evidence inside the
+transaction. The cache is a query-count optimization, not a persistent snapshot
+or permission to apply a stale plan.
+
 EDRDG's current JMdict and KANJIDIC2 URLs are mutable daily distributions. The
 local and Actions caches make repeated imports of one snapshot deterministic
 while that cache exists. Long-term replay still requires retaining the original

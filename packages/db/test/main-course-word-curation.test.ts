@@ -9,15 +9,236 @@ import {
 } from "../prisma/curate-main-course-words";
 import { buildMainCourseBlueprint } from "../src/main-course";
 import { buildMainCourseContentBatches } from "../src/main-course-content";
+import * as courseContent from "../src/main-course-content";
 import {
   AUTHORED_WORD_PART_OF_SPEECH,
   buildMainCourseWordBatch,
   buildMainCourseWordBatches,
+  wordHanCharacters,
   type MainCourseWordBatch,
   type MainCourseWordContent,
 } from "../src/main-course-word-content";
 
 describe("bounded vocabulary curation", () => {
+  it("reads one course and each distinct kanji once per registry plan, but never caches standalone plans", async () => {
+    const batches = registryFixtureBatches();
+    const fixture = harness(batches);
+    const characters = (batch: MainCourseWordBatch) =>
+      new Set(
+        batch.words.flatMap((content) =>
+          wordHanCharacters(content.expression + content.example.japaneseText),
+        ),
+      );
+    const unique = new Set(batches.flatMap((batch) => [...characters(batch)])).size;
+    const kanjiReads = vi.mocked(fixture.db.kanji.findUnique);
+    const placedReads = () =>
+      vi
+        .mocked(fixture.db.learningItem.findUnique)
+        .mock.calls.filter(([args]) => args.where.targetType_targetId?.targetType === "KANJI")
+        .length;
+    await planMainCourseWordBatches(fixture.db, batches);
+    expect(fixture.readCourse).toHaveBeenCalledTimes(1);
+    expect(kanjiReads).toHaveBeenCalledTimes(unique);
+    expect(placedReads()).toBe(unique);
+    expect(fixture.db.license.findUnique).toHaveBeenCalledTimes(batches.length);
+    expect(fixture.db.dataSource.findUnique).toHaveBeenCalledTimes(batches.length);
+    expect(fixture.readWord).toHaveBeenCalledTimes(
+      batches.reduce(
+        (count, batch) =>
+          count +
+          batch.words.reduce((sum, word) => sum + 1 + (word.acceptedReadings?.length ?? 0), 0),
+        0,
+      ),
+    );
+    await planMainCourseWordBatches(fixture.db, batches);
+    expect(fixture.readCourse).toHaveBeenCalledTimes(2);
+    expect(kanjiReads).toHaveBeenCalledTimes(unique * 2);
+    await planMainCourseWordBatch(fixture.db, batches[0]!);
+    await planMainCourseWordBatch(fixture.db, batches[0]!);
+    expect(fixture.readCourse).toHaveBeenCalledTimes(4);
+    expect(kanjiReads).toHaveBeenCalledTimes(unique * 2 + characters(batches[0]!).size * 2);
+    expect(fixture.mutations).toEqual([]);
+  });
+
+  it("bounds retained kanji entries to 512 and rereads overflow instead of dropping checks", async () => {
+    const registry = buildMainCourseContentBatches();
+    const existing = new Set(
+      registry.flatMap((batch) => batch.kanji.map((kanji) => kanji.character)),
+    );
+    const extra: string[] = [];
+    for (let point = 0x7000; extra.length < 513; point++) {
+      const character = String.fromCodePoint(point);
+      if (!existing.has(character)) extra.push(character);
+    }
+    const synthetic = registry.map((batch, index) =>
+      index !== 0
+        ? batch
+        : {
+            ...batch,
+            kanji: [
+              ...batch.kanji,
+              ...extra.map((character, index) => ({
+                ...batch.kanji[0]!,
+                character,
+                levelNumber: 2,
+                sortOrder: 1000 + index,
+              })),
+            ],
+          },
+    );
+    const spy = vi.spyOn(courseContent, "buildMainCourseContentBatches").mockReturnValue(synthetic);
+    try {
+      const batches = registryFixtureBatches().map((batch) => ({
+        ...batch,
+        words: batch.words.map((word, index) =>
+          index !== 0
+            ? word
+            : {
+                ...word,
+                example: {
+                  ...word.example,
+                  japaneseText: word.example.japaneseText + extra.join(""),
+                },
+              },
+        ),
+      }));
+      const fixture = harness(batches);
+      const retained = new Set<string>();
+      let expectedReads = 0;
+      const allCharacters = new Set<string>();
+      for (const batch of batches)
+        for (const character of new Set(
+          batch.words.flatMap((word) =>
+            wordHanCharacters(word.expression + word.example.japaneseText),
+          ),
+        )) {
+          allCharacters.add(character);
+          if (!retained.has(character)) {
+            expectedReads++;
+            if (retained.size < 512) retained.add(character);
+          }
+        }
+      await planMainCourseWordBatches(fixture.db, batches);
+      expect(expectedReads).toBeGreaterThan(allCharacters.size);
+      expect(fixture.db.kanji.findUnique).toHaveBeenCalledTimes(expectedReads);
+      expect(
+        vi
+          .mocked(fixture.db.learningItem.findUnique)
+          .mock.calls.filter(([args]) => args.where.targetType_targetId?.targetType === "KANJI"),
+      ).toHaveLength(expectedReads);
+      expect(fixture.readCourse).toHaveBeenCalledTimes(1);
+      expect(fixture.mutations).toEqual([]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("rechecks each batch's exact registered placement even for a cached common kanji", async () => {
+    const batches = registryFixtureBatches();
+    const fixture = harness(batches);
+    const first = new Set(
+      batches[0]!.words.flatMap((word) =>
+        wordHanCharacters(word.expression + word.example.japaneseText),
+      ),
+    );
+    const common = batches[1]!.words
+      .flatMap((word) => wordHanCharacters(word.expression + word.example.japaneseText))
+      .find((character) => first.has(character))!;
+    expect(common).toBeDefined();
+    const registry = buildMainCourseContentBatches();
+    const spy = vi
+      .spyOn(courseContent, "buildMainCourseContentBatches")
+      .mockReturnValueOnce(registry)
+      .mockReturnValueOnce(
+        registry.map((batch) => ({
+          ...batch,
+          kanji: batch.kanji.map((kanji) =>
+            kanji.character === common ? { ...kanji, sortOrder: 1000 } : kanji,
+          ),
+        })),
+      );
+    try {
+      await expect(planMainCourseWordBatches(fixture.db, batches)).rejects.toThrow(
+        "registered earlier",
+      );
+      expect(
+        vi
+          .mocked(fixture.db.kanji.findUnique)
+          .mock.calls.filter(([args]) => args.where.character === common),
+      ).toHaveLength(1);
+      expect(fixture.mutations).toEqual([]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it.each(["source", "placement"])(
+    "does not retain %s reads from a previous registry plan",
+    async (condition) => {
+      const batches = registryFixtureBatches();
+      const fixture = harness(batches);
+      await planMainCourseWordBatches(fixture.db, batches);
+      if (condition === "source")
+        fixture.state.words.get(batches[0]!.words[0]!.expression)!.importedRecord.importRun.status =
+          "FAILED";
+      else
+        [...fixture.state.placements.values()].find(
+          (row) => row.learningItemId === "kanji-item-山",
+        )!.sortOrder = 999;
+      await expect(
+        applyMainCourseWordBatches(fixture.db, { batches, batchId: batches[0]!.id }),
+      ).rejects.toThrow(condition === "source" ? "provenance" : "registered earlier");
+      expect(fixture.transaction).not.toHaveBeenCalled();
+      expect(fixture.mutations).toEqual([]);
+    },
+  );
+
+  it("freshly plans a selected write after the cached whole-registry preflight", async () => {
+    const batches = registryFixtureBatches();
+    const fixture = harness(batches);
+    const readCourse = fixture.readCourse.getMockImplementation()!;
+    fixture.readCourse.mockImplementationOnce(readCourse).mockImplementationOnce(async () => {
+      [...fixture.state.placements.values()].find(
+        (row) => row.learningItemId === "kanji-item-山",
+      )!.sortOrder = 999;
+      return readCourse();
+    });
+    await expect(
+      applyMainCourseWordBatches(fixture.db, { batches, batchId: batches[0]!.id }),
+    ).rejects.toThrow("registered earlier");
+    expect(fixture.readCourse).toHaveBeenCalledTimes(2);
+    expect(fixture.transaction).not.toHaveBeenCalled();
+    expect(fixture.mutations).toEqual([]);
+  });
+
+  it.each(["source", "placement"])(
+    "rereads %s inside applyWord after both preflights",
+    async (condition) => {
+      const batches = registryFixtureBatches();
+      const fixture = harness(batches);
+      const transact = fixture.transaction.getMockImplementation()!;
+      fixture.transaction
+        .mockImplementationOnce(transact)
+        .mockImplementationOnce(async (action) => {
+          if (condition === "source")
+            fixture.state.words.get(
+              batches[0]!.words[0]!.expression,
+            )!.importedRecord.importRun.status = "FAILED";
+          else
+            [...fixture.state.placements.values()].find(
+              (row) => row.learningItemId === "kanji-item-山",
+            )!.sortOrder = 999;
+          return transact(action);
+        });
+      await expect(
+        applyMainCourseWordBatches(fixture.db, { batches, batchId: batches[0]!.id }),
+      ).rejects.toThrow(condition === "source" ? "provenance" : "changed after preflight");
+      expect(fixture.readCourse).toHaveBeenCalledTimes(2);
+      expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
+      expect([...fixture.state.runs.values()].every((run) => run.status === "FAILED")).toBe(true);
+    },
+  );
+
   it.each([
     [6, "N5"],
     [16, "N4"],

@@ -86,10 +86,33 @@ const WORD_SOURCE_SELECT = {
   },
 } as const satisfies Prisma.WordSelect;
 
+const PLAN_READ_CACHE_LIMIT = 512;
+type PlanReadCache = {
+  courses: Map<string, Awaited<ReturnType<typeof readPlanCourse>>>;
+  kanji: Map<string, Awaited<ReturnType<typeof readPlanKanji>>>;
+};
+
+async function readPlanCourse(db: Reader, slug: string) {
+  return db.course.findUnique({
+    where: { slug },
+    select: { id: true, levels: { select: { id: true, levelNumber: true, band: true } } },
+  });
+}
+
+async function readPlanKanji(db: Reader, character: string, courseId: string) {
+  const raw = await db.kanji.findUnique({ where: { character }, select: { id: true } });
+  const item = raw === null ? null : await findItem(db, "KANJI", raw.id, courseId);
+  return { raw, item };
+}
+
 export async function planMainCourseWordBatch(
   db: Reader,
   batch: MainCourseWordBatch = buildMainCourseWordBatch(),
 ) {
+  return planWordBatch(db, batch);
+}
+
+async function planWordBatch(db: Reader, batch: MainCourseWordBatch, cache?: PlanReadCache) {
   assertManifest(batch);
   const registry = buildMainCourseContentBatches();
   const registryIssues = validateMainCourseContentBatches(registry);
@@ -100,10 +123,12 @@ export async function planMainCourseWordBatch(
       .filter((entry) => entry.courseSlug === batch.courseSlug)
       .flatMap((entry) => entry.kanji.map((content) => [content.character, content] as const)),
   );
-  const course = await db.course.findUnique({
-    where: { slug: batch.courseSlug },
-    select: { id: true, levels: { select: { id: true, levelNumber: true, band: true } } },
-  });
+  let course = cache?.courses.get(batch.courseSlug);
+  if (course === undefined) {
+    course = await readPlanCourse(db, batch.courseSlug);
+    if (cache !== undefined && cache.courses.size < PLAN_READ_CACHE_LIMIT)
+      cache.courses.set(batch.courseSlug, course);
+  }
   if (course === null) throw new Error(`Missing main course ${batch.courseSlug}.`);
   const level = course.levels.find((candidate) => candidate.levelNumber === batch.levelNumber);
   const blueprintLevel = buildMainCourseBlueprint().levels.find(
@@ -141,9 +166,15 @@ export async function planMainCourseWordBatch(
     const registered = registeredKanji.get(character);
     if (registered === undefined || registered.levelNumber >= batch.levelNumber)
       throw new Error(`Unregistered earlier kanji prerequisite ${character}.`);
-    const raw = await db.kanji.findUnique({ where: { character }, select: { id: true } });
+    const cacheKey = `${course.id}:${character}`;
+    let prerequisite = cache?.kanji.get(cacheKey);
+    if (prerequisite === undefined) {
+      prerequisite = await readPlanKanji(db, character, course.id);
+      if (cache !== undefined && cache.kanji.size < PLAN_READ_CACHE_LIMIT)
+        cache.kanji.set(cacheKey, prerequisite);
+    }
+    const { raw, item } = prerequisite;
     if (raw === null) throw new Error(`Missing registered kanji ${character}.`);
-    const item = await findItem(db, "KANJI", raw.id, course.id);
     const expectedLevel = course.levels.find(
       (candidate) => candidate.levelNumber === registered.levelNumber,
     );
@@ -212,12 +243,14 @@ export async function planMainCourseWordBatches(
   batches: readonly MainCourseWordBatch[] = buildMainCourseWordBatches(),
 ) {
   assertRegistry(batches);
+  // Share bounded reads only within this plan; write preflights must observe fresh data.
+  const cache: PlanReadCache = { courses: new Map(), kanji: new Map() };
   const plans = [];
   for (const batch of batches) {
     plans.push({
       batchId: batch.id,
       checksumSha256: mainCourseWordBatchChecksum(batch),
-      plan: await planMainCourseWordBatch(db, batch),
+      plan: await planWordBatch(db, batch, cache),
     });
   }
   return plans;
