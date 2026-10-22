@@ -11,6 +11,8 @@ on:
         options:
           - v1
           - v2
+          - v3
+          - v4
       expected_web_revision:
         description: Expected full web commit SHA (blank skips matching)
         required: false
@@ -47,6 +49,8 @@ jobs:
           case "$PILOT_VERSION" in
             v1) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v1 ;;
             v2) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v2 ;;
+            v3) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v3 ;;
+            v4) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v4 ;;
             *) echo "Unsupported pilot version."; exit 1 ;;
           esac
           if [ -n "$EXPECTED_WEB_REVISION_INPUT" ]; then

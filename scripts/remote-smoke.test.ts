@@ -910,6 +910,8 @@ describe("remote smoke safety", () => {
     expect(workflow).toContain("https://kanji-srs-api.onrender.com");
     expect(workflow).toContain("japanese-foundation-pilot-v1");
     expect(workflow).toContain("japanese-foundation-pilot-v2");
+    expect(workflow).toContain("v3) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v3");
+    expect(workflow).toContain("v4) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v4");
     expect(workflow).toContain("default: v1");
     expect(workflow).toContain("Unsupported pilot version.");
     expect(workflow).toContain("steps.audit.outputs.report_ready == 'true'");
