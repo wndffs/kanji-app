@@ -71,11 +71,18 @@ claim response.
 Migration `20261022193000_review_reminder_preferences` adds the two defaulted
 preferences, an hour check constraint and nullable private
 `reviewReminderLastClaimedAt`. It does not alter earlier source-fix migrations.
-The migration has not been applied. Deploy it before using the new Prisma client
-against a database. A real PostgreSQL row-lock regression has been added for
-competing claims and unchanged SRS; its cloud result remains to be recorded.
-159 focused local tests and ten production-bundle desktop/mobile reminder cases
-passed. Stub unit tests cover fixed-clock, DST,
+[Database run 39816624061](https://github.com/wndffs/kanji-app/actions/runs/39816624061)
+applied the migration to Neon without starter seed, with API auto-deploy temporarily
+disabled to avoid deploying a new Prisma client before its columns existed.
+[Study integrity run 39816119548](https://github.com/wndffs/kanji-app/actions/runs/39816119548)
+passed **43 tests on PostgreSQL 18**, including competing claims observed waiting
+on the same real row lock: exactly one returned true, with unchanged SRS state
+and no review answers. All 26 migrations applied to its isolated database.
+159 focused local tests, ten production-bundle desktop/mobile reminder cases and
+the existing workload case on both viewports passed. A full cloud browser run
+caught the workload test's obsolete expectation that unchanged opt-in is written;
+the assertion now requires its omission and waits for authenticated controls.
+Stub unit tests cover fixed-clock, DST,
 timezone, legacy/default-off, due/audio eligibility, CAS concurrency, partial
 settings and request/auth/privacy contracts; they do not replace that migration
 or real PostgreSQL concurrency test. No external content or licence changes apply.

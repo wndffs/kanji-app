@@ -228,6 +228,8 @@ test.describe("settings", () => {
     });
 
     await page.goto("/settings");
+    await expect(page.getByRole("button", { name: "Выйти: Тестовый ученик" })).toBeVisible();
+    await expect(page.getByLabel("Новых материалов в день")).toBeEnabled();
 
     await page.getByLabel("Перевод карточек").selectOption("en");
     await page.getByLabel("Новых материалов в день").fill("7");
@@ -258,9 +260,9 @@ test.describe("settings", () => {
       soundFeedback: false,
       lessonPronunciationMode: "furigana",
       lessonRomaji: true,
-      reviewRemindersEnabled: false,
       reviewReminderHour: 9,
     });
+    expect(receivedSettings).not.toHaveProperty("reviewRemindersEnabled");
   });
 
   test("previews and saves study audio preferences", async ({ page }) => {
