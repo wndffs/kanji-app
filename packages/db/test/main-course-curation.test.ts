@@ -22,9 +22,10 @@ describe("main-course curation preflight and application", () => {
       const batch = {
         ...fixture.batch,
         componentLevelNumber,
-        kanji: fixture.batch.kanji.map((content) => ({
+        kanji: fixture.batch.kanji.map((content, index) => ({
           ...content,
           levelNumber: kanjiLevelNumber,
+          sortOrder: index + 1,
         })),
       };
       const registry = [fixture.registry[0]!, batch];
@@ -84,7 +85,11 @@ describe("main-course curation preflight and application", () => {
       const batch = {
         ...fixture.batch,
         componentLevelNumber: 6,
-        kanji: fixture.batch.kanji.map((content) => ({ ...content, levelNumber: 7 })),
+        kanji: fixture.batch.kanji.map((content, index) => ({
+          ...content,
+          levelNumber: 7,
+          sortOrder: index + 1,
+        })),
       };
       fixture.readCourse.mockResolvedValue({
         id: "main-course",

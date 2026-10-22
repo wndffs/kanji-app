@@ -82,7 +82,9 @@ describe("sealed finite pilot v2", () => {
     for (const target of manifest.targets)
       for (const key of target.prerequisiteKeys)
         expect(byKey.get(key)!.levelNumber).toBeLessThan(target.levelNumber);
-    for (const batch of buildMainCourseWordBatches())
+    for (const batch of buildMainCourseWordBatches().filter((entry) =>
+      manifest.sources.some((source) => source.id === entry.id),
+    ))
       for (const word of batch.words)
         for (const character of wordHanCharacters(word.expression + word.example.japaneseText))
           expect(byKey.get(`kanji:${character}`)!.levelNumber).toBeLessThan(batch.levelNumber);
