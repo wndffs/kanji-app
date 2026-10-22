@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { execFileSync, spawnSync } from "node:child_process";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -14,7 +17,7 @@ describe("main-course content batches", () => {
     const batches = buildMainCourseContentBatches();
 
     expect(validateMainCourseContentBatches(batches)).toEqual([]);
-    expect(batches).toHaveLength(2);
+    expect(batches).toHaveLength(3);
     expect(batches[0]).toMatchObject({
       id: "task-118-foundation-kanji-01",
       version: "1",
@@ -52,6 +55,107 @@ describe("main-course content batches", () => {
       "34676566c590fd19d10349e6bb07c75d01471fc618872fa103db2e676fd138b8",
     );
     expect(requiredBatch()).not.toHaveProperty("componentSortOrderStart");
+    expect(
+      createHash("sha256").update(JSON.stringify(buildMainCourseContentBatches()[1])).digest("hex"),
+    ).toBe("99268635c984603c30a1a53c2beb0bcd63a53316b9cb3a83b4e51c54e1c18714");
+  });
+
+  it("registers exactly one approved bridge kanji with no new components at free level 2 slot 21", () => {
+    const batches = buildMainCourseContentBatches();
+    const bridge = batches[2]!;
+    expect(bridge).toMatchObject({
+      id: "task-118-foundation-kanji-03",
+      version: "1",
+      authoredAt: "2026-10-22",
+      reviewedAt: "2026-10-22",
+      componentLevelNumber: 1,
+      components: [],
+    });
+    expect(createHash("sha256").update(JSON.stringify(bridge)).digest("hex")).toBe(
+      "fe1998be5842a0ca2f233670318949c51d82c58d68068851c3859f8e3560af92",
+    );
+    expect(bridge.kanji).toHaveLength(1);
+    expect(bridge.kanji[0]).toMatchObject({
+      character: "一",
+      levelNumber: 2,
+      sortOrder: 21,
+      componentKeys: ["component-one-stroke"],
+      meanings: {
+        ru: { primary: "один", accepted: ["один", "единица"] },
+        en: { primary: "one", accepted: ["one"] },
+      },
+      reading: { source: "イチ", primary: "いち", accepted: ["いち"] },
+      requireStrokeData: true,
+    });
+    expect(
+      batches
+        .slice(0, 2)
+        .flatMap((batch) => batch.kanji)
+        .filter((content) => content.levelNumber === 2)
+        .map((content) => content.sortOrder)
+        .sort((a, b) => a - b),
+    ).toEqual(Array.from({ length: 15 }, (_, index) => index + 1));
+    expect(batches.flatMap((batch) => batch.components)).toHaveLength(40);
+    expect(validateMainCourseContentBatches([bridge])).toContain(
+      `${bridge.id} kanji 一 references missing component-one-stroke`,
+    );
+    expect(validateMainCourseContentBatches(batches)).toEqual([]);
+  });
+
+  it("pure-validates a selected bridge against the whole registry without a database URL", () => {
+    const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+    const stdout = execFileSync(
+      process.execPath,
+      [
+        join(root, "node_modules/tsx/dist/cli.mjs"),
+        join(root, "packages/db/prisma/curate-main-course.ts"),
+        "--batch",
+        "task-118-foundation-kanji-03",
+        "--validate-only",
+      ],
+      { cwd: root, encoding: "utf8", env: { ...process.env, DATABASE_URL: "" } },
+    );
+    const result = JSON.parse(stdout);
+    expect(result).toMatchObject({
+      status: "valid",
+      selectedBatchId: "task-118-foundation-kanji-03",
+      validatedBatchIds: buildMainCourseContentBatches().map((batch) => batch.id),
+      batches: [
+        {
+          id: "task-118-foundation-kanji-03",
+          reviewedAt: "2026-10-22",
+          components: 0,
+          kanji: 1,
+          checksumSha256: "fe1998be5842a0ca2f233670318949c51d82c58d68068851c3859f8e3560af92",
+        },
+      ],
+    });
+    expect(result.batches).toHaveLength(1);
+  });
+
+  it.each([
+    ["--unknown"],
+    ["--validate-only", "--validate-only"],
+    ["--validate-only", "--preflight-only"],
+    ["--batch"],
+    ["--batch", "--validate-only"],
+    ["--batch", "unknown"],
+    ["--batch", "task-118-foundation-kanji-03", "--batch", "task-118-foundation-kanji-03"],
+  ])("rejects unsafe CLI flags before database construction: %j", (...args) => {
+    const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+    const result = spawnSync(
+      process.execPath,
+      [
+        join(root, "node_modules/tsx/dist/cli.mjs"),
+        join(root, "packages/db/prisma/curate-main-course.ts"),
+        ...args,
+      ],
+      { cwd: root, encoding: "utf8", env: { ...process.env, DATABASE_URL: "" } },
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/Use no arguments|Unknown registered main-course batch/u);
+    expect(result.stderr).not.toContain("DATABASE_URL is required");
+    expect(result.stdout).toBe("");
   });
 
   it("adds only the reviewed bounded second batch with source-exact hiragana answers", () => {

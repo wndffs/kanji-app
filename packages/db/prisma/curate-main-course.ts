@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { PrismaClient, type Prisma } from "@prisma/client";
+import { withNeonConnectionDefaults } from "../src/connection-defaults";
 
 import {
   buildMainCourseContentBatches,
@@ -19,18 +20,17 @@ const TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 30_000 } as const;
 
 async function main(): Promise<void> {
   const batches = buildMainCourseContentBatches();
-  const issues = validateMainCourseContentBatches(batches);
+  const options = parseMainCourseCurationArgs(process.argv.slice(2), batches);
+  const selected = selectRegisteredBatches(batches, options.batchId);
 
-  if (issues.length > 0) {
-    throw new Error(`Main-course content is invalid: ${issues.join("; ")}`);
-  }
-
-  if (process.argv.includes("--validate-only")) {
+  if (options.mode === "validate-only") {
     console.log(
       JSON.stringify(
         {
           status: "valid",
-          batches: batches.map((batch) => ({
+          selectedBatchId: options.batchId ?? null,
+          validatedBatchIds: batches.map((batch) => batch.id),
+          batches: selected.map((batch) => ({
             id: batch.id,
             version: batch.version,
             checksumSha256: checksum(batch),
@@ -44,18 +44,85 @@ async function main(): Promise<void> {
     return;
   }
 
-  for (const batch of batches) requireParentReview(batch);
-  const prisma = new PrismaClient();
+  if (options.mode === "apply") for (const batch of selected) requireParentReview(batch);
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error("DATABASE_URL is required for live main-course curation.");
+  const prisma = new PrismaClient({ datasourceUrl: withNeonConnectionDefaults(url) });
 
   try {
-    const results = [];
-    for (const batch of batches) {
-      results.push(await applyMainCourseContentBatch(prisma, batch, batches));
+    if (options.mode === "preflight-only") {
+      const results = [];
+      for (const batch of selected) {
+        await planMainCourseContentBatch(prisma, batch, batches);
+        results.push({ id: batch.id, checksumSha256: checksum(batch), ...batchStats(batch) });
+      }
+      console.log(JSON.stringify({ status: "preflight-passed", batches: results }, null, 2));
+    } else {
+      console.log(
+        JSON.stringify(
+          await applyMainCourseContentBatches(prisma, {
+            registry: batches,
+            ...(options.batchId === undefined ? {} : { batchId: options.batchId }),
+          }),
+          null,
+          2,
+        ),
+      );
     }
-    console.log(JSON.stringify({ status: "success", batches: results }, null, 2));
   } finally {
     await prisma.$disconnect();
   }
+}
+
+export function parseMainCourseCurationArgs(
+  args: readonly string[],
+  registry: readonly MainCourseContentBatch[] = buildMainCourseContentBatches(),
+) {
+  const invalid = () =>
+    new Error(
+      "Use no arguments to apply all batches, --validate-only, or --preflight-only; optionally select --batch <registered-id> once.",
+    );
+  let mode: "apply" | "validate-only" | "preflight-only" = "apply";
+  let batchId: string | undefined;
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index];
+    if (arg === "--validate-only" || arg === "--preflight-only") {
+      if (mode !== "apply") throw invalid();
+      mode = arg.slice(2) as "validate-only" | "preflight-only";
+    } else if (arg === "--batch") {
+      const value = args[++index];
+      if (batchId !== undefined || value === undefined || value.startsWith("--")) throw invalid();
+      if (!registry.some((batch) => batch.id === value))
+        throw new Error(`Unknown registered main-course batch ${value}.`);
+      batchId = value;
+    } else throw invalid();
+  }
+  return { mode, ...(batchId === undefined ? {} : { batchId }) };
+}
+
+function selectRegisteredBatches(registry: readonly MainCourseContentBatch[], batchId?: string) {
+  const issues = validateMainCourseContentBatches(registry);
+  if (issues.length) throw new Error(`Main-course content is invalid: ${issues.join("; ")}`);
+  if (batchId === undefined) return registry;
+  const batch = registry.find((batch) => batch.id === batchId);
+  if (batch === undefined) throw new Error(`Unknown registered main-course batch ${batchId}.`);
+  return [batch];
+}
+
+export async function applyMainCourseContentBatches(
+  prisma: PrismaClient,
+  options: {
+    readonly registry?: readonly MainCourseContentBatch[];
+    readonly batchId?: string;
+  } = {},
+) {
+  const registry = options.registry ?? buildMainCourseContentBatches();
+  const selected = selectRegisteredBatches(registry, options.batchId);
+  for (const batch of selected) requireParentReview(batch);
+  const results = [];
+  for (const batch of selected)
+    results.push(await applyMainCourseContentBatch(prisma, batch, registry));
+  return { status: "success", batches: results };
 }
 
 type PreflightDatabase = Pick<

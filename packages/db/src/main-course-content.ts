@@ -1046,9 +1046,39 @@ const TASK_118_FOUNDATION_BATCH_02: MainCourseContentBatch = {
   ],
 };
 
+const TASK_118_FOUNDATION_BATCH_03: MainCourseContentBatch = {
+  id: "task-118-foundation-kanji-03",
+  version: "1",
+  authoredAt: "2026-10-22",
+  reviewedAt: "2026-10-22",
+  reviewNotes:
+    "AI-authored independent RU/EN content for the missing Foundation prerequisite 一. Independently reviewed by the parent agent on 2026-10-22, including live successful KANJIDIC2 evidence, source readings and stroke-graphic availability. Reuses the existing demo target/cards and registered one-stroke component. Database preflight and full quality validation remain mandatory. Not a human-review claim or full Task118 completion.",
+  sourceFile: "packages/db/src/main-course-content.ts",
+  courseSlug: "japanese-ru-n2",
+  componentLevelNumber: 1,
+  components: [],
+  kanji: [
+    kanji(
+      "一",
+      2,
+      21,
+      ["один", "единица"],
+      ["one"],
+      "イチ",
+      "いち",
+      ["one-stroke"],
+      "Одна ровная черта 一 напоминает единственную отметку при счёте: один, одна единица.",
+      "One straight line 一 suggests a single tally mark: one whole unit.",
+      "У единственной отметки мысленно разместите い и ち: вместе いち. Это начало 一月 (いちがつ, январь).",
+      "Place い and ち beside a single imagined tally mark: together, いち. It begins 一月 (いちがつ, January).",
+    ),
+  ],
+};
+
 const MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
   TASK_118_FOUNDATION_BATCH,
   TASK_118_FOUNDATION_BATCH_02,
+  TASK_118_FOUNDATION_BATCH_03,
 ];
 
 export function buildMainCourseContentBatches(): readonly MainCourseContentBatch[] {

@@ -60,7 +60,10 @@ type SourceBatch = {
 };
 
 export function buildFoundationPilotManifest(
-  kanjiBatches: readonly MainCourseContentBatch[] = buildMainCourseContentBatches(),
+  kanjiBatches: readonly MainCourseContentBatch[] = buildMainCourseContentBatches().filter(
+    (batch) =>
+      batch.id === "task-118-foundation-kanji-01" || batch.id === "task-118-foundation-kanji-02",
+  ),
   words: MainCourseWordBatch = buildMainCourseWordBatch(),
 ) {
   const issues = [

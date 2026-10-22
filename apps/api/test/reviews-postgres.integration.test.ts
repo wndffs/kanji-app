@@ -1508,7 +1508,7 @@ async function withWordCurationFixture(run: (fixture: WordCurationFixture) => Pr
     .filter((entry) => entry.courseSlug === batch.courseSlug)
     .flatMap((entry) => entry.kanji)
     .filter((content) => content.levelNumber < batch.levelNumber);
-  expect(registered).toHaveLength(40);
+  expect(registered).toHaveLength(41);
   const requiredHan = new Set(
     batch.words.flatMap((content) =>
       wordHanCharacters(content.expression + content.example.japaneseText),

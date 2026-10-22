@@ -39,6 +39,45 @@ batch checksum and all existing card/placement identities remain unchanged.
 Every batch must have independent parent-agent review before application;
 pending authorship is valid for inspection, not permission to publish.
 
+## Approved Single-Kanji Bridge
+
+`task-118-foundation-kanji-03@1` adds exactly one kanji, 一, with
+`authoredAt: 2026-10-22` and `reviewedAt: 2026-10-22`. Its original bilingual copy
+teaches RU `один` / `единица`, EN `one`, and source reading イチ with the single
+accepted hiragana answer いち. It requires KanjiVG evidence and reuses the
+published earlier `component-one-stroke` at level 1 slot 1. Its `components`
+array is empty: there is no duplicate or invented component.
+
+The explicit main-course placement is level 2 slot 21. The first two manifests
+use level 2 slots 1-15; their objects, order and hashes are unchanged. Database
+preflight still rejects any unexpected live collision rather than moving items.
+After this bridge, the registry has 41 kanji and the same 40 components. This
+does not change the finite pilot's separately pinned first-two-batch manifest or
+the full course publication gate.
+
+The existing demo 一 target, global learning item and meaning/reading cards are
+reused through their stable unique keys. Existing demo placements, card IDs,
+private overrides/mnemonics and SRS rows remain attached and are not reset.
+Course-owned teaching content is reconciled, not copied into a second target.
+The curator does not write raw `Kanji` fields, source KANJIDIC2 imported
+records/readings or KanjiVG rows. Its own project-authored curation records remain
+separate from that imported layer.
+In particular it does not rewrite the historical seed field
+`kanjidicSourceId = starter:kanji:kanji-one` to a fabricated import ID, nor change
+independently authored modern N5 metadata. Source evidence comes from the linked
+imported record, whose source identity is `kanjidic2:4e00`.
+
+The parent independently reviewed the educational copy and verified live
+source/readings/graphics on 2026-10-22, then recorded approval in the manifest.
+This is not a human-review claim or live curation/publication proof. Complete
+database preflight and full quality validation remain mandatory before application.
+
+Approved bridge manifest SHA-256:
+
+```text
+fe1998be5842a0ca2f233670318949c51d82c58d68068851c3859f8e3560af92
+```
+
 Database preflight checks the entire batch before its first write: source
 readings, KanjiVG evidence, earlier components and free/stable placement slots.
 The current lesson target summary uses the first KANJIDIC2 priority reading;
@@ -53,6 +92,8 @@ imports must already exist.
 
 ```bash
 npm run db:curate -- --validate-only
+npm run db:curate -- --batch task-118-foundation-kanji-03 --validate-only
+npm run db:curate -- --batch task-118-foundation-kanji-03 --preflight-only
 npm run db:migrate:deploy
 npm run db:seed
 npm run db:curate
@@ -62,6 +103,13 @@ The curation command:
 
 - supports a database-free `--validate-only` manifest and validates every batch
   before writing;
+- supports strict `--batch <registered-id>` selection, validating the full
+  registry but preflighting/applying only that batch and its registered earlier
+  component closure; earlier published batches are not reapplied;
+- supports read-only `--preflight-only` for pending content; application still
+  requires independent review for every selected batch before client construction;
+- rejects unknown/repeated batch IDs, missing values, unknown/duplicate flags and
+  conflicting inspection modes before database construction;
 - records a SHA-256-addressed project-authored import run;
 - writes one component or kanji in each bounded transaction;
 - reconciles only project-authored meanings, answers, mnemonics, components,
@@ -69,10 +117,32 @@ The curation command:
 - preserves imported meanings, readings, provenance, and stroke graphics;
 - is idempotent and can resume safely after a partial failure.
 
+No selection means all registered batches, preserving the existing default.
+All current manifests are approved. All selected batches must still be reviewed
+before any application starts; a future pending batch prevents default-all
+application until approval. Negative tests use explicit pending fixture clones,
+never modifications to the approved manifests. The CLI uses
+`withNeonConnectionDefaults` and disconnects in `finally`.
+
 Use the manual `Deploy staging curation` GitHub Action for Neon. The full
 `Import staging content` workflow also applies all versioned batches after
 KANJIDIC2, KanjiVG, and JMdict so a rebuilt database does not lose curated
 course content.
+
+For the bounded bridge plus word batch 02, the parent-owned manual workflow
+accepts both optional selections:
+
+```text
+kanji_batch = task-118-foundation-kanji-03
+word_batch = task-127-foundation-words-02
+```
+
+After both manifests have final approval, this path pure-validates first,
+applies selected kanji 03, then preflights/applies selected word batch 02. That
+order publishes 一 at its registered earlier placement before 一人/一月/一日
+are checked. It avoids reapplying either old kanji batch or old published word
+answers. Blank selections retain the workflow's default-all behavior. Workflow
+wiring belongs to the parent; this slice does not edit workflows or approval dates.
 
 ## Verification
 
@@ -88,3 +158,8 @@ After applying a batch:
 
 The main course remains `DRAFT` until all 60 levels, 2,300 kanji, and 8,000
 vocabulary expression-reading pairs pass the complete Task 118 gate.
+
+Focused local checks cover the empty-component bridge, inherited stroke closure,
+occupied slot/source/graphics failures, strict CLI parsing, preserved first-two
+hashes, reuse of demo card IDs and modern/source metadata, private progress and
+idempotent selected application. No live database curation is performed locally.

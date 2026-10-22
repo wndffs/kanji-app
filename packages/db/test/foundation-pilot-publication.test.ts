@@ -710,7 +710,11 @@ function unorderedContentFixture() {
 function harness() {
   // These approval dates exist only in synthetic fixtures, not in source manifests.
   const manifest = buildFoundationPilotManifest(
-    buildMainCourseContentBatches().map((batch) => ({ ...batch, reviewedAt: "2026-10-23" })),
+    buildMainCourseContentBatches()
+      .filter((batch) =>
+        ["task-118-foundation-kanji-01", "task-118-foundation-kanji-02"].includes(batch.id),
+      )
+      .map((batch) => ({ ...batch, reviewedAt: "2026-10-23" })),
     { ...buildMainCourseWordBatch(), reviewedAt: "2026-10-23" },
   );
   const state = {

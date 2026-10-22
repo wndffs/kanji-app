@@ -3,16 +3,170 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   applyMainCourseContentBatch,
+  applyMainCourseContentBatches,
   planMainCourseContentBatch,
 } from "../prisma/curate-main-course";
 import { buildMainCourseBlueprint } from "../src/main-course";
 import { buildMainCourseContentBatches } from "../src/main-course-content";
 
 describe("main-course curation preflight and application", () => {
+  it("plans the pending one-kanji bridge using the published prior stroke, without creating components", async () => {
+    const fixture = curationFixture(true);
+    const bridge = fixture.registry[2]!;
+    const pending = { ...bridge, reviewedAt: null };
+    const plan = await planMainCourseContentBatch(fixture.db, pending, [
+      fixture.registry[0]!,
+      fixture.registry[1]!,
+      pending,
+    ]);
+    expect(plan.priorComponentLearningItemIds).toEqual(
+      new Map([["component-one-stroke", "item-component-one-stroke"]]),
+    );
+    expect(fixture.mutations).toEqual([]);
+    expect(fixture.db.component.upsert).not.toHaveBeenCalled();
+    expect(fixture.db.kanji.findUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks unreviewed/unknown selected bridge application before any database read or write", async () => {
+    const fixture = curationFixture(true);
+    const pending = { ...fixture.registry[2]!, reviewedAt: null };
+    const registry = [fixture.registry[0]!, fixture.registry[1]!, pending];
+    await expect(
+      applyMainCourseContentBatches(fixture.db, { registry, batchId: pending.id }),
+    ).rejects.toThrow("needs independent parent review");
+    await expect(
+      applyMainCourseContentBatches(fixture.db, { registry, batchId: "unknown" }),
+    ).rejects.toThrow("Unknown registered");
+    await expect(applyMainCourseContentBatches(fixture.db, { registry })).rejects.toThrow(
+      "needs independent parent review",
+    );
+    expect(fixture.readCourse).not.toHaveBeenCalled();
+    expect(fixture.mutations).toEqual([]);
+  });
+
+  it("adds only the selected bridge while reusing demo target/card IDs and preserving source, modern metadata and private progress", async () => {
+    const fixture = curationFixture(true);
+    const bridge = fixture.registry[2]!;
+    const demo = {
+      id: "demo-kanji-one",
+      targetId: "kanji-一",
+      targetType: "KANJI",
+      kind: "KANJI",
+      status: "PUBLISHED",
+    };
+    fixture.state.items.set("KANJI:kanji-一", demo);
+    const demoPlacement = {
+      courseId: "starter-demo",
+      courseLevelId: "demo-level-1",
+      sortOrder: 1,
+      learningItemId: demo.id,
+    };
+    fixture.state.placements.set("demo-level-1:1", demoPlacement);
+    for (const promptType of ["MEANING", "READING"]) {
+      const identity = {
+        learningItemId: demo.id,
+        promptType,
+        answerType: promptType,
+        locale: "ru-RU",
+      };
+      fixture.state.cards.set(JSON.stringify(identity), {
+        id: `demo-one-${promptType}`,
+        ...identity,
+        cardType: "REVIEW",
+        sortOrder: promptType === "MEANING" ? 1 : 2,
+      });
+    }
+    fixture.privateRows.srs.learningCardId = "demo-one-MEANING";
+    fixture.privateRows.override.learningCardId = "demo-one-MEANING";
+    fixture.privateRows.mnemonic.learningItemId = demo.id;
+    const source = fixture.state.kanji.get("一")!;
+    source.kanjidicSourceId = "starter:kanji:kanji-one";
+    source.jlptLevel = 5;
+    const before = structuredClone({
+      sources: fixture.state.kanji,
+      components: fixture.state.components,
+      cards: fixture.state.cards,
+      privateRows: fixture.privateRows,
+      demoPlacement,
+    });
+    const result = await applyMainCourseContentBatches(fixture.db, {
+      registry: fixture.registry,
+      batchId: bridge.id,
+    });
+    expect(result.batches).toHaveLength(1);
+    expect(result.batches[0]).toMatchObject({ id: bridge.id, components: 0, kanji: 1 });
+    expect(fixture.state.items.get("KANJI:kanji-一")!.id).toBe(demo.id);
+    expect(fixture.state.cards).toEqual(before.cards);
+    expect(fixture.state.kanji).toEqual(before.sources);
+    expect(fixture.state.components).toEqual(before.components);
+    expect(fixture.privateRows).toEqual(before.privateRows);
+    expect(fixture.state.placements.get("demo-level-1:1")).toEqual(before.demoPlacement);
+    expect(fixture.state.placements.get("level-2:21")).toMatchObject({
+      learningItemId: demo.id,
+      courseId: "main-course",
+    });
+    expect(fixture.state.dependencies).toEqual([
+      {
+        learningItemId: demo.id,
+        prerequisiteItemId: "item-component-one-stroke",
+        dependencyType: "PREREQUISITE",
+        requiredStage: 1,
+      },
+    ]);
+    expect(
+      fixture.state.answers
+        .filter((answer) => answer.learningCardId === "demo-one-READING")
+        .map((answer) => answer.text),
+    ).toEqual(["いち"]);
+    expect(fixture.db.component.upsert).not.toHaveBeenCalled();
+    expect(fixture.db.kanji.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { character: "一" } }),
+    );
+    expect(fixture.state.runs.size).toBe(1);
+    const first = identitySnapshot(fixture);
+    await applyMainCourseContentBatches(fixture.db, {
+      registry: fixture.registry,
+      batchId: bridge.id,
+    });
+    expect(identitySnapshot(fixture)).toEqual(first);
+    expect(fixture.state.kanji).toEqual(before.sources);
+    expect(fixture.privateRows).toEqual(before.privateRows);
+    expect(fixture.privateMutation).not.toHaveBeenCalled();
+  });
+
+  it.each(["component", "placement", "reading", "graphics"])(
+    "blocks invalid bridge %s evidence before writes",
+    async (condition) => {
+      const fixture = curationFixture(true);
+      const bridge = fixture.registry[2]!;
+      if (condition === "component")
+        fixture.state.items.get("COMPONENT:component-one-stroke")!.status = "DRAFT";
+      if (condition === "placement")
+        fixture.state.placements.set("level-2:21", {
+          courseId: "main-course",
+          courseLevelId: "level-2",
+          sortOrder: 21,
+          learningItemId: "unrelated",
+        });
+      if (condition === "reading") fixture.state.kanji.get("一")!.readings[0]!.reading = "ひと";
+      if (condition === "graphics") fixture.state.kanji.get("一")!.strokeGraphic = null;
+      await expect(
+        applyMainCourseContentBatches(fixture.db, {
+          registry: fixture.registry,
+          batchId: bridge.id,
+        }),
+      ).rejects.toThrow();
+      expect(fixture.mutations).toEqual([]);
+      expect(fixture.transaction).not.toHaveBeenCalled();
+    },
+  );
   it("plans pending content without writes and resolves only registered, published prior items", async () => {
     const fixture = curationFixture();
-    const pending = buildMainCourseContentBatches()[1]!;
-    const plan = await planMainCourseContentBatch(fixture.db, pending);
+    const pending = { ...buildMainCourseContentBatches()[1]!, reviewedAt: null };
+    const registry = buildMainCourseContentBatches().map((batch) =>
+      batch.id === pending.id ? pending : batch,
+    );
+    const plan = await planMainCourseContentBatch(fixture.db, pending, registry);
     expect(plan.priorComponentLearningItemIds.get("component-mountain")).toBe(
       "item-component-mountain",
     );
@@ -246,6 +400,7 @@ type Card = {
   answerType: string;
   locale: string;
   sortOrder: number;
+  cardType?: string;
 };
 type Meaning = {
   kanjiId: string;
@@ -264,6 +419,9 @@ type Dependency = {
 type Answer = { learningCardId: string; text: string; sourceKind: string };
 type KanjiFixture = {
   id: string;
+  kanjidicSourceId: string;
+  jlptLevel: number | null;
+  legacyJlptLevel: number | null;
   kanjidicImportedRecordId: string | null;
   importedRecord: {
     recordType: string;
@@ -273,12 +431,15 @@ type KanjiFixture = {
   strokeGraphic: { id: string; importedRecord: { recordType: string } } | null;
 };
 
-function curationFixture() {
+function curationFixture(includeBridge = false) {
   const [first, pending] = buildMainCourseContentBatches();
   if (first === undefined || pending === undefined) throw new Error("Expected both manifests.");
   // Keep fixture approval explicit so the unreviewed-application guard is tested separately.
   const batch = { ...pending, reviewedAt: "2026-10-22" };
   const registry = [first, batch];
+  // Test-only approval never changes shipped manifest metadata.
+  if (includeBridge)
+    registry.push({ ...buildMainCourseContentBatches()[2]!, reviewedAt: "2026-10-22" });
   const mutations: string[] = [];
   const state = {
     components: new Map(
@@ -295,6 +456,9 @@ function curationFixture() {
               content.character,
               {
                 id: `kanji-${content.character}`,
+                kanjidicSourceId: `kanjidic2:${content.character.codePointAt(0)!.toString(16)}`,
+                jlptLevel: null,
+                legacyJlptLevel: null,
                 kanjidicImportedRecordId: `raw-${content.character}` as string | null,
                 importedRecord: {
                   recordType: "KANJIDIC2_CHARACTER",
