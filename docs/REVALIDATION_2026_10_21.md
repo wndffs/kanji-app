@@ -177,9 +177,11 @@ Existing reviewed manifests, pilot V1/V2 seals, card identities and learner
 enrollments are unchanged. Prepared source counts must not be reported as live
 or published counts before a successful curation/quality run. The next finite
 pilot must be separately sealed and explicitly enrolled; no silent upgrades.
-The user's latest direction is development and push only: do not manually apply
-word-06/kanji-06, publish V3, switch courses or start database workflows without
-new authorization. Existing automatic CI/deploy on push is unchanged.
+The user's updated direction is a fifteen-task development cycle before the
+next publication: `DEVELOPMENT_CYCLE_130_144.md` records its baseline, acceptance
+counter and conditional authorization. Until all fifteen pass, do not manually
+apply word-06/kanji-06 or publish a new pilot. Existing automatic CI/deploy on push
+is unchanged, and course selection remains explicit even after publication.
 
 Kanji presentation now resolves the global primary reading from the teaching
 card, with dictionary order only as a fallback. Reading evidence remains in
