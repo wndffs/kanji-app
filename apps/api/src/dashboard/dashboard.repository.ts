@@ -617,7 +617,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
       },
     })) as readonly LeechLearningItemRow[];
     const itemById = new Map(items.map((item) => [item.id, item]));
-    const targets = await this.loadTargets(items);
+    const targets = await this.loadTargets(orderedIds.map((id) => itemById.get(id)).filter((item): item is LeechLearningItemRow => item !== undefined));
 
     return Promise.all(
       orderedIds.flatMap((itemId) => {

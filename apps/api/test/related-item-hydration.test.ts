@@ -13,7 +13,7 @@ describe("related item summaries", () => {
       learningItem: { findUnique: vi.fn().mockResolvedValue(root), findMany: query },
       dependency: { findMany: vi.fn().mockResolvedValue(entries.map((learningItem) => ({ learningItem }))) },
       kanjiComponent: { findMany: vi.fn().mockResolvedValue([]) },
-      component: { findUnique: vi.fn().mockResolvedValue({ symbol: "一", meaningRu: "один", meaningEn: "one", sourceKind: "PROJECT_AUTHORED" }) },
+      component: { findUnique: vi.fn().mockResolvedValue({ symbol: "一", displayNameRu: "один", displayNameEn: "one", shapeDescriptionRu: null, shapeDescriptionEn: null, meaningRu: "один", meaningEn: "one", sourceKind: "PROJECT_AUTHORED" }) },
       word: { findUnique: vi.fn().mockResolvedValue({ expression: "本", reading: "ほん", commonnessRank: null, jlptLevel: null, senses: [], jmdictEntryId: "unused-dictionary-source" }) },
       kanji: { findUnique: vi.fn().mockResolvedValue({ character: "本", readings: [], meanings: [], jlptLevel: null, legacyJlptLevel: null, kanjidicSourceId: "unused-source" }) },
       importedRecord: { findMany: unusedRead },

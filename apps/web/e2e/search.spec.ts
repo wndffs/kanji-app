@@ -25,10 +25,10 @@ test.describe("search UI", () => {
       });
     });
     await page.goto("/search?q=学&itemType=kanji&level=1");
-    await expect(page.locator(".search-result-card")).toHaveAttribute("href", "/items/page-1");
+    await expect(page.locator("a.search-result-card")).toHaveAttribute("href", "/items/page-1");
     await page.getByRole("link", { name: "Следующая страница", exact: true }).click();
     await expect(page).toHaveURL(/page=2/);
-    await expect(page.locator(".search-result-card")).toHaveAttribute("href", "/items/page-2");
+    await expect(page.locator("a.search-result-card")).toHaveAttribute("href", "/items/page-2");
     await page.reload();
     await expect(page.getByLabel("Тип материала")).toHaveValue("kanji");
     await expect(page.getByLabel("Учебный уровень")).toHaveValue("1");
@@ -37,7 +37,7 @@ test.describe("search UI", () => {
     );
     await page.screenshot({ path: testInfo.outputPath("search-pagination.png"), fullPage: true });
     await page.goBack();
-    await expect(page.locator(".search-result-card")).toHaveAttribute("href", "/items/page-1");
+    await expect(page.locator("a.search-result-card")).toHaveAttribute("href", "/items/page-1");
     await page.getByRole("button", { name: "Искать", exact: true }).click();
     await expect(page).not.toHaveURL(/page=2/);
   });
@@ -70,7 +70,7 @@ test.describe("search UI", () => {
         page.getByRole("region", { name: "Результаты поиска" }).getByText("学校", { exact: true }),
       ).toBeVisible();
       release();
-      await expect(page.locator(".search-result-card")).toHaveAttribute(
+      await expect(page.locator("a.search-result-card")).toHaveAttribute(
         "href",
         `/items/${wordSummary.id}`,
       );

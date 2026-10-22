@@ -379,6 +379,13 @@ export class PrismaItemsRepository extends ItemsRepository {
         },
     options: ItemLookupOptions,
   ): Promise<LearningItemRow | null> {
+    if (options.summaryOnly) {
+      const item = await this.prisma.db.learningItem.findUnique({
+        where: { ...where, status: "PUBLISHED" },
+        include: { cards: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }], include: { answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] } } } },
+      });
+      return item?.status === "PUBLISHED" ? item : null;
+    }
     const item = await this.prisma.db.learningItem.findUnique({
       where: { ...where, status: "PUBLISHED" },
       include: {
@@ -386,15 +393,15 @@ export class PrismaItemsRepository extends ItemsRepository {
           orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
           include: {
             answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] },
-            blockedAnswers: options.summaryOnly ? false : { orderBy: { text: "asc" } },
-            audioAsset: options.summaryOnly ? false : {
+            blockedAnswers: { orderBy: { text: "asc" } },
+            audioAsset: {
               include: {
                 dataSource: true,
                 license: true,
               },
             },
             userOverrides:
-              options.summaryOnly || options.userId === undefined
+              options.userId === undefined
                 ? false
                 : {
                     where: { userId: options.userId },
@@ -402,16 +409,16 @@ export class PrismaItemsRepository extends ItemsRepository {
                   },
           },
         },
-        mnemonics: options.summaryOnly ? false : { orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }, { version: "desc" }] },
+        mnemonics: { orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }, { version: "desc" }] },
         userMnemonics:
-          options.summaryOnly || options.userId === undefined
+          options.userId === undefined
             ? false
             : {
                 where: { userId: options.userId },
                 orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }],
               },
-        hints: options.summaryOnly ? false : { orderBy: [{ locale: "asc" }, { hintType: "asc" }, { version: "desc" }] },
-        dependencies: options.summaryOnly ? false : {
+        hints: { orderBy: [{ locale: "asc" }, { hintType: "asc" }, { version: "desc" }] },
+        dependencies: {
           include: {
             prerequisiteItem: true,
           },

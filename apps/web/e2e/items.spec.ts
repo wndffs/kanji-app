@@ -24,9 +24,7 @@ test.describe("item details", () => {
     await page.route(`${API_BASE_URL}/items/${ITEM_ID}`, async (route) => {
       const item = buildItemDetails([], null);
       if (route.request().headers().authorization === "Bearer new-token") {
-        item.reviewHistory = { items: [], nextCursor: null };
-        item.srs = null;
-        item.nextReviewAt = null;
+        Object.assign(item, { reviewHistory: { items: [], nextCursor: null }, srs: null, nextReviewAt: null });
       }
       await route.fulfill({ json: item });
     });
