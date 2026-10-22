@@ -26,6 +26,68 @@ type CapturedReviewAnswerRequest = {
 };
 
 test.describe("review session", () => {
+  test("reports browser offline hints before receiving an API response", async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+    });
+    await page.goto("/login");
+    await expect(page.getByRole("status", { name: "Состояние сети" })).toContainText(
+      "Браузер сообщает: нет сети",
+    );
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    await expect(page.getByRole("status", { name: "Состояние сети" })).toContainText(
+      "Соединение с сервером ещё не подтверждено",
+    );
+  });
+
+  test("retains an unconfirmed answer across offline hints without automatic retry", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockReviewApi(page);
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+    });
+    let attempts = 0;
+    let failAnswer = true;
+    await page.route(`${API_BASE_URL}/reviews/${SESSION_ID}/answer`, async (route) => {
+      attempts++;
+      if (failAnswer) await route.abort("internetdisconnected");
+      else await route.fallback();
+    });
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение" }).click();
+    await expect(page.getByRole("status", { name: "Состояние сети" })).toBeHidden();
+    const storedBefore = await page.evaluate(() => ({ ...localStorage }));
+    await page.getByLabel("Ответ значением").fill("солнце");
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await expect(page.getByRole("status", { name: "Состояние сети" })).toContainText(
+      "Браузер сообщает: нет сети",
+    );
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Результат запроса не подтверждён" }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Ответ значением")).toHaveValue("солнце");
+    expect(await page.evaluate(() => ({ ...localStorage }))).toEqual(storedBefore);
+    await expect(page.getByText("Сессия завершена.")).toBeHidden();
+    await expect(page.getByRole("region", { name: "Результат ответа" })).toBeHidden();
+    expect(attempts).toBe(1);
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    await expect(page.getByRole("status", { name: "Состояние сети" })).toContainText(
+      "Соединение с сервером ещё не подтверждено",
+    );
+    await expect(page.getByLabel("Ответ значением")).toHaveValue("солнце");
+    expect(attempts).toBe(1);
+    failAnswer = false;
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("region", { name: "Результат ответа" })).toBeVisible();
+    await expect(page.getByRole("status", { name: "Состояние сети" })).toBeHidden();
+    await page.getByRole("button", { name: "Дальше" }).click();
+    await expect(page.getByText("Сессия завершена.")).toBeVisible();
+    expect(attempts).toBe(2);
+  });
+
   test("keeps an active snapshot paused during vacation and resumes it afterwards", async ({
     page,
   }) => {

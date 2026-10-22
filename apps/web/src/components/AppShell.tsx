@@ -21,6 +21,7 @@ import {
 } from "../lib/auth-storage";
 import { formatTranslationDisplayMode } from "../lib/dashboard-format";
 import { primaryNavigation } from "../lib/navigation";
+import { ConnectionStatus } from "./ConnectionStatus";
 
 type AppShellProps = {
   readonly children: ReactNode;
@@ -122,7 +123,10 @@ export function AppShell({ children }: AppShellProps) {
           </div>
         </div>
       </header>
-      <main className="main">{children}</main>
+      <main className="main">
+        <ConnectionStatus />
+        {children}
+      </main>
       <style jsx>{`
         @media (max-width: 920px), (max-height: 600px) {
           .topbar {

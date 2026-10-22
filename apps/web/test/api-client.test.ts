@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   ApiError,
+  API_RESPONSE_CONFIRMED_EVENT,
   apiRequest,
   applyAdminMainCourseEnrollmentRollout,
   applyAdminCourseAllocation,
@@ -25,6 +26,41 @@ import {
 } from "../src/lib/api-client";
 
 describe("apiRequest", () => {
+  it("confirms reachability only after a successful response body, without exposing request data", async () => {
+    const target = new EventTarget();
+    const events: Event[] = [];
+    target.addEventListener(API_RESPONSE_CONFIRMED_EVENT, (event) => events.push(event));
+    vi.stubGlobal("window", target);
+    try {
+      await apiRequest("/dashboard", {
+        token: "private-token",
+        fetchImpl: async () => new Response(JSON.stringify({ private: "content" })),
+      });
+      expect(events).toHaveLength(1);
+      expect(events[0]?.type).toBe(API_RESPONSE_CONFIRMED_EVENT);
+      expect(events[0]).not.toHaveProperty("detail");
+      for (const response of [
+        new Response(JSON.stringify({ message: "Сессия истекла" }), { status: 401 }),
+        new Response(JSON.stringify({ message: "Ошибка сервера" }), { status: 503 }),
+        new Response("invalid-json"),
+      ]) {
+        await expect(
+          apiRequest("/dashboard", { fetchImpl: async () => response }),
+        ).rejects.toThrow();
+      }
+      await expect(
+        apiRequest("/dashboard", {
+          fetchImpl: async () => {
+            throw new TypeError("network");
+          },
+        }),
+      ).rejects.toThrow("не подтверждён");
+      expect(events).toHaveLength(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("sends JSON requests with bearer tokens", async () => {
     let capturedInput: RequestInfo | URL | null = null;
     let capturedInit: RequestInit | undefined;
@@ -47,8 +83,50 @@ describe("apiRequest", () => {
 
     expect(capturedInput).toBe("http://localhost:3001/dashboard");
     expect(capturedInit?.method).toBe("GET");
+    expect(capturedInit?.cache).toBe("no-store");
     expect(capturedInit?.headers).toBeInstanceOf(Headers);
     expect((capturedInit?.headers as Headers).get("Authorization")).toBe("Bearer token-1");
+  });
+
+  it("does not cache writes or retry network failures", async () => {
+    let calls = 0;
+    const failure = new TypeError("Failed to fetch");
+    const fetchImpl: typeof fetch = async (_input, init) => {
+      calls++;
+      expect(init?.cache).toBe("no-store");
+      expect(init?.method).toBe("POST");
+      expect(init?.body).toBe(JSON.stringify({ answer: "солнце" }));
+      expect((init?.headers as Headers).get("Content-Type")).toBe("application/json");
+      throw failure;
+    };
+    await expect(
+      apiRequest("/reviews/session/answer", {
+        method: "POST",
+        body: { answer: "солнце" },
+        fetchImpl,
+      }),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining("Результат запроса не подтверждён"),
+      cause: failure,
+    });
+    expect(calls).toBe(1);
+  });
+
+  it("preserves abort and other non-network rejection identities", async () => {
+    for (const error of [new DOMException("Cancelled", "AbortError"), new Error("other")]) {
+      const fetchImpl: typeof fetch = async () => {
+        throw error;
+      };
+      await expect(apiRequest("/dashboard", { fetchImpl })).rejects.toBe(error);
+    }
+  });
+
+  it("preserves unauthorized status and server feedback", async () => {
+    const fetchImpl: typeof fetch = async () =>
+      new Response(JSON.stringify({ message: "Сессия истекла" }), { status: 401 });
+    await expect(apiRequest("/dashboard", { fetchImpl })).rejects.toEqual(
+      new ApiError("Сессия истекла", 401),
+    );
   });
 
   it("normalizes API error responses", async () => {

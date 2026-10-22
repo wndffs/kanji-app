@@ -214,6 +214,7 @@ export class ApiError extends Error {
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+export const API_RESPONSE_CONFIRMED_EVENT = "kanji-srs.api-response-confirmed";
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const fetchImpl = options.fetchImpl ?? fetch;
@@ -229,17 +230,34 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     headers.set("Authorization", `Bearer ${options.token}`);
   }
 
-  const response = await fetchImpl(`${API_BASE_URL}${path}`, {
+  const request: RequestInit = {
     method: options.method ?? "GET",
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
-  });
+    cache: "no-store",
+  };
+  let response: Response;
+  try {
+    response = await fetchImpl(`${API_BASE_URL}${path}`, request);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(
+        "Не удалось связаться с сервером. Проверьте подключение. Результат запроса не подтверждён; проверьте состояние перед повторной отправкой.",
+        { cause: error },
+      );
+    }
+    throw error;
+  }
 
   if (!response.ok) {
     throw new ApiError(await readErrorMessage(response), response.status);
   }
 
-  return (await response.json()) as T;
+  const body = (await response.json()) as T;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(API_RESPONSE_CONFIRMED_EVENT));
+  }
+  return body;
 }
 
 export function login(email: string, password: string): Promise<AuthSessionDto> {
