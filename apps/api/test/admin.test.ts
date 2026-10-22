@@ -1618,7 +1618,7 @@ describe("AdminService", () => {
     const contentAudit = vi
       .spyOn(databasePackage, "collectContentQualityReport")
       .mockResolvedValue({
-        policyVersion: "course-content-quality-v1",
+        policyVersion: "course-content-quality-v2",
         generatedAt: "2026-10-21T12:00:00Z",
         contentVersion: "verified-fixture",
         scannedItems: 10301,
@@ -1895,7 +1895,7 @@ describe("AdminService", () => {
 class InMemoryAdminRepository extends AdminRepository implements OverridesRepository {
   async getContentQualityPage() {
     return {
-      policyVersion: "course-content-quality-v1" as const,
+      policyVersion: "course-content-quality-v2" as const,
       scannedItems: 0,
       blockerCount: 0,
       warningCount: 0,

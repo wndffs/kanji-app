@@ -8,7 +8,7 @@ export const MIN_SPEECH_RATE = 0.5;
 export const MAX_SPEECH_RATE = 1.5;
 export const WORKSPACE_STATUS = "Готово";
 
-export const CONTENT_QUALITY_POLICY_VERSION = "course-content-quality-v1" as const;
+export const CONTENT_QUALITY_POLICY_VERSION = "course-content-quality-v2" as const;
 export const CONTENT_QUALITY_ISSUE_CODES = [
   "missing-target",
   "missing-card",

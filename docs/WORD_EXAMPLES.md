@@ -61,6 +61,8 @@ published link produces an `invalid-source` blocker even when a good example
 also exists. No valid example produces a `missing-example` blocker. There is no
 blanket waiver or fabricated exception; this change adds no exception mechanism.
 The fingerprint participates in the existing report content checksum.
+These stricter rules use `course-content-quality-v2`, invalidating confirmation
+hashes produced by the earlier v1 policy.
 
 The existing guarded PostgreSQL 18 suite
 `apps/api/test/reviews-postgres.integration.test.ts` includes real-query cases for

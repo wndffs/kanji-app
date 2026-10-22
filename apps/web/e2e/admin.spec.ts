@@ -45,7 +45,7 @@ test.describe("admin curation", () => {
       queries.push(url);
       await route.fulfill({
         json: {
-          policyVersion: "course-content-quality-v1",
+          policyVersion: "course-content-quality-v2",
           scannedItems: 50,
           blockerCount: 1,
           warningCount: 0,

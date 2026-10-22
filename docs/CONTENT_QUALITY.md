@@ -6,6 +6,12 @@ Both the admin API and CLI use these same rules. Answer normalization and
 sample acceptance reuse `packages/japanese`; course bands reuse the independent
 60-level blueprint. There are no additional external production dependencies.
 
+`course-content-quality-v2` adds direct word-example provenance, bounded
+eligibility and invalid-published-example checks. The policy participates in
+the content hash, so v1 reports/confirmation hashes are not interchangeable
+with v2 even when placement counts are identical. Historical v1 evidence
+remains historical; the next publication must recompute v2.
+
 ## Run
 
 With `DATABASE_URL` supplied securely, run:
