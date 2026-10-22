@@ -782,27 +782,22 @@ describe("LessonsService", () => {
         ...targetReads,
         userSrsState: { findMany: vi.fn().mockResolvedValue(progressRows) },
         userSettings: {
-          findUnique: vi
-            .fn()
-            .mockResolvedValue({
-              currentCourseId:
-                scenario === "stale-course" ? "unavailable-course" : "current-course",
-            }),
+          findUnique: vi.fn().mockResolvedValue({
+            currentCourseId: scenario === "stale-course" ? "unavailable-course" : "current-course",
+          }),
         },
         userEnrollment: {
-          findMany: vi
-            .fn()
-            .mockResolvedValue(
-              scenario === "stale-course"
-                ? []
-                : [
-                    {
-                      courseId: "current-course",
-                      startedAt: NOW,
-                      course: { id: "current-course", slug: "published-pilot", levels: [] },
-                    },
-                  ],
-            ),
+          findMany: vi.fn().mockResolvedValue(
+            scenario === "stale-course"
+              ? []
+              : [
+                  {
+                    courseId: "current-course",
+                    startedAt: NOW,
+                    course: { id: "current-course", slug: "published-pilot", levels: [] },
+                  },
+                ],
+          ),
         },
         learningCard: { findMany: vi.fn() },
         deck: { findFirst: vi.fn() },
