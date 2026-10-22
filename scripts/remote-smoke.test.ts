@@ -670,6 +670,9 @@ describe("remote smoke safety", () => {
     expect(workflow).toContain("https://kanji-app-rho.vercel.app");
     expect(workflow).toContain("https://kanji-srs-api.onrender.com");
     expect(workflow).toContain("japanese-foundation-pilot-v1");
+    expect(workflow).toContain("japanese-foundation-pilot-v2");
+    expect(workflow).toContain("default: v1");
+    expect(workflow).toContain("Unsupported pilot version.");
     expect(workflow).toContain("steps.audit.outputs.report_ready == 'true'");
     expect(workflow).toContain("path: ${{ runner.temp }}/remote-study-smoke.json");
   });

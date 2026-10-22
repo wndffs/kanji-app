@@ -2,6 +2,15 @@ name: Manual Remote Study Smoke
 
 on:
   workflow_dispatch:
+    inputs:
+      pilot:
+        description: Published finite pilot to audit
+        required: true
+        default: v1
+        type: choice
+        options:
+          - v1
+          - v2
 
 permissions:
   contents: read
@@ -22,9 +31,15 @@ jobs:
         env:
           STAGING_WEB_URL: https://kanji-app-rho.vercel.app
           STAGING_API_URL: https://kanji-srs-api.onrender.com
-          STAGING_SMOKE_COURSE_SLUG: japanese-foundation-pilot-v1
+          PILOT_VERSION: ${{ inputs.pilot }}
           STAGING_SMOKE_REPORT_PATH: ${{ runner.temp }}/remote-study-smoke.json
-        run: npm run smoke:remote
+        run: |
+          case "$PILOT_VERSION" in
+            v1) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v1 ;;
+            v2) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v2 ;;
+            *) echo "Unsupported pilot version."; exit 1 ;;
+          esac
+          npm run smoke:remote
       - name: Upload sanitized measurements
         if: ${{ always() && steps.audit.outputs.report_ready == 'true' }}
         uses: actions/upload-artifact@v4

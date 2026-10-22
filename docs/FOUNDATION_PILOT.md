@@ -277,7 +277,7 @@ Focused tests use synthetic persistence fixtures, the real quality validator and
 a stubbed quality-page loader. They exercise stable reapplication with reversed
 ORM collections and recreated incidental IDs both between runs and between
 preflight and the transaction, plus rejection of actual content/identity drift.
-They also preserve the pre-scope fixture checksum across unrelated main-course
+With canonical approved source fixtures, they preserve the fixture checksum across unrelated main-course
 expansion before, during and after publication, while rejecting duplicate/moved
 finite placements and extra pilot items. Quality-loader tests cover invalid
 scopes, course/cursor intersections, terminal pages and unchanged global reporting.
@@ -287,6 +287,16 @@ coverage of its database projection/pagination. No PostgreSQL/network/browser
 verification, live enrollment or publication was performed locally. No new
 dependencies, educational content, copyrighted assets or source-license changes
 are introduced.
+
+Read-only live plan [39818928167](https://github.com/wndffs/kanji-app/actions/runs/39818928167)
+at commit `2a4d785` confirmed the same original v1 UUID and content version
+`44cfcf60a4ce70a0af3452e46ac81dd7fae581b4301ac8410db3395729bd5870`
+after the main course grew to 174 items/295 cards. No publication/enrollment write
+was requested. The old test harness's invented 2026-10-23 approval dates were
+replaced with canonical 2026-10-22 dates for sealed validation; its synthetic
+persistence hash necessarily changed. This does not change the real v1 manifest
+or live content version. All 102 focused pilot tests passed after that fixture
+repair; v2 still requires its separate live plan/publication.
 
 ```sh
 npm exec -- vitest run packages/db/test/foundation-pilot.test.ts packages/db/test/foundation-pilot-publication.test.ts packages/db/test/content-quality-report.test.ts packages/db/test/content-quality.test.ts --no-cache --no-fsModuleCache --configLoader runner --maxWorkers=2

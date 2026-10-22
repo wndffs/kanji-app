@@ -5,8 +5,10 @@ whole-app installation/reminder implementation. No live run was performed while
 authoring it. A maintainer reviews and manually dispatches `Manual Remote Study
 Smoke`. There is no scheduled trigger, polling, automatic retry or paid service.
 
-The workflow uses fixed public web/API origins and the published
-`japanese-foundation-pilot-v1` slug. It needs Node 22, no dependencies or secrets.
+The workflow uses fixed public web/API origins and a strict manual `v1`/`v2`
+choice (default `v1`), mapped only to the corresponding published finite pilot
+slug. Selecting an unpublished pilot fails closed; it never publishes it.
+It needs Node 22, no dependencies or secrets.
 `npm run smoke:remote` remains the CLI entry. Both `STAGING_WEB_URL` and
 `STAGING_API_URL` must explicitly name an HTTPS origin or exact loopback HTTP
 origin (`localhost`, `127.0.0.1`, `[::1]`, optional port). Credentials, query,
