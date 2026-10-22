@@ -15,6 +15,7 @@ export const RESTORE_LIMITS = {
   outputBytes: 4096,
   stderrBytes: 65536,
   tables: 128,
+  rowsPerTable: 1_000_000,
 } as const;
 const DOCKER_SOCKET = "--host=unix:///var/run/docker.sock";
 const TABLES = new Set([
@@ -31,6 +32,7 @@ const ERROR_CODES = [
   "TARGET_NOT_EMPTY",
   "UNSUPPORTED_TABLE",
   "INVALID_INVENTORY",
+  "ROW_LIMIT_EXCEEDED",
   "INVENTORY_MISMATCH",
   "UNSUPPORTED_VERSION",
   "ARCHIVE_TOO_LARGE",
@@ -376,12 +378,68 @@ export class RestoreArchiveSink extends Writable {
 }
 
 export function quoteRestoreTable(name: string): string {
-  if (!/^[A-Za-z_][A-Za-z0-9_]{0,62}$/u.test(name) || !TABLES.has(name)) fail("UNSUPPORTED_TABLE");
+  if (typeof name !== "string" || !/^[A-Za-z_][A-Za-z0-9_]{0,62}$/u.test(name) || !TABLES.has(name))
+    fail("UNSUPPORTED_TABLE");
   return `"public"."${name}"`;
 }
-type Inventory = { version: number; tables: { name: string; rows: string }[] };
+type TableFingerprint = { name: string; rows: string; sha256: string };
+type Inventory = { version: number; tables: TableFingerprint[] };
 type Database = Pick<PrismaClient, "$transaction">;
 type Reader = Pick<Prisma.TransactionClient, "$queryRaw" | "$executeRaw">;
+
+export async function configureRestoreFingerprintReader(db: Reader): Promise<void> {
+  await db.$executeRaw(Prisma.sql`SET LOCAL TimeZone = 'UTC'`);
+  await db.$executeRaw(Prisma.sql`SET LOCAL DateStyle = 'ISO'`);
+  await db.$executeRaw(Prisma.sql`SET LOCAL IntervalStyle = 'postgres'`);
+  await db.$executeRaw(Prisma.sql`SET LOCAL extra_float_digits = 3`);
+  await db.$executeRaw(Prisma.sql`SET LOCAL bytea_output = 'hex'`);
+}
+
+function validateRowCount(rows: unknown): asserts rows is string {
+  if (typeof rows !== "string" || !/^(0|[1-9][0-9]{0,19})$/u.test(rows)) fail("INVALID_INVENTORY");
+  if (BigInt(rows) > BigInt(RESTORE_LIMITS.rowsPerTable)) fail("ROW_LIMIT_EXCEEDED");
+}
+
+function validateFingerprint(value: TableFingerprint): void {
+  if (value === null || typeof value !== "object") fail("INVALID_INVENTORY");
+  quoteRestoreTable(value.name);
+  validateRowCount(value.rows);
+  if (typeof value.sha256 !== "string" || !/^[a-f0-9]{64}$/u.test(value.sha256))
+    fail("INVALID_INVENTORY");
+}
+
+export async function readRestoreTableFingerprint(
+  db: Reader,
+  name: string,
+): Promise<TableFingerprint> {
+  const identifier = Prisma.raw(quoteRestoreTable(name));
+  const counts = await db.$queryRaw<{ name: string; rows: string }[]>(Prisma.sql`
+    SELECT ${name}::text AS name, pg_catalog.count(*)::text AS rows FROM ${identifier}
+  `);
+  if (!Array.isArray(counts) || counts.length !== 1 || counts[0]?.name !== name)
+    fail("INVALID_INVENTORY");
+  const rows = counts[0].rows;
+  // Enforce the 64 MB digest-concatenation bound before running any aggregation.
+  validateRowCount(rows);
+  const fingerprints = await db.$queryRaw<{ name: string; sha256: string }[]>(Prisma.sql`
+    SELECT ${name}::text AS name,
+      pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+        COALESCE(pg_catalog.string_agg(row_digest, '' ORDER BY row_digest COLLATE pg_catalog."C"), ''),
+        'UTF8'
+      )), 'hex') AS sha256
+    FROM (
+      SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+        pg_catalog.to_jsonb(row_value)::text, 'UTF8'
+      )), 'hex') AS row_digest
+      FROM ${identifier} AS row_value
+    ) AS row_digests
+  `);
+  if (!Array.isArray(fingerprints) || fingerprints.length !== 1 || fingerprints[0]?.name !== name)
+    fail("INVALID_INVENTORY");
+  const fingerprint = { name, rows, sha256: fingerprints[0].sha256 };
+  validateFingerprint(fingerprint);
+  return fingerprint;
+}
 async function readIdentity(db: Reader, target: boolean): Promise<number> {
   const [identity] = await db.$queryRaw<{ database: string; version: string }[]>(Prisma.sql`
     SELECT pg_catalog.current_database() AS database, pg_catalog.current_setting('server_version_num') AS version
@@ -404,8 +462,12 @@ async function readInventory(db: Reader, version: number): Promise<Inventory> {
     WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p', 'f', 'm') ORDER BY c.relname LIMIT ${RESTORE_LIMITS.tables + 1}
   `);
   if (
+    !Array.isArray(tables) ||
     !tables.length ||
     tables.length > RESTORE_LIMITS.tables ||
+    tables.some(
+      (table) => !table || typeof table.name !== "string" || typeof table.kind !== "string",
+    ) ||
     new Set(tables.map((table) => table.name)).size !== tables.length
   )
     fail("INVALID_INVENTORY");
@@ -413,29 +475,11 @@ async function readInventory(db: Reader, version: number): Promise<Inventory> {
     quoteRestoreTable(table.name);
     if (table.kind !== "r") fail("UNSUPPORTED_TABLE");
   }
-  const counts = await db.$queryRaw<{ name: string; rows: string }[]>(
-    Prisma.join(
-      tables.map(
-        ({ name }) => Prisma.sql`
-    SELECT ${name}::text AS name, pg_catalog.count(*)::text AS rows FROM ${Prisma.raw(quoteRestoreTable(name))}
-  `,
-      ),
-      " UNION ALL ",
-    ),
-  );
-  if (
-    counts.length !== tables.length ||
-    new Set(counts.map((row) => row.name)).size !== tables.length ||
-    counts.some(
-      (row) =>
-        !tables.some((table) => table.name === row.name) ||
-        !/^(0|[1-9][0-9]{0,19})$/u.test(row.rows),
-    )
-  )
-    fail("INVALID_INVENTORY");
+  const fingerprints: TableFingerprint[] = [];
+  for (const { name } of tables) fingerprints.push(await readRestoreTableFingerprint(db, name));
   return {
     version,
-    tables: counts.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
+    tables: fingerprints.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
   };
 }
 async function assertEmptyTarget(target: Database): Promise<void> {
@@ -455,7 +499,37 @@ async function assertEmptyTarget(target: Database): Promise<void> {
   );
 }
 export function compareRestoreInventories(source: Inventory, target: Inventory): void {
-  if (JSON.stringify(source.tables) !== JSON.stringify(target.tables)) fail("INVENTORY_MISMATCH");
+  for (const inventory of [source, target]) {
+    if (
+      !inventory ||
+      !Array.isArray(inventory.tables) ||
+      !inventory.tables.length ||
+      inventory.tables.length > RESTORE_LIMITS.tables ||
+      !Number.isInteger(inventory.version) ||
+      inventory.version < 140000 ||
+      inventory.version >= 190000
+    )
+      fail("INVALID_INVENTORY");
+    inventory.tables.forEach(validateFingerprint);
+    if (new Set(inventory.tables.map((table) => table.name)).size !== inventory.tables.length)
+      fail("INVALID_INVENTORY");
+  }
+  const ordered = (inventory: Inventory) =>
+    [...inventory.tables].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  const sourceTables = ordered(source);
+  const targetTables = ordered(target);
+  if (
+    sourceTables.length !== targetTables.length ||
+    sourceTables.some((table, index) => {
+      const restored = targetTables[index]!;
+      return (
+        table.name !== restored.name ||
+        table.rows !== restored.rows ||
+        table.sha256 !== restored.sha256
+      );
+    })
+  )
+    fail("INVENTORY_MISMATCH");
 }
 export function restoreFailureReport(error: unknown) {
   const code =
@@ -463,8 +537,8 @@ export function restoreFailureReport(error: unknown) {
       ? error.code
       : "REHEARSAL_FAILED";
   return {
-    schemaVersion: 1,
-    scope: "public-table-count-rehearsal",
+    schemaVersion: 2,
+    scope: "public-table-content-rehearsal",
     status: "failed",
     code,
   } as const;
@@ -612,6 +686,7 @@ export async function runDatabaseRestore(input: {
       source = await input.source.$transaction(
         async (db) => {
           await db.$executeRaw(Prisma.sql`SET TRANSACTION READ ONLY`);
+          await configureRestoreFingerprintReader(db);
           await db.$executeRaw(Prisma.sql`SET LOCAL statement_timeout = '90s'`);
           await db.$executeRaw(Prisma.sql`SET LOCAL idle_in_transaction_session_timeout = '11min'`);
           const sourceVersion = await readIdentity(db, false);
@@ -652,6 +727,7 @@ export async function runDatabaseRestore(input: {
     const target = await input.target.$transaction(
       async (db) => {
         await db.$executeRaw(Prisma.sql`SET TRANSACTION READ ONLY`);
+        await configureRestoreFingerprintReader(db);
         await db.$executeRaw(Prisma.sql`SET LOCAL statement_timeout = '90s'`);
         return readInventory(db, await readIdentity(db, true));
       },
@@ -660,8 +736,8 @@ export async function runDatabaseRestore(input: {
     checkAbort();
     compareRestoreInventories(source, target);
     return {
-      schemaVersion: 1,
-      scope: "public-table-count-rehearsal",
+      schemaVersion: 2,
+      scope: "public-table-content-rehearsal",
       status: "verified",
       versions: {
         sourcePostgres: source.version,
@@ -675,6 +751,8 @@ export async function runDatabaseRestore(input: {
         table: table.name,
         sourceRows: table.rows,
         restoredRows: target.tables[index]!.rows,
+        sourceSha256: table.sha256,
+        restoredSha256: target.tables[index]!.sha256,
       })),
     } as const;
   } catch (error) {

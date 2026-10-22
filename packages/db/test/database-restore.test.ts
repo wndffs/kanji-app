@@ -13,10 +13,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildRestoreCommand,
   compareRestoreInventories,
+  configureRestoreFingerprintReader,
   DatabaseRestoreError,
   executeRestoreCommand,
   quoteRestoreTable,
   readRestoreEnvironment,
+  readRestoreTableFingerprint,
   RESTORE_LIMITS,
   RestoreArchiveSink,
   restoreFailureReport,
@@ -32,6 +34,7 @@ const SOURCE =
 const TARGET = "postgresql://kanji_restore:synthetic-local-password@127.0.0.1:5432/kanji_restore";
 const CONTAINER = "a".repeat(64);
 const SNAPSHOT = "00000003-0000001B-1";
+const TABLE_SHA256 = "a".repeat(64);
 const CONFIG = () => validateRestoreConnections(SOURCE, TARGET, CONTAINER);
 
 afterEach(() => {
@@ -155,8 +158,8 @@ describe("restore connection and command boundaries", () => {
   });
   it("emits only allowlisted failure codes, never arbitrary diagnostics or object fields", () => {
     expect(restoreFailureReport(new Error(`${SOURCE} password secret row-data`))).toEqual({
-      schemaVersion: 1,
-      scope: "public-table-count-rehearsal",
+      schemaVersion: 2,
+      scope: "public-table-content-rehearsal",
       status: "failed",
       code: "REHEARSAL_FAILED",
     });
@@ -166,14 +169,167 @@ describe("restore connection and command boundaries", () => {
     Object.assign(known, { code: SOURCE });
     expect(restoreFailureReport(known).code).toBe("REHEARSAL_FAILED");
   });
-  it("compares the complete table inventory and decimal counts without comparing server versions", () => {
-    const source = { version: 170000, tables: [{ name: "User", rows: "10" }] };
+  it("compares the complete table inventory, decimal counts and content digests without comparing server versions", () => {
+    const source = {
+      version: 170000,
+      tables: [{ name: "User", rows: "10", sha256: TABLE_SHA256 }],
+    };
     expect(() => compareRestoreInventories(source, { ...source, version: 180000 })).not.toThrow();
     expect(() => compareRestoreInventories(source, { ...source, tables: [] })).toThrow(
-      "INVENTORY_MISMATCH",
+      "INVALID_INVENTORY",
     );
     expect(() =>
-      compareRestoreInventories(source, { ...source, tables: [{ name: "User", rows: "9" }] }),
+      compareRestoreInventories(source, {
+        ...source,
+        tables: [{ name: "User", rows: "9", sha256: TABLE_SHA256 }],
+      }),
+    ).toThrow("INVENTORY_MISMATCH");
+    expect(() =>
+      compareRestoreInventories(source, {
+        ...source,
+        tables: [{ ...source.tables[0], sha256: "b".repeat(64) }],
+      }),
+    ).toThrow("INVENTORY_MISMATCH");
+  });
+});
+
+describe("database-only content fingerprints", () => {
+  const reader = (
+    counts: unknown,
+    fingerprints: unknown = [{ name: "User", sha256: TABLE_SHA256 }],
+  ) => ({
+    $executeRaw: vi.fn(async () => 0),
+    $queryRaw: vi.fn().mockResolvedValueOnce(counts).mockResolvedValueOnce(fingerprints),
+  });
+  it("counts first, hashes all columns in PostgreSQL and exports only the aggregate", async () => {
+    const db = reader([{ name: "User", rows: "1000000" }]);
+    const result = await readRestoreTableFingerprint(db as never, "User");
+    expect(result).toEqual({ name: "User", rows: "1000000", sha256: TABLE_SHA256 });
+    const countQuery = db.$queryRaw.mock.calls[0][0] as Prisma.Sql;
+    const hashQuery = db.$queryRaw.mock.calls[1][0] as Prisma.Sql;
+    expect(countQuery.sql).toContain("pg_catalog.count(*)");
+    expect(countQuery.sql).not.toContain("sha256");
+    expect(hashQuery.sql).toContain('FROM "public"."User" AS row_value');
+    expect(hashQuery.sql).toContain("pg_catalog.to_jsonb(row_value)::text");
+    expect(hashQuery.sql).toContain('ORDER BY row_digest COLLATE pg_catalog."C"');
+    expect(hashQuery.sql).toContain("pg_catalog.string_agg(row_digest, ''");
+    expect(hashQuery.sql.match(/pg_catalog.sha256\(/gu)).toHaveLength(2);
+    expect(hashQuery.sql.match(/pg_catalog.convert_to\(/gu)).toHaveLength(2);
+    expect(hashQuery.sql).not.toMatch(/DISTINCT|md5|digest\(|json_agg/u);
+    expect(hashQuery.values).toEqual(["User"]);
+    expect(hashQuery.sql).toContain("COALESCE(");
+    expect(JSON.stringify(result)).not.toContain("row_digest");
+  });
+  it.each([
+    undefined,
+    null,
+    [],
+    [{}],
+    [{ name: "other", rows: "1" }],
+    [{ name: "User", rows: undefined }],
+    ...["-1", "01", "1.0", "private-value", "999999999999999999999", 1, null].map((rows) => [
+      { name: "User", rows },
+    ]),
+    [
+      { name: "User", rows: "1" },
+      { name: "User", rows: "1" },
+    ],
+  ])("rejects malformed count results before any hash query %#", async (counts) => {
+    const db = reader(counts);
+    await expect(readRestoreTableFingerprint(db as never, "User")).rejects.toThrow(
+      "INVALID_INVENTORY",
+    );
+    expect(db.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+  it.each(["1000001", "99999999999999999999"])(
+    "rejects over-cap count %s before aggregation",
+    async (rows) => {
+      const db = reader([{ name: "User", rows }]);
+      await expect(readRestoreTableFingerprint(db as never, "User")).rejects.toThrow(
+        "ROW_LIMIT_EXCEEDED",
+      );
+      expect(db.$queryRaw).toHaveBeenCalledTimes(1);
+    },
+  );
+  it.each([
+    undefined,
+    null,
+    [],
+    [{}],
+    [{ name: "other", sha256: TABLE_SHA256 }],
+    ...[
+      undefined,
+      "",
+      "a".repeat(63),
+      "a".repeat(65),
+      "g".repeat(64),
+      "A".repeat(64),
+      SOURCE,
+      [TABLE_SHA256],
+    ].map((sha256) => [{ name: "User", sha256 }]),
+    [
+      { name: "User", sha256: TABLE_SHA256 },
+      { name: "User", sha256: TABLE_SHA256 },
+    ],
+  ])("rejects missing, per-row-list or malformed aggregate results %#", async (fingerprints) => {
+    const db = reader([{ name: "User", rows: "0" }], fingerprints);
+    // Explicit undefined must remain a malformed mocked database response.
+    db.$queryRaw
+      .mockReset()
+      .mockResolvedValueOnce([{ name: "User", rows: "0" }])
+      .mockResolvedValueOnce(fingerprints);
+    await expect(readRestoreTableFingerprint(db as never, "User")).rejects.toThrow(
+      "INVALID_INVENTORY",
+    );
+  });
+  it("uses deterministic empty aggregate and does not query unsupported identifiers", async () => {
+    const empty = createHash("sha256").update("").digest("hex");
+    const db = reader([{ name: "User", rows: "0" }], [{ name: "User", sha256: empty }]);
+    expect((await readRestoreTableFingerprint(db as never, "User")).sha256).toBe(empty);
+    db.$queryRaw.mockClear();
+    await expect(readRestoreTableFingerprint(db as never, 'User"; private')).rejects.toThrow(
+      "UNSUPPORTED_TABLE",
+    );
+    expect(db.$queryRaw).not.toHaveBeenCalled();
+  });
+  it("configures the same canonical settings without changing read-only or search_path", async () => {
+    const db = { $executeRaw: vi.fn(async (_query: Prisma.Sql) => 0) };
+    await configureRestoreFingerprintReader(db as never);
+    expect(db.$executeRaw.mock.calls.map(([query]) => query.sql)).toEqual([
+      "SET LOCAL TimeZone = 'UTC'",
+      "SET LOCAL DateStyle = 'ISO'",
+      "SET LOCAL IntervalStyle = 'postgres'",
+      "SET LOCAL extra_float_digits = 3",
+      "SET LOCAL bytea_output = 'hex'",
+    ]);
+  });
+  it.each([
+    {},
+    { version: 180000, tables: [] },
+    { version: 180000, tables: [{ name: "User", rows: "1" }] },
+    { version: 180000, tables: [{ name: "User", rows: "-1", sha256: TABLE_SHA256 }] },
+    { version: 180000, tables: [{ name: "User", rows: "1", sha256: "private" }] },
+    {
+      version: 180000,
+      tables: Array.from({ length: 2 }, () => ({ name: "User", rows: "1", sha256: TABLE_SHA256 })),
+    },
+  ])("does not accept malformed inventories even if both sides match %#", (inventory) => {
+    expect(() => compareRestoreInventories(inventory as never, inventory as never)).toThrow(
+      "INVALID_INVENTORY",
+    );
+  });
+  it("rejects out-of-scope inventories and missing tables, not merely matching totals", () => {
+    const valid = { version: 180000, tables: [{ name: "User", rows: "1", sha256: TABLE_SHA256 }] };
+    const unknown = {
+      version: 180000,
+      tables: [{ name: "secret", rows: "1", sha256: TABLE_SHA256 }],
+    };
+    expect(() => compareRestoreInventories(unknown, unknown)).toThrow("UNSUPPORTED_TABLE");
+    expect(() =>
+      compareRestoreInventories(valid, {
+        ...valid,
+        tables: [{ name: "Word", rows: "1", sha256: TABLE_SHA256 }],
+      }),
     ).toThrow("INVENTORY_MISMATCH");
   });
 });
@@ -308,24 +464,67 @@ describe("subprocess bounds and sanitized failure", () => {
 });
 
 describe("mocked snapshot and isolated restore orchestration", () => {
-  it("holds the read-only exporting transaction through dump, compares the same-snapshot counts and removes its own archive", async () => {
+  it("reads count then fingerprint sequentially with only one query in flight across tables", async () => {
+    await withHarness(async (h) => {
+      h.condition = "multiple tables";
+      const report = await runDatabaseRestore(h.input);
+      expect(report.tableCount).toBe(3);
+      expect(h.maxInFlight()).toBe(1);
+      expect(h.tableQueries.filter((entry) => entry.startsWith("source:"))).toEqual([
+        "source:count:Word",
+        "source:hash:Word",
+        "source:count:User",
+        "source:hash:User",
+        "source:count:UserSrsState",
+        "source:hash:UserSrsState",
+      ]);
+    });
+  });
+  it("holds the read-only exporting transaction through dump, compares same-snapshot content and removes its own archive", async () => {
     await withHarness(async (h) => {
       const report = await runDatabaseRestore(h.input);
       expect(report.status).toBe("verified");
+      expect(report.schemaVersion).toBe(2);
+      expect(report.scope).toBe("public-table-content-rehearsal");
       expect(report.tables).toEqual([
-        { table: "UserSrsState", sourceRows: "7", restoredRows: "7" },
+        {
+          table: "UserSrsState",
+          sourceRows: "7",
+          restoredRows: "7",
+          sourceSha256: TABLE_SHA256,
+          restoredSha256: TABLE_SHA256,
+        },
       ]);
       expect(h.events.indexOf("source:SET TRANSACTION READ ONLY")).toBeLessThan(
         h.events.indexOf("snapshot"),
       );
       expect(h.events.indexOf("snapshot")).toBeLessThan(h.events.indexOf("source:counts"));
       expect(h.events.indexOf("source:counts")).toBeLessThan(h.events.indexOf("dump"));
+      expect(h.events.indexOf("source:counts")).toBeLessThan(
+        h.events.indexOf("source:fingerprint"),
+      );
+      expect(h.events.indexOf("source:fingerprint")).toBeLessThan(h.events.indexOf("dump"));
       expect(h.events.indexOf("dump")).toBeLessThan(h.events.indexOf("source:end"));
       expect(h.events.indexOf("source:end")).toBeLessThan(h.events.indexOf("restore"));
       expect(h.source.$transaction.mock.calls[0]?.[1]).toMatchObject({
         isolationLevel: "RepeatableRead",
       });
       expect(h.emptyChecks()).toBe(2);
+      for (const prefix of ["source", "target"]) {
+        for (const command of [
+          "TimeZone = 'UTC'",
+          "DateStyle = 'ISO'",
+          "IntervalStyle = 'postgres'",
+          "extra_float_digits = 3",
+          "bytea_output = 'hex'",
+        ]) {
+          const configured = h.events.indexOf(`${prefix}:SET LOCAL ${command}`);
+          expect(configured).toBeGreaterThan(
+            h.events.indexOf(`${prefix}:SET TRANSACTION READ ONLY`),
+          );
+          expect(configured).toBeLessThan(h.events.indexOf(`${prefix}:counts`));
+        }
+      }
       expect(JSON.stringify(report)).not.toMatch(/password|neon\.tech|snapshot|private-fixture/u);
     });
   });
@@ -336,18 +535,28 @@ describe("mocked snapshot and isolated restore orchestration", () => {
     "readonly off",
     "unknown table",
     "count mismatch",
+    "content mismatch",
+    "row limit",
+    "bad digest",
     "wrong service",
   ])("fails closed on %s and always removes its own private file", async (condition) => {
     await withHarness(async (h) => {
       h.condition = condition;
       const error = await runDatabaseRestore(h.input).catch((error: unknown) => error);
       expect(restoreFailureReport(error).status).toBe("failed");
-      if (condition !== "count mismatch") expect(h.events).not.toContain("restore");
+      if (!["count mismatch", "content mismatch"].includes(condition))
+        expect(h.events).not.toContain("restore");
       if (["initial nonempty", "wrong service"].includes(condition))
         expect(h.source.$transaction).not.toHaveBeenCalled();
       if (condition === "late nonempty") expect(h.events).toContain("dump");
       if (condition === "snapshot unsupported")
         expect(restoreFailureReport(error).code).toBe("SOURCE_SNAPSHOT_UNAVAILABLE");
+      if (condition === "row limit") {
+        expect(restoreFailureReport(error).code).toBe("ROW_LIMIT_EXCEEDED");
+        expect(h.events).not.toContain("source:fingerprint");
+      }
+      if (condition === "content mismatch")
+        expect(restoreFailureReport(error).code).toBe("INVENTORY_MISMATCH");
       expect(JSON.stringify(restoreFailureReport(error))).not.toContain(SOURCE);
     });
   });
@@ -405,40 +614,85 @@ function orchestrationHarness(tempRoot: string) {
   const events: string[] = [];
   let sourceActive = false;
   let checks = 0;
-  const h = { condition: "", events, emptyChecks: () => checks };
+  let inFlight = 0;
+  let maximum = 0;
+  const tableQueries: string[] = [];
+  const h = {
+    condition: "",
+    events,
+    tableQueries,
+    maxInFlight: () => maximum,
+    emptyChecks: () => checks,
+  };
   const reader = (source: boolean) => ({
     $executeRaw: vi.fn(async (query: Prisma.Sql) => {
       events.push(`${source ? "source" : "target"}:${query.sql.trim()}`);
       return 0;
     }),
     $queryRaw: vi.fn(async (query: Prisma.Sql) => {
-      if (query.sql.includes("current_database()"))
-        return [
-          { database: source ? "neondb" : "kanji_restore", version: source ? "170005" : "180003" },
-        ];
-      if (query.sql.includes("pg_export_snapshot")) {
-        events.push("snapshot");
-        if (h.condition === "snapshot unsupported") throw new Error(SOURCE);
-        return [{ snapshot: SNAPSHOT, readonly: h.condition === "readonly off" ? "off" : "on" }];
-      }
-      if (query.sql.includes("AS count")) {
-        checks++;
+      inFlight++;
+      maximum = Math.max(maximum, inFlight);
+      try {
+        await Promise.resolve();
+        if (query.sql.includes("current_database()"))
+          return [
+            {
+              database: source ? "neondb" : "kanji_restore",
+              version: source ? "170005" : "180003",
+            },
+          ];
+        if (query.sql.includes("pg_export_snapshot")) {
+          events.push("snapshot");
+          if (h.condition === "snapshot unsupported") throw new Error(SOURCE);
+          return [{ snapshot: SNAPSHOT, readonly: h.condition === "readonly off" ? "off" : "on" }];
+        }
+        if (query.sql.includes("AS count")) {
+          checks++;
+          return [
+            {
+              count:
+                h.condition === "initial nonempty" ||
+                (h.condition === "late nonempty" && checks === 2)
+                  ? "1"
+                  : "0",
+            },
+          ];
+        }
+        if (query.sql.includes("c.relname AS name"))
+          return h.condition === "multiple tables"
+            ? ["Word", "User", "UserSrsState"].map((name) => ({ name, kind: "r" }))
+            : [{ name: h.condition === "unknown table" ? "unknown" : "UserSrsState", kind: "r" }];
+        if (query.sql.includes("AS sha256")) {
+          events.push(`${source ? "source" : "target"}:fingerprint`);
+          tableQueries.push(`${source ? "source" : "target"}:hash:${query.values[0]}`);
+          return [
+            {
+              name: query.values[0],
+              sha256:
+                h.condition === "bad digest"
+                  ? SOURCE
+                  : !source && h.condition === "content mismatch"
+                    ? "b".repeat(64)
+                    : TABLE_SHA256,
+            },
+          ];
+        }
+        events.push(`${source ? "source" : "target"}:counts`);
+        tableQueries.push(`${source ? "source" : "target"}:count:${query.values[0]}`);
         return [
           {
-            count:
-              h.condition === "initial nonempty" ||
-              (h.condition === "late nonempty" && checks === 2)
-                ? "1"
-                : "0",
+            name: query.values[0],
+            rows:
+              h.condition === "row limit"
+                ? "1000001"
+                : !source && h.condition === "count mismatch"
+                  ? "8"
+                  : "7",
           },
         ];
+      } finally {
+        inFlight--;
       }
-      if (query.sql.includes("c.relname AS name"))
-        return [{ name: h.condition === "unknown table" ? "unknown" : "UserSrsState", kind: "r" }];
-      events.push(`${source ? "source" : "target"}:counts`);
-      return [
-        { name: "UserSrsState", rows: !source && h.condition === "count mismatch" ? "8" : "7" },
-      ];
     }),
   });
   const source = {

@@ -18,6 +18,10 @@ import {
 } from "@kanji-srs/db";
 import { calculateNextReview, DEFAULT_SRS_STAGES } from "@kanji-srs/srs";
 import {
+  configureRestoreFingerprintReader,
+  readRestoreTableFingerprint,
+} from "../../../packages/db/src/database-restore";
+import {
   buildMainCourseWordBatch,
   wordHanCharacters,
   type MainCourseWordBatch,
@@ -1505,6 +1509,52 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
       { timeout: 15_000 },
     );
   });
+  it("fingerprints public Word content independently of insertion order and detects same-count mutations", async () => {
+    await withFixture(async () => {
+      const ids = [randomUUID(), randomUUID(), randomUUID()];
+      const rows = ids.map((id, index) => ({
+        id,
+        expression: `restore-fingerprint-${runId}-${index}`,
+        reading: `fixture-${index}`,
+        commonnessRank: null,
+        jlptLevel: null,
+        jmdictEntryId: null,
+        jmdictImportedRecordId: null,
+        createdAt: NOW,
+        updatedAt: NOW,
+      }));
+      const fingerprint = () =>
+        control.db.$transaction(
+          async (db) => {
+            await db.$executeRaw(Prisma.sql`SET TRANSACTION READ ONLY`);
+            await configureRestoreFingerprintReader(db);
+            return readRestoreTableFingerprint(db, "Word");
+          },
+          { isolationLevel: "RepeatableRead", timeout: 10_000 },
+        );
+      const empty = await fingerprint();
+      expect(empty.rows).toBe("0");
+      expect(empty.sha256).toBe("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+      try {
+        for (const data of rows) await control.db.word.create({ data });
+        const original = await fingerprint();
+        await control.db.word.deleteMany({ where: { id: { in: ids } } });
+        for (const data of [...rows].reverse()) await control.db.word.create({ data });
+        expect(await fingerprint()).toEqual(original);
+        // Keep both timestamps fixed so only the nullable rank field changes.
+        await control.db.word.update({
+          where: { id: ids[0] },
+          data: { commonnessRank: 42, updatedAt: NOW },
+        });
+        const mutated = await fingerprint();
+        expect(mutated.rows).toBe(original.rows);
+        expect(mutated.sha256).not.toBe(original.sha256);
+      } finally {
+        await control.db.word.deleteMany({ where: { id: { in: ids } } });
+      }
+      expect(await fingerprint()).toEqual(empty);
+    });
+  }, 20_000);
 });
 
 const LEGACY_JLPT_FIXTURE_UPDATED_AT = new Date("2000-01-01T00:00:00.000Z");
