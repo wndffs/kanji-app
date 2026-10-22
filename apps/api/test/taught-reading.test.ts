@@ -21,7 +21,7 @@ function harness(hasTaughtReading = true) {
     promptType,
     answerType: promptType,
     sortOrder: promptType === "MEANING" ? 0 : 1,
-    answers: [answer(text, promptType === "MEANING" ? "en-US" : "ja-JP", promptType)],
+    answers: [answer(text, promptType === "MEANING" ? "en-US" : "ru-RU", promptType)],
     blockedAnswers: [],
     userOverrides: [],
     audioAsset: null,

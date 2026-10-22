@@ -181,7 +181,7 @@ describe.each(["course", "deck"] as const)("%s lesson target batching", (source)
         answerType: "READING",
         sortOrder: 2,
         answers: [
-          { locale: "ja-JP", text, normalizedText: text, answerKind: "READING", isPrimary: true },
+          { locale: "ru-RU", text, normalizedText: text, answerKind: "READING", isPrimary: true },
         ],
       });
     }

@@ -9,7 +9,7 @@ import {
 const reading = (text: string): PrimaryTaughtReadingCard => ({
   answerType: "READING",
   promptType: "READING",
-  answers: [{ text, locale: "ja-JP", answerKind: "READING", isPrimary: true }],
+  answers: [{ text, locale: "ru-RU", answerKind: "READING", isPrimary: true }],
 });
 
 describe("primary taught reading", () => {
@@ -32,19 +32,19 @@ describe("primary taught reading", () => {
     [
       {
         ...reading("こめ"),
-        answers: [{ text: "rice", locale: "en-US", answerKind: "READING", isPrimary: true }],
+        answers: [{ text: "こめ", locale: "fr-FR", answerKind: "READING", isPrimary: true }],
       },
     ],
     [
       {
         ...reading("こめ"),
-        answers: [{ text: "米", locale: "ja-JP", answerKind: "MEANING", isPrimary: true }],
+        answers: [{ text: "米", locale: "ru-RU", answerKind: "MEANING", isPrimary: true }],
       },
     ],
     [
       {
         ...reading("こめ"),
-        answers: [{ text: "べい", locale: "ja-JP", answerKind: "READING", isPrimary: false }],
+        answers: [{ text: "べい", locale: "ru-RU", answerKind: "READING", isPrimary: false }],
       },
     ],
   ])("falls back when there is no eligible taught primary (%#)", (cards) => {
@@ -60,6 +60,23 @@ describe("primary taught reading", () => {
     expect(resolvePrimaryTaughtReading(cards, "ベイ")).toBe("こめ");
   });
 
+  it.each(["ru-RU", "en-US"])(
+    "uses the learner locale, not the script of the answer (%s)",
+    (locale) => {
+      expect(
+        resolvePrimaryTaughtReading(
+          [
+            {
+              ...reading("こめ"),
+              answers: [{ text: "こめ", locale, answerKind: "READING", isPrimary: true }],
+            },
+          ],
+          "ベイ",
+        ),
+      ).toBe("こめ");
+    },
+  );
+
   it("selects only global Japanese primary reading answers without extra item queries", () => {
     expect(primaryTaughtReadingCards).toEqual({
       where: { answerType: "READING", promptType: { not: "LISTENING" } },
@@ -68,7 +85,7 @@ describe("primary taught reading", () => {
         answerType: true,
         promptType: true,
         answers: {
-          where: { answerKind: "READING", locale: "ja-JP", isPrimary: true },
+          where: { answerKind: "READING", locale: { in: ["ru-RU", "en-US"] }, isPrimary: true },
           orderBy: { text: "asc" },
           select: { text: true, locale: true, answerKind: true, isPrimary: true },
         },

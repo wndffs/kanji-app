@@ -18,7 +18,7 @@ export const primaryTaughtReadingCards = {
     answerType: true,
     promptType: true,
     answers: {
-      where: { answerKind: "READING", locale: "ja-JP", isPrimary: true },
+      where: { answerKind: "READING", locale: { in: ["ru-RU", "en-US"] }, isPrimary: true },
       orderBy: { text: "asc" },
       select: { text: true, locale: true, answerKind: true, isPrimary: true },
     },
@@ -35,7 +35,7 @@ export function resolvePrimaryTaughtReading(
       if (
         answer.isPrimary &&
         answer.answerKind === "READING" &&
-        answer.locale === "ja-JP" &&
+        (answer.locale === "ru-RU" || answer.locale === "en-US") &&
         answer.text.trim() !== ""
       )
         return answer.text.trim();

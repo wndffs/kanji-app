@@ -8,6 +8,7 @@ import {
 } from "../prisma/curate-main-course";
 import { buildMainCourseBlueprint } from "../src/main-course";
 import { buildMainCourseContentBatches } from "../src/main-course-content";
+import { resolvePrimaryTaughtReading } from "../src/taught-reading";
 
 describe("main-course curation preflight and application", () => {
   it.each([
@@ -176,6 +177,17 @@ describe("main-course curation preflight and application", () => {
           .filter((answer) => answer.learningCardId === card.id)
           .map((answer) => answer.text),
       ).toEqual([primary]);
+      expect(
+        resolvePrimaryTaughtReading(
+          [
+            {
+              ...card,
+              answers: fixture.state.answers.filter((answer) => answer.learningCardId === card.id),
+            },
+          ],
+          firstReading,
+        ),
+      ).toBe(primary);
       expect(fixture.state.kanji).toEqual(before.kanji);
       expect(fixture.privateRows).toEqual(before.privateRows);
       expect(fixture.privateMutation).not.toHaveBeenCalled();
