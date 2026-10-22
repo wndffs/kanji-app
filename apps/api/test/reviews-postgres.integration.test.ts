@@ -1441,7 +1441,9 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
           await db.$executeRaw`INSERT INTO "Word" VALUES (${id}::uuid, ${v.expression}, ${v.reading}, ${v.entry}, ${v.linked ? id : null}::uuid, TIMESTAMP '2000-01-01')`;
           await db.$executeRaw`INSERT INTO "WordSense" VALUES (${id}::uuid, 'ru-RU', ${v.senseKind}, ${v.ru}), (${id}::uuid, 'en-US', ${v.senseKind}, ${v.en})`;
         }
-        const provenanceBefore = await db.$queryRaw`SELECT * FROM "ImportedRecord" ORDER BY "id"`;
+        const readProvenance = () =>
+          db.$queryRaw`SELECT to_jsonb(record) AS record FROM "ImportedRecord" AS record ORDER BY record."id"`;
+        const provenanceBefore = await readProvenance();
         const sensesBefore =
           await db.$queryRaw`SELECT * FROM "WordSense" ORDER BY "wordId", "locale"`;
         expect(await db.$executeRawUnsafe(migration)).toBe(2);
@@ -1460,9 +1462,7 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
         }
         expect(await db.$executeRawUnsafe(migration)).toBe(0);
         expect(await db.$queryRaw`SELECT * FROM "Word" ORDER BY "id"`).toEqual(actual);
-        expect(await db.$queryRaw`SELECT * FROM "ImportedRecord" ORDER BY "id"`).toEqual(
-          provenanceBefore,
-        );
+        expect(await readProvenance()).toEqual(provenanceBefore);
         expect(await db.$queryRaw`SELECT * FROM "WordSense" ORDER BY "wordId", "locale"`).toEqual(
           sensesBefore,
         );
