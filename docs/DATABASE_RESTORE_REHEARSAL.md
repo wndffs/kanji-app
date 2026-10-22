@@ -3,7 +3,7 @@
 This bounded Task124 exercise compares counts and content fingerprints from a
 read-only snapshot of the app's `public` schema against a fresh, isolated
 PostgreSQL 18 service. Version 2 reports use `schemaVersion: 2` and scope
-`public-table-content-rehearsal`. No live version-2 run has been verified yet.
+`public-table-content-rehearsal`. The live version-2 proof is recorded below.
 It is **not** production
 disaster-recovery approval, a retained backup, a full release gate or a promise
 that every row, index, constraint or application workflow is correct.
@@ -171,12 +171,34 @@ roles/ACLs, production recovery timing or application-level recovery. They are
 not full disaster-recovery signoff. The archive checksum identifies this dump
 and is separate from the per-table content comparison.
 
+## Version-2 Live Evidence
+
+Manual [run 39821158337](https://github.com/wndffs/kanji-app/actions/runs/39821158337)
+passed on 2026-10-22 at commit `1b4a209`, job `119972485114`. The schema-version-2
+report has status `verified`: **all 45 public table inventories, counts and
+content SHA-256 values matched**, including the populated private/progress tables.
+Source, restored server and both client tools reported PostgreSQL 18.6. The
+temporary archive was **21,541,891 bytes**, SHA-256
+`b549b9ab937e3347bb2c64dc6129cd4c1f7c328dc7c012d3341f2e9a10ab6a52`.
+Successful return includes the required owned-archive cleanup; container teardown
+also succeeded. This was not an application write freeze: all source comparisons
+used the exported snapshot rather than separate later live reads.
+
+The [only artifact](https://github.com/wndffs/kanji-app/actions/runs/39821158337/artifacts/12445135922)
+is the sanitized aggregate report, not a retained backup or raw rows. The 103
+focused guardrail tests passed before the rehearsal. Separately,
+[Study integrity 39820306284](https://github.com/wndffs/kanji-app/actions/runs/39820306284)
+passed **44 actual PostgreSQL 18 cases**, including the new same-count mutation
+and reverse-insertion fingerprint case. These are bounded content-restore proofs,
+not independent schema/sequence/role checks, application recovery, recovery-time
+measurement, retained-backup policy or full Task124 sign-off.
+
 ## Legacy Version-1 Live Evidence
 
 The evidence below belongs to `schemaVersion: 1`, scope
 `public-table-count-rehearsal`. It is not a content-fingerprint proof and must not
-be relabeled or upgraded by inference. A parent-reviewed manual run of the
-existing workflow is still required for any live version-2 verification claim.
+be relabeled or upgraded by inference. The newer version-2 evidence above is a
+separate actual run, not an inferred upgrade of this count-only result.
 
 The first manual run
 [39796378083](https://github.com/wndffs/kanji-app/actions/runs/39796378083)
@@ -210,7 +232,7 @@ One additional case in the existing PostgreSQL integration describe checks the
 actual public Word fingerprint SQL: empty-table digest, identical IDs/timestamps
 reinserted in reverse order, and a same-count single-field mutation. It creates
 synthetic rows in the isolated integration database and deletes only its exact
-IDs. This new real-SQL case has not been run locally; the parent's isolated GHA
-integration run is required. No existing integration cases were changed.
+IDs. This real-SQL case was not run locally; it passed in the isolated GHA
+integration run linked above. No existing integration cases were changed.
 Actual PostgreSQL/Neon snapshot and restore proof belongs to the parent's manual
 cloud run; local passing tests do not establish that proof.
