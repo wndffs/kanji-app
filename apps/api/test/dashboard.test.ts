@@ -249,7 +249,7 @@ describe("PrismaDashboardRepository", () => {
     );
     expect(componentFindMany).toHaveBeenCalledOnce();
     expect(componentFindMany).toHaveBeenCalledWith({
-      where: { id: { in: ["target-second", "target-first"] } },
+      where: { id: { in: ["target-first", "target-second"] } },
     });
   });
 

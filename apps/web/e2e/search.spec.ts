@@ -15,7 +15,7 @@ test.describe("search UI", () => {
       const current = Number(url.searchParams.get("page") ?? "1");
       expect(route.request().headers().authorization).toBe(`Bearer ${ACCESS_TOKEN}`);
       expect(url.searchParams.get("itemType")).toBe("kanji");
-      expect(url.searchParams.get("level")).toBe("1");
+      expect(["1", "2"]).toContain(url.searchParams.get("level"));
       await route.fulfill({
         json: {
           query: "学",
@@ -40,6 +40,11 @@ test.describe("search UI", () => {
     await expect(page.locator("a.search-result-card")).toHaveAttribute("href", "/items/page-1");
     await page.getByRole("button", { name: "Искать", exact: true }).click();
     await expect(page).not.toHaveURL(/page=2/);
+    await page.getByLabel("Учебный уровень").fill("2");
+    await page.getByRole("button", { name: "Искать", exact: true }).click();
+    await expect(page).toHaveURL(/itemType=kanji&level=2/);
+    await expect(page).not.toHaveURL(/page=/);
+    await expect(page.locator("a.search-result-card")).toHaveAttribute("href", "/items/page-1");
   });
 
   test("a superseded result cannot overwrite a newer search", async ({ page }) => {
