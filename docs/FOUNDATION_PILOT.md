@@ -106,6 +106,9 @@ Publication first plans without mutations. It then opens one bounded
 `Serializable` transaction, repeats all preconditions and compares the finite
 content checksum with the outside plan. It creates/reuses only the pilot course,
 its five levels and its 100 placements, using the existing item IDs. The new
+placements use a single bounded `createMany` with duplicate skipping, rather
+than 100 sequential network upserts; existing placements are validated before
+that call and never updated by it. The new
 course stays draft until full pilot quality and repeated main-course quality
 match the original snapshot inside that transaction. Any mismatch or database
 error rolls back the whole publication. There is no automatic serialization

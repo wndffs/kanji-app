@@ -217,6 +217,15 @@ describe("finite pilot publication", () => {
     expect(pilotLevels).toHaveLength(5);
     const pilotPlacements = fixture.pilotPlacements(result.courseId);
     expect(pilotPlacements).toHaveLength(100);
+    expect(fixture.db.courseLevelItem.createMany).toHaveBeenCalledTimes(1);
+    expect(fixture.db.courseLevelItem.createMany).toHaveBeenCalledWith({
+      skipDuplicates: true,
+      data: expect.any(Array),
+    });
+    expect(vi.mocked(fixture.db.courseLevelItem.createMany).mock.calls[0]?.[0]?.data).toHaveLength(
+      100,
+    );
+    expect(fixture.db.courseLevelItem.upsert).not.toHaveBeenCalled();
     expect(new Set(pilotPlacements.map((row) => row.learningItemId))).toEqual(
       new Set(fixture.state.items.keys()),
     );
@@ -904,11 +913,24 @@ function harness() {
               learningItem: state.items.get(String(row.learningItemId)),
             })),
       ),
-      upsert: upsert(
-        "placement.upsert",
-        state.placements,
-        (args) => (row) => matches(row, args.where.courseLevelId_learningItemId),
-      ),
+      upsert: forbidden,
+      createMany: vi.fn(({ data, skipDuplicates }: { data: Row[]; skipDuplicates: boolean }) => {
+        expect(skipDuplicates).toBe(true);
+        mutations.push("placement.createMany");
+        let count = 0;
+        for (const input of data) {
+          const existing = [...state.placements.values()].some(
+            (row) =>
+              row.courseLevelId === input.courseLevelId &&
+              row.learningItemId === input.learningItemId,
+          );
+          if (existing) continue;
+          const row = { ...input, id: `new-${++sequence}` };
+          state.placements.set(row.id, row);
+          count++;
+        }
+        return { count };
+      }),
     },
     component: {
       findMany: vi.fn(async () =>

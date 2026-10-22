@@ -777,6 +777,7 @@ export async function publishFoundationPilot(
         status: "DRAFT",
       },
     });
+    const levelIds = new Map<number, string>();
     for (const level of manifest.levels) {
       const target = await db.courseLevel.upsert({
         where: { courseId_levelNumber: { courseId: course.id, levelNumber: level.levelNumber } },
@@ -790,24 +791,18 @@ export async function publishFoundationPilot(
           passPolicyJson: toJson(level.passPolicyJson),
         },
       });
-      for (const item of plan.items.filter((item) => item.levelNumber === level.levelNumber))
-        await db.courseLevelItem.upsert({
-          where: {
-            courseLevelId_learningItemId: {
-              courseLevelId: target.id,
-              learningItemId: item.learningItemId,
-            },
-          },
-          update: {},
-          create: {
-            courseLevelId: target.id,
-            learningItemId: item.learningItemId,
-            sortOrder: item.sortOrder,
-            unlockPolicyJson:
-              item.unlockPolicyJson === null ? Prisma.DbNull : toJson(item.unlockPolicyJson),
-          },
-        });
+      levelIds.set(level.levelNumber, target.id);
     }
+    await db.courseLevelItem.createMany({
+      skipDuplicates: true,
+      data: plan.items.map((item) => ({
+        courseLevelId: levelIds.get(item.levelNumber)!,
+        learningItemId: item.learningItemId,
+        sortOrder: item.sortOrder,
+        unlockPolicyJson:
+          item.unlockPolicyJson === null ? Prisma.DbNull : toJson(item.unlockPolicyJson),
+      })),
+    });
     const pilotQuality = await scanQuality(db, manifest.slug, plan.items);
     const repeatedMainQuality = await scanQuality(db, SOURCE_COURSE_SLUG, plan.items);
     if (
