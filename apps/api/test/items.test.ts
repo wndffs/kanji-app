@@ -6,6 +6,7 @@ import { ItemsService } from "../src/items/items.service";
 import {
   type ItemLookupOptions,
   type ItemRecord,
+  type SearchParams,
   type ItemReviewHistoryLookup,
   type ItemReviewHistoryRecord,
   localizedText,
@@ -362,12 +363,13 @@ class InMemoryItemsRepository extends ItemsRepository {
     return item === undefined ? null : filterForUser(item, options.userId);
   }
 
-  async searchItems(query: string, options: ItemLookupOptions): Promise<readonly ItemRecord[]> {
-    const normalizedQuery = query.toLowerCase();
-
-    return this.items
+  async searchItems(params: SearchParams, options: ItemLookupOptions) {
+    const normalizedQuery = params.query.toLowerCase();
+    const matching = this.items
       .filter((item) => matchesItem(item, normalizedQuery))
       .map((item) => filterForUser(item, options.userId));
+    const offset = (params.page - 1) * params.limit;
+    return { items: matching.slice(offset, offset + params.limit), total: matching.length };
   }
 
   async findItemReviewHistory(

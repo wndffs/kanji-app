@@ -116,21 +116,20 @@ export class ItemsService {
   ): Promise<SearchResponseDto> {
     const params = parseSearchParams(rawQuery);
     const displayMode = getDisplayMode(currentUser);
-    const records = await this.itemsRepository.searchItems(params.query, {
+    const records = await this.itemsRepository.searchItems(params, {
       userId: currentUser?.id,
       includeExamples: false,
     });
     const offset = (params.page - 1) * params.limit;
-    const paginatedRecords = records.slice(offset, offset + params.limit);
 
     return {
       query: params.query,
-      items: paginatedRecords.map((item) => toItemSummary(item, displayMode)),
+      items: records.items.map((item) => toItemSummary(item, displayMode)),
       pagination: {
         page: params.page,
         limit: params.limit,
-        total: records.length,
-        hasNextPage: offset + params.limit < records.length,
+        total: records.total,
+        hasNextPage: offset + params.limit < records.total,
       },
     };
   }
@@ -161,7 +160,7 @@ function parseSearchParams(rawQuery: ParsedSearchQuery): SearchParams {
 
   return {
     query,
-    page: parsePositiveInteger(getSingleQueryValue(rawQuery.page), DEFAULT_SEARCH_PAGE, "page"),
+    page: parsePositiveInteger(getSingleQueryValue(rawQuery.page), DEFAULT_SEARCH_PAGE, "page", 10_000),
     limit: parsePositiveInteger(
       getSingleQueryValue(rawQuery.limit),
       DEFAULT_SEARCH_LIMIT,

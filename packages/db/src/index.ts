@@ -11,6 +11,7 @@ export * from "./content-quality-report";
 export * from "./connection-defaults";
 export * from "./word-examples";
 export * from "./taught-reading";
+export * from "./item-search";
 
 export type DatabaseConnectionConfig = {
   databaseUrl: string;

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { loadItemExampleSentences, resolvePrimaryTaughtReading } from "@kanji-srs/db";
+import { findPublishedItemSearchPage, loadItemExampleSentences, resolvePrimaryTaughtReading } from "@kanji-srs/db";
 import { calculateLeechScore, type LeechScoreResult } from "@kanji-srs/srs";
 import {
   formatKanjiJlptLevel,
@@ -21,6 +21,8 @@ import {
   type ItemBlockedAnswerRecord,
   type ItemCardRecord,
   type ItemLookupOptions,
+  type ItemSearchPageRecord,
+  type SearchParams,
   type ItemRecord,
   type ItemRelationGroupRecord,
   type ItemRelationRecord,
@@ -41,7 +43,7 @@ export abstract class ItemsRepository {
     character: string,
     options: ItemLookupOptions,
   ): Promise<ItemRecord | null>;
-  abstract searchItems(query: string, options: ItemLookupOptions): Promise<readonly ItemRecord[]>;
+  abstract searchItems(params: SearchParams, options: ItemLookupOptions): Promise<ItemSearchPageRecord>;
   abstract findItemReviewHistory(
     learningItemId: string,
     userId: string,
@@ -254,7 +256,7 @@ export class PrismaItemsRepository extends ItemsRepository {
   async findItemById(id: string, options: ItemLookupOptions): Promise<ItemRecord | null> {
     const item = await this.findLearningItem({ id }, options);
 
-    return item === null ? null : this.toItemRecord(item, { ...options, relationDepth: 1 });
+    return item === null ? null : this.toItemRecord(item, { ...options, relationDepth: options.includeRelations === false ? 0 : 1 });
   }
 
   async findKanjiItemByCharacter(
@@ -283,19 +285,19 @@ export class PrismaItemsRepository extends ItemsRepository {
     return item === null ? null : this.toItemRecord(item, { ...options, relationDepth: 1 });
   }
 
-  async searchItems(query: string, options: ItemLookupOptions): Promise<readonly ItemRecord[]> {
-    const itemIds = await this.findMatchingItemIds(query);
+  async searchItems(params: SearchParams, options: ItemLookupOptions): Promise<ItemSearchPageRecord> {
+    const page = await findPublishedItemSearchPage(this.prisma.db, params);
     const records: ItemRecord[] = [];
 
-    for (const id of itemIds) {
-      const item = await this.findItemById(id, options);
+    for (const id of page.ids) {
+      const item = await this.findItemById(id, { ...options, includeExamples: false, includeRelations: false });
 
       if (item !== null) {
         records.push(item);
       }
     }
 
-    return records;
+    return { items: records, total: page.total };
   }
 
   async findItemReviewHistory(
@@ -399,135 +401,6 @@ export class PrismaItemsRepository extends ItemsRepository {
     });
 
     return item?.status === "PUBLISHED" ? (item as LearningItemRow) : null;
-  }
-
-  private async findMatchingItemIds(query: string): Promise<readonly string[]> {
-    const itemIds = new Set<string>();
-    const contains = { contains: query, mode: "insensitive" as const };
-
-    const [
-      directItems,
-      components,
-      kanji,
-      kanjiReadings,
-      kanjiMeanings,
-      words,
-      wordSenses,
-      sentences,
-      answers,
-    ] = await Promise.all([
-      this.prisma.db.learningItem.findMany({
-        where: { title: contains, status: "PUBLISHED" },
-        select: { id: true },
-        orderBy: { title: "asc" },
-      }),
-      this.prisma.db.component.findMany({
-        where: {
-          OR: [
-            { symbol: query },
-            { displayNameRu: contains },
-            { displayNameEn: contains },
-            { shapeDescriptionRu: contains },
-            { shapeDescriptionEn: contains },
-            { meaningRu: contains },
-            { meaningEn: contains },
-          ],
-        },
-        select: { id: true },
-      }),
-      this.prisma.db.kanji.findMany({
-        where: { character: { contains: query } },
-        select: { id: true },
-      }),
-      this.prisma.db.kanjiReading.findMany({
-        where: { reading: { contains: query } },
-        select: { kanjiId: true },
-      }),
-      this.prisma.db.kanjiMeaning.findMany({
-        where: { meaning: contains },
-        select: { kanjiId: true },
-      }),
-      this.prisma.db.word.findMany({
-        where: {
-          OR: [{ expression: { contains: query } }, { reading: { contains: query } }],
-        },
-        select: { id: true },
-      }),
-      this.prisma.db.wordSense.findMany({
-        where: { meaning: contains },
-        select: { wordId: true },
-      }),
-      this.prisma.db.sentence.findMany({
-        where: {
-          OR: [
-            { japaneseText: { contains: query } },
-            { readingText: { contains: query } },
-            { translationRu: contains },
-            { translationEn: contains },
-          ],
-        },
-        select: { id: true },
-      }),
-      this.prisma.db.learningAnswer.findMany({
-        where: { text: contains, learningCard: { learningItem: { status: "PUBLISHED" } } },
-        select: { learningCard: { select: { learningItemId: true } } },
-      }),
-    ]);
-
-    for (const item of directItems) {
-      itemIds.add(item.id);
-    }
-
-    await this.addItemIdsForTargets(
-      itemIds,
-      "COMPONENT",
-      components.map((component) => component.id),
-    );
-    await this.addItemIdsForTargets(itemIds, "KANJI", [
-      ...kanji.map((row) => row.id),
-      ...kanjiReadings.map((row) => row.kanjiId),
-      ...kanjiMeanings.map((row) => row.kanjiId),
-    ]);
-    await this.addItemIdsForTargets(itemIds, "WORD", [
-      ...words.map((row) => row.id),
-      ...wordSenses.map((row) => row.wordId),
-    ]);
-    await this.addItemIdsForTargets(
-      itemIds,
-      "SENTENCE",
-      sentences.map((row) => row.id),
-    );
-
-    for (const answer of answers) {
-      itemIds.add(answer.learningCard.learningItemId);
-    }
-
-    return [...itemIds];
-  }
-
-  private async addItemIdsForTargets(
-    itemIds: Set<string>,
-    targetType: "COMPONENT" | "KANJI" | "WORD" | "SENTENCE",
-    targetIds: readonly string[],
-  ): Promise<void> {
-    const uniqueTargetIds = [...new Set(targetIds)];
-
-    if (uniqueTargetIds.length === 0) {
-      return;
-    }
-
-    const items = await this.prisma.db.learningItem.findMany({
-      where: {
-        targetType,
-        targetId: { in: uniqueTargetIds },
-        status: "PUBLISHED",
-      },
-      select: { id: true },
-    });
-
-    for (const item of items) {
-      itemIds.add(item.id);
-    }
   }
 
   private async toItemRecord(

@@ -132,6 +132,7 @@ export type ItemRecord = {
 export type ItemLookupOptions = {
   readonly userId?: string;
   readonly includeExamples?: boolean;
+  readonly includeRelations?: boolean;
 };
 
 export type SearchLookupOptions = ItemLookupOptions;
@@ -140,6 +141,11 @@ export type SearchParams = {
   readonly query: string;
   readonly page: number;
   readonly limit: number;
+};
+
+export type ItemSearchPageRecord = {
+  readonly items: readonly ItemRecord[];
+  readonly total: number;
 };
 
 export type ParsedSearchQuery = {

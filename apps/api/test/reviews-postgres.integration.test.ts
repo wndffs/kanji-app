@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   Prisma,
+  findPublishedItemSearchPage,
   getContentQualityPage,
   loadItemExampleSentences,
   loadWordExampleQuality,
@@ -127,6 +128,22 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
 
   afterAll(async () => {
     await Promise.all(clients.map((client) => client.onModuleDestroy()));
+  });
+
+  it("pages literal published search results without duplicating matching cards or exposing drafts", async () => {
+    await withFixture(async (first) => withFixture(async (second) => withFixture(async (draft) => {
+      const query = `поиск-${first.itemId}-%_'\\`;
+      for (const [index, fixture] of [first, second, draft].entries())
+        await control.db.learningItem.update({ where: { id: fixture.itemId }, data: {
+          title: query, levelHint: index + 1, status: index === 2 ? "DRAFT" : "PUBLISHED",
+        } });
+      await control.db.learningAnswer.createMany({ data: first.cardIds.map((learningCardId) => ({
+        learningCardId, text: query, normalizedText: query, locale: "ru-RU", answerKind: "MEANING", isPrimary: true,
+      })) });
+      expect(await findPublishedItemSearchPage(control.db, { query, page: 1, limit: 1 })).toEqual({ ids: [first.itemId], total: 2 });
+      expect(await findPublishedItemSearchPage(control.db, { query, page: 2, limit: 1 })).toEqual({ ids: [second.itemId], total: 2 });
+      expect(await findPublishedItemSearchPage(control.db, { query, page: 3, limit: 1 })).toEqual({ ids: [], total: 2 });
+    })));
   });
 
   it.each([false, true])(
