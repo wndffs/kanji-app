@@ -86,3 +86,11 @@ Stub unit tests cover fixed-clock, DST,
 timezone, legacy/default-off, due/audio eligibility, CAS concurrency, partial
 settings and request/auth/privacy contracts; they do not replace that migration
 or real PostgreSQL concurrency test. No external content or licence changes apply.
+
+Render deployment `dep-dbd3ufnavr4c73bl2no0` marked runtime commit `d91a06d`
+live after the migration. The original `On Commit` auto-deploy setting was restored.
+On the deployed settings page the audit profile's hour was saved as 10, reloaded
+from the server and restored to 9 while opt-in stayed off; no browser permission
+was requested. A read-only Neon check showed zero enabled preferences, zero claim
+timestamps and zero invalid hours across the two existing settings rows. Actual
+OS notification delivery remains unclaimed.
