@@ -326,7 +326,6 @@ async function upsertWord(item: StarterCourseSeedItem): Promise<string> {
     },
     update: {
       jlptLevel: item.target.jlptLevel,
-      jmdictEntryId: sourceRecordIdFor(item),
     },
     create: {
       expression: item.target.expression,

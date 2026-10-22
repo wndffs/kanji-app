@@ -1342,6 +1342,134 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
       },
     );
   });
+  it("repairs only proven legacy identities, preserving other metadata and remaining idempotent", async () => {
+    const migration = await readFile(
+      join(
+        __dirname,
+        "../../../packages/db/prisma/migrations/20261022190000_reconcile_starter_word_source_id/migration.sql",
+      ),
+      "utf8",
+    );
+    const baseline = {
+      expression: "口",
+      reading: "くち",
+      entry: "starter:word:word-kuchi",
+      linked: true,
+      recordType: "JMDICT_ENTRY",
+      sourceId: "jmdict:1275640",
+      sequence: "1275640" as unknown,
+      locales: ["ru-RU", "en-US"] as unknown,
+      importedWordCount: 1 as unknown,
+      status: "SUCCESS",
+      version: "2026-07-28",
+      checksum: "a".repeat(64),
+      source: "JMdict",
+      homepage: "https://example.test/jmdict",
+      attribution: "JMdict attribution",
+      scope: "OPEN_DATA",
+      license: "LicenseRef-JMdict-Multilingual",
+      requiresAttribution: true,
+      licenseUrl: "https://example.test/license",
+      ru: "рот",
+      en: "mouth",
+      senseKind: "IMPORTED",
+    };
+    const cases: { name: string; repair?: boolean; overrides: Partial<typeof baseline> }[] = [
+      { name: "verified", repair: true, overrides: {} },
+      { name: "reversed-locales", repair: true, overrides: { locales: ["en-US", "ru-RU"] } },
+      ...[
+        ["wrong-expression", { expression: "目" }],
+        ["wrong-reading", { reading: "こう" }],
+        ["manual-identity", { entry: "manual:口" }],
+        ["already-correct", { entry: "jmdict:1275640" }],
+        ["no-link", { linked: false }],
+        ["wrong-record", { recordType: "KANJIDIC2_CHARACTER" }],
+        ["wrong-source-id", { sourceId: "jmdict:1" }],
+        ["wrong-sequence", { sequence: "1" }],
+        ["numeric-sequence", { sequence: 1275640 }],
+        ["missing-locale", { locales: ["ru-RU"] }],
+        ["extra-locale", { locales: ["ru-RU", "en-US", "de-DE"] }],
+        ["zero-count", { importedWordCount: 0 }],
+        ["fractional-count", { importedWordCount: 1.5 }],
+        ["string-count", { importedWordCount: "1" }],
+        ["failed-run", { status: "FAILED" }],
+        ["unknown-version", { version: " Unknown " }],
+        ["empty-version", { version: " " }],
+        ["bad-checksum", { checksum: "unknown" }],
+        ["wrong-source", { source: "Other" }],
+        ["http-source", { homepage: "http://example.test" }],
+        ["no-attribution", { attribution: " " }],
+        ["private-license", { scope: "PRIVATE" }],
+        ["wrong-license", { license: "CC0" }],
+        ["no-attribution-flag", { requiresAttribution: false }],
+        ["http-license", { licenseUrl: "http://example.test" }],
+        ["no-russian", { ru: "" }],
+        ["no-english", { en: "" }],
+        ["authored-only", { senseKind: "PROJECT_AUTHORED" }],
+      ].map(([name, overrides]) => ({
+        name: name as string,
+        overrides: overrides as Partial<typeof baseline>,
+      })),
+    ];
+    await control.db.$transaction(
+      async (db) => {
+        // Temporary tables shadow every referenced public relation, including all provenance.
+        for (const definition of [
+          '"License" ("id" UUID PRIMARY KEY, "scope" TEXT, "spdxLikeId" TEXT, "requiresAttribution" BOOLEAN, "url" TEXT)',
+          '"DataSource" ("id" UUID PRIMARY KEY, "name" TEXT, "homepageUrl" TEXT, "attributionText" TEXT, "licenseId" UUID)',
+          '"ImportRun" ("id" UUID PRIMARY KEY, "dataSourceId" UUID, "status" TEXT, "sourceVersion" TEXT, "checksumSha256" TEXT)',
+          '"ImportedRecord" ("id" UUID PRIMARY KEY, "importRunId" UUID, "recordType" TEXT, "sourceRecordId" TEXT, "rawJson" JSONB)',
+          '"Word" ("id" UUID PRIMARY KEY, "expression" TEXT, "reading" TEXT, "jmdictEntryId" TEXT, "jmdictImportedRecordId" UUID, "updatedAt" TIMESTAMP(3))',
+          '"WordSense" ("wordId" UUID, "locale" TEXT, "sourceKind" TEXT, "meaning" TEXT)',
+        ])
+          await db.$executeRawUnsafe(`CREATE TEMP TABLE ${definition} ON COMMIT DROP`);
+        const rows = cases.map((entry) => ({
+          ...entry,
+          id: randomUUID(),
+          value: { ...baseline, ...entry.overrides },
+        }));
+        for (const { id, value: v } of rows) {
+          const raw = JSON.stringify({
+            sequence: v.sequence,
+            retainedLocales: v.locales,
+            importedWordCount: v.importedWordCount,
+          });
+          await db.$executeRaw`INSERT INTO "License" VALUES (${id}::uuid, ${v.scope}, ${v.license}, ${v.requiresAttribution}, ${v.licenseUrl})`;
+          await db.$executeRaw`INSERT INTO "DataSource" VALUES (${id}::uuid, ${v.source}, ${v.homepage}, ${v.attribution}, ${id}::uuid)`;
+          await db.$executeRaw`INSERT INTO "ImportRun" VALUES (${id}::uuid, ${id}::uuid, ${v.status}, ${v.version}, ${v.checksum})`;
+          await db.$executeRaw`INSERT INTO "ImportedRecord" VALUES (${id}::uuid, ${id}::uuid, ${v.recordType}, ${v.sourceId}, ${raw}::jsonb)`;
+          await db.$executeRaw`INSERT INTO "Word" VALUES (${id}::uuid, ${v.expression}, ${v.reading}, ${v.entry}, ${v.linked ? id : null}::uuid, TIMESTAMP '2000-01-01')`;
+          await db.$executeRaw`INSERT INTO "WordSense" VALUES (${id}::uuid, 'ru-RU', ${v.senseKind}, ${v.ru}), (${id}::uuid, 'en-US', ${v.senseKind}, ${v.en})`;
+        }
+        const provenanceBefore = await db.$queryRaw`SELECT * FROM "ImportedRecord" ORDER BY "id"`;
+        const sensesBefore =
+          await db.$queryRaw`SELECT * FROM "WordSense" ORDER BY "wordId", "locale"`;
+        expect(await db.$executeRawUnsafe(migration)).toBe(2);
+        const actual = await db.$queryRaw<
+          { id: string; jmdictEntryId: string; updatedAt: Date }[]
+        >`SELECT * FROM "Word" ORDER BY "id"`;
+        for (const row of rows) {
+          const word = actual.find(({ id }) => id === row.id)!;
+          expect(word, row.name).toMatchObject({
+            id: row.id,
+            jmdictEntryId: row.repair ? "jmdict:1275640" : row.value.entry,
+          });
+          expect(word.updatedAt > new Date("2000-01-01T00:00:00Z"), row.name).toBe(
+            row.repair === true,
+          );
+        }
+        expect(await db.$executeRawUnsafe(migration)).toBe(0);
+        expect(await db.$queryRaw`SELECT * FROM "Word" ORDER BY "id"`).toEqual(actual);
+        expect(await db.$queryRaw`SELECT * FROM "ImportedRecord" ORDER BY "id"`).toEqual(
+          provenanceBefore,
+        );
+        expect(await db.$queryRaw`SELECT * FROM "WordSense" ORDER BY "wordId", "locale"`).toEqual(
+          sensesBefore,
+        );
+      },
+      { timeout: 15_000 },
+    );
+  });
 });
 
 const LEGACY_JLPT_FIXTURE_UPDATED_AT = new Date("2000-01-01T00:00:00.000Z");
