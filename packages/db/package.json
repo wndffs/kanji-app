@@ -17,6 +17,7 @@
     "prisma:publish-foundation-pilot": "tsx prisma/publish-foundation-pilot.ts",
     "prisma:verify-database-restore": "tsx prisma/verify-database-restore.ts",
     "prisma:report-content-quality": "tsx prisma/report-content-quality.ts",
+    "prisma:report-editorial-registry": "tsx prisma/report-editorial-registry.ts",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
