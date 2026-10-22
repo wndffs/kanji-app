@@ -48,6 +48,12 @@ jobs:
       - name: Apply versioned main-course curation
         run: npm run db:curate
 
+      - name: Preflight reviewed vocabulary without mutations
+        run: npm run db:curate:words -- --preflight-only
+
+      - name: Apply reviewed vocabulary and original examples
+        run: npm run db:curate:words
+
       - name: Write post-curation corpus report
         run: >-
           npm run content:report --

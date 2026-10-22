@@ -1,0 +1,848 @@
+import { type PrismaClient } from "@prisma/client";
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  applyMainCourseWordBatch,
+  planMainCourseWordBatch,
+} from "../prisma/curate-main-course-words";
+import { buildMainCourseBlueprint } from "../src/main-course";
+import { buildMainCourseContentBatches } from "../src/main-course-content";
+import {
+  AUTHORED_WORD_PART_OF_SPEECH,
+  buildMainCourseWordBatch,
+  type MainCourseWordContent,
+} from "../src/main-course-word-content";
+
+describe("bounded vocabulary curation", () => {
+  it("blocks all reads and writes for an unreviewed manifest", async () => {
+    const fixture = harness();
+    await expect(
+      applyMainCourseWordBatch(fixture.db, { ...buildMainCourseWordBatch(), reviewedAt: null }),
+    ).rejects.toThrow("needs independent parent review");
+    expect(fixture.readWord).not.toHaveBeenCalled();
+    expect(fixture.readCourse).not.toHaveBeenCalled();
+    expect(fixture.mutations).toEqual([]);
+  });
+
+  it("plans all twenty exact source pairs and registered earlier prerequisites without mutations", async () => {
+    const fixture = harness();
+    const plan = await planMainCourseWordBatch(fixture.db);
+    expect(plan.words).toHaveLength(20);
+    expect(plan.words[0]).toMatchObject({
+      wordId: "word-山",
+      prerequisiteItemIds: ["kanji-item-山"],
+      sourceEvidence: {
+        sourceRecordId: "jmdict:1302680",
+        sourceVersion: "fixture-v1",
+        checksumSha256: "f".repeat(64),
+      },
+    });
+    expect(fixture.readWord).toHaveBeenCalledTimes(20);
+    expect(fixture.mutations).toEqual([]);
+    expect(fixture.transaction).not.toHaveBeenCalled();
+  });
+
+  it("accepts the real bounded-import compact provenance with exact canonical word and RU/EN senses", async () => {
+    const fixture = harness();
+    for (const word of fixture.state.words.values()) {
+      Object.assign(word.importedRecord, {
+        rawJson: {
+          sequence: word.jmdictEntryId.slice(7),
+          importedWordCount: 1,
+          retainedLocales: ["en-US", "ru-RU"],
+        },
+      });
+    }
+    expect((await planMainCourseWordBatch(fixture.db)).words).toHaveLength(20);
+    await applyMainCourseWordBatch(fixture.db, fixture.batch);
+    expect(fixture.mutations.length).toBeGreaterThan(0);
+  });
+
+  it.each([
+    "missing-ru",
+    "other-locale",
+    "no-words",
+    "fractional-count",
+    "wrong-sequence",
+    "mixed-full",
+    "missing-canonical-ru",
+  ])("rejects malformed compact provenance: %s", async (condition) => {
+    const fixture = harness();
+    const last = fixture.state.words.get("月")!;
+    const raw: Record<string, unknown> = {
+      sequence: last.jmdictEntryId.slice(7),
+      importedWordCount: 1,
+      retainedLocales: ["en-US", "ru-RU"],
+    };
+    if (condition === "missing-ru") raw.retainedLocales = ["en-US"];
+    if (condition === "other-locale") raw.retainedLocales = ["en-US", "ru-RU", "de-DE"];
+    if (condition === "no-words") raw.importedWordCount = 0;
+    if (condition === "fractional-count") raw.importedWordCount = 1.5;
+    if (condition === "wrong-sequence") raw.sequence = "0";
+    if (condition === "mixed-full") raw.readingElements = [{ reading: "げつ" }];
+    if (condition === "missing-canonical-ru")
+      last.senses = last.senses.filter((sense) => sense.locale !== "ru-RU");
+    Object.assign(last.importedRecord, { rawJson: raw });
+    await expect(applyMainCourseWordBatch(fixture.db, fixture.batch)).rejects.toThrow();
+    expect(fixture.mutations).toEqual([]);
+  });
+
+  it.each([
+    "pair",
+    "entry",
+    "record",
+    "status",
+    "version",
+    "unknown-version",
+    "checksum",
+    "license",
+    "source-url",
+    "raw-reading",
+    "restriction",
+    "raw-ru",
+    "canonical-en",
+  ])("rejects bad %s evidence on the last word before any mutation", async (condition) => {
+    const fixture = harness();
+    const last = fixture.state.words.get("月")!;
+    const run = last.importedRecord.importRun;
+    if (condition === "pair") last.reading = "げつ";
+    if (condition === "entry") last.jmdictEntryId = "jmdict:0";
+    if (condition === "record") last.importedRecord.sourceRecordId = "jmdict:0";
+    if (condition === "status") run.status = "FAILED";
+    if (condition === "version") run.sourceVersion = null;
+    if (condition === "unknown-version") run.sourceVersion = " UNKNOWN ";
+    if (condition === "checksum") run.checksumSha256 = "invalid";
+    if (condition === "license") run.dataSource.license.scope = "USER_PRIVATE";
+    if (condition === "source-url") run.dataSource.homepageUrl = "https://";
+    if (condition === "raw-reading")
+      last.importedRecord.rawJson.readingElements[0]!.reading = "げつ";
+    if (condition === "restriction")
+      last.importedRecord.rawJson.readingElements[0]!.restrictions = ["other-expression"];
+    if (condition === "raw-ru")
+      last.importedRecord.rawJson.senses[0]!.glosses =
+        last.importedRecord.rawJson.senses[0]!.glosses.filter((gloss) => gloss.locale !== "ru-RU");
+    if (condition === "canonical-en")
+      last.senses = last.senses.filter((sense) => sense.locale !== "en-US");
+    await expect(applyMainCourseWordBatch(fixture.db, fixture.batch)).rejects.toThrow();
+    expect(fixture.readWord).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: { expression_reading: { expression: "月", reading: "つき" } },
+      }),
+    );
+    expect(fixture.mutations).toEqual([]);
+    expect(fixture.transaction).not.toHaveBeenCalled();
+  });
+
+  it.each(["unpublished", "wrong-kind", "unplaced", "other-course", "moved"])(
+    "does not waive a %s registered kanji prerequisite",
+    async (condition) => {
+      const fixture = harness();
+      const item = fixture.state.items.get(key({ targetType: "KANJI", targetId: "kanji-山" }))!;
+      if (condition === "unpublished") item.status = "DRAFT";
+      if (condition === "wrong-kind") item.kind = "WORD";
+      const placement = [...fixture.state.placements.values()].find(
+        (row) => row.learningItemId === item.id,
+      )!;
+      if (condition === "unplaced")
+        fixture.state.placements.delete(
+          key({ courseLevelId: placement.courseLevelId, learningItemId: item.id }),
+        );
+      if (condition === "other-course") placement.courseId = "another-course";
+      if (condition === "moved") placement.sortOrder = 99;
+      await expect(applyMainCourseWordBatch(fixture.db, fixture.batch)).rejects.toThrow(
+        "not published at its registered earlier",
+      );
+      expect(fixture.mutations).toEqual([]);
+    },
+  );
+
+  it("rejects unregistered kanji in an example rather than using a globally published fallback", async () => {
+    const fixture = harness();
+    const first = fixture.batch.words[0]!;
+    const batch = {
+      ...fixture.batch,
+      words: [
+        { ...first, example: { ...first.example, japaneseText: "山から空をみます。" } },
+        ...fixture.batch.words.slice(1),
+      ],
+    };
+    await expect(applyMainCourseWordBatch(fixture.db, batch)).rejects.toThrow(
+      "Unregistered earlier kanji prerequisite 空",
+    );
+    expect(fixture.mutations).toEqual([]);
+    expect(fixture.readWord).not.toHaveBeenCalled();
+  });
+
+  it("blocks a last-slot collision, an existing moved word and imported sense collisions", async () => {
+    const occupied = harness();
+    occupied.state.placements.set("unrelated", {
+      id: "unrelated",
+      courseId: "main",
+      courseLevelId: "level-5",
+      sortOrder: 20,
+      learningItemId: "unrelated",
+    });
+    await expect(applyMainCourseWordBatch(occupied.db, occupied.batch)).rejects.toThrow(
+      "is occupied",
+    );
+    expect(occupied.mutations).toEqual([]);
+
+    const moved = harness();
+    moved.state.placements.set("moved-word", {
+      id: "moved-word",
+      courseId: "main",
+      courseLevelId: "level-4",
+      sortOrder: 99,
+      learningItemId: "existing-word-item",
+    });
+    await expect(applyMainCourseWordBatch(moved.db, moved.batch)).rejects.toThrow(
+      "Refusing to move",
+    );
+    expect(moved.mutations).toEqual([]);
+
+    const senses = harness();
+    senses.state.words.get("山")!.senses.push({
+      locale: "ru-RU",
+      meaning: "гора",
+      partOfSpeech: AUTHORED_WORD_PART_OF_SPEECH,
+      sourceKind: "IMPORTED",
+    });
+    await expect(applyMainCourseWordBatch(senses.db, senses.batch)).rejects.toThrow(
+      "Authored sense collision",
+    );
+    expect(senses.mutations).toEqual([]);
+  });
+
+  it("protects imported meaning/reading text while leaving unrelated imported stories alone", async () => {
+    const fixture = harness();
+    const importedHint = {
+      id: "imported-hint",
+      learningItemId: "existing-word-item",
+      locale: "ru-RU",
+      version: 1,
+      hintType: "READING",
+      sourceKind: "IMPORTED",
+      body: "source hint",
+    };
+    fixture.state.hints.set("imported-hint", importedHint);
+    await expect(applyMainCourseWordBatch(fixture.db, fixture.batch)).rejects.toThrow(
+      "Non-project teaching text",
+    );
+    expect(fixture.mutations).toEqual([]);
+    fixture.state.hints.clear();
+    const story = {
+      id: "imported-story",
+      learningItemId: "existing-word-item",
+      locale: "en-US",
+      version: 1,
+      mnemonicType: "STORY",
+      sourceKind: "IMPORTED",
+      body: "source story",
+    };
+    fixture.state.mnemonics.set("imported-story", story);
+    await applyMainCourseWordBatch(fixture.db, fixture.batch);
+    expect(fixture.state.mnemonics.get("imported-story")).toEqual(story);
+  });
+
+  it.each(["license", "source", "example"])(
+    "blocks conflicting existing %s ownership before retry mutations",
+    async (condition) => {
+      const fixture = harness();
+      await applyMainCourseWordBatch(fixture.db, fixture.batch);
+      if (condition === "license") [...fixture.state.licenses.values()][0]!.scope = "OPEN_DATA";
+      if (condition === "source")
+        [...fixture.state.sources.values()][0]!.homepageUrl = "https://foreign.invalid/";
+      if (condition === "example")
+        [...fixture.state.records.values()][0]!.recordType = "TATOEBA_SENTENCE";
+      fixture.mutations.length = 0;
+      await expect(applyMainCourseWordBatch(fixture.db, fixture.batch)).rejects.toThrow(
+        "Conflicting",
+      );
+      expect(fixture.mutations).toEqual([]);
+    },
+  );
+
+  it("creates forty stable cards, stage-two prerequisites and twenty traced examples without sentence learning items", async () => {
+    const fixture = harness();
+    const importedBefore = structuredClone(fixture.state.words);
+    const result = await applyMainCourseWordBatch(fixture.db, fixture.batch);
+    expect(result).toMatchObject({ words: 20, cards: 40, examples: 20 });
+    expect(fixture.state.words).toEqual(importedBefore);
+    expect(fixture.state.cards.size).toBe(40);
+    expect(fixture.state.mnemonics.size).toBe(80);
+    expect(fixture.state.hints.size).toBe(80);
+    expect(fixture.state.sentences.size).toBe(20);
+    expect(fixture.state.examples.size).toBe(20);
+    expect([...fixture.state.examples.values()].every((row) => row.status === "PUBLISHED")).toBe(
+      true,
+    );
+    expect([...fixture.state.dependencies.values()].every((row) => row.requiredStage === 2)).toBe(
+      true,
+    );
+    expect(fixture.state.dependencies.size).toBe(20);
+    expect(
+      [...fixture.state.items.values()].filter(
+        (item) => item.targetType === "WORD" && item.status === "PUBLISHED",
+      ),
+    ).toHaveLength(20);
+    expect([...fixture.state.items.values()].some((item) => item.targetType === "SENTENCE")).toBe(
+      false,
+    );
+    const mountainReading = [...fixture.state.cards.values()].find(
+      (card) => card.learningItemId === "existing-word-item" && card.promptType === "READING",
+    )!;
+    expect(
+      [...fixture.state.answers.values()]
+        .filter((answer) => answer.learningCardId === mountainReading.id)
+        .map((answer) => answer.text),
+    ).toEqual(["やま"]);
+    const firstSuccess = fixture.events.indexOf("run:SUCCESS");
+    expect(
+      fixture.events.slice(0, firstSuccess).filter((event) => event === "example:DRAFT"),
+    ).toHaveLength(20);
+    expect(fixture.events.slice(0, firstSuccess)).not.toContain("example:PUBLISHED");
+    expect(fixture.events.filter((event) => event === "example:PUBLISHED")).toHaveLength(20);
+    expect(
+      [...fixture.state.records.values()].every(
+        (record) =>
+          record.recordType === "PROJECT_AUTHORED" && record.importRunId === result.importRunId,
+      ),
+    ).toBe(true);
+    expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
+  });
+
+  it("reapplies without changing imported rows, existing card IDs, example IDs or private progress", async () => {
+    const fixture = harness();
+    const privateBefore = structuredClone(fixture.privateRows);
+    const importedBefore = structuredClone(fixture.state.words);
+    const initialCardIds = [...fixture.state.cards.values()].map((row) => row.id);
+    await applyMainCourseWordBatch(fixture.db, fixture.batch);
+    const identities = fixture.identities();
+    await applyMainCourseWordBatch(fixture.db, fixture.batch);
+    expect(fixture.identities()).toEqual(identities);
+    expect(fixture.state.words).toEqual(importedBefore);
+    expect(fixture.privateRows).toEqual(privateBefore);
+    expect(
+      initialCardIds.every((id) => [...fixture.state.cards.values()].some((row) => row.id === id)),
+    ).toBe(true);
+    expect(fixture.state.runs.size).toBe(1);
+    expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
+  });
+
+  it("retains earlier draft work, rolls back an interrupted word and resumes without duplicates", async () => {
+    const fixture = harness();
+    fixture.failWord("川");
+    await expect(applyMainCourseWordBatch(fixture.db, fixture.batch)).rejects.toThrow(
+      "test word interruption",
+    );
+    expect([...fixture.state.runs.values()][0]?.status).toBe("FAILED");
+    expect([...fixture.state.examples.values()].map((row) => row.status)).toEqual(["DRAFT"]);
+    expect(fixture.state.items.has(key({ targetType: "WORD", targetId: "word-川" }))).toBe(false);
+    expect(fixture.state.senses.size).toBe(2);
+    expect(fixture.events).not.toContain("run:SUCCESS");
+    const firstSentenceId = [...fixture.state.sentences.values()][0]!.id;
+    fixture.failWord(null);
+    await applyMainCourseWordBatch(fixture.db, fixture.batch);
+    expect([...fixture.state.sentences.values()][0]!.id).toBe(firstSentenceId);
+    expect(fixture.state.sentences.size).toBe(20);
+    expect(fixture.state.cards.size).toBe(40);
+    expect([...fixture.state.examples.values()].every((row) => row.status === "PUBLISHED")).toBe(
+      true,
+    );
+  });
+
+  it("rolls back premature SUCCESS and all publication when the fourth real helper validation fails", async () => {
+    const fixture = harness();
+    fixture.failPublicationAt(4);
+    await expect(applyMainCourseWordBatch(fixture.db, fixture.batch)).rejects.toThrow(
+      "Cannot publish a word example",
+    );
+    expect([...fixture.state.runs.values()][0]?.status).toBe("FAILED");
+    expect([...fixture.state.examples.values()].every((row) => row.status === "DRAFT")).toBe(true);
+    expect(
+      [...fixture.state.items.values()].filter(
+        (row) => row.targetType === "WORD" && row.status === "PUBLISHED",
+      ),
+    ).toHaveLength(1);
+    const identities = fixture.identities();
+    fixture.failPublicationAt(null);
+    await applyMainCourseWordBatch(fixture.db, fixture.batch);
+    expect(fixture.identities()).toEqual(identities);
+    expect([...fixture.state.runs.values()][0]?.status).toBe("SUCCESS");
+    expect([...fixture.state.examples.values()].every((row) => row.status === "PUBLISHED")).toBe(
+      true,
+    );
+    expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
+  });
+});
+
+type Row = Record<string, unknown> & { id: string };
+type UpsertArgs = {
+  where: Record<string, unknown>;
+  create: Record<string, unknown>;
+  update: Record<string, unknown>;
+};
+function key(value: unknown): string {
+  return JSON.stringify(value);
+}
+
+function wordSource(content: MainCourseWordContent) {
+  return {
+    id: `word-${content.expression}`,
+    expression: content.expression,
+    reading: content.reading,
+    jmdictEntryId: content.jmdictEntryId,
+    jmdictImportedRecordId: `raw-${content.expression}`,
+    senses: [
+      {
+        locale: "ru-RU",
+        meaning: "исходное словарное значение",
+        partOfSpeech: "noun",
+        sourceKind: "IMPORTED",
+      },
+      {
+        locale: "en-US",
+        meaning: "source dictionary meaning",
+        partOfSpeech: "noun",
+        sourceKind: "IMPORTED",
+      },
+    ],
+    importedRecord: {
+      id: `raw-${content.expression}`,
+      recordType: "JMDICT_ENTRY",
+      sourceRecordId: content.jmdictEntryId,
+      rawJson: {
+        sequence: content.jmdictEntryId.slice(7),
+        kanjiElements: [{ expression: content.expression }],
+        readingElements: [{ reading: content.reading, restrictions: [] as string[] }],
+        senses: [
+          {
+            glosses: [
+              { locale: "ru-RU", text: "исходное значение" },
+              { locale: "en-US", text: "source meaning" },
+            ],
+          },
+        ],
+      },
+      importRun: {
+        id: "jmdict-run",
+        dataSourceId: "jmdict-source",
+        status: "SUCCESS",
+        sourceVersion: "fixture-v1" as string | null,
+        checksumSha256: "f".repeat(64),
+        dataSource: {
+          id: "jmdict-source",
+          name: "JMdict",
+          licenseId: "jmdict-license",
+          homepageUrl: "https://www.edrdg.org/",
+          attributionText: "Synthetic JMdict metadata fixture, not imported educational content.",
+          license: {
+            id: "jmdict-license",
+            name: "EDRDG JMdict license",
+            scope: "OPEN_DATA",
+            spdxLikeId: "LicenseRef-JMdict-Multilingual",
+            url: "https://www.edrdg.org/edrdg/licence.html",
+            requiresAttribution: true,
+          },
+        },
+      },
+    },
+  };
+}
+
+function harness() {
+  const batch = { ...buildMainCourseWordBatch(), reviewedAt: "2026-10-22" };
+  const state = {
+    words: new Map(batch.words.map((content) => [content.expression, wordSource(content)])),
+    items: new Map<string, Row>(),
+    placements: new Map<string, Row>(),
+    cards: new Map<string, Row>(),
+    answers: new Map<string, Row>(),
+    senses: new Map<string, Row>(),
+    mnemonics: new Map<string, Row>(),
+    hints: new Map<string, Row>(),
+    dependencies: new Map<string, Row>(),
+    licenses: new Map<string, Row>(),
+    sources: new Map<string, Row>(),
+    runs: new Map<string, Row>(),
+    records: new Map<string, Row>(),
+    sentences: new Map<string, Row>(),
+    examples: new Map<string, Row>(),
+  };
+  for (const content of buildMainCourseContentBatches().flatMap((entry) => entry.kanji)) {
+    const item = {
+      id: `kanji-item-${content.character}`,
+      targetId: `kanji-${content.character}`,
+      targetType: "KANJI",
+      kind: "KANJI",
+      status: "PUBLISHED",
+    };
+    state.items.set(key({ targetType: "KANJI", targetId: item.targetId }), item);
+    state.placements.set(
+      key({ courseLevelId: `level-${content.levelNumber}`, learningItemId: item.id }),
+      {
+        id: `kanji-slot-${content.character}`,
+        courseId: "main",
+        courseLevelId: `level-${content.levelNumber}`,
+        learningItemId: item.id,
+        sortOrder: content.sortOrder,
+      },
+    );
+  }
+  state.items.set(key({ targetType: "WORD", targetId: "word-山" }), {
+    id: "existing-word-item",
+    targetId: "word-山",
+    targetType: "WORD",
+    kind: "WORD",
+    status: "PUBLISHED",
+  });
+  for (const promptType of ["MEANING", "READING"]) {
+    const identity = {
+      learningItemId: "existing-word-item",
+      promptType,
+      answerType: promptType,
+      locale: "ru-RU",
+    };
+    state.cards.set(key(identity), { id: `existing-${promptType}-card`, ...identity });
+  }
+  const privateRows = {
+    srs: { learningCardId: "existing-MEANING-card", stageIndex: 5, dueAt: "2026-12-01" },
+    override: { learningCardId: "existing-MEANING-card", text: "мой ответ" },
+    mnemonic: { learningItemId: "existing-word-item", body: "личная заметка" },
+  };
+  const mutations: string[] = [];
+  const events: string[] = [];
+  let sequence = 0;
+  let failedWord: string | null = null;
+  let failedPublication: number | null = null;
+  let publicationReads = 0;
+  const forbiddenMutation = vi.fn(() => {
+    throw new Error("Imported content/private state must not be mutated.");
+  });
+  const byId = (table: Map<string, Row>, id: unknown) =>
+    [...table.values()].find((row) => row.id === id);
+  const upsert = (label: string, table: Map<string, Row>, unique: string | null) =>
+    vi.fn((args: UpsertArgs) => {
+      mutations.push(label);
+      const identity = key(unique === null ? args.where : args.where[unique]);
+      const existing = table.get(identity);
+      const data = existing === undefined ? args.create : args.update;
+      if (
+        label === "hint" &&
+        failedWord !== null &&
+        byId(state.items, data.learningItemId)?.targetId === `word-${failedWord}`
+      )
+        throw new Error("test word interruption");
+      const row = {
+        ...(existing ?? args.create),
+        ...data,
+        id: existing?.id ?? `new-${++sequence}`,
+      } as Row;
+      table.set(identity, row);
+      if (label === "example") events.push(`example:${String(row.status)}`);
+      if (label === "run") events.push(`run:${String(row.status)}`);
+      return row;
+    });
+  const deleteMany = (label: string, table: Map<string, Row>) =>
+    vi.fn(({ where }: { where: Record<string, unknown> }) => {
+      mutations.push(label);
+      for (const [identity, row] of table) if (matches(row, where)) table.delete(identity);
+    });
+  const readCourse = vi.fn(async () => ({
+    id: "main",
+    levels: buildMainCourseBlueprint().levels.map((level) => ({
+      ...level,
+      id: `level-${level.levelNumber}`,
+    })),
+  }));
+  const readWord = vi.fn(
+    async ({
+      where,
+    }: {
+      where: { expression_reading: { expression: string; reading: string } };
+    }) => {
+      const word = state.words.get(where.expression_reading.expression);
+      if (word === undefined || word.reading !== where.expression_reading.reading) return null;
+      return {
+        ...word,
+        senses: [
+          ...word.senses,
+          ...[...state.senses.values()].filter((row) => row.wordId === word.id),
+        ],
+      };
+    },
+  );
+  const readSentence = vi.fn(
+    async ({
+      where,
+    }: {
+      where: { id?: string; dataSourceId_sourceId?: { dataSourceId: string; sourceId: string } };
+    }) => {
+      const sentence =
+        where.id === undefined
+          ? state.sentences.get(key(where.dataSourceId_sourceId))
+          : byId(state.sentences, where.id);
+      if (sentence === undefined) return null;
+      const source = byId(state.sources, sentence.dataSourceId)!;
+      const license = byId(state.licenses, sentence.licenseId)!;
+      const record = byId(state.records, sentence.importedRecordId)!;
+      const run = byId(state.runs, record.importRunId)!;
+      const result = {
+        ...sentence,
+        dataSource: source,
+        license,
+        importedRecord: { ...record, importRun: run },
+      };
+      if (where.id !== undefined && ++publicationReads === failedPublication)
+        return { ...result, translationEn: null };
+      return result;
+    },
+  );
+  const delegates = {
+    course: { findUnique: readCourse },
+    word: {
+      findUnique: readWord,
+      upsert: forbiddenMutation,
+      update: forbiddenMutation,
+      deleteMany: forbiddenMutation,
+    },
+    kanji: {
+      findUnique: vi.fn(async ({ where }: { where: { character: string } }) => ({
+        id: `kanji-${where.character}`,
+      })),
+    },
+    learningItem: {
+      findUnique: vi.fn(
+        async ({
+          where,
+        }: {
+          where: { targetType_targetId: { targetType: string; targetId: string } };
+        }) => {
+          const item = state.items.get(key(where.targetType_targetId));
+          return item === undefined
+            ? null
+            : {
+                ...item,
+                courseLevelItems: [...state.placements.values()].filter(
+                  (row) => row.learningItemId === item.id && row.courseId === "main",
+                ),
+                mnemonics: [...state.mnemonics.values()].filter(
+                  (row) => row.learningItemId === item.id,
+                ),
+                hints: [...state.hints.values()].filter((row) => row.learningItemId === item.id),
+              };
+        },
+      ),
+      findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) =>
+        [...state.items.values()]
+          .filter(
+            (item) =>
+              where.id.in.includes(item.id) && item.kind === "KANJI" && item.status === "PUBLISHED",
+          )
+          .map((item) => ({
+            ...item,
+            courseLevelItems: [...state.placements.values()].filter(
+              (row) => row.learningItemId === item.id && row.courseId === "main",
+            ),
+          })),
+      ),
+      upsert: upsert("item", state.items, "targetType_targetId"),
+      updateMany: vi.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where: Record<string, unknown>;
+          data: Record<string, unknown>;
+        }) => {
+          mutations.push("item.updateMany");
+          let count = 0;
+          for (const row of state.items.values())
+            if (matches(row, where)) {
+              Object.assign(row, data);
+              count++;
+            }
+          return { count };
+        },
+      ),
+    },
+    courseLevelItem: {
+      findUnique: vi.fn(
+        async ({
+          where,
+        }: {
+          where: { courseLevelId_sortOrder: { courseLevelId: string; sortOrder: number } };
+        }) =>
+          [...state.placements.values()].find(
+            (row) =>
+              row.courseLevelId === where.courseLevelId_sortOrder.courseLevelId &&
+              row.sortOrder === where.courseLevelId_sortOrder.sortOrder,
+          ) ?? null,
+      ),
+      upsert: vi.fn((args: UpsertArgs) => {
+        const row = upsert("placement", state.placements, "courseLevelId_learningItemId")(args);
+        row.courseId = "main";
+        return row;
+      }),
+    },
+    license: {
+      findUnique: vi.fn(
+        async ({ where }: { where: { name: string } }) => state.licenses.get(key(where)) ?? null,
+      ),
+      upsert: upsert("license", state.licenses, null),
+    },
+    dataSource: {
+      findUnique: vi.fn(async ({ where }: { where: { name: string } }) => {
+        const source = state.sources.get(key(where));
+        return source === undefined
+          ? null
+          : { ...source, license: byId(state.licenses, source.licenseId) };
+      }),
+      upsert: upsert("source", state.sources, null),
+    },
+    learningCard: {
+      upsert: upsert("card", state.cards, "learningItemId_promptType_answerType_locale"),
+    },
+    learningAnswer: {
+      deleteMany: deleteMany("answer.deleteMany", state.answers),
+      createMany: vi.fn(({ data }: { data: Record<string, unknown>[] }) => {
+        mutations.push("answer.createMany");
+        for (const entry of data) {
+          const id = `new-${++sequence}`;
+          state.answers.set(id, { ...entry, id });
+        }
+      }),
+    },
+    blockedAnswer: {
+      deleteMany: vi.fn(() => {
+        mutations.push("blocked.deleteMany");
+      }),
+    },
+    wordSense: {
+      deleteMany: deleteMany("sense.deleteMany", state.senses),
+      upsert: upsert("sense", state.senses, "wordId_locale_meaning_partOfSpeech"),
+    },
+    mnemonic: {
+      upsert: upsert("mnemonic", state.mnemonics, "learningItemId_locale_mnemonicType_version"),
+    },
+    hint: { upsert: upsert("hint", state.hints, "learningItemId_locale_hintType_version") },
+    dependency: {
+      deleteMany: deleteMany("dependency.deleteMany", state.dependencies),
+      createMany: vi.fn(({ data }: { data: Record<string, unknown>[] }) => {
+        mutations.push("dependency.createMany");
+        for (const entry of data)
+          state.dependencies.set(
+            key({
+              learningItemId: entry.learningItemId,
+              prerequisiteItemId: entry.prerequisiteItemId,
+            }),
+            { ...entry, id: key(entry) },
+          );
+      }),
+    },
+    sentence: {
+      findUnique: readSentence,
+      upsert: upsert("sentence", state.sentences, "dataSourceId_sourceId"),
+    },
+    wordExample: { upsert: upsert("example", state.examples, "wordId_sentenceId") },
+    importedRecord: {
+      upsert: upsert("record", state.records, "importRunId_recordType_sourceRecordId"),
+    },
+    importRun: {
+      upsert: upsert("run", state.runs, "dataSourceId_checksumSha256"),
+      update: vi.fn(
+        async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+          mutations.push("run.update");
+          events.push(`run:${String(data.status)}`);
+          const row = byId(state.runs, where.id)!;
+          Object.assign(row, data);
+          return row;
+        },
+      ),
+    },
+    userSrsState: {
+      upsert: forbiddenMutation,
+      update: forbiddenMutation,
+      updateMany: forbiddenMutation,
+      deleteMany: forbiddenMutation,
+    },
+    userItemOverride: {
+      upsert: forbiddenMutation,
+      update: forbiddenMutation,
+      deleteMany: forbiddenMutation,
+    },
+    userMnemonic: {
+      upsert: forbiddenMutation,
+      update: forbiddenMutation,
+      deleteMany: forbiddenMutation,
+    },
+  };
+  const transaction = vi.fn(async (callback: (db: typeof delegates) => Promise<unknown>) => {
+    const before = structuredClone(state);
+    try {
+      return await callback(delegates);
+    } catch (error) {
+      restoreMap(state.words, before.words);
+      for (const name of [
+        "items",
+        "placements",
+        "cards",
+        "answers",
+        "senses",
+        "mnemonics",
+        "hints",
+        "dependencies",
+        "licenses",
+        "sources",
+        "runs",
+        "records",
+        "sentences",
+        "examples",
+      ] as const)
+        restoreMap(state[name], before[name]);
+      throw error;
+    }
+  });
+  return {
+    db: { ...delegates, $transaction: transaction } as unknown as PrismaClient,
+    state,
+    batch,
+    mutations,
+    events,
+    readWord,
+    readCourse,
+    transaction,
+    forbiddenMutation,
+    privateRows,
+    failWord: (expression: string | null) => {
+      failedWord = expression;
+    },
+    failPublicationAt: (index: number | null) => {
+      failedPublication = index;
+      publicationReads = 0;
+    },
+    identities: () =>
+      Object.fromEntries(
+        (["items", "cards", "sentences", "examples", "runs", "records"] as const).map((name) => [
+          name,
+          [...state[name].values()].map((row) => row.id),
+        ]),
+      ),
+  };
+}
+
+function restoreMap<K, V>(destination: Map<K, V>, snapshot: Map<K, V>): void {
+  destination.clear();
+  for (const [key, value] of snapshot) destination.set(key, value);
+}
+
+function matches(row: Row, where: Record<string, unknown>): boolean {
+  return Object.entries(where).every(([field, expected]) => {
+    if (expected !== null && typeof expected === "object" && !Array.isArray(expected)) {
+      const filter = expected as Record<string, unknown>;
+      if (Array.isArray(filter.in)) return filter.in.includes(row[field]);
+      if (Array.isArray(filter.notIn)) return !filter.notIn.includes(row[field]);
+    }
+    return row[field] === expected;
+  });
+}

@@ -10,9 +10,16 @@ import {
   loadItemExampleSentences,
   loadWordExampleQuality,
   writeWordExample,
+  buildMainCourseContentBatches,
   type ExampleItemRef,
+  type PrismaClient,
 } from "@kanji-srs/db";
 import { calculateNextReview, DEFAULT_SRS_STAGES } from "@kanji-srs/srs";
+import {
+  buildMainCourseWordBatch,
+  wordHanCharacters,
+  type MainCourseWordBatch,
+} from "../../../packages/db/src/main-course-word-content";
 
 import { AppConfigService } from "../src/config/app-config.service";
 import { PrismaService } from "../src/database/prisma.service";
@@ -34,6 +41,17 @@ const writerNames = [`study-integrity-${runId}-a`, `study-integrity-${runId}-b`]
 const clients: PrismaService[] = [];
 let control: PrismaService;
 let writers: readonly [PrismaReviewsRepository, PrismaReviewsRepository];
+type WordCuratorModule = {
+  planMainCourseWordBatch(
+    db: PrismaClient,
+    batch: MainCourseWordBatch,
+  ): Promise<{ words: { wordId: string }[] }>;
+  applyMainCourseWordBatch(
+    db: PrismaClient,
+    batch: MainCourseWordBatch,
+  ): Promise<{ words: number; cards: number; examples: number }>;
+};
+let wordCurator: WordCuratorModule;
 
 const stateSelect = {
   id: true,
@@ -76,6 +94,9 @@ describe("PostgreSQL integration URL safety", () => {
 describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18", () => {
   beforeAll(async () => {
     if (databaseUrl === null) throw new Error("INTEGRATION_DATABASE_URL is required.");
+    // Keep the ESM CLI's import.meta outside the API's CommonJS compilation graph.
+    const curatorModulePath = "../../../packages/db/prisma/curate-main-course-words.ts";
+    wordCurator = (await import(curatorModulePath)) as WordCuratorModule;
     control = createClient(databaseUrl, `study-integrity-${runId}-control`, 4);
     const first = createClient(databaseUrl, writerNames[0], 1);
     const second = createClient(databaseUrl, writerNames[1], 1);
@@ -878,6 +899,214 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
       }),
     );
   });
+
+  it("curates twenty compact-JMdict words into forty stable cards and twenty examples, preserving private progress on rerun", async () => {
+    await withFixture(async (base) =>
+      withWordCurationFixture(async (fixture) => {
+        const importedBefore = await wordCurationImportedRows(fixture);
+        const kanjiBefore = await control.db.courseLevelItem.findMany({
+          where: { learningItemId: { in: fixture.kanjiItemIds } },
+          orderBy: { id: "asc" },
+        });
+        const plan = await wordCurator.planMainCourseWordBatch(control.db, fixture.batch);
+        expect(plan.words).toHaveLength(20);
+        expect(plan.words.map((entry) => entry.wordId)).toEqual(fixture.wordIds);
+        expect((await wordCurationRows(fixture)).items).toEqual([]);
+        expect(await ownedWordCurationRuns(fixture)).toEqual([]);
+        const result = await wordCurator.applyMainCourseWordBatch(control.db, fixture.batch);
+        expect(result).toMatchObject({ words: 20, cards: 40, examples: 20 });
+        const first = await wordCurationRows(fixture);
+        expect(first.items).toHaveLength(20);
+        expect(first.items.every((item) => item.status === "PUBLISHED")).toBe(true);
+        expect(first.cards).toHaveLength(40);
+        expect(first.examples).toHaveLength(20);
+        expect(first.examples.every((example) => example.status === "PUBLISHED")).toBe(true);
+        expect(
+          await control.db.learningItem.count({
+            where: {
+              targetType: "SENTENCE",
+              targetId: { in: first.examples.map((example) => example.sentenceId) },
+            },
+          }),
+        ).toBe(0);
+        expect(
+          await control.db.userSrsState.count({
+            where: { learningCardId: { in: first.cards.map((card) => card.id) } },
+          }),
+        ).toBe(0);
+        const dependencies = await control.db.dependency.findMany({
+          where: { learningItemId: { in: first.items.map((item) => item.id) } },
+        });
+        expect(dependencies).toHaveLength(20);
+        expect(
+          dependencies.every(
+            (dependency) =>
+              dependency.requiredStage === 2 &&
+              fixture.kanjiItemIds.includes(dependency.prerequisiteItemId),
+          ),
+        ).toBe(true);
+        const placements = await control.db.courseLevelItem.findMany({
+          where: { learningItemId: { in: first.items.map((item) => item.id) } },
+          orderBy: { sortOrder: "asc" },
+          include: { courseLevel: true },
+        });
+        expect(placements.map((placement) => placement.sortOrder)).toEqual(
+          Array.from({ length: 20 }, (_, index) => index + 1),
+        );
+        expect(placements.every((placement) => placement.courseLevel.levelNumber === 5)).toBe(true);
+        expect(await wordCurationImportedRows(fixture)).toEqual(importedBefore);
+        const card = first.cards.find((card) => card.promptType === "MEANING")!;
+        const state = await control.db.userSrsState.create({
+          data: {
+            userId: base.userId,
+            learningCardId: card.id,
+            srsSystemId: base.systemId,
+            stageIndex: 5,
+            availableAt: new Date("2026-12-01T09:00:00Z"),
+            wrongCount: 3,
+            correctStreak: 2,
+            lastReviewedAt: NOW,
+          },
+        });
+        const override = await control.db.userItemOverride.create({
+          data: {
+            userId: base.userId,
+            learningCardId: card.id,
+            overrideType: "ACCEPTED_MEANING",
+            locale: "ru-RU",
+            text: "личный ответ",
+            normalizedText: "личный ответ",
+          },
+        });
+        const mnemonic = await control.db.userMnemonic.create({
+          data: {
+            userId: base.userId,
+            learningItemId: card.learningItemId,
+            locale: "ru-RU",
+            mnemonicType: "MEANING",
+            body: "Личная мнемоника не меняется.",
+          },
+        });
+        await wordCurator.applyMainCourseWordBatch(control.db, fixture.batch);
+        expect(await wordCurationRows(fixture)).toEqual(first);
+        expect(await wordCurationImportedRows(fixture)).toEqual(importedBefore);
+        expect(await control.db.userSrsState.findUnique({ where: { id: state.id } })).toEqual(
+          state,
+        );
+        expect(
+          await control.db.userItemOverride.findUnique({ where: { id: override.id } }),
+        ).toEqual(override);
+        expect(await control.db.userMnemonic.findUnique({ where: { id: mnemonic.id } })).toEqual(
+          mnemonic,
+        );
+        expect(
+          await control.db.courseLevelItem.findMany({
+            where: { learningItemId: { in: fixture.kanjiItemIds } },
+            orderBy: { id: "asc" },
+          }),
+        ).toEqual(kanjiBefore);
+        expect(await readState(base)).toEqual(base.state);
+        expect(await answers(base)).toEqual([]);
+      }),
+    );
+  }, 45_000);
+
+  it("rejects the last word's invalid compact source before creating any curation rows", async () => {
+    await withWordCurationFixture(async (fixture) => {
+      const last = fixture.batch.words.at(-1)!;
+      await control.db.importedRecord.update({
+        where: { id: fixture.recordIds.at(-1)! },
+        data: {
+          rawJson: {
+            sequence: last.jmdictEntryId.slice(7),
+            importedWordCount: 1,
+            retainedLocales: ["en-US"],
+          },
+        },
+      });
+      const before = await wordCurationImportedRows(fixture);
+      await expect(wordCurator.applyMainCourseWordBatch(control.db, fixture.batch)).rejects.toThrow(
+        `${last.expression}/${last.reading}`,
+      );
+      expect(await wordCurationRows(fixture)).toEqual({ items: [], cards: [], examples: [] });
+      expect(
+        await control.db.wordSense.count({
+          where: { wordId: { in: fixture.wordIds }, sourceKind: "PROJECT_AUTHORED" },
+        }),
+      ).toBe(0);
+      expect(await ownedWordCurationRuns(fixture)).toEqual([]);
+      expect(
+        await control.db.dataSource.count({ where: { name: WORD_CURATION_SOURCE_NAME } }),
+      ).toBe(0);
+      expect(await control.db.license.count({ where: { name: WORD_CURATION_LICENSE_NAME } })).toBe(
+        0,
+      );
+      expect(await wordCurationImportedRows(fixture)).toEqual(before);
+    });
+  }, 20_000);
+
+  it("rolls back the final word's real failed transaction, leaves drafts unpublished, and recovers the same staged identities", async () => {
+    await withWordCurationFixture(async (fixture) => {
+      const last = fixture.batch.words.at(-1)!;
+      // A PostgreSQL text value cannot contain U+0000; this fails inside applyWord after earlier writes.
+      const interrupted: MainCourseWordBatch = {
+        ...fixture.batch,
+        words: [
+          ...fixture.batch.words.slice(0, -1),
+          { ...last, meaningHint: { ...last.meaningHint, ru: "rollback\u0000fixture" } },
+        ],
+      };
+      await expect(wordCurator.applyMainCourseWordBatch(control.db, interrupted)).rejects.toThrow();
+      const staged = await wordCurationRows(fixture);
+      expect(staged.items).toHaveLength(19);
+      expect(staged.cards).toHaveLength(38);
+      expect(staged.examples).toHaveLength(19);
+      expect(staged.items.every((item) => item.status === "DRAFT")).toBe(true);
+      expect(staged.examples.every((example) => example.status === "DRAFT")).toBe(true);
+      expect(
+        await control.db.learningItem.findUnique({
+          where: { targetType_targetId: { targetType: "WORD", targetId: fixture.wordIds.at(-1)! } },
+        }),
+      ).toBeNull();
+      expect(
+        await control.db.wordSense.count({
+          where: { wordId: fixture.wordIds.at(-1)!, sourceKind: "PROJECT_AUTHORED" },
+        }),
+      ).toBe(0);
+      expect((await ownedWordCurationRuns(fixture)).map((run) => run.status)).toEqual(["FAILED"]);
+      await wordCurator.applyMainCourseWordBatch(control.db, fixture.batch);
+      const recovered = await wordCurationRows(fixture);
+      expect(recovered.items).toHaveLength(20);
+      expect(recovered.cards).toHaveLength(40);
+      expect(recovered.examples).toHaveLength(20);
+      expect(recovered.items.every((item) => item.status === "PUBLISHED")).toBe(true);
+      expect(recovered.examples.every((example) => example.status === "PUBLISHED")).toBe(true);
+      expect(recovered.items.map((item) => item.id)).toEqual(
+        expect.arrayContaining(staged.items.map((item) => item.id)),
+      );
+      expect(recovered.cards.map((card) => card.id)).toEqual(
+        expect.arrayContaining(staged.cards.map((card) => card.id)),
+      );
+      expect(recovered.examples.map((example) => example.id)).toEqual(
+        expect.arrayContaining(staged.examples.map((example) => example.id)),
+      );
+      expect((await ownedWordCurationRuns(fixture)).map((run) => run.status).sort()).toEqual([
+        "FAILED",
+        "SUCCESS",
+      ]);
+      const loaded = await loadItemExampleSentences(
+        control.db,
+        recovered.items.map((item) => ({ ...item, targetType: "WORD" })),
+        3,
+      );
+      expect(loaded.size).toBe(20);
+      expect(
+        await control.db.userSrsState.count({
+          where: { learningCardId: { in: recovered.cards.map((card) => card.id) } },
+        }),
+      ).toBe(0);
+    });
+  }, 45_000);
 });
 
 function requireSafeDatabaseUrl(value: string): string {
@@ -945,6 +1174,265 @@ type WordExamplesFixture = {
   readonly extraItemIds: string[];
   readonly courseSlug: string;
 };
+
+const WORD_CURATION_SOURCE_NAME = "Kanji SRS main-course word curation";
+const WORD_CURATION_LICENSE_NAME = "Project-authored main-course word content";
+type WordCurationFixture = {
+  readonly batch: MainCourseWordBatch;
+  readonly courseId: string;
+  readonly wordIds: string[];
+  readonly recordIds: string[];
+  readonly kanjiItemIds: string[];
+};
+
+async function withWordCurationFixture(run: (fixture: WordCurationFixture) => Promise<void>) {
+  const suffix = randomUUID();
+  // Approval is scoped to this fixture, never to the shipped editorial manifest.
+  const batch: MainCourseWordBatch = {
+    ...buildMainCourseWordBatch(),
+    id: `word-curation-pg-${suffix}`,
+    reviewedAt: "2026-10-22",
+    reviewNotes:
+      "Test-only approval of the full twenty-word fixture; not production editorial approval.",
+    sourceFile: `integration-word-curation-${suffix}.ts`,
+  };
+  const registered = buildMainCourseContentBatches()
+    .filter((entry) => entry.courseSlug === batch.courseSlug)
+    .flatMap((entry) => entry.kanji)
+    .filter((content) => content.levelNumber < batch.levelNumber);
+  expect(registered).toHaveLength(40);
+  const requiredHan = new Set(
+    batch.words.flatMap((content) =>
+      wordHanCharacters(content.expression + content.example.japaneseText),
+    ),
+  );
+  expect(requiredHan.has("見")).toBe(true);
+  expect(requiredHan.has("百")).toBe(true);
+  expect(
+    [...requiredHan].every((character) =>
+      registered.some((content) => content.character === character),
+    ),
+  ).toBe(true);
+  // Fixed registry/source names are required by the curator. Refuse to reuse any pre-existing ownership.
+  expect(await control.db.course.count({ where: { slug: batch.courseSlug } })).toBe(0);
+  expect(
+    await control.db.dataSource.count({
+      where: { name: { in: ["JMdict", WORD_CURATION_SOURCE_NAME] } },
+    }),
+  ).toBe(0);
+  expect(await control.db.license.count({ where: { name: WORD_CURATION_LICENSE_NAME } })).toBe(0);
+  expect(
+    await control.db.kanji.count({
+      where: { character: { in: registered.map((content) => content.character) } },
+    }),
+  ).toBe(0);
+  expect(
+    await control.db.word.count({
+      where: {
+        OR: batch.words.map((content) => ({
+          expression: content.expression,
+          reading: content.reading,
+        })),
+      },
+    }),
+  ).toBe(0);
+  const courseId = randomUUID();
+  const levelIds = Array.from({ length: 5 }, () => randomUUID());
+  const kanjiIds = registered.map(() => randomUUID());
+  const kanjiItemIds = registered.map(() => randomUUID());
+  const wordIds = batch.words.map(() => randomUUID());
+  const recordIds = batch.words.map(() => randomUUID());
+  const licenseId = randomUUID();
+  const sourceId = randomUUID();
+  const importRunId = randomUUID();
+  const fixture: WordCurationFixture = { batch, courseId, wordIds, recordIds, kanjiItemIds };
+  await control.db.$transaction(
+    async (tx) => {
+      await tx.course.create({
+        data: {
+          id: courseId,
+          slug: batch.courseSlug,
+          titleRu: `Integration curation ${suffix}`,
+          status: "PUBLISHED",
+        },
+      });
+      await tx.courseLevel.createMany({
+        data: levelIds.map((id, index) => ({
+          id,
+          courseId,
+          levelNumber: index + 1,
+          titleRu: `Fixture ${index + 1}`,
+          band: "FOUNDATION",
+        })),
+      });
+      await tx.kanji.createMany({
+        data: registered.map((content, index) => ({
+          id: kanjiIds[index]!,
+          character: content.character,
+        })),
+      });
+      await tx.learningItem.createMany({
+        data: registered.map((content, index) => ({
+          id: kanjiItemIds[index]!,
+          targetId: kanjiIds[index]!,
+          targetType: "KANJI",
+          kind: "KANJI",
+          title: `Fixture ${content.character}`,
+          status: "PUBLISHED",
+          levelHint: content.levelNumber,
+          curriculumBand: "FOUNDATION",
+        })),
+      });
+      await tx.courseLevelItem.createMany({
+        data: registered.map((content, index) => ({
+          courseLevelId: levelIds[content.levelNumber - 1]!,
+          learningItemId: kanjiItemIds[index]!,
+          sortOrder: content.sortOrder,
+        })),
+      });
+      await tx.license.create({
+        data: {
+          id: licenseId,
+          name: `JMdict metadata fixture ${suffix}`,
+          scope: "OPEN_DATA",
+          spdxLikeId: "LicenseRef-JMdict-Multilingual",
+          url: "https://www.edrdg.org/edrdg/licence.html",
+          requiresAttribution: true,
+        },
+      });
+      await tx.dataSource.create({
+        data: {
+          id: sourceId,
+          name: "JMdict",
+          licenseId,
+          homepageUrl: "https://www.edrdg.org/",
+          attributionText: `Synthetic integration source metadata ${suffix}; not a dictionary import.`,
+        },
+      });
+      await tx.importRun.create({
+        data: {
+          id: importRunId,
+          dataSourceId: sourceId,
+          sourceVersion: `fixture-${suffix}`,
+          sourceFileName: `fixture-${suffix}.xml`,
+          checksumSha256: "f".repeat(64),
+          status: "SUCCESS",
+          finishedAt: NOW,
+        },
+      });
+      await tx.importedRecord.createMany({
+        data: batch.words.map((content, index) => ({
+          id: recordIds[index]!,
+          importRunId,
+          sourceRecordId: content.jmdictEntryId,
+          recordType: "JMDICT_ENTRY",
+          rawJson: {
+            sequence: content.jmdictEntryId.slice(7),
+            importedWordCount: 1,
+            retainedLocales: ["en-US", "ru-RU"],
+          },
+        })),
+      });
+      await tx.word.createMany({
+        data: batch.words.map((content, index) => ({
+          id: wordIds[index]!,
+          expression: content.expression,
+          reading: content.reading,
+          jmdictEntryId: content.jmdictEntryId,
+          jmdictImportedRecordId: recordIds[index]!,
+        })),
+      });
+      await tx.wordSense.createMany({
+        data: batch.words.flatMap((content, index) => [
+          {
+            wordId: wordIds[index]!,
+            locale: "ru-RU",
+            meaning: content.meanings.ru.primary,
+            partOfSpeech: "noun",
+            sourceKind: "IMPORTED" as const,
+          },
+          {
+            wordId: wordIds[index]!,
+            locale: "en-US",
+            meaning: content.meanings.en.primary,
+            partOfSpeech: "noun",
+            sourceKind: "IMPORTED" as const,
+          },
+        ]),
+      });
+    },
+    { timeout: 15_000 },
+  );
+  try {
+    await run(fixture);
+  } finally {
+    const ownedRuns = await ownedWordCurationRuns(fixture);
+    const authoredSourceIds = [...new Set(ownedRuns.map((run) => run.dataSourceId))];
+    const authoredLicenseIds = [...new Set(ownedRuns.map((run) => run.dataSource.licenseId))];
+    await control.db.$transaction([
+      control.db.learningItem.deleteMany({
+        where: {
+          OR: [{ id: { in: kanjiItemIds } }, { targetType: "WORD", targetId: { in: wordIds } }],
+        },
+      }),
+      control.db.course.deleteMany({ where: { id: courseId } }),
+      control.db.word.deleteMany({ where: { id: { in: wordIds } } }),
+      control.db.kanji.deleteMany({ where: { id: { in: kanjiIds } } }),
+      control.db.sentence.deleteMany({ where: { dataSourceId: { in: authoredSourceIds } } }),
+      control.db.importRun.deleteMany({
+        where: { id: { in: [importRunId, ...ownedRuns.map((run) => run.id)] } },
+      }),
+      control.db.dataSource.deleteMany({ where: { id: { in: [sourceId, ...authoredSourceIds] } } }),
+      control.db.license.deleteMany({ where: { id: { in: [licenseId, ...authoredLicenseIds] } } }),
+    ]);
+  }
+}
+
+function ownedWordCurationRuns(fixture: WordCurationFixture) {
+  return control.db.importRun.findMany({
+    where: {
+      sourceFileName: fixture.batch.sourceFile,
+      statsJson: { path: ["batchId"], equals: fixture.batch.id },
+    },
+    include: { dataSource: true },
+    orderBy: { id: "asc" },
+  });
+}
+
+async function wordCurationRows(fixture: WordCurationFixture) {
+  const items = await control.db.learningItem.findMany({
+    where: { targetType: "WORD", targetId: { in: fixture.wordIds } },
+    select: { id: true, targetId: true, status: true },
+    orderBy: { id: "asc" },
+  });
+  const cards = await control.db.learningCard.findMany({
+    where: { learningItemId: { in: items.map((item) => item.id) } },
+    select: { id: true, learningItemId: true, promptType: true, answerType: true },
+    orderBy: { id: "asc" },
+  });
+  const examples = await control.db.wordExample.findMany({
+    where: { wordId: { in: fixture.wordIds } },
+    select: { id: true, wordId: true, sentenceId: true, status: true },
+    orderBy: { id: "asc" },
+  });
+  return { items, cards, examples };
+}
+
+function wordCurationImportedRows(fixture: WordCurationFixture) {
+  return control.db.word.findMany({
+    where: { id: { in: fixture.wordIds } },
+    orderBy: { id: "asc" },
+    select: {
+      id: true,
+      expression: true,
+      reading: true,
+      jmdictEntryId: true,
+      jmdictImportedRecordId: true,
+      importedRecord: { select: { id: true, sourceRecordId: true, rawJson: true } },
+      senses: { where: { sourceKind: "IMPORTED" }, orderBy: { id: "asc" } },
+    },
+  });
+}
 
 async function withWordExamplesFixture(
   base: Fixture,
