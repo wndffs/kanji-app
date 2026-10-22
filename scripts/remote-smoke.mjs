@@ -235,6 +235,18 @@ export async function runRemoteSmoke(env, { fetchImpl = fetch } = {}) {
       authentication.status,
     );
     token = session.accessToken;
+    const profile = (await request("reminder_preferences", "/auth/me")).value;
+    requireShape(
+      typeof profile?.settings?.reviewRemindersEnabled === "boolean" &&
+        Number.isInteger(profile.settings.reviewReminderHour) &&
+        profile.settings.reviewReminderHour >= 0 &&
+        profile.settings.reviewReminderHour <= 23 &&
+        !Object.hasOwn(profile.settings, "reviewReminderLastClaimedAt") &&
+        (!config.generated ||
+          (profile.settings.reviewRemindersEnabled === false &&
+            profile.settings.reviewReminderHour === 9)),
+      step,
+    );
     if (config.slug !== undefined) {
       let cursor;
       let courseId;
@@ -293,6 +305,18 @@ export async function runRemoteSmoke(env, { fetchImpl = fetch } = {}) {
         );
       }
       selectedCourseId = courseId;
+    }
+    if (config.generated) {
+      const claim = (
+        await request("disabled_reminder_claim", "/users/me/review-reminders/claim", {
+          method: "POST",
+          body: {},
+        })
+      ).value;
+      requireShape(
+        record(claim) && Object.keys(claim).length === 1 && claim.shouldNotify === false,
+        step,
+      );
     }
     async function measure(label, path, validate) {
       let first;

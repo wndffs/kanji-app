@@ -42,6 +42,8 @@ function fixture(
       "/ready": { service: "kanji-srs-api", status: "ready", database: "available" },
       "/auth/register": { accessToken: privateText },
       "/auth/login": { accessToken: privateText },
+      "/auth/me": { settings: { reviewRemindersEnabled: false, reviewReminderHour: 9 } },
+      "/users/me/review-reminders/claim": { shouldNotify: false },
       "/courses/available": { courses: [{ id, slug: "pilot" }], nextCursor: null },
       "/courses/enroll": { courses: [{ id, enrollmentStatus: "active" }], currentCourseId: null },
       "/courses/current": { courses: [{ id, enrollmentStatus: "active" }], currentCourseId: id },
@@ -167,7 +169,10 @@ describe("remote smoke safety", () => {
       expect(call.init.signal?.aborted).toBe(true);
     }
     const writes = first.calls.filter(({ init }) => init.method !== "GET");
-    expect(writes.map(({ path }) => path)).toEqual(["/auth/register"]);
+    expect(writes.map(({ path }) => path)).toEqual([
+      "/auth/register",
+      "/users/me/review-reminders/claim",
+    ]);
     const credentials = JSON.parse(writes[0].init.body as string);
     expect(credentials.email).toMatch(/^audit-[a-f0-9]{40}@example\.test$/u);
     expect(credentials.password).toMatch(/^[\w-]{43}$/u);
@@ -214,6 +219,69 @@ describe("remote smoke safety", () => {
     expect(rejected.calls.at(-1)?.path).toBe("/auth/login");
   });
 
+  it("never claims a reminder for an existing opted-in account", async () => {
+    const mock = fixture((path) =>
+      path === "/auth/me"
+        ? json({ settings: { reviewRemindersEnabled: true, reviewReminderHour: 23 } })
+        : undefined,
+    );
+    expect(
+      (
+        await runRemoteSmoke(
+          {
+            ...env,
+            STAGING_SMOKE_EMAIL: "private@example.test",
+            STAGING_SMOKE_PASSWORD: privateText,
+          },
+          mock,
+        )
+      ).ok,
+    ).toBe(true);
+    expect(mock.calls.filter(({ init }) => init.method !== "GET").map(({ path }) => path)).toEqual([
+      "/auth/login",
+    ]);
+  });
+
+  it.each([
+    { reviewRemindersEnabled: true, reviewReminderHour: 9 },
+    { reviewRemindersEnabled: false, reviewReminderHour: 24 },
+    {
+      reviewRemindersEnabled: false,
+      reviewReminderHour: 9,
+      reviewReminderLastClaimedAt: privateText,
+    },
+  ])(
+    "rejects unsafe generated-profile reminder defaults without exposing metadata",
+    async (settings) => {
+      const mock = fixture((path) => (path === "/auth/me" ? json({ settings }) : undefined));
+      const report = await runRemoteSmoke(env, mock);
+      expect(report.failure).toEqual({
+        code: "RESPONSE_INVALID",
+        step: "reminder_preferences",
+        status: 200,
+      });
+      expect(mock.calls.at(-1)?.path).toBe("/auth/me");
+      expect(JSON.stringify(report)).not.toContain(privateText);
+    },
+  );
+
+  it.each([{ shouldNotify: true }, { shouldNotify: false, private: privateText }])(
+    "rejects a false-positive or nonminimal disabled claim response",
+    async (response) => {
+      const mock = fixture((path) =>
+        path === "/users/me/review-reminders/claim" ? json(response) : undefined,
+      );
+      const report = await runRemoteSmoke(env, mock);
+      expect(report.failure).toEqual({
+        code: "RESPONSE_INVALID",
+        step: "disabled_reminder_claim",
+        status: 200,
+      });
+      expect(mock.calls.at(-1)?.path).toBe("/users/me/review-reminders/claim");
+      expect(JSON.stringify(report)).not.toContain(privateText);
+    },
+  );
+
   it("enrolls/selects only an explicitly requested generated-profile course", async () => {
     const mock = fixture();
     expect((await runRemoteSmoke({ ...env, STAGING_SMOKE_COURSE_SLUG: "pilot" }, mock)).ok).toBe(
@@ -227,6 +295,7 @@ describe("remote smoke safety", () => {
       ["/auth/register", "POST"],
       ["/courses/enroll", "POST"],
       ["/courses/current", "PATCH"],
+      ["/users/me/review-reminders/claim", "POST"],
     ]);
     for (const { init } of mock.calls.filter(
       ({ path }) => path.startsWith("/courses/") && path !== "/courses/available",
@@ -325,6 +394,8 @@ describe("remote smoke safety", () => {
     "/health",
     "/ready",
     "/auth/register",
+    "/auth/me",
+    "/users/me/review-reminders/claim",
     "/dashboard",
     "/lessons/queue",
     "/reviews/queue",

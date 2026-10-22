@@ -19,12 +19,18 @@ its credentials. Registration can auto-enroll default courses via the existing
 API. An explicit `STAGING_SMOKE_COURSE_SLUG` searches at most five 20-entry keyset
 catalog pages, enrolls that generated profile and selects it with
 `PATCH /courses/current {courseId}`. No seed, reset, import, global publication,
-settings, answer, session completion or schedule writes occur.
+settings, answer, session completion or schedule writes occur. The runner also
+reads the public reminder preferences, verifies the generated profile is opted
+out at hour 9 with no private timestamp exposed, and submits one empty disabled
+reminder claim. It must return exactly `{shouldNotify:false}`; this must not
+create a claim timestamp or notification. No permission or enablement is requested.
 
 Supplying both `STAGING_SMOKE_EMAIL` and `STAGING_SMOKE_PASSWORD` switches to
 **login only**. Missing/empty halves and any explicit course slug in this mode
 fail before requests. Existing accounts are never registered, enrolled or modified.
 They must already have a current course and a nonempty lesson queue.
+Their public preference shape is validated, but a reminder is never claimed for
+a configured account, even when its existing preference is enabled.
 
 The runner checks web/API health and API database readiness once, authenticates
 once, then sequentially samples dashboard, lesson queue, review queue, character
