@@ -17,7 +17,7 @@ as extra tasks. Existing pilot seals, enrollments and SRS identities stay intact
 | 132 | Search page navigation           | Previous/next pages and reload/back preserve URL query and page                                                | Implemented; checks pending |
 | 133 | Search type/level filters        | Validated filters work end-to-end and reset pagination deliberately                                            | Implemented; checks pending |
 | 134 | Kana-aware search                | Hiragana/katakana reading variants match without changing stored answers or source evidence                    | Implemented; checks pending |
-| 135 | Search request isolation         | Stale responses and auth changes cannot overwrite the current search or clear a newer session                  | Planned |
+| 135 | Search request isolation         | Stale responses and auth changes cannot overwrite the current search or clear a newer session                  | Implemented; checks pending |
 | 136 | Bounded related-item hydration   | Related lists use bounded selections and do not recursively hydrate unused detail graphs                       | Planned |
 | 137 | Bounded character-target loading | Deduplicated 100-ID reads retain order, all cards, SRS state and legacy JLPT metadata                          | Planned |
 | 138 | Batched review targets           | Scheduled/practice queues avoid per-card target reads and preserve card-specific answers                       | Planned |
@@ -34,7 +34,7 @@ unmet acceptance slice; do not count a no-op or an existing feature as completed
 
 ## Checkpoints
 
-- Development complete: 5/15.
+- Development complete: 6/15.
 - Acceptance checked: 0/15.
 - Publication threshold reached: no.
 - No manual curation/publication workflow before the threshold.

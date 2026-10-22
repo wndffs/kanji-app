@@ -836,7 +836,7 @@ export function publishAdminConfusablePair(
 export function searchItems(
   query: string,
   token?: string | null,
-  options: SearchFilters & { readonly page?: number; readonly limit?: number; readonly fetchImpl?: typeof fetch } = {},
+  options: SearchFilters & { readonly page?: number; readonly limit?: number; readonly fetchImpl?: typeof fetch; readonly signal?: AbortSignal } = {},
 ): Promise<SearchResponseDto> {
   const params = new URLSearchParams({ q: query });
   if (options.page !== undefined && options.page !== 1) params.set("page", String(options.page));
@@ -844,7 +844,7 @@ export function searchItems(
   if (options.itemType !== undefined) params.set("itemType", options.itemType);
   if (options.level !== undefined) params.set("level", String(options.level));
 
-  return apiRequest<SearchResponseDto>(`/search?${params.toString()}`, { token, fetchImpl: options.fetchImpl });
+  return apiRequest<SearchResponseDto>(`/search?${params.toString()}`, { token, fetchImpl: options.fetchImpl, signal: options.signal });
 }
 
 export function getLessonQueue(

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   type ItemSummary,
@@ -13,7 +13,7 @@ import {
 
 import { JapaneseText } from "../../components/JapaneseText";
 import { ApiError, searchItems } from "../../lib/api-client";
-import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
+import { AUTH_CHANGED_EVENT, clearStoredSession, readStoredSession, type StoredSession } from "../../lib/auth-storage";
 import { formatSrsStageName } from "../../lib/dashboard-format";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { parseSearchFilters, parseSearchPage, searchHref } from "../../lib/search-location";
@@ -25,6 +25,22 @@ type SearchState =
   | { readonly status: "ready"; readonly result: SearchResponseDto };
 
 export function SearchClient() {
+  const [session, setSession] = useState<StoredSession | null | undefined>(undefined);
+  useEffect(() => {
+    const sync = () => setSession(readStoredSession());
+    sync();
+    window.addEventListener(AUTH_CHANGED_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+  if (session === undefined) return <section className="page-stack" aria-busy="true"><h1>Поиск</h1></section>;
+  return <SearchScreen key={session === null ? "guest" : `${session.user.id}:${session.token}`} token={session?.token ?? null} />;
+}
+
+function SearchScreen({ token }: { readonly token: string | null }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryFromUrl = searchParams.get("q")?.trim() ?? "";
@@ -35,16 +51,15 @@ export function SearchClient() {
   const [itemType, setItemType] = useState(typeFromUrl ?? "");
   const [level, setLevel] = useState(levelFromUrl === undefined ? "" : String(levelFromUrl));
   const [state, setState] = useState<SearchState>({ status: "idle" });
-  const [token, setToken] = useState<string | null>(null);
-
-  useEffect(() => {
-    const session = readStoredSession();
-
-    setToken(session?.token ?? null);
-  }, []);
+  const activeRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => activeRequest.current?.abort(), []);
 
   const runSearch = useCallback(
     async (nextQuery: string, nextPage = 1): Promise<void> => {
+      activeRequest.current?.abort();
+      const controller = new AbortController();
+      activeRequest.current = controller;
+      const isCurrent = () => activeRequest.current === controller && !controller.signal.aborted && (readStoredSession()?.token ?? null) === token;
       const normalizedQuery = nextQuery.trim();
 
       if (normalizedQuery === "") {
@@ -55,12 +70,14 @@ export function SearchClient() {
       setState({ status: "loading", query: normalizedQuery });
 
       try {
-        const result = await searchItems(normalizedQuery, token, { page: nextPage, itemType: typeFromUrl, level: levelFromUrl });
+        const result = await searchItems(normalizedQuery, token, { page: nextPage, itemType: typeFromUrl, level: levelFromUrl, signal: controller.signal });
+        if (!isCurrent()) return;
         setState({ status: "ready", result });
       } catch (error: unknown) {
-        if (error instanceof ApiError && error.status === 401) {
+        if (!isCurrent()) return;
+        if (error instanceof ApiError && error.status === 401 && token !== null) {
           clearStoredSession();
-          setToken(null);
+          return;
         }
 
         setState({
@@ -90,6 +107,7 @@ export function SearchClient() {
     const normalizedQuery = query.trim();
 
     if (normalizedQuery === "") {
+      activeRequest.current?.abort();
       router.push("/search");
       setState({ status: "idle" });
       return;
@@ -101,6 +119,8 @@ export function SearchClient() {
       return;
     }
 
+    activeRequest.current?.abort();
+    setState({ status: "loading", query: normalizedQuery });
     router.push(searchHref(normalizedQuery, 1, filters));
   }
 
