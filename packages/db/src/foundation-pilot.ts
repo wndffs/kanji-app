@@ -28,6 +28,8 @@ export const FOUNDATION_PILOT_V2_SLUG = "japanese-foundation-pilot-v2";
 export const FOUNDATION_PILOT_V2_RECORD_ID = "4c599bc8-e28c-4527-9d9b-a99a3a7c8779";
 export const FOUNDATION_PILOT_V3_SLUG = "japanese-foundation-pilot-v3";
 export const FOUNDATION_PILOT_V3_RECORD_ID = "41a64921-eb2c-433e-9761-250e3b31015e";
+export const FOUNDATION_PILOT_V4_SLUG = "japanese-foundation-pilot-v4";
+export const FOUNDATION_PILOT_V4_RECORD_ID = "a88880b1-27a3-474d-af1f-0e9ef261d6f7";
 const KANJI_SOURCE_IDS = ["01", "02", "03", "04"].map(
   (suffix) => `task-118-foundation-kanji-${suffix}`,
 );
@@ -55,6 +57,15 @@ const V3_SOURCE_HASHES: Readonly<Record<string, string>> = {
     "81496c6ffcb91d0d7fa046b8f075b4b1aff6e2ccec7f69d48c48708bb043b5b6",
   "task-127-course-words-05": "e1fd34111d46183f4376934d9d55429c191524e7d319ec367b8bdb2c4d972f36",
 };
+const V4_KANJI_SOURCE_IDS = [...V3_KANJI_SOURCE_IDS, "task-118-course-kanji-06"];
+const V4_WORD_SOURCE_IDS = [...V3_WORD_SOURCE_IDS, "task-127-course-words-06"];
+const V4_SOURCE_HASHES: Readonly<Record<string, string>> = {
+  ...V3_SOURCE_HASHES,
+  "task-118-course-kanji-06": "74482be25706778fafe6e18b5ffc144718a3bf7a4181a5aacc8323516b223833",
+  "task-127-course-words-06": "8a9e0cef7dc10ec355125ffb7bb989d96cd531d0f85767280b735b6ad9790858",
+};
+// L6's WORD core does not waive the mixed level's component prerequisites for L7.
+const V4_LEVEL_KINDS = ["COMPONENT", "KANJI", "KANJI", "KANJI", "WORD", "WORD", "KANJI"] as const;
 const PILOTS = {
   v1: {
     slug: FOUNDATION_PILOT_SLUG,
@@ -82,6 +93,15 @@ const PILOTS = {
     kanjiIds: V3_KANJI_SOURCE_IDS,
     wordIds: V3_WORD_SOURCE_IDS,
     canonicalChecksum: "a7261a33902acba75a8058ba043b4f6ab786978315783e23cb9479cd040617d1",
+  },
+  v4: {
+    slug: FOUNDATION_PILOT_V4_SLUG,
+    recordId: FOUNDATION_PILOT_V4_RECORD_ID,
+    version: "4",
+    counts: { components: 79, kanji: 101, words: 120, items: 300, cards: 521 },
+    kanjiIds: V4_KANJI_SOURCE_IDS,
+    wordIds: V4_WORD_SOURCE_IDS,
+    canonicalChecksum: "7353baf893c3bde9fb7279529bcf69d66d7e0b9ef81396a8fb96169c686e70fc",
   },
 } as const;
 const SOURCE_COURSE_SLUG = "japanese-ru-n2";
@@ -154,6 +174,17 @@ export function buildFoundationPilotManifestV3(
   return buildPilotManifest(kanjiBatches, wordBatches, "v3");
 }
 
+export function buildFoundationPilotManifestV4(
+  kanjiBatches: readonly MainCourseContentBatch[] = buildMainCourseContentBatches().filter(
+    (batch) => V4_KANJI_SOURCE_IDS.includes(batch.id),
+  ),
+  wordBatches: readonly MainCourseWordBatch[] = buildMainCourseWordBatches().filter((batch) =>
+    V4_WORD_SOURCE_IDS.includes(batch.id),
+  ),
+) {
+  return buildPilotManifest(kanjiBatches, wordBatches, "v4");
+}
+
 function buildPilotManifest(
   kanjiBatches: readonly MainCourseContentBatch[],
   wordBatches: readonly MainCourseWordBatch[],
@@ -177,7 +208,9 @@ function buildPilotManifest(
         ? "Pilot v1 requires exactly the three registered version-1 main-course batches."
         : pilot === "v2"
           ? "Pilot v2 requires exactly the seven registered version-1 main-course batches."
-          : "Pilot v3 requires exactly the ten registered version-1 main-course batches.",
+          : pilot === "v3"
+            ? "Pilot v3 requires exactly the ten registered version-1 main-course batches."
+            : "Pilot v4 requires exactly the twelve registered version-1 main-course batches.",
     );
   const targets: PilotTarget[] = [];
   const sources: SourceBatch[] = [];
@@ -276,9 +309,13 @@ function buildPilotManifest(
     targets.some(
       (target) =>
         target.levelNumber < 1 ||
-        target.levelNumber > (pilot === "v3" ? 6 : 5) ||
+        target.levelNumber > (pilot === "v4" ? 7 : pilot === "v3" ? 6 : 5) ||
         (pilot === "v3" &&
           (target.kind === "WORD" ? target.levelNumber < 5 : target.levelNumber > 4)) ||
+        (pilot === "v4" &&
+          !(
+            target.kind === "COMPONENT" ? [1, 6] : target.kind === "KANJI" ? [2, 3, 4, 7] : [5, 6]
+          ).includes(target.levelNumber)) ||
         target.prerequisiteKeys.some(
           (key) => !keys.has(key) || keys.get(key)!.levelNumber >= target.levelNumber,
         ),
@@ -300,8 +337,10 @@ function buildPilotManifest(
       ? "40 компонентов, 40 кандзи и 20 слов"
       : pilot === "v2"
         ? "53 компонента, 61 кандзи и 60 слов"
-        : "63 компонента, 81 кандзи и 100 слов";
-  const levelCount = pilot === "v3" ? 6 : 5;
+        : pilot === "v3"
+          ? "63 компонента, 81 кандзи и 100 слов"
+          : "79 компонентов, 101 кандзи и 120 слов";
+  const levelCount = pilot === "v4" ? 7 : pilot === "v3" ? 6 : 5;
   return {
     version: definition.version,
     slug: definition.slug,
@@ -310,19 +349,29 @@ function buildPilotManifest(
     descriptionRu: `Отдельный пилот из ${levelCount} уровней: ${label}. Это не полный курс до N2.`,
     targetLevel: "FOUNDATION",
     counts: { ...definition.counts },
-    levels: Array.from({ length: levelCount }, (_, index) => ({
-      levelNumber: index + 1,
-      titleRu: `Основа: этап ${index + 1}`,
-      descriptionRu:
-        index === 0
-          ? "Компоненты пилотного курса."
-          : index >= 4
-            ? `Первые ${definition.counts.words} слов пилотного курса.`
-            : "Кандзи пилотного курса.",
-      passPolicyJson: createCourseLevelPassPolicy(
-        index === 0 ? "COMPONENT" : index >= 4 ? "WORD" : "KANJI",
-      ),
-    })),
+    levels: Array.from({ length: levelCount }, (_, index) => {
+      const kind =
+        pilot === "v4"
+          ? V4_LEVEL_KINDS[index]!
+          : index === 0
+            ? "COMPONENT"
+            : index >= 4
+              ? "WORD"
+              : "KANJI";
+      return {
+        levelNumber: index + 1,
+        titleRu: `Основа: этап ${index + 1}`,
+        descriptionRu:
+          index === 0
+            ? "Компоненты пилотного курса."
+            : pilot === "v4" && index === 5
+              ? "40 слов и 16 компонентов. Переход по словам не означает освоения всех элементов: компоненты остаются обязательными предпосылками кандзи этапа 7."
+              : kind === "WORD"
+                ? `Первые ${definition.counts.words} слов пилотного курса.`
+                : "Кандзи пилотного курса.",
+        passPolicyJson: createCourseLevelPassPolicy(kind),
+      };
+    }),
     targets,
     sources,
   };
@@ -1116,7 +1165,8 @@ export function foundationPilotRecordId(manifest: FoundationPilotManifest): stri
 }
 
 function pilotLevelBand(slug: string, levelNumber: number) {
-  if (slug !== FOUNDATION_PILOT_V3_SLUG) return "FOUNDATION" as const;
+  if (slug !== FOUNDATION_PILOT_V3_SLUG && slug !== FOUNDATION_PILOT_V4_SLUG)
+    return "FOUNDATION" as const;
   const level = buildMainCourseBlueprint().levels.find(
     (candidate) => candidate.levelNumber === levelNumber,
   );
@@ -1133,7 +1183,9 @@ function requireApproved(manifest: FoundationPilotManifest) {
         ? buildFoundationPilotManifestV2()
         : context?.slug === FOUNDATION_PILOT_V3_SLUG
           ? buildFoundationPilotManifestV3()
-          : null;
+          : context?.slug === FOUNDATION_PILOT_V4_SLUG
+            ? buildFoundationPilotManifestV4()
+            : null;
   if (
     context === undefined ||
     expected === null ||
@@ -1145,7 +1197,11 @@ function requireApproved(manifest: FoundationPilotManifest) {
     expected.sources.some(
       (source) =>
         source.checksumSha256 !==
-        (context.slug === FOUNDATION_PILOT_V3_SLUG ? V3_SOURCE_HASHES : SOURCE_HASHES)[source.id],
+        (context.slug === FOUNDATION_PILOT_V4_SLUG
+          ? V4_SOURCE_HASHES
+          : context.slug === FOUNDATION_PILOT_V3_SLUG
+            ? V3_SOURCE_HASHES
+            : SOURCE_HASHES)[source.id],
     )
   )
     throw new Error(

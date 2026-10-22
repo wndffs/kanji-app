@@ -10,10 +10,12 @@ import {
   buildFoundationPilotManifest,
   buildFoundationPilotManifestV2,
   buildFoundationPilotManifestV3,
+  buildFoundationPilotManifestV4,
   foundationPilotRecordId,
   FOUNDATION_PILOT_RECORD_ID,
   FOUNDATION_PILOT_V2_RECORD_ID,
   FOUNDATION_PILOT_V3_RECORD_ID,
+  FOUNDATION_PILOT_V4_RECORD_ID,
   planFoundationPilot,
   publishFoundationPilot,
 } from "../src/foundation-pilot";
@@ -184,7 +186,7 @@ describe("sealed finite pilot v2", () => {
     });
     for (const args of [
       ["--pilot"],
-      ["--pilot", "v4"],
+      ["--pilot", "v5"],
       ["--pilot", "--publish"],
       ["--pilot", "v2", "--pilot", "v1"],
       ["--pilot", "v2", "--pilot", "v2"],
@@ -301,6 +303,133 @@ describe("sealed finite pilot v2", () => {
     await expect(publishFoundationPilot(h.db, { manifest: h.manifest })).rejects.toThrow(
       "exact published main-course placement",
     );
+    expect(h.createPlacements).not.toHaveBeenCalled();
+    expect(h.recordWrite).not.toHaveBeenCalled();
+    expect(h.forbidden).not.toHaveBeenCalled();
+  });
+
+  it("plans all 300 v4 targets using take 301 and three complete bounded quality scopes", async () => {
+    const h = readFixture(buildFoundationPilotManifestV4());
+    const plan = await planFoundationPilot(h.db, { manifest: h.manifest });
+    expect(plan.items).toHaveLength(300);
+    expect(plan.quality.items).toHaveLength(300);
+    expect(plan.sourceChecksums).toHaveLength(12);
+    expect(plan.manifestChecksum).toBe(
+      "7353baf893c3bde9fb7279529bcf69d66d7e0b9ef81396a8fb96169c686e70fc",
+    );
+    expect(h.placementRead).toHaveBeenCalledWith(expect.objectContaining({ take: 301 }));
+    expect(h.recordRead).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: FOUNDATION_PILOT_V4_RECORD_ID } }),
+    );
+    const calls = vi.mocked(loadContentQualityItems).mock.calls;
+    expect(calls).toHaveLength(6);
+    expect(calls.map(([, options]) => options?.itemIds?.length)).toEqual(Array(6).fill(100));
+    expect(calls.map(([, options]) => options?.cursor !== undefined)).toEqual([
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+    ]);
+    expect(new Set(calls.flatMap(([, options]) => options!.itemIds!)).size).toBe(300);
+    expect(calls.every(([, options]) => options?.limit === 100)).toBe(true);
+    const runs = vi.mocked(h.db.importRun.findUnique).mock.calls;
+    expect(runs).toHaveLength(12);
+    for (const [index, source] of h.manifest.sources.entries())
+      expect(runs[index]![0]).toMatchObject({
+        include: { records: { take: source.records.length + 1 } },
+      });
+    expect(h.db.course.upsert).not.toHaveBeenCalled();
+    expect(h.createPlacements).not.toHaveBeenCalled();
+    expect(h.recordWrite).not.toHaveBeenCalled();
+    expect(h.forbidden).not.toHaveBeenCalled();
+  });
+
+  it("synthetically publishes only v4's 300 exact placements and seven policies without enrollment", async () => {
+    const h = readFixture(buildFoundationPilotManifestV4());
+    const result = await publishFoundationPilot(h.db, { manifest: h.manifest });
+    expect(result).toMatchObject({
+      slug: h.manifest.slug,
+      manifestRecordId: FOUNDATION_PILOT_V4_RECORD_ID,
+      enrolledUserId: null,
+      counts: { components: 79, kanji: 101, words: 120, items: 300, cards: 521 },
+    });
+    const writes = h.createPlacements.mock.calls[0]![0].data;
+    expect(writes).toEqual(
+      h.placements.map((placement) => ({
+        courseLevelId: `pilot-level-${placement.courseLevel.levelNumber}`,
+        learningItemId: placement.learningItemId,
+        sortOrder: placement.sortOrder,
+        unlockPolicyJson: placement.unlockPolicyJson,
+      })),
+    );
+    expect(h.db.courseLevel.upsert).toHaveBeenCalledTimes(7);
+    for (const levelNumber of [5, 6, 7])
+      expect(h.db.courseLevel.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            levelNumber,
+            band: levelNumber === 5 ? "FOUNDATION" : "N5",
+            passPolicyJson: {
+              version: 1,
+              itemKind: levelNumber === 7 ? "KANJI" : "WORD",
+              passStageIndex: 5,
+              requiredPercentage: 90,
+            },
+          }),
+        }),
+      );
+    expect(h.recordWrite).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: FOUNDATION_PILOT_V4_RECORD_ID },
+        create: expect.objectContaining({ id: FOUNDATION_PILOT_V4_RECORD_ID }),
+      }),
+    );
+    expect(h.forbidden).not.toHaveBeenCalled();
+  });
+
+  it.each([299, 301])("rejects %i source placements for v4", async (count) => {
+    const h = readFixture(buildFoundationPilotManifestV4());
+    h.placementRead.mockResolvedValue(
+      Array.from({ length: count }, (_, index) => h.placements[index % 300]!),
+    );
+    await expect(planFoundationPilot(h.db, { manifest: h.manifest })).rejects.toThrow(
+      "exactly 300",
+    );
+    expect(h.createPlacements).not.toHaveBeenCalled();
+    expect(h.forbidden).not.toHaveBeenCalled();
+  });
+
+  it.each(["missing prerequisite", "wrong prerequisite stage", "moved component", "wrong band"])(
+    "rejects v4 %s before publication writes",
+    async (condition) => {
+      const h = readFixture(buildFoundationPilotManifestV4());
+      const lateKanji = h.placements.find((placement) => placement.courseLevel.levelNumber === 7)!;
+      const lateComponent = h.placements.find(
+        (placement) =>
+          placement.courseLevel.levelNumber === 6 && placement.learningItem.kind === "COMPONENT",
+      )!;
+      if (condition === "missing prerequisite") lateKanji.learningItem.dependencies.pop();
+      if (condition === "wrong prerequisite stage")
+        lateKanji.learningItem.dependencies[0]!.requiredStage = 0;
+      if (condition === "moved component") lateComponent.sortOrder++;
+      if (condition === "wrong band") Object.assign(lateKanji.courseLevel, { band: "FOUNDATION" });
+      await expect(publishFoundationPilot(h.db, { manifest: h.manifest })).rejects.toThrow();
+      expect(h.createPlacements).not.toHaveBeenCalled();
+      expect(h.recordWrite).not.toHaveBeenCalled();
+      expect(h.forbidden).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects missing final-scope v4 quality evidence even when the first 200 items pass", async () => {
+    const h = readFixture(buildFoundationPilotManifestV4());
+    const loader = vi.mocked(loadContentQualityItems).getMockImplementation()!;
+    const lastId = h.placements.at(-1)!.learningItemId;
+    vi.mocked(loadContentQualityItems).mockImplementation((db, options) =>
+      options?.itemIds?.includes(lastId) ? Promise.resolve([]) : loader(db, options),
+    );
+    await expect(publishFoundationPilot(h.db, { manifest: h.manifest })).rejects.toThrow("all 300");
     expect(h.createPlacements).not.toHaveBeenCalled();
     expect(h.recordWrite).not.toHaveBeenCalled();
     expect(h.forbidden).not.toHaveBeenCalled();

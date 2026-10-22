@@ -11,6 +11,86 @@ published after independent parent planning/review. It contains **53 components,
 five levels. Live plan and publication evidence is recorded below. Publication
 never automatically upgrades/enrolls v1 learners or changes their current course.
 
+## Prepared V4: Local Only, Not Published
+
+Task144 prepares a separately sealed `japanese-foundation-pilot-v4` via
+`buildFoundationPilotManifestV4()`: **79 components, 101 kanji, 120 words,
+300 existing items, 521 existing cards and 120 original bilingual examples**.
+All seven levels are populated. This is the finite PREPARED registry snapshot,
+not approval of the full course, live database readiness or publication.
+**No Neon access, workflow dispatch, enrollment or publication is authorized
+until the parent confirms acceptance of all 15 tasks in the current cycle.**
+The workflow/CLI changes only prepare an explicit later selection; they do not
+perform these actions. Independent source and pedagogical review remains the
+parent's responsibility; registered review dates are sealed evidence, not
+acceptance of this cycle's tasks.
+
+V4's stable publication-record UUID is
+`a88880b1-27a3-474d-af1f-0e9ef261d6f7`; canonical manifest SHA-256 is
+`7353baf893c3bde9fb7279529bcf69d66d7e0b9ef81396a8fb96169c686e70fc`.
+This is not a live content-version hash or a database course UUID.
+V1/V2/V3 manifests, source seals, UUIDs, counts and default V1 selection remain
+unchanged; V3 stays 63/81/100, 244 items, 425 cards and six levels.
+
+Only these twelve version-1 sources are selected, in this order. The sixth
+kanji source is actually named `task-118-course-kanji-06`, not
+`task-118-foundation-kanji-06`; no source alias or future-registry expansion is
+accepted. The first ten source payloads retain V3's seals.
+
+| Source                       | SHA-256                                                            |
+| ---------------------------- | ------------------------------------------------------------------ |
+| task-118-foundation-kanji-01 | `34676566c590fd19d10349e6bb07c75d01471fc618872fa103db2e676fd138b8` |
+| task-118-foundation-kanji-02 | `99268635c984603c30a1a53c2beb0bcd63a53316b9cb3a83b4e51c54e1c18714` |
+| task-118-foundation-kanji-03 | `fe1998be5842a0ca2f233670318949c51d82c58d68068851c3859f8e3560af92` |
+| task-118-foundation-kanji-04 | `5547b31673a20cffdfc817b0a95bd8b3e202108529c844f5090e0234fefa7850` |
+| task-118-foundation-kanji-05 | `95a4b69a331f200caa5044717cde9d628c3d3ad1d79600000c142a55967a3c1b` |
+| task-118-course-kanji-06     | `74482be25706778fafe6e18b5ffc144718a3bf7a4181a5aacc8323516b223833` |
+| task-127-foundation-words-01 | `1ceeb2467961f707e57047ab0c46a91badaa048f036ac3299a5a7d0685f99daf` |
+| task-127-foundation-words-02 | `0110505331b1066653f4b62ce20f4c8bbb98e94ccf701eafac26ecda9a0e6a4f` |
+| task-127-foundation-words-03 | `ef7090a4cea8c4b74c04a3cebfe85dc9832d64e1b7d071e409232287e7cf2ff4` |
+| task-127-foundation-words-04 | `81496c6ffcb91d0d7fa046b8f075b4b1aff6e2ccec7f69d48c48708bb043b5b6` |
+| task-127-course-words-05     | `e1fd34111d46183f4376934d9d55429c191524e7d319ec367b8bdb2c4d972f36` |
+| task-127-course-words-06     | `8a9e0cef7dc10ec355125ffb7bb989d96cd531d0f85767280b735b6ad9790858` |
+
+| Level | Preserved placements                             | Core pass policy |
+| ----- | ------------------------------------------------ | ---------------- |
+| 1     | 63 components                                    | COMPONENT        |
+| 2     | 22 kanji                                         | KANJI            |
+| 3     | 18 kanji                                         | KANJI            |
+| 4     | 41 kanji                                         | KANJI            |
+| 5     | 80 words, slots 1-80                             | WORD             |
+| 6     | 40 words, slots 1-40; 16 components, slots 41-56 | WORD             |
+| 7     | 20 kanji, slots 1-20                             | KANJI            |
+
+All policies retain stage 5 and 90%: L5 requires 72/80 word items, L6 requires
+36/40 word items, and L7 requires 18/20 kanji items, with **all cards of each
+qualifying item** at the policy stage. Core-policy completion is not completion
+of all items/cards. In particular, passing L6's WORD core says nothing about
+mastering its 16 components; it must not be presented as completing all 56 items
+or all 96 cards. These components remain placed in L6, with their exact original
+dependencies gating the corresponding L7 kanji at stage 1. Every card of every
+required component must meet that stage; the level policy never waives per-item
+prerequisites. Words still require all cards of their spelling-kanji prerequisites
+at stage 2. L6/L7 retain the main blueprint's N5 band, not an official JLPT claim
+for individual entries. No placements/order, global items/cards, answers, quality
+rules, license evidence or user schedules are rewritten.
+
+The existing publisher rejects noncanonical V4 payloads before any database
+access, verifies exact source hashes/review dates and applies all current quality
+gates. Placement reads use `take: 301` and require exactly 300 rows. Quality reads
+use three disjoint sorted 100-ID scopes, each with a terminal-page check; all
+300 items must pass. Synthetic tests exercise these bounds and publication write
+arguments only, not PostgreSQL persistence or live enrollment. No new data,
+dependencies or license assumptions beyond the existing legally reusable raw
+sources and project-authored curation are introduced.
+
+Local database-free inspection is `npm run db:publish:pilot -- --pilot v4 --validate-only`.
+Only after the parent acceptance gate, an operator may explicitly choose V4 in
+the existing read-only plan/publication flow. Omitting `--pilot` still selects V1;
+omitting a mode still plans read-only. The workflow adds only the V4 choice and
+enum guards, keeps `v1`/`plan` defaults and exposes no enrollment input. There is
+no automatic upgrade, enrollment, source expansion or current-course selection.
+
 ## Prepared V3 (Not Yet Published)
 
 `buildFoundationPilotManifestV3()` is a separate six-level finite expansion:
@@ -63,7 +143,7 @@ V2 canonical manifest SHA-256 is
 `4d2f3aab0b2b160774ab5a2ca19a675f28423c48561218abca4c8737c47d53e1`.
 These manifest seals are not live course content-version hashes.
 
-The common publisher accepts only canonical equality with one of the three known
+The common publisher accepts only canonical equality with one of the four known
 sealed manifests and exact approved registry/source hashes. Altered counts,
 targets, answers, source records/IDs/order, approval dates or level policies
 fail before any database read. Caller-provided counts or slugs do not define

@@ -26,7 +26,7 @@ as extra tasks. Existing pilot seals, enrollments and SRS identities stay intact
 | 141 | Item history request lifecycle   | History pagination remains item/user scoped through navigation, retries and auth changes                       | Planned                     |
 | 142 | Study audio lifecycle            | Navigation, preference changes and unmount stop obsolete playback without false completion                     | Planned                     |
 | 143 | Editorial registry inventory     | A source-only command reports hashes, levels, prerequisites and finite-pilot inclusion without database writes | Planned                     |
-| 144 | Next finite pilot seal           | Explicit N5/mixed-level policy and exact source/count closure; V1/V2/V3 unchanged                              | Planned                     |
+| 144 | Next finite pilot seal           | Explicit N5/mixed-level policy and exact source/count closure; V1/V2/V3 unchanged                              | Local acceptance passed; not published |
 
 The later entries require a scoped code inspection before implementation. If a
 proposed gap is already solved, record that evidence and replace it with a real
@@ -34,7 +34,7 @@ unmet acceptance slice; do not count a no-op or an existing feature as completed
 
 ## Checkpoints
 
-- Development complete: 8/15.
+- Development complete: 9/15.
 - Acceptance checked: 0/15.
 - Publication threshold reached: no.
 - No manual curation/publication workflow before the threshold.
