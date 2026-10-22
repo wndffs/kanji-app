@@ -1717,16 +1717,18 @@ async function withWordCurationFixture(run: (fixture: WordCurationFixture) => Pr
       "Test-only approval of the full twenty-word fixture; not production editorial approval.",
     sourceFile: `integration-word-curation-${suffix}.ts`,
   };
-  const registered = buildMainCourseContentBatches()
-    .filter((entry) => entry.courseSlug === batch.courseSlug)
-    .flatMap((entry) => entry.kanji)
-    .filter((content) => content.levelNumber < batch.levelNumber);
-  expect(registered).toHaveLength(61);
   const requiredHan = new Set(
     batch.words.flatMap((content) =>
       wordHanCharacters(content.expression + content.example.japaneseText),
     ),
   );
+  const registered = buildMainCourseContentBatches()
+    .filter((entry) => entry.courseSlug === batch.courseSlug)
+    .flatMap((entry) => entry.kanji)
+    .filter(
+      (content) => content.levelNumber < batch.levelNumber && requiredHan.has(content.character),
+    );
+  expect(registered).toHaveLength(requiredHan.size);
   expect(requiredHan.has("見")).toBe(true);
   expect(requiredHan.has("百")).toBe(true);
   expect(

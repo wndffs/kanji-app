@@ -9,13 +9,16 @@ import { type QualityItem } from "../src/content-quality";
 import {
   buildFoundationPilotManifest,
   buildFoundationPilotManifestV2,
+  buildFoundationPilotManifestV3,
   foundationPilotRecordId,
   FOUNDATION_PILOT_RECORD_ID,
   FOUNDATION_PILOT_V2_RECORD_ID,
+  FOUNDATION_PILOT_V3_RECORD_ID,
   planFoundationPilot,
   publishFoundationPilot,
 } from "../src/foundation-pilot";
 import { buildMainCourseContentBatches } from "../src/main-course-content";
+import { buildMainCourseBlueprint } from "../src/main-course";
 import { buildMainCourseWordBatches, wordHanCharacters } from "../src/main-course-word-content";
 
 vi.mock("../src/content-quality-report", () => ({ loadContentQualityItems: vi.fn() }));
@@ -258,11 +261,54 @@ describe("sealed finite pilot v2", () => {
     );
     expect(h.forbidden).not.toHaveBeenCalled();
   });
+
+  it("plans and publishes the bounded v3 expansion including the real level-six band", async () => {
+    const h = readFixture(buildFoundationPilotManifestV3());
+    const plan = await planFoundationPilot(h.db, { manifest: h.manifest });
+    expect(plan.items).toHaveLength(244);
+    expect(plan.sourceChecksums).toHaveLength(10);
+    expect(h.placementRead).toHaveBeenCalledWith(expect.objectContaining({ take: 245 }));
+    expect(
+      vi.mocked(loadContentQualityItems).mock.calls.map(([, options]) => options?.itemIds?.length),
+    ).toEqual([100, 100, 100, 100, 44]);
+    const result = await publishFoundationPilot(h.db, { manifest: h.manifest });
+    expect(result).toMatchObject({
+      manifestRecordId: FOUNDATION_PILOT_V3_RECORD_ID,
+      enrolledUserId: null,
+      counts: { items: 244, cards: 425 },
+    });
+    expect(h.db.courseLevel.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          levelNumber: 6,
+          band: "N5",
+          passPolicyJson: expect.objectContaining({ itemKind: "WORD" }),
+        }),
+      }),
+    );
+    expect(h.createPlacements.mock.calls[0]![0].data).toHaveLength(244);
+    expect(h.forbidden).not.toHaveBeenCalled();
+  });
+
+  it("rejects a v3 level-six placement in the old Foundation band before publication writes", async () => {
+    const h = readFixture(buildFoundationPilotManifestV3());
+    Object.assign(
+      h.placements.find((placement) => placement.courseLevel.levelNumber === 6)!.courseLevel,
+      { band: "FOUNDATION" },
+    );
+    await expect(publishFoundationPilot(h.db, { manifest: h.manifest })).rejects.toThrow(
+      "exact published main-course placement",
+    );
+    expect(h.createPlacements).not.toHaveBeenCalled();
+    expect(h.recordWrite).not.toHaveBeenCalled();
+    expect(h.forbidden).not.toHaveBeenCalled();
+  });
 });
 
 // A narrow read-only projection plus write spies: no simulated Prisma persistence/transactions.
-function readFixture() {
-  const manifest = buildFoundationPilotManifestV2();
+function readFixture(manifest = buildFoundationPilotManifestV2()) {
+  const band = (levelNumber: number) =>
+    buildMainCourseBlueprint().levels.find((level) => level.levelNumber === levelNumber)!.band;
   const itemId = (key: string) =>
     `00000000-0000-4000-8000-${String(manifest.targets.findIndex((target) => target.key === key) + 1).padStart(12, "0")}`;
   const targetId = (key: string) => `target-${key}`;
@@ -304,7 +350,7 @@ function readFixture() {
     courseLevel: {
       id: `level-${target.levelNumber}`,
       levelNumber: target.levelNumber,
-      band: "FOUNDATION",
+      band: band(target.levelNumber),
     },
     learningItem: {
       id: itemId(target.key),
@@ -324,7 +370,7 @@ function readFixture() {
       id: itemId(target.key),
       kind: target.kind,
       targetType: target.kind,
-      band: "FOUNDATION",
+      band: band(target.levelNumber),
       targetExists: true,
       targetMeaningsValid: true,
       source:
@@ -372,7 +418,11 @@ function readFixture() {
         { locale: "en-US", body: "Explanation.", sourceKind: "PROJECT_AUTHORED" },
       ],
       placements: [
-        { levelNumber: target.levelNumber, sortOrder: target.sortOrder, band: "FOUNDATION" },
+        {
+          levelNumber: target.levelNumber,
+          sortOrder: target.sortOrder,
+          band: band(target.levelNumber),
+        },
       ],
       requiredPrerequisiteTargetIds: target.prerequisiteKeys.map(targetId),
       dependencies: target.prerequisiteKeys.map((key) => {
@@ -387,7 +437,7 @@ function readFixture() {
             {
               levelNumber: required.levelNumber,
               sortOrder: required.sortOrder,
-              band: "FOUNDATION",
+              band: band(required.levelNumber),
             },
           ],
         };
