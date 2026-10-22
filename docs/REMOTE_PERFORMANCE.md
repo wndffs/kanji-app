@@ -137,3 +137,25 @@ The same limits as v1 apply: empty review backlog, first item a component,
 GitHub-hosted network path, no runtime-SHA attestation, and no browser rendering,
 CWV, mobile or full-course capacity claim. Neither pilot result demonstrates
 2,300-kanji/8,000-word production budgets or background notification delivery.
+
+## Exhausted Lesson-Cap Read Budget
+
+When the course lesson cap is exhausted, `LessonsService.getAvailableItems`
+now reads the user's full progress once, computes the global local-day cap,
+and returns before course resolution or graph/example/target hydration. The
+Prisma-spy budget is **one `userSrsState.findMany` call and zero course resolver,
+enrollment, target, example or prerequisite-card calls**. These are ORM method
+counts, not an inferred count of generated SQL statements.
+
+Progress intentionally remains scoped only by user, not current course: lessons
+from other courses/decks spend the same daily cap, multiple cards of one item
+count once, and previous local days do not consume today's cap. Deck existence,
+ownership and archived-state checks still precede an exhausted-cap response.
+The course resolver previously returned an empty result rather than 404 for an
+unavailable course; the short-circuit preserves that public result contract.
+
+The positive-cap path now loads progress before the graph rather than in
+parallel. This trades that path's concurrency for zero unnecessary graph reads
+on exhausted days; no positive-path or full-scale latency improvement is claimed.
+The 53 focused lesson/dashboard tests and API typecheck passed. Production
+latency and the still-unbounded positive-path graph remain separate work.

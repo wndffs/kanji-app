@@ -465,14 +465,16 @@ export class LessonsService {
       };
     }
 
-    const [courseItems, progress] = await Promise.all([
-      this.lessonsRepository.listCourseLessonItems(user.id),
-      progressPromise,
-    ]);
+    const progress = await progressPromise;
     const remainingToday = getRemainingDailyLessons(user, progress, now);
     const source: LessonQueueSourceDto = { kind: "course" };
 
-    if (remainingToday <= 0 || courseItems.length === 0) {
+    if (remainingToday <= 0) {
+      return { availableItems: [], displayMode, progress, remainingToday, source };
+    }
+
+    const courseItems = await this.lessonsRepository.listCourseLessonItems(user.id);
+    if (courseItems.length === 0) {
       return { availableItems: [], displayMode, progress, remainingToday, source };
     }
 

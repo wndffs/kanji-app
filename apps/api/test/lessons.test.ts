@@ -764,6 +764,169 @@ describe("LessonsService", () => {
     );
   });
 
+  it.each(["exhausted", "stale-course", "active-course"])(
+    "preserves course resolution semantics with a Prisma read budget: %s",
+    async (scenario) => {
+      const progressRows = [
+        { learningCardId: "meaning", learningCard: { learningItemId: "other-course-item" } },
+        { learningCardId: "reading", learningCard: { learningItemId: "other-course-item" } },
+        { learningCardId: "deck-card", learningCard: { learningItemId: "other-deck-item" } },
+      ].map((row) => ({ ...row, stageIndex: 1, createdAt: new Date("2026-06-17T22:30:00.000Z") }));
+      const targetReads = {
+        component: { findMany: vi.fn() },
+        kanji: { findMany: vi.fn() },
+        word: { findMany: vi.fn() },
+        sentence: { findMany: vi.fn() },
+      };
+      const db = {
+        ...targetReads,
+        userSrsState: { findMany: vi.fn().mockResolvedValue(progressRows) },
+        userSettings: {
+          findUnique: vi
+            .fn()
+            .mockResolvedValue({
+              currentCourseId:
+                scenario === "stale-course" ? "unavailable-course" : "current-course",
+            }),
+        },
+        userEnrollment: {
+          findMany: vi
+            .fn()
+            .mockResolvedValue(
+              scenario === "stale-course"
+                ? []
+                : [
+                    {
+                      courseId: "current-course",
+                      startedAt: NOW,
+                      course: { id: "current-course", slug: "published-pilot", levels: [] },
+                    },
+                  ],
+            ),
+        },
+        learningCard: { findMany: vi.fn() },
+        deck: { findFirst: vi.fn() },
+        $queryRaw: vi.fn(),
+      };
+      const service = new LessonsService(
+        new PrismaLessonsRepository({ db } as never),
+        createOverridesService(),
+      );
+      await expect(
+        service.getQueue(
+          createUser("owner", { dailyLessonLimit: scenario === "exhausted" ? 2 : 3 }),
+        ),
+      ).resolves.toEqual({
+        items: [],
+        availableItems: [],
+        batchLimit: 5,
+        remainingToday: scenario === "exhausted" ? 0 : 1,
+        orderMode: "course",
+        source: { kind: "course" },
+      });
+      expect(db.userSrsState.findMany).toHaveBeenCalledExactlyOnceWith({
+        where: { userId: "owner" },
+        select: {
+          stageIndex: true,
+          createdAt: true,
+          learningCardId: true,
+          learningCard: { select: { learningItemId: true } },
+        },
+      });
+      expect(db.userSettings.findUnique).toHaveBeenCalledTimes(scenario === "exhausted" ? 0 : 1);
+      expect(db.userEnrollment.findMany).toHaveBeenCalledTimes(
+        scenario === "exhausted" ? 0 : scenario === "stale-course" ? 1 : 2,
+      );
+      if (scenario !== "exhausted") {
+        expect(db.userEnrollment.findMany).toHaveBeenNthCalledWith(
+          1,
+          expect.objectContaining({
+            where: { userId: "owner", status: "ACTIVE", course: { status: "PUBLISHED" } },
+          }),
+        );
+      }
+      for (const table of Object.values(targetReads)) expect(table.findMany).not.toHaveBeenCalled();
+      expect(db.$queryRaw).not.toHaveBeenCalled();
+      expect(db.learningCard.findMany).not.toHaveBeenCalled();
+      expect(db.deck.findFirst).not.toHaveBeenCalled();
+    },
+  );
+
+  it("skips course hydration when other sources exhaust the local-day cap", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const service = new LessonsService(repository, createOverridesService());
+    const localToday = new Date("2026-06-17T22:30:00.000Z");
+    repository.addProgress("owner", "other-course-item", ["meaning", "reading"], 1, localToday);
+    repository.addProgress("owner", "other-deck-item", ["deck-card"], 1, localToday);
+    repository.addProgress(
+      "owner",
+      "older-item",
+      ["old-card"],
+      5,
+      new Date("2026-06-17T20:59:00.000Z"),
+    );
+    repository.addProgress("other-user", "private-item", ["private-card"], 1, NOW);
+
+    await expect(service.getQueue(createUser("owner", { dailyLessonLimit: 2 }))).resolves.toEqual({
+      items: [],
+      availableItems: [],
+      batchLimit: 5,
+      remainingToday: 0,
+      orderMode: "course",
+      source: { kind: "course" },
+    });
+    expect(repository.readCounts).toEqual({ progress: 1, course: 0, deck: 0, prerequisites: 0 });
+  });
+
+  it("hydrates once with a positive cap, counting multiple cards as one item and excluding older/other-user progress", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const service = new LessonsService(repository, createOverridesService());
+    repository.addProgress(
+      "owner",
+      "other-course-item",
+      ["meaning", "reading"],
+      1,
+      new Date("2026-06-17T22:30:00.000Z"),
+    );
+    repository.addProgress(
+      "owner",
+      "other-deck-older-item",
+      ["old-card"],
+      5,
+      new Date("2026-06-17T20:59:00.000Z"),
+    );
+    repository.addProgress("other-user", "private-item", ["private-card"], 1, NOW);
+
+    const queue = await service.getQueue(createUser("owner", { dailyLessonLimit: 2 }));
+    expect(queue).toMatchObject({ remainingToday: 1, source: { kind: "course" } });
+    expect(queue.items.map(({ item }) => item.id)).toEqual(["item-component-one"]);
+    expect(queue.availableItems).toHaveLength(1);
+    expect(repository.readCounts).toEqual({ progress: 1, course: 1, deck: 0, prerequisites: 0 });
+  });
+
+  it.each(["missing-deck", "deck-study"])(
+    "still authorizes deck %s before returning an exhausted-cap result",
+    async (deckId) => {
+      const repository = new InMemoryLessonsRepository();
+      const service = new LessonsService(repository, createOverridesService());
+      repository.addProgress("owner", "other-source", ["card"], 1, NOW);
+      if (deckId === "deck-study") repository.setDeckStatus("archived");
+      await expect(
+        service.getQueue(createUser("owner", { dailyLessonLimit: 1 }), deckId),
+      ).rejects.toThrow("Deck not found.");
+      expect(repository.readCounts).toEqual({ progress: 1, course: 0, deck: 1, prerequisites: 0 });
+    },
+  );
+
+  it("propagates progress read failures without hydrating a course", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const failure = new Error("progress unavailable");
+    vi.spyOn(repository, "listUserProgress").mockRejectedValueOnce(failure);
+    const service = new LessonsService(repository, createOverridesService());
+    await expect(service.getQueue(createUser("owner"))).rejects.toBe(failure);
+    expect(repository.readCounts.course).toBe(0);
+  });
+
   it("respects the user's daily lesson limit", async () => {
     const service = createService();
 
@@ -904,6 +1067,7 @@ describe("LessonsService", () => {
 });
 
 class InMemoryLessonsRepository extends LessonsRepository {
+  readonly readCounts = { progress: 0, course: 0, deck: 0, prerequisites: 0 };
   private readonly courseItems: readonly CourseLessonItemRecord[];
   private readonly progress: UserItemProgressRecord[];
   private readonly sessions = new Map<string, LessonSessionRecord>();
@@ -917,14 +1081,17 @@ class InMemoryLessonsRepository extends LessonsRepository {
   }
 
   async listCourseLessonItems(_userId: string): Promise<readonly CourseLessonItemRecord[]> {
+    this.readCounts.course++;
     return this.courseItems;
   }
 
   async findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null> {
+    this.readCounts.deck++;
     return userId === "owner" && deckId === "deck-study" ? createDeckLesson(this.deckStatus) : null;
   }
 
   async listUserProgress(userId: string): Promise<readonly UserItemProgressRecord[]> {
+    this.readCounts.progress++;
     return this.progress
       .filter((record) => record.learningItemId.startsWith(`${userId}:`))
       .map((record) => ({
@@ -936,6 +1103,7 @@ class InMemoryLessonsRepository extends LessonsRepository {
   async listPrerequisiteCardIds(
     itemIds: readonly string[],
   ): Promise<ReadonlyMap<string, readonly string[]>> {
+    this.readCounts.prerequisites++;
     return new Map(
       this.courseItems
         .filter((entry) => itemIds.includes(entry.item.id))
