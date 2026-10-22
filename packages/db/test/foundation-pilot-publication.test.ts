@@ -319,6 +319,8 @@ describe("finite pilot publication", () => {
     expect(fixture.forbidden).not.toHaveBeenCalled();
     expect(fixture.transaction.mock.calls[0]?.[1]).toMatchObject({
       isolationLevel: "Serializable",
+      maxWait: 10_000,
+      timeout: 60_000,
     });
     const record = fixture.state.records.get(FOUNDATION_PILOT_RECORD_ID)!;
     expect(record.rawJson).toMatchObject({

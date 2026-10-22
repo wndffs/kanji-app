@@ -84,6 +84,13 @@ arguments only, not PostgreSQL persistence or live enrollment. No new data,
 dependencies or license assumptions beyond the existing legally reusable raw
 sources and project-authored curation are introduced.
 
+V4 publication has a bounded 120-second Serializable transaction budget; V1/V2/V3
+retain 60 seconds and all versions retain a 10-second acquisition wait. Live
+attempt `39857759491` rolled back at 60 seconds during the final repeated quality
+scan after the read-only plan passed. The larger V4-only budget preserves all
+three in-transaction scans, checksum comparisons and rollback behavior; it is not
+an unlimited timeout or permission to skip validation.
+
 Local database-free inspection is `npm run db:publish:pilot -- --pilot v4 --validate-only`.
 Only after the parent acceptance gate, an operator may explicitly choose V4 in
 the existing read-only plan/publication flow. Omitting `--pilot` still selects V1;

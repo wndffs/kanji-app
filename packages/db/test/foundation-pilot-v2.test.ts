@@ -249,7 +249,13 @@ describe("sealed finite pilot v2", () => {
 
   it("publishes only the v2 metadata/placements with its distinct record ID and no enrollment discovery", async () => {
     const h = readFixture();
+    const transaction = vi.spyOn(h.db, "$transaction");
     const result = await publishFoundationPilot(h.db, { manifest: h.manifest });
+    expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: "Serializable",
+      maxWait: 10_000,
+      timeout: 60_000,
+    });
     expect(result).toMatchObject({
       slug: h.manifest.slug,
       manifestRecordId: FOUNDATION_PILOT_V2_RECORD_ID,
@@ -348,7 +354,13 @@ describe("sealed finite pilot v2", () => {
 
   it("synthetically publishes only v4's 300 exact placements and seven policies without enrollment", async () => {
     const h = readFixture(buildFoundationPilotManifestV4());
+    const transaction = vi.spyOn(h.db, "$transaction");
     const result = await publishFoundationPilot(h.db, { manifest: h.manifest });
+    expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: "Serializable",
+      maxWait: 10_000,
+      timeout: 120_000,
+    });
     expect(result).toMatchObject({
       slug: h.manifest.slug,
       manifestRecordId: FOUNDATION_PILOT_V4_RECORD_ID,

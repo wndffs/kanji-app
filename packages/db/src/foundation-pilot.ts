@@ -987,156 +987,166 @@ export async function publishFoundationPilot(
   options: FoundationPilotOptions = {},
 ) {
   const before = await planFoundationPilot(prisma, options);
-  return prisma.$transaction(async (db) => {
-    const plan = await planFoundationPilot(db, options);
-    if (
-      plan.contentVersion !== before.contentVersion ||
-      plan.manifestChecksum !== before.manifestChecksum
-    )
-      throw new Error("Pilot content changed after read-only preflight.");
-    const manifest = plan.manifest;
-    const context = requireApproved(manifest);
-    const course = await db.course.upsert({
-      where: { slug: manifest.slug },
-      update: {},
-      create: {
-        slug: manifest.slug,
-        titleRu: manifest.titleRu,
-        descriptionRu: manifest.descriptionRu,
-        targetLevel: manifest.targetLevel,
-        band: "FOUNDATION",
-        courseType: "STRUCTURED",
-        status: "DRAFT",
-      },
-    });
-    const levelIds = new Map<number, string>();
-    for (const level of manifest.levels) {
-      const target = await db.courseLevel.upsert({
-        where: { courseId_levelNumber: { courseId: course.id, levelNumber: level.levelNumber } },
+  return prisma.$transaction(
+    async (db) => {
+      const plan = await planFoundationPilot(db, options);
+      if (
+        plan.contentVersion !== before.contentVersion ||
+        plan.manifestChecksum !== before.manifestChecksum
+      )
+        throw new Error("Pilot content changed after read-only preflight.");
+      const manifest = plan.manifest;
+      const context = requireApproved(manifest);
+      const course = await db.course.upsert({
+        where: { slug: manifest.slug },
         update: {},
         create: {
-          courseId: course.id,
-          levelNumber: level.levelNumber,
-          titleRu: level.titleRu,
-          descriptionRu: level.descriptionRu,
-          band: pilotLevelBand(manifest.slug, level.levelNumber),
-          passPolicyJson: toJson(level.passPolicyJson),
+          slug: manifest.slug,
+          titleRu: manifest.titleRu,
+          descriptionRu: manifest.descriptionRu,
+          targetLevel: manifest.targetLevel,
+          band: "FOUNDATION",
+          courseType: "STRUCTURED",
+          status: "DRAFT",
         },
       });
-      levelIds.set(level.levelNumber, target.id);
-    }
-    await db.courseLevelItem.createMany({
-      skipDuplicates: true,
-      data: plan.items.map((item) => ({
-        courseLevelId: levelIds.get(item.levelNumber)!,
-        learningItemId: item.learningItemId,
-        sortOrder: item.sortOrder,
-        unlockPolicyJson:
-          item.unlockPolicyJson === null ? Prisma.DbNull : toJson(item.unlockPolicyJson),
-      })),
-    });
-    const pilotQuality = await scanQuality(db, manifest.slug, plan.items);
-    const repeatedMainQuality = await scanQuality(db, SOURCE_COURSE_SLUG, plan.items);
-    if (
-      canonical(pilotQuality) !== canonical(plan.quality) ||
-      canonical(repeatedMainQuality) !== canonical(plan.quality)
-    )
-      throw new Error("Pilot/main quality checksum changed inside publication transaction.");
-    const metadata = {
-      schemaVersion: 1,
-      courseId: course.id,
-      sourceCourseId: plan.sourceCourseId,
-      slug: manifest.slug,
-      manifestChecksum: plan.manifestChecksum,
-      contentVersion: plan.contentVersion,
-      sourceChecksums: plan.sourceChecksums,
-      counts: manifest.counts,
-      qualityPolicyVersion: CONTENT_QUALITY_POLICY_VERSION,
-      placements: plan.items.map(({ learningItemId, targetId, kind, levelNumber, sortOrder }) => ({
-        learningItemId,
-        targetId,
-        kind,
-        levelNumber,
-        sortOrder,
-      })),
-    };
-    const license = await db.license.upsert({
-      where: { name: PUBLICATION_LICENSE },
-      update: {},
-      create: {
-        name: PUBLICATION_LICENSE,
-        scope: "PROJECT_AUTHORED",
-        spdxLikeId: "LicenseRef-Project-Authored",
-        requiresAttribution: false,
-        requiresShareAlike: false,
-      },
-    });
-    const source = await db.dataSource.upsert({
-      where: { name: PUBLICATION_SOURCE },
-      update: {},
-      create: {
-        name: PUBLICATION_SOURCE,
-        licenseId: license.id,
-        homepageUrl: PUBLICATION_URL,
-        attributionText: "Project-authored finite Foundation pilot publication metadata.",
-      },
-    });
-    const run = await db.importRun.upsert({
-      where: {
-        dataSourceId_checksumSha256: {
+      const levelIds = new Map<number, string>();
+      for (const level of manifest.levels) {
+        const target = await db.courseLevel.upsert({
+          where: { courseId_levelNumber: { courseId: course.id, levelNumber: level.levelNumber } },
+          update: {},
+          create: {
+            courseId: course.id,
+            levelNumber: level.levelNumber,
+            titleRu: level.titleRu,
+            descriptionRu: level.descriptionRu,
+            band: pilotLevelBand(manifest.slug, level.levelNumber),
+            passPolicyJson: toJson(level.passPolicyJson),
+          },
+        });
+        levelIds.set(level.levelNumber, target.id);
+      }
+      await db.courseLevelItem.createMany({
+        skipDuplicates: true,
+        data: plan.items.map((item) => ({
+          courseLevelId: levelIds.get(item.levelNumber)!,
+          learningItemId: item.learningItemId,
+          sortOrder: item.sortOrder,
+          unlockPolicyJson:
+            item.unlockPolicyJson === null ? Prisma.DbNull : toJson(item.unlockPolicyJson),
+        })),
+      });
+      const pilotQuality = await scanQuality(db, manifest.slug, plan.items);
+      const repeatedMainQuality = await scanQuality(db, SOURCE_COURSE_SLUG, plan.items);
+      if (
+        canonical(pilotQuality) !== canonical(plan.quality) ||
+        canonical(repeatedMainQuality) !== canonical(plan.quality)
+      )
+        throw new Error("Pilot/main quality checksum changed inside publication transaction.");
+      const metadata = {
+        schemaVersion: 1,
+        courseId: course.id,
+        sourceCourseId: plan.sourceCourseId,
+        slug: manifest.slug,
+        manifestChecksum: plan.manifestChecksum,
+        contentVersion: plan.contentVersion,
+        sourceChecksums: plan.sourceChecksums,
+        counts: manifest.counts,
+        qualityPolicyVersion: CONTENT_QUALITY_POLICY_VERSION,
+        placements: plan.items.map(
+          ({ learningItemId, targetId, kind, levelNumber, sortOrder }) => ({
+            learningItemId,
+            targetId,
+            kind,
+            levelNumber,
+            sortOrder,
+          }),
+        ),
+      };
+      const license = await db.license.upsert({
+        where: { name: PUBLICATION_LICENSE },
+        update: {},
+        create: {
+          name: PUBLICATION_LICENSE,
+          scope: "PROJECT_AUTHORED",
+          spdxLikeId: "LicenseRef-Project-Authored",
+          requiresAttribution: false,
+          requiresShareAlike: false,
+        },
+      });
+      const source = await db.dataSource.upsert({
+        where: { name: PUBLICATION_SOURCE },
+        update: {},
+        create: {
+          name: PUBLICATION_SOURCE,
+          licenseId: license.id,
+          homepageUrl: PUBLICATION_URL,
+          attributionText: "Project-authored finite Foundation pilot publication metadata.",
+        },
+      });
+      const run = await db.importRun.upsert({
+        where: {
+          dataSourceId_checksumSha256: {
+            dataSourceId: source.id,
+            checksumSha256: plan.contentVersion,
+          },
+        },
+        update: {},
+        create: {
           dataSourceId: source.id,
           checksumSha256: plan.contentVersion,
+          sourceVersion: manifest.version,
+          sourceFileName: "packages/db/src/foundation-pilot.ts",
+          status: "SUCCESS",
+          finishedAt: new Date(),
+          statsJson: toJson(metadata),
         },
-      },
-      update: {},
-      create: {
-        dataSourceId: source.id,
-        checksumSha256: plan.contentVersion,
-        sourceVersion: manifest.version,
-        sourceFileName: "packages/db/src/foundation-pilot.ts",
-        status: "SUCCESS",
-        finishedAt: new Date(),
-        statsJson: toJson(metadata),
-      },
-    });
-    await db.importedRecord.upsert({
-      where: { id: context.recordId },
-      update: {},
-      create: {
-        id: context.recordId,
-        importRunId: run.id,
-        sourceRecordId: manifest.slug,
-        recordType: "PROJECT_AUTHORED",
-        rawJson: toJson(metadata),
-      },
-    });
-    await db.course.update({ where: { id: course.id }, data: { status: "PUBLISHED" } });
-    if (options.enrollUserId !== undefined) {
-      await db.userEnrollment.upsert({
-        where: { userId_courseId: { userId: options.enrollUserId, courseId: course.id } },
+      });
+      await db.importedRecord.upsert({
+        where: { id: context.recordId },
         update: {},
-        create: { userId: options.enrollUserId, courseId: course.id, status: "ACTIVE" },
+        create: {
+          id: context.recordId,
+          importRunId: run.id,
+          sourceRecordId: manifest.slug,
+          recordType: "PROJECT_AUTHORED",
+          rawJson: toJson(metadata),
+        },
       });
-      await db.userSettings.upsert({
-        where: { userId: options.enrollUserId },
-        update: {},
-        create: { userId: options.enrollUserId },
-      });
-      await db.userSettings.updateMany({
-        where: { userId: options.enrollUserId, currentCourseId: null },
-        data: { currentCourseId: course.id },
-      });
-    }
-    return {
-      status: "published",
-      slug: manifest.slug,
-      courseId: course.id,
-      contentVersion: plan.contentVersion,
-      manifestRecordId: context.recordId,
-      counts: manifest.counts,
-      enrolledUserId: options.enrollUserId ?? null,
-    };
-  }, TRANSACTION_OPTIONS);
+      await db.course.update({ where: { id: course.id }, data: { status: "PUBLISHED" } });
+      if (options.enrollUserId !== undefined) {
+        await db.userEnrollment.upsert({
+          where: { userId_courseId: { userId: options.enrollUserId, courseId: course.id } },
+          update: {},
+          create: { userId: options.enrollUserId, courseId: course.id, status: "ACTIVE" },
+        });
+        await db.userSettings.upsert({
+          where: { userId: options.enrollUserId },
+          update: {},
+          create: { userId: options.enrollUserId },
+        });
+        await db.userSettings.updateMany({
+          where: { userId: options.enrollUserId, currentCourseId: null },
+          data: { currentCourseId: course.id },
+        });
+      }
+      return {
+        status: "published",
+        slug: manifest.slug,
+        courseId: course.id,
+        contentVersion: plan.contentVersion,
+        manifestRecordId: context.recordId,
+        counts: manifest.counts,
+        enrolledUserId: options.enrollUserId ?? null,
+      };
+    },
+    {
+      ...TRANSACTION_OPTIONS,
+      // V4 repeats three bounded 300-item quality scans inside one atomic publication.
+      timeout:
+        before.manifest.slug === FOUNDATION_PILOT_V4_SLUG ? 120_000 : TRANSACTION_OPTIONS.timeout,
+    },
+  );
 }
 
 async function checkPublicationSource(db: PilotReader) {
