@@ -24,6 +24,14 @@ configuration always build. No secret or environment-value comparison is used.
 This can save build work, but ignored deployments may still count against
 Vercel deployment/concurrency limits; it is not a claim of zero platform cost.
 
+Live acceptance on 2026-10-22: runtime commit `4a5a8b3` reached
+[successful deployment](https://vercel.com/windoffs2-8315s-projects/kanji-app/E7TdovuZABB3tM8UbtMzP2H6yA97),
+and the browser loaded its new public manifest/icon. The subsequent docs-only
+commit `68a701a` was
+[cancelled by the ignored build step](https://vercel.com/windoffs2-8315s-projects/kanji-app/9Jvi7VBxYugRBSiBVUoHbWqahy8H)
+with a successful GitHub status. This is the observed skip/runtime pair, not
+only a passing local decision-script test.
+
 ## Render
 
 `render.yaml` uses only `buildFilter.ignoredPaths`, never an exhaustive runtime
@@ -40,6 +48,9 @@ On 2026-10-22 a Blueprint sync did not populate the existing service's ignored
 paths. The exact `render.yaml` ignored-path list was therefore saved directly in
 that service's **Settings > Build Filters** and its persisted values were checked.
 Evidence: `render-build-filters-2026-10-22.png`, outside the repository. This
-confirms configuration, not yet a docs-only skip. A subsequent live API response
-did expose the curated-meaning repair from `6c1e7ab`; a complete skip/build
-acceptance pair still needs observation.
+confirms configuration, not yet an explicit docs-only skip event. The service's
+Deploys page subsequently showed `4a5a8b3` as **Live**, deployment
+`dep-dbd22ijncjis73bf0990`; the screenshot `render-runtime-live-2026-10-22.png`
+records that runtime rollout. No deployment of the later docs-only `68a701a`
+appeared in the observed Deploys/Events lists, but absence alone is not certified
+skip evidence. The explicit Render skip side of the pair remains unverified.
