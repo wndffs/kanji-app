@@ -3,7 +3,7 @@
 ## Status
 
 - Task: 118
-- Updated: 2026-10-22
+- Updated: 2026-10-23
 - State: **IN PROGRESS**
 - Main course publication approved: **no**
 
@@ -14,7 +14,34 @@ continue.
 
 ## Verified staging evidence
 
-### Current Editorial Corpus: Fifth Word Batch (2026-10-22)
+### Current Editorial Corpus: Sixth Batches (2026-10-23)
+
+After cycle 130-144 passed acceptance,
+[selected curation 39855468624](https://github.com/wndffs/kanji-app/actions/runs/39855468624)
+applied only kanji-06 and word-06 without seed or reapplying old batches.
+Successful import IDs: kanji `72faab37-3ef6-48e3-a0c6-b88f0011ef21`, word
+`d4ae578d-4f71-41a0-902a-fd5467222499`. Source hashes remain
+`74482be25706778fafe6e18b5ffc144718a3bf7a4181a5aacc8323516b223833`
+and `8a9e0cef7dc10ec355125ffb7bb989d96cd531d0f85767280b735b6ad9790858`.
+
+The main course remains **DRAFT** with **79 components, 101 kanji, 120 words,
+300 items, 521 cards and 120 original bilingual examples**, seven populated
+levels of sixty. Its
+[quality artifact](https://github.com/wndffs/kanji-app/actions/runs/39855468624/artifacts/12458974061)
+scanned all 300 items with zero blockers/warnings, policy v2, content version
+`8e51da5fe13f567cf959629ec55660f2a10b35c341e19e7806fc300992ac0e93`.
+Remaining full-course content: **2,199 kanji and 7,880 words**.
+
+The same finite set is now separately published as V4 by
+[run 39858951154](https://github.com/wndffs/kanji-app/actions/runs/39858951154),
+without automatically enrolling/switching existing learners. Its exact-revision
+remote smoke `39859400700` passed. V1/V2 remain unchanged; V3 is an unpublished
+intermediate seal whose complete source set is included in V4. See
+`DEVELOPMENT_CYCLE_130_144.md` for publication hashes, rollback repair and limits.
+No new raw dictionary download, inferred modern JLPT values or proprietary
+educational content was introduced. AI review is not human approval.
+
+### Previous Editorial Corpus: Fifth Word Batch (2026-10-22)
 
 [Run 39836574322](https://github.com/wndffs/kanji-app/actions/runs/39836574322)
 applied only kanji-05 and word-04, without starter seed or old-batch application.

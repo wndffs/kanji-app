@@ -11,19 +11,20 @@ published after independent parent planning/review. It contains **53 components,
 five levels. Live plan and publication evidence is recorded below. Publication
 never automatically upgrades/enrolls v1 learners or changes their current course.
 
-## Prepared V4: Local Only, Not Published
+## Published V4: 2026-10-23
 
 Task144 prepares a separately sealed `japanese-foundation-pilot-v4` via
 `buildFoundationPilotManifestV4()`: **79 components, 101 kanji, 120 words,
 300 existing items, 521 existing cards and 120 original bilingual examples**.
-All seven levels are populated. This is the finite PREPARED registry snapshot,
-not approval of the full course, live database readiness or publication.
-**No Neon access, workflow dispatch, enrollment or publication is authorized
-until the parent confirms acceptance of all 15 tasks in the current cycle.**
-The workflow/CLI changes only prepare an explicit later selection; they do not
-perform these actions. Independent source and pedagogical review remains the
-parent's responsibility; registered review dates are sealed evidence, not
-acceptance of this cycle's tasks.
+All seven levels are populated. After all 15 cycle tasks passed acceptance,
+selected Neon curation, a fresh read-only plan and explicit publication succeeded.
+[Publication 39858951154](https://github.com/wndffs/kanji-app/actions/runs/39858951154)
+created course UUID `ed80100c-e1dc-4399-8379-78d0aa912ee0`, live content version
+`eeae844d6abb0e7d7eeacf6fe7227377a1457f2106902f7d962902122b8dceee`.
+No user was enrolled or switched by publication. Exact-revision remote smoke
+`39859400700` passed on web/API commit `419e97f`; full evidence and limits are in
+`DEVELOPMENT_CYCLE_130_144.md`. This finite pilot is not full-course publication
+or human pedagogical certification. Source review dates remain sealed evidence.
 
 V4's stable publication-record UUID is
 `a88880b1-27a3-474d-af1f-0e9ef261d6f7`; canonical manifest SHA-256 is

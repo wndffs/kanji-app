@@ -19,9 +19,9 @@ private editing, with two independent reviewers. Local checks are focused;
 cloud CI runs broader checks. This does not claim exhaustive review of every
 file, accessibility state or production-scale query.
 
-- Main course, updated 2026-10-22: **81 placed kanji, 100 placed vocabulary,
-  63 components and 100 bilingual examples**. Its combined 244-item/425-card batches passed a live quality
-  report with zero blockers and warnings in run 39837563210. The
+- Main course, updated 2026-10-23: **101 placed kanji, 120 placed vocabulary,
+  79 components and 120 bilingual examples**. Its combined 300-item/521-card batches passed a live quality
+  report with zero blockers and warnings in run 39855468624. The
   course is still DRAFT, not a published 2,300-kanji/8,000-word course.
 - Raw corpus: 13,108 KANJIDIC2 entries, 30,000 bilingual JMdict pairs, 6,702
   KanjiVG graphics. Imported evidence is not editorial publication.
@@ -37,6 +37,12 @@ file, accessibility state or production-scale query.
   basic characters.
 - Listening infrastructure is implemented; test audio is not corpus coverage.
   Pitch-accent research remains deferred, without integrated accent data.
+- Published Foundation **v4** now offers **79 components, 101 kanji, 120 words
+  and 521 cards across seven levels**. Publication `39858951154` enrolled nobody;
+  exact web/API revision smoke `39859400700` passed at `419e97f`. V3 remains an
+  unpublished intermediate seal, fully included by V4. Cycle 130-144 also adds
+  server-paged/filterable kana-aware search, bounded target hydration and request/
+  audio lifecycle isolation. See `DEVELOPMENT_CYCLE_130_144.md` for limits.
 - The 90/100 WaniKani and 85/100 Duolingo-character goals are targets, not current
   measured scores. A tiny released corpus cannot justify whole-product parity.
 
