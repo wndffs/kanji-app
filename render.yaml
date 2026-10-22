@@ -8,6 +8,20 @@ services:
     dockerfilePath: ./apps/api/Dockerfile
     healthCheckPath: /health
     autoDeploy: true
+    buildFilter:
+      ignoredPaths:
+        - docs/**
+        - prompts/**
+        - .github/**
+        - .codex/**
+        - AGENTS.md
+        - README.md
+        - LICENSE
+        - LICENSE.md
+        - apps/web/e2e/**
+        - apps/api/test/**
+        - packages/*/test/**
+        - scripts/*.test.ts
     envVars:
       - key: NODE_ENV
         value: production
