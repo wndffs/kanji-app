@@ -145,8 +145,11 @@ export class PrismaCharactersRepository extends CharactersRepository {
         item.learningItem.kind === "KANJI" ? [item.learningItem.targetId] : [],
       ),
     );
-    const kanjiRows = (await this.prisma.db.kanji.findMany({
-      where: { id: { in: [...new Set(targetIds)] } },
+    const kanjiRows: KanjiRow[] = [];
+    const distinctIds = [...new Set(targetIds)];
+    for (let offset = 0; offset < distinctIds.length; offset += 100) {
+      const rows = (await this.prisma.db.kanji.findMany({
+      where: { id: { in: distinctIds.slice(offset, offset + 100) } },
       select: {
         id: true,
         character: true,
@@ -166,7 +169,9 @@ export class PrismaCharactersRepository extends CharactersRepository {
           },
         },
       },
-    })) as readonly KanjiRow[];
+      })) as readonly KanjiRow[];
+      kanjiRows.push(...rows);
+    }
     const kanjiById = new Map(kanjiRows.map((kanji) => [kanji.id, kanji]));
 
     return {
