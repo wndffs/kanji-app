@@ -17,6 +17,8 @@
     "db:generate": "npm run prisma:generate --workspace @kanji-srs/db",
     "db:curate": "npm run prisma:curate-main-course --workspace @kanji-srs/db --",
     "db:curate:words": "npm run prisma:curate-main-course-words --workspace @kanji-srs/db --",
+    "db:publish:pilot": "npm run prisma:publish-foundation-pilot --workspace @kanji-srs/db --",
+    "db:publish:pilot": "npm run prisma:publish-foundation-pilot --workspace @kanji-srs/db --",
     "content:quality": "npm run prisma:report-content-quality --workspace @kanji-srs/db --",
     "db:migrate": "npm run prisma:migrate:dev --workspace @kanji-srs/db",
     "db:migrate:deploy": "npm run prisma:migrate:deploy --workspace @kanji-srs/db",

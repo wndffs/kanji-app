@@ -1,0 +1,183 @@
+# Finite Foundation Pilot
+
+Task128 publishes only `japanese-foundation-pilot-v1`: a separate, versioned
+five-level pilot containing **40 components, 40 kanji and 20 words**, reusing
+**100 existing learning items and 160 existing cards**. It is not the completed
+60-level course and is not full Task128 or production-readiness approval.
+
+The source course remains `japanese-ru-n2`, whether currently `DRAFT` or
+`PUBLISHED`. This tool never publishes or updates that course, changes its
+2,300-kanji/8,000-word publication gate, or changes global learning-item hints,
+dependencies, cards, answers, schedules or private learner data.
+
+## Fixed Inputs And Preconditions
+
+The pilot accepts exactly the two registered Task118 version-1 kanji batches and
+the first Task127 version-1 word batch. All three must record independent review
+dates. The planner then requires:
+
+- Each named project-authored source has the exact checksum-keyed `SUCCESS`
+  import run, version, manifest filename and matching review date.
+- Every persisted curation record matches its approved manifest payload. Word
+  records must also match their actual JMdict target's dictionary-evidence IDs,
+  version, checksum and license ID. JSONB object ordering is not significant.
+- The known structured main course has exactly the 100 expected published
+  placements, with the original target identities, levels, slots and unlock
+  policies. Hidden extra placements are rejected, including in later levels.
+- All direct prerequisites exactly match the registered manifest, are inside
+  this finite set and occupy earlier levels. Components have no prerequisites;
+  kanji require their registered components at stage 1; words require their
+  spelling kanji at stage 2. There is no global fallback or dependency waiver.
+- The existing full quality loader visits every item in keyset pages of at most
+  100, including the terminal page after an exact 100-row page. Every current
+  policy issue, blocker or warning, prevents publication. Missing, repeated,
+  unordered or unexpected quality rows also fail closed.
+- Card slots and accepted answers match the approved manifests: a meaning card
+  for each component and meaning/reading cards for each kanji and word. Their
+  existing card IDs are retained, not recreated.
+
+Independent source/wording/license review still belongs to the parent. Local
+fixtures do not prove that a live database satisfies these requirements.
+
+## Levels And Learner State
+
+Placements are identical to the main-course batches: components occupy level 1,
+kanji occupy their existing levels 2–4, and words occupy level 5 slots 1–20.
+Pilot levels use the established pass-policy helper: components for level 1,
+kanji for levels 2–4, and words for level 5, retaining stage 5 and 90% defaults.
+Main-course policies are not changed.
+
+The same `LearningItem` and `LearningCard` IDs mean existing SRS state, private
+synonyms and mnemonics remain associated with those cards. No schedule reset,
+progress migration, synthetic level completion or user-wide enrollment is run.
+
+## Read-Only Plan And Atomic Publication
+
+The implementation lives in `packages/db/src/foundation-pilot.ts` and
+`packages/db/prisma/publish-foundation-pilot.ts`. The root `db:publish:pilot`
+script delegates to the database workspace's `prisma:publish-foundation-pilot`
+script. No schema or API change is required.
+
+A pure, database-free manifest inspection is:
+
+```sh
+npm run db:publish:pilot -- --validate-only
+```
+
+Once all source manifests have been independently reviewed and applied, an
+operator can supply `DATABASE_URL` and run the read-only database plan:
+
+```sh
+npm run db:publish:pilot -- --plan
+```
+
+After reviewing the plan, explicit publication is:
+
+```sh
+npm run db:publish:pilot -- --publish
+```
+
+The equivalent workspace command is:
+
+```sh
+npm run prisma:publish-foundation-pilot --workspace @kanji-srs/db -- --plan
+```
+
+No mode flag also means read-only planning. Only explicit `--publish` enables
+writes. Supply at most one mode flag: repeats and all combinations (including
+`--plan --validate-only`) fail before manifest/database setup. A missing,
+malformed or repeated enrollment UUID also fails before Prisma construction.
+The CLI applies the existing 15-second Neon connection/pool defaults
+without overriding explicit operator settings. Importing it does not create a
+Prisma client or start the CLI. These commands were not run against a database
+as part of local implementation.
+
+For the staged database, manually dispatch **Foundation pilot publication**
+(`.github/workflows/publish-foundation-pilot.yml`) from the committed revision.
+Choose `plan` (the default), review the report, then dispatch `publish` explicitly.
+The workflow uses `STAGING_DATABASE_URL`, shares the `staging-database`
+concurrency group without canceling an in-progress run, generates Prisma and
+validates the manifest before planning/publishing. It uploads the result as
+`foundation-pilot-<mode>-<run-id>` with 90-day retention when a report exists.
+It does not run migrations, seed data or automatically enroll users. The parent
+operator performs and verifies these live runs after commit.
+
+Publication first plans without mutations. It then opens one bounded
+`Serializable` transaction, repeats all preconditions and compares the finite
+content checksum with the outside plan. It creates/reuses only the pilot course,
+its five levels and its 100 placements, using the existing item IDs. The new
+course stays draft until full pilot quality and repeated main-course quality
+match the original snapshot inside that transaction. Any mismatch or database
+error rolls back the whole publication. There is no automatic serialization
+retry; the operator can rerun a fresh plan after resolving a conflict.
+
+Reapplication requires the same checksums and existing identities. Unexpected
+pilot items, missing/moved slots, modified level metadata, changed hashes, an
+unrecognized existing course or orphan publication metadata are rejected rather
+than silently repaired or removed. There is no destructive reconciliation.
+
+## Publication Metadata
+
+`Course` has no JSON metadata field. A dedicated project-authored metadata
+source/license and checksum-keyed publication `ImportRun` record the finite
+content version, original source checksums/run IDs, counts and item placements.
+The run's `statsJson` and a `PROJECT_AUTHORED` imported record hold identical
+metadata linked to the pilot's actual course UUID.
+
+Stable v1 manifest record UUID:
+
+```text
+c5d6546d-6f29-451e-bbc5-a0ba4b887048
+```
+
+The content version includes the manifest checksum, source identities/checksums,
+existing item/target IDs, placements, prerequisites, hints and the complete
+quality snapshot. Unordered answers, blocked answers, mnemonics, hints,
+prerequisites, source readings, stage-index membership and quality placements are
+sorted by canonical semantic values, not incidental row UUIDs or ORM order.
+Duplicates are retained, as are primary-answer markers, hint versions,
+placement slots, prerequisite stages and original item/card identities.
+Incidental answer/mnemonic/hint row IDs and timestamps are excluded. Manifest
+ordering, source provenance and example-evidence fingerprints remain significant;
+real content or item/card identity changes still fail reapplication. Publication metadata
+does not copy user IDs or private learning data. A new content/source version
+needs a new pilot version, not replacement under this UUID or slug.
+
+## Optional Explicit Enrollment
+
+`--publish --enroll-user-id UUID` is opt-in for one existing user only. It adds a
+missing enrollment with `ACTIVE` status but never reactivates or modifies an
+existing enrollment, including `PAUSED`. Missing settings are created with the
+database's NULL current-course default; assignment then uses an explicit
+`currentCourseId: null` predicate. An existing current course and all other
+preferences are preserved. The default does not discover,
+enumerate, enroll or change any user.
+
+A read-only plan may also name that UUID to check the user's existence without
+enrollment. `--validate-only --enroll-user-id UUID` is rejected because database-free
+validation cannot perform that check. The publication workflow exposes no
+enrollment input; explicit CLI enrollment remains an operator-only action.
+
+## Limits And Verification
+
+The pilot shares global items/cards by design. Later edits to those shared
+objects can affect both courses; this publisher detects relevant drift when
+planning/reapplying, not continuously at API runtime. Once the main course grows
+beyond the exact 100 source placements, this finite v1 planner deliberately
+refuses automatic expansion. This is not a general course publishing mechanism.
+
+Focused tests use synthetic persistence fixtures, the real quality validator and
+a stubbed quality-page loader. They exercise stable reapplication with reversed
+ORM collections and recreated incidental IDs both between runs and between
+preflight and the transaction, plus rejection of actual content/identity drift.
+The CLI parser is tested without constructing Prisma, including malformed and
+conflicting flags; subprocess checks also confirm early CLI failure. Existing quality-loader tests remain the separate
+coverage of its database projection/pagination. No PostgreSQL/network/browser
+verification, live enrollment or publication was performed locally. No new
+dependencies, educational content, copyrighted assets or source-license changes
+are introduced.
+
+```sh
+npm exec -- vitest run packages/db/test/foundation-pilot.test.ts packages/db/test/foundation-pilot-publication.test.ts --no-cache --no-fsModuleCache --configLoader runner --maxWorkers=2
+npm exec -- tsc -p packages/db/tsconfig.json --noEmit --incremental false
+```

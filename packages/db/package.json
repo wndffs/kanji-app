@@ -14,6 +14,8 @@
     "prisma:generate": "prisma generate",
     "prisma:curate-main-course": "tsx prisma/curate-main-course.ts",
     "prisma:curate-main-course-words": "tsx prisma/curate-main-course-words.ts",
+    "prisma:publish-foundation-pilot": "tsx prisma/publish-foundation-pilot.ts",
+    "prisma:publish-foundation-pilot": "tsx prisma/publish-foundation-pilot.ts",
     "prisma:report-content-quality": "tsx prisma/report-content-quality.ts",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",

@@ -1,0 +1,71 @@
+name: Foundation pilot publication
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Read-only plan or explicit finite pilot publication
+        required: true
+        default: plan
+        type: choice
+        options:
+          - plan
+          - publish
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-database
+  cancel-in-progress: false
+
+jobs:
+  pilot:
+    name: Verify or publish the 100-item foundation pilot
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      NODE_ENV: production
+      PILOT_MODE: ${{ inputs.mode }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Validate the finite manifest without database access
+        run: npm run db:publish:pilot -- --validate-only
+
+      - name: Plan or explicitly publish the pilot
+        shell: bash
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "Repository secret STAGING_DATABASE_URL is required."
+            exit 1
+          fi
+          case "$PILOT_MODE" in
+            plan|publish) ;;
+            *) echo "Unsupported pilot mode."; exit 1 ;;
+          esac
+          npm run db:publish:pilot -- "--$PILOT_MODE" | tee "$RUNNER_TEMP/foundation-pilot-report.txt"
+
+      - name: Upload pilot result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: foundation-pilot-${{ inputs.mode }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/foundation-pilot-report.txt
+          if-no-files-found: warn
+          retention-days: 90
