@@ -161,6 +161,12 @@ data, component prerequisite, or course level is missing. The standalone
 `Deploy staging curation` workflow applies the same command without downloading
 the source corpus again.
 
+The primary taught kanji reading may be any exact KANJIDIC2 reading of its declared
+`sourceType` (`ja_on` by default, or `ja_kun`), not only the first imported reading.
+Its normalized primary must match that source and an imported ONYOMI/KUNYOMI
+reading of the corresponding type. Curation never changes imported reading
+priorities, raw source records, or provenance.
+
 Vocabulary registry planning shares bounded course and prerequisite-kanji reads
 within one calculation (at most 512 entries per cache). Overflow is read normally,
 not skipped. Each batch still checks exact registered placement and curriculum

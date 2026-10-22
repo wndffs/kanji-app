@@ -566,13 +566,9 @@ async function requireKanjiEvidence(
     );
   }
 
-  if (
-    normalizeReading(content.reading.primary) !== sourceReading ||
-    normalizeReading(kanji.readings[0]?.reading ?? "") !== sourceReading ||
-    kanji.readings[0]?.readingType !== readingType
-  ) {
+  if (normalizeReading(content.reading.primary) !== sourceReading) {
     throw new Error(
-      `Kanji ${content.character} taught reading must match its first KANJIDIC2 reading.`,
+      `Kanji ${content.character} taught reading must match its selected KANJIDIC2 source reading.`,
     );
   }
 

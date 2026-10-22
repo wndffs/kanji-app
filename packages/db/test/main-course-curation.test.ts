@@ -132,52 +132,72 @@ describe("main-course curation preflight and application", () => {
     },
   );
 
-  it("supports an explicitly sourced kun reading without rewriting raw readings or private progress", async () => {
+  it.each([
+    ["木", "ja_on", "モク", "ボク", "ぼく", "ONYOMI"],
+    ["田", "ja_kun", "デン", "た", "た", "KUNYOMI"],
+  ] as const)(
+    "teaches a secondary %s %s reading without changing raw priorities or private progress",
+    async (character, sourceType, firstReading, sourceReading, primary, readingType) => {
+      const fixture = curationFixture();
+      const batch = {
+        ...fixture.batch,
+        kanji: fixture.batch.kanji.map((item) =>
+          item.character !== character
+            ? item
+            : {
+                ...item,
+                reading: { source: sourceReading, sourceType, primary, accepted: [primary] },
+              },
+        ),
+      };
+      const source = fixture.state.kanji.get(character)!;
+      source.importedRecord.rawJson.readings = [
+        { reading: firstReading, sourceType: "ja_on" },
+        { reading: sourceReading, sourceType },
+      ];
+      source.readings = [
+        { reading: firstReading, readingType: "ONYOMI", priority: 0 },
+        { reading: primary, readingType, priority: 7 },
+      ];
+      const before = structuredClone({
+        kanji: fixture.state.kanji,
+        privateRows: fixture.privateRows,
+      });
+      const registry = [fixture.registry[0]!, batch];
+      await planMainCourseContentBatch(fixture.db, batch, registry);
+      expect(fixture.mutations).toEqual([]);
+      await applyMainCourseContentBatch(fixture.db, batch, registry);
+      const item = fixture.state.items.get(`KANJI:kanji-${character}`)!;
+      const card = [...fixture.state.cards.values()].find(
+        (card) => card.learningItemId === item.id && card.promptType === "READING",
+      )!;
+      expect(
+        fixture.state.answers
+          .filter((answer) => answer.learningCardId === card.id)
+          .map((answer) => answer.text),
+      ).toEqual([primary]);
+      expect(fixture.state.kanji).toEqual(before.kanji);
+      expect(fixture.privateRows).toEqual(before.privateRows);
+      expect(fixture.privateMutation).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects a primary reading that does not normalize to the selected source before writes", async () => {
     const fixture = curationFixture();
-    const original = fixture.registry[1]!;
     const batch = {
-      ...original,
-      kanji: original.kanji.map((item) =>
+      ...fixture.batch,
+      kanji: fixture.batch.kanji.map((item) =>
         item.character !== "田"
           ? item
-          : {
-              ...item,
-              reading: {
-                source: "た",
-                sourceType: "ja_kun" as const,
-                primary: "た",
-                accepted: ["た"],
-              },
-            },
+          : { ...item, reading: { ...item.reading, primary: "た", accepted: ["た"] } },
       ),
     };
-    const source = fixture.state.kanji.get("田")!;
-    source.importedRecord.rawJson.readings = [{ reading: "た", sourceType: "ja_kun" }];
-    source.readings = [
-      { reading: "た", readingType: "KUNYOMI", priority: 0 },
-      { reading: "デン", readingType: "ONYOMI", priority: 1 },
-    ];
-    const before = structuredClone({ source, privateRows: fixture.privateRows });
-    const registry = [fixture.registry[0]!, batch];
-    await planMainCourseContentBatch(fixture.db, batch, registry);
+    await expect(
+      applyMainCourseContentBatch(fixture.db, batch, [fixture.registry[0]!, batch]),
+    ).rejects.toThrow("invalid taught reading");
+    expect(fixture.readCourse).not.toHaveBeenCalled();
     expect(fixture.mutations).toEqual([]);
-    await applyMainCourseContentBatch(fixture.db, batch, registry);
-    const item = fixture.state.items.get("KANJI:kanji-田")!;
-    const card = [...fixture.state.cards.values()].find(
-      (card) => card.learningItemId === item.id && card.promptType === "READING",
-    )!;
-    expect(
-      fixture.state.answers
-        .filter((answer) => answer.learningCardId === card.id)
-        .map((answer) => answer.text),
-    ).toEqual(["た"]);
-    expect(source).toEqual(before.source);
-    expect(fixture.privateRows).toEqual(before.privateRows);
-    expect(fixture.privateMutation).not.toHaveBeenCalled();
-    source.importedRecord.rawJson.readings[0]!.sourceType = "ja_on";
-    await expect(planMainCourseContentBatch(fixture.db, batch, registry)).rejects.toThrow(
-      "not supported by KANJIDIC2",
-    );
+    expect(fixture.transaction).not.toHaveBeenCalled();
   });
 
   it("blocks a pending fourth-batch fixture and default-all before database access", async () => {
@@ -438,9 +458,13 @@ describe("main-course curation preflight and application", () => {
 
   it.each([
     "KANJIDIC2",
+    "record-type",
+    "raw-literal",
     "raw-reading",
+    "raw-reading-exact",
+    "raw-reading-type",
+    "reading",
     "reading-type",
-    "first-reading",
     "KanjiVG",
     "last-placement",
   ])(
@@ -449,11 +473,16 @@ describe("main-course curation preflight and application", () => {
       const fixture = curationFixture();
       const last = fixture.state.kanji.get("田")!;
       if (condition === "KANJIDIC2") last.kanjidicImportedRecordId = null;
+      if (condition === "record-type") last.importedRecord.recordType = "KANJIVG_CHARACTER";
+      if (condition === "raw-literal") last.importedRecord.rawJson.literal = "木";
       if (condition === "raw-reading")
         last.importedRecord.rawJson.readings = [{ reading: "た", sourceType: "ja_kun" }];
+      if (condition === "raw-reading-exact")
+        last.importedRecord.rawJson.readings[0]!.reading = "でん";
+      if (condition === "raw-reading-type")
+        last.importedRecord.rawJson.readings[0]!.sourceType = "ja_kun";
+      if (condition === "reading") last.readings[0]!.reading = "た";
       if (condition === "reading-type") last.readings[0]!.readingType = "KUNYOMI";
-      if (condition === "first-reading")
-        last.readings.unshift({ reading: "た", priority: 0, readingType: "KUNYOMI" });
       if (condition === "KanjiVG") last.strokeGraphic = null;
       if (condition === "last-placement")
         fixture.state.placements.set("level-4:13", {
