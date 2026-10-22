@@ -302,12 +302,12 @@ describe("bounded vocabulary curation", () => {
     const batch = {
       ...fixture.batch,
       words: [
-        { ...first, example: { ...first.example, japaneseText: "山から空をみます。" } },
+        { ...first, example: { ...first.example, japaneseText: "山から龍をみます。" } },
         ...fixture.batch.words.slice(1),
       ],
     };
     await expect(applyMainCourseWordBatch(fixture.db, batch)).rejects.toThrow(
-      "Unregistered earlier kanji prerequisite 空",
+      "Unregistered earlier kanji prerequisite 龍",
     );
     expect(fixture.mutations).toEqual([]);
     expect(fixture.readWord).not.toHaveBeenCalled();
