@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
+import { ITEM_KINDS, type SearchFilters } from "@kanji-srs/shared";
 
-export type PublishedItemSearch = {
+export type PublishedItemSearch = SearchFilters & {
   readonly query: string;
   readonly page: number;
   readonly limit: number;
@@ -14,12 +15,16 @@ export async function findPublishedItemSearchPage(
   if (!Number.isSafeInteger(page) || page < 1 || page > 10_000 || !Number.isInteger(limit) || limit < 1 || limit > 50)
     throw new Error("Invalid search page bounds.");
   const offset = (page - 1) * limit;
+  if (params.itemType !== undefined && !ITEM_KINDS.includes(params.itemType)) throw new Error("Invalid search item type.");
+  if (params.level !== undefined && (!Number.isInteger(params.level) || params.level < 1 || params.level > 60)) throw new Error("Invalid search level.");
+  const kindFilter = params.itemType === undefined ? Prisma.empty : Prisma.sql`AND li.kind = ${params.itemType.toUpperCase()}::"LearningItemKind"`;
+  const levelFilter = params.level === undefined ? Prisma.empty : Prisma.sql`AND li."levelHint" = ${params.level}`;
   // POSITION treats %, _ and backslashes literally; every user value stays bound.
   const rows = await db.$queryRaw<{ ids: string[]; total: bigint }[]>(Prisma.sql`
     WITH matched AS (
       SELECT li.id, li.kind, li.title, li."levelHint"
       FROM "LearningItem" li
-      WHERE li.status = 'PUBLISHED' AND (
+      WHERE li.status = 'PUBLISHED' ${kindFilter} ${levelFilter} AND (
         POSITION(LOWER(${query}) IN LOWER(li.title)) > 0
         OR EXISTS (
           SELECT 1 FROM "LearningAnswer" a JOIN "LearningCard" c ON c.id = a."learningCardId"

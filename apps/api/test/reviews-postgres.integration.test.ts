@@ -143,6 +143,8 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
       expect(await findPublishedItemSearchPage(control.db, { query, page: 1, limit: 1 })).toEqual({ ids: [first.itemId], total: 2 });
       expect(await findPublishedItemSearchPage(control.db, { query, page: 2, limit: 1 })).toEqual({ ids: [second.itemId], total: 2 });
       expect(await findPublishedItemSearchPage(control.db, { query, page: 3, limit: 1 })).toEqual({ ids: [], total: 2 });
+      expect(await findPublishedItemSearchPage(control.db, { query, page: 1, limit: 20, itemType: "component", level: 2 })).toEqual({ ids: [second.itemId], total: 1 });
+      expect(await findPublishedItemSearchPage(control.db, { query, page: 1, limit: 20, itemType: "word" })).toEqual({ ids: [], total: 0 });
     })));
   });
 

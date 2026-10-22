@@ -94,6 +94,7 @@ import {
   type ReviewQueueItem,
   type ReviewSessionSummaryDto,
   type SearchResponseDto,
+  type SearchFilters,
   type SelectCurrentCourseRequestDto,
   type StartLessonSessionResponse,
   type StartLessonSessionRequestDto,
@@ -835,11 +836,13 @@ export function publishAdminConfusablePair(
 export function searchItems(
   query: string,
   token?: string | null,
-  options: { readonly page?: number; readonly limit?: number; readonly fetchImpl?: typeof fetch } = {},
+  options: SearchFilters & { readonly page?: number; readonly limit?: number; readonly fetchImpl?: typeof fetch } = {},
 ): Promise<SearchResponseDto> {
   const params = new URLSearchParams({ q: query });
   if (options.page !== undefined && options.page !== 1) params.set("page", String(options.page));
   if (options.limit !== undefined) params.set("limit", String(options.limit));
+  if (options.itemType !== undefined) params.set("itemType", options.itemType);
+  if (options.level !== undefined) params.set("level", String(options.level));
 
   return apiRequest<SearchResponseDto>(`/search?${params.toString()}`, { token, fetchImpl: options.fetchImpl });
 }

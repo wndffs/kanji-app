@@ -13,6 +13,16 @@ import {
 } from "../src/items/items.types";
 
 describe("ItemsService", () => {
+  it("filters search by material type before returning the page", async () => {
+    const result = await createService().search({ q: "o", itemType: "kanji" }, null);
+    expect(result.items.map((item) => item.itemType)).toEqual(["kanji"]);
+    expect(result.pagination.total).toBe(1);
+  });
+
+  it.each([{ itemType: "kana" }, { level: "0" }, { level: "61" }, { level: "1.5" }])("rejects invalid search filters %o", async (filter) => {
+    await expect(createService().search({ q: "one", ...filter }, null)).rejects.toThrow();
+  });
+
   it("shows curated word meanings instead of imported display-order artifacts", async () => {
     const word = createItems().find((item) => item.itemType === "word")!;
     Object.assign(word.target, {
@@ -367,6 +377,8 @@ class InMemoryItemsRepository extends ItemsRepository {
     const normalizedQuery = params.query.toLowerCase();
     const matching = this.items
       .filter((item) => matchesItem(item, normalizedQuery))
+      .filter((item) => params.itemType === undefined || item.itemType === params.itemType)
+      .filter((item) => params.level === undefined || item.level === params.level)
       .map((item) => filterForUser(item, options.userId));
     const offset = (params.page - 1) * params.limit;
     return { items: matching.slice(offset, offset + params.limit), total: matching.length };

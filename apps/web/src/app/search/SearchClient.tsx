@@ -16,7 +16,7 @@ import { ApiError, searchItems } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import { formatSrsStageName } from "../../lib/dashboard-format";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
-import { parseSearchPage, searchHref } from "../../lib/search-location";
+import { parseSearchFilters, parseSearchPage, searchHref } from "../../lib/search-location";
 
 type SearchState =
   | { readonly status: "idle" }
@@ -29,8 +29,11 @@ export function SearchClient() {
   const searchParams = useSearchParams();
   const queryFromUrl = searchParams.get("q")?.trim() ?? "";
   const pageFromUrl = parseSearchPage(searchParams.get("page"));
+  const { itemType: typeFromUrl, level: levelFromUrl } = parseSearchFilters(searchParams.get("itemType"), searchParams.get("level"));
   const displayMode = useTranslationDisplayMode();
   const [query, setQuery] = useState(queryFromUrl);
+  const [itemType, setItemType] = useState(typeFromUrl ?? "");
+  const [level, setLevel] = useState(levelFromUrl === undefined ? "" : String(levelFromUrl));
   const [state, setState] = useState<SearchState>({ status: "idle" });
   const [token, setToken] = useState<string | null>(null);
 
@@ -52,7 +55,7 @@ export function SearchClient() {
       setState({ status: "loading", query: normalizedQuery });
 
       try {
-        const result = await searchItems(normalizedQuery, token, { page: nextPage });
+        const result = await searchItems(normalizedQuery, token, { page: nextPage, itemType: typeFromUrl, level: levelFromUrl });
         setState({ status: "ready", result });
       } catch (error: unknown) {
         if (error instanceof ApiError && error.status === 401) {
@@ -67,13 +70,15 @@ export function SearchClient() {
         });
       }
     },
-    [token],
+    [token, typeFromUrl, levelFromUrl],
   );
 
   useEffect(() => {
     setQuery(queryFromUrl);
+    setItemType(typeFromUrl ?? "");
+    setLevel(levelFromUrl === undefined ? "" : String(levelFromUrl));
     void runSearch(queryFromUrl, pageFromUrl);
-  }, [queryFromUrl, pageFromUrl, runSearch]);
+  }, [queryFromUrl, pageFromUrl, typeFromUrl, levelFromUrl, runSearch]);
 
   const resultCount = useMemo(() => {
     return state.status === "ready" ? state.result.pagination.total : null;
@@ -90,12 +95,13 @@ export function SearchClient() {
       return;
     }
 
-    if (normalizedQuery === queryFromUrl && pageFromUrl === 1) {
+    const filters = parseSearchFilters(itemType, level);
+    if (normalizedQuery === queryFromUrl && pageFromUrl === 1 && filters.itemType === typeFromUrl && filters.level === levelFromUrl) {
       void runSearch(normalizedQuery);
       return;
     }
 
-    router.push(searchHref(normalizedQuery));
+    router.push(searchHref(normalizedQuery, 1, filters));
   }
 
   return (
@@ -119,6 +125,20 @@ export function SearchClient() {
             value={query}
           />
         </label>
+        <label>
+          <span>Тип материала</span>
+          <select value={itemType} onChange={(event) => setItemType(event.currentTarget.value as typeof itemType)}>
+            <option value="">Все типы</option>
+            <option value="component">Компоненты</option>
+            <option value="kanji">Кандзи</option>
+            <option value="word">Слова</option>
+            <option value="sentence">Предложения</option>
+          </select>
+        </label>
+        <label>
+          <span>Учебный уровень</span>
+          <input type="number" min={1} max={60} step={1} value={level} onChange={(event) => setLevel(event.currentTarget.value)} />
+        </label>
         <button className="primary-action" type="submit">
           Искать
         </button>
@@ -128,11 +148,11 @@ export function SearchClient() {
       {state.status === "ready" && (state.result.pagination.total > state.result.pagination.limit || state.result.pagination.page > 1) ? (
         <nav className="search-pagination" aria-label="Страницы поиска">
           {state.result.pagination.page > 1 ? (
-            <Link className="secondary-action" aria-label="Предыдущая страница" title="Предыдущая страница" href={searchHref(queryFromUrl, state.result.pagination.page - 1)}>←</Link>
+            <Link className="secondary-action" aria-label="Предыдущая страница" title="Предыдущая страница" href={searchHref(queryFromUrl, state.result.pagination.page - 1, { itemType: typeFromUrl, level: levelFromUrl })}>←</Link>
           ) : <span />}
           <span>Страница {state.result.pagination.page} из {Math.max(1, Math.ceil(state.result.pagination.total / state.result.pagination.limit))}</span>
           {state.result.pagination.hasNextPage ? (
-            <Link className="secondary-action" aria-label="Следующая страница" title="Следующая страница" href={searchHref(queryFromUrl, state.result.pagination.page + 1)}>→</Link>
+            <Link className="secondary-action" aria-label="Следующая страница" title="Следующая страница" href={searchHref(queryFromUrl, state.result.pagination.page + 1, { itemType: typeFromUrl, level: levelFromUrl })}>→</Link>
           ) : <span />}
         </nav>
       ) : null}

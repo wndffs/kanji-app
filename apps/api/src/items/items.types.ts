@@ -10,6 +10,7 @@ import {
   type LocalizedTextDto,
   type SentenceDto,
   type SourceAttributionDto,
+  type SearchFilters,
   type SrsStateSummaryDto,
   type WordStudyDetailsDto,
 } from "@kanji-srs/shared";
@@ -137,7 +138,7 @@ export type ItemLookupOptions = {
 
 export type SearchLookupOptions = ItemLookupOptions;
 
-export type SearchParams = {
+export type SearchParams = SearchFilters & {
   readonly query: string;
   readonly page: number;
   readonly limit: number;
@@ -152,6 +153,8 @@ export type ParsedSearchQuery = {
   readonly q?: string | readonly string[];
   readonly page?: string | readonly string[];
   readonly limit?: string | readonly string[];
+  readonly itemType?: string | readonly string[];
+  readonly level?: string | readonly string[];
 };
 
 export type ParsedItemHistoryQuery = {

@@ -2,6 +2,8 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from "@nes
 
 import {
   DEFAULT_TRANSLATION_DISPLAY_MODE,
+  ITEM_KINDS,
+  type ItemKind,
   buildLearningTranslationBundle as toTranslationBundle,
   type BilingualTextDto,
   type ItemDetails,
@@ -157,9 +159,15 @@ function parseSearchParams(rawQuery: ParsedSearchQuery): SearchParams {
   if (query === undefined || query.length === 0) {
     throw new BadRequestException("Search query q is required.");
   }
+  const itemType = getSingleQueryValue(rawQuery.itemType);
+  if (itemType !== undefined && !(ITEM_KINDS as readonly string[]).includes(itemType))
+    throw new BadRequestException("Неизвестный тип учебного материала.");
+  const level = getSingleQueryValue(rawQuery.level);
 
   return {
     query,
+    ...(itemType === undefined ? {} : { itemType: itemType as ItemKind }),
+    ...(level === undefined ? {} : { level: parsePositiveInteger(level, 1, "level", 60) }),
     page: parsePositiveInteger(getSingleQueryValue(rawQuery.page), DEFAULT_SEARCH_PAGE, "page", 10_000),
     limit: parsePositiveInteger(
       getSingleQueryValue(rawQuery.limit),

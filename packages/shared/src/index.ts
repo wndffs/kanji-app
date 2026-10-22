@@ -105,7 +105,9 @@ export type WorkspacePackageInfo = {
   readonly responsibility: string;
 };
 
-export type ItemKind = "component" | "kanji" | "word" | "sentence";
+export const ITEM_KINDS = ["component", "kanji", "word", "sentence"] as const;
+export type ItemKind = (typeof ITEM_KINDS)[number];
+export type SearchFilters = { readonly itemType?: ItemKind; readonly level?: number };
 export type LearningCardType = "lesson" | "review";
 export type CardPromptType =
   | "meaning"
