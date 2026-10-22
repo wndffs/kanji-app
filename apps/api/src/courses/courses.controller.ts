@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Patch, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Patch, Post, Query, UseGuards } from "@nestjs/common";
 
 import { AuthGuard } from "../auth/auth.guard";
 import { type CurrentUserDto } from "../auth/auth.types";
@@ -13,6 +13,16 @@ export class CoursesController {
   @Get()
   listCourses(@CurrentUser() currentUser: CurrentUserDto) {
     return this.coursesService.listCourses(currentUser.id);
+  }
+
+  @Get("available")
+  available(@CurrentUser() currentUser: CurrentUserDto, @Query("cursor") cursor?: unknown) {
+    return this.coursesService.availableCourses(currentUser.id, cursor);
+  }
+
+  @Post("enroll")
+  enroll(@CurrentUser() currentUser: CurrentUserDto, @Body() body: unknown) {
+    return this.coursesService.enroll(currentUser.id, body);
   }
 
   @Patch("current")

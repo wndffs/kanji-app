@@ -1238,6 +1238,9 @@ function CourseSelector({
 
   return (
     <div className="course-selector">
+      <Link className="secondary-action" href="/courses">
+        Опубликованные курсы
+      </Link>
       <label>
         Текущий курс
         <select

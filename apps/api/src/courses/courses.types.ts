@@ -14,3 +14,9 @@ export type CourseSelectionRecord = {
   readonly savedCurrentCourseId: string | null;
   readonly courses: readonly EnrolledCourseRecord[];
 };
+
+export type PublishedCourseRecord = Omit<EnrolledCourseRecord, "enrollmentStatus" | "startedAt">;
+export type AvailableCoursesRecord = {
+  readonly courses: readonly PublishedCourseRecord[];
+  readonly nextCursor: string | null;
+};

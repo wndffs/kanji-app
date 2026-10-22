@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 
 import {
+  type AvailableCoursesResponse,
   type CourseBand,
   type CourseEnrollmentStatus,
   type CourseListResponse,
@@ -26,6 +27,28 @@ export class CoursesService {
 
   async listCourses(userId: string): Promise<CourseListResponse> {
     return toResponse(await this.coursesRepository.getSelection(userId));
+  }
+
+  async availableCourses(userId: string, cursorValue?: unknown): Promise<AvailableCoursesResponse> {
+    const cursor = cursorValue === undefined ? undefined : requireUuid(cursorValue);
+    const page = await this.coursesRepository.getAvailable(userId, cursor);
+    return {
+      ...page,
+      courses: page.courses.map((course) => ({
+        ...course,
+        band: course.band.toLowerCase() as CourseBand,
+        courseType: course.courseType.toLowerCase() as CourseType,
+      })),
+    };
+  }
+
+  async enroll(userId: string, body: unknown): Promise<CourseListResponse> {
+    const courseId = requireUuid(isRecord(body) ? body.courseId : undefined);
+    const result = await this.coursesRepository.enroll(userId, courseId);
+    if (result === "not-found") throw new NotFoundException("Опубликованный курс не найден.");
+    if (result === "conflict")
+      throw new ConflictException("Запись изменилась. Обновите список и повторите попытку.");
+    return this.listCourses(userId);
   }
 
   async selectCurrentCourse(userId: string, body: unknown): Promise<CourseListResponse> {
@@ -48,6 +71,15 @@ export class CoursesService {
 
     return this.listCourses(userId);
   }
+}
+
+function requireUuid(value: unknown): string {
+  if (
+    typeof value !== "string" ||
+    !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/iu.test(value)
+  )
+    throw new BadRequestException("Идентификатор курса должен быть UUID.");
+  return value;
 }
 
 function toResponse(selection: CourseSelectionRecord): CourseListResponse {

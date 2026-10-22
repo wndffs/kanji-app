@@ -138,6 +138,11 @@ export type CourseListResponse = {
   readonly currentCourseId: string | null;
   readonly courses: readonly EnrolledCourseDto[];
 };
+export type PublishedCourseDto = Omit<EnrolledCourseDto, "enrollmentStatus" | "isCurrent">;
+export type AvailableCoursesResponse = {
+  readonly courses: readonly PublishedCourseDto[];
+  readonly nextCursor: string | null;
+};
 export type SelectCurrentCourseRequestDto = {
   readonly courseId: string;
 };

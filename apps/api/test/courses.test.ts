@@ -143,6 +143,14 @@ class InMemoryCoursesRepository extends CoursesRepository {
     return this.selection;
   }
 
+  async getAvailable(_userId: string, _cursor?: string) {
+    return { courses: [], nextCursor: null };
+  }
+
+  async enroll(_userId: string, _courseId: string): Promise<"not-found"> {
+    return "not-found";
+  }
+
   async setCurrentCourse(
     _userId: string,
     courseId: string,

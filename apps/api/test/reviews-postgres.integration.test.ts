@@ -24,6 +24,7 @@ import {
 import { AppConfigService } from "../src/config/app-config.service";
 import { PrismaService } from "../src/database/prisma.service";
 import { PrismaItemsRepository } from "../src/items/items.repository";
+import { PrismaCoursesRepository } from "../src/courses/courses.repository";
 import { PrismaLessonsRepository } from "../src/lessons/lessons.repository";
 import { PrismaReviewsRepository } from "../src/reviews/reviews.repository";
 import { createScheduledReviewState } from "../src/reviews/review-session-state";
@@ -899,6 +900,78 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
       }),
     );
   });
+
+  it("enrolls only the owner in a published course under competing requests without changing current course or SRS", async () => {
+    await withFixture(async (fixture) => {
+      const ids = [randomUUID(), randomUUID(), randomUUID()] as const;
+      try {
+        await control.db.$transaction(async (db) => {
+          for (const [index, id] of ids.entries())
+            await db.course.create({
+              data: {
+                id,
+                slug: `enrollment-pg-${id}`,
+                titleRu: "Test-only published course",
+                courseType: "STRUCTURED",
+                status: index === 2 ? "DRAFT" : "PUBLISHED",
+              },
+            });
+          await db.userSettings.create({
+            data: { userId: fixture.userId, currentCourseId: ids[0] },
+          });
+          await db.userEnrollment.create({
+            data: { userId: fixture.userId, courseId: ids[0], status: "ACTIVE" },
+          });
+        });
+        const repository = new PrismaCoursesRepository(control);
+        const beforeSettings = await control.db.userSettings.findUnique({
+          where: { userId: fixture.userId },
+        });
+        const beforeEnrollment = await control.db.userEnrollment.findUnique({
+          where: { userId_courseId: { userId: fixture.userId, courseId: ids[0] } },
+        });
+        const catalog = await repository.getAvailable(fixture.userId);
+        expect(catalog.courses.map((course) => course.id)).toEqual([ids[1]]);
+        expect(await repository.enroll(fixture.userId, ids[2])).toBe("not-found");
+        const results = await Promise.all([
+          new PrismaCoursesRepository(clients[1]!).enroll(fixture.userId, ids[1]),
+          new PrismaCoursesRepository(clients[2]!).enroll(fixture.userId, ids[1]),
+        ]);
+        expect(results).toContain("enrolled");
+        expect(results.every((result) => result === "enrolled" || result === "conflict")).toBe(
+          true,
+        );
+        expect(await repository.enroll(fixture.userId, ids[1])).toBe("enrolled");
+        expect(
+          await control.db.userEnrollment.count({
+            where: { userId: fixture.userId, courseId: ids[1] },
+          }),
+        ).toBe(1);
+        expect(
+          await control.db.userEnrollment.count({
+            where: { userId: fixture.otherUserId, courseId: { in: [...ids] } },
+          }),
+        ).toBe(0);
+        expect((await repository.getAvailable(fixture.userId)).courses).toEqual([]);
+        expect(
+          await control.db.userSettings.findUnique({ where: { userId: fixture.userId } }),
+        ).toEqual(beforeSettings);
+        expect(
+          await control.db.userEnrollment.findUnique({
+            where: { userId_courseId: { userId: fixture.userId, courseId: ids[0] } },
+          }),
+        ).toEqual(beforeEnrollment);
+        expect(await readState(fixture)).toEqual(fixture.state);
+        expect(await answers(fixture)).toEqual([]);
+        expect(
+          await control.db.learningCard.count({ where: { learningItemId: fixture.itemId } }),
+        ).toBe(3);
+      } finally {
+        await control.db.userSettings.deleteMany({ where: { userId: fixture.userId } });
+        await control.db.course.deleteMany({ where: { id: { in: [...ids] } } });
+      }
+    });
+  }, 20_000);
 
   it("curates twenty compact-JMdict words into forty stable cards and twenty examples, preserving private progress on rerun", async () => {
     await withFixture(async (base) =>

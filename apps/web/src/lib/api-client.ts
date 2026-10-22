@@ -1,4 +1,5 @@
 import {
+  type AvailableCoursesResponse,
   type ContentQualityPageDto,
   type ContentQualityIssueCode,
   type AdminApplyMainCourseEnrollmentRolloutRequest,
@@ -269,6 +270,24 @@ export function getCharacterHub(token: string): Promise<CharacterHubResponseDto>
 
 export function getCourses(token: string): Promise<CourseListResponse> {
   return apiRequest<CourseListResponse>("/courses", { token });
+}
+
+export function getAvailableCourses(
+  token: string,
+  cursor?: string,
+): Promise<AvailableCoursesResponse> {
+  return apiRequest<AvailableCoursesResponse>(
+    `/courses/available${cursor === undefined ? "" : `?cursor=${encodeURIComponent(cursor)}`}`,
+    { token },
+  );
+}
+
+export function enrollInCourse(token: string, courseId: string): Promise<CourseListResponse> {
+  return apiRequest<CourseListResponse>("/courses/enroll", {
+    method: "POST",
+    token,
+    body: { courseId },
+  });
 }
 
 export function selectCurrentCourse(
