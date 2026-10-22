@@ -89,6 +89,25 @@ const EMPTY_MNEMONIC_FORM: MnemonicFormState = {
 };
 
 export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
+  const [scope, setScope] = useState<string | null>(null);
+  useEffect(() => {
+    const sync = () => {
+      const session = readStoredSession();
+      setScope(session === null ? "guest" : `${session.user.id}:${session.token}`);
+    };
+    sync();
+    window.addEventListener(AUTH_CHANGED_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+  if (scope === null) return <section className="page-stack" aria-busy="true"><h1>Материал</h1></section>;
+  return <ItemDetailsScreen key={`${scope}:${lookup.type}:${lookup.value}`} lookup={lookup} />;
+}
+
+function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
   const liveDisplayMode = useTranslationDisplayMode();
   const [readingPreferences, setReadingPreferences] = useState(() =>
     resolveItemReadingPreferences(),
@@ -100,6 +119,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
   const [mnemonicForm, setMnemonicForm] = useState<MnemonicFormState>(EMPTY_MNEMONIC_FORM);
   const [privateMnemonics, setPrivateMnemonics] = useState<readonly UserMnemonicDto[]>([]);
   const itemLoadVersion = useRef(0);
+  const historyRequest = useRef<AbortController | null>(null);
   const loadedItemScope = useRef<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -125,8 +145,12 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
 
   const loadItem = useCallback(async () => {
     const version = ++itemLoadVersion.current;
+    historyRequest.current?.abort();
+    historyRequest.current = null;
+    setIsLoadingHistory(false);
     const storedSession = readStoredSession();
     const token = storedSession?.token ?? null;
+    const isCurrent = () => version === itemLoadVersion.current && (readStoredSession()?.token ?? null) === token;
     const displayMode =
       storedSession?.user.settings.translationDisplayMode ?? readTranslationDisplayMode();
     const timezone =
@@ -144,8 +168,9 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
         lookup.type === "kanji"
           ? await getKanjiDetails(lookup.value, token)
           : await getItemDetails(lookup.value, token);
+      if (!isCurrent()) return;
       const mnemonics = token === null ? [] : await getPrivateMnemonics(token, item.id);
-      if (version !== itemLoadVersion.current) {
+      if (!isCurrent()) {
         return;
       }
       const scope = `${storedSession?.user.id ?? "guest"}:${item.id}`;
@@ -173,17 +198,17 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
       if (token !== null && item.itemType === "kanji") {
         try {
           const pairs = await getConfusablePairs(token, item.id);
-          if (version === itemLoadVersion.current) {
+          if (isCurrent()) {
             setConfusablePairs(pairs.pairs);
           }
         } catch {
-          if (version === itemLoadVersion.current) {
+          if (isCurrent()) {
             setConfusablePairs([]);
           }
         }
       }
     } catch (error: unknown) {
-      if (version !== itemLoadVersion.current) {
+      if (!isCurrent()) {
         return;
       }
       if (error instanceof ApiError && error.status === 401) {
@@ -201,6 +226,7 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
     void loadItem();
     return () => {
       itemLoadVersion.current += 1;
+      historyRequest.current?.abort();
     };
   }, [loadItem]);
 
@@ -379,41 +405,57 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
       state.status !== "ready" ||
       state.token === null ||
       state.item.reviewHistory.nextCursor === null ||
-      isLoadingHistory
+      isLoadingHistory || historyRequest.current !== null
     ) {
       return;
     }
 
     setIsLoadingHistory(true);
     setFormError(null);
+    const controller = new AbortController();
+    historyRequest.current = controller;
+    const version = itemLoadVersion.current;
+    const { id: itemId, reviewHistory: { nextCursor: cursor } } = state.item;
+    const token = state.token;
+    const isCurrent = () => !controller.signal.aborted && historyRequest.current === controller && version === itemLoadVersion.current && readStoredSession()?.token === token;
 
     try {
       const page = await getItemReviewHistory(
-        state.item.id,
-        state.item.reviewHistory.nextCursor,
-        state.token,
+        itemId,
+        cursor,
+        token,
+        { signal: controller.signal },
       );
+      if (!isCurrent()) return;
 
       setState((current) =>
-        current.status !== "ready"
+        current.status !== "ready" || current.item.id !== itemId || current.token !== token || current.item.reviewHistory.nextCursor !== cursor
           ? current
           : {
               ...current,
               item: {
                 ...current.item,
                 reviewHistory: {
-                  items: [...current.item.reviewHistory.items, ...page.items],
+                  items: [...current.item.reviewHistory.items, ...page.items.filter((entry) => !current.item.reviewHistory.items.some((existing) => existing.id === entry.id))],
                   nextCursor: page.nextCursor,
                 },
               },
             },
       );
     } catch (error: unknown) {
+      if (!isCurrent()) return;
+      if (error instanceof ApiError && error.status === 401) {
+        clearStoredSession();
+        return;
+      }
       setFormError(
         error instanceof Error ? error.message : "Не удалось загрузить историю повторений.",
       );
     } finally {
-      setIsLoadingHistory(false);
+      if (historyRequest.current === controller) {
+        historyRequest.current = null;
+        setIsLoadingHistory(false);
+      }
     }
   }
 

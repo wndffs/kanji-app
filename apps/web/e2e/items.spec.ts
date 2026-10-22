@@ -14,6 +14,59 @@ const COMPONENT_ID = "item-component-one";
 const WORD_ID = "item-word-school";
 
 test.describe("item details", () => {
+  test("does not append an old user's pending history or clear a newer login", async ({ page }) => {
+    await signIn(page);
+    await mockItemApi(page);
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const pending = new Promise<void>((resolve) => { started = resolve; });
+    await page.route(`${API_BASE_URL}/items/${ITEM_ID}`, async (route) => {
+      const item = buildItemDetails([], null);
+      if (route.request().headers().authorization === "Bearer new-token") {
+        item.reviewHistory = { items: [], nextCursor: null };
+        item.srs = null;
+        item.nextReviewAt = null;
+      }
+      await route.fulfill({ json: item });
+    });
+    await page.route(`${API_BASE_URL}/items/${ITEM_ID}/history?cursor=older`, async (route) => {
+      started();
+      await gate;
+      await route.fulfill({ status: 401, json: { message: "Old login expired" } }).catch(() => undefined);
+    });
+    try {
+      await page.goto(`/items/${ITEM_ID}`);
+      await page.getByTestId("item-srs-history").getByRole("button", { name: "Показать более ранние" }).click();
+      await pending;
+      await page.evaluate(() => {
+        localStorage.setItem("kanji-srs.accessToken", "new-token");
+        const user = JSON.parse(localStorage.getItem("kanji-srs.user")!);
+        localStorage.setItem("kanji-srs.user", JSON.stringify({ ...user, id: "new-owner" }));
+        window.dispatchEvent(new Event("kanji-srs.auth-changed"));
+      });
+      await expect(page.getByTestId("item-srs-history")).toContainText("ещё нет истории");
+      release();
+      expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe("new-token");
+      await expect(page.getByText("Old login expired")).toHaveCount(0);
+    } finally { release(); }
+  });
+
+  test("deduplicates overlapping history pages without duplicating SRS events", async ({ page }) => {
+    await signIn(page);
+    await mockItemApi(page);
+    const entry = buildItemDetails([], null).reviewHistory.items[0]!;
+    await page.route(`${API_BASE_URL}/items/${ITEM_ID}/history?cursor=older`, async (route) => {
+      await route.fulfill({ json: { items: [entry, { ...entry, id: "older-distinct", result: "manual-ignore" }], nextCursor: null } });
+    });
+    await page.goto(`/items/${ITEM_ID}`);
+    const history = page.getByTestId("item-srs-history");
+    await history.getByRole("button", { name: "Показать более ранние" }).click();
+    await expect(history.locator("li")).toHaveCount(2);
+    await expect(history.getByText("Опечатка", { exact: true })).toHaveCount(1);
+    await expect(history.getByText("Ошибка проигнорирована", { exact: true })).toBeVisible();
+  });
+
   test("opens an item page", async ({ page }) => {
     await signIn(page);
     await mockItemApi(page);

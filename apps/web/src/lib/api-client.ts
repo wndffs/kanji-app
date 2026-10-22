@@ -727,12 +727,13 @@ export function getItemReviewHistory(
   id: string,
   cursor: string,
   token: string,
+  options: { readonly signal?: AbortSignal } = {},
 ): Promise<ItemReviewHistoryPageDto> {
   const params = new URLSearchParams({ cursor });
 
   return apiRequest<ItemReviewHistoryPageDto>(
     `/items/${encodeURIComponent(id)}/history?${params.toString()}`,
-    { token },
+    { token, signal: options.signal },
   );
 }
 
