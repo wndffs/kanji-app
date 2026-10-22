@@ -44,6 +44,32 @@ network timing, query planner, or production load measurements are claimed here.
   remain in the source result; only the pre-existing no-eligible-card filter
   remains in effect.
 
+## Prerequisite Cards
+
+Canonical prerequisite-card lookup deduplicates requested learning-item IDs
+before querying sequential chunks of at most 100, using the existing target
+batch-size constant. Empty input performs no query. Its delegate-call budget is
+`ceil(unique requested prerequisite item IDs / 100)`; 101 IDs require two
+calls and 201 require three. Focused tests also cover 1,001 IDs with eleven
+calls, with at most one in-flight query and no arbitrary item or card limit.
+
+Every batch retains the published-item filter, listening query eligibility,
+selected audio source/license fields and the existing post-query audio eligibility
+check. All returned meaning/reading and eligible listening card IDs are retained,
+independently of user progress. Repeated input IDs do not duplicate card IDs.
+Missing/unpublished items or items with no eligible cards have no map entry;
+the existing service nonempty-card guard keeps those prerequisites locked.
+No recovery lookup, `take`, dropped tail or partial-success fallback is added.
+If any batch fails, the entire lookup rejects and no subsequent batch starts.
+
+Evidence: `apps/api/test/lesson-prerequisite-batching.test.ts` covers boundaries,
+duplicate IDs spanning boundaries, complete card sets, listening eligibility,
+missing/ineligible-only items, later-batch failure and sequential execution.
+Existing lesson tests retain the service-level all-required-cards and missing-card
+fail-closed checks. Counts are Prisma delegate calls, not measured SQL statements;
+relation loading can produce additional SQL. Full graph size, endpoint latency
+and browser Core Web Vitals remain unmeasured. This slice does not complete Task123.
+
 ## Remaining Limits
 
 The initial course enrollment/level/item metadata query still loads the full

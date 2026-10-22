@@ -451,37 +451,41 @@ export class PrismaLessonsRepository extends LessonsRepository {
       return new Map();
     }
 
-    const cards = await this.prisma.db.learningCard.findMany({
-      where: {
-        learningItemId: { in: [...new Set(itemIds)] },
-        learningItem: { status: "PUBLISHED" },
-        ...listeningCardEligibilityWhere,
-      },
-      select: {
-        id: true,
-        learningItemId: true,
-        promptType: true,
-        learningItem: { select: { kind: true } },
-        audioAsset: { include: { dataSource: true, license: true } },
-      },
-    });
+    const uniqueItemIds = [...new Set(itemIds)];
     const cardIdsByItem = new Map<string, string[]>();
 
-    for (const card of cards) {
-      if (
-        card.promptType === "LISTENING" &&
-        !isEligibleListeningAudio(
-          card.audioAsset,
-          card.learningItemId,
-          toItemKind(card.learningItem.kind),
-        )
-      ) {
-        continue;
-      }
+    for (let offset = 0; offset < uniqueItemIds.length; offset += LESSON_TARGET_BATCH_SIZE) {
+      const cards = await this.prisma.db.learningCard.findMany({
+        where: {
+          learningItemId: { in: uniqueItemIds.slice(offset, offset + LESSON_TARGET_BATCH_SIZE) },
+          learningItem: { status: "PUBLISHED" },
+          ...listeningCardEligibilityWhere,
+        },
+        select: {
+          id: true,
+          learningItemId: true,
+          promptType: true,
+          learningItem: { select: { kind: true } },
+          audioAsset: { include: { dataSource: true, license: true } },
+        },
+      });
 
-      const cardIds = cardIdsByItem.get(card.learningItemId) ?? [];
-      cardIds.push(card.id);
-      cardIdsByItem.set(card.learningItemId, cardIds);
+      for (const card of cards) {
+        if (
+          card.promptType === "LISTENING" &&
+          !isEligibleListeningAudio(
+            card.audioAsset,
+            card.learningItemId,
+            toItemKind(card.learningItem.kind),
+          )
+        ) {
+          continue;
+        }
+
+        const cardIds = cardIdsByItem.get(card.learningItemId) ?? [];
+        cardIds.push(card.id);
+        cardIdsByItem.set(card.learningItemId, cardIds);
+      }
     }
 
     return cardIdsByItem;
