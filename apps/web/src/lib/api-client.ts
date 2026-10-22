@@ -835,11 +835,13 @@ export function publishAdminConfusablePair(
 export function searchItems(
   query: string,
   token?: string | null,
-  fetchImpl?: typeof fetch,
+  options: { readonly page?: number; readonly limit?: number; readonly fetchImpl?: typeof fetch } = {},
 ): Promise<SearchResponseDto> {
   const params = new URLSearchParams({ q: query });
+  if (options.page !== undefined && options.page !== 1) params.set("page", String(options.page));
+  if (options.limit !== undefined) params.set("limit", String(options.limit));
 
-  return apiRequest<SearchResponseDto>(`/search?${params.toString()}`, { token, fetchImpl });
+  return apiRequest<SearchResponseDto>(`/search?${params.toString()}`, { token, fetchImpl: options.fetchImpl });
 }
 
 export function getLessonQueue(

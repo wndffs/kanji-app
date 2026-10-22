@@ -14,7 +14,7 @@ as extra tasks. Existing pilot seals, enrollments and SRS identities stay intact
 | --- | -------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------- |
 | 130 | Published-item visibility        | Public detail, history and discovery exclude unpublished items; admin remains separate                         | Implemented; checks pending |
 | 131 | Server-paged search              | Only the requested stable page is hydrated; total and page metadata stay correct                               | Implemented; checks pending |
-| 132 | Search page navigation           | Previous/next pages and reload/back preserve URL query and page                                                | Planned |
+| 132 | Search page navigation           | Previous/next pages and reload/back preserve URL query and page                                                | Implemented; checks pending |
 | 133 | Search type/level filters        | Validated filters work end-to-end and reset pagination deliberately                                            | Planned |
 | 134 | Kana-aware search                | Hiragana/katakana reading variants match without changing stored answers or source evidence                    | Planned |
 | 135 | Search request isolation         | Stale responses and auth changes cannot overwrite the current search or clear a newer session                  | Planned |
@@ -34,7 +34,7 @@ unmet acceptance slice; do not count a no-op or an existing feature as completed
 
 ## Checkpoints
 
-- Development complete: 2/15.
+- Development complete: 3/15.
 - Acceptance checked: 0/15.
 - Publication threshold reached: no.
 - No manual curation/publication workflow before the threshold.

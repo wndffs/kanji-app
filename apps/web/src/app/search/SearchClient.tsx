@@ -16,6 +16,7 @@ import { ApiError, searchItems } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import { formatSrsStageName } from "../../lib/dashboard-format";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
+import { parseSearchPage, searchHref } from "../../lib/search-location";
 
 type SearchState =
   | { readonly status: "idle" }
@@ -27,6 +28,7 @@ export function SearchClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryFromUrl = searchParams.get("q")?.trim() ?? "";
+  const pageFromUrl = parseSearchPage(searchParams.get("page"));
   const displayMode = useTranslationDisplayMode();
   const [query, setQuery] = useState(queryFromUrl);
   const [state, setState] = useState<SearchState>({ status: "idle" });
@@ -39,7 +41,7 @@ export function SearchClient() {
   }, []);
 
   const runSearch = useCallback(
-    async (nextQuery: string): Promise<void> => {
+    async (nextQuery: string, nextPage = 1): Promise<void> => {
       const normalizedQuery = nextQuery.trim();
 
       if (normalizedQuery === "") {
@@ -50,7 +52,7 @@ export function SearchClient() {
       setState({ status: "loading", query: normalizedQuery });
 
       try {
-        const result = await searchItems(normalizedQuery, token);
+        const result = await searchItems(normalizedQuery, token, { page: nextPage });
         setState({ status: "ready", result });
       } catch (error: unknown) {
         if (error instanceof ApiError && error.status === 401) {
@@ -70,8 +72,8 @@ export function SearchClient() {
 
   useEffect(() => {
     setQuery(queryFromUrl);
-    void runSearch(queryFromUrl);
-  }, [queryFromUrl, runSearch]);
+    void runSearch(queryFromUrl, pageFromUrl);
+  }, [queryFromUrl, pageFromUrl, runSearch]);
 
   const resultCount = useMemo(() => {
     return state.status === "ready" ? state.result.pagination.total : null;
@@ -88,12 +90,12 @@ export function SearchClient() {
       return;
     }
 
-    if (normalizedQuery === queryFromUrl) {
+    if (normalizedQuery === queryFromUrl && pageFromUrl === 1) {
       void runSearch(normalizedQuery);
       return;
     }
 
-    router.push(`/search?q=${encodeURIComponent(normalizedQuery)}`);
+    router.push(searchHref(normalizedQuery));
   }
 
   return (
@@ -123,6 +125,17 @@ export function SearchClient() {
       </form>
 
       <SearchResults state={state} displayMode={displayMode} isAuthenticated={token !== null} />
+      {state.status === "ready" && (state.result.pagination.total > state.result.pagination.limit || state.result.pagination.page > 1) ? (
+        <nav className="search-pagination" aria-label="Страницы поиска">
+          {state.result.pagination.page > 1 ? (
+            <Link className="secondary-action" aria-label="Предыдущая страница" title="Предыдущая страница" href={searchHref(queryFromUrl, state.result.pagination.page - 1)}>←</Link>
+          ) : <span />}
+          <span>Страница {state.result.pagination.page} из {Math.max(1, Math.ceil(state.result.pagination.total / state.result.pagination.limit))}</span>
+          {state.result.pagination.hasNextPage ? (
+            <Link className="secondary-action" aria-label="Следующая страница" title="Следующая страница" href={searchHref(queryFromUrl, state.result.pagination.page + 1)}>→</Link>
+          ) : <span />}
+        </nav>
+      ) : null}
     </section>
   );
 }

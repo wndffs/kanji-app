@@ -246,7 +246,7 @@ describe("apiRequest", () => {
       );
     };
 
-    await expect(searchItems("school", "token-1", fetchImpl)).resolves.toMatchObject({
+    await expect(searchItems("school", "token-1", { fetchImpl })).resolves.toMatchObject({
       query: "school",
       items: [],
     });

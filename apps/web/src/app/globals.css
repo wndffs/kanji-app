@@ -3236,6 +3236,20 @@ textarea:focus-visible {
   color: var(--muted);
 }
 
+.search-pagination {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.search-pagination > a {
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+}
+
 .admin-queue-pagination {
   display: grid;
   gap: 8px;
