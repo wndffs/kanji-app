@@ -11,6 +11,30 @@ published after independent parent planning/review. It contains **53 components,
 five levels. Live plan and publication evidence is recorded below. Publication
 never automatically upgrades/enrolls v1 learners or changes their current course.
 
+## Prepared V3 (Not Yet Published)
+
+`buildFoundationPilotManifestV3()` is a separate six-level finite expansion:
+63 components, 81 kanji, 100 words, 244 existing targets and 425 existing cards.
+Levels 5 and 6 use WORD completion policies; level 6 retains the main blueprint's
+N5 band. This is an independent course band, not an official JLPT assignment to
+individual dictionary entries. The full main-course target remains 2,300/8,000.
+
+V3 adds exactly these three reviewed sources to the seven V2 sources:
+
+| Source                       | SHA-256                                                            |
+| ---------------------------- | ------------------------------------------------------------------ |
+| task-118-foundation-kanji-05 | `95a4b69a331f200caa5044717cde9d628c3d3ad1d79600000c142a55967a3c1b` |
+| task-127-foundation-words-04 | `81496c6ffcb91d0d7fa046b8f075b4b1aff6e2ccec7f69d48c48708bb043b5b6` |
+| task-127-course-words-05     | `e1fd34111d46183f4376934d9d55429c191524e7d319ec367b8bdb2c4d972f36` |
+
+The stable publication-record UUID is `41a64921-eb2c-433e-9761-250e3b31015e`;
+canonical manifest SHA-256 is
+`a7261a33902acba75a8058ba043b4f6ab786978315783e23cb9479cd040617d1`.
+These are prepared source seals, not proof of database application/publication.
+After curation and quality checks, use `--pilot v3 --plan` before the explicit
+`--pilot v3 --publish`. Neither action silently enrolls users or selects V3.
+V1/V2 source/canonical seals and default CLI behavior are unchanged.
+
 ## Separate V2 Seal
 
 `buildFoundationPilotManifest()` retains its v1 signature and defaults.
@@ -37,7 +61,7 @@ V2 canonical manifest SHA-256 is
 `4d2f3aab0b2b160774ab5a2ca19a675f28423c48561218abca4c8737c47d53e1`.
 These manifest seals are not live course content-version hashes.
 
-The common publisher accepts only canonical equality with one of the two known
+The common publisher accepts only canonical equality with one of the three known
 sealed manifests and exact approved registry/source hashes. Altered counts,
 targets, answers, source records/IDs/order, approval dates or level policies
 fail before any database read. Caller-provided counts or slugs do not define

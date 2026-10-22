@@ -6,6 +6,7 @@ import { CONTENT_QUALITY_POLICY_VERSION } from "@kanji-srs/shared";
 import { type QualityItem, validateQualityItem } from "./content-quality";
 import { loadContentQualityItems, type ContentQualityDatabase } from "./content-quality-report";
 import { createCourseLevelPassPolicy } from "./course-level-policy";
+import { buildMainCourseBlueprint } from "./main-course";
 import {
   buildMainCourseContentBatches,
   validateMainCourseContentBatches,
@@ -25,6 +26,8 @@ export const FOUNDATION_PILOT_SLUG = "japanese-foundation-pilot-v1";
 export const FOUNDATION_PILOT_RECORD_ID = "c5d6546d-6f29-451e-bbc5-a0ba4b887048";
 export const FOUNDATION_PILOT_V2_SLUG = "japanese-foundation-pilot-v2";
 export const FOUNDATION_PILOT_V2_RECORD_ID = "4c599bc8-e28c-4527-9d9b-a99a3a7c8779";
+export const FOUNDATION_PILOT_V3_SLUG = "japanese-foundation-pilot-v3";
+export const FOUNDATION_PILOT_V3_RECORD_ID = "41a64921-eb2c-433e-9761-250e3b31015e";
 const KANJI_SOURCE_IDS = ["01", "02", "03", "04"].map(
   (suffix) => `task-118-foundation-kanji-${suffix}`,
 );
@@ -37,6 +40,20 @@ const SOURCE_HASHES: Readonly<Record<string, string>> = {
   [WORD_SOURCE_IDS[0]!]: "1ceeb2467961f707e57047ab0c46a91badaa048f036ac3299a5a7d0685f99daf",
   [WORD_SOURCE_IDS[1]!]: "0110505331b1066653f4b62ce20f4c8bbb98e94ccf701eafac26ecda9a0e6a4f",
   [WORD_SOURCE_IDS[2]!]: "ef7090a4cea8c4b74c04a3cebfe85dc9832d64e1b7d071e409232287e7cf2ff4",
+};
+const V3_KANJI_SOURCE_IDS = [...KANJI_SOURCE_IDS, "task-118-foundation-kanji-05"];
+const V3_WORD_SOURCE_IDS = [
+  ...WORD_SOURCE_IDS,
+  "task-127-foundation-words-04",
+  "task-127-course-words-05",
+];
+const V3_SOURCE_HASHES: Readonly<Record<string, string>> = {
+  ...SOURCE_HASHES,
+  "task-118-foundation-kanji-05":
+    "95a4b69a331f200caa5044717cde9d628c3d3ad1d79600000c142a55967a3c1b",
+  "task-127-foundation-words-04":
+    "81496c6ffcb91d0d7fa046b8f075b4b1aff6e2ccec7f69d48c48708bb043b5b6",
+  "task-127-course-words-05": "e1fd34111d46183f4376934d9d55429c191524e7d319ec367b8bdb2c4d972f36",
 };
 const PILOTS = {
   v1: {
@@ -56,6 +73,15 @@ const PILOTS = {
     kanjiIds: KANJI_SOURCE_IDS,
     wordIds: WORD_SOURCE_IDS,
     canonicalChecksum: "4d2f3aab0b2b160774ab5a2ca19a675f28423c48561218abca4c8737c47d53e1",
+  },
+  v3: {
+    slug: FOUNDATION_PILOT_V3_SLUG,
+    recordId: FOUNDATION_PILOT_V3_RECORD_ID,
+    version: "3",
+    counts: { components: 63, kanji: 81, words: 100, items: 244, cards: 425 },
+    kanjiIds: V3_KANJI_SOURCE_IDS,
+    wordIds: V3_WORD_SOURCE_IDS,
+    canonicalChecksum: "a7261a33902acba75a8058ba043b4f6ab786978315783e23cb9479cd040617d1",
   },
 } as const;
 const SOURCE_COURSE_SLUG = "japanese-ru-n2";
@@ -117,6 +143,17 @@ export function buildFoundationPilotManifestV2(
   return buildPilotManifest(kanjiBatches, wordBatches, "v2");
 }
 
+export function buildFoundationPilotManifestV3(
+  kanjiBatches: readonly MainCourseContentBatch[] = buildMainCourseContentBatches().filter(
+    (batch) => V3_KANJI_SOURCE_IDS.includes(batch.id),
+  ),
+  wordBatches: readonly MainCourseWordBatch[] = buildMainCourseWordBatches().filter((batch) =>
+    V3_WORD_SOURCE_IDS.includes(batch.id),
+  ),
+) {
+  return buildPilotManifest(kanjiBatches, wordBatches, "v3");
+}
+
 function buildPilotManifest(
   kanjiBatches: readonly MainCourseContentBatch[],
   wordBatches: readonly MainCourseWordBatch[],
@@ -138,7 +175,9 @@ function buildPilotManifest(
     throw new Error(
       pilot === "v1"
         ? "Pilot v1 requires exactly the three registered version-1 main-course batches."
-        : "Pilot v2 requires exactly the seven registered version-1 main-course batches.",
+        : pilot === "v2"
+          ? "Pilot v2 requires exactly the seven registered version-1 main-course batches."
+          : "Pilot v3 requires exactly the ten registered version-1 main-course batches.",
     );
   const targets: PilotTarget[] = [];
   const sources: SourceBatch[] = [];
@@ -237,7 +276,9 @@ function buildPilotManifest(
     targets.some(
       (target) =>
         target.levelNumber < 1 ||
-        target.levelNumber > 5 ||
+        target.levelNumber > (pilot === "v3" ? 6 : 5) ||
+        (pilot === "v3" &&
+          (target.kind === "WORD" ? target.levelNumber < 5 : target.levelNumber > 4)) ||
         target.prerequisiteKeys.some(
           (key) => !keys.has(key) || keys.get(key)!.levelNumber >= target.levelNumber,
         ),
@@ -255,26 +296,31 @@ function buildPilotManifest(
       )
         throw new Error(`Pilot example needs an earlier registered kanji: ${content.expression}.`);
   const label =
-    pilot === "v1" ? "40 компонентов, 40 кандзи и 20 слов" : "53 компонента, 61 кандзи и 60 слов";
+    pilot === "v1"
+      ? "40 компонентов, 40 кандзи и 20 слов"
+      : pilot === "v2"
+        ? "53 компонента, 61 кандзи и 60 слов"
+        : "63 компонента, 81 кандзи и 100 слов";
+  const levelCount = pilot === "v3" ? 6 : 5;
   return {
     version: definition.version,
     slug: definition.slug,
     sourceCourseSlug: SOURCE_COURSE_SLUG,
     titleRu: `Пилот основ: ${label}`,
-    descriptionRu: `Отдельный пилот из 5 уровней: ${label}. Это не полный курс до N2.`,
+    descriptionRu: `Отдельный пилот из ${levelCount} уровней: ${label}. Это не полный курс до N2.`,
     targetLevel: "FOUNDATION",
     counts: { ...definition.counts },
-    levels: Array.from({ length: 5 }, (_, index) => ({
+    levels: Array.from({ length: levelCount }, (_, index) => ({
       levelNumber: index + 1,
       titleRu: `Основа: этап ${index + 1}`,
       descriptionRu:
         index === 0
           ? "Компоненты пилотного курса."
-          : index === 4
+          : index >= 4
             ? `Первые ${definition.counts.words} слов пилотного курса.`
             : "Кандзи пилотного курса.",
       passPolicyJson: createCourseLevelPassPolicy(
-        index === 0 ? "COMPONENT" : index === 4 ? "WORD" : "KANJI",
+        index === 0 ? "COMPONENT" : index >= 4 ? "WORD" : "KANJI",
       ),
     })),
     targets,
@@ -384,7 +430,7 @@ export async function planFoundationPilot(db: PilotReader, options: FoundationPi
       );
       if (
         expected === undefined ||
-        level.band !== "FOUNDATION" ||
+        level.band !== pilotLevelBand(manifest.slug, level.levelNumber) ||
         level.titleRu !== expected.titleRu ||
         level.descriptionRu !== expected.descriptionRu ||
         canonical(level.passPolicyJson) !== canonical(expected.passPolicyJson)
@@ -450,7 +496,7 @@ export async function planFoundationPilot(db: PilotReader, options: FoundationPi
       placement.learningItem.kind !== target.kind ||
       placement.learningItem.status !== "PUBLISHED" ||
       placement.courseLevel.levelNumber !== target.levelNumber ||
-      placement.courseLevel.band !== "FOUNDATION" ||
+      placement.courseLevel.band !== pilotLevelBand(manifest.slug, target.levelNumber) ||
       placement.sortOrder !== target.sortOrder
     )
       throw new Error(`Missing exact published main-course placement for ${target.key}.`);
@@ -924,7 +970,7 @@ export async function publishFoundationPilot(
           levelNumber: level.levelNumber,
           titleRu: level.titleRu,
           descriptionRu: level.descriptionRu,
-          band: "FOUNDATION",
+          band: pilotLevelBand(manifest.slug, level.levelNumber),
           passPolicyJson: toJson(level.passPolicyJson),
         },
       });
@@ -1069,6 +1115,15 @@ export function foundationPilotRecordId(manifest: FoundationPilotManifest): stri
   return requireApproved(manifest).recordId;
 }
 
+function pilotLevelBand(slug: string, levelNumber: number) {
+  if (slug !== FOUNDATION_PILOT_V3_SLUG) return "FOUNDATION" as const;
+  const level = buildMainCourseBlueprint().levels.find(
+    (candidate) => candidate.levelNumber === levelNumber,
+  );
+  if (level === undefined) throw new Error("Pilot level has no registered curriculum band.");
+  return level.band;
+}
+
 function requireApproved(manifest: FoundationPilotManifest) {
   const context = Object.values(PILOTS).find((pilot) => pilot.slug === manifest.slug);
   const expected =
@@ -1076,7 +1131,9 @@ function requireApproved(manifest: FoundationPilotManifest) {
       ? buildFoundationPilotManifest()
       : context?.slug === FOUNDATION_PILOT_V2_SLUG
         ? buildFoundationPilotManifestV2()
-        : null;
+        : context?.slug === FOUNDATION_PILOT_V3_SLUG
+          ? buildFoundationPilotManifestV3()
+          : null;
   if (
     context === undefined ||
     expected === null ||
@@ -1085,7 +1142,11 @@ function requireApproved(manifest: FoundationPilotManifest) {
     expected.sources.some(
       (source) => source.reviewedAt === null || !/^\d{4}-\d{2}-\d{2}$/u.test(source.reviewedAt),
     ) ||
-    expected.sources.some((source) => source.checksumSha256 !== SOURCE_HASHES[source.id])
+    expected.sources.some(
+      (source) =>
+        source.checksumSha256 !==
+        (context.slug === FOUNDATION_PILOT_V3_SLUG ? V3_SOURCE_HASHES : SOURCE_HASHES)[source.id],
+    )
   )
     throw new Error(
       "Pilot requires the exact sealed independently reviewed finite source manifests.",
