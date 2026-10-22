@@ -71,3 +71,27 @@ response validation, bounded reads/catalog traversal, exclusive report writes an
 account write guards. These tests do not contact the deployment, database or live
 accounts. Real deployment behavior and measured target attainment remain for a
 maintainer's reviewed manual dispatch. No external data or licence changes apply.
+
+## Verified Pilot Sample: 2026-10-22
+
+[Manual run 39811129567](https://github.com/wndffs/kanji-app/actions/runs/39811129567)
+at commit `cd10aa4` passed all response checks on the fixed Vercel/Render targets.
+It created one disposable profile, explicitly enrolled/selected the published
+100-item Foundation pilot, and made three sequential requests per study endpoint.
+Its [sanitized artifact](https://github.com/wndffs/kanji-app/actions/runs/39811129567/artifacts/12439592538)
+contains all fifteen samples; no credentials or raw payloads were uploaded.
+
+| Endpoint   | Min / Median / Max, ms | Response bytes | Repeated samples above 2,000 ms |
+| ---------- | ---------------------- | -------------- | ------------------------------- |
+| Dashboard  | 480 / 514 / 1,251      | 6,127          | 0 of 2                          |
+| Lessons    | 686 / 893 / 900        | 24,407         | 0 of 2                          |
+| Reviews    | 190 / 193 / 220        | 60             | 0 of 2                          |
+| Characters | 285 / 291 / 321        | 69,820         | 0 of 2                          |
+| Item       | 709 / 812 / 1,016      | 14,365         | 0 of 2                          |
+
+These are GitHub-hosted-runner-to-deployment measurements, not the user's network
+latency. Reviews were empty and the first lesson target was a component. This
+does not cover a populated backlog, a full 2,300-kanji course, audio playback,
+mobile rendering, browser CWV, p95, load tests or proven cold starts. The runtime
+deployment SHA is not asserted by this runner; the commit identifies the runner
+source, not an independent runtime-version attestation. Task123 remains open.
