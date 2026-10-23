@@ -387,6 +387,16 @@ describe("LessonsService", () => {
     expect(hydrate).toHaveBeenLastCalledWith("owner", ["item-kanji-one", "item-component-one"]);
   });
 
+  it("starts from metadata and resumes only selected session materials", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const hydrate = vi.spyOn(repository, "loadLessonItems");
+    const service = new LessonsService(repository, createOverridesService());
+    await service.startSession(createUser("owner"), { itemIds: ["item-component-one"] });
+    expect(hydrate).not.toHaveBeenCalled();
+    expect((await service.getActiveSession(createUser("owner"))).items.map((entry) => entry.item.id)).toEqual(["item-component-one"]);
+    expect(hydrate).toHaveBeenCalledExactlyOnceWith("owner", ["item-component-one"]);
+  });
+
   it.each(["course", "deck"])(
     "requires every external prerequisite card for %s queues and completion",
     async (source) => {

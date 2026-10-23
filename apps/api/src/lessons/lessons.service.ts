@@ -82,7 +82,7 @@ export class LessonsService {
   async startSession(user: CurrentUserDto, body?: unknown): Promise<StartLessonSessionResponse> {
     const request = parseStartLessonRequest(body);
     const now = new Date();
-    const { availableItems, remainingToday } = await this.getAvailableItems(
+    const { availableItems, remainingToday } = await this.getAvailableMetadata(
       user,
       now,
       request.deckId,
@@ -142,7 +142,7 @@ export class LessonsService {
       };
     }
 
-    const { availableItems, displayMode, progress, source } = await this.getAvailableItems(
+    const { availableItems, displayMode, progress, source } = await this.getAvailableMetadata(
       user,
       new Date(),
       session.deckId,
@@ -182,9 +182,10 @@ export class LessonsService {
         session.itemIds.includes(record.learningItemId) && record.createdAt >= session.startedAt,
     );
 
+    const teachingEntries = await this.hydrateAvailableItems(user.id, remainingEntries);
     return {
       session: toLessonSessionDto(normalizedSession),
-      items: remainingEntries.map((entry) =>
+      items: teachingEntries.map((entry) =>
         toLessonQueueItem(entry.item, entry.unlockedBy, displayMode),
       ),
       source,
