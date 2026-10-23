@@ -2029,6 +2029,8 @@ export const workspacePackages: readonly WorkspacePackageInfo[] = [
   { name: "@kanji-srs/ui", responsibility: "reusable web UI components" },
 ];
 
+export * from "./course-browser";
+
 export function isContentLocale(value: string): value is ContentLocale {
   return (SUPPORTED_CONTENT_LOCALES as readonly string[]).includes(value);
 }
