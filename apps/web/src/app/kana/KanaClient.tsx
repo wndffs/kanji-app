@@ -32,7 +32,8 @@ import {
   submitKanaAssessmentAnswer,
   submitKanaLessonAnswer,
 } from "../../lib/api-client";
-import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
+import { clearStoredSession } from "../../lib/auth-storage";
+import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
 import {
   buildKanaExerciseChoices,
   selectKanaExerciseKind,
@@ -60,15 +61,25 @@ type KanaState =
       readonly path: KanaLessonPathDto;
     };
 
-export function KanaClient({
-  initialMode = "lessons",
-  initialScript = "hiragana",
-  initialPracticeScript = "hiragana",
-}: {
+type KanaClientProps = {
   readonly initialMode?: KanaRouteMode;
   readonly initialScript?: KanaScript;
   readonly initialPracticeScript?: KanaPracticeScript;
-}) {
+};
+
+export function KanaClient(props: KanaClientProps) {
+  const session = useStoredSession();
+  if (session === undefined) return <section className="page-stack" aria-busy="true"><h1>Кана</h1></section>;
+  if (session === null) return <section className="page-stack"><h1>Кана</h1><p>Для уроков каны нужен вход.</p><Link href="/login">Войти</Link></section>;
+  return <OwnedKanaClient key={`${session.user.id}:${session.token}`} {...props} token={session.token} />;
+}
+
+function OwnedKanaClient({
+  initialMode = "lessons",
+  initialScript = "hiragana",
+  initialPracticeScript = "hiragana",
+  token,
+}: KanaClientProps & { readonly token: string }) {
   const [script, setScript] = useState<KanaScript>(initialScript);
   const [practiceScript, setPracticeScript] = useState<KanaPracticeScript>(initialPracticeScript);
   const [dataRevision, setDataRevision] = useState(0);
@@ -84,33 +95,29 @@ export function KanaClient({
   const inputRef = useRef<HTMLInputElement>(null);
   const choiceRef = useRef<HTMLButtonElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
+  const requestRevision = useRef(0);
   const kanaSpeech = useJapaneseSpeech();
   const { play: playAnswerSound } = useAnswerSound();
   const handleTracingUnavailable = useCallback(() => setExerciseKind("typing"), []);
   const handleUnauthorized = useCallback(() => {
+    if (!ownsSession(token)) return;
     clearStoredSession();
     setState({ status: "unauthenticated" });
-  }, []);
+  }, [token]);
 
   useEffect(() => {
-    const session = readStoredSession();
-
-    if (session === null) {
-      setState({ status: "unauthenticated" });
-      return;
-    }
-
     let cancelled = false;
+    const revision = ++requestRevision.current;
     setState({ status: "loading" });
     setAnswer("");
     setFeedback(null);
 
     void Promise.all([
-      getKanaAssessment(session.token, script),
-      getKanaLessons(session.token, script),
+      getKanaAssessment(token, script),
+      getKanaLessons(token, script),
     ])
       .then(([progress, path]) => {
-        if (cancelled) {
+        if (cancelled || revision !== requestRevision.current || !ownsSession(token)) {
           return;
         }
 
@@ -121,10 +128,10 @@ export function KanaClient({
         setSelectedCharacter(character);
         setLessonPhase(selectLessonPhase(unit?.items ?? [], character));
         setExerciseKind(item === undefined ? "typing" : selectKanaExerciseKind(item));
-        setState({ status: "ready", token: session.token, progress, path });
+        setState({ status: "ready", token, progress, path });
       })
       .catch((error: unknown) => {
-        if (cancelled) {
+        if (cancelled || revision !== requestRevision.current || !ownsSession(token)) {
           return;
         }
 
@@ -142,8 +149,9 @@ export function KanaClient({
 
     return () => {
       cancelled = true;
+      requestRevision.current++;
     };
-  }, [dataRevision, script]);
+  }, [dataRevision, script, token]);
 
   useEffect(() => {
     if (lessonPhase === "quiz" && feedback === null) {
@@ -292,11 +300,12 @@ export function KanaClient({
     submittedAnswer: string,
     selectedAnswerCharacter?: string,
   ): Promise<KanaAssessmentAnswerResponse | null> {
-    if (state.status !== "ready" || submitting) {
+    if (state.status !== "ready" || submitting || !ownsSession(token)) {
       return null;
     }
 
     setSubmitting(true);
+    const revision = requestRevision.current;
 
     try {
       const submit = mode === "lessons" ? submitKanaLessonAnswer : submitKanaAssessmentAnswer;
@@ -308,6 +317,7 @@ export function KanaClient({
           ? {}
           : { selectedCharacter: selectedAnswerCharacter }),
       });
+      if (revision !== requestRevision.current || !ownsSession(token)) return null;
 
       setState((currentState) => {
         if (currentState.status !== "ready") {
@@ -324,6 +334,7 @@ export function KanaClient({
       playAnswerSound(result.correct);
       return result;
     } catch (error: unknown) {
+      if (revision !== requestRevision.current || !ownsSession(token)) return null;
       if (error instanceof ApiError && error.status === 401) {
         clearStoredSession();
         setState({ status: "unauthenticated" });
@@ -336,7 +347,7 @@ export function KanaClient({
       });
       return null;
     } finally {
-      setSubmitting(false);
+      if (revision === requestRevision.current && ownsSession(token)) setSubmitting(false);
     }
   }
 
@@ -386,7 +397,7 @@ export function KanaClient({
   }
 
   function handleModeChange(nextMode: KanaRouteMode): void {
-    if (state.status !== "ready" || nextMode === mode) {
+    if (state.status !== "ready" || nextMode === mode || submitting) {
       return;
     }
 

@@ -18,6 +18,32 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "kana-token";
 
 test.describe("kana lessons", () => {
+  for (const status of [200, 401]) {
+    test(`isolates lesson data after an account change (${status})`, async ({ page }) => {
+      await signIn(page); await mockKanaApi(page);
+      let release = () => {}; let requested = () => {};
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      const seen = new Promise<void>((resolve) => { requested = resolve; });
+      await page.route(`${API_BASE_URL}/kana/lessons?script=hiragana`, async (route) => {
+        if (route.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`) {
+          requested(); await held;
+          await route.fulfill({ status, json: status === 401 ? { message: "Old session" } : buildLessonPath(buildProgress("hiragana", ["あ"])) });
+        } else await route.fulfill({ json: buildLessonPath(buildProgress("hiragana", ["い"])) });
+      });
+      await page.goto("/kana"); await seen;
+      await page.evaluate(() => {
+        const user = JSON.parse(localStorage.getItem("kanji-srs.user")!);
+        localStorage.setItem("kanji-srs.accessToken", "kana-new-token");
+        localStorage.setItem("kanji-srs.user", JSON.stringify({ ...user, id: "kana-new-user" }));
+        window.dispatchEvent(new Event("kanji-srs.auth-changed"));
+      });
+      await expect(page.getByTestId("kana-practice")).toContainText("い");
+      const response = page.waitForResponse((response) => response.url().endsWith("/kana/lessons?script=hiragana") && response.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`);
+      release(); await response;
+      await expect(page.getByTestId("kana-practice")).toContainText("い");
+      expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe("kana-new-token");
+    });
+  }
   test("cancels obsolete kana speech on preferences, hiding and navigation", async ({ page }) => {
     await signIn(page);
     await mockKanaApi(page);
