@@ -290,17 +290,24 @@ function KanaCharacterPanel({ section }: { readonly section: CharacterHubKanaSec
               </strong>
             </header>
             <div className="character-hub-kana-chart">
-              {unit.items.map((item) => (
+              {unit.items.map((item) =>
+                unit.unlocked ? (
                   <Link
-                  className={item.mastered ? "is-mastered" : undefined}
-                  key={item.character}
-                    href={unit.unlocked ? kanaLessonHref(section.script, unit.id, item.character) : section.lessonsHref}
-                  title={`${item.character} — ${item.romaji}`}
-                >
-                  <JapaneseText>{item.character}</JapaneseText>
-                  <small>{item.romaji}</small>
-                </span>
-              ))}
+                    className={item.mastered ? "is-mastered" : undefined}
+                    key={item.character}
+                    href={kanaLessonHref(section.script, unit.id, item.character)}
+                    title={`${item.character} — ${item.romaji}`}
+                  >
+                    <JapaneseText>{item.character}</JapaneseText>
+                    <small>{item.romaji}</small>
+                  </Link>
+                ) : (
+                  <span key={item.character} title={`${item.character} — ${item.romaji}`}>
+                    <JapaneseText>{item.character}</JapaneseText>
+                    <small>{item.romaji}</small>
+                  </span>
+                ),
+              )}
             </div>
           </li>
         ))}
@@ -493,7 +500,7 @@ function KanjiCharacterPanel({
                       (item.legacyJlptLevel == null
                         ? "JLPT —"
                         : `JLPT до 2010: ${item.legacyJlptLevel}`)}
-                  </Link>
+                  </span>
                   <span className={`state-${item.studyState}`}>
                     {STUDY_STATE_LABELS[item.studyState]}
                   </span>

@@ -2,7 +2,10 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import { withNeonConnectionDefaults } from "../src/connection-defaults";
-import { inspectEditorialDraftEvidence, summarizeEditorialDraftEvidence } from "../src/editorial-draft-evidence";
+import {
+  inspectEditorialDraftEvidence,
+  summarizeEditorialDraftEvidence,
+} from "../src/editorial-draft-evidence";
 
 export async function runEditorialDraftEvidence(args: readonly string[]) {
   const summaryOnly = args.length === 1 && args[0] === "--summary-only";

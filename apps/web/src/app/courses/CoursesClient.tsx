@@ -139,7 +139,9 @@ export function CoursesClient() {
             {courses.map((course) => (
               <li key={course.id}>
                 <div>
-                  <h2><Link href={`/courses/${encodeURIComponent(course.id)}`}>{course.title}</Link></h2>
+                  <h2>
+                    <Link href={`/courses/${encodeURIComponent(course.id)}`}>{course.title}</Link>
+                  </h2>
                   {course.description ? <p>{course.description}</p> : null}
                 </div>
                 <button

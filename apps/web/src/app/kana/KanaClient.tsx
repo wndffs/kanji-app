@@ -71,9 +71,27 @@ type KanaClientProps = {
 
 export function KanaClient(props: KanaClientProps) {
   const session = useStoredSession();
-  if (session === undefined) return <section className="page-stack" aria-busy="true"><h1>Кана</h1></section>;
-  if (session === null) return <section className="page-stack"><h1>Кана</h1><p>Для уроков каны нужен вход.</p><Link href="/login">Войти</Link></section>;
-  return <OwnedKanaClient key={`${session.user.id}:${session.token}:${props.initialMode}:${props.initialScript}:${props.initialUnitId}:${props.initialCharacter}`} {...props} token={session.token} />;
+  if (session === undefined)
+    return (
+      <section className="page-stack" aria-busy="true">
+        <h1>Кана</h1>
+      </section>
+    );
+  if (session === null)
+    return (
+      <section className="page-stack">
+        <h1>Кана</h1>
+        <p>Для уроков каны нужен вход.</p>
+        <Link href="/login">Войти</Link>
+      </section>
+    );
+  return (
+    <OwnedKanaClient
+      key={`${session.user.id}:${session.token}:${props.initialMode}:${props.initialScript}:${props.initialUnitId}:${props.initialCharacter}`}
+      {...props}
+      token={session.token}
+    />
+  );
 }
 
 function OwnedKanaClient({
@@ -117,18 +135,23 @@ function OwnedKanaClient({
     setAnswer("");
     setFeedback(null);
 
-    void Promise.all([
-      getKanaAssessment(token, script),
-      getKanaLessons(token, script),
-    ])
+    void Promise.all([getKanaAssessment(token, script), getKanaLessons(token, script)])
       .then(([progress, path]) => {
         if (cancelled || revision !== requestRevision.current || !ownsSession(token)) {
           return;
         }
 
-        const destination = mode === "lessons" ? resolveKanaLessonDestination(path, desiredDestination.current.unitId, desiredDestination.current.character) : null;
+        const destination =
+          mode === "lessons"
+            ? resolveKanaLessonDestination(
+                path,
+                desiredDestination.current.unitId,
+                desiredDestination.current.character,
+              )
+            : null;
         const unit = destination?.unit ?? selectCurrentUnit(path.units);
-        const character = destination?.character ?? selectNextLessonCharacter(unit?.items ?? [], null);
+        const character =
+          destination?.character ?? selectNextLessonCharacter(unit?.items ?? [], null);
         const item = unit?.items.find((candidate) => candidate.character === character);
         setActiveUnitId(unit?.id ?? null);
         setSelectedCharacter(character);
@@ -160,7 +183,8 @@ function OwnedKanaClient({
   }, [dataRevision, script, token, initialUnitId, initialCharacter]);
 
   useEffect(() => {
-    if (state.status === "ready" && mode === "lessons") desiredDestination.current = { unitId: activeUnitId, character: selectedCharacter };
+    if (state.status === "ready" && mode === "lessons")
+      desiredDestination.current = { unitId: activeUnitId, character: selectedCharacter };
   }, [state.status, mode, activeUnitId, selectedCharacter]);
 
   useEffect(() => {
@@ -506,7 +530,11 @@ function OwnedKanaClient({
         <div className="error-banner" role="alert">
           {state.message}
         </div>
-        <button className="secondary-action" onClick={() => setDataRevision((value) => value + 1)} type="button">
+        <button
+          className="secondary-action"
+          onClick={() => setDataRevision((value) => value + 1)}
+          type="button"
+        >
           Повторить
         </button>
       </section>

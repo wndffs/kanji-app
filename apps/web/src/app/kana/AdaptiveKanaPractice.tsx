@@ -131,7 +131,13 @@ export function AdaptiveKanaPractice({
   );
 
   async function submit(value: string): Promise<void> {
-    if (state.status !== "ready" || exercise === null || feedback !== null || submitPending.current || !ownsSession(token)) {
+    if (
+      state.status !== "ready" ||
+      exercise === null ||
+      feedback !== null ||
+      submitPending.current ||
+      !ownsSession(token)
+    ) {
       return;
     }
 

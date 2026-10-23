@@ -1,3 +1,5 @@
+import { type ItemKind } from "./index";
+
 export type CourseOutlineLevelDto = {
   readonly levelNumber: number;
   readonly title: string;
@@ -11,9 +13,6 @@ export type CourseOutlineDto = {
   readonly description: string | null;
   readonly levels: readonly CourseOutlineLevelDto[];
 };
-import { type ItemKind } from "./index";
-
-
 export type CourseMaterialDto = {
   readonly id: string;
   readonly itemType: ItemKind;
@@ -28,7 +27,9 @@ export type CourseMaterialDto = {
   readonly burnedCardCount: number;
 };
 export type CourseMaterialStudyState = "not-started" | "learning" | "burned";
-export function courseMaterialStudyState(cards: readonly { readonly started: boolean; readonly burned: boolean }[]): CourseMaterialStudyState {
+export function courseMaterialStudyState(
+  cards: readonly { readonly started: boolean; readonly burned: boolean }[],
+): CourseMaterialStudyState {
   if (cards.length > 0 && cards.every((card) => card.started && card.burned)) return "burned";
   return cards.some((card) => card.started) ? "learning" : "not-started";
 }

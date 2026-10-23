@@ -909,7 +909,9 @@ function CourseProgressPanel({
       ) : (
         <div className="course-progress">
           <div>
-            <Link href={`/courses/${encodeURIComponent(course.id)}?level=${course.currentLevel}`}><strong>{course.title}</strong></Link>
+            <Link href={`/courses/${encodeURIComponent(course.id)}?level=${course.currentLevel}`}>
+              <strong>{course.title}</strong>
+            </Link>
             <span>Уровень {course.currentLevel}</span>
           </div>
           <div className="course-pass-progress">

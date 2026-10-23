@@ -18,38 +18,89 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "kana-token";
 
 test.describe("kana lessons", () => {
-  test("retries a failed katakana load in place without reverting script or replaying answers", async ({ page }) => {
-    await signIn(page); await mockKanaApi(page);
-    let reads = 0; let writes = 0;
-    page.on("request", (request) => { if (request.method() === "POST" && request.url().includes("/kana/")) writes++; });
-    await page.route(`${API_BASE_URL}/kana/lessons?script=katakana`, (route) => route.fulfill(++reads === 1 ? { status: 503, json: { message: "Сервер просыпается" } } : { json: buildLessonPath(buildProgress("katakana", ["ア"])) }));
+  test("retries a failed katakana load in place without reverting script or replaying answers", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockKanaApi(page);
+    let reads = 0;
+    let writes = 0;
+    page.on("request", (request) => {
+      if (request.method() === "POST" && request.url().includes("/kana/")) writes++;
+    });
+    await page.route(`${API_BASE_URL}/kana/lessons?script=katakana`, (route) =>
+      route.fulfill(
+        ++reads === 1
+          ? { status: 503, json: { message: "Сервер просыпается" } }
+          : { json: buildLessonPath(buildProgress("katakana", ["ア"])) },
+      ),
+    );
     await page.goto("/kana");
     await page.getByRole("button", { name: "Катакана", exact: true }).click();
-    await expect(page.getByRole("alert")).toContainText("Сервер просыпается");
+    await expect(page.getByRole("main").getByRole("alert")).toContainText("Сервер просыпается");
     await page.getByRole("button", { name: "Повторить", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Катакана", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Катакана", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect(page.getByTestId("kana-practice")).toContainText("ア");
-    expect(reads).toBe(2); expect(writes).toBe(0);
+    expect(reads).toBe(2);
+    expect(writes).toBe(0);
   });
-  test("opens a requested unlocked lesson character without recording an answer", async ({ page }) => {
-    await signIn(page); await mockKanaApi(page);
+  test("opens a requested unlocked lesson character without recording an answer", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockKanaApi(page);
     let writes = 0;
-    page.on("request", (request) => { if (request.method() === "POST" && request.url().includes("/kana/")) writes++; });
+    page.on("request", (request) => {
+      if (request.method() === "POST" && request.url().includes("/kana/")) writes++;
+    });
     await page.goto("/kana?script=hiragana&mode=lessons&unit=hiragana-vowels&character=い");
     await expect(page.getByTestId("kana-practice")).toContainText("い");
     expect(writes).toBe(0);
   });
   for (const status of [200, 401]) {
-    test(`ignores an older adaptive answer after account replacement (${status})`, async ({ page }) => {
-      await signIn(page); await mockKanaApi(page);
-      const exercise: KanaPracticeExerciseDto = { id: "owner-exercise", script: "hiragana", character: "あ", romaji: "a", exerciseKind: "typing", choices: [], focusReason: "new" };
-      await page.route(`${API_BASE_URL}/kana/practice?script=hiragana`, (route) => route.fulfill({ json: buildPracticeSession("hiragana", 0, [exercise]) }));
-      let release = () => {}; let requested = () => {};
-      const held = new Promise<void>((resolve) => { release = resolve; });
-      const seen = new Promise<void>((resolve) => { requested = resolve; });
+    test(`ignores an older adaptive answer after account replacement (${status})`, async ({
+      page,
+    }) => {
+      await signIn(page);
+      await mockKanaApi(page);
+      const exercise: KanaPracticeExerciseDto = {
+        id: "owner-exercise",
+        script: "hiragana",
+        character: "あ",
+        romaji: "a",
+        exerciseKind: "typing",
+        choices: [],
+        focusReason: "new",
+      };
+      await page.route(`${API_BASE_URL}/kana/practice?script=hiragana`, (route) =>
+        route.fulfill({ json: buildPracticeSession("hiragana", 0, [exercise]) }),
+      );
+      let release = () => {};
+      let requested = () => {};
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const seen = new Promise<void>((resolve) => {
+        requested = resolve;
+      });
       await page.route(`${API_BASE_URL}/kana/practice/answer`, async (route) => {
-        requested(); await held;
-        await route.fulfill({ status, json: status === 401 ? { message: "Old session" } : { correct: true, expected: "a", normalizedAnswer: "a", session: buildPracticeSession("hiragana", 1, [exercise]) } });
+        requested();
+        await held;
+        await route.fulfill({
+          status,
+          json:
+            status === 401
+              ? { message: "Old session" }
+              : {
+                  correct: true,
+                  expected: "a",
+                  normalizedAnswer: "a",
+                  session: buildPracticeSession("hiragana", 1, [exercise]),
+                },
+        });
       });
       await page.goto("/kana?mode=practice");
       const practice = page.getByTestId("kana-adaptive-practice");
@@ -63,26 +114,47 @@ test.describe("kana lessons", () => {
         window.dispatchEvent(new Event("kanji-srs.auth-changed"));
       });
       await expect(practice.getByLabel("Ромадзи", { exact: true })).toHaveValue("");
-      const response = page.waitForResponse((response) => response.url().endsWith("/kana/practice/answer"));
-      release(); await response;
+      const response = page.waitForResponse((response) =>
+        response.url().endsWith("/kana/practice/answer"),
+      );
+      release();
+      await response;
       await expect(practice.getByLabel("Ромадзи", { exact: true })).toBeEnabled();
-      expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe("kana-next-token");
-      await expect(practice.getByRole("button", { name: "Продолжить", exact: true })).toHaveCount(0);
+      expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe(
+        "kana-next-token",
+      );
+      await expect(practice.getByRole("button", { name: "Продолжить", exact: true })).toHaveCount(
+        0,
+      );
     });
   }
   for (const status of [200, 401]) {
     test(`isolates lesson data after an account change (${status})`, async ({ page }) => {
-      await signIn(page); await mockKanaApi(page);
-      let release = () => {}; let requested = () => {};
-      const held = new Promise<void>((resolve) => { release = resolve; });
-      const seen = new Promise<void>((resolve) => { requested = resolve; });
+      await signIn(page);
+      await mockKanaApi(page);
+      let release = () => {};
+      let requested = () => {};
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const seen = new Promise<void>((resolve) => {
+        requested = resolve;
+      });
       await page.route(`${API_BASE_URL}/kana/lessons?script=hiragana`, async (route) => {
         if (route.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`) {
-          requested(); await held;
-          await route.fulfill({ status, json: status === 401 ? { message: "Old session" } : buildLessonPath(buildProgress("hiragana", ["あ"])) });
+          requested();
+          await held;
+          await route.fulfill({
+            status,
+            json:
+              status === 401
+                ? { message: "Old session" }
+                : buildLessonPath(buildProgress("hiragana", ["あ"])),
+          });
         } else await route.fulfill({ json: buildLessonPath(buildProgress("hiragana", ["い"])) });
       });
-      await page.goto("/kana"); await seen;
+      await page.goto("/kana");
+      await seen;
       await page.evaluate(() => {
         const user = JSON.parse(localStorage.getItem("kanji-srs.user")!);
         localStorage.setItem("kanji-srs.accessToken", "kana-new-token");
@@ -90,10 +162,17 @@ test.describe("kana lessons", () => {
         window.dispatchEvent(new Event("kanji-srs.auth-changed"));
       });
       await expect(page.getByTestId("kana-practice")).toContainText("い");
-      const response = page.waitForResponse((response) => response.url().endsWith("/kana/lessons?script=hiragana") && response.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`);
-      release(); await response;
+      const response = page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/kana/lessons?script=hiragana") &&
+          response.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`,
+      );
+      release();
+      await response;
       await expect(page.getByTestId("kana-practice")).toContainText("い");
-      expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe("kana-new-token");
+      expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe(
+        "kana-new-token",
+      );
     });
   }
   test("cancels obsolete kana speech on preferences, hiding and navigation", async ({ page }) => {

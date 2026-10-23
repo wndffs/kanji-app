@@ -65,7 +65,9 @@ function CourseLibrary({ token, refresh }: { readonly token: string; readonly re
           {library.courses.map((course) => (
             <li key={course.id}>
               <div>
-                <h3><Link href={`/courses/${encodeURIComponent(course.id)}`}>{course.title}</Link></h3>
+                <h3>
+                  <Link href={`/courses/${encodeURIComponent(course.id)}`}>{course.title}</Link>
+                </h3>
                 <span className="muted">
                   {course.isCurrent
                     ? "Текущий курс"

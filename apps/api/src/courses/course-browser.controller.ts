@@ -1,4 +1,12 @@
-import { Controller, Get, Inject, Param, Query, UseGuards, BadRequestException } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Query,
+  UseGuards,
+  BadRequestException,
+} from "@nestjs/common";
 import { AuthGuard } from "../auth/auth.guard";
 import { CourseBrowserService } from "./course-browser.service";
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -21,8 +29,13 @@ export class CourseBrowserController {
   }
 
   @Get(":courseId/levels/:level/items")
-  materials(@CurrentUser() user: CurrentUserDto, @Param("courseId") courseId: string,
-    @Param("level") level: string, @Query() query: { readonly page?: unknown; readonly itemType?: unknown; readonly studyState?: unknown }) {
+  materials(
+    @CurrentUser() user: CurrentUserDto,
+    @Param("courseId") courseId: string,
+    @Param("level") level: string,
+    @Query()
+    query: { readonly page?: unknown; readonly itemType?: unknown; readonly studyState?: unknown },
+  ) {
     return this.service.materials(user.id, requireCourseBrowserId(courseId), level, query);
   }
 }

@@ -13,5 +13,14 @@ export default async function ItemPage({ params, searchParams }: ItemPageProps) 
   const { id } = await params;
 
   const returnHref = courseReturnHref(await searchParams);
-  return <>{returnHref === null ? null : <Link className="course-return-link" href={returnHref}>К материалам уровня</Link>}<ItemDetailsClient lookup={{ type: "item", value: id }} /></>;
+  return (
+    <>
+      {returnHref === null ? null : (
+        <Link className="course-return-link" href={returnHref}>
+          К материалам уровня
+        </Link>
+      )}
+      <ItemDetailsClient lookup={{ type: "item", value: id }} />
+    </>
+  );
 }

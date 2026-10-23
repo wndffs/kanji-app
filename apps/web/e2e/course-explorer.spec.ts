@@ -2,22 +2,110 @@ import { expect, test, type Page } from "@playwright/test";
 
 const API = "http://localhost:3001";
 const ID = "00000000-0000-4000-8000-000000000010";
-const outline = { id: ID, title: "Учебная программа", description: null, levels: [
-  { levelNumber: 1, title: "Компоненты", band: "foundation", publishedItemCount: 32 },
-  { levelNumber: 2, title: "Кандзи", band: "foundation", publishedItemCount: 2 },
-] };
+const outline = {
+  id: ID,
+  title: "Учебная программа",
+  description: null,
+  levels: [
+    { levelNumber: 1, title: "Компоненты", band: "foundation", publishedItemCount: 32 },
+    { levelNumber: 2, title: "Кандзи", band: "foundation", publishedItemCount: 2 },
+  ],
+};
 async function signIn(page: Page) {
   await page.route(`${API}/courses/${ID}/levels/*/items*`, (route) => {
     const pageNumber = Number(new URL(route.request().url()).searchParams.get("page") ?? 1);
-    return route.fulfill({ json: { courseId: ID, levelNumber: 1, page: pageNumber, pageSize: 30, total: 32,
-      items: [{ id: `material-${pageNumber}`, itemType: "kanji", japanese: pageNumber === 1 ? "一" : "二", title: "Число", reading: "いち", meaningRu: "один", meaningEn: "one", studyState: "not-started", cardCount: 2, startedCardCount: 0, burnedCardCount: 0 }] } });
+    return route.fulfill({
+      json: {
+        courseId: ID,
+        levelNumber: 1,
+        page: pageNumber,
+        pageSize: 30,
+        total: 32,
+        items: [
+          {
+            id: `material-${pageNumber}`,
+            itemType: "kanji",
+            japanese: pageNumber === 1 ? "一" : "二",
+            title: "Число",
+            reading: "いち",
+            meaningRu: "один",
+            meaningEn: "one",
+            studyState: "not-started",
+            cardCount: 2,
+            startedCardCount: 0,
+            burnedCardCount: 0,
+          },
+        ],
+      },
+    });
   });
   await page.addInitScript(() => {
+    localStorage.setItem("kanji-srs.translationDisplayMode", "ru-en");
     localStorage.setItem("kanji-srs.accessToken", "explorer-token");
-    localStorage.setItem("kanji-srs.user", JSON.stringify({ id: "explorer-user", email: "explorer@example.test", displayName: "Тест", role: "USER", settings: { translationDisplayMode: "ru-en", timezone: "Europe/Moscow" } }));
+    localStorage.setItem(
+      "kanji-srs.user",
+      JSON.stringify({
+        id: "explorer-user",
+        email: "explorer@example.test",
+        displayName: "Тест",
+        role: "USER",
+        settings: { translationDisplayMode: "ru-en", timezone: "Europe/Moscow" },
+      }),
+    );
   });
 }
 test.describe("published course explorer", () => {
+  for (const status of [200, 401]) {
+    test(`ignores stale level data after account replacement (${status})`, async ({ page }) => {
+      await signIn(page);
+      await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+      let release = () => {};
+      let requested = () => {};
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const seen = new Promise<void>((resolve) => {
+        requested = resolve;
+      });
+      await page.route(`${API}/courses/${ID}/levels/*/items*`, async (route) => {
+        const older = route.request().headers().authorization === "Bearer explorer-token";
+        if (older) {
+          requested();
+          await held;
+        }
+        await route.fulfill({
+          status: older ? status : 200,
+          json:
+            older && status === 401
+              ? { message: "Old session" }
+              : { courseId: ID, levelNumber: 1, page: 1, pageSize: 30, total: 0, items: [] },
+        });
+      });
+      await page.goto(`/courses/${ID}`);
+      await seen;
+      await page.evaluate(() => {
+        const user = JSON.parse(localStorage.getItem("kanji-srs.user")!);
+        localStorage.setItem("kanji-srs.accessToken", "explorer-next-token");
+        localStorage.setItem(
+          "kanji-srs.user",
+          JSON.stringify({ ...user, id: "explorer-next-user" }),
+        );
+        window.dispatchEvent(new Event("kanji-srs.auth-changed"));
+      });
+      await expect(page.getByText("Найдено: 0", { exact: true })).toBeVisible();
+      const response = page.waitForResponse(
+        (response) =>
+          response.url().includes("/levels/") &&
+          response.request().headers().authorization === "Bearer explorer-token",
+      );
+      release();
+      await response;
+      await expect(page.getByText("Найдено: 0", { exact: true })).toBeVisible();
+      expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe(
+        "explorer-next-token",
+      );
+    });
+  }
   test("pages level materials without enrollment or scheduling writes", async ({ page }) => {
     await signIn(page);
     await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
@@ -29,7 +117,10 @@ test.describe("published course explorer", () => {
     await expect(materials.getByRole("link")).toContainText("one");
     await materials.getByRole("button", { name: "Следующая страница материалов" }).click();
     await expect(materials.getByRole("link")).toContainText("二");
-    await expect(materials.getByRole("link")).toHaveAttribute("href", new RegExp(`/items/material-2\\?level=1&page=2&courseId=${ID}$`, "u"));
+    await expect(materials.getByRole("link")).toHaveAttribute(
+      "href",
+      new RegExp(`/items/material-2\\?level=1&page=2&courseId=${ID}$`, "u"),
+    );
     await materials.getByLabel("Тип материала", { exact: true }).selectOption("word");
     await expect(materials.getByText("Страница 1 из 2")).toBeVisible();
     await expect(page).toHaveURL(/itemType=word/u);
@@ -43,10 +134,14 @@ test.describe("published course explorer", () => {
     let reads = 0;
     await page.route(`${API}/courses/${ID}/outline`, (route) => {
       expect(route.request().method()).toBe("GET");
-      return route.fulfill(++reads === 1 ? { status: 503, json: { message: "Временно недоступно" } } : { json: outline });
+      return route.fulfill(
+        ++reads === 1
+          ? { status: 503, json: { message: "Временно недоступно" } }
+          : { json: outline },
+      );
     });
     await page.goto(`/courses/${ID}`);
-    await expect(page.getByRole("alert")).toContainText("Временно недоступно");
+    await expect(page.getByRole("main").getByRole("alert")).toContainText("Временно недоступно");
     await page.getByRole("button", { name: "Повторить загрузку" }).click();
     await expect(page.getByRole("heading", { name: outline.title })).toBeVisible();
     await page.getByRole("button", { name: "Все уровни", exact: true }).click();
@@ -58,7 +153,9 @@ test.describe("published course explorer", () => {
     await page.goto(`/courses/${ID}?level=1&page=2&itemType=word`);
     await page.getByRole("button", { name: "Следующий уровень", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/courses/${ID}\\?level=2&itemType=word$`, "u"));
-    await expect(page.getByRole("button", { name: "Следующий уровень", exact: true })).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Следующий уровень", exact: true }),
+    ).toBeDisabled();
     await expect(page.getByLabel("Тип материала", { exact: true })).toHaveValue("word");
   });
   test("requires login and does not fetch a private progress view as a guest", async ({ page }) => {
