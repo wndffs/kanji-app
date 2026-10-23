@@ -726,12 +726,12 @@ export function LessonsClient() {
             </div>
           </dl>
           <div className="action-row">
-            <button className="primary-action" onClick={() => void loadQueue()} type="button">
-              Обновить очередь
-            </button>
-            <Link className="secondary-action" href="/dashboard">
+            <Link className="primary-action" href="/dashboard">
               На панель
             </Link>
+            <button className="secondary-action" onClick={() => void loadQueue()} type="button">
+              Ещё урок
+            </button>
           </div>
         </div>
       </section>
@@ -837,10 +837,6 @@ export function LessonsClient() {
           <h1>{step === "study" ? "Изучение" : "Обязательная проверка"}</h1>
         </div>
         <div className="lesson-session-tools">
-          <div className="review-progress">
-            <span>Изучено: {learnedItems}</span>
-            <span>{formatDisplayMode(activeDisplayMode)}</span>
-          </div>
           <button
             className="secondary-action"
             disabled={isSavingProgress || isCompleting}
@@ -1398,21 +1394,18 @@ function LessonQuizView({
             {lesson.item.japanese}
           </JapaneseText>
         )}
-        <p className="muted">
-          Введите {answerType === "reading" ? "чтение" : "значение"}. Материал попадёт в SRS только
-          после верных ответов на все карточки.
-        </p>
       </div>
 
       <form className="lesson-quiz-form" onSubmit={onSubmit}>
-        <label htmlFor="lesson-quiz-answer">
+        <label htmlFor="lesson-quiz-answer" hidden={feedback !== null}>
           <span>{answerType === "reading" ? "Ваше чтение" : "Ваше значение"}</span>
           <input
             autoComplete="off"
             disabled={isCompleting || feedback !== null || !listeningReady}
             id="lesson-quiz-answer"
             onChange={(event) => onAnswerChange(event.currentTarget.value)}
-            placeholder={answerType === "reading" ? "например: いち" : "например: один"}
+            placeholder={answerType === "reading" ? "かな" : "Значение"}
+            spellCheck={answerType === "meaning"}
             ref={inputRef}
             value={answer}
           />
@@ -1436,7 +1429,7 @@ function LessonQuizView({
       {feedback === null ? null : (
         <section className="lesson-quiz-result" aria-label="Результат проверки" role="alert">
           <h2>{formatLessonQuizResult(feedback)}</h2>
-          <p>{formatLessonQuizExplanation(feedback)}</p>
+          {feedback.accepted ? null : <p>{formatLessonQuizExplanation(feedback)}</p>}
           {feedback.result === "correct" ? null : (
             <>
               <strong>Допустимые ответы</strong>
@@ -1713,17 +1706,6 @@ function formatLessonQuizExplanation(
 
 function formatLocale(locale: ContentLocale): string {
   return locale === "ru-RU" ? "RU" : "EN";
-}
-
-function formatDisplayMode(mode: TranslationDisplayMode): string {
-  switch (mode) {
-    case "ru":
-      return "русский";
-    case "en":
-      return "English";
-    case "ru-en":
-      return "русский + English";
-  }
 }
 
 function readRequestedDeckId(): string | null {

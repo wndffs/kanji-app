@@ -2752,15 +2752,16 @@ textarea:focus-visible {
 }
 
 .lesson-action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 10px;
-  border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  padding: 14px;
+  border-top: 1px solid var(--surface-border);
+  background: var(--background);
+  padding: 14px 0 max(14px, env(safe-area-inset-bottom));
 }
 
 .lesson-quiz {
@@ -2793,6 +2794,14 @@ textarea:focus-visible {
   font-weight: 800;
 }
 
+.lesson-quiz-form label[hidden] {
+  display: none;
+}
+
+.lesson-quiz-form:has(label[hidden]) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .lesson-quiz-form input {
   width: 100%;
   min-height: 46px;
@@ -2804,6 +2813,7 @@ textarea:focus-visible {
 }
 
 .lesson-quiz-result {
+  grid-row: 2;
   display: grid;
   gap: 12px;
   border-top: 1px solid var(--surface-border);

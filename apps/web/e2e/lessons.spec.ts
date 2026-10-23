@@ -164,6 +164,8 @@ test.describe("lesson session", () => {
     ).toBeVisible();
     await expect(page.getByText("Изучено")).toBeVisible();
     await expect(page.getByText("Карточек повторения")).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Основная навигация" })).toBeVisible();
+    await expect(page.locator(".lesson-summary .primary-action")).toHaveAttribute("href", "/dashboard");
   });
 
   test("applies saved pronunciation aids only to study stages", async ({ page }) => {
