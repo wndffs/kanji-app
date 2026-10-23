@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { SlidersHorizontal } from "lucide-react";
+import { dashboardNextAction } from "../../lib/dashboard-next-action";
 
 import {
   type CourseListResponse,
@@ -336,6 +338,11 @@ function DashboardView({
   const [customizationError, setCustomizationError] = useState<string | null>(null);
   const activeWidgets = customizationOpen ? draftWidgets : dashboard.user.dashboardWidgets;
   const visibleWidgets = activeWidgets.filter((widget) => widget.visible);
+  const nextAction = dashboardNextAction({
+    ...dashboard.counts,
+    hasCourse: dashboard.currentCourse !== null,
+    vacationActive: readStoredSession()?.user.settings.vacationStartedAt != null,
+  });
   const newLearnerGuide = resolveNewLearnerGuideState(
     dashboard.newLearnerGuide,
     dashboard.counts.dueReviews,
@@ -373,29 +380,22 @@ function DashboardView({
       <div className="page-heading dashboard-heading">
         <div>
           <h1>Панель</h1>
-          <p>
-            {dashboard.user.displayName ?? dashboard.user.id} ·{" "}
-            {formatTranslationDisplayMode(dashboard.user.translationDisplayMode)}
-          </p>
+          <p>{nextAction.title}</p>
         </div>
         <div className="action-row">
-          <Link className="primary-action" href="/reviews">
-            Повторять
-          </Link>
-          <Link className="secondary-action" href="/lessons">
-            Учить
-          </Link>
-          <Link className="secondary-action" href="/practice">
-            Практика
+          <Link className="primary-action" href={nextAction.href}>
+            {nextAction.label}
           </Link>
           <button
             aria-expanded={customizationOpen}
-            className="secondary-action"
+            className="icon-button"
+            aria-label="Настроить панель"
+            title="Настроить панель"
             disabled={customizationStatus === "saving"}
             onClick={toggleCustomization}
             type="button"
           >
-            Настроить панель
+            <SlidersHorizontal aria-hidden="true" size={20} />
           </button>
         </div>
       </div>
