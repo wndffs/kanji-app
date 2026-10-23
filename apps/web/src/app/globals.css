@@ -112,8 +112,31 @@ textarea:focus-visible {
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 18px;
   font-weight: 800;
+}
+
+.study-focus-title {
+  color: var(--muted);
+  text-align: center;
+  font-size: 14px;
+}
+
+.study-focus-shell .main {
+  width: min(960px, calc(100% - 32px));
+}
+
+.study-focus-shell .topbar-inner {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  min-height: 60px;
+  padding-block: 4px;
+}
+
+.study-focus-shell .brand {
+  font-size: 14px;
 }
 
 .nav {

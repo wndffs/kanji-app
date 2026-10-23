@@ -30,6 +30,7 @@ import {
 import { normalizeJapaneseReading, romanizeKana } from "@kanji-srs/japanese";
 
 import { JapaneseText } from "../../components/JapaneseText";
+import { useStudyFocus } from "../../components/StudyFocus";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
   abandonLessonSession,
@@ -90,6 +91,7 @@ export function LessonsClient() {
   const { play: playAnswerSound } = useAnswerSound();
   const [queueState, setQueueState] = useState<QueueState>({ status: "checking" });
   const [session, setSession] = useState<LessonSessionDto | null>(null);
+  useStudyFocus(session !== null, "Урок");
   const [sessionQueue, setSessionQueue] = useState<readonly LessonQueueItem[]>([]);
   const [selectedItemIds, setSelectedItemIds] = useState<readonly string[]>([]);
   const [orderMode, setOrderMode] = useState<LessonOrderMode>("course");

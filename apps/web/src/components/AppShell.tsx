@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type ReactNode, useEffect, useRef, useState } from "react";
-import { LogOut, MoreHorizontal } from "lucide-react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { ArrowLeft, LogOut, MoreHorizontal } from "lucide-react";
 
 import {
   APP_NAME,
@@ -23,6 +23,7 @@ import {
 import { formatTranslationDisplayMode } from "../lib/dashboard-format";
 import { mainNavigation, secondaryNavigation } from "../lib/navigation";
 import { ConnectionStatus } from "./ConnectionStatus";
+import { StudyFocusContext } from "./StudyFocus";
 
 type AppShellProps = {
   readonly children: ReactNode;
@@ -35,6 +36,19 @@ export function AppShell({ children }: AppShellProps) {
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole>("USER");
   const menuRef = useRef<HTMLDetailsElement>(null);
+  const [focusTitle, setFocusTitle] = useState<string | null>(null);
+  const focusOwner = useRef<object | null>(null);
+  const enterStudy = useCallback((title: string) => {
+    const owner = {};
+    focusOwner.current = owner;
+    setFocusTitle(title);
+    return () => {
+      if (focusOwner.current === owner) {
+        focusOwner.current = null;
+        setFocusTitle(null);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (menuRef.current) menuRef.current.open = false;
@@ -99,12 +113,14 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   return (
-    <div className="app-shell">
+    <StudyFocusContext.Provider value={enterStudy}>
+    <div className={`app-shell${focusTitle === null ? "" : " study-focus-shell"}`}>
       <header className="topbar">
         <div className="topbar-inner">
-          <Link className="brand" href="/dashboard">
-            {APP_NAME}
+          <Link className="brand" href="/dashboard" title={focusTitle === null ? undefined : "На панель; занятие можно продолжить позже"}>
+            {focusTitle === null ? APP_NAME : <><ArrowLeft aria-hidden="true" size={18} /><span>На панель</span></>}
           </Link>
+          {focusTitle === null ? (
           <nav aria-label="Основная навигация" className="nav">
             {mainNavigation
               .filter((item) => item.adminOnly !== true || role === "ADMIN")
@@ -119,7 +135,9 @@ export function AppShell({ children }: AppShellProps) {
                 </Link>
               ))}
           </nav>
+          ) : <span className="study-focus-title">{focusTitle}</span>}
           <div className="topbar-actions">
+            {focusTitle === null ? (
             <details className="nav-overflow" ref={menuRef}>
               <summary aria-label="Другие разделы" className="icon-button" title="Другие разделы">
                 <MoreHorizontal aria-hidden="true" size={20} />
@@ -132,6 +150,7 @@ export function AppShell({ children }: AppShellProps) {
                 ))}
               </nav>
             </details>
+            ) : null}
             <label className="mode-control">
               <select
                 aria-label="Режим перевода карточек"
@@ -147,7 +166,7 @@ export function AppShell({ children }: AppShellProps) {
                 ))}
               </select>
             </label>
-            {isSignedIn ? (
+            {focusTitle !== null ? null : isSignedIn ? (
               <button aria-label={`Выйти${displayName === null ? "" : `: ${displayName}`}`} className="icon-button" onClick={handleLogout} title="Выйти из аккаунта" type="button">
                 <LogOut aria-hidden="true" size={18} />
               </button>
@@ -171,6 +190,7 @@ export function AppShell({ children }: AppShellProps) {
         }
       `}</style>
     </div>
+    </StudyFocusContext.Provider>
   );
 }
 

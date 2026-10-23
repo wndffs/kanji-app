@@ -29,6 +29,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
+import { useStudyFocus } from "../../components/StudyFocus";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
   ApiError,
@@ -77,6 +78,7 @@ export function ReviewsClient() {
   const { play: playAnswerSound } = useAnswerSound();
   const [queueState, setQueueState] = useState<QueueState>({ status: "checking" });
   const [session, setSession] = useState<ReviewSessionDto | null>(null);
+  useStudyFocus(session !== null, "Повторение");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<ReviewAnswerResponse | ReviewCorrectionResponse | null>(
