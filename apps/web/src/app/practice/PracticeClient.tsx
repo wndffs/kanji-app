@@ -6,6 +6,7 @@ import { type FormEvent, useCallback, useEffect, useRef, useState } from "react"
 
 import {
   PRACTICE_SOURCES,
+  getContentLocalesForDisplayMode,
   type ListeningPlaybackEvidenceDto,
   type PracticeAnswerResponse,
   type PracticeProgressDto,
@@ -17,6 +18,9 @@ import {
 } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
+import { ViewTabs } from "../../components/ViewTabs";
+import { SectionDisclosure } from "../../components/SectionDisclosure";
+import { useStudyFocus } from "../../components/StudyFocus";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
   ApiError,
@@ -147,6 +151,7 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
 
   const currentItem =
     queueState.status === "ready" && isPracticing ? (queueState.items[currentIndex] ?? null) : null;
+  useStudyFocus(currentItem !== null, "Практика");
 
   useEffect(() => {
     if (
@@ -350,7 +355,7 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
             )}
           </div>
           <button
-            className="primary-action"
+            className={finishedSummary === null ? "primary-action" : "secondary-action"}
             disabled={queueState.items.length === 0 || isStarting}
             onClick={() => void handleStart()}
             type="button"
@@ -379,6 +384,7 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
         {finishedSummary === null ? null : (
           <section className="practice-summary panel" aria-label="Результат практики">
             <h2>Практика завершена</h2>
+            <Link className="primary-action" href="/dashboard">На панель</Link>
             <dl className="stats-list">
               <div>
                 <dt>Карточек</dt>
@@ -396,13 +402,15 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
           </section>
         )}
 
+        <div id="practice-source-panel" role="tabpanel" aria-labelledby={`practice-source-${source}`}>
         {queueState.items.length === 0 ? (
           <div className="notice-panel">
             <p>{formatEmptyMessage(source)}</p>
           </div>
         ) : (
-          <PracticeQueuePreview items={queueState.items} />
+          <SectionDisclosure title="Состав практики"><PracticeQueuePreview items={queueState.items} /></SectionDisclosure>
         )}
+        </div>
       </section>
     );
   }
@@ -492,10 +500,8 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
         >
           <div className="feedback-header">
             <div role="status" aria-atomic="true">
-              <span className="eyebrow">
-                {feedback.retry ? "Другое чтение" : formatResult(feedback.result)}
-              </span>
-              <h2>{feedback.feedback.message}</h2>
+              <h2>{feedback.retry ? "Другое чтение" : formatResult(feedback.result)}</h2>
+              <p>{feedback.feedback.message}</p>
             </div>
             <button
               className="primary-action"
@@ -515,7 +521,7 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
             <div>
               <h3>Правильные ответы</h3>
               <ul className="lesson-text-list">
-                {feedback.feedback.expected.map((expected) => (
+                {feedback.feedback.expected.filter((expected) => currentItem.card.answerType === "reading" || getContentLocalesForDisplayMode(displayMode).includes(expected.locale)).map((expected) => (
                   <li key={`${expected.locale}:${expected.text}`}>
                     <span>{expected.text}</span>
                   </li>
@@ -565,19 +571,7 @@ function PracticeSourceControl({
   readonly onChange: (source: PracticeSource) => void;
 }) {
   return (
-    <div className="practice-source-control" role="tablist" aria-label="Источник практики">
-      {PRACTICE_SOURCES.map((candidate) => (
-        <button
-          aria-selected={candidate === source}
-          key={candidate}
-          onClick={() => onChange(candidate)}
-          role="tab"
-          type="button"
-        >
-          {formatSource(candidate)}
-        </button>
-      ))}
-    </div>
+    <ViewTabs active={source} onChange={(value) => onChange(value as PracticeSource)} label="Источник практики" idPrefix="practice-source" panelId="practice-source-panel" tabs={PRACTICE_SOURCES.map((id) => ({ id, label: formatSource(id) }))} />
   );
 }
 

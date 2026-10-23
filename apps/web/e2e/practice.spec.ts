@@ -62,6 +62,7 @@ test.describe("optional practice", () => {
       );
       release();
       await lateResponse;
+      await page.getByRole("button", { name: "Состав практики", exact: true }).click();
       await page.evaluate(
         () =>
           new Promise<void>((resolve) =>
@@ -82,6 +83,7 @@ test.describe("optional practice", () => {
 
     await expect(page.getByRole("heading", { name: "Практика" })).toBeVisible();
     await expect(page.getByText("Карточек: 1. SRS и расписание не изменяются.")).toBeVisible();
+    await page.getByRole("button", { name: "Состав практики", exact: true }).click();
     await expect(page.getByText("学")).toBeVisible();
 
     await expect(page.getByRole("tab", { name: "Сожжённые" })).toHaveAttribute(
@@ -98,7 +100,7 @@ test.describe("optional practice", () => {
     await page.keyboard.press("Enter");
 
     await expect(page.getByRole("region", { name: "Результат ответа" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Ответ не принят." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Ошибка", exact: true })).toBeVisible();
     await expect(page.getByText("study")).toBeVisible();
     await expect(page.getByText("Без изменений")).toBeVisible();
     await page.getByRole("button", { name: "Дальше" }).click();
@@ -139,6 +141,7 @@ test.describe("optional practice", () => {
     await mockPracticeApi(page, [listeningPracticeItem], answerRequests);
 
     await page.goto("/practice");
+    await page.getByRole("button", { name: "Состав практики", exact: true }).click();
     await expect(page.getByText("Аудирование", { exact: true })).toBeVisible();
     await expect(page.getByText("一つ", { exact: true })).toBeHidden();
     await page.getByRole("button", { name: "Начать практику" }).click();
