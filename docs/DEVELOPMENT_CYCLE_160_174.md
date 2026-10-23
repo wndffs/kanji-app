@@ -25,7 +25,7 @@ outside SRS; existing card identity, private content and learning progress stay 
 | 173 | Focused practice | Quiet session shell, keyboard source selection, concise bilingual feedback and completion next action; no SRS mutation | Planned |
 | 174 | Responsive completion | Consistent operational layouts, icons and mobile widths across the changed screens; screenshots and batched regression repair | Planned |
 
-Implementation: 0/15. Acceptance: 0/15. Release: pending.
+Implementation: 9/15 (160-168). Acceptance: pending batched checks. Release: pending.
 
 Each task requires working behavior and focused regression coverage. Tests and
 repair-only commits do not count toward fifteen. Full corpus expansion, licensed

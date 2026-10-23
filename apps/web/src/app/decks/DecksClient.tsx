@@ -23,6 +23,7 @@ import {
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
+import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
 
 type DecksState =
   | { readonly status: "checking" }
@@ -49,6 +50,12 @@ type DeckStatusUpdateState =
   | { readonly status: "error"; readonly deckId: string; readonly message: string };
 
 export function DecksClient() {
+  const session = useStoredSession();
+  if (session === undefined) return <section className="page-stack" aria-busy="true"><h1>Колоды</h1></section>;
+  return <DecksScreen key={session === null ? "guest" : `${session.user.id}:${session.token}`} />;
+}
+
+function DecksScreen() {
   const displayMode = useTranslationDisplayMode();
   const [state, setState] = useState<DecksState>({ status: "checking" });
   const [savedDecks, setSavedDecks] = useState<SavedDecksState>({ status: "idle" });
@@ -88,7 +95,7 @@ export function DecksClient() {
 
     void listDecks(state.token)
       .then((response) => {
-        if (isCurrent) {
+        if (isCurrent && ownsSession(state.token)) {
           setSavedDecks((current) => ({
             status: "ready",
             decks: mergeDeckSummaries(
@@ -99,7 +106,7 @@ export function DecksClient() {
         }
       })
       .catch((error: unknown) => {
-        if (!isCurrent) {
+        if (!isCurrent || !ownsSession(state.token)) {
           return;
         }
 
@@ -122,7 +129,7 @@ export function DecksClient() {
   }, [state]);
 
   async function handleOpenDeck(deckId: string): Promise<void> {
-    if (state.status !== "ready") {
+    if (state.status !== "ready" || !ownsSession(state.token)) {
       return;
     }
 
@@ -135,11 +142,11 @@ export function DecksClient() {
     try {
       const deck = await getDeck(state.token, deckId);
 
-      if (selectedDeckRequest.current === requestId) {
+      if (selectedDeckRequest.current === requestId && ownsSession(state.token)) {
         setSelectedDeck({ status: "ready", deck });
       }
     } catch (error: unknown) {
-      if (selectedDeckRequest.current !== requestId) {
+      if (selectedDeckRequest.current !== requestId || !ownsSession(state.token)) {
         return;
       }
 
@@ -158,7 +165,7 @@ export function DecksClient() {
   }
 
   async function handleDeckStatusChange(deck: DeckDetailsDto): Promise<void> {
-    if (state.status !== "ready" || deckStatusUpdate.status === "updating") {
+    if (state.status !== "ready" || !ownsSession(state.token) || deckStatusUpdate.status === "updating") {
       return;
     }
 
@@ -167,6 +174,7 @@ export function DecksClient() {
 
     try {
       const updated = await updateDeckStatus(state.token, deck.id, { status: nextStatus });
+      if (!ownsSession(state.token)) return;
       setSelectedDeck((current) =>
         current.status === "ready" && current.deck.id === updated.id
           ? { status: "ready", deck: updated }
@@ -189,6 +197,7 @@ export function DecksClient() {
       );
       setDeckStatusUpdate({ status: "idle" });
     } catch (error: unknown) {
+      if (!ownsSession(state.token)) return;
       if (error instanceof ApiError && error.status === 401) {
         clearStoredSession();
         setState({ status: "unauthenticated" });
@@ -206,7 +215,7 @@ export function DecksClient() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
-    if (state.status !== "ready" || isSubmitting) {
+    if (state.status !== "ready" || !ownsSession(state.token) || isSubmitting) {
       return;
     }
 
@@ -227,6 +236,7 @@ export function DecksClient() {
         title: title.trim() === "" ? null : title.trim(),
         maxItems,
       });
+      if (!ownsSession(state.token)) return;
       setResult(response);
       selectedDeckRequest.current += 1;
       setSelectedDeck({ status: "idle" });
@@ -246,7 +256,7 @@ export function DecksClient() {
         return;
       }
 
-      setFormError(error instanceof Error ? error.message : "Не удалось создать колоду из текста.");
+      if (ownsSession(state.token)) setFormError(error instanceof Error ? error.message : "Не удалось создать колоду из текста.");
     } finally {
       setIsSubmitting(false);
     }
