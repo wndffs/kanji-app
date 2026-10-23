@@ -106,50 +106,51 @@ function OwnedCourseExplorer({
         ) : null
       ) : (
         <>
-          {outline.description ? <p className="muted">{outline.description}</p> : null}
           {outline.levels.length === 0 ? (
             <p>В курсе пока нет уровней.</p>
           ) : (
             <>
               {route === null ? null : (
                 <>
-                  <label className="course-level-select">
-                    Уровень курса
-                    <select
-                      aria-label="Уровень курса"
-                      value={route.level ?? outline.levels[0]!.levelNumber}
-                      onChange={(event) =>
-                        navigate({ ...route, level: Number(event.target.value), page: 1 })
-                      }
-                    >
-                      {outline.levels.map((level) => (
-                        <option value={level.levelNumber} key={level.levelNumber}>
-                          {level.levelNumber}. {level.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <nav className="course-page-navigation" aria-label="Переход между уровнями">
-                    <button
-                      className="icon-button"
-                      aria-label="Предыдущий уровень"
-                      title="Предыдущий уровень"
-                      disabled={adjacent.previous === null}
-                      onClick={() => navigate({ ...route, level: adjacent.previous, page: 1 })}
-                    >
-                      <ChevronLeft size={18} />
-                    </button>
-                    <span>Уровень {currentLevel}</span>
-                    <button
-                      className="icon-button"
-                      aria-label="Следующий уровень"
-                      title="Следующий уровень"
-                      disabled={adjacent.next === null}
-                      onClick={() => navigate({ ...route, level: adjacent.next, page: 1 })}
-                    >
-                      <ChevronRight size={18} />
-                    </button>
-                  </nav>
+                  <div className="course-level-toolbar">
+                    <label className="course-level-select">
+                      Уровень курса
+                      <select
+                        aria-label="Уровень курса"
+                        value={route.level ?? outline.levels[0]!.levelNumber}
+                        onChange={(event) =>
+                          navigate({ ...route, level: Number(event.target.value), page: 1 })
+                        }
+                      >
+                        {outline.levels.map((level) => (
+                          <option value={level.levelNumber} key={level.levelNumber}>
+                            {level.levelNumber}. {level.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <nav className="course-page-navigation" aria-label="Переход между уровнями">
+                      <button
+                        className="icon-button"
+                        aria-label="Предыдущий уровень"
+                        title="Предыдущий уровень"
+                        disabled={adjacent.previous === null}
+                        onClick={() => navigate({ ...route, level: adjacent.previous, page: 1 })}
+                      >
+                        <ChevronLeft size={18} />
+                      </button>
+                      <span>Уровень {currentLevel}</span>
+                      <button
+                        className="icon-button"
+                        aria-label="Следующий уровень"
+                        title="Следующий уровень"
+                        disabled={adjacent.next === null}
+                        onClick={() => navigate({ ...route, level: adjacent.next, page: 1 })}
+                      >
+                        <ChevronRight size={18} />
+                      </button>
+                    </nav>
+                  </div>
                   {outline.levels.some(
                     (level) =>
                       level.levelNumber === (route.level ?? outline.levels[0]!.levelNumber),
@@ -178,6 +179,11 @@ function OwnedCourseExplorer({
                   ))}
                 </ol>
               </SectionDisclosure>
+              {outline.description ? (
+                <SectionDisclosure title="О курсе">
+                  <p className="muted">{outline.description}</p>
+                </SectionDisclosure>
+              ) : null}
             </>
           )}
         </>

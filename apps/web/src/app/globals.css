@@ -6643,3 +6643,60 @@ html
   margin-bottom: 1rem;
   color: var(--primary);
 }
+
+.course-explorer {
+  gap: 16px;
+}
+.course-explorer > .page-heading {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+.course-explorer > .page-heading h1 {
+  font-size: 24px;
+  line-height: 1.25;
+}
+.course-level-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+.course-level-toolbar .course-page-navigation {
+  margin: 0;
+}
+.course-level-materials h2,
+.course-level-materials p {
+  margin: 0;
+}
+.course-level-materials h2 {
+  font-size: 20px;
+}
+.course-material-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 18rem));
+  gap: 12px;
+}
+.course-material-filters .course-level-select {
+  width: 100%;
+  min-width: 0;
+}
+.course-page-navigation .icon-button {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  flex: 0 0 40px;
+}
+@media (max-width: 600px) {
+  .course-material-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .course-level-toolbar .course-level-select {
+    width: 100%;
+  }
+  .course-explorer > .page-heading h1 {
+    font-size: 22px;
+  }
+}

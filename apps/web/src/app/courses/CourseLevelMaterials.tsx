@@ -62,45 +62,47 @@ export function CourseLevelMaterials({
   return (
     <section className="course-level-materials" aria-label="Материалы уровня">
       <h2>Материалы уровня {levelNumber}</h2>
-      <label className="course-level-select">
-        Тип материала
-        <select
-          aria-label="Тип материала"
-          value={itemType}
-          onChange={(event) =>
-            onNavigate({
-              ...route,
-              itemType: event.target.value as CourseBrowserRoute["itemType"],
-              page: 1,
-            })
-          }
-        >
-          <option value="all">Все материалы</option>
-          <option value="component">Компоненты</option>
-          <option value="kanji">Кандзи</option>
-          <option value="word">Слова</option>
-          <option value="sentence">Предложения</option>
-        </select>
-      </label>
-      <label className="course-level-select">
-        Изучение
-        <select
-          aria-label="Изучение"
-          value={studyState}
-          onChange={(event) =>
-            onNavigate({
-              ...route,
-              studyState: event.target.value as CourseBrowserRoute["studyState"],
-              page: 1,
-            })
-          }
-        >
-          <option value="all">Любое состояние</option>
-          <option value="not-started">Новые</option>
-          <option value="learning">В работе</option>
-          <option value="burned">Выучены</option>
-        </select>
-      </label>
+      <div className="course-material-filters">
+        <label className="course-level-select">
+          Тип материала
+          <select
+            aria-label="Тип материала"
+            value={itemType}
+            onChange={(event) =>
+              onNavigate({
+                ...route,
+                itemType: event.target.value as CourseBrowserRoute["itemType"],
+                page: 1,
+              })
+            }
+          >
+            <option value="all">Все материалы</option>
+            <option value="component">Компоненты</option>
+            <option value="kanji">Кандзи</option>
+            <option value="word">Слова</option>
+            <option value="sentence">Предложения</option>
+          </select>
+        </label>
+        <label className="course-level-select">
+          Изучение
+          <select
+            aria-label="Изучение"
+            value={studyState}
+            onChange={(event) =>
+              onNavigate({
+                ...route,
+                studyState: event.target.value as CourseBrowserRoute["studyState"],
+                page: 1,
+              })
+            }
+          >
+            <option value="all">Любое состояние</option>
+            <option value="not-started">Новые</option>
+            <option value="learning">В работе</option>
+            <option value="burned">Выучены</option>
+          </select>
+        </label>
+      </div>
       {error === null ? null : (
         <div>
           <p role="alert">{error}</p>

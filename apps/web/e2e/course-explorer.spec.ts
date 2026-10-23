@@ -4,7 +4,7 @@ const API = "http://localhost:3001";
 const ID = "00000000-0000-4000-8000-000000000010";
 const outline = {
   id: ID,
-  title: "Учебная программа",
+  title: "Основа японского: компоненты, кандзи и повседневная лексика",
   description: null,
   levels: [
     { levelNumber: 1, title: "Компоненты", band: "foundation", publishedItemCount: 32 },
@@ -115,6 +115,10 @@ test.describe("published course explorer", () => {
     await expect(materials.getByRole("link")).toContainText("いち");
     await expect(materials.getByRole("link")).toContainText("один");
     await expect(materials.getByRole("link")).toContainText("one");
+    await expect(materials.getByRole("link")).toBeInViewport({ ratio: 0.5 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
     await materials.getByRole("button", { name: "Следующая страница материалов" }).click();
     await expect(materials.getByRole("link")).toContainText("二");
     await expect(materials.getByRole("link")).toHaveAttribute(
