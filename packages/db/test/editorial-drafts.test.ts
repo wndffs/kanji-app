@@ -6,8 +6,16 @@ import { buildMainCourseWordBatches } from "../src/main-course-word-content";
 import { inspectEditorialDraftEvidence } from "../src/editorial-draft-evidence";
 import { buildEditorialDraftPreview } from "../src/editorial-draft-preview";
 import { runEditorialDraftPreview } from "../prisma/preview-editorial-drafts";
+import { buildEditorialCoverage } from "../src/editorial-coverage";
 
 describe("isolated editorial drafts", () => {
+  it("separates the reviewed backlog, V4 seal and unapproved proposals", () => {
+    const report = buildEditorialCoverage();
+    expect(report.validation).toEqual({ valid: true, issues: [] });
+    expect(report.remainingReviewedContent).toEqual({ kanji: 2199, words: 7880 });
+    expect(report.pendingDrafts).toEqual({ components: 9, kanji: 10, words: 20, exampleSentences: 20, proposedCards: 69 });
+    expect(report.sourceSeals.find((seal) => seal.id === "v4")).toMatchObject({ status: "complete", sealedDistinctTotals: { kanji: 101, words: 120 } });
+  });
   it.each(["ru", "en", "ru-en"] as const)("previews %s without inventing approval or dropping prerequisites", (mode) => {
     const report = buildEditorialDraftPreview(mode);
     expect(report.validation).toEqual({ valid: true, issues: [] });

@@ -30,7 +30,7 @@ type Target = {
   prerequisiteKeys: readonly string[];
 };
 
-// Read-only V1/V2/V3 references from foundation-pilot.ts. Do not import its DB runtime
+// Read-only V1-V4 references from foundation-pilot.ts. Do not import its DB runtime
 // or derive membership from the growing registry; later sources cannot enlarge these seals.
 const SEALED_KANJI = [
   [
@@ -91,6 +91,17 @@ const SOURCE_SEALS = [
     version: "3",
     sources: [...SEALED_KANJI, ...SEALED_WORDS],
     sealedDistinctTotals: { components: 63, kanji: 81, words: 100, items: 244 },
+  },
+  {
+    id: "v4",
+    version: "4",
+    sources: [
+      ...SEALED_KANJI,
+      { kind: "kanji", id: "task-118-course-kanji-06", version: "1", checksumSha256: "74482be25706778fafe6e18b5ffc144718a3bf7a4181a5aacc8323516b223833" },
+      ...SEALED_WORDS,
+      { kind: "word", id: "task-127-course-words-06", version: "1", checksumSha256: "8a9e0cef7dc10ec355125ffb7bb989d96cd531d0f85767280b735b6ad9790858" },
+    ],
+    sealedDistinctTotals: { components: 79, kanji: 101, words: 120, items: 300 },
   },
 ] as const;
 

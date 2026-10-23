@@ -282,10 +282,11 @@ describe("source-only editorial registry inventory", () => {
       "mismatch",
       "mismatch",
       "mismatch",
+      "mismatch",
     ]);
   });
 
-  it("compares growing prepared builders with only the fixed V1/V2/V3 source seals", () => {
+  it("compares growing prepared builders with fixed V1-V4 source seals", () => {
     const kanjiBatches = buildMainCourseContentBatches();
     const wordBatches = buildMainCourseWordBatches();
     const report = buildEditorialRegistryInventory({ kanjiBatches, wordBatches });
@@ -294,6 +295,7 @@ describe("source-only editorial registry inventory", () => {
       ["v1", "complete", 3],
       ["v2", "complete", 7],
       ["v3", "complete", 10],
+      ["v4", "complete", 12],
     ]);
     for (const seal of report.sourceSeals) {
       expect(seal.includedPreparedDistinctTotals).toEqual(seal.sealedDistinctTotals);
@@ -314,7 +316,7 @@ describe("source-only editorial registry inventory", () => {
     expect(
       report.batches
         .find((batch) => batch.id === "task-118-course-kanji-06")!
-        .sourceSeals.every((seal) => seal.status === "not-in-seal"),
+        .sourceSeals.filter((seal) => seal.id !== "v4").every((seal) => seal.status === "not-in-seal"),
     ).toBe(true);
   });
 });
