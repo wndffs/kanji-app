@@ -445,7 +445,7 @@ function KanjiCharacterPanel({
         </button>
       </div>
 
-      <p className="character-hub-result-count">Показано: {items.length}</p>
+      <p className="character-hub-result-count">Найдено: {items.length}</p>
       {pageCount <= 1 ? null : (
         <nav className="catalog-pagination" aria-label="Страницы кандзи">
           <button
@@ -520,7 +520,11 @@ function FilterSelect({
   return (
     <label>
       <span>{label}</span>
-      <select onChange={(event) => onChange(event.currentTarget.value)} value={value}>
+      <select
+        aria-label={label}
+        onChange={(event) => onChange(event.currentTarget.value)}
+        value={value}
+      >
         <option value="">Все</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>

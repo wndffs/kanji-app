@@ -6,6 +6,25 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("search UI", () => {
+  test("reopens a hidden invalid filter without sending a request", async ({ page }) => {
+    await signIn(page);
+    let requests = 0;
+    await page.route(`${API_BASE_URL}/search?*`, (route) => {
+      requests++;
+      return route.fulfill({ json: buildSearchResponse("school") });
+    });
+    await page.goto("/search");
+    await page.getByLabel("Запрос", { exact: true }).fill("school");
+    await page.getByRole("button", { name: "Фильтры", exact: true }).click();
+    await page.getByLabel("Учебный уровень", { exact: true }).fill("0");
+    await page.getByRole("button", { name: "Фильтры", exact: true }).click();
+    await page.getByRole("button", { name: "Искать", exact: true }).click();
+    await expect(page.getByLabel("Учебный уровень", { exact: true })).toBeVisible();
+    expect(requests).toBe(0);
+    await page.getByLabel("Учебный уровень", { exact: true }).fill("1");
+    await page.getByRole("button", { name: "Искать", exact: true }).click();
+    await expect(page).toHaveURL(/q=school&level=1$/);
+  });
   test("removes applied filters independently and resets pagination", async ({ page }) => {
     await signIn(page);
     await page.route(`${API_BASE_URL}/search?*`, (route) =>
@@ -16,7 +35,7 @@ test.describe("search UI", () => {
     await expect(page).toHaveURL(/q=school&itemType=word$/);
     await page.getByRole("button", { name: "Убрать тип материала", exact: true }).click();
     await expect(page).toHaveURL(/search\?q=school$/);
-    await expect(page.getByLabel("Тип материала")).toBeHidden();
+    await expect(page.getByLabel("Тип материала", { exact: true })).toBeHidden();
     await expect(page.locator(".search-result-reading")).toHaveText("がっこう");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
@@ -47,8 +66,8 @@ test.describe("search UI", () => {
     await expect(page).toHaveURL(/page=2/);
     await expect(page.locator("a.search-result-card")).toHaveAttribute("href", "/items/page-2");
     await page.reload();
-    await expect(page.getByLabel("Тип материала")).toHaveValue("kanji");
-    await expect(page.getByLabel("Учебный уровень")).toHaveValue("1");
+    await expect(page.getByLabel("Тип материала", { exact: true })).toHaveValue("kanji");
+    await expect(page.getByLabel("Учебный уровень", { exact: true })).toHaveValue("1");
     await expect(page.getByRole("navigation", { name: "Страницы поиска" })).toContainText(
       "Страница 2 из 2",
     );
@@ -57,7 +76,7 @@ test.describe("search UI", () => {
     await expect(page.locator("a.search-result-card")).toHaveAttribute("href", "/items/page-1");
     await page.getByRole("button", { name: "Искать", exact: true }).click();
     await expect(page).not.toHaveURL(/page=2/);
-    await page.getByLabel("Учебный уровень").fill("2");
+    await page.getByLabel("Учебный уровень", { exact: true }).fill("2");
     await page.getByRole("button", { name: "Искать", exact: true }).click();
     await expect(page).toHaveURL(/itemType=kanji&level=2/);
     await expect(page).not.toHaveURL(/page=/);

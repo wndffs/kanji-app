@@ -166,7 +166,16 @@ function SearchScreen({ token }: { readonly token: string | null }) {
         </div>
       </div>
 
-      <form className="search-panel search-form" onSubmit={handleSubmit}>
+      <form
+        className="search-panel search-form"
+        onSubmit={handleSubmit}
+        onInvalidCapture={(event) => {
+          if (event.target instanceof HTMLInputElement) {
+            const details = event.target.closest("details");
+            if (details !== null) details.open = true;
+          }
+        }}
+      >
         <label>
           <span>Запрос</span>
           <input
@@ -187,6 +196,7 @@ function SearchScreen({ token }: { readonly token: string | null }) {
             <label>
               <span>Тип материала</span>
               <select
+                aria-label="Тип материала"
                 value={itemType}
                 onChange={(event) => setItemType(event.currentTarget.value as typeof itemType)}
               >

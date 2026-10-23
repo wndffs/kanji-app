@@ -12,6 +12,49 @@ const ACCESS_TOKEN = "test-token";
 
 test.describe("dynamic text decks", () => {
   for (const status of [200, 401])
+    test(`ignores a late create response after account change (${status})`, async ({ page }) => {
+      await signIn(page);
+      await mockSavedDecksApi(page, { decks: [] });
+      let release!: () => void;
+      let started!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const pending = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      await page.route(`${API_BASE_URL}/decks/from-text`, async (route) => {
+        started();
+        await held;
+        await route
+          .fulfill({
+            status,
+            json: status === 200 ? createTextDeckResponse : { message: "Old create expired" },
+          })
+          .catch(() => undefined);
+      });
+      try {
+        await page.goto("/decks");
+        await page.getByRole("button", { name: "Новая колода", exact: true }).click();
+        await page.getByLabel("Японский текст").fill("学校");
+        await page.getByRole("button", { name: "Создать колоду", exact: true }).click();
+        await pending;
+        await changeAccount(page);
+        await expect(page.getByRole("button", { name: "Новая колода", exact: true })).toBeEnabled();
+        const old = page.waitForResponse((response) => response.url().endsWith("/decks/from-text"));
+        release();
+        await (await old).finished();
+        await expect(
+          page.getByRole("heading", { name: "Текст про школу", exact: true }),
+        ).toHaveCount(0);
+        expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe(
+          "new-owner-token",
+        );
+      } finally {
+        release();
+      }
+    });
+  for (const status of [200, 401])
     test(`clears private drafts and ignores an old library ${status}`, async ({ page }) => {
       await signIn(page);
       let release!: () => void;

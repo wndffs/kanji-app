@@ -122,6 +122,7 @@ export function CoursesClient() {
       ) : (
         <>
           {error === null ? null : <p role="alert">{error}</p>}
+          <h2>Доступные курсы</h2>
           <p role="status">
             {message ??
               (loading
@@ -130,7 +131,6 @@ export function CoursesClient() {
                   ? "Новых опубликованных курсов нет."
                   : "")}
           </p>
-          <h2>Доступные курсы</h2>
           <ul
             className="course-catalog-list"
             aria-label="Доступные курсы"

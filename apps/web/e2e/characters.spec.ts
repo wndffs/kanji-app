@@ -11,6 +11,27 @@ import {
 const API_BASE_URL = "http://localhost:3001";
 
 test.describe("character hub", () => {
+  test("recovers a failed hub load and keeps modified kana separate", async ({ page }) => {
+    await signIn(page);
+    let attempts = 0;
+    await page.route(`${API_BASE_URL}/characters`, (route) => {
+      attempts++;
+      return route.fulfill(
+        attempts === 1
+          ? { status: 503, json: { message: "Hub unavailable" } }
+          : { json: buildHub() },
+      );
+    });
+    await page.goto("/characters");
+    await expect(page.getByText("Hub unavailable", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Повторить загрузку", exact: true }).click();
+    await expect(page.getByRole("list", { name: "Все уроки: Хирагана" })).toContainText("あ");
+    await page.getByLabel("Группа знаков").selectOption("dakuten");
+    await expect(page.getByText("В этой группе знаков нет.", { exact: true })).toBeVisible();
+    await page.getByLabel("Группа знаков").selectOption("basic");
+    await expect(page.getByRole("list", { name: "Все уроки: Хирагана" })).toContainText("あ");
+    expect(attempts).toBe(2);
+  });
   for (const status of [200, 401])
     test(`isolates progress after account change and late ${status}`, async ({ page }) => {
       await signIn(page);
