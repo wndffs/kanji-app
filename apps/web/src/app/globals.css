@@ -274,6 +274,50 @@ textarea:focus-visible {
   gap: 20px;
 }
 
+.view-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.view-tabs > button {
+  min-height: 46px;
+  flex: 0 0 auto;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 10px 14px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.view-tabs > button[aria-selected="true"] {
+  color: var(--primary-strong);
+  border-bottom-color: var(--primary);
+  font-weight: 700;
+}
+
+.item-tab-content {
+  min-width: 0;
+  display: grid;
+  gap: 20px;
+}
+
+.item-tab-content[hidden] {
+  display: none;
+}
+
+.item-layout[data-item-view]:not([data-item-view="study"]) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.item-layout[data-item-view="personal"] > .item-main,
+.item-layout:is([data-item-view="history"], [data-item-view="sources"]) > .item-side {
+  display: none;
+}
+
 .section-disclosure {
   min-width: 0;
   border-bottom: 1px solid var(--surface-border);

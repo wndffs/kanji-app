@@ -18,6 +18,8 @@ import {
 } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
+import { ViewTabs } from "../../components/ViewTabs";
+import { SectionDisclosure } from "../../components/SectionDisclosure";
 import {
   addPrivateAcceptedAnswer,
   ApiError,
@@ -119,6 +121,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
   );
   const [revealedReadings, setRevealedReadings] = useState<ReadonlySet<string>>(() => new Set());
   const [hideReadingHints, setHideReadingHints] = useState(false);
+  const [itemView, setItemView] = useState("study");
   const [state, setState] = useState<ItemState>({ status: "loading" });
   const [acceptedForm, setAcceptedForm] = useState<AcceptedAnswerFormState>(EMPTY_ACCEPTED_FORM);
   const [mnemonicForm, setMnemonicForm] = useState<MnemonicFormState>(EMPTY_MNEMONIC_FORM);
@@ -611,8 +614,8 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
           {formError}
         </p>
       )}
-      {item.srs?.leech?.isCandidate ? <LeechNotice item={item} /> : null}
-      {item.itemType === "kanji" && token !== null ? (
+      {itemView === "study" && item.srs?.leech?.isCandidate ? <LeechNotice item={item} /> : null}
+      {itemView === "study" && item.itemType === "kanji" && token !== null ? (
         <section className="panel item-confusable-panel">
           <div>
             <span className="eyebrow">Отдельная практика</span>
@@ -638,8 +641,13 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
         </section>
       ) : null}
 
-      <div className="item-layout">
-        <main className="item-main">
+      <ViewTabs active={itemView} onChange={setItemView} label="Разделы материала" idPrefix="item-view" panelId="item-view-panel" tabs={[
+        { id: "study", label: "Изучение" }, { id: "personal", label: "Мои записи" },
+        { id: "history", label: "История" }, { id: "sources", label: "Источники" },
+      ]} />
+      <div className="item-layout" data-item-view={itemView} role="tabpanel" id="item-view-panel" aria-labelledby={`item-view-${itemView}`}>
+        <div className="item-main">
+          <div className="item-tab-content" hidden={itemView !== "study"}>
           <section className="panel">
             <h2>Значения</h2>
             <TextList texts={getLocalizedTexts(item.translations, displayMode)} />
@@ -671,7 +679,8 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
             hideReadings={hideReadingAnswers}
           />
 
-          <section className="panel">
+          <SectionDisclosure title="Все допустимые ответы">
+          <section>
             <h2>Глобальные ответы</h2>
             <CardAnswerList
               cards={item.cards}
@@ -679,7 +688,10 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               hideReadings={hideReadingAnswers}
             />
           </section>
+          </SectionDisclosure>
+          </div>
 
+          <div className="item-tab-content" hidden={itemView !== "history"}>
           <SrsHistory
             history={item.reviewHistory}
             isLoading={isLoadingHistory}
@@ -688,7 +700,9 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
             stageName={item.srs?.stageName ?? null}
             timezone={timezone}
           />
+          </div>
 
+          <div className="item-tab-content" hidden={itemView !== "study"}>
           <RelationGroups
             displayMode={displayMode}
             groups={item.relationGroups}
@@ -744,8 +758,9 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
             />
             <ContentBlock title="Подсказки" texts={getLocalizedTexts(item.hints, displayMode)} />
           </section>
+          </div>
 
-          <section className="panel">
+          <section className="panel item-tab-content" hidden={itemView !== "sources"}>
             <h2>Источники</h2>
             {item.attributions.length === 0 ? (
               <p className="muted">Источник для этого материала пока не указан.</p>
@@ -770,11 +785,11 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               </ul>
             )}
           </section>
-        </main>
+        </div>
 
         <aside className="item-side">
           {item.itemType === "kanji" ? (
-            <section className="panel stroke-placeholder">
+            <section className="panel stroke-placeholder item-tab-content" hidden={itemView !== "study"}>
               <h2>Порядок черт</h2>
               {item.strokeGraphic === null ? (
                 <StrokePlaceholder character={item.japanese} />
@@ -784,6 +799,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
             </section>
           ) : null}
 
+          <div className="item-tab-content" hidden={itemView !== "personal"}>
           <section className="panel">
             <h2>Приватные ответы</h2>
             {token === null ? (
@@ -1022,6 +1038,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               </>
             )}
           </section>
+          </div>
         </aside>
       </div>
     </section>

@@ -45,6 +45,7 @@ test.describe("item details", () => {
     });
     try {
       await page.goto(`/items/${ITEM_ID}`);
+      await page.getByRole("tab", { name: "История", exact: true }).click();
       await page
         .getByTestId("item-srs-history")
         .getByRole("button", { name: "Показать более ранние" })
@@ -83,6 +84,7 @@ test.describe("item details", () => {
     });
     await page.goto(`/items/${ITEM_ID}`);
     const history = page.getByTestId("item-srs-history");
+    await page.getByRole("tab", { name: "История", exact: true }).click();
     await history.getByRole("button", { name: "Показать более ранние" }).click();
     await expect(history.locator("li")).toHaveCount(2);
     await expect(history.getByText("Опечатка", { exact: true })).toHaveCount(1);
@@ -98,11 +100,14 @@ test.describe("item details", () => {
     await expect(page.locator(".item-hero-main > .eyebrow")).toHaveText("Кандзи");
     await expect(page.getByRole("heading", { name: "一" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Значения" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Глобальные ответы" })).toBeHidden();
+    await page.getByText("Все допустимые ответы", { exact: true }).click();
     await expect(page.getByRole("heading", { name: "Глобальные ответы" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Порядок черт" })).toBeVisible();
     await expect(page.getByTestId("kanji-stroke-graphic")).toBeVisible();
     await expect(page.getByTestId("kanji-stroke-graphic").locator("path")).toHaveCount(1);
     const sources = page.getByRole("heading", { name: "Источники", exact: true }).locator("..");
+    await page.getByRole("tab", { name: "Источники", exact: true }).click();
     await expect(sources.getByText("KANJIDIC2", { exact: true })).toBeVisible();
     await expect(sources.getByText("KanjiVG", { exact: true })).toBeVisible();
   });
@@ -128,11 +133,13 @@ test.describe("item details", () => {
     await expect(readings.getByText("いち", { exact: true }).first()).toBeVisible();
     await expect(readings.getByText("Онъёми")).toBeVisible();
     await expect(readings.getByText("Кунъёми")).toBeVisible();
+    await page.getByRole("tab", { name: "История", exact: true }).click();
 
     const history = page.getByTestId("item-srs-history");
     await expect(history.getByText("Опечатка", { exact: true })).toBeVisible();
     await history.getByRole("button", { name: "Показать более ранние" }).click();
     await expect(history.getByText("Ошибка проигнорирована", { exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: "Изучение", exact: true }).click();
     await expect(page.getByText("Составляющие компоненты")).toBeVisible();
   });
 
@@ -209,6 +216,7 @@ test.describe("item details", () => {
 
     await page.goto(`/items/${ITEM_ID}`);
     const acceptedPanel = privatePanel(page, "Приватные ответы");
+    await page.getByRole("tab", { name: "Мои записи", exact: true }).click();
     await page.getByTestId("private-answer-text").fill("единица");
     await page.getByTestId("private-answer-note").fill("Мой вариант из учебника.");
     await page.getByTestId("private-answer-submit").click();
@@ -228,6 +236,7 @@ test.describe("item details", () => {
 
     await page.goto(`/items/${ITEM_ID}`);
     const mnemonicPanel = privatePanel(page, "Приватная заметка");
+    await page.getByRole("tab", { name: "Мои записи", exact: true }).click();
     await page.getByTestId("private-mnemonic-body").fill("Одна длинная горизонтальная линия.");
     await page.getByTestId("private-mnemonic-submit").click();
 
@@ -250,6 +259,7 @@ test.describe("item details", () => {
     const mock = await mockItemApi(page, { overrides: [original], failReplacement: true });
     await page.goto(`/items/${ITEM_ID}`);
     const panel = privatePanel(page, "Приватные ответы");
+    await page.getByRole("tab", { name: "Мои записи", exact: true }).click();
     await panel.getByRole("button", { name: "Изменить", exact: true }).click();
     await page.getByTestId("private-answer-text").fill("единичка");
     await page.getByTestId("private-answer-submit").click();
@@ -257,6 +267,7 @@ test.describe("item details", () => {
     expect(mock.privateOverrides).toEqual([original]);
     expect(mock.overrideDeletes).toEqual([]);
     await page.reload();
+    await page.getByRole("tab", { name: "Мои записи", exact: true }).click();
     await expect(panel.locator(".private-override-list strong")).toHaveText("единица");
     await panel.getByRole("button", { name: "Изменить", exact: true }).click();
     await page.getByTestId("private-answer-text").fill("единичка");
@@ -284,8 +295,15 @@ test.describe("item details", () => {
     await page.goto(`/items/${ITEM_ID}`);
     const form = page.getByTestId("private-mnemonic-form");
     const body = page.getByTestId("private-mnemonic-body");
+    await page.getByRole("tab", { name: "Мои записи", exact: true }).click();
     await expect(body).toHaveValue("ru-RU:story");
     await body.fill("unsaved RU story");
+    await page.getByRole("tab", { name: "Изучение", exact: true }).click();
+    await expect(body).toBeHidden();
+    await page.getByRole("tab", { name: "Изучение", exact: true }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByRole("tab", { name: "Мои записи", exact: true })).toBeFocused();
+    await expect(body).toHaveValue("unsaved RU story");
     await form.getByRole("combobox", { name: "Язык", exact: true }).selectOption("en-US");
     await expect(body).toHaveValue("en-US:story");
     await form.getByRole("combobox", { name: "Тип", exact: true }).selectOption("reading");
@@ -304,6 +322,7 @@ test.describe("item details", () => {
       originals.filter((note) => note.locale !== "en-US" || note.mnemonicType !== "reading"),
     );
     await page.reload();
+    await page.getByRole("tab", { name: "Мои записи", exact: true }).click();
     await expect(body).toHaveValue("ru-RU:story");
     await form.getByRole("combobox", { name: "Язык", exact: true }).selectOption("en-US");
     await form.getByRole("combobox", { name: "Тип", exact: true }).selectOption("reading");
