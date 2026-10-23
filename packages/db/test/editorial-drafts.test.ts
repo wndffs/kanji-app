@@ -4,8 +4,26 @@ import { buildKanjiDraft07 } from "../src/editorial-draft-kanji-07";
 import { buildWordDraft07 } from "../src/editorial-draft-words-07";
 import { buildMainCourseWordBatches } from "../src/main-course-word-content";
 import { inspectEditorialDraftEvidence } from "../src/editorial-draft-evidence";
+import { buildEditorialDraftPreview } from "../src/editorial-draft-preview";
+import { runEditorialDraftPreview } from "../prisma/preview-editorial-drafts";
 
 describe("isolated editorial drafts", () => {
+  it.each(["ru", "en", "ru-en"] as const)("previews %s without inventing approval or dropping prerequisites", (mode) => {
+    const report = buildEditorialDraftPreview(mode);
+    expect(report.validation).toEqual({ valid: true, issues: [] });
+    expect(report.publicationApproved).toBe(false);
+    expect(report.words[0]?.requiredKanji).toEqual(expect.arrayContaining(["学", "校", "山", "下"]));
+    expect(Object.keys(report.words[0]!.meanings)).toEqual(mode === "ru-en" ? ["ru", "en"] : [mode]);
+    expect(report.words.find((word) => word.japanese === "今日")?.reading).toBe("きょう");
+  });
+  it("rejects missing example prerequisites and invalid CLI flags", () => {
+    const draft = buildWordDraft07();
+    const first = draft.words[0]!;
+    const report = buildEditorialDraftPreview("ru-en", buildKanjiDraft07(), { ...draft,
+      words: [{ ...first, example: { ...first.example, japaneseText: "龍です。" } }, ...draft.words.slice(1)] });
+    expect(report.validation.issues).toContain("Missing earlier kanji 龍 for 学校:がっこう");
+    expect(() => runEditorialDraftPreview(["--apply"])).toThrow("--mode");
+  });
   it("reports missing evidence without guessing source IDs or approving a draft", async () => {
     const db = { word: { findMany: vi.fn().mockResolvedValue([]) }, kanji: { findMany: vi.fn().mockResolvedValue([]) } };
     const report = await inspectEditorialDraftEvidence(db as never);
