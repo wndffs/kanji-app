@@ -2,22 +2,24 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import { withNeonConnectionDefaults } from "../src/connection-defaults";
-import { inspectEditorialDraftEvidence } from "../src/editorial-draft-evidence";
+import { inspectEditorialDraftEvidence, summarizeEditorialDraftEvidence } from "../src/editorial-draft-evidence";
 
 export async function runEditorialDraftEvidence(args: readonly string[]) {
-  if (args.length !== 0)
-    throw new Error("Draft evidence accepts no flags; it never applies content.");
+  const summaryOnly = args.length === 1 && args[0] === "--summary-only";
+  if (args.length !== 0 && !summaryOnly)
+    throw new Error("Draft evidence accepts only --summary-only; it never applies content.");
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is required for read-only draft evidence.");
   const db = new PrismaClient({ datasources: { db: { url: withNeonConnectionDefaults(url) } } });
   try {
-    return await db.$transaction(
+    const report = await db.$transaction(
       async (tx) => {
         await tx.$executeRaw`SET TRANSACTION READ ONLY`;
         return inspectEditorialDraftEvidence(tx);
       },
       { maxWait: 15_000, timeout: 30_000 },
     );
+    return summaryOnly ? summarizeEditorialDraftEvidence(report) : report;
   } finally {
     await db.$disconnect();
   }

@@ -3,6 +3,21 @@ import { normalizeJapaneseReading } from "@kanji-srs/japanese";
 import { buildKanjiDraft07 } from "./editorial-draft-kanji-07";
 import { buildWordDraft07 } from "./editorial-draft-words-07";
 
+export function summarizeEditorialDraftEvidence(report: Awaited<ReturnType<typeof inspectEditorialDraftEvidence>>) {
+  return {
+    scope: "aggregate-draft-source-counts", publicationApproved: false,
+    kanji: { candidates: report.kanji.length,
+      targetsFound: report.kanji.filter((item) => item.targetId !== null).length,
+      exactRawReadings: report.kanji.filter((item) => item.exactRawReadingObserved).length,
+      firstPriorityMatches: report.kanji.filter((item) => item.firstStoredReadingMatches).length,
+      strokeLinks: report.kanji.filter((item) => item.strokeProvenance !== null).length },
+    words: { candidates: report.words.length,
+      targetsFound: report.words.filter((item) => item.targetId !== null).length,
+      sourceLinks: report.words.filter((item) => item.provenance !== null).length,
+      bilingualImported: report.words.filter((item) => item.importedLocales.includes("ru-RU") && item.importedLocales.includes("en-US")).length },
+  };
+}
+
 const provenanceSelect = {
   id: true,
   recordType: true,

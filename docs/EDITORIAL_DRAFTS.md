@@ -33,6 +33,13 @@ With DATABASE_URL already provided securely in the environment:
 npm run content:drafts:evidence
 ```
 
+The manual **Inspect editorial draft coverage** GitHub Action uses only
+`--summary-only`: fixed numeric source-coverage counts and `publicationApproved:
+false`. It never prints dictionary rows, internal IDs, source details or user
+data and uploads no artifact. The existing secret is scoped to the read-only
+inspection step, not dependency installation. Detailed external source artifacts
+remain outside this workflow and require separate authorization.
+
 This performs two bounded exact-candidate reads in a PostgreSQL READ ONLY
 transaction, reports linked provenance, raw kanji reading observations and stored
 priority matches, then disconnects. It never writes resolved IDs into source,

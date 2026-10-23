@@ -1,0 +1,36 @@
+name: Inspect editorial draft coverage
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-database
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    name: Read-only aggregate source coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install committed dependencies
+        run: npm ci --include=dev
+      - name: Generate Prisma client without database writes
+        run: npm run db:generate
+      - name: Run aggregate-output guardrails
+        run: npm exec -- vitest run packages/db/test/editorial-drafts.test.ts packages/db/test/editorial-draft-workflow.test.ts --maxWorkers=1
+      - name: Print only numeric coverage and approval-false flag
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          NODE_ENV: production
+        run: npm exec -- tsx packages/db/prisma/report-editorial-draft-evidence.ts --summary-only
