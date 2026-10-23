@@ -15,6 +15,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
+import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { ReviewReminderNotifier } from "../../components/ReviewReminderNotifier";
 import { type ReviewReminderConfirmation } from "../../lib/review-reminders";
 import {
@@ -29,7 +30,6 @@ import {
   formatAccuracy,
   formatCount,
   formatForecastBucket,
-  formatTranslationDisplayMode,
 } from "../../lib/dashboard-format";
 import {
   type NewLearnerGuideState,
@@ -421,20 +421,24 @@ function DashboardView({
         </div>
       ) : (
         <div className="dashboard-widget-grid">
-          {visibleWidgets.map((widget) => (
+          {visibleWidgets.map((widget) => {
+            const content = <DashboardWidgetContent
+              coursesState={coursesState}
+              dashboard={dashboard}
+              id={widget.id}
+              onCourseChange={onCourseChange}
+            />;
+            return (
             <div
               className={`dashboard-widget dashboard-widget-${widget.presentation}`}
               data-dashboard-widget={widget.id}
               key={widget.id}
             >
-              <DashboardWidgetContent
-                coursesState={coursesState}
-                dashboard={dashboard}
-                id={widget.id}
-                onCourseChange={onCourseChange}
-              />
+              {customizationOpen || widget.id === "summary" || widget.id === "course-progress" ? content : (
+                <SectionDisclosure title={formatDashboardWidgetTitle(widget.id)}>{content}</SectionDisclosure>
+              )}
             </div>
-          ))}
+          );})}
         </div>
       )}
     </section>
