@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { X, RotateCcw } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -12,6 +13,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
+import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { ApiError, searchItems } from "../../lib/api-client";
 import {
   AUTH_CHANGED_EVENT,
@@ -156,7 +158,7 @@ function SearchScreen({ token }: { readonly token: string | null }) {
   }
 
   return (
-    <section className="page-stack">
+    <section className="page-stack search-page">
       <div className="page-heading search-heading">
         <div>
           <h1>Поиск</h1>
@@ -176,6 +178,7 @@ function SearchScreen({ token }: { readonly token: string | null }) {
             value={query}
           />
         </label>
+        <SectionDisclosure title="Фильтры" defaultOpen={typeFromUrl !== undefined || levelFromUrl !== undefined} className="search-filter-disclosure"><div className="search-filter-fields">
         <label>
           <span>Тип материала</span>
           <select
@@ -200,10 +203,17 @@ function SearchScreen({ token }: { readonly token: string | null }) {
             onChange={(event) => setLevel(event.currentTarget.value)}
           />
         </label>
+        </div></SectionDisclosure>
         <button className="primary-action" type="submit">
           Искать
         </button>
       </form>
+
+      {typeFromUrl === undefined && levelFromUrl === undefined ? null : <div className="applied-filters" aria-label="Применённые фильтры">
+        {typeFromUrl === undefined ? null : <button className="filter-chip" aria-label="Убрать тип материала" onClick={() => router.push(searchHref(queryFromUrl, 1, { level: levelFromUrl }))}>{formatItemType(typeFromUrl)}<X size={16} aria-hidden="true" /></button>}
+        {levelFromUrl === undefined ? null : <button className="filter-chip" aria-label="Убрать учебный уровень" onClick={() => router.push(searchHref(queryFromUrl, 1, { itemType: typeFromUrl }))}>Уровень {levelFromUrl}<X size={16} aria-hidden="true" /></button>}
+        <button className="icon-button" title="Сбросить фильтры" aria-label="Сбросить фильтры" onClick={() => router.push(searchHref(queryFromUrl))}><RotateCcw size={18} aria-hidden="true" /></button>
+      </div>}
 
       <SearchResults state={state} displayMode={displayMode} isAuthenticated={token !== null} />
       {state.status === "ready" &&
