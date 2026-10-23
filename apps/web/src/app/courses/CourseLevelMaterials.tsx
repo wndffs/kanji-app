@@ -7,8 +7,10 @@ import { ApiError, getCourseMaterials } from "../../lib/api-client";
 import { clearStoredSession } from "../../lib/auth-storage";
 import { ownsSession } from "../../lib/use-stored-session";
 import { JapaneseText } from "../../components/JapaneseText";
+import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
 export function CourseLevelMaterials({ token, courseId, levelNumber }: { readonly token: string; readonly courseId: string; readonly levelNumber: number }) {
+  const displayMode = useTranslationDisplayMode();
   const [page, setPage] = useState(1);
   const [itemType, setItemType] = useState("all");
   const [studyState, setStudyState] = useState("all");
@@ -39,7 +41,13 @@ export function CourseLevelMaterials({ token, courseId, levelNumber }: { readonl
     {data === null ? (error === null ? <p aria-busy="true">Загружаю материалы.</p> : null) : <>
       <p className="muted">Найдено: {data.total}</p>
       {data.items.length === 0 ? <p>Материалов на этой странице нет.</p> : <ul className="course-material-grid">
-        {data.items.map((item) => <li key={item.id}><Link href={`/items/${encodeURIComponent(item.id)}`}><JapaneseText>{item.japanese}</JapaneseText><span className="muted">{item.itemType === "component" ? "Компонент" : item.itemType === "kanji" ? "Кандзи" : item.itemType === "word" ? "Слово" : "Предложение"}</span><span>{item.studyState === "burned" ? "Выучен" : item.studyState === "learning" ? `В работе: ${item.startedCardCount}/${item.cardCount}` : "Новый"}</span></Link></li>)}
+        {data.items.map((item) => <li key={item.id}><Link href={`/items/${encodeURIComponent(item.id)}`}>
+          <JapaneseText className="course-material-japanese">{item.japanese}</JapaneseText>
+          {item.reading ? <JapaneseText className="course-material-reading">{item.reading}</JapaneseText> : null}
+          {displayMode !== "en" && item.meaningRu ? <span lang="ru">{item.meaningRu}</span> : null}
+          {displayMode !== "ru" && item.meaningEn ? <span lang="en">{item.meaningEn}</span> : null}
+          <span className="muted">{item.itemType === "component" ? "Компонент" : item.itemType === "kanji" ? "Кандзи" : item.itemType === "word" ? "Слово" : "Предложение"}</span><span>{item.studyState === "burned" ? "Выучен" : item.studyState === "learning" ? `В работе: ${item.startedCardCount}/${item.cardCount}` : "Новый"}</span>
+        </Link></li>)}
       </ul>}
       <nav className="course-page-navigation" aria-label="Страницы материалов">
         <button className="icon-button" aria-label="Предыдущая страница материалов" title="Предыдущая страница" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}><ChevronLeft size={18} /></button>

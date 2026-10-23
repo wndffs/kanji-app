@@ -25,12 +25,15 @@ describe("read-only published syllabus", () => {
   });
   it("validates page bounds before reads and hydrates only the selected stable page", async () => {
     const levelPage = vi.fn().mockResolvedValue({ ids: ["b", "a"], total: 31, progress: new Map(["a", "b"].map((id) => [id, { studyState: "not-started", cardCount: 2, startedCardCount: 0, burnedCardCount: 0 }])) });
-    const loadLessonItems = vi.fn().mockResolvedValue(new Map(["a", "b"].map((id) => [id, { itemType: "kanji", title: id, target: { japanese: id } }])));
+    const loadLessonItems = vi.fn().mockResolvedValue(new Map(["a", "b"].map((id) => [id, { itemType: "kanji", title: id,
+      cards: [{ answerType: "meaning", answers: [{ locale: "ru-RU", text: "один", isPrimary: true }, { locale: "en-US", text: "one", isPrimary: true }] }],
+      target: { japanese: id, reading: "いち", translations: { ru: [{ text: "Сырой перевод" }], en: [] } } }])));
     const service = new CourseBrowserService({ levelPage } as never, { loadLessonItems } as never);
     await expect(service.materials("owner", ID, "2", { page: "0" })).rejects.toThrow("номер страницы");
     expect(levelPage).not.toHaveBeenCalled();
     expect(await service.materials("owner", ID, "2", { page: "2" })).toMatchObject({ total: 31, page: 2, items: [{ id: "b" }, { id: "a" }] });
     expect(loadLessonItems).toHaveBeenCalledExactlyOnceWith("owner", ["b", "a"]);
+    expect((await service.materials("owner", ID, "2", {})).items[0]).toMatchObject({ reading: "いち", meaningRu: "один", meaningEn: "one" });
     await service.materials("owner", ID, "2", { itemType: "word" });
     expect(levelPage).toHaveBeenLastCalledWith("owner", ID, 2, 1, { itemType: "word", studyState: undefined });
     await expect(service.materials("owner", ID, "2", { itemType: "invalid" })).rejects.toThrow("тип материала");

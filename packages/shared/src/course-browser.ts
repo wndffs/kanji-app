@@ -19,6 +19,9 @@ export type CourseMaterialDto = {
   readonly itemType: ItemKind;
   readonly japanese: string;
   readonly title: string;
+  readonly reading: string | null;
+  readonly meaningRu: string | null;
+  readonly meaningEn: string | null;
   readonly studyState: CourseMaterialStudyState;
   readonly cardCount: number;
   readonly startedCardCount: number;

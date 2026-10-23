@@ -34,7 +34,15 @@ export class CourseBrowserService {
         const item = items.get(id);
         if (item === undefined) throw new NotFoundException("Материалы изменились. Обновите страницу.");
         const progress = result.progress.get(id)!;
-        return { ...progress, id, itemType: item.itemType, japanese: item.target.japanese, title: item.title };
+        const meaningCard = item.cards.find((card) => card.answerType === "meaning");
+        const meaning = (locale: "ru-RU" | "en-US") => {
+          const answers = meaningCard?.answers.filter((answer) => answer.locale === locale) ?? [];
+          const texts = locale === "ru-RU" ? item.target.translations.ru : item.target.translations.en;
+          return (answers.find((answer) => answer.isPrimary) ?? answers[0])?.text ??
+            (texts.find((text) => text.sourceKind === "curated") ?? texts[0])?.text ?? null;
+        };
+        return { ...progress, id, itemType: item.itemType, japanese: item.target.japanese, title: item.title,
+          reading: item.target.reading, meaningRu: meaning("ru-RU"), meaningEn: meaning("en-US") };
       }),
     };
   }

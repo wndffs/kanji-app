@@ -10,7 +10,7 @@ async function signIn(page: Page) {
   await page.route(`${API}/courses/${ID}/levels/*/items*`, (route) => {
     const pageNumber = Number(new URL(route.request().url()).searchParams.get("page") ?? 1);
     return route.fulfill({ json: { courseId: ID, levelNumber: 1, page: pageNumber, pageSize: 30, total: 32,
-      items: [{ id: `material-${pageNumber}`, itemType: "kanji", japanese: pageNumber === 1 ? "一" : "二", title: "Число" }] } });
+      items: [{ id: `material-${pageNumber}`, itemType: "kanji", japanese: pageNumber === 1 ? "一" : "二", title: "Число", reading: "いち", meaningRu: "один", meaningEn: "one", studyState: "not-started", cardCount: 2, startedCardCount: 0, burnedCardCount: 0 }] } });
   });
   await page.addInitScript(() => {
     localStorage.setItem("kanji-srs.accessToken", "explorer-token");
@@ -24,6 +24,9 @@ test.describe("published course explorer", () => {
     await page.goto(`/courses/${ID}`);
     const materials = page.getByRole("region", { name: "Материалы уровня", exact: true });
     await expect(materials.getByRole("link")).toContainText("一");
+    await expect(materials.getByRole("link")).toContainText("いち");
+    await expect(materials.getByRole("link")).toContainText("один");
+    await expect(materials.getByRole("link")).toContainText("one");
     await materials.getByRole("button", { name: "Следующая страница материалов" }).click();
     await expect(materials.getByRole("link")).toContainText("二");
     await expect(materials.getByRole("link")).toHaveAttribute("href", "/items/material-2");
