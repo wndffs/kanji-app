@@ -18,6 +18,19 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "kana-token";
 
 test.describe("kana lessons", () => {
+  test("retries a failed katakana load in place without reverting script or replaying answers", async ({ page }) => {
+    await signIn(page); await mockKanaApi(page);
+    let reads = 0; let writes = 0;
+    page.on("request", (request) => { if (request.method() === "POST" && request.url().includes("/kana/")) writes++; });
+    await page.route(`${API_BASE_URL}/kana/lessons?script=katakana`, (route) => route.fulfill(++reads === 1 ? { status: 503, json: { message: "Сервер просыпается" } } : { json: buildLessonPath(buildProgress("katakana", ["ア"])) }));
+    await page.goto("/kana");
+    await page.getByRole("button", { name: "Катакана", exact: true }).click();
+    await expect(page.getByRole("alert")).toContainText("Сервер просыпается");
+    await page.getByRole("button", { name: "Повторить", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Катакана", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("kana-practice")).toContainText("ア");
+    expect(reads).toBe(2); expect(writes).toBe(0);
+  });
   test("opens a requested unlocked lesson character without recording an answer", async ({ page }) => {
     await signIn(page); await mockKanaApi(page);
     let writes = 0;

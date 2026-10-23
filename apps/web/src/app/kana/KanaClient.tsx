@@ -100,6 +100,7 @@ function OwnedKanaClient({
   const choiceRef = useRef<HTMLButtonElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
   const requestRevision = useRef(0);
+  const desiredDestination = useRef({ unitId: initialUnitId, character: initialCharacter });
   const kanaSpeech = useJapaneseSpeech();
   const { play: playAnswerSound } = useAnswerSound();
   const handleTracingUnavailable = useCallback(() => setExerciseKind("typing"), []);
@@ -125,7 +126,7 @@ function OwnedKanaClient({
           return;
         }
 
-        const destination = mode === "lessons" ? resolveKanaLessonDestination(path, initialUnitId, initialCharacter) : null;
+        const destination = mode === "lessons" ? resolveKanaLessonDestination(path, desiredDestination.current.unitId, desiredDestination.current.character) : null;
         const unit = destination?.unit ?? selectCurrentUnit(path.units);
         const character = destination?.character ?? selectNextLessonCharacter(unit?.items ?? [], null);
         const item = unit?.items.find((candidate) => candidate.character === character);
@@ -157,6 +158,10 @@ function OwnedKanaClient({
       requestRevision.current++;
     };
   }, [dataRevision, script, token, initialUnitId, initialCharacter]);
+
+  useEffect(() => {
+    if (state.status === "ready" && mode === "lessons") desiredDestination.current = { unitId: activeUnitId, character: selectedCharacter };
+  }, [state.status, mode, activeUnitId, selectedCharacter]);
 
   useEffect(() => {
     if (lessonPhase === "quiz" && feedback === null) {
@@ -501,7 +506,7 @@ function OwnedKanaClient({
         <div className="error-banner" role="alert">
           {state.message}
         </div>
-        <button className="secondary-action" onClick={() => window.location.reload()} type="button">
+        <button className="secondary-action" onClick={() => setDataRevision((value) => value + 1)} type="button">
           Повторить
         </button>
       </section>
