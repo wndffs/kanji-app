@@ -61,6 +61,6 @@ describe("lightweight lesson eligibility", () => {
     const { db, repository } = harness();
     db.deck.findFirst.mockResolvedValue({ id: "deck", title: "Private", status: "ACTIVE" });
     expect(await repository.findDeckEligibility("owner", "deck", false)).toMatchObject({ items: [] });
-    expect(db.deck.findFirst.mock.calls[0]![0].select.items).toBe(false);
+    expect(db.deck.findFirst.mock.calls[0]![0].select).not.toHaveProperty("items");
   });
 });

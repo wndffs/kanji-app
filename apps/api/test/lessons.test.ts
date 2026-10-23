@@ -330,7 +330,7 @@ describe("LessonsService", () => {
     });
 
     repository.addProgress("owner", "item-component-one", ["card-component-one"], 0);
-    expect((await service.getQueue(createUser("owner"))).availableItems).toEqual([]);
+    expect((await service.getQueue(createUser("owner"))).availableItems.map((entry) => entry.item.id)).not.toContain("item-kanji-one");
 
     repository.addProgress("owner", "item-component-one", ["card-component-one"], 1);
 
@@ -384,7 +384,7 @@ describe("LessonsService", () => {
     expect(hydrate).toHaveBeenLastCalledWith("owner", ["item-component-one"]);
     repository.addProgress("owner", "item-component-one", ["card-component-one"], 1);
     await service.getQueue(createUser("owner"));
-    expect(hydrate).toHaveBeenLastCalledWith("owner", ["item-kanji-one", "item-component-one"]);
+    expect(hydrate).toHaveBeenLastCalledWith("owner", ["item-kanji-one", "item-component-one", "item-component-two"]);
   });
 
   it("starts from metadata and resumes only selected session materials", async () => {

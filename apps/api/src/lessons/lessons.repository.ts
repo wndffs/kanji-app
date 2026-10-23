@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { loadItemExampleSentences, resolvePrimaryTaughtReading } from "@kanji-srs/db";
+import { loadItemExampleSentences, resolvePrimaryTaughtReading, type Prisma } from "@kanji-srs/db";
 import {
   formatKanjiJlptLevel,
   type ContentLocale,
@@ -281,15 +281,22 @@ export class PrismaLessonsRepository extends LessonsRepository {
   }
 
   async findDeckEligibility(userId: string, deckId: string, includeItems = true): Promise<DeckLessonEligibilityRecord | null> {
+    if (!includeItems) {
+      const deck = await this.prisma.db.deck.findFirst({
+        where: { id: deckId, ownerUserId: userId },
+        select: { id: true, title: true, status: true },
+      });
+      return deck === null ? null : { ...deck, status: toDeckLessonStatus(deck.status), items: [] };
+    }
     const deck = await this.prisma.db.deck.findFirst({
       where: { id: deckId, ownerUserId: userId },
       select: {
         id: true, title: true, status: true,
-        items: includeItems ? {
+        items: {
           where: { learningItem: { status: "PUBLISHED" } },
           orderBy: [{ sortOrder: "asc" }, { learningItemId: "asc" }],
           select: { sortOrder: true, learningItem: { select: lessonEligibilitySelect } },
-        } : false,
+        },
       },
     });
     if (deck === null) return null;
@@ -1117,7 +1124,7 @@ const lessonEligibilitySelect = {
       audioAsset: { include: { dataSource: true, license: true } },
     },
   },
-} as const;
+} satisfies Prisma.LearningItemSelect;
 
 function toEligibilityItem(row: {
   readonly id: string;
