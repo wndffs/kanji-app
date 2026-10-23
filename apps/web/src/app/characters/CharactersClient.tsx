@@ -10,6 +10,7 @@ import {
   type CharacterHubKanjiSectionDto,
   type CharacterHubResponseDto,
   type TranslationDisplayMode,
+  type KanaVariant,
 } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
@@ -26,6 +27,7 @@ import {
 } from "../../lib/character-hub";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
+import { filterKanaUnits, KANA_GROUP_LABELS } from "../../lib/kana-unit-groups";
 
 type CharactersState =
   | { readonly status: "loading" }
@@ -141,6 +143,7 @@ function CharactersScreen() {
 
       {state.status === "ready" && query.tab !== "kanji" ? (
         <KanaCharacterPanel
+          key={query.tab}
           section={query.tab === "hiragana" ? state.hub.kana.hiragana : state.hub.kana.katakana}
         />
       ) : null}
@@ -158,6 +161,8 @@ function CharactersScreen() {
 }
 
 function KanaCharacterPanel({ section }: { readonly section: CharacterHubKanaSectionDto }) {
+  const [group, setGroup] = useState<KanaVariant | "all">("basic");
+  const units = filterKanaUnits(section.units, group);
   const percentage =
     section.totalCount === 0 ? 0 : Math.round((section.masteredCount / section.totalCount) * 100);
 
@@ -221,11 +226,15 @@ function KanaCharacterPanel({ section }: { readonly section: CharacterHubKanaSec
         )}
       </section>
 
+      <label className="catalog-group-control"><span>Группа знаков</span><select value={group} onChange={(event) => setGroup(event.currentTarget.value as KanaVariant | "all")}>
+        {(Object.keys(KANA_GROUP_LABELS) as (KanaVariant | "all")[]).map((id) => <option value={id} key={id}>{KANA_GROUP_LABELS[id]} ({filterKanaUnits(section.units, id).reduce((total, unit) => total + unit.totalCount, 0)})</option>)}
+      </select></label>
+      {units.length === 0 ? <p className="muted">В этой группе знаков нет.</p> : null}
       <ol
         className="character-hub-kana-units"
         aria-label={`Все уроки: ${TAB_LABELS[section.script]}`}
       >
-        {section.units.map((unit) => (
+        {units.map((unit) => (
           <li className={unit.unlocked ? undefined : "is-locked"} key={unit.id}>
             <header>
               <div>
