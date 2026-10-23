@@ -14,6 +14,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
+import { ViewTabs } from "../../components/ViewTabs";
 import {
   ApiError,
   createTextDeck,
@@ -250,6 +251,7 @@ function DecksScreen() {
         ],
       }));
     } catch (error: unknown) {
+      if (!ownsSession(state.token)) return;
       if (error instanceof ApiError && error.status === 401) {
         clearStoredSession();
         setState({ status: "unauthenticated" });
@@ -409,6 +411,9 @@ function SavedDecksPanel({
   readonly selectedDeck: SelectedDeckState;
   readonly onOpen: (deckId: string) => void;
 }) {
+  const [status, setStatus] = useState("active");
+  const [query, setQuery] = useState("");
+  const visibleDecks = state.status === "ready" ? sortDeckSummaries(state.decks).filter((deck) => (status === "archived" ? deck.status === "archived" : deck.status !== "archived") && deck.title.toLocaleLowerCase("ru").includes(query.trim().toLocaleLowerCase("ru"))) : [];
   return (
     <section className="saved-decks-panel panel" aria-labelledby="saved-decks-title">
       <div className="saved-decks-header">
@@ -418,6 +423,8 @@ function SavedDecksPanel({
         </div>
         {state.status === "ready" ? <strong>{state.decks.length}</strong> : null}
       </div>
+      <ViewTabs active={status} onChange={setStatus} label="Библиотека колод" idPrefix="deck-library" panelId="deck-library-results" tabs={[{ id: "active", label: "Активные" }, { id: "archived", label: "Архив" }]} />
+      <label className="library-search"><span>Найти колоду</span><input type="search" value={query} onChange={(event) => setQuery(event.currentTarget.value)} /></label>
 
       {state.status === "idle" || state.status === "loading" ? (
         <p className="muted" aria-live="polite">
@@ -427,13 +434,14 @@ function SavedDecksPanel({
 
       {state.status === "error" ? <p className="form-error">{state.message}</p> : null}
 
-      {state.status === "ready" && state.decks.length === 0 ? (
-        <p className="muted">Здесь появятся колоды, созданные из японских текстов.</p>
+      {state.status === "ready" && visibleDecks.length === 0 ? (
+        <p className="muted">{state.decks.length === 0 ? "Здесь появятся колоды, созданные из японских текстов." : "Колоды не найдены."}</p>
       ) : null}
 
-      {state.status === "ready" && state.decks.length > 0 ? (
+      <div id="deck-library-results" role="tabpanel" aria-labelledby={`deck-library-${status}`}>
+      {state.status === "ready" && visibleDecks.length > 0 ? (
         <ul className="saved-deck-list">
-          {sortDeckSummaries(state.decks).map((deck) => {
+          {visibleDecks.map((deck) => {
             const isSelected =
               (selectedDeck.status === "ready" && selectedDeck.deck.id === deck.id) ||
               (selectedDeck.status === "loading" && selectedDeck.deckId === deck.id) ||
@@ -464,6 +472,7 @@ function SavedDecksPanel({
           })}
         </ul>
       ) : null}
+      </div>
 
       {selectedDeck.status === "error" ? (
         <p className="form-error" role="alert">

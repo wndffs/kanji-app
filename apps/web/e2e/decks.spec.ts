@@ -63,9 +63,11 @@ test.describe("dynamic text decks", () => {
     await details.getByRole("button", { name: "Архивировать" }).click();
     await expect(details.getByText(/Колода в архиве/)).toBeVisible();
     await expect(details.getByRole("link", { name: "Учить колоду" })).toHaveCount(0);
+    await page.getByRole("tab", { name: "Архив", exact: true }).click();
     await expect(page.getByText("2 элемента · новых: 1 · архив")).toBeVisible();
 
     await details.getByRole("button", { name: "Восстановить" }).click();
+    await page.getByRole("tab", { name: "Активные", exact: true }).click();
     await expect(details.getByText(/Колода в архиве/)).toHaveCount(0);
     await expect(details.getByRole("link", { name: "Учить колоду" })).toBeVisible();
 
