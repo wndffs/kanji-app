@@ -376,6 +376,17 @@ describe("LessonsService", () => {
     });
   });
 
+  it("hydrates only the daily selectable items and visible prerequisite summaries", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const hydrate = vi.spyOn(repository, "loadLessonItems");
+    const service = new LessonsService(repository, createOverridesService());
+    await service.getQueue(createUser("owner", { dailyLessonLimit: 1 }));
+    expect(hydrate).toHaveBeenLastCalledWith("owner", ["item-component-one"]);
+    repository.addProgress("owner", "item-component-one", ["card-component-one"], 1);
+    await service.getQueue(createUser("owner"));
+    expect(hydrate).toHaveBeenLastCalledWith("owner", ["item-kanji-one", "item-component-one"]);
+  });
+
   it.each(["course", "deck"])(
     "requires every external prerequisite card for %s queues and completion",
     async (source) => {

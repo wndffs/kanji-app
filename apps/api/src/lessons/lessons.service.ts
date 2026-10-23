@@ -31,8 +31,9 @@ import { hasCompletedListeningPlayback } from "../audio/listening-playback";
 import { OverridesService } from "../overrides/overrides.service";
 import { LessonsRepository } from "./lessons.repository";
 import {
-  type CourseLessonItemRecord,
-  type DeckLessonRecord,
+  type CourseLessonEligibilityRecord,
+  type DeckLessonEligibilityRecord,
+  type LessonEligibilityItemRecord,
   type LessonCardRecord,
   type LessonItemRecord,
   type LessonSessionRecord,
@@ -53,14 +54,13 @@ export class LessonsService {
 
   async getQueue(user: CurrentUserDto, deckIdValue?: unknown): Promise<LessonQueueResponse> {
     const deckId = parseOptionalDeckId(deckIdValue);
-    const { availableItems, displayMode, remainingToday, source } = await this.getAvailableItems(
+    const { availableItems, displayMode, remainingToday, source } = await this.getAvailableMetadata(
       user,
       new Date(),
       deckId,
     );
-    const selectableItems = availableItems
-      .slice(0, remainingToday)
-      .map((item) => toLessonQueueItem(item.item, item.unlockedBy, displayMode));
+    const teachingItems = await this.hydrateAvailableItems(user.id, availableItems.slice(0, remainingToday));
+    const selectableItems = teachingItems.map((item) => toLessonQueueItem(item.item, item.unlockedBy, displayMode));
     const batchLimit = getLessonBatchSize(user);
     const orderMode = getLessonOrderMode(user);
     const suggestedItems = orderLessonItems(
@@ -421,8 +421,29 @@ export class LessonsService {
     now: Date,
     deckId: string | null,
     allowArchivedDeck = false,
+  ) {
+    const metadata = await this.getAvailableMetadata(user, now, deckId, allowArchivedDeck);
+    return { ...metadata, availableItems: await this.hydrateAvailableItems(user.id, metadata.availableItems) };
+  }
+
+  private async hydrateAvailableItems(userId: string, entries: readonly AvailableLessonMetadata[]): Promise<readonly AvailableLessonItem[]> {
+    const ids = entries.flatMap((entry) => [entry.item.id, ...entry.unlockedBy.map((item) => item.id)]);
+    const items = await this.lessonsRepository.loadLessonItems(userId, ids);
+    const requireItem = (id: string): LessonItemRecord => {
+      const item = items.get(id);
+      if (item === undefined || item.cards.length === 0) throw new BadRequestException("Lesson content changed. Reload the lesson queue.");
+      return item;
+    };
+    return entries.map((entry) => ({ ...entry, item: requireItem(entry.item.id), unlockedBy: entry.unlockedBy.map((item) => requireItem(item.id)) }));
+  }
+
+  private async getAvailableMetadata(
+    user: CurrentUserDto,
+    now: Date,
+    deckId: string | null,
+    allowArchivedDeck = false,
   ): Promise<{
-    readonly availableItems: readonly AvailableLessonItem[];
+    readonly availableItems: readonly AvailableLessonMetadata[];
     readonly displayMode: TranslationDisplayMode;
     readonly progress: readonly UserItemProgressRecord[];
     readonly remainingToday: number;
@@ -433,7 +454,7 @@ export class LessonsService {
 
     if (deckId !== null) {
       const [deck, progress] = await Promise.all([
-        this.lessonsRepository.findDeckLesson(user.id, deckId),
+        this.lessonsRepository.findDeckEligibility(user.id, deckId),
         progressPromise,
       ]);
 
@@ -473,7 +494,7 @@ export class LessonsService {
       return { availableItems: [], displayMode, progress, remainingToday, source };
     }
 
-    const courseItems = await this.lessonsRepository.listCourseLessonItems(user.id);
+    const courseItems = await this.lessonsRepository.listCourseEligibility(user.id);
     if (courseItems.length === 0) {
       return { availableItems: [], displayMode, progress, remainingToday, source };
     }
@@ -487,7 +508,7 @@ export class LessonsService {
   }
 
   private async getExternalPrerequisiteCardIds(
-    items: readonly LessonItemRecord[],
+    items: readonly LessonEligibilityItemRecord[],
   ): Promise<ReadonlyMap<string, readonly string[]>> {
     const sourceItemIds = new Set(items.map((item) => item.id));
     const externalItemIds = [
@@ -514,11 +535,16 @@ type AvailableLessonItem = {
   readonly sortOrder: number;
 };
 
+type AvailableLessonMetadata = Omit<AvailableLessonItem, "item" | "unlockedBy"> & {
+  readonly item: LessonEligibilityItemRecord;
+  readonly unlockedBy: readonly LessonEligibilityItemRecord[];
+};
+
 function findAvailableDeckItems(
-  deck: DeckLessonRecord,
+  deck: DeckLessonEligibilityRecord,
   progress: readonly UserItemProgressRecord[],
   prerequisiteCardIds: ReadonlyMap<string, readonly string[]>,
-): readonly AvailableLessonItem[] {
+): readonly AvailableLessonMetadata[] {
   const progressByItem = groupProgressByItem(progress);
   const itemById = new Map(deck.items.map((entry) => [entry.item.id, entry.item]));
 
@@ -554,14 +580,14 @@ function findAvailableDeckItems(
 }
 
 function findAvailableCourseItems(
-  courseItems: readonly CourseLessonItemRecord[],
+  courseItems: readonly CourseLessonEligibilityRecord[],
   progress: readonly UserItemProgressRecord[],
   prerequisiteCardIds: ReadonlyMap<string, readonly string[]>,
-): readonly AvailableLessonItem[] {
+): readonly AvailableLessonMetadata[] {
   const progressByItem = groupProgressByItem(progress);
   const itemById = new Map(courseItems.map((entry) => [entry.item.id, entry.item]));
   const groupedByCourse = groupCourseItems(courseItems);
-  const available: AvailableLessonItem[] = [];
+  const available: AvailableLessonMetadata[] = [];
 
   for (const [courseId, entries] of groupedByCourse) {
     const firstOpenLevel = findFirstOpenLevel(entries, progressByItem);
@@ -606,9 +632,9 @@ function findAvailableCourseItems(
 }
 
 function groupCourseItems(
-  courseItems: readonly CourseLessonItemRecord[],
-): Map<string, readonly CourseLessonItemRecord[]> {
-  const grouped = new Map<string, CourseLessonItemRecord[]>();
+  courseItems: readonly CourseLessonEligibilityRecord[],
+): Map<string, readonly CourseLessonEligibilityRecord[]> {
+  const grouped = new Map<string, CourseLessonEligibilityRecord[]>();
 
   for (const item of courseItems) {
     const existing = grouped.get(item.courseId) ?? [];
@@ -630,10 +656,10 @@ function groupCourseItems(
 }
 
 function findFirstOpenLevel(
-  courseItems: readonly CourseLessonItemRecord[],
+  courseItems: readonly CourseLessonEligibilityRecord[],
   progressByItem: Map<string, ReadonlyMap<string, number>>,
-): readonly CourseLessonItemRecord[] | null {
-  const levels = new Map<number, CourseLessonItemRecord[]>();
+): readonly CourseLessonEligibilityRecord[] | null {
+  const levels = new Map<number, CourseLessonEligibilityRecord[]>();
 
   for (const entry of courseItems) {
     const existing = levels.get(entry.courseLevelNumber) ?? [];
@@ -668,12 +694,12 @@ function groupProgressByItem(
   return grouped;
 }
 
-function hasLessonCards(item: LessonItemRecord): boolean {
+function hasLessonCards(item: LessonEligibilityItemRecord): boolean {
   return item.cards.length > 0;
 }
 
 function isItemStarted(
-  item: LessonItemRecord,
+  item: LessonEligibilityItemRecord,
   progressByItem: Map<string, ReadonlyMap<string, number>>,
 ): boolean {
   const progress = progressByItem.get(item.id);
@@ -682,12 +708,12 @@ function isItemStarted(
 }
 
 function getSatisfiedPrerequisites(
-  item: LessonItemRecord,
+  item: LessonEligibilityItemRecord,
   progressByItem: Map<string, ReadonlyMap<string, number>>,
-  itemById: Map<string, LessonItemRecord>,
+  itemById: Map<string, LessonEligibilityItemRecord>,
   prerequisiteCardIds: ReadonlyMap<string, readonly string[]>,
-): readonly LessonItemRecord[] | null {
-  const unlockedBy: LessonItemRecord[] = [];
+): readonly LessonEligibilityItemRecord[] | null {
+  const unlockedBy: LessonEligibilityItemRecord[] = [];
 
   for (const dependency of item.dependencies) {
     const prerequisite = itemById.get(dependency.prerequisiteItemId);
