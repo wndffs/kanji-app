@@ -118,7 +118,7 @@ textarea:focus-visible {
 
 .nav {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
 }
 
@@ -143,6 +143,66 @@ textarea:focus-visible {
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.icon-button {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  background: var(--surface-strong);
+  color: var(--foreground);
+}
+
+.nav-overflow {
+  position: relative;
+}
+
+.nav-overflow summary {
+  list-style: none;
+}
+
+.nav-overflow summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-overflow:not([open]) .nav-menu {
+  display: none;
+}
+
+.nav-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 200px;
+  display: grid;
+  padding: 6px;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.nav-menu a {
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.nav-menu a:hover,
+.nav-menu a[aria-current="page"] {
+  background: var(--surface-strong);
 }
 
 .mode-control {
@@ -5392,13 +5452,21 @@ textarea:focus-visible {
 
 @media (max-width: 920px) {
   .topbar-inner {
-    grid-template-columns: 1fr;
-    align-items: start;
-    padding: 14px 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 8px 0 0;
+    gap: 4px 8px;
+  }
+
+  .topbar-inner > .nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: space-between;
   }
 
   .topbar-actions {
-    justify-content: start;
+    justify-content: end;
+    gap: 2px;
   }
 
   .dashboard-widget-grid,
@@ -5570,14 +5638,15 @@ textarea:focus-visible {
     white-space: nowrap;
   }
 
-  .topbar-actions,
-  .mode-control {
-    width: 100%;
+  .mode-control select {
+    width: 112px;
+    padding-inline: 6px;
+    font-size: 12px;
   }
 
-  .mode-control select {
-    flex: 1;
-    min-width: 0;
+  .nav-link {
+    font-size: 12px;
+    padding-inline: 5px;
   }
 
   .review-heading-actions {

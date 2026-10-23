@@ -15,3 +15,10 @@ export const primaryNavigation = [
   { href: "/settings", label: "Настройки" },
   { href: "/admin", label: "Админ", adminOnly: true },
 ] satisfies NavigationItem[];
+
+const mainPaths = new Set(["/dashboard", "/lessons", "/reviews", "/characters", "/search"]);
+export const mainNavigation = primaryNavigation.filter((item) => mainPaths.has(item.href));
+export const secondaryNavigation: readonly NavigationItem[] = [
+  { href: "/courses", label: "Курсы" },
+  ...primaryNavigation.filter((item) => !mainPaths.has(item.href)),
+];

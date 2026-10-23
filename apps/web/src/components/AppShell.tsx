@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { LogOut, MoreHorizontal } from "lucide-react";
 
 import {
   APP_NAME,
@@ -20,7 +21,7 @@ import {
   updateStoredUser,
 } from "../lib/auth-storage";
 import { formatTranslationDisplayMode } from "../lib/dashboard-format";
-import { primaryNavigation } from "../lib/navigation";
+import { mainNavigation, secondaryNavigation } from "../lib/navigation";
 import { ConnectionStatus } from "./ConnectionStatus";
 
 type AppShellProps = {
@@ -33,6 +34,30 @@ export function AppShell({ children }: AppShellProps) {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole>("USER");
+  const menuRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    if (menuRef.current) menuRef.current.open = false;
+  }, [pathname]);
+
+  useEffect(() => {
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !menuRef.current?.contains(event.target) && menuRef.current)
+        menuRef.current.open = false;
+    };
+    const closeWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && menuRef.current?.open) {
+        menuRef.current.open = false;
+        menuRef.current.querySelector("summary")?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeWithEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeWithEscape);
+    };
+  }, []);
 
   useEffect(() => {
     function syncSessionState(): void {
@@ -81,7 +106,7 @@ export function AppShell({ children }: AppShellProps) {
             {APP_NAME}
           </Link>
           <nav aria-label="Основная навигация" className="nav">
-            {primaryNavigation
+            {mainNavigation
               .filter((item) => item.adminOnly !== true || role === "ADMIN")
               .map((item) => (
                 <Link
@@ -95,8 +120,19 @@ export function AppShell({ children }: AppShellProps) {
               ))}
           </nav>
           <div className="topbar-actions">
+            <details className="nav-overflow" ref={menuRef}>
+              <summary aria-label="Другие разделы" className="icon-button" title="Другие разделы">
+                <MoreHorizontal aria-hidden="true" size={20} />
+              </summary>
+              <nav aria-label="Другие разделы" className="nav-menu">
+                {secondaryNavigation.filter((item) => !item.adminOnly || role === "ADMIN").map((item) => (
+                  <Link aria-current={isActivePath(pathname, item.href) ? "page" : undefined} href={item.href} key={item.href}>
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
+            </details>
             <label className="mode-control">
-              <span>Перевод</span>
               <select
                 aria-label="Режим перевода карточек"
                 onChange={(event) =>
@@ -112,8 +148,8 @@ export function AppShell({ children }: AppShellProps) {
               </select>
             </label>
             {isSignedIn ? (
-              <button className="link-button" onClick={handleLogout} type="button">
-                Выйти{displayName === null ? "" : `: ${displayName}`}
+              <button aria-label={`Выйти${displayName === null ? "" : `: ${displayName}`}`} className="icon-button" onClick={handleLogout} title="Выйти из аккаунта" type="button">
+                <LogOut aria-hidden="true" size={18} />
               </button>
             ) : (
               <Link className="auth-link" href="/login">
