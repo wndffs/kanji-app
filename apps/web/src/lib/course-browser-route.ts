@@ -23,3 +23,21 @@ export function adjacentCourseLevels(levels: readonly number[], current: number)
   return { previous: sorted.filter((level) => level < current).at(-1) ?? null,
     next: sorted.find((level) => level > current) ?? null };
 }
+
+export function courseItemHref(itemId: string, courseId: string, route: CourseBrowserRoute) {
+  const courseUrl = new URL(courseBrowserHref(courseId, route), "https://course.invalid");
+  const params = courseUrl.searchParams;
+  params.set("courseId", courseId);
+  return `/items/${encodeURIComponent(itemId)}?${params}`;
+}
+
+export function courseReturnHref(params: Record<string, string | string[] | undefined>) {
+  const courseId = params.courseId;
+  if (typeof courseId !== "string" || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/iu.test(courseId)) return null;
+  const query = new URLSearchParams();
+  for (const key of ["level", "page", "itemType", "studyState"]) {
+    const value = params[key];
+    if (typeof value === "string") query.set(key, value);
+  }
+  return courseBrowserHref(courseId, parseCourseBrowserRoute(query));
+}

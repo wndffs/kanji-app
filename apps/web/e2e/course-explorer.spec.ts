@@ -29,7 +29,7 @@ test.describe("published course explorer", () => {
     await expect(materials.getByRole("link")).toContainText("one");
     await materials.getByRole("button", { name: "Следующая страница материалов" }).click();
     await expect(materials.getByRole("link")).toContainText("二");
-    await expect(materials.getByRole("link")).toHaveAttribute("href", "/items/material-2");
+    await expect(materials.getByRole("link")).toHaveAttribute("href", new RegExp(`/items/material-2\\?level=1&page=2&courseId=${ID}$`, "u"));
     await materials.getByLabel("Тип материала", { exact: true }).selectOption("word");
     await expect(materials.getByText("Страница 1 из 2")).toBeVisible();
     await expect(page).toHaveURL(/itemType=word/u);

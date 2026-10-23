@@ -8,7 +8,7 @@ import { clearStoredSession } from "../../lib/auth-storage";
 import { ownsSession } from "../../lib/use-stored-session";
 import { JapaneseText } from "../../components/JapaneseText";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
-import { type CourseBrowserRoute } from "../../lib/course-browser-route";
+import { courseItemHref, type CourseBrowserRoute } from "../../lib/course-browser-route";
 
 export function CourseLevelMaterials({ token, courseId, levelNumber, route, onNavigate }: { readonly token: string; readonly courseId: string; readonly levelNumber: number; readonly route: CourseBrowserRoute; readonly onNavigate: (route: CourseBrowserRoute) => void }) {
   const displayMode = useTranslationDisplayMode();
@@ -42,7 +42,7 @@ export function CourseLevelMaterials({ token, courseId, levelNumber, route, onNa
     {data === null ? (error === null ? <p aria-busy="true">Загружаю материалы.</p> : null) : <>
       <p className="muted">Найдено: {data.total}</p>
       {data.items.length === 0 ? <p>Материалов на этой странице нет.</p> : <ul className="course-material-grid">
-        {data.items.map((item) => <li key={item.id}><Link href={`/items/${encodeURIComponent(item.id)}`}>
+        {data.items.map((item) => <li key={item.id}><Link href={courseItemHref(item.id, courseId, { ...route, level: levelNumber })}>
           <JapaneseText className="course-material-japanese">{item.japanese}</JapaneseText>
           {item.reading ? <JapaneseText className="course-material-reading">{item.reading}</JapaneseText> : null}
           {displayMode !== "en" && item.meaningRu ? <span lang="ru">{item.meaningRu}</span> : null}
