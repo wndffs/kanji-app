@@ -24,6 +24,7 @@ import {
   type CharacterHubTab,
 } from "../../lib/character-hub";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
+import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
 
 type CharactersState =
   | { readonly status: "loading" }
@@ -45,11 +46,18 @@ const STUDY_STATE_LABELS: Readonly<Record<CharacterHubKanjiItemDto["studyState"]
 };
 
 export function CharactersClient() {
+  const session = useStoredSession();
+  if (session === undefined) return <section className="page-stack" aria-busy="true"><h1>Символы</h1></section>;
+  return <CharactersScreen key={session === null ? "guest" : `${session.user.id}:${session.token}`} />;
+}
+
+function CharactersScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const query = useMemo(() => parseCharacterHubQuery(searchParams), [searchParams]);
   const displayMode = useTranslationDisplayMode();
   const [state, setState] = useState<CharactersState>({ status: "loading" });
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     const session = readStoredSession();
@@ -64,12 +72,12 @@ export function CharactersClient() {
 
     void getCharacterHub(session.token)
       .then((hub) => {
-        if (!cancelled) {
+        if (!cancelled && ownsSession(session.token)) {
           setState({ status: "ready", hub });
         }
       })
       .catch((error: unknown) => {
-        if (cancelled) {
+        if (cancelled || !ownsSession(session.token)) {
           return;
         }
 
@@ -89,7 +97,7 @@ export function CharactersClient() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [retry]);
 
   function updateKanjiFilters(filters: CharacterHubKanjiFilters): void {
     router.push(buildCharacterHubHref("kanji", filters), { scroll: false });
@@ -142,6 +150,7 @@ export function CharactersClient() {
       {state.status === "error" ? (
         <div className="notice-panel error-panel">
           <p>{state.message}</p>
+          <button className="secondary-action" onClick={() => setRetry((value) => value + 1)}>Повторить загрузку</button>
         </div>
       ) : null}
 
