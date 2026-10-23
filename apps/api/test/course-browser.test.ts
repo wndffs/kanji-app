@@ -31,5 +31,8 @@ describe("read-only published syllabus", () => {
     expect(levelPage).not.toHaveBeenCalled();
     expect(await service.materials("owner", ID, "2", { page: "2" })).toMatchObject({ total: 31, page: 2, items: [{ id: "b" }, { id: "a" }] });
     expect(loadLessonItems).toHaveBeenCalledExactlyOnceWith("owner", ["b", "a"]);
+    await service.materials("owner", ID, "2", { itemType: "word" });
+    expect(levelPage).toHaveBeenLastCalledWith(ID, 2, 1, { itemType: "word" });
+    await expect(service.materials("owner", ID, "2", { itemType: "invalid" })).rejects.toThrow("тип материала");
   });
 });

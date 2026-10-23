@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { type CourseOutlineDto } from "@kanji-srs/shared";
+import { type CourseOutlineDto, type ItemKind } from "@kanji-srs/shared";
 import { PrismaService } from "../database/prisma.service";
 
 @Injectable()
@@ -23,13 +23,14 @@ export class CourseBrowserRepository {
     };
   }
 
-  async levelPage(courseId: string, levelNumber: number, page: number) {
+  async levelPage(courseId: string, levelNumber: number, page: number, filters: { readonly itemType?: ItemKind } = {}) {
     const level = await this.prisma.db.courseLevel.findFirst({
       where: { courseId, levelNumber, course: { status: "PUBLISHED", courseType: "STRUCTURED" } },
       select: { id: true },
     });
     if (level === null) return null;
-    const where = { courseLevelId: level.id, learningItem: { status: "PUBLISHED" as const } };
+    const where = { courseLevelId: level.id, learningItem: { status: "PUBLISHED" as const,
+      ...(filters.itemType === undefined ? {} : { kind: filters.itemType.toUpperCase() as "COMPONENT" | "KANJI" | "WORD" | "SENTENCE" }) } };
     const total = await this.prisma.db.courseLevelItem.count({ where });
     const entries = await this.prisma.db.courseLevelItem.findMany({
       where, orderBy: [{ sortOrder: "asc" }, { learningItemId: "asc" }],

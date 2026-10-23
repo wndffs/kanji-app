@@ -27,6 +27,8 @@ test.describe("published course explorer", () => {
     await materials.getByRole("button", { name: "Следующая страница материалов" }).click();
     await expect(materials.getByRole("link")).toContainText("二");
     await expect(materials.getByRole("link")).toHaveAttribute("href", "/items/material-2");
+    await materials.getByLabel("Тип материала", { exact: true }).selectOption("word");
+    await expect(materials.getByText("Страница 1 из 2")).toBeVisible();
   });
   test("shows a read-only syllabus and retries a failed outline", async ({ page }) => {
     await signIn(page);

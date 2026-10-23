@@ -10,13 +10,14 @@ import { JapaneseText } from "../../components/JapaneseText";
 
 export function CourseLevelMaterials({ token, courseId, levelNumber }: { readonly token: string; readonly courseId: string; readonly levelNumber: number }) {
   const [page, setPage] = useState(1);
+  const [itemType, setItemType] = useState("all");
   const [data, setData] = useState<CourseMaterialPageDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     let active = true;
     setData(null); setError(null);
-    void getCourseMaterials(token, courseId, levelNumber, page).then((response) => {
+    void getCourseMaterials(token, courseId, levelNumber, page, itemType === "all" ? undefined : itemType).then((response) => {
       if (active && ownsSession(token)) setData(response);
     }).catch((reason: unknown) => {
       if (!active || !ownsSession(token)) return;
@@ -24,9 +25,12 @@ export function CourseLevelMaterials({ token, courseId, levelNumber }: { readonl
       else setError(reason instanceof Error ? reason.message : "Не удалось загрузить материалы уровня.");
     });
     return () => { active = false; };
-  }, [token, courseId, levelNumber, page, retry]);
+  }, [token, courseId, levelNumber, page, retry, itemType]);
   return <section className="course-level-materials" aria-label="Материалы уровня">
     <h2>Материалы уровня {levelNumber}</h2>
+    <label className="course-level-select">Тип материала<select value={itemType} onChange={(event) => { setItemType(event.target.value); setPage(1); }}>
+      <option value="all">Все материалы</option><option value="component">Компоненты</option><option value="kanji">Кандзи</option><option value="word">Слова</option><option value="sentence">Предложения</option>
+    </select></label>
     {error === null ? null : <div><p role="alert">{error}</p><button className="secondary-action" onClick={() => setRetry((value) => value + 1)}>Повторить загрузку материалов</button></div>}
     {data === null ? (error === null ? <p aria-busy="true">Загружаю материалы.</p> : null) : <>
       <p className="muted">Найдено: {data.total}</p>

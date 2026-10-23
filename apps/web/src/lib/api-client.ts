@@ -300,8 +300,10 @@ export function getCourseOutline(token: string, courseId: string): Promise<Cours
   return apiRequest(`/courses/${encodeURIComponent(courseId)}/outline`, { token });
 }
 
-export function getCourseMaterials(token: string, courseId: string, level: number, page: number): Promise<CourseMaterialPageDto> {
-  return apiRequest(`/courses/${encodeURIComponent(courseId)}/levels/${level}/items?page=${page}`, { token });
+export function getCourseMaterials(token: string, courseId: string, level: number, page: number, itemType?: string): Promise<CourseMaterialPageDto> {
+  const params = new URLSearchParams({ page: String(page) });
+  if (itemType !== undefined) params.set("itemType", itemType);
+  return apiRequest(`/courses/${encodeURIComponent(courseId)}/levels/${level}/items?${params}`, { token });
 }
 
 export function getAvailableCourses(
