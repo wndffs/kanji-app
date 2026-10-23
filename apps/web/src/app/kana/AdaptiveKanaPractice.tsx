@@ -23,6 +23,7 @@ import { buildKanaPracticeAnswer, toKanaLessonItem } from "../../lib/kana-adapti
 import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import { KanaTracingExercise } from "./KanaTracingExercise";
+import { SectionDisclosure } from "../../components/SectionDisclosure";
 
 type PracticeState =
   | { readonly status: "loading" }
@@ -289,7 +290,9 @@ export function AdaptiveKanaPractice({
           </>
         )}
       </section>
-      <PracticeSummary exercise={exercise} session={state.session} />
+      <SectionDisclosure title="Прогресс практики">
+        <PracticeSummary exercise={exercise} session={state.session} />
+      </SectionDisclosure>
     </>
   );
 }

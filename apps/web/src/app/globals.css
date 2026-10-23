@@ -4650,17 +4650,26 @@ textarea:focus-visible {
 
 .kana-workspace {
   display: grid;
-  grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 20px;
 }
 
 .kana-practice {
+  width: min(100%, 640px);
+  margin-inline: auto;
   min-height: 440px;
   display: grid;
   align-content: center;
   justify-items: center;
   gap: 24px;
+}
+
+.kana-current-unit {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .kana-practice form {

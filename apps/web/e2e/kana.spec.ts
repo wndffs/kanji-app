@@ -23,6 +23,7 @@ test.describe("kana lessons", () => {
     await mockKanaApi(page);
     await page.goto("/kana");
     await page.getByRole("tab", { name: "Проверка", exact: true }).click();
+    await page.getByText("Карта знаков", { exact: true }).click();
     await page.getByRole("button", { name: "っか: прогресс 0 из 3" }).click();
     const speak = page.getByRole("button", { name: "Воспроизвести произношение" });
     await expect(speak).toBeEnabled();
@@ -192,6 +193,8 @@ test.describe("kana lessons", () => {
       )
       .toBe("あ");
     const yoonTile = page.getByTestId("kana-unit-list").getByText("きゃ", { exact: true });
+    await expect(yoonTile).toBeHidden();
+    await page.getByText("Все уроки", { exact: true }).click();
     await expect(yoonTile).toBeVisible();
     expect(await yoonTile.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
       true,
@@ -208,6 +211,7 @@ test.describe("kana lessons", () => {
     ).toBe(true);
     await page.getByRole("tab", { name: "Проверка" }).click();
     const assessmentYoon = page.getByRole("button", { name: "きゃ: прогресс 0 из 3" });
+    await page.getByText("Карта знаков", { exact: true }).click();
     await expect(assessmentYoon).toBeVisible();
     expect(
       await assessmentYoon.evaluate((element) => element.scrollWidth <= element.clientWidth),
@@ -235,6 +239,7 @@ test.describe("kana lessons", () => {
     await expect(practice.getByText("Верно")).toBeVisible();
 
     await page.getByRole("tab", { name: "Проверка" }).click();
+    await page.getByText("Карта знаков", { exact: true }).click();
     await page.getByRole("button", { name: "っか: прогресс 0 из 3" }).click();
     await expect(practice.getByText("Аудирование", { exact: true })).toBeVisible();
     await practice.getByRole("button", { name: "Воспроизвести произношение" }).click();
@@ -273,6 +278,7 @@ test.describe("kana lessons", () => {
     await page.getByRole("tab", { name: "Уроки" }).click();
     await page.getByRole("button", { name: "Катакана" }).click();
     await expect(practice).toContainText("ア");
+    await page.getByText("Все уроки", { exact: true }).click();
     await expect(
       page.getByTestId("kana-unit-list").getByText("キャ", { exact: true }),
     ).toBeVisible();
