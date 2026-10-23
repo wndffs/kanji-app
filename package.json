@@ -21,6 +21,7 @@
     "db:restore:verify": "npm run prisma:verify-database-restore --workspace @kanji-srs/db --",
     "content:quality": "npm run prisma:report-content-quality --workspace @kanji-srs/db --",
     "content:inventory": "npm run prisma:report-editorial-registry --workspace @kanji-srs/db --",
+    "content:drafts:evidence": "npm run prisma:report-editorial-draft-evidence --workspace @kanji-srs/db --",
     "db:migrate": "npm run prisma:migrate:dev --workspace @kanji-srs/db",
     "db:migrate:deploy": "npm run prisma:migrate:deploy --workspace @kanji-srs/db",
     "db:seed": "npm run prisma:seed --workspace @kanji-srs/db",

@@ -1,10 +1,22 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildMainCourseContentBatches, validateMainCourseContentBatches } from "../src/main-course-content";
 import { buildKanjiDraft07 } from "../src/editorial-draft-kanji-07";
 import { buildWordDraft07 } from "../src/editorial-draft-words-07";
 import { buildMainCourseWordBatches } from "../src/main-course-word-content";
+import { inspectEditorialDraftEvidence } from "../src/editorial-draft-evidence";
 
 describe("isolated editorial drafts", () => {
+  it("reports missing evidence without guessing source IDs or approving a draft", async () => {
+    const db = { word: { findMany: vi.fn().mockResolvedValue([]) }, kanji: { findMany: vi.fn().mockResolvedValue([]) } };
+    const report = await inspectEditorialDraftEvidence(db as never);
+    expect(report.publicationApproved).toBe(false);
+    expect(report.kanji).toHaveLength(10);
+    expect(report.words).toHaveLength(20);
+    expect(report.words.every((word) => word.observedEntryId === null && word.provenance === null)).toBe(true);
+    expect(db.word.findMany).toHaveBeenCalledOnce();
+    expect(db.kanji.findMany).toHaveBeenCalledOnce();
+    expect(db.word.findMany.mock.calls[0]![0].where.OR).toContainEqual({ expression: "何人", reading: "なんにん" });
+  });
   it("keeps twenty exact-pair vocabulary proposals with kana and bilingual examples", () => {
     const draft = buildWordDraft07();
     expect(draft.words).toHaveLength(20);

@@ -18,6 +18,7 @@
     "prisma:verify-database-restore": "tsx prisma/verify-database-restore.ts",
     "prisma:report-content-quality": "tsx prisma/report-content-quality.ts",
     "prisma:report-editorial-registry": "tsx prisma/report-editorial-registry.ts",
+    "prisma:report-editorial-draft-evidence": "tsx prisma/report-editorial-draft-evidence.ts",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
