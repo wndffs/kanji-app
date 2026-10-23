@@ -59,8 +59,13 @@ export class LessonsService {
       new Date(),
       deckId,
     );
-    const teachingItems = await this.hydrateAvailableItems(user.id, availableItems.slice(0, remainingToday));
-    const selectableItems = teachingItems.map((item) => toLessonQueueItem(item.item, item.unlockedBy, displayMode));
+    const teachingItems = await this.hydrateAvailableItems(
+      user.id,
+      availableItems.slice(0, remainingToday),
+    );
+    const selectableItems = teachingItems.map((item) =>
+      toLessonQueueItem(item.item, item.unlockedBy, displayMode),
+    );
     const batchLimit = getLessonBatchSize(user);
     const orderMode = getLessonOrderMode(user);
     const suggestedItems = orderLessonItems(
@@ -247,8 +252,11 @@ export class LessonsService {
       session.deckId,
       true,
     );
-    const [lessonItem] = await this.hydrateAvailableItems(user.id,
-      availableItems.filter((candidate) => candidate.item.id === request.itemId), false);
+    const [lessonItem] = await this.hydrateAvailableItems(
+      user.id,
+      availableItems.filter((candidate) => candidate.item.id === request.itemId),
+      false,
+    );
 
     if (lessonItem === undefined) {
       throw new BadRequestException("Lesson item is not currently available.");
@@ -346,8 +354,11 @@ export class LessonsService {
       session.deckId,
       true,
     );
-    const [lessonItem] = await this.hydrateAvailableItems(user.id,
-      availableItems.filter((candidate) => candidate.item.id === request.itemId), false);
+    const [lessonItem] = await this.hydrateAvailableItems(
+      user.id,
+      availableItems.filter((candidate) => candidate.item.id === request.itemId),
+      false,
+    );
 
     if (lessonItem === undefined) {
       throw new BadRequestException("Lesson item is not currently available.");
@@ -419,15 +430,41 @@ export class LessonsService {
     return { session: toLessonSessionDto(session) };
   }
 
-  private async hydrateAvailableItems(userId: string, entries: readonly AvailableLessonMetadata[], includePrerequisites = true): Promise<readonly AvailableLessonItem[]> {
-    const ids = entries.flatMap((entry) => [entry.item.id, ...(includePrerequisites ? entry.unlockedBy.map((item) => item.id) : [])]);
+  private async hydrateAvailableItems(
+    userId: string,
+    entries: readonly AvailableLessonMetadata[],
+    includePrerequisites = true,
+  ): Promise<readonly AvailableLessonItem[]> {
+    const ids = entries.flatMap((entry) => [
+      entry.item.id,
+      ...(includePrerequisites ? entry.unlockedBy.map((item) => item.id) : []),
+    ]);
     const items = await this.lessonsRepository.loadLessonItems(userId, ids);
-    const requireItem = (id: string): LessonItemRecord => {
-      const item = items.get(id);
-      if (item === undefined || item.cards.length === 0) throw new BadRequestException("Lesson content changed. Reload the lesson queue.");
+    const requireItem = (metadata: LessonEligibilityItemRecord): LessonItemRecord => {
+      const item = items.get(metadata.id);
+      if (
+        item === undefined ||
+        item.cards.length === 0 ||
+        item.cards.length !== metadata.cards.length ||
+        metadata.cards.some((card) => !item.cards.some((current) => current.id === card.id)) ||
+        item.dependencies.length !== metadata.dependencies.length ||
+        metadata.dependencies.some(
+          (dependency) =>
+            !item.dependencies.some(
+              (current) =>
+                current.prerequisiteItemId === dependency.prerequisiteItemId &&
+                current.requiredStage === dependency.requiredStage,
+            ),
+        )
+      )
+        throw new BadRequestException("Lesson content changed. Reload the lesson queue.");
       return item;
     };
-    return entries.map((entry) => ({ ...entry, item: requireItem(entry.item.id), unlockedBy: includePrerequisites ? entry.unlockedBy.map((item) => requireItem(item.id)) : [] }));
+    return entries.map((entry) => ({
+      ...entry,
+      item: requireItem(entry.item),
+      unlockedBy: includePrerequisites ? entry.unlockedBy.map((item) => requireItem(item)) : [],
+    }));
   }
 
   private async getAvailableMetadata(
@@ -448,7 +485,11 @@ export class LessonsService {
     if (deckId !== null) {
       const progress = await progressPromise;
       const remainingToday = getRemainingDailyLessons(user, progress, now);
-      const deck = await this.lessonsRepository.findDeckEligibility(user.id, deckId, remainingToday > 0);
+      const deck = await this.lessonsRepository.findDeckEligibility(
+        user.id,
+        deckId,
+        remainingToday > 0,
+      );
 
       if (deck === null) {
         throw new NotFoundException("Deck not found.");

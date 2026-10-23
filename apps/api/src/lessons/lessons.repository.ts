@@ -42,8 +42,15 @@ import {
 
 export abstract class LessonsRepository {
   abstract listCourseEligibility(userId: string): Promise<readonly CourseLessonEligibilityRecord[]>;
-  abstract findDeckEligibility(userId: string, deckId: string, includeItems?: boolean): Promise<DeckLessonEligibilityRecord | null>;
-  abstract loadLessonItems(userId: string, itemIds: readonly string[]): Promise<ReadonlyMap<string, LessonItemRecord>>;
+  abstract findDeckEligibility(
+    userId: string,
+    deckId: string,
+    includeItems?: boolean,
+  ): Promise<DeckLessonEligibilityRecord | null>;
+  abstract loadLessonItems(
+    userId: string,
+    itemIds: readonly string[],
+  ): Promise<ReadonlyMap<string, LessonItemRecord>>;
   abstract listCourseLessonItems(userId: string): Promise<readonly CourseLessonItemRecord[]>;
   abstract findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null>;
   abstract listUserProgress(userId: string): Promise<readonly UserItemProgressRecord[]>;
@@ -266,21 +273,31 @@ export class PrismaLessonsRepository extends LessonsRepository {
         },
       },
     });
-    return enrollments.flatMap(({ course }) => course.levels.flatMap((level) =>
-      level.items.flatMap((entry) => {
-        const item = toEligibilityItem(entry.learningItem);
-        return item.cards.length === 0 ? [] : [{
-          courseId: course.id,
-          courseLevelNumber: level.levelNumber,
-          sortOrder: entry.sortOrder,
-          unlockPolicy: isRecord(entry.unlockPolicyJson) ? entry.unlockPolicyJson : null,
-          item,
-        }];
-      }),
-    ));
+    return enrollments.flatMap(({ course }) =>
+      course.levels.flatMap((level) =>
+        level.items.flatMap((entry) => {
+          const item = toEligibilityItem(entry.learningItem);
+          return item.cards.length === 0
+            ? []
+            : [
+                {
+                  courseId: course.id,
+                  courseLevelNumber: level.levelNumber,
+                  sortOrder: entry.sortOrder,
+                  unlockPolicy: isRecord(entry.unlockPolicyJson) ? entry.unlockPolicyJson : null,
+                  item,
+                },
+              ];
+        }),
+      ),
+    );
   }
 
-  async findDeckEligibility(userId: string, deckId: string, includeItems = true): Promise<DeckLessonEligibilityRecord | null> {
+  async findDeckEligibility(
+    userId: string,
+    deckId: string,
+    includeItems = true,
+  ): Promise<DeckLessonEligibilityRecord | null> {
     if (!includeItems) {
       const deck = await this.prisma.db.deck.findFirst({
         where: { id: deckId, ownerUserId: userId },
@@ -291,7 +308,9 @@ export class PrismaLessonsRepository extends LessonsRepository {
     const deck = await this.prisma.db.deck.findFirst({
       where: { id: deckId, ownerUserId: userId },
       select: {
-        id: true, title: true, status: true,
+        id: true,
+        title: true,
+        status: true,
         items: {
           where: { learningItem: { status: "PUBLISHED" } },
           orderBy: [{ sortOrder: "asc" }, { learningItemId: "asc" }],
@@ -300,7 +319,10 @@ export class PrismaLessonsRepository extends LessonsRepository {
       },
     });
     if (deck === null) return null;
-    return { id: deck.id, title: deck.title, status: toDeckLessonStatus(deck.status),
+    return {
+      id: deck.id,
+      title: deck.title,
+      status: toDeckLessonStatus(deck.status),
       items: (deck.items ?? []).flatMap((entry) => {
         const item = toEligibilityItem(entry.learningItem);
         return item.cards.length === 0 ? [] : [{ sortOrder: entry.sortOrder, item }];
@@ -308,12 +330,18 @@ export class PrismaLessonsRepository extends LessonsRepository {
     };
   }
 
-  async loadLessonItems(userId: string, itemIds: readonly string[]): Promise<ReadonlyMap<string, LessonItemRecord>> {
+  async loadLessonItems(
+    userId: string,
+    itemIds: readonly string[],
+  ): Promise<ReadonlyMap<string, LessonItemRecord>> {
     const ids = [...new Set(itemIds)];
     const result = new Map<string, LessonItemRecord>();
     for (let offset = 0; offset < ids.length; offset += LESSON_TARGET_BATCH_SIZE) {
       const rows = await this.prisma.db.learningItem.findMany({
-        where: { id: { in: ids.slice(offset, offset + LESSON_TARGET_BATCH_SIZE) }, status: "PUBLISHED" },
+        where: {
+          id: { in: ids.slice(offset, offset + LESSON_TARGET_BATCH_SIZE) },
+          status: "PUBLISHED",
+        },
         include: {
           cards: {
             where: listeningCardEligibilityWhere,
@@ -324,15 +352,22 @@ export class PrismaLessonsRepository extends LessonsRepository {
               audioAsset: { include: { dataSource: true, license: true } },
             },
           },
-          dependencies: { where: { dependencyType: "PREREQUISITE" }, orderBy: { prerequisiteItemId: "asc" } },
+          dependencies: {
+            where: { dependencyType: "PREREQUISITE" },
+            orderBy: { prerequisiteItemId: "asc" },
+          },
           mnemonics: { orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }, { version: "desc" }] },
           hints: { orderBy: [{ locale: "asc" }, { hintType: "asc" }, { version: "desc" }] },
-          userMnemonics: { where: { userId }, orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }] },
+          userMnemonics: {
+            where: { userId },
+            orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }],
+          },
         },
       });
       const examples = await loadItemExampleSentences(this.prisma.db, rows, 3);
       const targets = await this.loadTargets(rows);
-      for (const row of rows) result.set(row.id, this.toLessonItemRecord(row, examples.get(row.id) ?? [], targets));
+      for (const row of rows)
+        result.set(row.id, this.toLessonItemRecord(row, examples.get(row.id) ?? [], targets));
     }
     return result;
   }
@@ -1141,8 +1176,13 @@ function toEligibilityItem(row: {
     id: row.id,
     itemType,
     dependencies: row.dependencies.map(toDependencyRecord),
-    cards: row.cards.filter((card) => card.promptType !== "LISTENING" ||
-      isEligibleListeningAudio(card.audioAsset, row.id, itemType)).map(({ id }) => ({ id })),
+    cards: row.cards
+      .filter(
+        (card) =>
+          card.promptType !== "LISTENING" ||
+          isEligibleListeningAudio(card.audioAsset, row.id, itemType),
+      )
+      .map(({ id }) => ({ id })),
   };
 }
 

@@ -97,9 +97,19 @@ const SOURCE_SEALS = [
     version: "4",
     sources: [
       ...SEALED_KANJI,
-      { kind: "kanji", id: "task-118-course-kanji-06", version: "1", checksumSha256: "74482be25706778fafe6e18b5ffc144718a3bf7a4181a5aacc8323516b223833" },
+      {
+        kind: "kanji",
+        id: "task-118-course-kanji-06",
+        version: "1",
+        checksumSha256: "74482be25706778fafe6e18b5ffc144718a3bf7a4181a5aacc8323516b223833",
+      },
       ...SEALED_WORDS,
-      { kind: "word", id: "task-127-course-words-06", version: "1", checksumSha256: "8a9e0cef7dc10ec355125ffb7bb989d96cd531d0f85767280b735b6ad9790858" },
+      {
+        kind: "word",
+        id: "task-127-course-words-06",
+        version: "1",
+        checksumSha256: "8a9e0cef7dc10ec355125ffb7bb989d96cd531d0f85767280b735b6ad9790858",
+      },
     ],
     sealedDistinctTotals: { components: 79, kanji: 101, words: 120, items: 300 },
   },
@@ -240,7 +250,7 @@ export function buildEditorialRegistryInventory(options: EditorialRegistryInvent
       };
     });
     if (sourceSeals.some((seal) => seal.status === "mismatch"))
-      issues.push(`${batch.id}: immutable V1/V2/V3 source seal mismatch.`);
+      issues.push(`${batch.id}: immutable V1-V4 source seal mismatch.`);
     return {
       kind: entry.kind,
       id: batch.id,

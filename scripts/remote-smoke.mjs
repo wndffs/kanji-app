@@ -318,8 +318,13 @@ export async function runRemoteSmoke(env, { fetchImpl = fetch } = {}) {
         ready = (await request("api_ready", "/ready")).value;
         break;
       } catch (error) {
-        if (!(error instanceof SmokeFailure) || error.failure.code !== "HTTP_ERROR" ||
-          error.failure.status !== 503 || attempt === READINESS_ATTEMPTS) throw error;
+        if (
+          !(error instanceof SmokeFailure) ||
+          error.failure.code !== "HTTP_ERROR" ||
+          error.failure.status !== 503 ||
+          attempt === READINESS_ATTEMPTS
+        )
+          throw error;
         await waitForReadinessRetry(run.signal);
       }
     }

@@ -13,5 +13,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     const report = runEditorialDraftPreview(process.argv.slice(2));
     console.log(JSON.stringify(report, null, 2));
     process.exitCode = report.validation.valid ? 0 : 1;
-  } catch (error) { console.error(error instanceof Error ? error.message : "Draft preview failed."); process.exitCode = 1; }
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "Draft preview failed.");
+    process.exitCode = 1;
+  }
 }

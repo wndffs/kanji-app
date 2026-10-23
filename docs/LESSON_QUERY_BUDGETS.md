@@ -1,5 +1,29 @@
 # Lesson Target Query Budgets
 
+## Cycle 175-189 Update
+
+Production queue/session/answer paths now use separate eligibility metadata and
+exact-ID teaching hydration. Course/deck graphs contain published placement,
+dependency and eligible card IDs, not answers, examples or private teaching text.
+All canonical prerequisite cards remain necessary; no tail is dropped to enforce
+a performance limit. Graph size itself still grows with the selected course.
+
+Full teaching reads are sequential batches of at most 100 distinct item IDs with
+the published-item filter and owner-scoped private mnemonics. Queue reads hydrate
+only today's selectable entries plus displayed prerequisite summaries. Starting
+a session needs metadata only. Resume hydrates only remaining selected entries;
+answer checking/completion hydrate only the requested eligible session item.
+Missing or changed card/dependency sets between reads fail closed and ask for a
+reload. No rich payload cache can leak between users or preserve stale answers.
+
+At an exhausted daily deck cap only the owned deck header/status is read. Course
+graphs are already skipped at that cap. Existing SRS intervals, session validation,
+meaning/reading gates, examples and licensed listening rules are unchanged.
+
+The sections below retain historical query evidence for the target-loader API;
+their full-graph limitations describe the previous production paths. Live latency
+and total SQL counts are not implied by these delegate-level bounds.
+
 This is a bounded Task123 repair, not completion of the performance task and not
 a production latency or end-to-end query-budget pass.
 

@@ -276,7 +276,7 @@ describe("source-only editorial registry inventory", () => {
     input.kanjiBatches[0] = { ...input.kanjiBatches[0]!, id: "task-118-foundation-kanji-01" };
     const report = buildEditorialRegistryInventory(input);
     expect(report.validation.issues).toContain(
-      "task-118-foundation-kanji-01: immutable V1/V2/V3 source seal mismatch.",
+      "task-118-foundation-kanji-01: immutable V1-V4 source seal mismatch.",
     );
     expect(report.sourceSeals.map((seal) => seal.status)).toEqual([
       "mismatch",
@@ -316,7 +316,8 @@ describe("source-only editorial registry inventory", () => {
     expect(
       report.batches
         .find((batch) => batch.id === "task-118-course-kanji-06")!
-        .sourceSeals.filter((seal) => seal.id !== "v4").every((seal) => seal.status === "not-in-seal"),
+        .sourceSeals.filter((seal) => seal.id !== "v4")
+        .every((seal) => seal.status === "not-in-seal"),
     ).toBe(true);
   });
 });

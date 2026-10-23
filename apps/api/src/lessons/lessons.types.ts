@@ -91,7 +91,10 @@ export type LessonItemRecord = {
   readonly exampleSentences: readonly SentenceDto[];
 };
 
-export type LessonEligibilityItemRecord = Pick<LessonItemRecord, "id" | "itemType" | "dependencies"> & {
+export type LessonEligibilityItemRecord = Pick<
+  LessonItemRecord,
+  "id" | "itemType" | "dependencies"
+> & {
   readonly cards: readonly Pick<LessonCardRecord, "id">[];
 };
 

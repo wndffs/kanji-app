@@ -138,7 +138,11 @@ function harness(items: ReturnType<typeof item>[]) {
   };
   const db = {
     ...tables,
-    learningItem: { findMany: vi.fn(async ({ where }: Query) => items.filter((item) => where.id.in.includes(item.id)).reverse()) },
+    learningItem: {
+      findMany: vi.fn(async ({ where }: Query) =>
+        items.filter((item) => where.id.in.includes(item.id)).reverse(),
+      ),
+    },
     $queryRaw: vi.fn().mockResolvedValue([]),
     userSettings: { findUnique: vi.fn().mockResolvedValue({ currentCourseId: course.id }) },
     userEnrollment: {
@@ -175,7 +179,9 @@ describe("selected teaching hydration", () => {
     const loaded = await h.repository.loadLessonItems("owner", [...ids, ids[0]!]);
     expect(loaded.size).toBe(101);
     expect(h.db.learningItem.findMany).toHaveBeenCalledTimes(2);
-    expect(h.db.learningItem.findMany.mock.calls.map(([query]) => query.where.id.in.length)).toEqual([100, 1]);
+    expect(
+      h.db.learningItem.findMany.mock.calls.map(([query]) => query.where.id.in.length),
+    ).toEqual([100, 1]);
     expect(h.db.learningItem.findMany.mock.calls[0]![0]).toMatchObject({
       where: { status: "PUBLISHED", id: { in: ids.slice(0, 100) } },
       include: { userMnemonics: { where: { userId: "owner" } } },

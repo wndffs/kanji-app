@@ -330,7 +330,9 @@ describe("LessonsService", () => {
     });
 
     repository.addProgress("owner", "item-component-one", ["card-component-one"], 0);
-    expect((await service.getQueue(createUser("owner"))).availableItems.map((entry) => entry.item.id)).not.toContain("item-kanji-one");
+    expect(
+      (await service.getQueue(createUser("owner"))).availableItems.map((entry) => entry.item.id),
+    ).not.toContain("item-kanji-one");
 
     repository.addProgress("owner", "item-component-one", ["card-component-one"], 1);
 
@@ -384,7 +386,11 @@ describe("LessonsService", () => {
     expect(hydrate).toHaveBeenLastCalledWith("owner", ["item-component-one"]);
     repository.addProgress("owner", "item-component-one", ["card-component-one"], 1);
     await service.getQueue(createUser("owner"));
-    expect(hydrate).toHaveBeenLastCalledWith("owner", ["item-kanji-one", "item-component-one", "item-component-two"]);
+    expect(hydrate).toHaveBeenLastCalledWith("owner", [
+      "item-kanji-one",
+      "item-component-one",
+      "item-component-two",
+    ]);
   });
 
   it("starts from metadata and resumes only selected session materials", async () => {
@@ -393,8 +399,28 @@ describe("LessonsService", () => {
     const service = new LessonsService(repository, createOverridesService());
     await service.startSession(createUser("owner"), { itemIds: ["item-component-one"] });
     expect(hydrate).not.toHaveBeenCalled();
-    expect((await service.getActiveSession(createUser("owner"))).items.map((entry) => entry.item.id)).toEqual(["item-component-one"]);
+    expect(
+      (await service.getActiveSession(createUser("owner"))).items.map((entry) => entry.item.id),
+    ).toEqual(["item-component-one"]);
     expect(hydrate).toHaveBeenCalledExactlyOnceWith("owner", ["item-component-one"]);
+  });
+
+  it("fails closed when eligibility cards change between metadata and teaching reads", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const load = repository.loadLessonItems.bind(repository);
+    vi.spyOn(repository, "loadLessonItems").mockImplementation(async (userId, ids) => {
+      const items = await load(userId, ids);
+      const first = items.values().next().value!;
+      return new Map([
+        ...items,
+        [
+          first.id,
+          { ...first, cards: [...first.cards, { ...first.cards[0]!, id: "new-reading" }] },
+        ],
+      ]);
+    });
+    const service = new LessonsService(repository, createOverridesService());
+    await expect(service.getQueue(createUser("owner"))).rejects.toThrow("Lesson content changed");
   });
 
   it("checks and completes only the requested eligible session item", async () => {
@@ -403,9 +429,15 @@ describe("LessonsService", () => {
     const service = new LessonsService(repository, createOverridesService());
     const { session } = await service.startSession(createUser("owner"));
     const answer = { cardId: "card-component-one", answerType: "meaning", answer: "одна черта" };
-    await service.checkAnswer(session.id, createUser("owner"), { itemId: "item-component-one", ...answer });
+    await service.checkAnswer(session.id, createUser("owner"), {
+      itemId: "item-component-one",
+      ...answer,
+    });
     expect(hydrate).toHaveBeenLastCalledWith("owner", ["item-component-one"]);
-    await service.completeItem(session.id, createUser("owner"), { itemId: "item-component-one", answers: [answer] });
+    await service.completeItem(session.id, createUser("owner"), {
+      itemId: "item-component-one",
+      answers: [answer],
+    });
     expect(hydrate).toHaveBeenLastCalledWith("owner", ["item-component-one"]);
   });
 
@@ -1125,8 +1157,13 @@ class InMemoryLessonsRepository extends LessonsRepository {
   }
 
   async loadLessonItems(_userId: string, itemIds: readonly string[]) {
-    const items = [...this.courseItems.map((entry) => entry.item), ...createDeckLesson(this.deckStatus).items.map((entry) => entry.item)];
-    return new Map(items.filter((item) => itemIds.includes(item.id)).map((item) => [item.id, item]));
+    const items = [
+      ...this.courseItems.map((entry) => entry.item),
+      ...createDeckLesson(this.deckStatus).items.map((entry) => entry.item),
+    ];
+    return new Map(
+      items.filter((item) => itemIds.includes(item.id)).map((item) => [item.id, item]),
+    );
   }
 
   async findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null> {

@@ -30,7 +30,9 @@ describe("bounded cold-start readiness", () => {
   it("retries only readiness 503 before any account write", async () => {
     vi.useFakeTimers();
     let readyCalls = 0;
-    const h = fixture((path) => path === "/ready" && ++readyCalls < 3 ? new Response(null, { status: 503 }) : undefined);
+    const h = fixture((path) =>
+      path === "/ready" && ++readyCalls < 3 ? new Response(null, { status: 503 }) : undefined,
+    );
     const pending = runRemoteSmoke(env, { fetchImpl: h.fetchImpl });
     await vi.advanceTimersByTimeAsync(0);
     expect(h.calls.some(({ init }) => init.method === "POST")).toBe(false);
@@ -42,7 +44,9 @@ describe("bounded cold-start readiness", () => {
   });
   it("stops after the bounded readiness budget without registering", async () => {
     vi.useFakeTimers();
-    const h = fixture((path) => path === "/ready" ? new Response(null, { status: 503 }) : undefined);
+    const h = fixture((path) =>
+      path === "/ready" ? new Response(null, { status: 503 }) : undefined,
+    );
     const pending = runRemoteSmoke(env, { fetchImpl: h.fetchImpl });
     await vi.advanceTimersByTimeAsync(READINESS_RETRY_MS * READINESS_ATTEMPTS);
     expect((await pending).ok).toBe(false);
