@@ -28,6 +28,7 @@ import {
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
+import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
 
 type QueueState =
   | { readonly status: "loading" }
@@ -46,6 +47,12 @@ export function PracticeClient({
 }: {
   readonly initialSource?: PracticeSource;
 }) {
+  const session = useStoredSession();
+  if (session === undefined) return <section className="page-stack" aria-busy="true"><h1>Практика</h1></section>;
+  return <PracticeScreen key={`${session === null ? "guest" : `${session.user.id}:${session.token}`}:${initialSource}`} initialSource={initialSource} />;
+}
+
+function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSource }) {
   const router = useRouter();
   const displayMode = useTranslationDisplayMode();
   const source = initialSource;
@@ -94,11 +101,11 @@ export function PracticeClient({
         getPracticeQueue(storedSession.token, source),
         getActivePracticeSession(storedSession.token, source),
       ]);
-      if (revision !== requestRevision.current) return;
+      if (revision !== requestRevision.current || !ownsSession(storedSession.token)) return;
 
       if (active.session !== null && active.session.currentIndex >= active.session.totalItems) {
         const finished = await finishPracticeSession(storedSession.token, active.session.id);
-        if (revision !== requestRevision.current) return;
+        if (revision !== requestRevision.current || !ownsSession(storedSession.token)) return;
         setQueueState({ status: "ready", token: storedSession.token, items: queue.items });
         setFinishedSummary(finished.summary);
         return;
@@ -114,7 +121,7 @@ export function PracticeClient({
 
       setQueueState({ status: "ready", token: storedSession.token, items: queue.items });
     } catch (requestError: unknown) {
-      if (revision !== requestRevision.current) return;
+      if (revision !== requestRevision.current || !ownsSession(storedSession.token)) return;
       if (requestError instanceof ApiError && requestError.status === 401) {
         clearStoredSession();
         setQueueState({ status: "unauthenticated" });
@@ -169,7 +176,7 @@ export function PracticeClient({
   }
 
   async function handleStart(): Promise<void> {
-    if (queueState.status !== "ready" || queueState.items.length === 0 || isStarting) {
+    if (queueState.status !== "ready" || !ownsSession(queueState.token) || queueState.items.length === 0 || isStarting) {
       return;
     }
 
@@ -178,6 +185,7 @@ export function PracticeClient({
 
     try {
       const response = await startPracticeSession(queueState.token, source);
+      if (!ownsSession(queueState.token)) return;
       setQueueState({ ...queueState, items: response.items });
       setPracticeSession(response.session);
       setIsPracticing(true);
@@ -201,6 +209,7 @@ export function PracticeClient({
 
     if (
       queueState.status !== "ready" ||
+      !ownsSession(queueState.token) ||
       practiceSession === null ||
       currentItem === null ||
       answer.trim() === "" ||
@@ -222,6 +231,7 @@ export function PracticeClient({
         listeningEvidence:
           currentItem.card.promptType === "listening" ? listeningEvidence : undefined,
       });
+      if (!ownsSession(queueState.token)) return;
       setFeedback(response.answer);
       setPracticeSession(response.session);
       setProgress(response.session.progress);
@@ -237,6 +247,7 @@ export function PracticeClient({
   async function handleContinue(): Promise<void> {
     if (
       queueState.status !== "ready" ||
+      !ownsSession(queueState.token) ||
       practiceSession === null ||
       feedback === null ||
       isContinuing
@@ -258,6 +269,7 @@ export function PracticeClient({
 
       try {
         const response = await finishPracticeSession(queueState.token, practiceSession.id);
+        if (!ownsSession(queueState.token)) return;
         setProgress(response.summary);
         setFinishedSummary(response.summary);
         setPracticeSession(null);
