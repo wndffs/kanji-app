@@ -19,7 +19,16 @@ export type CourseMaterialDto = {
   readonly itemType: ItemKind;
   readonly japanese: string;
   readonly title: string;
+  readonly studyState: CourseMaterialStudyState;
+  readonly cardCount: number;
+  readonly startedCardCount: number;
+  readonly burnedCardCount: number;
 };
+export type CourseMaterialStudyState = "not-started" | "learning" | "burned";
+export function courseMaterialStudyState(cards: readonly { readonly started: boolean; readonly burned: boolean }[]): CourseMaterialStudyState {
+  if (cards.length > 0 && cards.every((card) => card.started && card.burned)) return "burned";
+  return cards.some((card) => card.started) ? "learning" : "not-started";
+}
 export type CourseMaterialPageDto = {
   readonly courseId: string;
   readonly levelNumber: number;

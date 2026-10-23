@@ -1,6 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { type CourseOutlineDto, type ItemKind } from "@kanji-srs/shared";
+import { courseMaterialStudyState, type CourseOutlineDto, type ItemKind, type CourseMaterialStudyState } from "@kanji-srs/shared";
 import { PrismaService } from "../database/prisma.service";
+import { listeningCardEligibilityWhere } from "../lessons/lessons.repository";
+import { isEligibleListeningAudio } from "../audio/audio-asset";
 
 @Injectable()
 export class CourseBrowserRepository {
@@ -23,7 +25,7 @@ export class CourseBrowserRepository {
     };
   }
 
-  async levelPage(courseId: string, levelNumber: number, page: number, filters: { readonly itemType?: ItemKind } = {}) {
+  async levelPage(userId: string, courseId: string, levelNumber: number, page: number, filters: { readonly itemType?: ItemKind; readonly studyState?: CourseMaterialStudyState } = {}) {
     const level = await this.prisma.db.courseLevel.findFirst({
       where: { courseId, levelNumber, course: { status: "PUBLISHED", courseType: "STRUCTURED" } },
       select: { id: true },
@@ -31,11 +33,23 @@ export class CourseBrowserRepository {
     if (level === null) return null;
     const where = { courseLevelId: level.id, learningItem: { status: "PUBLISHED" as const,
       ...(filters.itemType === undefined ? {} : { kind: filters.itemType.toUpperCase() as "COMPONENT" | "KANJI" | "WORD" | "SENTENCE" }) } };
-    const total = await this.prisma.db.courseLevelItem.count({ where });
     const entries = await this.prisma.db.courseLevelItem.findMany({
       where, orderBy: [{ sortOrder: "asc" }, { learningItemId: "asc" }],
-      skip: (page - 1) * 30, take: 30, select: { learningItemId: true },
+      select: { learningItemId: true, learningItem: { select: { kind: true, cards: {
+        where: listeningCardEligibilityWhere,
+        select: { id: true, promptType: true, audioAsset: { include: { dataSource: true, license: true } },
+          srsStates: { where: { userId }, select: { burnedAt: true } } },
+      } } } },
     });
-    return { ids: entries.map((entry) => entry.learningItemId), total };
+    const indexed = entries.map((entry) => {
+      const itemType = entry.learningItem.kind.toLowerCase() as ItemKind;
+      const cards = entry.learningItem.cards.filter((card) => card.promptType !== "LISTENING" || isEligibleListeningAudio(card.audioAsset, entry.learningItemId, itemType));
+      const states = cards.map((card) => ({ started: card.srsStates.length > 0, burned: card.srsStates[0]?.burnedAt != null }));
+      return { id: entry.learningItemId, studyState: courseMaterialStudyState(states), cardCount: cards.length,
+        startedCardCount: states.filter((state) => state.started).length, burnedCardCount: states.filter((state) => state.burned).length };
+    }).filter((entry) => filters.studyState === undefined || entry.studyState === filters.studyState);
+    const selected = indexed.slice((page - 1) * 30, page * 30);
+    return { ids: selected.map((entry) => entry.id), total: indexed.length,
+      progress: new Map(selected.map((entry) => [entry.id, entry])) };
   }
 }

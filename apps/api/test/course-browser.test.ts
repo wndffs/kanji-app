@@ -24,7 +24,7 @@ describe("read-only published syllabus", () => {
     await expect(controller.outline(ID)).rejects.toThrow("Опубликованный курс не найден");
   });
   it("validates page bounds before reads and hydrates only the selected stable page", async () => {
-    const levelPage = vi.fn().mockResolvedValue({ ids: ["b", "a"], total: 31 });
+    const levelPage = vi.fn().mockResolvedValue({ ids: ["b", "a"], total: 31, progress: new Map(["a", "b"].map((id) => [id, { studyState: "not-started", cardCount: 2, startedCardCount: 0, burnedCardCount: 0 }])) });
     const loadLessonItems = vi.fn().mockResolvedValue(new Map(["a", "b"].map((id) => [id, { itemType: "kanji", title: id, target: { japanese: id } }])));
     const service = new CourseBrowserService({ levelPage } as never, { loadLessonItems } as never);
     await expect(service.materials("owner", ID, "2", { page: "0" })).rejects.toThrow("номер страницы");
@@ -32,7 +32,17 @@ describe("read-only published syllabus", () => {
     expect(await service.materials("owner", ID, "2", { page: "2" })).toMatchObject({ total: 31, page: 2, items: [{ id: "b" }, { id: "a" }] });
     expect(loadLessonItems).toHaveBeenCalledExactlyOnceWith("owner", ["b", "a"]);
     await service.materials("owner", ID, "2", { itemType: "word" });
-    expect(levelPage).toHaveBeenLastCalledWith(ID, 2, 1, { itemType: "word" });
+    expect(levelPage).toHaveBeenLastCalledWith("owner", ID, 2, 1, { itemType: "word", studyState: undefined });
     await expect(service.materials("owner", ID, "2", { itemType: "invalid" })).rejects.toThrow("тип материала");
+  });
+  it("filters full own-card state before slicing the level page", async () => {
+    const card = (burned: boolean | null) => ({ id: "card", promptType: "MEANING", audioAsset: null, srsStates: burned === null ? [] : [{ burnedAt: burned ? new Date() : null }] });
+    const entries = Array.from({ length: 32 }, (_, index) => ({ learningItemId: `item-${index}`, learningItem: { kind: "KANJI", cards: [card(index === 31 ? true : null), card(index === 31 ? true : null)] } }));
+    const findMany = vi.fn().mockResolvedValue(entries);
+    const repository = new CourseBrowserRepository({ db: { courseLevel: { findFirst: vi.fn().mockResolvedValue({ id: "level" }) }, courseLevelItem: { findMany } } } as never);
+    const result = await repository.levelPage("owner", ID, 2, 1, { studyState: "burned" });
+    expect(result).toMatchObject({ ids: ["item-31"], total: 1 });
+    expect(result?.progress.get("item-31")).toMatchObject({ studyState: "burned", cardCount: 2, burnedCardCount: 2 });
+    expect(findMany.mock.calls[0]![0].select.learningItem.select.cards.select.srsStates.where).toEqual({ userId: "owner" });
   });
 });

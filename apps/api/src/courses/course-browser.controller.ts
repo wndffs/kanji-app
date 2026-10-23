@@ -22,7 +22,7 @@ export class CourseBrowserController {
 
   @Get(":courseId/levels/:level/items")
   materials(@CurrentUser() user: CurrentUserDto, @Param("courseId") courseId: string,
-    @Param("level") level: string, @Query() query: { readonly page?: unknown; readonly itemType?: unknown }) {
+    @Param("level") level: string, @Query() query: { readonly page?: unknown; readonly itemType?: unknown; readonly studyState?: unknown }) {
     return this.service.materials(user.id, requireCourseBrowserId(courseId), level, query);
   }
 }

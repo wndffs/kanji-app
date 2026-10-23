@@ -1124,7 +1124,7 @@ function toPromptType(value: string): LessonCardRecord["promptType"] {
   }
 }
 
-const listeningCardEligibilityWhere = {
+export const listeningCardEligibilityWhere = {
   OR: [
     { promptType: { not: "LISTENING" as const } },
     {
