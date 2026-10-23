@@ -178,7 +178,7 @@ describe("database readiness", () => {
     expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
   });
 
-  it("does not promote a late successful query or extend the timed-out failure cache", async () => {
+  it("recovers the cache when the owned probe succeeds after the response deadline", async () => {
     const query = deferred<{ one: number }[]>();
     const { service, transaction, tx } = createHarness();
     tx.$queryRaw.mockReturnValueOnce(query.promise);
@@ -186,13 +186,15 @@ describe("database readiness", () => {
 
     await vi.advanceTimersByTimeAsync(3_000);
     await expect(response).resolves.toEqual(UNAVAILABLE);
-    await vi.advanceTimersByTimeAsync(7_499);
+    await vi.advanceTimersByTimeAsync(1_000);
+    await expect(service.getReadiness()).resolves.toEqual(UNAVAILABLE);
+    expect(transaction).toHaveBeenCalledTimes(1);
     query.resolve([{ one: 1 }]);
     await vi.advanceTimersByTimeAsync(0);
 
-    await expect(service.getReadiness()).resolves.toEqual(UNAVAILABLE);
+    await expect(service.getReadiness()).resolves.toEqual(READY);
     expect(transaction).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersByTimeAsync(7_500);
     await expect(service.getReadiness()).resolves.toEqual(READY);
     expect(transaction).toHaveBeenCalledTimes(2);
   });

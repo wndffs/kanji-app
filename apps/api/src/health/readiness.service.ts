@@ -48,6 +48,12 @@ export class ReadinessService {
       const deadline = setTimeout(() => answer(false), RESPONSE_DEADLINE_MS);
       const complete = (available: boolean): void => {
         clearTimeout(deadline);
+        if (answered && available) {
+          this.cached = {
+            response: { service: "kanji-srs-api", status: "ready", database: "available" },
+            expiresAt: Date.now() + CACHE_TTL_MS,
+          };
+        }
         answer(available);
         // A response timeout does not release this slot while driver work is still pending.
         this.inFlight = null;
