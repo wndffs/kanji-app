@@ -1,0 +1,53 @@
+import { type MainCourseWordBatch, type MainCourseWordContent } from "./main-course-word-content";
+
+export type EditorialWordDraft = Omit<MainCourseWordContent, "jmdictEntryId"> & {
+  readonly jmdictEntryId: null;
+};
+export type EditorialWordDraftBatch = Omit<MainCourseWordBatch, "words"> & {
+  readonly words: readonly EditorialWordDraft[];
+};
+
+function word(expression: string, reading: string, ru: string, en: string,
+  meaningRu: string, meaningEn: string, readingRu: string, readingEn: string,
+  example: readonly [string, string, string, string]): Omit<EditorialWordDraft, "sortOrder"> {
+  return {
+    expression, reading, jmdictEntryId: null,
+    meanings: { ru: { primary: ru, accepted: [ru] }, en: { primary: en, accepted: [en] } },
+    meaningMnemonic: { ru: meaningRu, en: meaningEn }, readingMnemonic: { ru: readingRu, en: readingEn },
+    meaningHint: { ru: `Здесь изучаем значение «${ru}».`, en: `Here learn the meaning '${en}'.` },
+    readingHint: { ru: `Напишите всё слово каной: ${reading}.`, en: `Write the entire word in kana: ${reading}.` },
+    example: { japaneseText: example[0], readingText: example[1], translationRu: example[2], translationEn: example[3] },
+  };
+}
+
+const words = [
+  word("学校", "がっこう", "школа", "school", "Учёба 学 встречает школьный двор 校: вместе это школа.", "Study 学 meets the schoolyard 校: together they make a school.", "がく + こう превращается в がっこう: маленькая っ создаёт паузу перед こ.", "がく + こう becomes がっこう: small っ makes a stop before こ.", ["学校は山の下にあります。", "がっこうはやまのしたにあります。", "Школа находится у подножия горы.", "The school is at the foot of the mountain."]),
+  word("校長", "こうちょう", "директор школы", "school principal", "Главный 長 в школе 校 — директор школы, не директор компании.", "The head 長 of a school 校 is its principal, not a company director.", "こう・ちょう: сохраните обе долготы и маленькую ょ.", "こう・ちょう: keep both long vowels and small ょ.", ["校長は先生と話します。", "こうちょうはせんせいとはなします。", "Директор школы разговаривает с учителем.", "The principal talks with a teacher."]),
+  word("小学校", "しょうがっこう", "начальная школа", "elementary school", "Маленькая 小 школа 学校 напоминает начало школьного пути.", "A small 小 school 学校 suggests the beginning of school life.", "しょう + がっこう: маленькая ょ в начале и っ в середине.", "しょう + がっこう: small ょ at the start and っ in the middle.", ["小学校で本を読みます。", "しょうがっこうでほんをよみます。", "В начальной школе читают книги.", "Children read books at elementary school."]),
+  word("中学校", "ちゅうがっこう", "средняя школа первой ступени", "junior high school", "Средняя 中 школа 学校 — ступень после начальной, а не старшая школа.", "Middle 中 school 学校 comes after elementary school, not senior high school.", "ちゅう + がっこう: маленькие ゅ и っ выполняют разные роли.", "ちゅう + がっこう: small ゅ and っ have different jobs.", ["中学校は川の右にあります。", "ちゅうがっこうはかわのみぎにあります。", "Средняя школа находится справа от реки.", "The junior high school is to the right of the river."]),
+  word("友人", "ゆうじん", "друг", "friend", "Друг 友 и человек 人 образуют нейтральное слово «друг».", "Friend 友 and person 人 form a neutral word for a friend.", "ゆう・じん: 人 здесь じん, а не にん.", "ゆう・じん: 人 is じん here, not にん.", ["友人と山に行きます。", "ゆうじんとやまにいきます。", "Я иду в горы с другом.", "I am going to the mountains with a friend."]),
+  word("友", "とも", "друг", "friend", "Один знак 友 называет друга; это не отдельный компонент-рука.", "The single character 友 names a friend, not a hand component.", "Отдельное слово 友 здесь とも; не отвечайте онным ゆう.", "The separate word 友 here is とも; do not answer with on reading ゆう.", ["友と本を読みます。", "ともとほんをよみます。", "Я читаю книгу с другом.", "I read a book with a friend."]),
+  word("父", "ちち", "отец", "father", "Представьте своего отца: это нейтральное обозначение при рассказе о нём другим.", "Picture your own father: this is a plain term when talking about him to others.", "ち・ち: две одинаковые моры. Не ふ и не おとうさん.", "ち・ち: two identical morae. Not ふ or おとうさん.", ["父は車で学校に行きます。", "ちちはくるまでがっこうにいきます。", "Мой отец едет в школу на машине.", "My father goes to school by car."]),
+  word("母", "はは", "мать", "mother", "Представьте свою мать, о которой рассказываете собеседнику.", "Picture your own mother as you tell someone about her.", "は・は: обе буквы читаются は; это не частица は со звуком わ.", "は・は: both kana are pronounced は; this is not the particle は pronounced わ.", ["母は本を読みます。", "はははほんをよみます。", "Моя мать читает книгу.", "My mother reads a book."]),
+  word("父母", "ふぼ", "отец и мать", "father and mother", "Отец 父 и мать 母 вместе: оба родителя.", "Father 父 and mother 母 together: both parents.", "ふ・ぼ: онные чтения; не соединяйте ちち и はは.", "ふ・ぼ: on readings; do not join ちち and はは.", ["父母はいえではなく学校にいます。", "ふぼはいえではなくがっこうにいます。", "Отец и мать не дома, а в школе.", "My father and mother are at school, not at home."]),
+  word("兄", "あに", "старший брат", "older brother", "Представьте собственного старшего брата; возрастное отношение важно.", "Picture your own older brother; the age relationship matters.", "あ・に: слово целиком, не онное けい.", "あ・に: the whole word, not on reading けい.", ["兄は大学生です。", "あにはだいがくせいです。", "Мой старший брат — студент университета.", "My older brother is a university student."]),
+  word("姉", "あね", "старшая сестра", "older sister", "Вспомните старшую сестру; не заменяйте значение младшей сестрой.", "Think of an older sister; do not replace the meaning with younger sister.", "あ・ね: последнее ね отличает слово от あに.", "あ・ね: final ね distinguishes the word from あに.", ["姉は先生です。", "あねはせんせいです。", "Моя старшая сестра — учитель.", "My older sister is a teacher."]),
+  word("弟", "おとうと", "младший брат", "younger brother", "Представьте брата младше вас, а не просто любого брата.", "Picture a brother younger than you, not just any brother.", "お・とう・と: после первого と есть う, а после последнего нет.", "お・とう・と: the first と is followed by う, but the final one is not.", ["弟は小学生です。", "おとうとはしょうがくせいです。", "Мой младший брат — ученик начальной школы.", "My younger brother is an elementary school student."]),
+  word("妹", "いもうと", "младшая сестра", "younger sister", "Представьте сестру младше вас; знак 未 напоминает младший возраст.", "Picture a sister younger than you; 未 can remind you of younger age.", "い・もう・と: начните с い, сохраните う после も.", "い・もう・と: start with い and keep う after も.", ["妹と学校に行きます。", "いもうととがっこうにいきます。", "Я иду в школу с младшей сестрой.", "I go to school with my younger sister."]),
+  word("兄弟", "きょうだい", "братья и сёстры", "siblings", "Старший 兄 и младший 弟 вместе могут обозначать братьев и сестёр; слово не ограничено парой братьев.", "Older 兄 and younger 弟 together can refer to siblings, not only a pair of brothers.", "きょう・だい: особое сочетание чтений; не けいてい.", "きょう・だい: this combination uses special readings, not けいてい.", ["兄弟は三人です。", "きょうだいはさんにんです。", "В семье трое детей.", "There are three siblings in the family."]),
+  word("姉妹", "しまい", "сёстры", "sisters", "Старшая 姉 и младшая 妹 вместе — сёстры.", "Older sister 姉 and younger sister 妹 together are sisters.", "し・まい: в отличие от あね и いもうと, здесь онные чтения.", "し・まい: unlike あね and いもうと, this word uses on readings.", ["姉妹はおなじ学校に行きます。", "しまいはおなじがっこうにいきます。", "Сёстры ходят в одну школу.", "The sisters go to the same school."]),
+  word("今", "いま", "сейчас", "now", "Представьте текущий момент: не вчера и не завтра.", "Picture the present moment: not yesterday or tomorrow.", "い・ま: слово 今 не читается こん на этой карточке.", "い・ま: the word 今 is not read こん on this card.", ["今、雨がふっています。", "いま、あめがふっています。", "Сейчас идёт дождь.", "It is raining now."]),
+  word("今日", "きょう", "сегодня", "today", "Сейчас 今 плюс день 日 — сегодняшний день.", "Now 今 plus day 日 suggests today.", "今日 целиком читается きょう: маленькая ょ и следующий う. Не こんじつ.", "今日 as a whole is きょう: small ょ followed by う. Not こんじつ.", ["今日は学校が休みです。", "きょうはがっこうがやすみです。", "Сегодня в школе нет занятий.", "There is no school today."]),
+  word("今年", "ことし", "этот год", "this year", "Сейчас 今 плюс год 年 — текущий год.", "Now 今 plus year 年 suggests the current year.", "ことし — чтение всего слова; не складывайте こん и ねん.", "ことし is the whole word's reading; do not add こん and ねん.", ["今年は大学に入学します。", "ことしはだいがくににゅうがくします。", "В этом году я поступаю в университет.", "I am entering university this year."]),
+  word("何", "なに", "что", "what", "Вопрос 何 помогает узнать название неизвестного предмета.", "The question 何 helps identify an unknown object.", "Здесь なに. Перед некоторыми словами встречается なん, но это не ответ этой карточки.", "Here use なに. Before some words it becomes なん, but that is not this card's answer.", ["何を読みますか。", "なにをよみますか。", "Что вы читаете?", "What are you reading?"]),
+  word("何人", "なんにん", "сколько человек", "how many people", "Вопрос 何 перед счётчиком людей 人 спрашивает количество, не национальность.", "Question 何 before the counter 人 asks a number of people, not nationality.", "なん・にん: две ん. Чтение なにじん имеет другое значение и здесь не принимается.", "なん・にん: keep both ん. なにじん has a different meaning and is not accepted here.", ["学生は何人いますか。", "がくせいはなんにんいますか。", "Сколько здесь студентов?", "How many students are there?"]),
+];
+
+export function buildWordDraft07(): EditorialWordDraftBatch {
+  return {
+    id: "draft-course-words-07", version: "1", authoredAt: "2026-10-23", reviewedAt: null,
+    reviewNotes: "Pending exact-pair JMdict resolution and independent review. Null source IDs are intentional: this draft is not a curator input or publication approval.",
+    sourceFile: "packages/db/src/editorial-draft-words-07.ts", courseSlug: "japanese-ru-n2",
+    levelNumber: 10, sortOrderStart: 1, words: words.map((item, index) => ({ ...item, sortOrder: index + 1 })),
+  };
+}
