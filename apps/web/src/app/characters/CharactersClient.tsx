@@ -150,6 +150,7 @@ function CharactersScreen() {
 
       {state.status === "ready" && query.tab === "kanji" ? (
         <KanjiCharacterPanel
+          key={JSON.stringify(query.filters)}
           displayMode={displayMode}
           filters={query.filters}
           onFiltersChange={updateKanjiFilters}
@@ -280,6 +281,10 @@ function KanjiCharacterPanel({
   readonly section: CharacterHubKanjiSectionDto;
 }) {
   const items = useMemo(() => filterCharacterHubKanji(section.items, filters), [filters, section]);
+  const [page, setPage] = useState(1);
+  const pageSize = 60;
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const visibleItems = items.slice((page - 1) * pageSize, page * pageSize);
   const progressMaximum = Math.max(section.counts.total, 1);
   const completedCount = section.counts.passed + section.counts.burned;
 
@@ -403,6 +408,11 @@ function KanjiCharacterPanel({
       </div>
 
       <p className="character-hub-result-count">Показано: {items.length}</p>
+      {pageCount <= 1 ? null : <nav className="catalog-pagination" aria-label="Страницы кандзи">
+        <button className="secondary-action" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Назад</button>
+        <span role="status">{page} / {pageCount}</span>
+        <button className="secondary-action" disabled={page >= pageCount} onClick={() => setPage((value) => value + 1)}>Далее</button>
+      </nav>}
 
       {items.length === 0 ? (
         <div className="notice-panel">
@@ -410,7 +420,7 @@ function KanjiCharacterPanel({
         </div>
       ) : (
         <ol className="character-hub-kanji-grid">
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <li key={`${item.level}-${item.id}`}>
               <Link href={item.href}>
                 <JapaneseText className="character-hub-kanji-character" variant="display">
