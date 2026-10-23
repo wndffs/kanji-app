@@ -97,7 +97,14 @@ test.describe("optional practice", () => {
       fullPage: true,
     });
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("link", { name: "На панель", exact: true })).toBeVisible();
+    await expect(
+      page
+        .getByRole("region", { name: "Результат практики", exact: true })
+        .getByRole("link", { name: "На панель", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: "Основная навигация", exact: true }),
+    ).toBeVisible();
   });
   for (const staleStatus of [200, 401]) {
     test(`restores the practice source with Back and ignores a late ${staleStatus}`, async ({
