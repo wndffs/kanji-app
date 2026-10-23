@@ -18,6 +18,8 @@ test.describe("dynamic text decks", () => {
     await page.goto("/decks");
 
     await expect(page.getByRole("heading", { name: "Колоды", exact: true })).toBeVisible();
+    await expect(page.getByLabel("Японский текст")).toBeHidden();
+    await page.getByRole("button", { name: "Новая колода", exact: true }).click();
     await page.getByLabel("Название").fill("Текст про школу");
     await page.getByLabel("Японский текст").fill("学校で学ぶ。");
     await page.getByRole("button", { name: "Создать колоду" }).click();

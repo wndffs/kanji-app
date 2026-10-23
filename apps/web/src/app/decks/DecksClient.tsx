@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Plus, X } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import {
@@ -57,6 +58,10 @@ export function DecksClient() {
 }
 
 function DecksScreen() {
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const titleInput = useRef<HTMLInputElement>(null);
+  const builderButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => { if (builderOpen) titleInput.current?.focus(); }, [builderOpen]);
   const displayMode = useTranslationDisplayMode();
   const [state, setState] = useState<DecksState>({ status: "checking" });
   const [savedDecks, setSavedDecks] = useState<SavedDecksState>({ status: "idle" });
@@ -222,6 +227,11 @@ function DecksScreen() {
 
     const text = sourceText.trim();
 
+    if (!Number.isInteger(maxItems) || maxItems < 1 || maxItems > 160) {
+      setFormError("Максимум элементов должен быть целым числом от 1 до 160.");
+      return;
+    }
+
     if (text === "") {
       setFormError("Вставьте японский текст.");
       return;
@@ -239,6 +249,7 @@ function DecksScreen() {
       });
       if (!ownsSession(state.token)) return;
       setResult(response);
+      setBuilderOpen(false);
       selectedDeckRequest.current += 1;
       setSelectedDeck({ status: "idle" });
       setSavedDecks((current) => ({
@@ -298,8 +309,8 @@ function DecksScreen() {
       <div className="page-heading deck-heading">
         <div>
           <h1>Колоды</h1>
-          <p>Вставьте японский текст, чтобы собрать учебные элементы и их предпосылки.</p>
         </div>
+        <button className="primary-action" ref={builderButton} aria-expanded={builderOpen} aria-controls="deck-builder" onClick={() => setBuilderOpen((value) => !value)} disabled={isSubmitting}><Plus size={18} aria-hidden="true" />Новая колода</button>
       </div>
 
       <SavedDecksPanel
@@ -330,11 +341,13 @@ function DecksScreen() {
         />
       ) : null}
 
-      <form className="deck-builder-panel" onSubmit={(event) => void handleSubmit(event)}>
+      <form id="deck-builder" hidden={!builderOpen} className="deck-builder-panel" noValidate onSubmit={(event) => void handleSubmit(event)}>
         <div className="deck-form-grid">
           <label>
             <span>Название</span>
             <input
+              ref={titleInput}
+              disabled={isSubmitting}
               maxLength={120}
               onChange={(event) => setTitle(event.currentTarget.value)}
               placeholder="Например: статья NHK Easy"
@@ -344,6 +357,7 @@ function DecksScreen() {
           <label>
             <span>Максимум элементов</span>
             <input
+              disabled={isSubmitting}
               max={160}
               min={1}
               onChange={(event) => setMaxItems(Number(event.currentTarget.value))}
@@ -356,6 +370,7 @@ function DecksScreen() {
         <label>
           <span>Японский текст</span>
           <textarea
+            disabled={isSubmitting}
             onChange={(event) => setSourceText(event.currentTarget.value)}
             placeholder="日本語の文章をここに貼り付けます。"
             value={sourceText}
@@ -368,6 +383,7 @@ function DecksScreen() {
           </button>
           <button
             className="secondary-action"
+            disabled={isSubmitting}
             onClick={() => {
               setTitle("");
               setSourceText("");
@@ -378,9 +394,10 @@ function DecksScreen() {
           >
             Очистить
           </button>
+          <button className="icon-button" title="Скрыть форму" aria-label="Скрыть форму" disabled={isSubmitting} type="button" onClick={() => { setBuilderOpen(false); builderButton.current?.focus(); }}><X size={20} aria-hidden="true" /></button>
         </div>
 
-        {formError === null ? null : <p className="form-error">{formError}</p>}
+        {formError === null ? null : <p className="form-error" role="alert">{formError}</p>}
       </form>
 
       {result === null ? null : (

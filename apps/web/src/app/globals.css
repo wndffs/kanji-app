@@ -292,6 +292,8 @@ textarea:focus-visible {
 .course-switch-dialog:not([open]) { display: none; }
 .course-switch-dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
 
+.deck-builder-panel[hidden] { display: none; }
+
 .view-tabs > button {
   min-height: 46px;
   flex: 0 0 auto;
