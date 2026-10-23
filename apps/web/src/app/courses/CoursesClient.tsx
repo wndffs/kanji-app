@@ -6,8 +6,10 @@ import { type PublishedCourseDto } from "@kanji-srs/shared";
 
 import { ApiError, enrollInCourse, getAvailableCourses } from "../../lib/api-client";
 import { AUTH_CHANGED_EVENT, clearStoredSession, readStoredSession } from "../../lib/auth-storage";
+import { EnrolledCourses } from "./EnrolledCourses";
 
 export function CoursesClient() {
+  const [enrollmentRevision, setEnrollmentRevision] = useState(0);
   const [courses, setCourses] = useState<readonly PublishedCourseDto[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,6 +97,7 @@ export function CoursesClient() {
       if (expired(session.token, request)) return;
       setCourses((previous) => previous.filter((candidate) => candidate.id !== course.id));
       setMessage(`Курс «${course.title}» добавлен. Текущий курс не изменён.`);
+      setEnrollmentRevision((value) => value + 1);
     } catch (reason) {
       if (!expired(session.token, request)) handleError(reason, session.token);
     } finally {
@@ -103,13 +106,14 @@ export function CoursesClient() {
   }
 
   return (
-    <section className="page-stack">
+    <section className="page-stack courses-page">
       <div className="page-heading">
-        <h1>Опубликованные курсы</h1>
+        <h1>Курсы</h1>
         <Link className="secondary-action" href="/dashboard">
           На панель
         </Link>
       </div>
+      <EnrolledCourses refresh={enrollmentRevision} />
       {needsLogin ? (
         <div className="notice-panel">
           <p>Нужен вход в аккаунт.</p>
@@ -126,7 +130,8 @@ export function CoursesClient() {
                   ? "Новых опубликованных курсов нет."
                   : "")}
           </p>
-          <ul className="course-catalog-list" aria-busy={loading || savingId !== null}>
+          <h2>Доступные курсы</h2>
+          <ul className="course-catalog-list" aria-label="Доступные курсы" aria-busy={loading || savingId !== null}>
             {courses.map((course) => (
               <li key={course.id}>
                 <div>

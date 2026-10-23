@@ -14,6 +14,7 @@ const pilot = {
 };
 
 async function signIn(page: Page) {
+  await page.route(`${API}/courses`, (route) => route.fulfill({ json: { currentCourseId: null, courses: [] } }));
   await page.addInitScript(() => {
     localStorage.setItem("kanji-srs.accessToken", "catalog-old-token");
     localStorage.setItem(
