@@ -6,6 +6,7 @@ import { type CourseOutlineDto } from "@kanji-srs/shared";
 import { ApiError, getCourseOutline } from "../../lib/api-client";
 import { clearStoredSession } from "../../lib/auth-storage";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
+import { CourseLevelMaterials } from "./CourseLevelMaterials";
 
 export function CourseExplorer({ courseId }: { readonly courseId: string }) {
   const session = useStoredSession();
@@ -18,6 +19,7 @@ function OwnedCourseExplorer({ courseId, token }: { readonly courseId: string; r
   const [outline, setOutline] = useState<CourseOutlineDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
+  const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
   useEffect(() => {
     let active = true;
     setError(null);
@@ -36,9 +38,15 @@ function OwnedCourseExplorer({ courseId, token }: { readonly courseId: string; r
     {error === null ? null : <div className="notice-panel"><p role="alert">{error}</p><button className="secondary-action" onClick={() => setRetry((value) => value + 1)}>Повторить загрузку</button></div>}
     {outline === null ? (error === null ? <p aria-busy="true">Загружаю программу курса.</p> : null) : <>
       {outline.description ? <p className="muted">{outline.description}</p> : null}
-      {outline.levels.length === 0 ? <p>В курсе пока нет уровней.</p> : <ol className="course-outline" aria-label="Уровни курса">
+      {outline.levels.length === 0 ? <p>В курсе пока нет уровней.</p> : <>
+        <label className="course-level-select">Уровень курса<select value={selectedLevel ?? outline.levels[0]!.levelNumber} onChange={(event) => setSelectedLevel(Number(event.target.value))}>
+          {outline.levels.map((level) => <option value={level.levelNumber} key={level.levelNumber}>{level.levelNumber}. {level.title}</option>)}
+        </select></label>
+        <CourseLevelMaterials key={selectedLevel ?? outline.levels[0]!.levelNumber} token={token} courseId={courseId} levelNumber={selectedLevel ?? outline.levels[0]!.levelNumber} />
+        <ol className="course-outline" aria-label="Уровни курса">
         {outline.levels.map((level) => <li key={level.levelNumber}><strong>Уровень {level.levelNumber}: {level.title}</strong><span>{level.publishedItemCount} материалов</span></li>)}
-      </ol>}
+        </ol>
+      </>}
     </>}
   </section>;
 }

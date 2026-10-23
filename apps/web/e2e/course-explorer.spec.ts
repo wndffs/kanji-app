@@ -7,12 +7,27 @@ const outline = { id: ID, title: "Учебная программа", descriptio
   { levelNumber: 2, title: "Кандзи", band: "foundation", publishedItemCount: 2 },
 ] };
 async function signIn(page: Page) {
+  await page.route(`${API}/courses/${ID}/levels/*/items*`, (route) => {
+    const pageNumber = Number(new URL(route.request().url()).searchParams.get("page") ?? 1);
+    return route.fulfill({ json: { courseId: ID, levelNumber: 1, page: pageNumber, pageSize: 30, total: 32,
+      items: [{ id: `material-${pageNumber}`, itemType: "kanji", japanese: pageNumber === 1 ? "一" : "二", title: "Число" }] } });
+  });
   await page.addInitScript(() => {
     localStorage.setItem("kanji-srs.accessToken", "explorer-token");
     localStorage.setItem("kanji-srs.user", JSON.stringify({ id: "explorer-user", email: "explorer@example.test", displayName: "Тест", role: "USER", settings: { translationDisplayMode: "ru-en", timezone: "Europe/Moscow" } }));
   });
 }
 test.describe("published course explorer", () => {
+  test("pages level materials without enrollment or scheduling writes", async ({ page }) => {
+    await signIn(page);
+    await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+    await page.goto(`/courses/${ID}`);
+    const materials = page.getByRole("region", { name: "Материалы уровня", exact: true });
+    await expect(materials.getByRole("link")).toContainText("一");
+    await materials.getByRole("button", { name: "Следующая страница материалов" }).click();
+    await expect(materials.getByRole("link")).toContainText("二");
+    await expect(materials.getByRole("link")).toHaveAttribute("href", "/items/material-2");
+  });
   test("shows a read-only syllabus and retries a failed outline", async ({ page }) => {
     await signIn(page);
     let reads = 0;

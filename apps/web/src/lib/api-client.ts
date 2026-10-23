@@ -1,4 +1,4 @@
-import { type CourseOutlineDto } from "@kanji-srs/shared";
+import { type CourseOutlineDto, type CourseMaterialPageDto } from "@kanji-srs/shared";
 import {
   type AvailableCoursesResponse,
   type ContentQualityPageDto,
@@ -298,6 +298,10 @@ export function getCourses(token: string): Promise<CourseListResponse> {
 
 export function getCourseOutline(token: string, courseId: string): Promise<CourseOutlineDto> {
   return apiRequest(`/courses/${encodeURIComponent(courseId)}/outline`, { token });
+}
+
+export function getCourseMaterials(token: string, courseId: string, level: number, page: number): Promise<CourseMaterialPageDto> {
+  return apiRequest(`/courses/${encodeURIComponent(courseId)}/levels/${level}/items?page=${page}`, { token });
 }
 
 export function getAvailableCourses(
