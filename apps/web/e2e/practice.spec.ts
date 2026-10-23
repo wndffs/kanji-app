@@ -239,13 +239,15 @@ test.describe("optional practice", () => {
     await answerInput.fill("ひとつ");
     await page.keyboard.press("Enter");
 
-    expect(answerRequests).toEqual([
-      {
-        answerType: "reading",
-        cardId: listeningPracticeItem.card.id,
-        listeningEvidence: { completed: true, playCount: 1 },
-      },
-    ]);
+    await expect
+      .poll(() => answerRequests)
+      .toEqual([
+        {
+          answerType: "reading",
+          cardId: listeningPracticeItem.card.id,
+          listeningEvidence: { completed: true, playCount: 1 },
+        },
+      ]);
     const listeningDetails = page.locator(".listening-feedback-details");
     await expect(listeningDetails.getByText("一つ", { exact: true })).toBeVisible();
     await expect(listeningDetails.getByText("ひとつ", { exact: true })).toBeVisible();
