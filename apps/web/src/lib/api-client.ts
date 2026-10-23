@@ -1,3 +1,4 @@
+import { type CourseOutlineDto } from "@kanji-srs/shared";
 import {
   type AvailableCoursesResponse,
   type ContentQualityPageDto,
@@ -293,6 +294,10 @@ export function getCharacterHub(token: string): Promise<CharacterHubResponseDto>
 
 export function getCourses(token: string): Promise<CourseListResponse> {
   return apiRequest<CourseListResponse>("/courses", { token });
+}
+
+export function getCourseOutline(token: string, courseId: string): Promise<CourseOutlineDto> {
+  return apiRequest(`/courses/${encodeURIComponent(courseId)}/outline`, { token });
 }
 
 export function getAvailableCourses(
