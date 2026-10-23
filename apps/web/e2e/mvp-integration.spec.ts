@@ -138,7 +138,7 @@ test.describe("final MVP integration path", () => {
 
     await test.step("Complete one starter lesson item", async () => {
       await page.getByRole("link", { name: "Уроки" }).click();
-      await expect(page.getByText(/Выбрано: 1 из максимум 5/)).toBeVisible();
+      await expect(page.getByText(/Группа: 1 из 5/)).toBeVisible();
       await expect(page.getByText("один / one")).toBeVisible();
 
       await page.getByRole("button", { name: "Начать урок" }).click();

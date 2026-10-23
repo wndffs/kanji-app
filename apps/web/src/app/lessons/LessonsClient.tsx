@@ -31,6 +31,7 @@ import { normalizeJapaneseReading, romanizeKana } from "@kanji-srs/japanese";
 
 import { JapaneseText } from "../../components/JapaneseText";
 import { useStudyFocus } from "../../components/StudyFocus";
+import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
   abandonLessonSession,
@@ -770,9 +771,7 @@ export function LessonsClient() {
             <h1>{isDeckQueue ? "Уроки колоды" : "Уроки"}</h1>
             <p>
               {isDeckQueue ? `${queueState.source.title}. ` : ""}
-              Выбрано: {selectedLessons.length} из максимум {queueState.batchLimit}. Доступно:{" "}
-              {queueState.availableItems.length}. Осталось на сегодня: {queueState.remainingToday}.
-              Режим перевода: {formatDisplayMode(activeDisplayMode)}.
+              Группа: {selectedLessons.length} из {queueState.batchLimit}.
             </p>
           </div>
           <button
@@ -789,6 +788,16 @@ export function LessonsClient() {
             {sessionError}
           </p>
         )}
+        <ul aria-label="Выбранные материалы" className="recommended-group">
+          {selectedLessons.map(({ item }) => (
+            <li key={item.id}>
+              <JapaneseText as="strong">{item.japanese}</JapaneseText>
+              <span>{formatTranslationBundle(item.translations, activeDisplayMode)}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="muted lesson-queue-counts">Доступно: {queueState.availableItems.length} · Осталось на сегодня: {queueState.remainingToday}</p>
+        <SectionDisclosure title="Изменить группу">
         <LessonPicker
           availableItems={queueState.availableItems}
           batchLimit={queueState.batchLimit}
@@ -801,6 +810,7 @@ export function LessonsClient() {
           onToggle={handleToggleLesson}
           onUseSuggested={handleUseSuggestedBatch}
         />
+        </SectionDisclosure>
       </section>
     );
   }

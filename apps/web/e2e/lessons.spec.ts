@@ -14,13 +14,15 @@ test.describe("lesson session", () => {
     await page.goto("/lessons");
 
     await expect(page.getByRole("heading", { name: "Уроки" })).toBeVisible();
-    await expect(page.getByText(/Выбрано: 1 из максимум 5/)).toBeVisible();
-    await expect(page.getByText("один / one")).toBeVisible();
+    await expect(page.getByText(/Группа: 1 из 5/)).toBeVisible();
+    await expect(page.getByRole("list", { name: "Выбранные материалы" }).getByText("один / one")).toBeVisible();
+    await expect(page.getByLabel("Выбрать 二: два / two")).toBeHidden();
+    await page.getByText("Изменить группу", { exact: true }).click();
 
     const optionalLesson = page.getByLabel("Выбрать 二: два / two");
     await expect(optionalLesson).not.toBeChecked();
     await optionalLesson.check();
-    await expect(page.getByText(/Выбрано: 2 из максимум 5/)).toBeVisible();
+    await expect(page.getByText(/Группа: 2 из 5/)).toBeVisible();
     await page.getByRole("button", { name: "Чередовать типы" }).click();
     await expect(page.getByRole("button", { name: "Чередовать типы" })).toHaveAttribute(
       "aria-pressed",
@@ -225,7 +227,7 @@ test.describe("lesson session", () => {
     await page.goto("/lessons?deckId=deck-saved");
 
     await expect(page.getByRole("heading", { name: "Уроки колоды" })).toBeVisible();
-    await expect(page.getByText(/Новости на японском\. Выбрано: 1/)).toBeVisible();
+    await expect(page.getByText(/Новости на японском\. Группа: 1/)).toBeVisible();
     await page.getByRole("button", { name: "Начать урок" }).click();
 
     await expect(page.getByRole("heading", { name: "Изучение" })).toBeVisible();

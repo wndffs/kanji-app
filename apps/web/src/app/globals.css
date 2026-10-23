@@ -2226,6 +2226,39 @@ textarea:focus-visible {
   gap: 16px;
 }
 
+.recommended-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 24px 0;
+  list-style: none;
+  border-block: 1px solid var(--surface-border);
+}
+
+.recommended-group li {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.recommended-group strong {
+  font-size: 32px;
+  line-height: 1.5;
+}
+
+.recommended-group li > span {
+  color: var(--muted);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.lesson-queue-counts {
+  margin: 0;
+  font-size: 14px;
+}
+
 .lesson-picker-header {
   display: flex;
   align-items: center;
