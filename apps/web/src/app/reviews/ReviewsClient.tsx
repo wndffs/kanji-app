@@ -30,6 +30,8 @@ import {
 
 import { JapaneseText } from "../../components/JapaneseText";
 import { useStudyFocus } from "../../components/StudyFocus";
+import { SectionDisclosure } from "../../components/SectionDisclosure";
+import { Volume2 } from "lucide-react";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
   ApiError,
@@ -576,27 +578,10 @@ export function ReviewsClient() {
           <div>
             <h1>Повторения</h1>
             <p>
-              Готово карточек: {queueState.queue.length}. Ответы проверяются с учётом ваших
-              приватных вариантов.
+              Готово карточек: {queueState.queue.length}
             </p>
           </div>
           <div className="review-heading-actions">
-            <label className="review-order-picker">
-              <span>Порядок карточек</span>
-              <select
-                disabled={isSavingOrderMode}
-                onChange={(event) =>
-                  void handleOrderModeChange(event.currentTarget.value as ReviewOrderMode)
-                }
-                value={queueState.orderMode}
-              >
-                {SUPPORTED_REVIEW_ORDER_MODES.map((mode) => (
-                  <option key={mode} value={mode}>
-                    {formatReviewOrderMode(mode)}
-                  </option>
-                ))}
-              </select>
-            </label>
             <button
               className="primary-action"
               disabled={isStarting || isSavingOrderMode}
@@ -608,7 +593,17 @@ export function ReviewsClient() {
           </div>
         </div>
         {sessionError === null ? null : <p className="form-error">{sessionError}</p>}
-        <ReviewQueuePreview queue={queueState.queue} />
+        <SectionDisclosure title="Параметры повторения">
+          <label className="review-order-picker">
+            <span>Порядок карточек</span>
+            <select disabled={isSavingOrderMode} onChange={(event) => void handleOrderModeChange(event.currentTarget.value as ReviewOrderMode)} value={queueState.orderMode}>
+              {SUPPORTED_REVIEW_ORDER_MODES.map((mode) => <option key={mode} value={mode}>{formatReviewOrderMode(mode)}</option>)}
+            </select>
+          </label>
+        </SectionDisclosure>
+        <SectionDisclosure title="Состав очереди">
+          <ReviewQueuePreview queue={queueState.queue} />
+        </SectionDisclosure>
       </section>
     );
   }
@@ -740,7 +735,7 @@ function ReviewQueuePreview({ queue }: { readonly queue: readonly ReviewQueueIte
         <article className="review-queue-card" key={item.card.id}>
           <div>
             <span className="eyebrow">{formatItemType(item.item.itemType)}</span>
-            <JapaneseText as="strong">{item.item.japanese}</JapaneseText>
+            {item.card.promptType === "listening" ? <strong className="audio-queue-label"><Volume2 aria-hidden="true" size={20} />Аудио</strong> : <JapaneseText as="strong">{item.item.japanese}</JapaneseText>}
           </div>
           <span>{formatAnswerType(item.card.answerType)}</span>
         </article>

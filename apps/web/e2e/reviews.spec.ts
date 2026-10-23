@@ -585,6 +585,8 @@ test.describe("review session", () => {
     });
 
     await page.goto("/reviews");
+    await expect(page.getByLabel("Порядок карточек")).toBeHidden();
+    await page.getByText("Параметры повторения", { exact: true }).click();
     await page.getByLabel("Порядок карточек").selectOption("lower-levels-first");
 
     await expect.poll(getMockState).toMatchObject({
