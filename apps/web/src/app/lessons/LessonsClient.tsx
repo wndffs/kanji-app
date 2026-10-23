@@ -1203,12 +1203,16 @@ function LessonStudyView({
       >
         {phase === "meaning" ? (
           <>
-            <section className="panel">
+            <SectionDisclosure title="Допустимые значения" key={`${lesson.item.id}:meanings`}>
+            <section>
               <h2>Значения</h2>
               <TextList texts={collectCardAnswers(meaningCards, displayMode)} />
             </section>
+            </SectionDisclosure>
 
-            <section className="panel lesson-wide-panel">
+            {lesson.unlockedBy.length === 0 ? null : (
+            <SectionDisclosure title="Связи и компоненты" key={`${lesson.item.id}:relations`}>
+            <section>
               <h2>Связи</h2>
               {lesson.unlockedBy.length === 0 ? (
                 <p className="muted">Материал доступен без предварительных компонентов.</p>
@@ -1223,6 +1227,8 @@ function LessonStudyView({
                 </ul>
               )}
             </section>
+            </SectionDisclosure>
+            )}
           </>
         ) : null}
 
@@ -1246,12 +1252,11 @@ function LessonStudyView({
         ) : null}
 
         {showsMemory ? (
-          <section className="panel lesson-wide-panel">
-            <h2>Мнемоника и подсказка</h2>
+          <section className="lesson-memory-section">
+            <h2>Запомнить</h2>
             <div className="lesson-memory-grid">
               {mnemonicGroups.length === 0 ? null : (
                 <div className="lesson-memory-column">
-                  <h3>Мнемоники</h3>
                   <MemoryGroupList
                     displayMode={displayMode}
                     groups={mnemonicGroups}
@@ -1260,10 +1265,9 @@ function LessonStudyView({
                 </div>
               )}
               {hintGroups.length === 0 ? null : (
-                <div className="lesson-memory-column">
-                  <h3>Подсказки</h3>
+                <SectionDisclosure title="Подсказки" key={`${lesson.item.id}:${phase}:hints`}>
                   <MemoryGroupList displayMode={displayMode} groups={hintGroups} kind="hint" />
-                </div>
+                </SectionDisclosure>
               )}
             </div>
           </section>
@@ -1674,19 +1678,6 @@ function formatItemType(itemType: LessonQueueItem["item"]["itemType"]): string {
   }
 }
 
-function formatItemTypeLower(itemType: LessonQueueItem["item"]["itemType"]): string {
-  switch (itemType) {
-    case "component":
-      return "компонент";
-    case "kanji":
-      return "кандзи";
-    case "word":
-      return "слово";
-    case "sentence":
-      return "предложение";
-  }
-}
-
 function formatAnswerType(answerType: CardAnswerType): string {
   return answerType === "reading" ? "Чтение" : "Значение";
 }
@@ -1733,25 +1724,6 @@ function formatDisplayMode(mode: TranslationDisplayMode): string {
     case "ru-en":
       return "русский + English";
   }
-}
-
-function formatCardsCount(count: number): string {
-  const lastTwo = count % 100;
-  const last = count % 10;
-
-  if (lastTwo >= 11 && lastTwo <= 14) {
-    return "карточек";
-  }
-
-  if (last === 1) {
-    return "карточки";
-  }
-
-  if (last >= 2 && last <= 4) {
-    return "карточки";
-  }
-
-  return "карточек";
 }
 
 function readRequestedDeckId(): string | null {

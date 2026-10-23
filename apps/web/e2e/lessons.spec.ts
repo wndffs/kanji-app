@@ -43,9 +43,12 @@ test.describe("lesson session", () => {
       "aria-selected",
       "true",
     );
+    await expect(page.getByRole("heading", { name: "Значения" })).toBeHidden();
+    await page.getByText("Допустимые значения", { exact: true }).click();
     await expect(page.getByRole("heading", { name: "Значения" })).toBeVisible();
+    await page.getByText("Связи и компоненты", { exact: true }).click();
     await expect(page.getByRole("heading", { name: "Связи" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Мнемоника и подсказка" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Запомнить" })).toBeVisible();
     await expect(page.getByText("Представьте одну длинную черту.")).toBeVisible();
     await expect(page.getByText("Picture one long horizontal stroke.")).toBeVisible();
     await expect(page.getByText("компонент один")).toBeVisible();
@@ -98,6 +101,7 @@ test.describe("lesson session", () => {
       "true",
     );
     await expect(page.getByRole("heading", { name: "История" })).toBeVisible();
+    await page.getByText("Подсказки", { exact: true }).click();
     await expect(page.getByRole("heading", { name: "Употребление" })).toBeVisible();
     await expect(page.getByText("Моя личная история про единицу.")).toBeVisible();
     await expect(page.getByText("RU · личное")).toBeVisible();
