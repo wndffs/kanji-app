@@ -43,6 +43,7 @@ import {
 export abstract class LessonsRepository {
   abstract listCourseEligibility(userId: string): Promise<readonly CourseLessonEligibilityRecord[]>;
   abstract findDeckEligibility(userId: string, deckId: string): Promise<DeckLessonEligibilityRecord | null>;
+  abstract loadLessonItems(userId: string, itemIds: readonly string[]): Promise<ReadonlyMap<string, LessonItemRecord>>;
   abstract listCourseLessonItems(userId: string): Promise<readonly CourseLessonItemRecord[]>;
   abstract findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null>;
   abstract listUserProgress(userId: string): Promise<readonly UserItemProgressRecord[]>;
@@ -298,6 +299,35 @@ export class PrismaLessonsRepository extends LessonsRepository {
         return item.cards.length === 0 ? [] : [{ sortOrder: entry.sortOrder, item }];
       }),
     };
+  }
+
+  async loadLessonItems(userId: string, itemIds: readonly string[]): Promise<ReadonlyMap<string, LessonItemRecord>> {
+    const ids = [...new Set(itemIds)];
+    const result = new Map<string, LessonItemRecord>();
+    for (let offset = 0; offset < ids.length; offset += LESSON_TARGET_BATCH_SIZE) {
+      const rows = await this.prisma.db.learningItem.findMany({
+        where: { id: { in: ids.slice(offset, offset + LESSON_TARGET_BATCH_SIZE) }, status: "PUBLISHED" },
+        include: {
+          cards: {
+            where: listeningCardEligibilityWhere,
+            orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+            include: {
+              answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] },
+              blockedAnswers: { orderBy: { text: "asc" } },
+              audioAsset: { include: { dataSource: true, license: true } },
+            },
+          },
+          dependencies: { where: { dependencyType: "PREREQUISITE" }, orderBy: { prerequisiteItemId: "asc" } },
+          mnemonics: { orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }, { version: "desc" }] },
+          hints: { orderBy: [{ locale: "asc" }, { hintType: "asc" }, { version: "desc" }] },
+          userMnemonics: { where: { userId }, orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }] },
+        },
+      });
+      const examples = await loadItemExampleSentences(this.prisma.db, rows, 3);
+      const targets = await this.loadTargets(rows);
+      for (const row of rows) result.set(row.id, this.toLessonItemRecord(row, examples.get(row.id) ?? [], targets));
+    }
+    return result;
   }
 
   async listCourseLessonItems(userId: string): Promise<readonly CourseLessonItemRecord[]> {

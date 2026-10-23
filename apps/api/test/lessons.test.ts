@@ -1091,6 +1091,11 @@ class InMemoryLessonsRepository extends LessonsRepository {
     return this.findDeckLesson(userId, deckId);
   }
 
+  async loadLessonItems(_userId: string, itemIds: readonly string[]) {
+    const items = [...this.courseItems.map((entry) => entry.item), ...createDeckLesson(this.deckStatus).items.map((entry) => entry.item)];
+    return new Map(items.filter((item) => itemIds.includes(item.id)).map((item) => [item.id, item]));
+  }
+
   async findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null> {
     this.readCounts.deck++;
     return userId === "owner" && deckId === "deck-study" ? createDeckLesson(this.deckStatus) : null;

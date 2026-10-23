@@ -138,6 +138,7 @@ function harness(items: ReturnType<typeof item>[]) {
   };
   const db = {
     ...tables,
+    learningItem: { findMany: vi.fn(async ({ where }: Query) => items.filter((item) => where.id.in.includes(item.id)).reverse()) },
     $queryRaw: vi.fn().mockResolvedValue([]),
     userSettings: { findUnique: vi.fn().mockResolvedValue({ currentCourseId: course.id }) },
     userEnrollment: {
@@ -165,6 +166,30 @@ async function load(h: ReturnType<typeof harness>, source: "course" | "deck") {
     ? (await h.repository.listCourseLessonItems("owner")).map((row) => row.item)
     : (await h.repository.findDeckLesson("owner", id(8001)))!.items.map((row) => row.item);
 }
+
+describe("selected teaching hydration", () => {
+  it("deduplicates exact item IDs into sequential 100-item batches and scopes private text", async () => {
+    const rows = Array.from({ length: 101 }, (_, index) => item("COMPONENT", index + 1));
+    const h = harness(rows);
+    const ids = rows.map((row) => row.id);
+    const loaded = await h.repository.loadLessonItems("owner", [...ids, ids[0]!]);
+    expect(loaded.size).toBe(101);
+    expect(h.db.learningItem.findMany).toHaveBeenCalledTimes(2);
+    expect(h.db.learningItem.findMany.mock.calls.map(([query]) => query.where.id.in.length)).toEqual([100, 1]);
+    expect(h.db.learningItem.findMany.mock.calls[0]![0]).toMatchObject({
+      where: { status: "PUBLISHED", id: { in: ids.slice(0, 100) } },
+      include: { userMnemonics: { where: { userId: "owner" } } },
+    });
+    expect(loaded.get(ids[0]!)?.cards[0]?.blockedAnswers[0]?.text).toBe("blocked");
+    expect(loaded.get(ids[0]!)?.mnemonics[0]?.texts.ru[0]?.text).toBe("Личная заметка.");
+    expect(h.activity.maximum).toBe(1);
+  });
+  it("does not read anything for an empty selection", async () => {
+    const h = harness([]);
+    expect(await h.repository.loadLessonItems("owner", [])).toEqual(new Map());
+    expect(h.db.learningItem.findMany).not.toHaveBeenCalled();
+  });
+});
 
 describe.each(["course", "deck"] as const)("%s lesson target batching", (source) => {
   it("uses the item's primary taught reading without changing shared dictionary targets or cards", async () => {
