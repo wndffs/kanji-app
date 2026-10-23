@@ -266,7 +266,10 @@ test.describe("review session", () => {
     await expect(
       page.getByRole("list", { name: "Правильные ответы" }).getByText("солнце", { exact: true }),
     ).toBeVisible();
+    await expect(page.getByText(/Повышение ·/)).toBeHidden();
+    await page.getByText("Расписание повторений", { exact: true }).click();
     await expect(page.getByText(/Повышение ·/)).toBeVisible();
+    await page.getByRole("button", { name: "Дальше", exact: true }).focus();
     await expect
       .poll(() =>
         page.evaluate(

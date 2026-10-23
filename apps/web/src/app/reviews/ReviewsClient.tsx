@@ -577,9 +577,7 @@ export function ReviewsClient() {
         <div className="page-heading review-heading">
           <div>
             <h1>Повторения</h1>
-            <p>
-              Готово карточек: {queueState.queue.length}
-            </p>
+            <p>Готово карточек: {queueState.queue.length}</p>
           </div>
           <div className="review-heading-actions">
             <button
@@ -596,8 +594,18 @@ export function ReviewsClient() {
         <SectionDisclosure title="Параметры повторения">
           <label className="review-order-picker">
             <span>Порядок карточек</span>
-            <select disabled={isSavingOrderMode} onChange={(event) => void handleOrderModeChange(event.currentTarget.value as ReviewOrderMode)} value={queueState.orderMode}>
-              {SUPPORTED_REVIEW_ORDER_MODES.map((mode) => <option key={mode} value={mode}>{formatReviewOrderMode(mode)}</option>)}
+            <select
+              disabled={isSavingOrderMode}
+              onChange={(event) =>
+                void handleOrderModeChange(event.currentTarget.value as ReviewOrderMode)
+              }
+              value={queueState.orderMode}
+            >
+              {SUPPORTED_REVIEW_ORDER_MODES.map((mode) => (
+                <option key={mode} value={mode}>
+                  {formatReviewOrderMode(mode)}
+                </option>
+              ))}
             </select>
           </label>
         </SectionDisclosure>
@@ -641,7 +649,6 @@ export function ReviewsClient() {
           <span>{formatItemType(currentItem.item.itemType)}</span>
           {currentItem.card.promptType === "listening" ? <span>Аудирование</span> : null}
           <span>{formatAnswerType(currentItem.card.answerType)}</span>
-          <span>{formatSrsStageName(currentItem.srs.stageName)}</span>
         </div>
         <div className="review-prompt">
           {currentItem.card.promptType === "listening" ? (
@@ -735,7 +742,14 @@ function ReviewQueuePreview({ queue }: { readonly queue: readonly ReviewQueueIte
         <article className="review-queue-card" key={item.card.id}>
           <div>
             <span className="eyebrow">{formatItemType(item.item.itemType)}</span>
-            {item.card.promptType === "listening" ? <strong className="audio-queue-label"><Volume2 aria-hidden="true" size={20} />Аудио</strong> : <JapaneseText as="strong">{item.item.japanese}</JapaneseText>}
+            {item.card.promptType === "listening" ? (
+              <strong className="audio-queue-label">
+                <Volume2 aria-hidden="true" size={20} />
+                Аудио
+              </strong>
+            ) : (
+              <JapaneseText as="strong">{item.item.japanese}</JapaneseText>
+            )}
           </div>
           <span>{formatAnswerType(item.card.answerType)}</span>
         </article>
@@ -814,14 +828,12 @@ function FeedbackPanel({
     >
       <div className="feedback-header">
         <div role="status" aria-atomic="true">
-          <span className="eyebrow">
-            {feedback.retry ? "Другое чтение" : formatResult(feedback.result)}
-          </span>
           <h2>{feedback.feedback.message}</h2>
+          {"nextSrs" in feedback ? <span className="feedback-stage">{formatSrsStageName(feedback.nextSrs.stageName)}</span> : null}
         </div>
         <button
           className="primary-action"
-          disabled={isContinuing}
+          disabled={isContinuing || isSaving}
           onClick={onContinue}
           ref={continueButtonRef}
           type="button"
@@ -847,6 +859,8 @@ function FeedbackPanel({
             displayMode={displayMode}
           />
         </div>
+      </div>
+      <SectionDisclosure title="Расписание повторений">
         {"srsTransition" in feedback ? (
           <div>
             <h3>Изменение SRS</h3>
@@ -865,7 +879,7 @@ function FeedbackPanel({
             <p>Без изменений</p>
           </div>
         )}
-      </div>
+      </SectionDisclosure>
 
       {item.card.promptType === "listening" && item.card.audio != null ? (
         <section className="listening-feedback-details">
@@ -886,6 +900,7 @@ function FeedbackPanel({
         </section>
       ) : null}
 
+      <SectionDisclosure title="Добавить свой ответ">
       <form
         className="private-answer-form"
         onSubmit={(event) => void handleSavePrivateAnswer(event)}
@@ -922,6 +937,7 @@ function FeedbackPanel({
           </p>
         )}
       </form>
+      </SectionDisclosure>
     </section>
   );
 }

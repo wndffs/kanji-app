@@ -180,6 +180,8 @@ test.describe("final MVP integration path", () => {
 
       await expect(page.getByRole("region", { name: "Результат ответа" })).toBeVisible();
       await expect(page.getByText("Верно")).toBeVisible();
+      await expect(page.getByLabel("Приватный правильный вариант")).toBeHidden();
+      await page.getByText("Добавить свой ответ", { exact: true }).click();
       await page.getByLabel("Приватный правильный вариант").fill("единица");
       await page.getByRole("button", { name: "Сохранить вариант" }).click();
       await expect(page.getByText("Приватный вариант сохранён.")).toBeVisible();
