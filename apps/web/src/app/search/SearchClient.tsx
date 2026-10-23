@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { X, RotateCcw } from "lucide-react";
+import { X, RotateCcw, ArrowLeft, ArrowRight } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -230,7 +230,7 @@ function SearchScreen({ token }: { readonly token: string | null }) {
                 level: levelFromUrl,
               })}
             >
-              ←
+              <ArrowLeft size={18} aria-hidden="true" />
             </Link>
           ) : (
             <span />
@@ -249,7 +249,7 @@ function SearchScreen({ token }: { readonly token: string | null }) {
                 level: levelFromUrl,
               })}
             >
-              →
+              <ArrowRight size={18} aria-hidden="true" />
             </Link>
           ) : (
             <span />
@@ -326,21 +326,18 @@ function SearchResultCard({
       <div className="search-result-main">
         <span className="eyebrow">{formatItemType(item.itemType)}</span>
         <JapaneseText as="strong">{item.japanese}</JapaneseText>
+        {item.reading === null ? null : <JapaneseText as="p" className="search-result-reading">{item.reading}</JapaneseText>}
         <p>{formatTranslationBundle(item.translations, displayMode)}</p>
       </div>
       <dl className="search-result-meta">
-        <div>
-          <dt>Чтение</dt>
-          <dd>{item.reading ?? "нет"}</dd>
-        </div>
-        <div>
+        {item.level === null ? null : <div>
           <dt>Уровень</dt>
-          <dd>{item.level ?? "нет"}</dd>
-        </div>
-        <div>
+          <dd>{item.level}</dd>
+        </div>}
+        {item.jlptLevel === null ? null : <div>
           <dt>JLPT</dt>
-          <dd>{item.jlptLevel ?? "нет"}</dd>
-        </div>
+          <dd>{item.jlptLevel}</dd>
+        </div>}
         {isAuthenticated ? (
           <div>
             <dt>Повторения</dt>
