@@ -2512,6 +2512,36 @@ textarea:focus-visible {
   line-height: 1.4;
 }
 
+.lesson-teaching-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 28px 16px;
+  min-height: 230px;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.lesson-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lesson-hero-main > p:not(.review-japanese) {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.5;
+}
+
+.lesson-primary-reading {
+  color: var(--primary-strong);
+  font-size: 24px;
+  line-height: 1.5;
+}
+
 .lesson-facts {
   display: grid;
   gap: 10px;

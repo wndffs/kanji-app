@@ -1171,9 +1171,12 @@ function LessonStudyView({
         ))}
       </div>
 
-      <article className="lesson-hero panel">
+      <article className="lesson-hero lesson-teaching-hero">
         <div className="lesson-hero-main">
-          <span className="eyebrow">{formatItemType(lesson.item.itemType)}</span>
+          <div className="lesson-item-meta">
+            <span>{formatItemType(lesson.item.itemType)}</span>
+            {lesson.item.level === null ? null : <span>Уровень {lesson.item.level}</span>}
+          </div>
           <JapaneseText
             as="p"
             className="review-japanese"
@@ -1185,33 +1188,11 @@ function LessonStudyView({
             {lesson.item.japanese}
           </JapaneseText>
           <p>{formatTranslationBundle(lesson.item.translations, displayMode)}</p>
-        </div>
-        <dl className="lesson-facts">
-          {phase === "meaning" || pronunciationMode === "kana" ? (
-            <div>
-              <dt>Чтение</dt>
-              <dd>
-                {phase === "meaning" && phases.includes("reading")
-                  ? "следующий этап"
-                  : (lesson.item.reading ?? "нет")}
-              </dd>
-            </div>
+          {pronunciationRevealed && pronunciationMode === "kana" && pronunciationText !== null ? (
+            <JapaneseText className="lesson-primary-reading">{pronunciationText}</JapaneseText>
           ) : null}
-          {itemRomaji === null ? null : (
-            <div>
-              <dt>Ромадзи</dt>
-              <dd>{itemRomaji}</dd>
-            </div>
-          )}
-          <div>
-            <dt>Уровень</dt>
-            <dd>{lesson.item.level ?? "без уровня"}</dd>
-          </div>
-          <div>
-            <dt>JLPT</dt>
-            <dd>{lesson.item.jlptLevel ?? "нет"}</dd>
-          </div>
-        </dl>
+          {itemRomaji === null ? null : <span className="lesson-romaji-reading">{itemRomaji}</span>}
+        </div>
       </article>
 
       <div
@@ -1222,16 +1203,6 @@ function LessonStudyView({
       >
         {phase === "meaning" ? (
           <>
-            <section className="panel">
-              <h2>Объяснение</h2>
-              <p>
-                Изучаем {formatItemTypeLower(lesson.item.itemType)} как отдельный учебный материал.
-                После изучения всей группы обязательная проверка создаст расписание повторений для{" "}
-                {lesson.cards.length} {formatCardsCount(lesson.cards.length)} только при верных
-                ответах.
-              </p>
-            </section>
-
             <section className="panel">
               <h2>Значения</h2>
               <TextList texts={collectCardAnswers(meaningCards, displayMode)} />

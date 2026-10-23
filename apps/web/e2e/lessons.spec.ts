@@ -34,6 +34,8 @@ test.describe("lesson session", () => {
     await page.getByRole("button", { name: "Начать урок" }).click();
 
     await expect(page.getByRole("heading", { name: "Изучение" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Объяснение", exact: true })).toHaveCount(0);
+    await expect(page.getByText("следующий этап", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Основная навигация" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "На панель", exact: true })).toBeVisible();
     await expect(page.getByLabel("Режим перевода карточек")).toBeVisible();
