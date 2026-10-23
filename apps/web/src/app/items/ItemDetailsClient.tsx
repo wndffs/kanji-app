@@ -589,14 +589,18 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               <dd>{reading.romaji}</dd>
             </div>
           )}
-          <div>
-            <dt>Уровень</dt>
-            <dd>{item.level ?? "без уровня"}</dd>
-          </div>
-          <div>
-            <dt>JLPT</dt>
-            <dd>{item.jlptLevel ?? "нет"}</dd>
-          </div>
+          {item.level === null ? null : (
+            <div>
+              <dt>Уровень</dt>
+              <dd>{item.level}</dd>
+            </div>
+          )}
+          {item.jlptLevel === null ? null : (
+            <div>
+              <dt>JLPT</dt>
+              <dd>{item.jlptLevel}</dd>
+            </div>
+          )}
           <div>
             <dt>Повторения</dt>
             <dd>{formatSrsStageName(item.srs?.stageName)}</dd>
@@ -641,123 +645,138 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
         </section>
       ) : null}
 
-      <ViewTabs active={itemView} onChange={setItemView} label="Разделы материала" idPrefix="item-view" panelId="item-view-panel" tabs={[
-        { id: "study", label: "Изучение" }, { id: "personal", label: "Мои записи" },
-        { id: "history", label: "История" }, { id: "sources", label: "Источники" },
-      ]} />
-      <div className="item-layout" data-item-view={itemView} role="tabpanel" id="item-view-panel" aria-labelledby={`item-view-${itemView}`}>
+      <ViewTabs
+        active={itemView}
+        onChange={setItemView}
+        label="Разделы материала"
+        idPrefix="item-view"
+        panelId="item-view-panel"
+        tabs={[
+          { id: "study", label: "Изучение" },
+          { id: "personal", label: "Мои записи" },
+          { id: "history", label: "История" },
+          { id: "sources", label: "Источники" },
+        ]}
+      />
+      <div
+        className="item-layout"
+        data-item-view={itemView}
+        role="tabpanel"
+        id="item-view-panel"
+        aria-labelledby={`item-view-${itemView}`}
+      >
         <div className="item-main">
           <div className="item-tab-content" hidden={itemView !== "study"}>
-          <section className="panel">
-            <h2>Значения</h2>
-            <TextList texts={getLocalizedTexts(item.translations, displayMode)} />
-          </section>
-
-          {item.componentDetails === null ? null : (
-            <section className="panel" data-testid="component-details">
-              <h2>Компонент</h2>
-              <dl className="lesson-facts">
-                <div>
-                  <dt>Учебное имя</dt>
-                  <dd>{formatTranslationBundle(item.componentDetails.name, displayMode)}</dd>
-                </div>
-                <div>
-                  <dt>Описание формы</dt>
-                  <dd>
-                    {formatTranslationBundle(item.componentDetails.shapeDescription, displayMode)}
-                  </dd>
-                </div>
-              </dl>
+            <section className="panel">
+              <h2>Значения</h2>
+              <TextList texts={getLocalizedTexts(item.translations, displayMode)} />
             </section>
-          )}
 
-          <ItemReadingDetails
-            displayMode={displayMode}
-            item={item}
-            readingCards={readingCards}
-            kanaReading={reading.kana}
-            hideReadings={hideReadingAnswers}
-          />
+            {item.componentDetails === null ? null : (
+              <section className="panel" data-testid="component-details">
+                <h2>Компонент</h2>
+                <dl className="lesson-facts">
+                  <div>
+                    <dt>Учебное имя</dt>
+                    <dd>{formatTranslationBundle(item.componentDetails.name, displayMode)}</dd>
+                  </div>
+                  <div>
+                    <dt>Описание формы</dt>
+                    <dd>
+                      {formatTranslationBundle(item.componentDetails.shapeDescription, displayMode)}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+            )}
 
-          <SectionDisclosure title="Все допустимые ответы">
-          <section>
-            <h2>Глобальные ответы</h2>
-            <CardAnswerList
-              cards={item.cards}
+            <ItemReadingDetails
               displayMode={displayMode}
+              item={item}
+              readingCards={readingCards}
+              kanaReading={reading.kana}
               hideReadings={hideReadingAnswers}
             />
-          </section>
-          </SectionDisclosure>
+
+            <SectionDisclosure title="Все допустимые ответы">
+              <section>
+                <h2>Глобальные ответы</h2>
+                <CardAnswerList
+                  cards={item.cards}
+                  displayMode={displayMode}
+                  hideReadings={hideReadingAnswers}
+                />
+              </section>
+            </SectionDisclosure>
           </div>
 
           <div className="item-tab-content" hidden={itemView !== "history"}>
-          <SrsHistory
-            history={item.reviewHistory}
-            isLoading={isLoadingHistory}
-            nextReviewAt={item.nextReviewAt}
-            onLoadMore={handleLoadHistory}
-            stageName={item.srs?.stageName ?? null}
-            timezone={timezone}
-          />
+            <SrsHistory
+              history={item.reviewHistory}
+              isLoading={isLoadingHistory}
+              nextReviewAt={item.nextReviewAt}
+              onLoadMore={handleLoadHistory}
+              stageName={item.srs?.stageName ?? null}
+              timezone={timezone}
+            />
           </div>
 
           <div className="item-tab-content" hidden={itemView !== "study"}>
-          <RelationGroups
-            displayMode={displayMode}
-            groups={item.relationGroups}
-            legacyRelations={item.relations}
-          />
-
-          <section className="panel">
-            <h2>Примеры</h2>
-            {item.exampleSentences.length === 0 ? (
-              <p className="muted">Примеры для этого материала пока не добавлены.</p>
-            ) : (
-              <ul className="example-list">
-                {item.exampleSentences.map((sentence) => {
-                  const presentation = itemReadingPresentation(
-                    sentence.readingText,
-                    presentationPreferences,
-                    revealedReadings.has(sentence.id),
-                  );
-                  return (
-                    <li key={sentence.id}>
-                      <JapaneseText furigana={presentation.furigana} variant="sentence">
-                        {sentence.japaneseText}
-                      </JapaneseText>
-                      {presentation.kana === null ? null : (
-                        <small lang="ja">{presentation.kana}</small>
-                      )}
-                      {presentation.romaji === null ? null : <small>{presentation.romaji}</small>}
-                      {presentation.hidden ? (
-                        <button
-                          className="link-button"
-                          onClick={() => revealReading(sentence.id)}
-                          type="button"
-                        >
-                          Показать чтение примера
-                        </button>
-                      ) : null}
-                      <p>{formatSentenceTranslation(sentence, displayMode)}</p>
-                      {sentence.attribution === null ? null : (
-                        <SourceAttribution source={sentence.attribution} />
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
-
-          <section className="panel">
-            <h2>Мнемоники и подсказки</h2>
-            <ContentBlock
-              title="Мнемоники"
-              texts={getLocalizedTexts(item.mnemonics, displayMode)}
+            <RelationGroups
+              displayMode={displayMode}
+              groups={item.relationGroups}
+              legacyRelations={item.relations}
             />
-            <ContentBlock title="Подсказки" texts={getLocalizedTexts(item.hints, displayMode)} />
-          </section>
+
+            <section className="panel">
+              <h2>Примеры</h2>
+              {item.exampleSentences.length === 0 ? (
+                <p className="muted">Примеры для этого материала пока не добавлены.</p>
+              ) : (
+                <ul className="example-list">
+                  {item.exampleSentences.map((sentence) => {
+                    const presentation = itemReadingPresentation(
+                      sentence.readingText,
+                      presentationPreferences,
+                      revealedReadings.has(sentence.id),
+                    );
+                    return (
+                      <li key={sentence.id}>
+                        <JapaneseText furigana={presentation.furigana} variant="sentence">
+                          {sentence.japaneseText}
+                        </JapaneseText>
+                        {presentation.kana === null ? null : (
+                          <small lang="ja">{presentation.kana}</small>
+                        )}
+                        {presentation.romaji === null ? null : <small>{presentation.romaji}</small>}
+                        {presentation.hidden ? (
+                          <button
+                            className="link-button"
+                            onClick={() => revealReading(sentence.id)}
+                            type="button"
+                          >
+                            Показать чтение примера
+                          </button>
+                        ) : null}
+                        <p>{formatSentenceTranslation(sentence, displayMode)}</p>
+                        {sentence.attribution === null ? null : (
+                          <SourceAttribution source={sentence.attribution} />
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+
+            <section className="panel">
+              <h2>Мнемоники и подсказки</h2>
+              <ContentBlock
+                title="Мнемоники"
+                texts={getLocalizedTexts(item.mnemonics, displayMode)}
+              />
+              <ContentBlock title="Подсказки" texts={getLocalizedTexts(item.hints, displayMode)} />
+            </section>
           </div>
 
           <section className="panel item-tab-content" hidden={itemView !== "sources"}>
@@ -789,7 +808,10 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
 
         <aside className="item-side">
           {item.itemType === "kanji" ? (
-            <section className="panel stroke-placeholder item-tab-content" hidden={itemView !== "study"}>
+            <section
+              className="panel stroke-placeholder item-tab-content"
+              hidden={itemView !== "study"}
+            >
               <h2>Порядок черт</h2>
               {item.strokeGraphic === null ? (
                 <StrokePlaceholder character={item.japanese} />
@@ -800,244 +822,245 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
           ) : null}
 
           <div className="item-tab-content" hidden={itemView !== "personal"}>
-          <section className="panel">
-            <h2>Приватные ответы</h2>
-            {token === null ? (
-              <p className="muted">Войдите, чтобы добавить личные варианты ответа.</p>
-            ) : (
-              <>
-                <form
-                  className="private-item-form"
-                  data-testid="private-answer-form"
-                  onSubmit={(event) => void handleSaveAcceptedAnswer(event)}
-                >
-                  <label>
-                    <span>Тип</span>
-                    <select
-                      disabled={isSavingAcceptedAnswer || acceptedForm.editingOverride !== null}
-                      onChange={(event) => {
-                        const answerKind = event.currentTarget.value as CardAnswerType;
-
-                        setAcceptedForm((previous) =>
-                          resolveAcceptedFormDefaults(
-                            {
-                              ...previous,
-                              answerKind,
-                              cardId: "",
-                              editingOverride: null,
-                            },
-                            item,
-                          ),
-                        );
-                      }}
-                      value={acceptedForm.answerKind}
-                    >
-                      <option value="meaning">Значение</option>
-                      <option value="reading">Чтение</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Карточка</span>
-                    <select
-                      disabled={isSavingAcceptedAnswer || acceptedForm.editingOverride !== null}
-                      onChange={(event) => {
-                        const cardId = event.currentTarget.value;
-
-                        setAcceptedForm((previous) => ({
-                          ...previous,
-                          cardId,
-                        }));
-                      }}
-                      value={acceptedForm.cardId}
-                    >
-                      {editableCards.map((card) => (
-                        <option key={card.id} value={card.id}>
-                          {formatPromptType(card.promptType)} · {formatAnswerType(card.answerType)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {acceptedForm.answerKind === "reading" ? (
-                    <p className="muted">
-                      Чтения сохраняются как японские варианты без метки RU/EN.
-                    </p>
-                  ) : (
+            <section className="panel">
+              <h2>Приватные ответы</h2>
+              {token === null ? (
+                <p className="muted">Войдите, чтобы добавить личные варианты ответа.</p>
+              ) : (
+                <>
+                  <form
+                    className="private-item-form"
+                    data-testid="private-answer-form"
+                    onSubmit={(event) => void handleSaveAcceptedAnswer(event)}
+                  >
                     <label>
-                      <span>Язык</span>
+                      <span>Тип</span>
                       <select
-                        disabled={isSavingAcceptedAnswer}
+                        disabled={isSavingAcceptedAnswer || acceptedForm.editingOverride !== null}
                         onChange={(event) => {
-                          const locale = event.currentTarget.value as ContentLocale;
+                          const answerKind = event.currentTarget.value as CardAnswerType;
+
+                          setAcceptedForm((previous) =>
+                            resolveAcceptedFormDefaults(
+                              {
+                                ...previous,
+                                answerKind,
+                                cardId: "",
+                                editingOverride: null,
+                              },
+                              item,
+                            ),
+                          );
+                        }}
+                        value={acceptedForm.answerKind}
+                      >
+                        <option value="meaning">Значение</option>
+                        <option value="reading">Чтение</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Карточка</span>
+                      <select
+                        disabled={isSavingAcceptedAnswer || acceptedForm.editingOverride !== null}
+                        onChange={(event) => {
+                          const cardId = event.currentTarget.value;
 
                           setAcceptedForm((previous) => ({
                             ...previous,
-                            locale,
+                            cardId,
                           }));
                         }}
-                        value={acceptedForm.locale}
+                        value={acceptedForm.cardId}
+                      >
+                        {editableCards.map((card) => (
+                          <option key={card.id} value={card.id}>
+                            {formatPromptType(card.promptType)} ·{" "}
+                            {formatAnswerType(card.answerType)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {acceptedForm.answerKind === "reading" ? (
+                      <p className="muted">
+                        Чтения сохраняются как японские варианты без метки RU/EN.
+                      </p>
+                    ) : (
+                      <label>
+                        <span>Язык</span>
+                        <select
+                          disabled={isSavingAcceptedAnswer}
+                          onChange={(event) => {
+                            const locale = event.currentTarget.value as ContentLocale;
+
+                            setAcceptedForm((previous) => ({
+                              ...previous,
+                              locale,
+                            }));
+                          }}
+                          value={acceptedForm.locale}
+                        >
+                          <option value="ru-RU">Русский</option>
+                          <option value="en-US">English</option>
+                        </select>
+                      </label>
+                    )}
+                    <label>
+                      <span>Ответ</span>
+                      <input
+                        data-testid="private-answer-text"
+                        disabled={isSavingAcceptedAnswer}
+                        onChange={(event) => {
+                          const text = event.currentTarget.value;
+
+                          setAcceptedForm((previous) => ({
+                            ...previous,
+                            text,
+                          }));
+                        }}
+                        value={acceptedForm.text}
+                      />
+                    </label>
+                    <label>
+                      <span>Заметка</span>
+                      <input
+                        aria-label="Заметка к приватному ответу"
+                        data-testid="private-answer-note"
+                        disabled={isSavingAcceptedAnswer}
+                        onChange={(event) => {
+                          const note = event.currentTarget.value;
+
+                          setAcceptedForm((previous) => ({
+                            ...previous,
+                            note,
+                          }));
+                        }}
+                        value={acceptedForm.note}
+                      />
+                    </label>
+                    <button
+                      className="secondary-action"
+                      data-testid="private-answer-submit"
+                      disabled={isSavingAcceptedAnswer}
+                      type="submit"
+                    >
+                      {acceptedForm.editingOverride === null ? "Добавить ответ" : "Сохранить ответ"}
+                    </button>
+                    {acceptedForm.editingOverride === null ? null : (
+                      <button
+                        className="secondary-action"
+                        disabled={isSavingAcceptedAnswer}
+                        onClick={() =>
+                          setAcceptedForm(resolveAcceptedFormDefaults(EMPTY_ACCEPTED_FORM, item))
+                        }
+                        type="button"
+                      >
+                        Отменить редактирование
+                      </button>
+                    )}
+                  </form>
+                  <PrivateOverridesList
+                    disabled={isSavingAcceptedAnswer}
+                    cards={item.cards}
+                    overrides={privateOverrides}
+                    onDelete={handleDeleteAcceptedAnswer}
+                    onEdit={handleEditAcceptedAnswer}
+                  />
+                </>
+              )}
+            </section>
+
+            <section className="panel">
+              <h2>Приватная заметка</h2>
+              {token === null ? (
+                <p className="muted">Войдите, чтобы сохранить личную мнемонику или заметку.</p>
+              ) : (
+                <>
+                  <form
+                    className="private-item-form"
+                    data-testid="private-mnemonic-form"
+                    onSubmit={(event) => void handleSaveMnemonic(event)}
+                  >
+                    <label>
+                      <span>Язык</span>
+                      <select
+                        disabled={isSavingMnemonic}
+                        onChange={(event) => {
+                          const locale = event.currentTarget.value as ContentLocale;
+
+                          setMnemonicForm((previous) =>
+                            selectMnemonicForm(previous, { ...previous, locale }, privateMnemonics),
+                          );
+                        }}
+                        value={mnemonicForm.locale}
                       >
                         <option value="ru-RU">Русский</option>
                         <option value="en-US">English</option>
                       </select>
                     </label>
+                    <label>
+                      <span>Тип</span>
+                      <select
+                        disabled={isSavingMnemonic}
+                        onChange={(event) => {
+                          const mnemonicType = event.currentTarget
+                            .value as MnemonicFormState["mnemonicType"];
+
+                          setMnemonicForm((previous) =>
+                            selectMnemonicForm(
+                              previous,
+                              { ...previous, mnemonicType },
+                              privateMnemonics,
+                            ),
+                          );
+                        }}
+                        value={mnemonicForm.mnemonicType}
+                      >
+                        <option value="story">Заметка</option>
+                        <option value="meaning">Мнемоника значения</option>
+                        <option value="reading">Мнемоника чтения</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Текст</span>
+                      <textarea
+                        aria-label="Текст приватной заметки"
+                        data-testid="private-mnemonic-body"
+                        disabled={isSavingMnemonic}
+                        onChange={(event) => {
+                          const body = event.currentTarget.value;
+
+                          setMnemonicForm((previous) => editMnemonicBody(previous, body));
+                        }}
+                        value={mnemonicForm.body}
+                      />
+                    </label>
+                    <div className="action-row">
+                      <button
+                        className="secondary-action"
+                        data-testid="private-mnemonic-submit"
+                        disabled={isSavingMnemonic}
+                        type="submit"
+                      >
+                        Сохранить заметку
+                      </button>
+                      <button
+                        className="secondary-action"
+                        disabled={isSavingMnemonic}
+                        onClick={() => void handleDeleteMnemonic()}
+                        type="button"
+                      >
+                        Удалить заметку
+                      </button>
+                    </div>
+                  </form>
+                  {userMnemonicTexts.length === 0 ? (
+                    <p className="muted">Личных заметок пока нет.</p>
+                  ) : (
+                    <TextList texts={userMnemonicTexts} />
                   )}
-                  <label>
-                    <span>Ответ</span>
-                    <input
-                      data-testid="private-answer-text"
-                      disabled={isSavingAcceptedAnswer}
-                      onChange={(event) => {
-                        const text = event.currentTarget.value;
-
-                        setAcceptedForm((previous) => ({
-                          ...previous,
-                          text,
-                        }));
-                      }}
-                      value={acceptedForm.text}
-                    />
-                  </label>
-                  <label>
-                    <span>Заметка</span>
-                    <input
-                      aria-label="Заметка к приватному ответу"
-                      data-testid="private-answer-note"
-                      disabled={isSavingAcceptedAnswer}
-                      onChange={(event) => {
-                        const note = event.currentTarget.value;
-
-                        setAcceptedForm((previous) => ({
-                          ...previous,
-                          note,
-                        }));
-                      }}
-                      value={acceptedForm.note}
-                    />
-                  </label>
-                  <button
-                    className="secondary-action"
-                    data-testid="private-answer-submit"
-                    disabled={isSavingAcceptedAnswer}
-                    type="submit"
-                  >
-                    {acceptedForm.editingOverride === null ? "Добавить ответ" : "Сохранить ответ"}
-                  </button>
-                  {acceptedForm.editingOverride === null ? null : (
-                    <button
-                      className="secondary-action"
-                      disabled={isSavingAcceptedAnswer}
-                      onClick={() =>
-                        setAcceptedForm(resolveAcceptedFormDefaults(EMPTY_ACCEPTED_FORM, item))
-                      }
-                      type="button"
-                    >
-                      Отменить редактирование
-                    </button>
-                  )}
-                </form>
-                <PrivateOverridesList
-                  disabled={isSavingAcceptedAnswer}
-                  cards={item.cards}
-                  overrides={privateOverrides}
-                  onDelete={handleDeleteAcceptedAnswer}
-                  onEdit={handleEditAcceptedAnswer}
-                />
-              </>
-            )}
-          </section>
-
-          <section className="panel">
-            <h2>Приватная заметка</h2>
-            {token === null ? (
-              <p className="muted">Войдите, чтобы сохранить личную мнемонику или заметку.</p>
-            ) : (
-              <>
-                <form
-                  className="private-item-form"
-                  data-testid="private-mnemonic-form"
-                  onSubmit={(event) => void handleSaveMnemonic(event)}
-                >
-                  <label>
-                    <span>Язык</span>
-                    <select
-                      disabled={isSavingMnemonic}
-                      onChange={(event) => {
-                        const locale = event.currentTarget.value as ContentLocale;
-
-                        setMnemonicForm((previous) =>
-                          selectMnemonicForm(previous, { ...previous, locale }, privateMnemonics),
-                        );
-                      }}
-                      value={mnemonicForm.locale}
-                    >
-                      <option value="ru-RU">Русский</option>
-                      <option value="en-US">English</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Тип</span>
-                    <select
-                      disabled={isSavingMnemonic}
-                      onChange={(event) => {
-                        const mnemonicType = event.currentTarget
-                          .value as MnemonicFormState["mnemonicType"];
-
-                        setMnemonicForm((previous) =>
-                          selectMnemonicForm(
-                            previous,
-                            { ...previous, mnemonicType },
-                            privateMnemonics,
-                          ),
-                        );
-                      }}
-                      value={mnemonicForm.mnemonicType}
-                    >
-                      <option value="story">Заметка</option>
-                      <option value="meaning">Мнемоника значения</option>
-                      <option value="reading">Мнемоника чтения</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Текст</span>
-                    <textarea
-                      aria-label="Текст приватной заметки"
-                      data-testid="private-mnemonic-body"
-                      disabled={isSavingMnemonic}
-                      onChange={(event) => {
-                        const body = event.currentTarget.value;
-
-                        setMnemonicForm((previous) => editMnemonicBody(previous, body));
-                      }}
-                      value={mnemonicForm.body}
-                    />
-                  </label>
-                  <div className="action-row">
-                    <button
-                      className="secondary-action"
-                      data-testid="private-mnemonic-submit"
-                      disabled={isSavingMnemonic}
-                      type="submit"
-                    >
-                      Сохранить заметку
-                    </button>
-                    <button
-                      className="secondary-action"
-                      disabled={isSavingMnemonic}
-                      onClick={() => void handleDeleteMnemonic()}
-                      type="button"
-                    >
-                      Удалить заметку
-                    </button>
-                  </div>
-                </form>
-                {userMnemonicTexts.length === 0 ? (
-                  <p className="muted">Личных заметок пока нет.</p>
-                ) : (
-                  <TextList texts={userMnemonicTexts} />
-                )}
-              </>
-            )}
-          </section>
+                </>
+              )}
+            </section>
           </div>
         </aside>
       </div>

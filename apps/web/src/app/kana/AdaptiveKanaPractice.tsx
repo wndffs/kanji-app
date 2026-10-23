@@ -1,5 +1,7 @@
 "use client";
 
+import { Volume2 } from "lucide-react";
+
 import {
   type FormEvent,
   type RefObject,
@@ -317,7 +319,7 @@ function PracticePrompt({
           onClick={() => void onSpeak()}
           type="button"
         >
-          <span aria-hidden="true">▶</span>
+          <Volume2 aria-hidden="true" size={20} />
           <span>Воспроизвести</span>
         </button>
       </div>

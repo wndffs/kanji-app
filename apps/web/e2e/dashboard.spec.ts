@@ -11,12 +11,18 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("dashboard smoke", () => {
-  test("keeps the daily action primary and opens secondary navigation with keyboard recovery", async ({ page }) => {
+  test("keeps the daily action primary and opens secondary navigation with keyboard recovery", async ({
+    page,
+  }) => {
     await signIn(page);
-    await page.route(`${API_BASE_URL}/courses`, (route) => route.fulfill({ json: buildCourseList("course-1") }));
-    await page.route(`${API_BASE_URL}/dashboard`, (route) => route.fulfill({ json: buildMinimalDashboard("course-1", "Базовый курс") }));
+    await page.route(`${API_BASE_URL}/courses`, (route) =>
+      route.fulfill({ json: buildCourseList("course-1") }),
+    );
+    await page.route(`${API_BASE_URL}/dashboard`, (route) =>
+      route.fulfill({ json: buildMinimalDashboard("course-1", "Базовый курс") }),
+    );
     await page.goto("/dashboard");
-    await expect(page.locator('.dashboard-heading .primary-action')).toHaveCount(1);
+    await expect(page.locator(".dashboard-heading .primary-action")).toHaveCount(1);
     await expect(page.getByRole("heading", { name: "Баланс нагрузки", exact: true })).toBeHidden();
     await page.locator('[data-dashboard-widget="workload"] > details > summary').click();
     await expect(page.getByRole("heading", { name: "Баланс нагрузки", exact: true })).toBeVisible();
@@ -25,13 +31,21 @@ test.describe("dashboard smoke", () => {
     const more = page.getByRole("button", { name: "Другие разделы", exact: true });
     await more.click();
     const navigation = page.getByRole("navigation", { name: "Другие разделы", exact: true });
-    await expect(navigation.getByRole("link", { name: "Практика", exact: true })).toHaveAttribute("href", "/practice");
+    await expect(navigation.getByRole("link", { name: "Практика", exact: true })).toHaveAttribute(
+      "href",
+      "/practice",
+    );
     await expect(navigation.getByRole("link", { name: "Админ", exact: true })).toHaveCount(0);
     await page.keyboard.press("Escape");
     await expect(navigation).toBeHidden();
     await expect(more).toBeFocused();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: test.info().outputPath("dashboard-focused.png"), fullPage: true });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: test.info().outputPath("dashboard-focused.png"),
+      fullPage: true,
+    });
   });
   test("claims a fresh reminder once without a permission prompt and closes it on logout", async ({
     page,
@@ -451,10 +465,9 @@ test.describe("dashboard smoke", () => {
       "href",
       "/practice?source=recent-mistakes",
     );
-    await expect(page.locator(".dashboard-heading").getByRole("link", { name: "Повторять" })).toHaveAttribute(
-      "href",
-      "/reviews",
-    );
+    await expect(
+      page.locator(".dashboard-heading").getByRole("link", { name: "Повторять" }),
+    ).toHaveAttribute("href", "/reviews");
   });
 
   test("shows before-completion, just-completed, and waiting journey states after reload", async ({
@@ -782,8 +795,9 @@ test.describe("dashboard smoke", () => {
 
 async function expandDashboardDetails(page: Page) {
   await expect(page.locator('[data-dashboard-widget="summary"]')).toBeVisible();
-  for (const summary of await page.locator('.dashboard-widget-grid details:not([open]) > summary').all()) {
-    await summary.click();
+  const closed = page.locator(".dashboard-widget-grid details:not([open]) > summary");
+  for (let count = 0; count < 20 && (await closed.count()) > 0; count++) {
+    await closed.first().click();
   }
 }
 

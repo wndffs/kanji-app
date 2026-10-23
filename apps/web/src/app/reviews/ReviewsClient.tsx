@@ -829,7 +829,9 @@ function FeedbackPanel({
       <div className="feedback-header">
         <div role="status" aria-atomic="true">
           <h2>{feedback.feedback.message}</h2>
-          {"nextSrs" in feedback ? <span className="feedback-stage">{formatSrsStageName(feedback.nextSrs.stageName)}</span> : null}
+          {"nextSrs" in feedback ? (
+            <span className="feedback-stage">{formatSrsStageName(feedback.nextSrs.stageName)}</span>
+          ) : null}
         </div>
         <button
           className="primary-action"
@@ -901,42 +903,42 @@ function FeedbackPanel({
       ) : null}
 
       <SectionDisclosure title="Добавить свой ответ">
-      <form
-        className="private-answer-form"
-        onSubmit={(event) => void handleSavePrivateAnswer(event)}
-      >
-        <label>
-          <span>Приватный правильный вариант</span>
-          <input
-            autoComplete="off"
-            onChange={(event) => setPrivateAnswer(event.currentTarget.value)}
-            value={privateAnswer}
-          />
-        </label>
-        {item.card.answerType === "reading" ? (
-          <p className="muted">Чтения сохраняются как японские варианты без метки RU/EN.</p>
-        ) : (
+        <form
+          className="private-answer-form"
+          onSubmit={(event) => void handleSavePrivateAnswer(event)}
+        >
           <label>
-            <span>Язык</span>
-            <select
-              onChange={(event) => setPrivateLocale(event.currentTarget.value as ContentLocale)}
-              value={privateLocale}
-            >
-              <option value="ru-RU">Русский</option>
-              <option value="en-US">English</option>
-            </select>
+            <span>Приватный правильный вариант</span>
+            <input
+              autoComplete="off"
+              onChange={(event) => setPrivateAnswer(event.currentTarget.value)}
+              value={privateAnswer}
+            />
           </label>
-        )}
-        <button className="secondary-action" disabled={isSaving} type="submit">
-          {isSaving ? "Сохраняю..." : "Сохранить вариант"}
-        </button>
-        {saveMessage === null ? null : <p className="success-text">{saveMessage}</p>}
-        {saveError === null ? null : (
-          <p className="form-error" role="alert">
-            {saveError}
-          </p>
-        )}
-      </form>
+          {item.card.answerType === "reading" ? (
+            <p className="muted">Чтения сохраняются как японские варианты без метки RU/EN.</p>
+          ) : (
+            <label>
+              <span>Язык</span>
+              <select
+                onChange={(event) => setPrivateLocale(event.currentTarget.value as ContentLocale)}
+                value={privateLocale}
+              >
+                <option value="ru-RU">Русский</option>
+                <option value="en-US">English</option>
+              </select>
+            </label>
+          )}
+          <button className="secondary-action" disabled={isSaving} type="submit">
+            {isSaving ? "Сохраняю..." : "Сохранить вариант"}
+          </button>
+          {saveMessage === null ? null : <p className="success-text">{saveMessage}</p>}
+          {saveError === null ? null : (
+            <p className="form-error" role="alert">
+              {saveError}
+            </p>
+          )}
+        </form>
       </SectionDisclosure>
     </section>
   );
@@ -1009,23 +1011,6 @@ function formatInputLabel(answerType: CardAnswerType): string {
 
 function formatInputPlaceholder(answerType: CardAnswerType): string {
   return answerType === "reading" ? "например: にほん" : "например: Япония";
-}
-
-function formatResult(result: ReviewAnswerResponse["result"]): string {
-  switch (result) {
-    case "correct":
-      return "Верно";
-    case "typo":
-      return "Опечатка";
-    case "blocked":
-      return "Отклонено";
-    case "reveal":
-      return "Показан ответ";
-    case "manual-ignore":
-      return "Игнорировано";
-    case "wrong":
-      return "Ошибка";
-  }
 }
 
 function formatSrsTransition(transition: ReviewSrsTransition): string {

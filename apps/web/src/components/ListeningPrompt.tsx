@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Volume2 } from "lucide-react";
 
 import { type AudioAssetDto, type ListeningPlaybackEvidenceDto } from "@kanji-srs/shared";
 
@@ -213,7 +214,7 @@ function ListeningPlayback({ audio, onEvidenceChange }: ListeningPromptProps) {
         onClick={() => void play()}
         type="button"
       >
-        <span aria-hidden="true">▶</span>
+        <Volume2 aria-hidden="true" size={20} />
         {status === "playing" ? "Слушайте" : status === "completed" ? "Повторить" : "Воспроизвести"}
       </button>
       <p aria-live="polite">

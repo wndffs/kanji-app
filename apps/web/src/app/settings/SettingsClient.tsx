@@ -266,11 +266,28 @@ export function SettingsClient() {
         <h1>Настройки</h1>
         <p>{user?.email ?? "Локальные параметры интерфейса"}</p>
       </div>
-      <ViewTabs active={section} onChange={setSection} label="Разделы настроек" idPrefix="settings-view" panelId="settings-panel" tabs={[
-        { id: "appearance", label: "Внешний вид" }, { id: "study", label: "Обучение" },
-        { id: "audio", label: "Произношение" }, { id: "schedule", label: "Расписание" },
-      ]} />
-      <form className="form-panel settings-form" data-settings-view={section} id="settings-panel" role="tabpanel" aria-labelledby={`settings-view-${section}`} noValidate onSubmit={(event) => void handleSubmit(event)}>
+      <ViewTabs
+        active={section}
+        onChange={setSection}
+        label="Разделы настроек"
+        idPrefix="settings-view"
+        panelId="settings-panel"
+        tabs={[
+          { id: "appearance", label: "Внешний вид" },
+          { id: "study", label: "Обучение" },
+          { id: "audio", label: "Произношение" },
+          { id: "schedule", label: "Расписание" },
+        ]}
+      />
+      <form
+        className="form-panel settings-form"
+        data-settings-view={section}
+        id="settings-panel"
+        role="tabpanel"
+        aria-labelledby={`settings-view-${section}`}
+        noValidate
+        onSubmit={(event) => void handleSubmit(event)}
+      >
         <fieldset
           data-settings-group="appearance"
           className="settings-fieldset"
@@ -357,7 +374,11 @@ export function SettingsClient() {
             />
           </label>
         </div>
-        <fieldset className="settings-fieldset" data-settings-group="study" disabled={remoteControlsDisabled}>
+        <fieldset
+          className="settings-fieldset"
+          data-settings-group="study"
+          disabled={remoteControlsDisabled}
+        >
           <legend>Порядок новых материалов</legend>
           <div className="lesson-order-control" role="group" aria-label="Порядок новых материалов">
             <button
@@ -417,7 +438,11 @@ export function SettingsClient() {
           />
           <span>Строгая проверка</span>
         </label>
-        <fieldset className="settings-fieldset" data-settings-group="schedule" disabled={remoteControlsDisabled}>
+        <fieldset
+          className="settings-fieldset"
+          data-settings-group="schedule"
+          disabled={remoteControlsDisabled}
+        >
           <legend>Напоминания в открытой вкладке</legend>
           <label className="checkbox-row">
             <input
@@ -446,7 +471,11 @@ export function SettingsClient() {
             <p className="muted">Разрешение на уведомления не выдано.</p>
           ) : null}
         </fieldset>
-        <fieldset className="settings-fieldset" data-settings-group="audio" disabled={remoteControlsDisabled}>
+        <fieldset
+          className="settings-fieldset"
+          data-settings-group="audio"
+          disabled={remoteControlsDisabled}
+        >
           <legend>Звук и произношение</legend>
           <div className="settings-grid">
             <label>
@@ -507,7 +536,11 @@ export function SettingsClient() {
             Прослушать голос
           </button>
         </fieldset>
-        <fieldset className="settings-fieldset" data-settings-group="audio" disabled={remoteControlsDisabled}>
+        <fieldset
+          className="settings-fieldset"
+          data-settings-group="audio"
+          disabled={remoteControlsDisabled}
+        >
           <legend>Чтение в учебных этапах урока</legend>
           <div
             aria-label="Способ показа чтения в уроках"
@@ -534,7 +567,11 @@ export function SettingsClient() {
             <span>Показывать ромадзи в уроках</span>
           </label>
         </fieldset>
-        <fieldset className="settings-fieldset" data-settings-group="schedule" disabled={remoteControlsDisabled}>
+        <fieldset
+          className="settings-fieldset"
+          data-settings-group="schedule"
+          disabled={remoteControlsDisabled}
+        >
           <legend>Режим отпуска</legend>
           <label className="checkbox-row">
             <input
@@ -555,21 +592,25 @@ export function SettingsClient() {
           )}
         </fieldset>
         <div className="settings-save-bar">
-        {status === "loading" ? <p className="muted">Загружаю настройки.</p> : null}
-        {status === "saved" ? <p className="success-text">Сохранено.</p> : null}
-        {error === null ? null : <p className="form-error" role="alert">{error}</p>}
-        <button
-          className="primary-action"
-          disabled={status === "loading" || status === "saving" || permissionPending}
-          type="submit"
-        >
-          {status === "saving" ? "Сохраняю" : "Сохранить"}
-        </button>
-        {user === null ? (
-          <Link className="inline-link" href="/login">
-            Войти для синхронизации
-          </Link>
-        ) : null}
+          {status === "loading" ? <p className="muted">Загружаю настройки.</p> : null}
+          {status === "saved" ? <p className="success-text">Сохранено.</p> : null}
+          {error === null ? null : (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+          <button
+            className="primary-action"
+            disabled={status === "loading" || status === "saving" || permissionPending}
+            type="submit"
+          >
+            {status === "saving" ? "Сохраняю" : "Сохранить"}
+          </button>
+          {user === null ? (
+            <Link className="inline-link" href="/login">
+              Войти для синхронизации
+            </Link>
+          ) : null}
         </div>
       </form>
     </section>
@@ -621,7 +662,12 @@ function createSettingsForm(settings: UserSettingsDto): SettingsForm {
 }
 
 class SettingsValidationError extends Error {
-  constructor(message: string, readonly section: string) { super(message); }
+  constructor(
+    message: string,
+    readonly section: string,
+  ) {
+    super(message);
+  }
 }
 
 function parseRemoteSettingsPayload(form: SettingsForm): RemoteSettingsPayload {
@@ -634,7 +680,10 @@ function parseRemoteSettingsPayload(form: SettingsForm): RemoteSettingsPayload {
   try {
     new Intl.DateTimeFormat("ru-RU", { timeZone: timezone }).format();
   } catch {
-    throw new SettingsValidationError("Часовой пояс должен быть валидным IANA значением.", "schedule");
+    throw new SettingsValidationError(
+      "Часовой пояс должен быть валидным IANA значением.",
+      "schedule",
+    );
   }
 
   return {
@@ -714,8 +763,14 @@ function parseBoundedInteger(value: string, label: string, max: number): number 
 }
 
 function validateReminderHour(value: string): number {
-  try { return parseReviewReminderHour(value); }
-  catch (error) { throw new SettingsValidationError(error instanceof Error ? error.message : "Неверный час напоминания.", "schedule"); }
+  try {
+    return parseReviewReminderHour(value);
+  } catch (error) {
+    throw new SettingsValidationError(
+      error instanceof Error ? error.message : "Неверный час напоминания.",
+      "schedule",
+    );
+  }
 }
 
 function formatVacationStartedAt(value: string): string {

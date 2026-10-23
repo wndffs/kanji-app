@@ -157,6 +157,7 @@ export function AppShell({ children }: AppShellProps) {
               {focusTitle === null ? (
                 <details className="nav-overflow" ref={menuRef}>
                   <summary
+                    role="button"
                     aria-label="Другие разделы"
                     className="icon-button"
                     title="Другие разделы"

@@ -372,7 +372,7 @@ function DashboardView({
   }
 
   return (
-    <section className="page-stack">
+    <section className="page-stack dashboard-page">
       <div className="page-heading dashboard-heading">
         <div>
           <h1>Панель</h1>

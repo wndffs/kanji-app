@@ -6,13 +6,20 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("settings", () => {
-  test("retains drafts between sections and reveals invalid hidden controls before saving", async ({ page }) => {
+  test("retains drafts between sections and reveals invalid hidden controls before saving", async ({
+    page,
+  }) => {
     await signIn(page);
     let writes = 0;
     await page.route(`${API_BASE_URL}/auth/me`, (route) => route.fulfill({ json: createUser() }));
     await page.route(`${API_BASE_URL}/users/settings`, (route) => {
       writes++;
-      return route.fulfill({ json: { ...createUser(), settings: { ...createUser().settings, ...route.request().postDataJSON() } } });
+      return route.fulfill({
+        json: {
+          ...createUser(),
+          settings: { ...createUser().settings, ...route.request().postDataJSON() },
+        },
+      });
     });
     await page.goto("/settings");
     await expect(page.getByText("Загружаю настройки.")).toBeHidden();
@@ -26,7 +33,10 @@ test.describe("settings", () => {
     await page.getByLabel("Новых материалов в день").fill("0");
     await page.getByRole("tab", { name: "Внешний вид", exact: true }).click();
     await page.getByRole("button", { name: "Сохранить", exact: true }).click();
-    await expect(page.getByRole("tab", { name: "Обучение", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tab", { name: "Обучение", exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     await expect(page.getByRole("alert")).toContainText("Лимит уроков в день");
     expect(writes).toBe(0);
     await page.getByLabel("Новых материалов в день").fill("7");
@@ -35,6 +45,13 @@ test.describe("settings", () => {
     expect(writes).toBe(1);
     await page.getByRole("tab", { name: "Внешний вид", exact: true }).click();
     await expect(page.getByLabel("Тема", { exact: true })).toHaveValue("dark");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: test.info().outputPath("settings-appearance.png"),
+      fullPage: true,
+    });
   });
   for (const outcome of ["granted", "denied", "unsupported"] as const) {
     test(`review reminders require a direct gesture and Save (${outcome})`, async ({ page }) => {

@@ -1,11 +1,11 @@
 :root {
   color-scheme: light dark;
-  --background: light-dark(#f5f6f3, #18191b);
+  --background: light-dark(#fafafa, #18191b);
   --foreground: light-dark(#182226, #eff2f3);
   --muted: light-dark(#617176, #b7c2c6);
   --surface: light-dark(#ffffff, #242629);
-  --surface-strong: light-dark(#eef4f2, #30383a);
-  --surface-border: light-dark(#d6dfdd, #50595d);
+  --surface-strong: light-dark(#f0f2f3, #303437);
+  --surface-border: light-dark(#dce1e3, #50595d);
   --primary: light-dark(#2364aa, #88bfff);
   --primary-strong: light-dark(#123f70, #acd1ff);
   --on-primary: light-dark(#ffffff, #142332);
@@ -19,7 +19,7 @@
   --study-display-size: 76px;
   --study-sentence-size: 36px;
   --study-kana-size: 104px;
-  --shadow: 0 12px 36px rgba(25, 36, 40, 0.08);
+  --shadow: 0 4px 16px rgba(25, 36, 40, 0.06);
 }
 
 :root[data-interface-theme="light"] {
@@ -146,7 +146,7 @@ textarea:focus-visible {
 }
 
 .nav-link {
-  min-height: 38px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   border-radius: 6px;
@@ -271,7 +271,8 @@ textarea:focus-visible {
 
 .page-stack {
   display: grid;
-  gap: 20px;
+  gap: 24px;
+  min-width: 0;
 }
 
 .view-tabs {
@@ -378,7 +379,7 @@ textarea:focus-visible {
 
 .page-heading h1 {
   margin: 0;
-  font-size: 34px;
+  font-size: 28px;
   line-height: 1.12;
   letter-spacing: 0;
 }
@@ -404,15 +405,17 @@ textarea:focus-visible {
 .primary-action,
 .secondary-action,
 .danger-action {
-  min-height: 42px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 6px;
   border: 1px solid transparent;
   cursor: pointer;
-  font-weight: 800;
-  padding: 0 14px;
+  font-weight: 650;
+  padding: 10px 14px;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .primary-action {
@@ -493,7 +496,74 @@ textarea:focus-visible {
 .dashboard-widget-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.dashboard-page .panel,
+.item-page .panel,
+.settings-form {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding-inline: 0;
+}
+
+.dashboard-page .panel h2,
+.item-page .panel h2,
+.settings-form h2 {
+  font-size: 18px;
+}
+
+.dashboard-page .metric-grid {
+  gap: 0;
+  border-block: 1px solid var(--surface-border);
+}
+
+.dashboard-page .metric-card {
+  min-height: 88px;
+  min-width: 0;
+  gap: 8px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.dashboard-page .metric-card strong {
+  font-size: 28px;
+}
+
+.dashboard-page .metric-card span {
+  overflow-wrap: anywhere;
+}
+
+.settings-form {
+  width: min(100%, 900px);
+}
+
+.audio-queue-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.item-hero .lesson-facts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+}
+
+.item-hero .lesson-facts div {
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  overflow-wrap: anywhere;
+}
+
+.item-main > .item-tab-content > .panel + .panel,
+.item-side > .item-tab-content > .panel + .panel {
+  border-top: 1px solid var(--surface-border);
 }
 
 .new-learner-guide {
@@ -1583,10 +1653,14 @@ textarea:focus-visible {
   gap: 18px;
 }
 
-.settings-form[data-settings-view="appearance"] > [data-settings-group]:not([data-settings-group="appearance"]),
-.settings-form[data-settings-view="study"] > [data-settings-group]:not([data-settings-group="study"]),
-.settings-form[data-settings-view="audio"] > [data-settings-group]:not([data-settings-group="audio"]),
-.settings-form[data-settings-view="schedule"] > [data-settings-group]:not([data-settings-group="schedule"]) {
+.settings-form[data-settings-view="appearance"]
+  > [data-settings-group]:not([data-settings-group="appearance"]),
+.settings-form[data-settings-view="study"]
+  > [data-settings-group]:not([data-settings-group="study"]),
+.settings-form[data-settings-view="audio"]
+  > [data-settings-group]:not([data-settings-group="audio"]),
+.settings-form[data-settings-view="schedule"]
+  > [data-settings-group]:not([data-settings-group="schedule"]) {
   display: none;
 }
 
@@ -5889,6 +5963,14 @@ textarea:focus-visible {
     width: 112px;
     padding-inline: 6px;
     font-size: 12px;
+  }
+
+  .dashboard-page .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-page .metric-card {
+    padding: 12px 8px;
   }
 
   .nav-link {

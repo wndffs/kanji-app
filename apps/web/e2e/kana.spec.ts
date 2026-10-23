@@ -185,6 +185,10 @@ test.describe("kana lessons", () => {
     await expect(page.getByRole("heading", { name: "Кана" })).toBeVisible();
     await expect(practice).toContainText("あ");
     await expect(practice).toContainText("a");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({ path: test.info().outputPath("kana-study.png"), fullPage: true });
     await expect
       .poll(() =>
         page.evaluate(() =>

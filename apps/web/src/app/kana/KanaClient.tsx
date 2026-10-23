@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Volume2 } from "lucide-react";
 import { ViewTabs } from "../../components/ViewTabs";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import {
@@ -547,9 +548,18 @@ export function KanaClient({
         </div>
       </div>
 
-      <ViewTabs active={mode} onChange={(value) => handleModeChange(value as KanaRouteMode)} label="Режим кана" idPrefix="kana-mode" panelId="kana-workspace" tabs={[
-        { id: "lessons", label: "Уроки" }, { id: "assessment", label: "Проверка" }, { id: "practice", label: "Практика" },
-      ]} />
+      <ViewTabs
+        active={mode}
+        onChange={(value) => handleModeChange(value as KanaRouteMode)}
+        label="Режим кана"
+        idPrefix="kana-mode"
+        panelId="kana-workspace"
+        tabs={[
+          { id: "lessons", label: "Уроки" },
+          { id: "assessment", label: "Проверка" },
+          { id: "practice", label: "Практика" },
+        ]}
+      />
 
       {mode === "practice" ? null : (
         <div className="kana-progress-summary">
@@ -575,7 +585,12 @@ export function KanaClient({
         </div>
       )}
 
-      <div className="kana-workspace" id="kana-workspace" role="tabpanel" aria-labelledby={`kana-mode-${mode}`}>
+      <div
+        className="kana-workspace"
+        id="kana-workspace"
+        role="tabpanel"
+        aria-labelledby={`kana-mode-${mode}`}
+      >
         {mode === "practice" ? (
           <AdaptiveKanaPractice
             key={`${state.token}:${practiceScript}`}
@@ -586,7 +601,9 @@ export function KanaClient({
         ) : (
           <>
             <section className="panel kana-practice" data-testid="kana-practice">
-              {mode === "lessons" && activeUnit !== null ? <h2 className="kana-current-unit">{activeUnit.title}</h2> : null}
+              {mode === "lessons" && activeUnit !== null ? (
+                <h2 className="kana-current-unit">{activeUnit.title}</h2>
+              ) : null}
               {currentItem === null ? (
                 <p className="muted">В этой азбуке пока нет знаков.</p>
               ) : mode === "lessons" && lessonPhase === "teach" && currentLessonItem !== null ? (
@@ -622,53 +639,53 @@ export function KanaClient({
 
             {mode === "lessons" ? (
               <SectionDisclosure title="Все уроки" key={`units:${script}`}>
-              <div className="kana-unit-list" data-testid="kana-unit-list">
-                {state.path.units.map((unit) => (
-                  <button
-                    aria-current={unit.id === activeUnitId ? "step" : undefined}
-                    className={unit.complete ? "is-complete" : ""}
-                    disabled={!unit.unlocked || submitting}
-                    key={unit.id}
-                    onClick={() => handleStartUnit(unit)}
-                    type="button"
-                  >
-                    <span className="kana-unit-copy">
-                      <strong>{unit.title}</strong>
-                      <small>
-                        {unit.masteredCount}/{unit.totalCount}
-                      </small>
-                    </span>
-                    <span className="kana-unit-characters" lang="ja">
-                      {unit.items.map((item) => (
-                        <span className={item.mastered ? "is-mastered" : ""} key={item.character}>
-                          {item.character}
-                        </span>
-                      ))}
-                    </span>
-                  </button>
-                ))}
-              </div>
+                <div className="kana-unit-list" data-testid="kana-unit-list">
+                  {state.path.units.map((unit) => (
+                    <button
+                      aria-current={unit.id === activeUnitId ? "step" : undefined}
+                      className={unit.complete ? "is-complete" : ""}
+                      disabled={!unit.unlocked || submitting}
+                      key={unit.id}
+                      onClick={() => handleStartUnit(unit)}
+                      type="button"
+                    >
+                      <span className="kana-unit-copy">
+                        <strong>{unit.title}</strong>
+                        <small>
+                          {unit.masteredCount}/{unit.totalCount}
+                        </small>
+                      </span>
+                      <span className="kana-unit-characters" lang="ja">
+                        {unit.items.map((item) => (
+                          <span className={item.mastered ? "is-mastered" : ""} key={item.character}>
+                            {item.character}
+                          </span>
+                        ))}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </SectionDisclosure>
             ) : (
               <SectionDisclosure title="Карта знаков" key={`map:${script}`}>
-              <section className="kana-map" aria-label="Карта кана">
-                {state.progress.items.map((item) => (
-                  <button
-                    aria-current={item.character === selectedCharacter ? "true" : undefined}
-                    aria-label={formatKanaStatus(item, state.progress.masteryThreshold)}
-                    className={
-                      item.mastered ? "is-mastered" : item.attemptCount > 0 ? "is-started" : ""
-                    }
-                    disabled={feedback !== null || submitting}
-                    key={item.character}
-                    lang="ja"
-                    onClick={() => handleSelectAssessmentCharacter(item.character)}
-                    type="button"
-                  >
-                    {item.character}
-                  </button>
-                ))}
-              </section>
+                <section className="kana-map" aria-label="Карта кана">
+                  {state.progress.items.map((item) => (
+                    <button
+                      aria-current={item.character === selectedCharacter ? "true" : undefined}
+                      aria-label={formatKanaStatus(item, state.progress.masteryThreshold)}
+                      className={
+                        item.mastered ? "is-mastered" : item.attemptCount > 0 ? "is-started" : ""
+                      }
+                      disabled={feedback !== null || submitting}
+                      key={item.character}
+                      lang="ja"
+                      onClick={() => handleSelectAssessmentCharacter(item.character)}
+                      type="button"
+                    >
+                      {item.character}
+                    </button>
+                  ))}
+                </section>
               </SectionDisclosure>
             )}
           </>
@@ -771,7 +788,7 @@ function KanaQuiz({
             title="Воспроизвести произношение"
             type="button"
           >
-            <span aria-hidden="true">▶</span>
+            <Volume2 aria-hidden="true" size={20} />
             <span>Воспроизвести</span>
           </button>
         </div>

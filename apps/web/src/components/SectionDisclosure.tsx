@@ -14,7 +14,7 @@ export function SectionDisclosure({
 }) {
   return (
     <details className={`section-disclosure ${className}`} open={defaultOpen || undefined}>
-      <summary>
+      <summary role="button">
         <span>{title}</span>
         <ChevronDown aria-hidden="true" size={18} />
       </summary>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Volume2 } from "lucide-react";
 import {
   type FormEvent,
   type RefObject,
@@ -796,20 +797,23 @@ export function LessonsClient() {
             </li>
           ))}
         </ul>
-        <p className="muted lesson-queue-counts">Доступно: {queueState.availableItems.length} · Осталось на сегодня: {queueState.remainingToday}</p>
+        <p className="muted lesson-queue-counts">
+          Доступно: {queueState.availableItems.length} · Осталось на сегодня:{" "}
+          {queueState.remainingToday}
+        </p>
         <SectionDisclosure title="Изменить группу">
-        <LessonPicker
-          availableItems={queueState.availableItems}
-          batchLimit={queueState.batchLimit}
-          displayMode={activeDisplayMode}
-          orderMode={orderMode}
-          orderModeSaving={isSavingOrderMode}
-          selectedItemIds={selectedItemIdSet}
-          onClear={() => setSelectedItemIds([])}
-          onOrderModeChange={(mode) => void handleOrderModeChange(mode)}
-          onToggle={handleToggleLesson}
-          onUseSuggested={handleUseSuggestedBatch}
-        />
+          <LessonPicker
+            availableItems={queueState.availableItems}
+            batchLimit={queueState.batchLimit}
+            displayMode={activeDisplayMode}
+            orderMode={orderMode}
+            orderModeSaving={isSavingOrderMode}
+            selectedItemIds={selectedItemIdSet}
+            onClear={() => setSelectedItemIds([])}
+            onOrderModeChange={(mode) => void handleOrderModeChange(mode)}
+            onToggle={handleToggleLesson}
+            onUseSuggested={handleUseSuggestedBatch}
+          />
         </SectionDisclosure>
       </section>
     );
@@ -1200,30 +1204,30 @@ function LessonStudyView({
         {phase === "meaning" ? (
           <>
             <SectionDisclosure title="Допустимые значения" key={`${lesson.item.id}:meanings`}>
-            <section>
-              <h2>Значения</h2>
-              <TextList texts={collectCardAnswers(meaningCards, displayMode)} />
-            </section>
+              <section>
+                <h2>Значения</h2>
+                <TextList texts={collectCardAnswers(meaningCards, displayMode)} />
+              </section>
             </SectionDisclosure>
 
             {lesson.unlockedBy.length === 0 ? null : (
-            <SectionDisclosure title="Связи и компоненты" key={`${lesson.item.id}:relations`}>
-            <section>
-              <h2>Связи</h2>
-              {lesson.unlockedBy.length === 0 ? (
-                <p className="muted">Материал доступен без предварительных компонентов.</p>
-              ) : (
-                <ul className="lesson-relation-list">
-                  {lesson.unlockedBy.map((item) => (
-                    <li key={item.id}>
-                      <JapaneseText>{item.japanese}</JapaneseText>
-                      <small>{formatTranslationBundle(item.translations, displayMode)}</small>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-            </SectionDisclosure>
+              <SectionDisclosure title="Связи и компоненты" key={`${lesson.item.id}:relations`}>
+                <section>
+                  <h2>Связи</h2>
+                  {lesson.unlockedBy.length === 0 ? (
+                    <p className="muted">Материал доступен без предварительных компонентов.</p>
+                  ) : (
+                    <ul className="lesson-relation-list">
+                      {lesson.unlockedBy.map((item) => (
+                        <li key={item.id}>
+                          <JapaneseText>{item.japanese}</JapaneseText>
+                          <small>{formatTranslationBundle(item.translations, displayMode)}</small>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              </SectionDisclosure>
             )}
           </>
         ) : null}
@@ -1510,7 +1514,7 @@ function JapaneseSpeechButton({
       title={available ? label : "Озвучивание недоступно в этом браузере"}
       type="button"
     >
-      <span aria-hidden="true">▶</span>
+      <Volume2 aria-hidden="true" size={20} />
     </button>
   );
 }

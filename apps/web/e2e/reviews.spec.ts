@@ -435,6 +435,11 @@ test.describe("review session", () => {
     });
 
     await page.goto("/reviews");
+    await page.getByRole("button", { name: "Состав очереди", exact: true }).click();
+    const queuePreview = page.locator(".review-queue-grid");
+    await expect(queuePreview.getByText("Аудио", { exact: true })).toBeVisible();
+    await expect(queuePreview.getByText("一つ", { exact: true })).toHaveCount(0);
+    await expect(queuePreview.getByText("ひとつ", { exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: "Начать повторение" }).click();
 
     const answerInput = page.getByLabel("Ответ чтением");

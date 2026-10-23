@@ -15,7 +15,9 @@ test.describe("lesson session", () => {
 
     await expect(page.getByRole("heading", { name: "Уроки" })).toBeVisible();
     await expect(page.getByText(/Группа: 1 из 5/)).toBeVisible();
-    await expect(page.getByRole("list", { name: "Выбранные материалы" }).getByText("один / one")).toBeVisible();
+    await expect(
+      page.getByRole("list", { name: "Выбранные материалы" }).getByText("один / one"),
+    ).toBeVisible();
     await expect(page.getByLabel("Выбрать 二: два / two")).toBeHidden();
     await page.getByText("Изменить группу", { exact: true }).click();
 
@@ -39,6 +41,10 @@ test.describe("lesson session", () => {
     await expect(page.getByRole("navigation", { name: "Основная навигация" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "На панель", exact: true })).toBeVisible();
     await expect(page.getByLabel("Режим перевода карточек")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({ path: test.info().outputPath("lesson-study.png"), fullPage: true });
     await expect(page.getByRole("tab", { name: "Значение" })).toHaveAttribute(
       "aria-selected",
       "true",
@@ -165,7 +171,10 @@ test.describe("lesson session", () => {
     await expect(page.getByText("Изучено")).toBeVisible();
     await expect(page.getByText("Карточек повторения")).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Основная навигация" })).toBeVisible();
-    await expect(page.locator(".lesson-summary .primary-action")).toHaveAttribute("href", "/dashboard");
+    await expect(page.locator(".lesson-summary .primary-action")).toHaveAttribute(
+      "href",
+      "/dashboard",
+    );
   });
 
   test("applies saved pronunciation aids only to study stages", async ({ page }) => {

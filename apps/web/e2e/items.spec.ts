@@ -100,6 +100,10 @@ test.describe("item details", () => {
     await expect(page.locator(".item-hero-main > .eyebrow")).toHaveText("Кандзи");
     await expect(page.getByRole("heading", { name: "一" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Значения" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({ path: test.info().outputPath("item-study.png"), fullPage: true });
     await expect(page.getByRole("heading", { name: "Глобальные ответы" })).toBeHidden();
     await page.getByText("Все допустимые ответы", { exact: true }).click();
     await expect(page.getByRole("heading", { name: "Глобальные ответы" })).toBeVisible();
