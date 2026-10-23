@@ -23,6 +23,8 @@ import {
   type CompleteLessonItemInput,
   type CompletedLessonItemRecord,
   type CourseLessonItemRecord,
+  type CourseLessonEligibilityRecord,
+  type LessonEligibilityItemRecord,
   type CreateLessonSessionInput,
   type DeckLessonRecord,
   type LessonAnswerRecord,
@@ -38,6 +40,7 @@ import {
 } from "./lessons.types";
 
 export abstract class LessonsRepository {
+  abstract listCourseEligibility(userId: string): Promise<readonly CourseLessonEligibilityRecord[]>;
   abstract listCourseLessonItems(userId: string): Promise<readonly CourseLessonItemRecord[]>;
   abstract findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null>;
   abstract listUserProgress(userId: string): Promise<readonly UserItemProgressRecord[]>;
@@ -230,6 +233,48 @@ const LESSON_TARGET_TYPES = ["COMPONENT", "KANJI", "WORD", "SENTENCE"] as const;
 export class PrismaLessonsRepository extends LessonsRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
     super();
+  }
+
+  async listCourseEligibility(userId: string): Promise<readonly CourseLessonEligibilityRecord[]> {
+    const courseId = await resolveCurrentCourseId(this.prisma.db, userId);
+    if (courseId === null) return [];
+    const enrollments = await this.prisma.db.userEnrollment.findMany({
+      where: { userId, courseId, status: "ACTIVE", course: { status: "PUBLISHED" } },
+      select: {
+        course: {
+          select: {
+            id: true,
+            levels: {
+              orderBy: { levelNumber: "asc" },
+              select: {
+                levelNumber: true,
+                items: {
+                  where: { learningItem: { status: "PUBLISHED" } },
+                  orderBy: [{ sortOrder: "asc" }, { learningItemId: "asc" }],
+                  select: {
+                    sortOrder: true,
+                    unlockPolicyJson: true,
+                    learningItem: { select: lessonEligibilitySelect },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    return enrollments.flatMap(({ course }) => course.levels.flatMap((level) =>
+      level.items.flatMap((entry) => {
+        const item = toEligibilityItem(entry.learningItem);
+        return item.cards.length === 0 ? [] : [{
+          courseId: course.id,
+          courseLevelNumber: level.levelNumber,
+          sortOrder: entry.sortOrder,
+          unlockPolicy: isRecord(entry.unlockPolicyJson) ? entry.unlockPolicyJson : null,
+          item,
+        }];
+      }),
+    ));
   }
 
   async listCourseLessonItems(userId: string): Promise<readonly CourseLessonItemRecord[]> {
@@ -1001,6 +1046,45 @@ const listeningCardEligibilityWhere = {
     },
   ],
 };
+
+const lessonEligibilitySelect = {
+  id: true,
+  kind: true,
+  dependencies: {
+    where: { dependencyType: "PREREQUISITE" as const },
+    orderBy: { prerequisiteItemId: "asc" as const },
+    select: { prerequisiteItemId: true, requiredStage: true },
+  },
+  cards: {
+    where: listeningCardEligibilityWhere,
+    orderBy: [{ sortOrder: "asc" as const }, { id: "asc" as const }],
+    select: {
+      id: true,
+      promptType: true,
+      audioAsset: { include: { dataSource: true, license: true } },
+    },
+  },
+} as const;
+
+function toEligibilityItem(row: {
+  readonly id: string;
+  readonly kind: string;
+  readonly dependencies: readonly DependencyRow[];
+  readonly cards: readonly {
+    readonly id: string;
+    readonly promptType: string;
+    readonly audioAsset: AudioAssetRecord | null;
+  }[];
+}): LessonEligibilityItemRecord {
+  const itemType = toItemKind(row.kind);
+  return {
+    id: row.id,
+    itemType,
+    dependencies: row.dependencies.map(toDependencyRecord),
+    cards: row.cards.filter((card) => card.promptType !== "LISTENING" ||
+      isEligibleListeningAudio(card.audioAsset, row.id, itemType)).map(({ id }) => ({ id })),
+  };
+}
 
 function localizedText(
   locale: ContentLocale,

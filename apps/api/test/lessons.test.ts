@@ -1083,6 +1083,10 @@ class InMemoryLessonsRepository extends LessonsRepository {
     return this.courseItems;
   }
 
+  async listCourseEligibility(userId: string) {
+    return this.listCourseLessonItems(userId);
+  }
+
   async findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null> {
     this.readCounts.deck++;
     return userId === "owner" && deckId === "deck-study" ? createDeckLesson(this.deckStatus) : null;

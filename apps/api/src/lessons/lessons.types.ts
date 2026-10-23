@@ -91,6 +91,21 @@ export type LessonItemRecord = {
   readonly exampleSentences: readonly SentenceDto[];
 };
 
+export type LessonEligibilityItemRecord = Pick<LessonItemRecord, "id" | "itemType" | "dependencies"> & {
+  readonly cards: readonly Pick<LessonCardRecord, "id">[];
+};
+
+export type CourseLessonEligibilityRecord = Omit<CourseLessonItemRecord, "item"> & {
+  readonly item: LessonEligibilityItemRecord;
+};
+
+export type DeckLessonEligibilityRecord = Omit<DeckLessonRecord, "items"> & {
+  readonly items: readonly {
+    readonly sortOrder: number;
+    readonly item: LessonEligibilityItemRecord;
+  }[];
+};
+
 export type CourseLessonItemRecord = {
   readonly courseId: string;
   readonly courseLevelNumber: number;
