@@ -6,6 +6,36 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("settings", () => {
+  test("retains drafts between sections and reveals invalid hidden controls before saving", async ({ page }) => {
+    await signIn(page);
+    let writes = 0;
+    await page.route(`${API_BASE_URL}/auth/me`, (route) => route.fulfill({ json: createUser() }));
+    await page.route(`${API_BASE_URL}/users/settings`, (route) => {
+      writes++;
+      return route.fulfill({ json: { ...createUser(), settings: { ...createUser().settings, ...route.request().postDataJSON() } } });
+    });
+    await page.goto("/settings");
+    await expect(page.getByText("Загружаю настройки.")).toBeHidden();
+    await expect(page.getByLabel("Новых материалов в день")).toBeHidden();
+    await page.getByRole("tab", { name: "Обучение", exact: true }).click();
+    await page.getByLabel("Новых материалов в день").fill("7");
+    await page.getByRole("tab", { name: "Внешний вид", exact: true }).click();
+    await page.getByLabel("Тема", { exact: true }).selectOption("dark");
+    await page.getByRole("tab", { name: "Обучение", exact: true }).click();
+    await expect(page.getByLabel("Новых материалов в день")).toHaveValue("7");
+    await page.getByLabel("Новых материалов в день").fill("0");
+    await page.getByRole("tab", { name: "Внешний вид", exact: true }).click();
+    await page.getByRole("button", { name: "Сохранить", exact: true }).click();
+    await expect(page.getByRole("tab", { name: "Обучение", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("alert")).toContainText("Лимит уроков в день");
+    expect(writes).toBe(0);
+    await page.getByLabel("Новых материалов в день").fill("7");
+    await page.getByRole("button", { name: "Сохранить", exact: true }).click();
+    await expect(page.getByText("Сохранено.")).toBeVisible();
+    expect(writes).toBe(1);
+    await page.getByRole("tab", { name: "Внешний вид", exact: true }).click();
+    await expect(page.getByLabel("Тема", { exact: true })).toHaveValue("dark");
+  });
   for (const outcome of ["granted", "denied", "unsupported"] as const) {
     test(`review reminders require a direct gesture and Save (${outcome})`, async ({ page }) => {
       await signIn(page);
@@ -42,6 +72,7 @@ test.describe("settings", () => {
       await page.goto("/settings");
       await expect(page.getByText("Загружаю настройки.")).toBeHidden();
       const reminder = page.getByLabel("Напоминать о повторениях", { exact: true });
+      await page.getByRole("tab", { name: "Расписание", exact: true }).click();
       await expect(reminder).not.toBeChecked();
       await expect(page.getByLabel("Час напоминания", { exact: true })).toHaveValue("9");
       const permissionState = () =>
@@ -121,6 +152,7 @@ test.describe("settings", () => {
     await page.goto("/settings");
     await expect(page.getByText("Загружаю настройки.")).toBeHidden();
     await expect(page.getByLabel("Напоминать о повторениях", { exact: true })).toBeChecked();
+    await page.getByRole("tab", { name: "Расписание", exact: true }).click();
     await expect(page.getByText("Уведомления заблокированы в браузере.")).toBeVisible();
     await page.getByRole("button", { name: "Сохранить", exact: true }).click();
     await expect(page.getByText("Сохранено.")).toBeVisible();
@@ -232,13 +264,16 @@ test.describe("settings", () => {
     await expect(page.getByLabel("Новых материалов в день")).toBeEnabled();
 
     await page.getByLabel("Перевод карточек").selectOption("en");
+    await page.getByRole("tab", { name: "Обучение", exact: true }).click();
     await page.getByLabel("Новых материалов в день").fill("7");
     await page.getByLabel("Размер группы урока").fill("3");
     await page.getByRole("button", { name: "Чередовать типы" }).click();
     await page.getByLabel("Бюджет повторений").fill("18");
     await page.getByLabel("Порядок повторений").selectOption("lower-levels-first");
-    await page.getByLabel("Часовой пояс").fill("Asia/Tokyo");
     await page.getByLabel("Строгая проверка").check();
+    await page.getByRole("tab", { name: "Расписание", exact: true }).click();
+    await page.getByLabel("Часовой пояс").fill("Asia/Tokyo");
+    await page.getByRole("tab", { name: "Произношение", exact: true }).click();
     await page.getByRole("button", { name: "Фуригана над текстом" }).click();
     await page.getByLabel("Показывать ромадзи в уроках").check();
     await page.getByRole("button", { name: "Сохранить" }).click();
@@ -287,6 +322,7 @@ test.describe("settings", () => {
 
     await page.goto("/settings");
 
+    await page.getByRole("tab", { name: "Произношение", exact: true }).click();
     await page.getByLabel("Японский голос").selectOption("voice-ja-b");
     await page.getByLabel("Скорость речи").fill("1.2");
     await page.getByLabel("Автоматически озвучивать учебные материалы").check();
@@ -364,6 +400,7 @@ test.describe("settings", () => {
     await page.goto("/settings");
 
     const toggle = page.getByLabel("Приостановить расписание повторений");
+    await page.getByRole("tab", { name: "Расписание", exact: true }).click();
     await toggle.check();
     await expect(page.getByText("Режим отпуска включён.", { exact: true })).toBeVisible();
     await expect(toggle).toBeChecked();

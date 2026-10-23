@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ViewTabs } from "../../components/ViewTabs";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import {
@@ -96,6 +97,7 @@ const MAX_LESSON_BATCH_SIZE = 5;
 const MAX_REVIEW_BUDGET = 1_000;
 
 export function SettingsClient() {
+  const [section, setSection] = useState("appearance");
   const [user, setUser] = useState<CurrentUserDto | null>(null);
   const [form, setForm] = useState<SettingsForm>(() => createLocalSettingsForm());
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "saved" | "error">(
@@ -186,6 +188,7 @@ export function SettingsClient() {
       updateStoredUser(updated);
       setStatus("saved");
     } catch (saveError) {
+      if (saveError instanceof SettingsValidationError) setSection(saveError.section);
       setError(saveError instanceof Error ? saveError.message : "Не удалось сохранить настройки.");
       setStatus("error");
     }
@@ -263,8 +266,13 @@ export function SettingsClient() {
         <h1>Настройки</h1>
         <p>{user?.email ?? "Локальные параметры интерфейса"}</p>
       </div>
-      <form className="form-panel" onSubmit={(event) => void handleSubmit(event)}>
+      <ViewTabs active={section} onChange={setSection} label="Разделы настроек" idPrefix="settings-view" panelId="settings-panel" tabs={[
+        { id: "appearance", label: "Внешний вид" }, { id: "study", label: "Обучение" },
+        { id: "audio", label: "Произношение" }, { id: "schedule", label: "Расписание" },
+      ]} />
+      <form className="form-panel settings-form" data-settings-view={section} id="settings-panel" role="tabpanel" aria-labelledby={`settings-view-${section}`} noValidate onSubmit={(event) => void handleSubmit(event)}>
         <fieldset
+          data-settings-group="appearance"
           className="settings-fieldset"
           disabled={status === "loading" || status === "saving"}
         >
@@ -292,7 +300,7 @@ export function SettingsClient() {
             )}
           </div>
         </fieldset>
-        <label>
+        <label data-settings-group="appearance">
           Перевод карточек
           <select
             disabled={status === "saving"}
@@ -311,7 +319,7 @@ export function SettingsClient() {
             ))}
           </select>
         </label>
-        <div className="settings-grid">
+        <div className="settings-grid" data-settings-group="study">
           <label>
             Новых материалов в день
             <input
@@ -349,7 +357,7 @@ export function SettingsClient() {
             />
           </label>
         </div>
-        <fieldset className="settings-fieldset" disabled={remoteControlsDisabled}>
+        <fieldset className="settings-fieldset" data-settings-group="study" disabled={remoteControlsDisabled}>
           <legend>Порядок новых материалов</legend>
           <div className="lesson-order-control" role="group" aria-label="Порядок новых материалов">
             <button
@@ -368,7 +376,7 @@ export function SettingsClient() {
             </button>
           </div>
         </fieldset>
-        <label>
+        <label data-settings-group="study">
           Порядок повторений
           <select
             disabled={remoteControlsDisabled}
@@ -384,7 +392,7 @@ export function SettingsClient() {
             ))}
           </select>
         </label>
-        <label>
+        <label data-settings-group="schedule">
           Часовой пояс
           <input
             disabled={remoteControlsDisabled}
@@ -400,7 +408,7 @@ export function SettingsClient() {
             <option value="Asia/Tokyo" />
           </datalist>
         </label>
-        <label className="checkbox-row">
+        <label className="checkbox-row" data-settings-group="study">
           <input
             checked={form.strictMode}
             disabled={remoteControlsDisabled}
@@ -409,7 +417,7 @@ export function SettingsClient() {
           />
           <span>Строгая проверка</span>
         </label>
-        <fieldset className="settings-fieldset" disabled={remoteControlsDisabled}>
+        <fieldset className="settings-fieldset" data-settings-group="schedule" disabled={remoteControlsDisabled}>
           <legend>Напоминания в открытой вкладке</legend>
           <label className="checkbox-row">
             <input
@@ -438,7 +446,7 @@ export function SettingsClient() {
             <p className="muted">Разрешение на уведомления не выдано.</p>
           ) : null}
         </fieldset>
-        <fieldset className="settings-fieldset" disabled={remoteControlsDisabled}>
+        <fieldset className="settings-fieldset" data-settings-group="audio" disabled={remoteControlsDisabled}>
           <legend>Звук и произношение</legend>
           <div className="settings-grid">
             <label>
@@ -499,7 +507,7 @@ export function SettingsClient() {
             Прослушать голос
           </button>
         </fieldset>
-        <fieldset className="settings-fieldset" disabled={remoteControlsDisabled}>
+        <fieldset className="settings-fieldset" data-settings-group="audio" disabled={remoteControlsDisabled}>
           <legend>Чтение в учебных этапах урока</legend>
           <div
             aria-label="Способ показа чтения в уроках"
@@ -526,7 +534,7 @@ export function SettingsClient() {
             <span>Показывать ромадзи в уроках</span>
           </label>
         </fieldset>
-        <fieldset className="settings-fieldset" disabled={remoteControlsDisabled}>
+        <fieldset className="settings-fieldset" data-settings-group="schedule" disabled={remoteControlsDisabled}>
           <legend>Режим отпуска</legend>
           <label className="checkbox-row">
             <input
@@ -546,12 +554,13 @@ export function SettingsClient() {
             </p>
           )}
         </fieldset>
+        <div className="settings-save-bar">
         {status === "loading" ? <p className="muted">Загружаю настройки.</p> : null}
         {status === "saved" ? <p className="success-text">Сохранено.</p> : null}
-        {error === null ? null : <p className="form-error">{error}</p>}
+        {error === null ? null : <p className="form-error" role="alert">{error}</p>}
         <button
           className="primary-action"
-          disabled={status === "saving" || permissionPending}
+          disabled={status === "loading" || status === "saving" || permissionPending}
           type="submit"
         >
           {status === "saving" ? "Сохраняю" : "Сохранить"}
@@ -561,6 +570,7 @@ export function SettingsClient() {
             Войти для синхронизации
           </Link>
         ) : null}
+        </div>
       </form>
     </section>
   );
@@ -610,17 +620,21 @@ function createSettingsForm(settings: UserSettingsDto): SettingsForm {
   };
 }
 
+class SettingsValidationError extends Error {
+  constructor(message: string, readonly section: string) { super(message); }
+}
+
 function parseRemoteSettingsPayload(form: SettingsForm): RemoteSettingsPayload {
   const timezone = form.timezone.trim();
 
   if (timezone === "") {
-    throw new Error("Часовой пояс обязателен.");
+    throw new SettingsValidationError("Часовой пояс обязателен.", "schedule");
   }
 
   try {
     new Intl.DateTimeFormat("ru-RU", { timeZone: timezone }).format();
   } catch {
-    throw new Error("Часовой пояс должен быть валидным IANA значением.");
+    throw new SettingsValidationError("Часовой пояс должен быть валидным IANA значением.", "schedule");
   }
 
   return {
@@ -647,7 +661,7 @@ function parseRemoteSettingsPayload(form: SettingsForm): RemoteSettingsPayload {
     soundFeedback: form.soundFeedback,
     lessonPronunciationMode: form.lessonPronunciationMode,
     lessonRomaji: form.lessonRomaji,
-    reviewReminderHour: parseReviewReminderHour(form.reviewReminderHour),
+    reviewReminderHour: validateReminderHour(form.reviewReminderHour),
   };
 }
 
@@ -676,8 +690,9 @@ function parseSpeechRate(value: string): number {
   const parsed = Number(value);
 
   if (!Number.isFinite(parsed) || parsed < MIN_SPEECH_RATE || parsed > MAX_SPEECH_RATE) {
-    throw new Error(
+    throw new SettingsValidationError(
       `Скорость речи должна быть числом от ${MIN_SPEECH_RATE} до ${MAX_SPEECH_RATE}.`,
+      "audio",
     );
   }
 
@@ -692,10 +707,15 @@ function parseBoundedInteger(value: string, label: string, max: number): number 
   const parsed = Number(value);
 
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > max) {
-    throw new Error(`${label} должен быть целым числом от 1 до ${max}.`);
+    throw new SettingsValidationError(`${label} должен быть целым числом от 1 до ${max}.`, "study");
   }
 
   return parsed;
+}
+
+function validateReminderHour(value: string): number {
+  try { return parseReviewReminderHour(value); }
+  catch (error) { throw new SettingsValidationError(error instanceof Error ? error.message : "Неверный час напоминания.", "schedule"); }
 }
 
 function formatVacationStartedAt(value: string): string {

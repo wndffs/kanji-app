@@ -1583,6 +1583,30 @@ textarea:focus-visible {
   gap: 18px;
 }
 
+.settings-form[data-settings-view="appearance"] > [data-settings-group]:not([data-settings-group="appearance"]),
+.settings-form[data-settings-view="study"] > [data-settings-group]:not([data-settings-group="study"]),
+.settings-form[data-settings-view="audio"] > [data-settings-group]:not([data-settings-group="audio"]),
+.settings-form[data-settings-view="schedule"] > [data-settings-group]:not([data-settings-group="schedule"]) {
+  display: none;
+}
+
+.settings-save-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--surface-border);
+  background: var(--background);
+}
+
+.settings-save-bar > .form-error {
+  flex: 1 0 100%;
+}
+
 .form-panel,
 .search-panel {
   display: grid;
