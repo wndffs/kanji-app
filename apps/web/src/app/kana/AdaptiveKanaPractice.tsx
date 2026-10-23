@@ -26,6 +26,7 @@ import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import { KanaTracingExercise } from "./KanaTracingExercise";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
+import { ownsSession } from "../../lib/use-stored-session";
 
 type PracticeState =
   | { readonly status: "loading" }
@@ -50,11 +51,15 @@ export function AdaptiveKanaPractice({
   const inputRef = useRef<HTMLInputElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
   const requestRevision = useRef(0);
+  const submitPending = useRef(false);
   const speech = useJapaneseSpeech();
   const { play: playAnswerSound } = useAnswerSound();
 
   const loadSession = useCallback(async (): Promise<void> => {
+    if (!ownsSession(token)) return;
     const revision = ++requestRevision.current;
+    submitPending.current = false;
+    setSubmitting(false);
     setState({ status: "loading" });
     setAnswer("");
     setFeedback(null);
@@ -63,10 +68,10 @@ export function AdaptiveKanaPractice({
 
     try {
       const session = await getKanaPracticeSession(token, script);
-      if (revision !== requestRevision.current) return;
+      if (revision !== requestRevision.current || !ownsSession(token)) return;
       setState({ status: "ready", session });
     } catch (error: unknown) {
-      if (revision !== requestRevision.current) return;
+      if (revision !== requestRevision.current || !ownsSession(token)) return;
       if (error instanceof ApiError && error.status === 401) {
         onUnauthorized();
         return;
@@ -126,22 +131,26 @@ export function AdaptiveKanaPractice({
   );
 
   async function submit(value: string): Promise<void> {
-    if (state.status !== "ready" || exercise === null || feedback !== null || submitting) {
+    if (state.status !== "ready" || exercise === null || feedback !== null || submitPending.current || !ownsSession(token)) {
       return;
     }
 
+    submitPending.current = true;
     setSubmitting(true);
+    const revision = requestRevision.current;
 
     try {
       const result = await submitKanaPracticeAnswer(
         token,
         buildKanaPracticeAnswer(state.session.id, exercise, value),
       );
+      if (revision !== requestRevision.current || !ownsSession(token)) return;
       setAnswer(value);
       setFeedback(result);
       setPendingSession(result.session);
       playAnswerSound(result.correct);
     } catch (error: unknown) {
+      if (revision !== requestRevision.current || !ownsSession(token)) return;
       if (error instanceof ApiError && error.status === 401) {
         onUnauthorized();
         return;
@@ -152,7 +161,10 @@ export function AdaptiveKanaPractice({
         message: error instanceof Error ? error.message : "Не удалось проверить ответ.",
       });
     } finally {
-      setSubmitting(false);
+      if (revision === requestRevision.current && ownsSession(token)) {
+        submitPending.current = false;
+        setSubmitting(false);
+      }
     }
   }
 
@@ -165,7 +177,7 @@ export function AdaptiveKanaPractice({
   }
 
   function continueSession(): void {
-    if (pendingSession === null) {
+    if (pendingSession === null || !ownsSession(token)) {
       return;
     }
 

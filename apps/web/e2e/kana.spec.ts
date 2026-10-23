@@ -19,6 +19,37 @@ const ACCESS_TOKEN = "kana-token";
 
 test.describe("kana lessons", () => {
   for (const status of [200, 401]) {
+    test(`ignores an older adaptive answer after account replacement (${status})`, async ({ page }) => {
+      await signIn(page); await mockKanaApi(page);
+      const exercise: KanaPracticeExerciseDto = { id: "owner-exercise", script: "hiragana", character: "あ", romaji: "a", exerciseKind: "typing", choices: [], focusReason: "new" };
+      await page.route(`${API_BASE_URL}/kana/practice?script=hiragana`, (route) => route.fulfill({ json: buildPracticeSession("hiragana", 0, [exercise]) }));
+      let release = () => {}; let requested = () => {};
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      const seen = new Promise<void>((resolve) => { requested = resolve; });
+      await page.route(`${API_BASE_URL}/kana/practice/answer`, async (route) => {
+        requested(); await held;
+        await route.fulfill({ status, json: status === 401 ? { message: "Old session" } : { correct: true, expected: "a", normalizedAnswer: "a", session: buildPracticeSession("hiragana", 1, [exercise]) } });
+      });
+      await page.goto("/kana?mode=practice");
+      const practice = page.getByTestId("kana-adaptive-practice");
+      await practice.getByLabel("Ромадзи", { exact: true }).fill("a");
+      await practice.getByRole("button", { name: "Проверить", exact: true }).click();
+      await seen;
+      await page.evaluate(() => {
+        const user = JSON.parse(localStorage.getItem("kanji-srs.user")!);
+        localStorage.setItem("kanji-srs.accessToken", "kana-next-token");
+        localStorage.setItem("kanji-srs.user", JSON.stringify({ ...user, id: "kana-next-user" }));
+        window.dispatchEvent(new Event("kanji-srs.auth-changed"));
+      });
+      await expect(practice.getByLabel("Ромадзи", { exact: true })).toHaveValue("");
+      const response = page.waitForResponse((response) => response.url().endsWith("/kana/practice/answer"));
+      release(); await response;
+      await expect(practice.getByLabel("Ромадзи", { exact: true })).toBeEnabled();
+      expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe("kana-next-token");
+      await expect(practice.getByRole("button", { name: "Продолжить", exact: true })).toHaveCount(0);
+    });
+  }
+  for (const status of [200, 401]) {
     test(`isolates lesson data after an account change (${status})`, async ({ page }) => {
       await signIn(page); await mockKanaApi(page);
       let release = () => {}; let requested = () => {};
