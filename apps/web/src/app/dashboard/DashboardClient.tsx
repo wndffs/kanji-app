@@ -397,7 +397,9 @@ function DashboardView({
       </div>
 
       {newLearnerGuide.visible ? (
-        <NewLearnerGuide dashboard={dashboard} state={newLearnerGuide} />
+        <SectionDisclosure title="Первый учебный цикл">
+          <NewLearnerGuide dashboard={dashboard} state={newLearnerGuide} />
+        </SectionDisclosure>
       ) : null}
 
       {customizationOpen ? (

@@ -173,6 +173,7 @@ test.describe("review session", () => {
     await expect(page.getByText("日", { exact: true })).toBeVisible();
     await page.getByLabel("Ответ значением").fill("still wrong");
     await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: "Расписание повторений", exact: true }).click();
     await expect(page.getByText("Без изменений", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Ответить снова" }).click();
     await expect(page.getByLabel("Ответ значением")).toBeFocused();
@@ -698,6 +699,7 @@ test.describe("review session", () => {
     await page.keyboard.press("Enter");
 
     await expect(page.getByText("Ошибка")).toBeVisible();
+    await page.getByRole("button", { name: "Добавить свой ответ", exact: true }).click();
     await page.getByRole("button", { name: "Сохранить вариант" }).click();
     await expect(page.getByText("Приватный вариант сохранён.")).toBeVisible();
 

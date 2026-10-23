@@ -37,7 +37,9 @@ test.describe("settings", () => {
       "aria-selected",
       "true",
     );
-    await expect(page.getByRole("alert")).toContainText("Лимит уроков в день");
+    await expect(page.locator(".settings-form").getByRole("alert")).toContainText(
+      "Лимит уроков в день",
+    );
     expect(writes).toBe(0);
     await page.getByLabel("Новых материалов в день").fill("7");
     await page.getByRole("button", { name: "Сохранить", exact: true }).click();

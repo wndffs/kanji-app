@@ -828,7 +828,8 @@ function FeedbackPanel({
     >
       <div className="feedback-header">
         <div role="status" aria-atomic="true">
-          <h2>{feedback.feedback.message}</h2>
+          <h2>{feedback.retry ? "Другое чтение" : formatResult(feedback.result)}</h2>
+          <p>{feedback.feedback.message}</p>
           {"nextSrs" in feedback ? (
             <span className="feedback-stage">{formatSrsStageName(feedback.nextSrs.stageName)}</span>
           ) : null}
@@ -1011,6 +1012,23 @@ function formatInputLabel(answerType: CardAnswerType): string {
 
 function formatInputPlaceholder(answerType: CardAnswerType): string {
   return answerType === "reading" ? "например: にほん" : "например: Япония";
+}
+
+function formatResult(result: ReviewAnswerResponse["result"]): string {
+  switch (result) {
+    case "correct":
+      return "Верно";
+    case "typo":
+      return "Опечатка";
+    case "blocked":
+      return "Отклонено";
+    case "reveal":
+      return "Показан ответ";
+    case "manual-ignore":
+      return "Игнорировано";
+    case "wrong":
+      return "Ошибка";
+  }
 }
 
 function formatSrsTransition(transition: ReviewSrsTransition): string {

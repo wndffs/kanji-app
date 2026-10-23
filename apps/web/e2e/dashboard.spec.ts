@@ -620,6 +620,8 @@ test.describe("dashboard smoke", () => {
     await page.goto("/dashboard");
 
     const guide = page.getByTestId("new-learner-guide");
+    await expect(guide).toBeHidden();
+    await page.getByRole("button", { name: "Первый учебный цикл", exact: true }).click();
     await expect(guide.getByRole("heading", { name: "Первый учебный цикл" })).toBeVisible();
     await expect(
       guide.getByRole("progressbar", { name: "Хирагана: освоено 0 из 46" }),
@@ -634,6 +636,7 @@ test.describe("dashboard smoke", () => {
 
     firstLessonCompleted = true;
     await page.reload();
+    await page.getByRole("button", { name: "Первый учебный цикл", exact: true }).click();
     await expect(guide.locator('li[data-status="waiting"]')).toContainText(
       "Ближайшее повторение: 20.07.2026, 22:00.",
     );
@@ -642,6 +645,7 @@ test.describe("dashboard smoke", () => {
 
     dueReviews = 1;
     await page.reload();
+    await page.getByRole("button", { name: "Первый учебный цикл", exact: true }).click();
     await expect(guide.getByRole("link", { name: "Начать первое повторение" })).toHaveAttribute(
       "href",
       "/reviews",

@@ -182,6 +182,7 @@ export function AppShell({ children }: AppShellProps) {
               <label className="mode-control">
                 <select
                   aria-label="Режим перевода карточек"
+                  title={formatTranslationDisplayMode(mode)}
                   onChange={(event) =>
                     void handleModeChange(event.currentTarget.value as TranslationDisplayMode)
                   }
@@ -189,7 +190,7 @@ export function AppShell({ children }: AppShellProps) {
                 >
                   {SUPPORTED_TRANSLATION_DISPLAY_MODES.map((item) => (
                     <option key={item} value={item}>
-                      {formatTranslationDisplayMode(item)}
+                      {item === "ru-en" ? "RU + EN" : formatTranslationDisplayMode(item)}
                     </option>
                   ))}
                 </select>

@@ -8,8 +8,8 @@ information overload and improving daily learning UX, not duplicating courses.
 
 ## Acceptance
 
-| ID  | Scope                           | Required behavior                                                                                                                                          | State   |
-| --- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| ID  | Scope                           | Required behavior                                                                                                                                          | State       |
+| --- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | 145 | Navigation hierarchy            | Primary study destinations stay directly accessible; secondary destinations and account actions have a keyboard-operable menu; no wrapping navigation wall | Implemented |
 | 146 | Focused study shell             | Active lesson/review uses a quiet header with explicit session exit; ordinary pages retain full navigation; reload does not lose session state             | Implemented |
 | 147 | Dashboard next action           | Due reviews, available lessons and empty/vacation states produce one clear primary action and accurate counts, not competing equal actions                 | Implemented |

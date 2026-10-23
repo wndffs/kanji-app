@@ -139,7 +139,9 @@ test.describe("final MVP integration path", () => {
     await test.step("Complete one starter lesson item", async () => {
       await page.getByRole("link", { name: "Уроки" }).click();
       await expect(page.getByText(/Группа: 1 из 5/)).toBeVisible();
-      await expect(page.getByText("один / one")).toBeVisible();
+      await expect(
+        page.getByRole("list", { name: "Выбранные материалы" }).getByText("один / one"),
+      ).toBeVisible();
 
       await page.getByRole("button", { name: "Начать урок" }).click();
       await expect(page.getByRole("heading", { name: "Изучение" })).toBeVisible();
@@ -202,6 +204,7 @@ test.describe("final MVP integration path", () => {
 
       await expect(page).toHaveURL(/\/items\/item-kanji-one$/);
       await expect(page.getByRole("heading", { name: "一" })).toBeVisible();
+      await page.getByRole("tab", { name: "Мои записи", exact: true }).click();
       await expect(page.getByText("единица")).toBeVisible();
       await expect(page.getByText("Добавлено из сессии повторения.")).toBeVisible();
     });
