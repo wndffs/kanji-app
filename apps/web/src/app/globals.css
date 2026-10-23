@@ -5530,7 +5530,8 @@ textarea:focus-visible {
   gap: 7px;
 }
 
-.character-hub-kana-chart > span {
+.character-hub-kana-chart > span,
+.character-hub-kana-chart > a {
   min-width: 0;
   min-height: 62px;
   display: grid;
@@ -5541,7 +5542,8 @@ textarea:focus-visible {
   background: var(--background);
 }
 
-.character-hub-kana-chart > span.is-mastered {
+.character-hub-kana-chart > span.is-mastered,
+.character-hub-kana-chart > a.is-mastered {
   border-color: rgba(24, 115, 95, 0.45);
   background: var(--success-surface);
 }

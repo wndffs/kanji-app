@@ -43,7 +43,7 @@ import { buildKanaSpeechText } from "../../lib/kana-speech";
 import { isKanaTracingCandidate } from "../../lib/kana-tracing";
 import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
-import { type KanaRouteMode } from "../../lib/kana-route";
+import { resolveKanaLessonDestination, type KanaRouteMode } from "../../lib/kana-route";
 import { AdaptiveKanaPractice } from "./AdaptiveKanaPractice";
 import { KanaTracingExercise } from "./KanaTracingExercise";
 
@@ -62,6 +62,8 @@ type KanaState =
     };
 
 type KanaClientProps = {
+  readonly initialUnitId?: string | null;
+  readonly initialCharacter?: string | null;
   readonly initialMode?: KanaRouteMode;
   readonly initialScript?: KanaScript;
   readonly initialPracticeScript?: KanaPracticeScript;
@@ -71,13 +73,15 @@ export function KanaClient(props: KanaClientProps) {
   const session = useStoredSession();
   if (session === undefined) return <section className="page-stack" aria-busy="true"><h1>Кана</h1></section>;
   if (session === null) return <section className="page-stack"><h1>Кана</h1><p>Для уроков каны нужен вход.</p><Link href="/login">Войти</Link></section>;
-  return <OwnedKanaClient key={`${session.user.id}:${session.token}`} {...props} token={session.token} />;
+  return <OwnedKanaClient key={`${session.user.id}:${session.token}:${props.initialMode}:${props.initialScript}:${props.initialUnitId}:${props.initialCharacter}`} {...props} token={session.token} />;
 }
 
 function OwnedKanaClient({
   initialMode = "lessons",
   initialScript = "hiragana",
   initialPracticeScript = "hiragana",
+  initialUnitId = null,
+  initialCharacter = null,
   token,
 }: KanaClientProps & { readonly token: string }) {
   const [script, setScript] = useState<KanaScript>(initialScript);
@@ -121,8 +125,9 @@ function OwnedKanaClient({
           return;
         }
 
-        const unit = selectCurrentUnit(path.units);
-        const character = selectNextLessonCharacter(unit?.items ?? [], null);
+        const destination = mode === "lessons" ? resolveKanaLessonDestination(path, initialUnitId, initialCharacter) : null;
+        const unit = destination?.unit ?? selectCurrentUnit(path.units);
+        const character = destination?.character ?? selectNextLessonCharacter(unit?.items ?? [], null);
         const item = unit?.items.find((candidate) => candidate.character === character);
         setActiveUnitId(unit?.id ?? null);
         setSelectedCharacter(character);
@@ -151,7 +156,7 @@ function OwnedKanaClient({
       cancelled = true;
       requestRevision.current++;
     };
-  }, [dataRevision, script, token]);
+  }, [dataRevision, script, token, initialUnitId, initialCharacter]);
 
   useEffect(() => {
     if (lessonPhase === "quiz" && feedback === null) {

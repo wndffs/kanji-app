@@ -18,6 +18,14 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "kana-token";
 
 test.describe("kana lessons", () => {
+  test("opens a requested unlocked lesson character without recording an answer", async ({ page }) => {
+    await signIn(page); await mockKanaApi(page);
+    let writes = 0;
+    page.on("request", (request) => { if (request.method() === "POST" && request.url().includes("/kana/")) writes++; });
+    await page.goto("/kana?script=hiragana&mode=lessons&unit=hiragana-vowels&character=い");
+    await expect(page.getByTestId("kana-practice")).toContainText("い");
+    expect(writes).toBe(0);
+  });
   for (const status of [200, 401]) {
     test(`ignores an older adaptive answer after account replacement (${status})`, async ({ page }) => {
       await signIn(page); await mockKanaApi(page);

@@ -1,4 +1,5 @@
 "use client";
+import { kanaLessonHref } from "../../lib/kana-route";
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -290,9 +291,10 @@ function KanaCharacterPanel({ section }: { readonly section: CharacterHubKanaSec
             </header>
             <div className="character-hub-kana-chart">
               {unit.items.map((item) => (
-                <span
+                  <Link
                   className={item.mastered ? "is-mastered" : undefined}
                   key={item.character}
+                    href={unit.unlocked ? kanaLessonHref(section.script, unit.id, item.character) : section.lessonsHref}
                   title={`${item.character} — ${item.romaji}`}
                 >
                   <JapaneseText>{item.character}</JapaneseText>
@@ -491,7 +493,7 @@ function KanjiCharacterPanel({
                       (item.legacyJlptLevel == null
                         ? "JLPT —"
                         : `JLPT до 2010: ${item.legacyJlptLevel}`)}
-                  </span>
+                  </Link>
                   <span className={`state-${item.studyState}`}>
                     {STUDY_STATE_LABELS[item.studyState]}
                   </span>
