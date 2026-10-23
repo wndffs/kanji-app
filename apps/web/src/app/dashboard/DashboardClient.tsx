@@ -26,11 +26,7 @@ import {
   updateUserSettings,
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession, updateStoredUser } from "../../lib/auth-storage";
-import {
-  formatAccuracy,
-  formatCount,
-  formatForecastBucket,
-} from "../../lib/dashboard-format";
+import { formatAccuracy, formatCount, formatForecastBucket } from "../../lib/dashboard-format";
 import {
   type NewLearnerGuideState,
   type NewLearnerStepStatus,
@@ -422,23 +418,30 @@ function DashboardView({
       ) : (
         <div className="dashboard-widget-grid">
           {visibleWidgets.map((widget) => {
-            const content = <DashboardWidgetContent
-              coursesState={coursesState}
-              dashboard={dashboard}
-              id={widget.id}
-              onCourseChange={onCourseChange}
-            />;
+            const content = (
+              <DashboardWidgetContent
+                coursesState={coursesState}
+                dashboard={dashboard}
+                id={widget.id}
+                onCourseChange={onCourseChange}
+              />
+            );
             return (
-            <div
-              className={`dashboard-widget dashboard-widget-${widget.presentation}`}
-              data-dashboard-widget={widget.id}
-              key={widget.id}
-            >
-              {customizationOpen || widget.id === "summary" || widget.id === "course-progress" ? content : (
-                <SectionDisclosure title={formatDashboardWidgetTitle(widget.id)}>{content}</SectionDisclosure>
-              )}
-            </div>
-          );})}
+              <div
+                className={`dashboard-widget dashboard-widget-${widget.presentation}`}
+                data-dashboard-widget={widget.id}
+                key={widget.id}
+              >
+                {customizationOpen || widget.id === "summary" || widget.id === "course-progress" ? (
+                  content
+                ) : (
+                  <SectionDisclosure title={formatDashboardWidgetTitle(widget.id)}>
+                    {content}
+                  </SectionDisclosure>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </section>
@@ -940,68 +943,68 @@ function CourseProgressPanel({
             )}
           </div>
           <SectionDisclosure title="Состояние материалов уровня">
-          <div className="course-progress-row">
-            <span>Материалы уровня</span>
-            <strong>{course.levelProgress.percent}%</strong>
-          </div>
-          <div
-            aria-label={`Материалы уровня ${course.levelProgress.percent}%`}
-            aria-valuemax={100}
-            aria-valuemin={0}
-            aria-valuenow={course.levelProgress.percent}
-            className="progress-track"
-            role="progressbar"
-          >
-            <span style={{ width: `${course.levelProgress.percent}%` }} />
-          </div>
-          <div className="course-progress-row">
-            <span>Карточки уровня</span>
-            <strong>{course.levelProgress.cardPercent}%</strong>
-          </div>
-          <div
-            aria-label={`Карточки уровня ${course.levelProgress.cardPercent}%`}
-            aria-valuemax={100}
-            aria-valuemin={0}
-            aria-valuenow={course.levelProgress.cardPercent}
-            className="progress-track progress-track-secondary"
-            role="progressbar"
-          >
-            <span style={{ width: `${course.levelProgress.cardPercent}%` }} />
-          </div>
-          <p className="muted">
-            {course.levelProgress.completedItems} из {course.levelProgress.totalItems} ·{" "}
-            {course.levelProgress.completedCards} карточек из {course.levelProgress.totalCards}
-          </p>
-          {course.levelProgress.itemsByType.length === 0 ? null : (
-            <div className="level-progress-scroll">
-              <table aria-label={`Состояния материалов уровня ${course.currentLevel}`}>
-                <thead>
-                  <tr>
-                    <th scope="col">Тип</th>
-                    <th scope="col">Закрыто</th>
-                    <th scope="col">Уроки</th>
-                    <th scope="col">В SRS</th>
-                    <th scope="col">Пройдено</th>
-                    <th scope="col">Закреплено</th>
-                    <th scope="col">Всего</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {course.levelProgress.itemsByType.map((row) => (
-                    <tr data-testid="level-progress-type" key={row.itemType}>
-                      <th scope="row">{formatItemType(row.itemType)}</th>
-                      <td>{row.locked}</td>
-                      <td>{row.available}</td>
-                      <td>{row.inProgress}</td>
-                      <td>{row.passed}</td>
-                      <td>{row.burned}</td>
-                      <td className="level-progress-total">{row.totalItems}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="course-progress-row">
+              <span>Материалы уровня</span>
+              <strong>{course.levelProgress.percent}%</strong>
             </div>
-          )}
+            <div
+              aria-label={`Материалы уровня ${course.levelProgress.percent}%`}
+              aria-valuemax={100}
+              aria-valuemin={0}
+              aria-valuenow={course.levelProgress.percent}
+              className="progress-track"
+              role="progressbar"
+            >
+              <span style={{ width: `${course.levelProgress.percent}%` }} />
+            </div>
+            <div className="course-progress-row">
+              <span>Карточки уровня</span>
+              <strong>{course.levelProgress.cardPercent}%</strong>
+            </div>
+            <div
+              aria-label={`Карточки уровня ${course.levelProgress.cardPercent}%`}
+              aria-valuemax={100}
+              aria-valuemin={0}
+              aria-valuenow={course.levelProgress.cardPercent}
+              className="progress-track progress-track-secondary"
+              role="progressbar"
+            >
+              <span style={{ width: `${course.levelProgress.cardPercent}%` }} />
+            </div>
+            <p className="muted">
+              {course.levelProgress.completedItems} из {course.levelProgress.totalItems} ·{" "}
+              {course.levelProgress.completedCards} карточек из {course.levelProgress.totalCards}
+            </p>
+            {course.levelProgress.itemsByType.length === 0 ? null : (
+              <div className="level-progress-scroll">
+                <table aria-label={`Состояния материалов уровня ${course.currentLevel}`}>
+                  <thead>
+                    <tr>
+                      <th scope="col">Тип</th>
+                      <th scope="col">Закрыто</th>
+                      <th scope="col">Уроки</th>
+                      <th scope="col">В SRS</th>
+                      <th scope="col">Пройдено</th>
+                      <th scope="col">Закреплено</th>
+                      <th scope="col">Всего</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {course.levelProgress.itemsByType.map((row) => (
+                      <tr data-testid="level-progress-type" key={row.itemType}>
+                        <th scope="row">{formatItemType(row.itemType)}</th>
+                        <td>{row.locked}</td>
+                        <td>{row.available}</td>
+                        <td>{row.inProgress}</td>
+                        <td>{row.passed}</td>
+                        <td>{row.burned}</td>
+                        <td className="level-progress-total">{row.totalItems}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </SectionDisclosure>
           <SectionDisclosure title="Что откроется дальше">
             <CourseNextAction course={course} timezone={timezone} />
@@ -1009,7 +1012,10 @@ function CourseProgressPanel({
           </SectionDisclosure>
         </div>
       )}
-      <SectionDisclosure title="Выбор курса" defaultOpen={course === null || coursesState.status === "error"}>
+      <SectionDisclosure
+        title="Выбор курса"
+        defaultOpen={course === null || coursesState.status === "error"}
+      >
         <CourseSelector coursesState={coursesState} onCourseChange={onCourseChange} />
       </SectionDisclosure>
     </section>

@@ -56,7 +56,11 @@ export function AppShell({ children }: AppShellProps) {
 
   useEffect(() => {
     const closeOutside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !menuRef.current?.contains(event.target) && menuRef.current)
+      if (
+        event.target instanceof Node &&
+        !menuRef.current?.contains(event.target) &&
+        menuRef.current
+      )
         menuRef.current.open = false;
     };
     const closeWithEscape = (event: KeyboardEvent) => {
@@ -114,82 +118,111 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <StudyFocusContext.Provider value={enterStudy}>
-    <div className={`app-shell${focusTitle === null ? "" : " study-focus-shell"}`}>
-      <header className="topbar">
-        <div className="topbar-inner">
-          <Link className="brand" href="/dashboard" title={focusTitle === null ? undefined : "На панель; занятие можно продолжить позже"}>
-            {focusTitle === null ? APP_NAME : <><ArrowLeft aria-hidden="true" size={18} /><span>На панель</span></>}
-          </Link>
-          {focusTitle === null ? (
-          <nav aria-label="Основная навигация" className="nav">
-            {mainNavigation
-              .filter((item) => item.adminOnly !== true || role === "ADMIN")
-              .map((item) => (
-                <Link
-                  aria-current={isActivePath(pathname, item.href) ? "page" : undefined}
-                  className="nav-link"
-                  href={item.href}
-                  key={item.href}
-                >
-                  {item.label}
-                </Link>
-              ))}
-          </nav>
-          ) : <span className="study-focus-title">{focusTitle}</span>}
-          <div className="topbar-actions">
+      <div className={`app-shell${focusTitle === null ? "" : " study-focus-shell"}`}>
+        <header className="topbar">
+          <div className="topbar-inner">
+            <Link
+              className="brand"
+              href="/dashboard"
+              title={focusTitle === null ? undefined : "На панель; занятие можно продолжить позже"}
+            >
+              {focusTitle === null ? (
+                APP_NAME
+              ) : (
+                <>
+                  <ArrowLeft aria-hidden="true" size={18} />
+                  <span>На панель</span>
+                </>
+              )}
+            </Link>
             {focusTitle === null ? (
-            <details className="nav-overflow" ref={menuRef}>
-              <summary aria-label="Другие разделы" className="icon-button" title="Другие разделы">
-                <MoreHorizontal aria-hidden="true" size={20} />
-              </summary>
-              <nav aria-label="Другие разделы" className="nav-menu">
-                {secondaryNavigation.filter((item) => !item.adminOnly || role === "ADMIN").map((item) => (
-                  <Link aria-current={isActivePath(pathname, item.href) ? "page" : undefined} href={item.href} key={item.href}>
-                    {item.label}
-                  </Link>
-                ))}
+              <nav aria-label="Основная навигация" className="nav">
+                {mainNavigation
+                  .filter((item) => item.adminOnly !== true || role === "ADMIN")
+                  .map((item) => (
+                    <Link
+                      aria-current={isActivePath(pathname, item.href) ? "page" : undefined}
+                      className="nav-link"
+                      href={item.href}
+                      key={item.href}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
               </nav>
-            </details>
-            ) : null}
-            <label className="mode-control">
-              <select
-                aria-label="Режим перевода карточек"
-                onChange={(event) =>
-                  void handleModeChange(event.currentTarget.value as TranslationDisplayMode)
-                }
-                value={mode}
-              >
-                {SUPPORTED_TRANSLATION_DISPLAY_MODES.map((item) => (
-                  <option key={item} value={item}>
-                    {formatTranslationDisplayMode(item)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {focusTitle !== null ? null : isSignedIn ? (
-              <button aria-label={`Выйти${displayName === null ? "" : `: ${displayName}`}`} className="icon-button" onClick={handleLogout} title="Выйти из аккаунта" type="button">
-                <LogOut aria-hidden="true" size={18} />
-              </button>
             ) : (
-              <Link className="auth-link" href="/login">
-                Войти
-              </Link>
+              <span className="study-focus-title">{focusTitle}</span>
             )}
+            <div className="topbar-actions">
+              {focusTitle === null ? (
+                <details className="nav-overflow" ref={menuRef}>
+                  <summary
+                    aria-label="Другие разделы"
+                    className="icon-button"
+                    title="Другие разделы"
+                  >
+                    <MoreHorizontal aria-hidden="true" size={20} />
+                  </summary>
+                  <nav aria-label="Другие разделы" className="nav-menu">
+                    {secondaryNavigation
+                      .filter((item) => !item.adminOnly || role === "ADMIN")
+                      .map((item) => (
+                        <Link
+                          aria-current={isActivePath(pathname, item.href) ? "page" : undefined}
+                          href={item.href}
+                          key={item.href}
+                        >
+                          {item.label}
+                        </Link>
+                      ))}
+                  </nav>
+                </details>
+              ) : null}
+              <label className="mode-control">
+                <select
+                  aria-label="Режим перевода карточек"
+                  onChange={(event) =>
+                    void handleModeChange(event.currentTarget.value as TranslationDisplayMode)
+                  }
+                  value={mode}
+                >
+                  {SUPPORTED_TRANSLATION_DISPLAY_MODES.map((item) => (
+                    <option key={item} value={item}>
+                      {formatTranslationDisplayMode(item)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {focusTitle !== null ? null : isSignedIn ? (
+                <button
+                  aria-label={`Выйти${displayName === null ? "" : `: ${displayName}`}`}
+                  className="icon-button"
+                  onClick={handleLogout}
+                  title="Выйти из аккаунта"
+                  type="button"
+                >
+                  <LogOut aria-hidden="true" size={18} />
+                </button>
+              ) : (
+                <Link className="auth-link" href="/login">
+                  Войти
+                </Link>
+              )}
+            </div>
           </div>
-        </div>
-      </header>
-      <main className="main">
-        <ConnectionStatus />
-        {children}
-      </main>
-      <style jsx>{`
-        @media (max-width: 920px), (max-height: 600px) {
-          .topbar {
-            position: static;
+        </header>
+        <main className="main">
+          <ConnectionStatus />
+          {children}
+        </main>
+        <style jsx>{`
+          @media (max-width: 920px), (max-height: 600px) {
+            .topbar {
+              position: static;
+            }
           }
-        }
-      `}</style>
-    </div>
+        `}</style>
+      </div>
     </StudyFocusContext.Provider>
   );
 }

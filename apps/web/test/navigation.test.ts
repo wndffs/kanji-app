@@ -4,7 +4,13 @@ import { mainNavigation, primaryNavigation, secondaryNavigation } from "../src/l
 
 describe("primaryNavigation", () => {
   it("keeps five daily destinations direct and every other destination in the overflow", () => {
-    expect(mainNavigation.map((item) => item.href)).toEqual(["/dashboard", "/lessons", "/reviews", "/characters", "/search"]);
+    expect(mainNavigation.map((item) => item.href)).toEqual([
+      "/dashboard",
+      "/lessons",
+      "/reviews",
+      "/characters",
+      "/search",
+    ]);
     const all = [...mainNavigation, ...secondaryNavigation];
     expect(new Set(all.map((item) => item.href)).size).toBe(all.length);
     for (const item of primaryNavigation) expect(all).toContainEqual(item);

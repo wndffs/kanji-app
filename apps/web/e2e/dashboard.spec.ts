@@ -11,6 +11,28 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("dashboard smoke", () => {
+  test("keeps the daily action primary and opens secondary navigation with keyboard recovery", async ({ page }) => {
+    await signIn(page);
+    await page.route(`${API_BASE_URL}/courses`, (route) => route.fulfill({ json: buildCourseList("course-1") }));
+    await page.route(`${API_BASE_URL}/dashboard`, (route) => route.fulfill({ json: buildMinimalDashboard("course-1", "Базовый курс") }));
+    await page.goto("/dashboard");
+    await expect(page.locator('.dashboard-heading .primary-action')).toHaveCount(1);
+    await expect(page.getByRole("heading", { name: "Баланс нагрузки", exact: true })).toBeHidden();
+    await page.locator('[data-dashboard-widget="workload"] > details > summary').click();
+    await expect(page.getByRole("heading", { name: "Баланс нагрузки", exact: true })).toBeVisible();
+    await page.locator('[data-dashboard-widget="workload"] > details > summary').click();
+    await expect(page.getByRole("heading", { name: "Баланс нагрузки", exact: true })).toBeHidden();
+    const more = page.getByRole("button", { name: "Другие разделы", exact: true });
+    await more.click();
+    const navigation = page.getByRole("navigation", { name: "Другие разделы", exact: true });
+    await expect(navigation.getByRole("link", { name: "Практика", exact: true })).toHaveAttribute("href", "/practice");
+    await expect(navigation.getByRole("link", { name: "Админ", exact: true })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(navigation).toBeHidden();
+    await expect(more).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath("dashboard-focused.png"), fullPage: true });
+  });
   test("claims a fresh reminder once without a permission prompt and closes it on logout", async ({
     page,
   }) => {
@@ -386,6 +408,7 @@ test.describe("dashboard smoke", () => {
 
     await page.goto("/dashboard");
 
+    await expandDashboardDetails(page);
     await expect(page.getByTestId("forecast-bucket").first()).toContainText("24.06.2026, 15:00");
     await expect(page.getByTestId("forecast-bucket").first()).toContainText("3");
     await expect(page.getByTestId("forecast-bucket").nth(1)).toContainText("16:00");
@@ -428,9 +451,9 @@ test.describe("dashboard smoke", () => {
       "href",
       "/practice?source=recent-mistakes",
     );
-    await expect(page.getByRole("main").getByRole("link", { name: "Практика" })).toHaveAttribute(
+    await expect(page.locator(".dashboard-heading").getByRole("link", { name: "Повторять" })).toHaveAttribute(
       "href",
-      "/practice",
+      "/reviews",
     );
   });
 
@@ -527,11 +550,13 @@ test.describe("dashboard smoke", () => {
 
     phase = "completed";
     await page.reload();
+    await expandDashboardDetails(page);
     await expect(page.getByText("Уровень завершён.")).toBeVisible();
     await expect(page.getByRole("link", { name: /一人/ })).toBeVisible();
 
     phase = "waiting";
     await page.reload();
+    await expandDashboardDetails(page);
     await expect(
       page.getByText("Уровень завершён; текущие этапы карточек могли снизиться после ошибок."),
     ).toBeVisible();
@@ -646,6 +671,7 @@ test.describe("dashboard smoke", () => {
     await page.goto("/dashboard");
 
     const selector = page.getByLabel("Текущий курс");
+    await page.getByText("Выбор курса", { exact: true }).click();
     await expect(selector).toHaveValue("starter-course");
     await selector.selectOption("main-course");
     await expect(selector).toHaveValue("main-course");
@@ -753,6 +779,13 @@ test.describe("dashboard smoke", () => {
     await expect(page.locator('[data-dashboard-widget="summary"]')).toHaveClass(/compact/);
   });
 });
+
+async function expandDashboardDetails(page: Page) {
+  await expect(page.locator('[data-dashboard-widget="summary"]')).toBeVisible();
+  for (const summary of await page.locator('.dashboard-widget-grid details:not([open]) > summary').all()) {
+    await summary.click();
+  }
+}
 
 function buildCourseList(currentCourseId: string) {
   if (currentCourseId === "course-1") {
