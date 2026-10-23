@@ -13,6 +13,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
+import { ViewTabs } from "../../components/ViewTabs";
 import { ApiError, getCharacterHub } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import {
@@ -112,23 +113,7 @@ function CharactersScreen() {
         </div>
       </div>
 
-      <nav className="character-hub-tabs" aria-label="Системы письма" role="tablist">
-        {(Object.keys(TAB_LABELS) as CharacterHubTab[]).map((tab) => (
-          <Link
-            aria-controls={`character-panel-${tab}`}
-            aria-selected={query.tab === tab}
-            href={buildCharacterHubHref(
-              tab,
-              tab === "kanji" ? query.filters : EMPTY_CHARACTER_HUB_FILTERS,
-            )}
-            id={`character-tab-${tab}`}
-            key={tab}
-            role="tab"
-          >
-            {TAB_LABELS[tab]}
-          </Link>
-        ))}
-      </nav>
+      <ViewTabs active={query.tab} onChange={(tab) => router.push(buildCharacterHubHref(tab as CharacterHubTab, query.filters), { scroll: false })} label="Системы письма" idPrefix="character-tab" panelId={`character-panel-${query.tab}`} tabs={(Object.keys(TAB_LABELS) as CharacterHubTab[]).map((id) => ({ id, label: TAB_LABELS[id] }))} />
 
       {state.status === "loading" ? (
         <div className="character-hub-loading" aria-busy="true">

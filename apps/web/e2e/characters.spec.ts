@@ -63,7 +63,7 @@ test.describe("character hub", () => {
     await expect(page.getByRole("link", { name: /一/ })).toBeVisible();
 
     await page.getByRole("tab", { name: "Хирагана" }).click();
-    await expect(page).toHaveURL("/characters?tab=hiragana");
+    await expect(page).toHaveURL("/characters?tab=hiragana&band=n5&state=weak");
     await expect(page.getByText("Прогресс каны: освоение в уроках, не SRS")).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Освоено 50%" })).toBeVisible();
     await expect(page.getByRole("list", { name: "Все уроки: Хирагана" })).toContainText("あ");
