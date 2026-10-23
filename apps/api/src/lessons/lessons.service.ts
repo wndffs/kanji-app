@@ -241,13 +241,14 @@ export class LessonsService {
     }
 
     const now = new Date();
-    const { availableItems, displayMode } = await this.getAvailableItems(
+    const { availableItems, displayMode } = await this.getAvailableMetadata(
       user,
       now,
       session.deckId,
       true,
     );
-    const lessonItem = availableItems.find((candidate) => candidate.item.id === request.itemId);
+    const [lessonItem] = await this.hydrateAvailableItems(user.id,
+      availableItems.filter((candidate) => candidate.item.id === request.itemId), false);
 
     if (lessonItem === undefined) {
       throw new BadRequestException("Lesson item is not currently available.");
@@ -339,13 +340,14 @@ export class LessonsService {
       throw new BadRequestException("Lesson item is not part of this session.");
     }
 
-    const { availableItems, displayMode } = await this.getAvailableItems(
+    const { availableItems, displayMode } = await this.getAvailableMetadata(
       user,
       new Date(),
       session.deckId,
       true,
     );
-    const lessonItem = availableItems.find((candidate) => candidate.item.id === request.itemId);
+    const [lessonItem] = await this.hydrateAvailableItems(user.id,
+      availableItems.filter((candidate) => candidate.item.id === request.itemId), false);
 
     if (lessonItem === undefined) {
       throw new BadRequestException("Lesson item is not currently available.");
@@ -417,25 +419,15 @@ export class LessonsService {
     return { session: toLessonSessionDto(session) };
   }
 
-  private async getAvailableItems(
-    user: CurrentUserDto,
-    now: Date,
-    deckId: string | null,
-    allowArchivedDeck = false,
-  ) {
-    const metadata = await this.getAvailableMetadata(user, now, deckId, allowArchivedDeck);
-    return { ...metadata, availableItems: await this.hydrateAvailableItems(user.id, metadata.availableItems) };
-  }
-
-  private async hydrateAvailableItems(userId: string, entries: readonly AvailableLessonMetadata[]): Promise<readonly AvailableLessonItem[]> {
-    const ids = entries.flatMap((entry) => [entry.item.id, ...entry.unlockedBy.map((item) => item.id)]);
+  private async hydrateAvailableItems(userId: string, entries: readonly AvailableLessonMetadata[], includePrerequisites = true): Promise<readonly AvailableLessonItem[]> {
+    const ids = entries.flatMap((entry) => [entry.item.id, ...(includePrerequisites ? entry.unlockedBy.map((item) => item.id) : [])]);
     const items = await this.lessonsRepository.loadLessonItems(userId, ids);
     const requireItem = (id: string): LessonItemRecord => {
       const item = items.get(id);
       if (item === undefined || item.cards.length === 0) throw new BadRequestException("Lesson content changed. Reload the lesson queue.");
       return item;
     };
-    return entries.map((entry) => ({ ...entry, item: requireItem(entry.item.id), unlockedBy: entry.unlockedBy.map((item) => requireItem(item.id)) }));
+    return entries.map((entry) => ({ ...entry, item: requireItem(entry.item.id), unlockedBy: includePrerequisites ? entry.unlockedBy.map((item) => requireItem(item.id)) : [] }));
   }
 
   private async getAvailableMetadata(

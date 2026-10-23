@@ -397,6 +397,18 @@ describe("LessonsService", () => {
     expect(hydrate).toHaveBeenCalledExactlyOnceWith("owner", ["item-component-one"]);
   });
 
+  it("checks and completes only the requested eligible session item", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const hydrate = vi.spyOn(repository, "loadLessonItems");
+    const service = new LessonsService(repository, createOverridesService());
+    const { session } = await service.startSession(createUser("owner"));
+    const answer = { cardId: "card-component-one", answerType: "meaning", answer: "одна черта" };
+    await service.checkAnswer(session.id, createUser("owner"), { itemId: "item-component-one", ...answer });
+    expect(hydrate).toHaveBeenLastCalledWith("owner", ["item-component-one"]);
+    await service.completeItem(session.id, createUser("owner"), { itemId: "item-component-one", answers: [answer] });
+    expect(hydrate).toHaveBeenLastCalledWith("owner", ["item-component-one"]);
+  });
+
   it.each(["course", "deck"])(
     "requires every external prerequisite card for %s queues and completion",
     async (source) => {
