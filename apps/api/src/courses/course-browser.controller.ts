@@ -1,6 +1,8 @@
-import { Controller, Get, Inject, Param, UseGuards, BadRequestException, NotFoundException } from "@nestjs/common";
+import { Controller, Get, Inject, Param, Query, UseGuards, BadRequestException } from "@nestjs/common";
 import { AuthGuard } from "../auth/auth.guard";
-import { CourseBrowserRepository } from "./course-browser.repository";
+import { CourseBrowserService } from "./course-browser.service";
+import { CurrentUser } from "../auth/current-user.decorator";
+import { type CurrentUserDto } from "../auth/auth.types";
 
 export function requireCourseBrowserId(value: string): string {
   if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/iu.test(value))
@@ -11,12 +13,16 @@ export function requireCourseBrowserId(value: string): string {
 @UseGuards(AuthGuard)
 @Controller("courses")
 export class CourseBrowserController {
-  constructor(@Inject(CourseBrowserRepository) private readonly repository: CourseBrowserRepository) {}
+  constructor(@Inject(CourseBrowserService) private readonly service: CourseBrowserService) {}
 
   @Get(":courseId/outline")
   async outline(@Param("courseId") courseId: string) {
-    const outline = await this.repository.outline(requireCourseBrowserId(courseId));
-    if (outline === null) throw new NotFoundException("Опубликованный курс не найден.");
-    return outline;
+    return this.service.outline(requireCourseBrowserId(courseId));
+  }
+
+  @Get(":courseId/levels/:level/items")
+  materials(@CurrentUser() user: CurrentUserDto, @Param("courseId") courseId: string,
+    @Param("level") level: string, @Query() query: { readonly page?: unknown }) {
+    return this.service.materials(user.id, requireCourseBrowserId(courseId), level, query);
   }
 }

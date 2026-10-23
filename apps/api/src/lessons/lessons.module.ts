@@ -9,6 +9,7 @@ import { LessonsService } from "./lessons.service";
 @Module({
   imports: [AuthModule, OverridesModule],
   controllers: [LessonsController],
+  exports: [LessonsRepository],
   providers: [
     LessonsService,
     {

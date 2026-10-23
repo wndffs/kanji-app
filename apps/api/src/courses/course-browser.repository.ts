@@ -22,4 +22,19 @@ export class CourseBrowserRepository {
         band: level.band.toLowerCase(), publishedItemCount: level._count.items })),
     };
   }
+
+  async levelPage(courseId: string, levelNumber: number, page: number) {
+    const level = await this.prisma.db.courseLevel.findFirst({
+      where: { courseId, levelNumber, course: { status: "PUBLISHED", courseType: "STRUCTURED" } },
+      select: { id: true },
+    });
+    if (level === null) return null;
+    const where = { courseLevelId: level.id, learningItem: { status: "PUBLISHED" as const } };
+    const total = await this.prisma.db.courseLevelItem.count({ where });
+    const entries = await this.prisma.db.courseLevelItem.findMany({
+      where, orderBy: [{ sortOrder: "asc" }, { learningItemId: "asc" }],
+      skip: (page - 1) * 30, take: 30, select: { learningItemId: true },
+    });
+    return { ids: entries.map((entry) => entry.learningItemId), total };
+  }
 }
