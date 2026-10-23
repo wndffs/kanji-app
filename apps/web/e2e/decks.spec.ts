@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { changeAccount } from "./support/change-account";
 
 import {
   type CreateTextDeckResponse,
@@ -10,6 +11,103 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("dynamic text decks", () => {
+  for (const status of [200, 401])
+    test(`clears private drafts and ignores an old library ${status}`, async ({ page }) => {
+      await signIn(page);
+      let release!: () => void;
+      let started!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const pending = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      await page.route(`${API_BASE_URL}/decks`, async (route) => {
+        if (route.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`) {
+          started();
+          await held;
+          await route
+            .fulfill({
+              status,
+              json: status === 200 ? savedDeckListResponse : { message: "Old account expired" },
+            })
+            .catch(() => undefined);
+        } else
+          await route.fulfill({
+            json: {
+              decks: [
+                {
+                  ...savedDeckListResponse.decks[0]!,
+                  id: "new-deck",
+                  title: "Новая личная колода",
+                },
+              ],
+            },
+          });
+      });
+      try {
+        await page.goto("/decks");
+        await pending;
+        await page.getByRole("button", { name: "Новая колода", exact: true }).click();
+        await page.getByLabel("Японский текст").fill("Старый личный текст");
+        await changeAccount(page);
+        await expect(page.getByText("Новая личная колода", { exact: true })).toBeVisible();
+        await page.getByRole("button", { name: "Новая колода", exact: true }).click();
+        await expect(page.getByLabel("Японский текст")).toHaveValue("");
+        const old = page.waitForResponse(
+          (response) =>
+            response.url().endsWith("/decks") &&
+            response.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`,
+        );
+        release();
+        await (await old).finished();
+        await expect(page.getByText(savedDeckDetails.title, { exact: true })).toHaveCount(0);
+        expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe(
+          "new-owner-token",
+        );
+      } finally {
+        release();
+      }
+    });
+
+  test("retains a hidden builder draft, validates limits and filters library and path", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockSavedDecksApi(page, savedDeckListResponse, savedDeckDetails);
+    let writes = 0;
+    await page.route(`${API_BASE_URL}/decks/from-text`, (route) => {
+      writes++;
+      return route.fulfill({ json: createTextDeckResponse });
+    });
+    await page.goto("/decks");
+    await page.getByRole("button", { name: "Новая колода", exact: true }).click();
+    await page.getByLabel("Название", { exact: true }).fill("Черновик");
+    await page.getByLabel("Японский текст").fill("学校");
+    await page.getByRole("button", { name: "Скрыть форму", exact: true }).click();
+    await page.getByRole("button", { name: "Новая колода", exact: true }).click();
+    await expect(page.getByLabel("Название", { exact: true })).toHaveValue("Черновик");
+    await page.getByLabel("Максимум элементов").fill("0");
+    await page.getByRole("button", { name: "Создать колоду", exact: true }).click();
+    await expect(page.locator("#deck-builder").getByRole("alert")).toContainText("от 1 до 160");
+    expect(writes).toBe(0);
+    await page.getByRole("button", { name: "Скрыть форму", exact: true }).click();
+    await page.getByLabel("Найти колоду").fill("нет такой");
+    await expect(page.getByText("Колоды не найдены.", { exact: true })).toBeVisible();
+    await page.getByLabel("Найти колоду").fill("новости");
+    await page.getByRole("button", { name: "Открыть", exact: true }).click();
+    await page.getByLabel("Изучение в колоде").selectOption("started");
+    await expect(page.getByText("Материалы не найдены.", { exact: true })).toBeVisible();
+    await page.getByLabel("Изучение в колоде").selectOption("new");
+    await expect(page.getByRole("link", { name: "学校", exact: true })).toHaveAttribute(
+      "href",
+      "/items/item-word-school",
+    );
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({ path: test.info().outputPath("deck-library.png"), fullPage: true });
+  });
   test("creates a deck from pasted Japanese text", async ({ page }) => {
     await signIn(page);
     await mockSavedDecksApi(page, { decks: [] });

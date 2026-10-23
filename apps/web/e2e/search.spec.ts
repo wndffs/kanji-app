@@ -6,6 +6,23 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("search UI", () => {
+  test("removes applied filters independently and resets pagination", async ({ page }) => {
+    await signIn(page);
+    await page.route(`${API_BASE_URL}/search?*`, (route) =>
+      route.fulfill({ json: buildSearchResponse("school") }),
+    );
+    await page.goto("/search?q=school&page=2&itemType=word&level=1");
+    await page.getByRole("button", { name: "Убрать учебный уровень", exact: true }).click();
+    await expect(page).toHaveURL(/q=school&itemType=word$/);
+    await page.getByRole("button", { name: "Убрать тип материала", exact: true }).click();
+    await expect(page).toHaveURL(/search\?q=school$/);
+    await expect(page.getByLabel("Тип материала")).toBeHidden();
+    await expect(page.locator(".search-result-reading")).toHaveText("がっこう");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({ path: test.info().outputPath("search-focused.png"), fullPage: true });
+  });
   test("keeps pages and filters through navigation, reload and back", async ({
     page,
   }, testInfo) => {

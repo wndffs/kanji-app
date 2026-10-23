@@ -54,7 +54,12 @@ type DeckStatusUpdateState =
 
 export function DecksClient() {
   const session = useStoredSession();
-  if (session === undefined) return <section className="page-stack" aria-busy="true"><h1>Колоды</h1></section>;
+  if (session === undefined)
+    return (
+      <section className="page-stack" aria-busy="true">
+        <h1>Колоды</h1>
+      </section>
+    );
   return <DecksScreen key={session === null ? "guest" : `${session.user.id}:${session.token}`} />;
 }
 
@@ -62,7 +67,9 @@ function DecksScreen() {
   const [builderOpen, setBuilderOpen] = useState(false);
   const titleInput = useRef<HTMLInputElement>(null);
   const builderButton = useRef<HTMLButtonElement>(null);
-  useEffect(() => { if (builderOpen) titleInput.current?.focus(); }, [builderOpen]);
+  useEffect(() => {
+    if (builderOpen) titleInput.current?.focus();
+  }, [builderOpen]);
   const displayMode = useTranslationDisplayMode();
   const [state, setState] = useState<DecksState>({ status: "checking" });
   const [savedDecks, setSavedDecks] = useState<SavedDecksState>({ status: "idle" });
@@ -172,7 +179,11 @@ function DecksScreen() {
   }
 
   async function handleDeckStatusChange(deck: DeckDetailsDto): Promise<void> {
-    if (state.status !== "ready" || !ownsSession(state.token) || deckStatusUpdate.status === "updating") {
+    if (
+      state.status !== "ready" ||
+      !ownsSession(state.token) ||
+      deckStatusUpdate.status === "updating"
+    ) {
       return;
     }
 
@@ -270,7 +281,10 @@ function DecksScreen() {
         return;
       }
 
-      if (ownsSession(state.token)) setFormError(error instanceof Error ? error.message : "Не удалось создать колоду из текста.");
+      if (ownsSession(state.token))
+        setFormError(
+          error instanceof Error ? error.message : "Не удалось создать колоду из текста.",
+        );
     } finally {
       setIsSubmitting(false);
     }
@@ -306,12 +320,22 @@ function DecksScreen() {
   }
 
   return (
-    <section className="page-stack">
+    <section className="page-stack decks-page">
       <div className="page-heading deck-heading">
         <div>
           <h1>Колоды</h1>
         </div>
-        <button className="primary-action" ref={builderButton} aria-expanded={builderOpen} aria-controls="deck-builder" onClick={() => setBuilderOpen((value) => !value)} disabled={isSubmitting}><Plus size={18} aria-hidden="true" />Новая колода</button>
+        <button
+          className="primary-action"
+          ref={builderButton}
+          aria-expanded={builderOpen}
+          aria-controls="deck-builder"
+          onClick={() => setBuilderOpen((value) => !value)}
+          disabled={isSubmitting}
+        >
+          <Plus size={18} aria-hidden="true" />
+          Новая колода
+        </button>
       </div>
 
       <SavedDecksPanel
@@ -343,7 +367,13 @@ function DecksScreen() {
         />
       ) : null}
 
-      <form id="deck-builder" hidden={!builderOpen} className="deck-builder-panel" noValidate onSubmit={(event) => void handleSubmit(event)}>
+      <form
+        id="deck-builder"
+        hidden={!builderOpen}
+        className="deck-builder-panel"
+        noValidate
+        onSubmit={(event) => void handleSubmit(event)}
+      >
         <div className="deck-form-grid">
           <label>
             <span>Название</span>
@@ -396,10 +426,26 @@ function DecksScreen() {
           >
             Очистить
           </button>
-          <button className="icon-button" title="Скрыть форму" aria-label="Скрыть форму" disabled={isSubmitting} type="button" onClick={() => { setBuilderOpen(false); builderButton.current?.focus(); }}><X size={20} aria-hidden="true" /></button>
+          <button
+            className="icon-button"
+            title="Скрыть форму"
+            aria-label="Скрыть форму"
+            disabled={isSubmitting}
+            type="button"
+            onClick={() => {
+              setBuilderOpen(false);
+              builderButton.current?.focus();
+            }}
+          >
+            <X size={20} aria-hidden="true" />
+          </button>
         </div>
 
-        {formError === null ? null : <p className="form-error" role="alert">{formError}</p>}
+        {formError === null ? null : (
+          <p className="form-error" role="alert">
+            {formError}
+          </p>
+        )}
       </form>
 
       {result === null ? null : (
@@ -432,7 +478,14 @@ function SavedDecksPanel({
 }) {
   const [status, setStatus] = useState("active");
   const [query, setQuery] = useState("");
-  const visibleDecks = state.status === "ready" ? sortDeckSummaries(state.decks).filter((deck) => (status === "archived" ? deck.status === "archived" : deck.status !== "archived") && deck.title.toLocaleLowerCase("ru").includes(query.trim().toLocaleLowerCase("ru"))) : [];
+  const visibleDecks =
+    state.status === "ready"
+      ? sortDeckSummaries(state.decks).filter(
+          (deck) =>
+            (status === "archived" ? deck.status === "archived" : deck.status !== "archived") &&
+            deck.title.toLocaleLowerCase("ru").includes(query.trim().toLocaleLowerCase("ru")),
+        )
+      : [];
   return (
     <section className="saved-decks-panel panel" aria-labelledby="saved-decks-title">
       <div className="saved-decks-header">
@@ -442,8 +495,25 @@ function SavedDecksPanel({
         </div>
         {state.status === "ready" ? <strong>{state.decks.length}</strong> : null}
       </div>
-      <ViewTabs active={status} onChange={setStatus} label="Библиотека колод" idPrefix="deck-library" panelId="deck-library-results" tabs={[{ id: "active", label: "Активные" }, { id: "archived", label: "Архив" }]} />
-      <label className="library-search"><span>Найти колоду</span><input type="search" value={query} onChange={(event) => setQuery(event.currentTarget.value)} /></label>
+      <ViewTabs
+        active={status}
+        onChange={setStatus}
+        label="Библиотека колод"
+        idPrefix="deck-library"
+        panelId="deck-library-results"
+        tabs={[
+          { id: "active", label: "Активные" },
+          { id: "archived", label: "Архив" },
+        ]}
+      />
+      <label className="library-search">
+        <span>Найти колоду</span>
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.currentTarget.value)}
+        />
+      </label>
 
       {state.status === "idle" || state.status === "loading" ? (
         <p className="muted" aria-live="polite">
@@ -454,43 +524,47 @@ function SavedDecksPanel({
       {state.status === "error" ? <p className="form-error">{state.message}</p> : null}
 
       {state.status === "ready" && visibleDecks.length === 0 ? (
-        <p className="muted">{state.decks.length === 0 ? "Здесь появятся колоды, созданные из японских текстов." : "Колоды не найдены."}</p>
+        <p className="muted">
+          {state.decks.length === 0
+            ? "Здесь появятся колоды, созданные из японских текстов."
+            : "Колоды не найдены."}
+        </p>
       ) : null}
 
       <div id="deck-library-results" role="tabpanel" aria-labelledby={`deck-library-${status}`}>
-      {state.status === "ready" && visibleDecks.length > 0 ? (
-        <ul className="saved-deck-list">
-          {visibleDecks.map((deck) => {
-            const isSelected =
-              (selectedDeck.status === "ready" && selectedDeck.deck.id === deck.id) ||
-              (selectedDeck.status === "loading" && selectedDeck.deckId === deck.id) ||
-              (selectedDeck.status === "error" && selectedDeck.deckId === deck.id);
+        {state.status === "ready" && visibleDecks.length > 0 ? (
+          <ul className="saved-deck-list">
+            {visibleDecks.map((deck) => {
+              const isSelected =
+                (selectedDeck.status === "ready" && selectedDeck.deck.id === deck.id) ||
+                (selectedDeck.status === "loading" && selectedDeck.deckId === deck.id) ||
+                (selectedDeck.status === "error" && selectedDeck.deckId === deck.id);
 
-            return (
-              <li key={deck.id}>
-                <div>
-                  <strong>{deck.title}</strong>
-                  <span>
-                    {formatDeckCount(deck.itemCount)} · новых: {deck.newItemCount} ·{" "}
-                    {deck.status === "archived" ? "архив" : "активна"}
-                  </span>
-                </div>
-                <button
-                  aria-pressed={isSelected}
-                  className="secondary-action"
-                  disabled={selectedDeck.status === "loading" && selectedDeck.deckId === deck.id}
-                  onClick={() => onOpen(deck.id)}
-                  type="button"
-                >
-                  {selectedDeck.status === "loading" && selectedDeck.deckId === deck.id
-                    ? "Открываю..."
-                    : "Открыть"}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
+              return (
+                <li key={deck.id}>
+                  <div>
+                    <strong>{deck.title}</strong>
+                    <span>
+                      {formatDeckCount(deck.itemCount)} · новых: {deck.newItemCount} ·{" "}
+                      {deck.status === "archived" ? "архив" : "активна"}
+                    </span>
+                  </div>
+                  <button
+                    aria-pressed={isSelected}
+                    className="secondary-action"
+                    disabled={selectedDeck.status === "loading" && selectedDeck.deckId === deck.id}
+                    onClick={() => onOpen(deck.id)}
+                    type="button"
+                  >
+                    {selectedDeck.status === "loading" && selectedDeck.deckId === deck.id
+                      ? "Открываю..."
+                      : "Открыть"}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
       </div>
 
       {selectedDeck.status === "error" ? (
@@ -547,7 +621,11 @@ function DeckDetailsResult({
 }) {
   const [kind, setKind] = useState("");
   const [learningState, setLearningState] = useState("all");
-  const visibleItems = deck.items.filter((entry) => (kind === "" || entry.item.itemType === kind) && (learningState === "all" || entry.isNewForUser === (learningState === "new")));
+  const visibleItems = deck.items.filter(
+    (entry) =>
+      (kind === "" || entry.item.itemType === kind) &&
+      (learningState === "all" || entry.isNewForUser === (learningState === "new")),
+  );
   return (
     <section className="deck-result" aria-label={`Колода ${deck.title}`}>
       <div className="panel">
@@ -571,10 +649,10 @@ function DeckDetailsResult({
         </div>
         {tokenization === undefined ? null : (
           <SectionDisclosure title="Разбор текста">
-          <p className="muted">
-            Найдено материалов: {tokenization.matchedItemCount}. Перекрывающихся слов исключено:{" "}
-            {tokenization.discardedOverlapCount}.
-          </p>
+            <p className="muted">
+              Найдено материалов: {tokenization.matchedItemCount}. Перекрывающихся слов исключено:{" "}
+              {tokenization.discardedOverlapCount}.
+            </p>
           </SectionDisclosure>
         )}
         {deck.status === "archived" ? (
@@ -629,17 +707,39 @@ function DeckDetailsResult({
         </div>
       ) : (
         <>
-        <div className="deck-path-filters">
-          <label><span>Тип в колоде</span><select value={kind} onChange={(event) => setKind(event.currentTarget.value)}><option value="">Все типы</option>{(["component", "kanji", "word", "sentence"] as const).map((id) => <option key={id} value={id}>{formatItemType(id)}</option>)}</select></label>
-          <label><span>Изучение в колоде</span><select value={learningState} onChange={(event) => setLearningState(event.currentTarget.value)}><option value="all">Все материалы</option><option value="new">Новые</option><option value="started">Уже начатые</option></select></label>
-          <span role="status">Материалов: {visibleItems.length} / {deck.items.length}</span>
-        </div>
-        {visibleItems.length === 0 ? <p className="muted">Материалы не найдены.</p> : null}
-        <div className="deck-item-list">
-          {visibleItems.map((deckItem) => (
-            <DeckItemCard deckItem={deckItem} displayMode={displayMode} key={deckItem.item.id} />
-          ))}
-        </div>
+          <div className="deck-path-filters">
+            <label>
+              <span>Тип в колоде</span>
+              <select value={kind} onChange={(event) => setKind(event.currentTarget.value)}>
+                <option value="">Все типы</option>
+                {(["component", "kanji", "word", "sentence"] as const).map((id) => (
+                  <option key={id} value={id}>
+                    {formatItemType(id)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Изучение в колоде</span>
+              <select
+                value={learningState}
+                onChange={(event) => setLearningState(event.currentTarget.value)}
+              >
+                <option value="all">Все материалы</option>
+                <option value="new">Новые</option>
+                <option value="started">Уже начатые</option>
+              </select>
+            </label>
+            <span role="status">
+              Материалов: {visibleItems.length} / {deck.items.length}
+            </span>
+          </div>
+          {visibleItems.length === 0 ? <p className="muted">Материалы не найдены.</p> : null}
+          <div className="deck-item-list">
+            {visibleItems.map((deckItem) => (
+              <DeckItemCard deckItem={deckItem} displayMode={displayMode} key={deckItem.item.id} />
+            ))}
+          </div>
         </>
       )}
     </section>
@@ -714,7 +814,9 @@ function DeckItemCard({
     <article className="deck-item-card">
       <div>
         <span className="eyebrow">{formatItemType(deckItem.item.itemType)}</span>
-        <Link className="deck-item-link" href={`/items/${encodeURIComponent(deckItem.item.id)}`}><JapaneseText as="strong">{deckItem.item.japanese}</JapaneseText></Link>
+        <Link className="deck-item-link" href={`/items/${encodeURIComponent(deckItem.item.id)}`}>
+          <JapaneseText as="strong">{deckItem.item.japanese}</JapaneseText>
+        </Link>
         <p>{formatTranslationBundle(deckItem.item.translations, displayMode)}</p>
       </div>
       <dl className="deck-item-facts">
@@ -728,18 +830,18 @@ function DeckItemCard({
         </div>
       </dl>
       <SectionDisclosure title="Почему в колоде">
-      <ul className="deck-reason-list" aria-label="Причины включения">
-        {deckItem.reasons.map((reason, index) => (
-          <li
-            key={`${reason.code}-${reason.matchedText ?? ""}-${reason.sourceItemId ?? ""}-${index}`}
-          >
-            <span>{formatReason(reason)}</span>
-            {reason.rank === undefined || reason.rank === null ? null : (
-              <small>#{reason.rank}</small>
-            )}
-          </li>
-        ))}
-      </ul>
+        <ul className="deck-reason-list" aria-label="Причины включения">
+          {deckItem.reasons.map((reason, index) => (
+            <li
+              key={`${reason.code}-${reason.matchedText ?? ""}-${reason.sourceItemId ?? ""}-${index}`}
+            >
+              <span>{formatReason(reason)}</span>
+              {reason.rank === undefined || reason.rank === null ? null : (
+                <small>#{reason.rank}</small>
+              )}
+            </li>
+          ))}
+        </ul>
       </SectionDisclosure>
     </article>
   );

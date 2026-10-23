@@ -9,6 +9,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { createSilentWav } from "./support/test-audio";
+import { changeAccount } from "./support/change-account";
 
 const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
@@ -24,6 +25,80 @@ type CapturedPracticeAnswerRequest = {
 };
 
 test.describe("optional practice", () => {
+  for (const status of [200, 401])
+    test(`drops old practice queue after account switch (${status})`, async ({ page }) => {
+      await signIn(page);
+      await mockPracticeApi(page);
+      let release!: () => void;
+      let started!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const pending = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      await page.route(`${API_BASE_URL}/reviews/practice/queue?*`, async (route) => {
+        if (route.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`) {
+          started();
+          await held;
+          await route
+            .fulfill({
+              status,
+              json:
+                status === 200
+                  ? { source: "recent-mistakes", items: [practiceItem] }
+                  : { message: "Old account expired" },
+            })
+            .catch(() => undefined);
+        } else await route.fulfill({ json: { source: "recent-mistakes", items: [] } });
+      });
+      try {
+        await page.goto("/practice");
+        await pending;
+        await changeAccount(page);
+        await expect(
+          page.getByText("Карточек: 0. SRS и расписание не изменяются.", { exact: true }),
+        ).toBeVisible();
+        const old = page.waitForResponse(
+          (response) =>
+            response.url().includes("/practice/queue?") &&
+            response.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`,
+        );
+        release();
+        await (await old).finished();
+        await expect(page.getByText("学", { exact: true })).toHaveCount(0);
+        expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe(
+          "new-owner-token",
+        );
+      } finally {
+        release();
+      }
+    });
+
+  test("keeps a focused session and displays only the selected meaning language", async ({
+    page,
+  }) => {
+    await signIn(page, "ru");
+    await mockPracticeApi(page);
+    await page.goto("/practice");
+    await page.getByRole("button", { name: "Начать практику", exact: true }).click();
+    await expect(page.getByRole("navigation", { name: "Основная навигация" })).toHaveCount(0);
+    await page.getByLabel("Введите значение").fill("wrong answer");
+    await page.keyboard.press("Enter");
+    const feedback = page.getByRole("region", { name: "Результат ответа" });
+    await expect(feedback.getByText("study", { exact: true })).toHaveCount(0);
+    await expect(feedback.getByText("учёба", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Дальше", exact: true })).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: test.info().outputPath("practice-feedback.png"),
+      fullPage: true,
+    });
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("link", { name: "На панель", exact: true })).toBeVisible();
+  });
   for (const staleStatus of [200, 401]) {
     test(`restores the practice source with Back and ignores a late ${staleStatus}`, async ({
       page,
@@ -200,11 +275,11 @@ test.describe("optional practice", () => {
   });
 });
 
-async function signIn(page: Page): Promise<void> {
+async function signIn(page: Page, displayMode: "ru" | "ru-en" = "ru-en"): Promise<void> {
   await page.addInitScript(
-    ({ accessToken }) => {
+    ({ accessToken, displayMode }) => {
       window.localStorage.setItem("kanji-srs.accessToken", accessToken);
-      window.localStorage.setItem("kanji-srs.translationDisplayMode", "ru-en");
+      window.localStorage.setItem("kanji-srs.translationDisplayMode", displayMode);
       window.localStorage.setItem(
         "kanji-srs.user",
         JSON.stringify({
@@ -214,7 +289,7 @@ async function signIn(page: Page): Promise<void> {
           role: "USER",
           settings: {
             locale: "ru-RU",
-            translationDisplayMode: "ru-en",
+            translationDisplayMode: displayMode,
             timezone: "Europe/Moscow",
             dailyLessonLimit: 20,
             reviewBudget: 100,
@@ -223,7 +298,7 @@ async function signIn(page: Page): Promise<void> {
         }),
       );
     },
-    { accessToken: ACCESS_TOKEN },
+    { accessToken: ACCESS_TOKEN, displayMode },
   );
 }
 

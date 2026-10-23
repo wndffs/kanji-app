@@ -131,7 +131,11 @@ export function CoursesClient() {
                   : "")}
           </p>
           <h2>Доступные курсы</h2>
-          <ul className="course-catalog-list" aria-label="Доступные курсы" aria-busy={loading || savingId !== null}>
+          <ul
+            className="course-catalog-list"
+            aria-label="Доступные курсы"
+            aria-busy={loading || savingId !== null}
+          >
             {courses.map((course) => (
               <li key={course.id}>
                 <div>

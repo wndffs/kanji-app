@@ -8,7 +8,12 @@ export function useStoredSession(): StoredSession | null | undefined {
   useEffect(() => {
     const sync = () => setSession(readStoredSession());
     const storage = (event: StorageEvent) => {
-      if (event.key === null || event.key === "kanji-srs.accessToken" || event.key === "kanji-srs.user") sync();
+      if (
+        event.key === null ||
+        event.key === "kanji-srs.accessToken" ||
+        event.key === "kanji-srs.user"
+      )
+        sync();
     };
     sync();
     window.addEventListener(AUTH_CHANGED_EVENT, sync);

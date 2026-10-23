@@ -1,0 +1,56 @@
+import { describe, expect, it } from "vitest";
+import { listKana } from "@kanji-srs/japanese";
+import { type KanaLessonUnitDto } from "@kanji-srs/shared";
+import { filterKanaUnits } from "../src/lib/kana-unit-groups";
+
+const items = listKana("hiragana").map((item) => ({
+  ...item,
+  attemptCount: 3,
+  correctCount: 3,
+  currentStreak: 3,
+  mastered: item.variant === "basic",
+  lastAnsweredAt: null,
+}));
+const units: readonly KanaLessonUnitDto[] = [
+  {
+    id: "mixed",
+    script: "hiragana",
+    title: "Fixture",
+    order: 1,
+    unlocked: false,
+    complete: false,
+    masteredCount: 46,
+    totalCount: items.length,
+    items,
+  },
+];
+describe("kana chart groups", () => {
+  it("keeps exactly 46 basic signs separate from modified and combined sounds", () => {
+    const original = structuredClone(units);
+    expect(filterKanaUnits(units, "basic")[0]).toMatchObject({
+      totalCount: 46,
+      masteredCount: 46,
+      complete: true,
+      unlocked: false,
+    });
+    expect(
+      filterKanaUnits(units, "dakuten")[0]?.items.every((item) => item.variant === "dakuten"),
+    ).toBe(true);
+    expect(filterKanaUnits(units, "handakuten")[0]?.totalCount).toBe(5);
+    expect(filterKanaUnits(units, "all")).toBe(units);
+    expect(units).toEqual(original);
+  });
+  it("omits empty groups without unlocking lessons or inventing mastery", () => {
+    expect(
+      filterKanaUnits(
+        [{ ...units[0]!, items: items.filter((item) => item.variant === "basic") }],
+        "yoon",
+      ),
+    ).toEqual([]);
+    expect(filterKanaUnits(units, "yoon")[0]).toMatchObject({
+      masteredCount: 0,
+      complete: false,
+      unlocked: false,
+    });
+  });
+});

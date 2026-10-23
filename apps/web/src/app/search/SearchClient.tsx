@@ -178,42 +178,75 @@ function SearchScreen({ token }: { readonly token: string | null }) {
             value={query}
           />
         </label>
-        <SectionDisclosure title="Фильтры" defaultOpen={typeFromUrl !== undefined || levelFromUrl !== undefined} className="search-filter-disclosure"><div className="search-filter-fields">
-        <label>
-          <span>Тип материала</span>
-          <select
-            value={itemType}
-            onChange={(event) => setItemType(event.currentTarget.value as typeof itemType)}
-          >
-            <option value="">Все типы</option>
-            <option value="component">Компоненты</option>
-            <option value="kanji">Кандзи</option>
-            <option value="word">Слова</option>
-            <option value="sentence">Предложения</option>
-          </select>
-        </label>
-        <label>
-          <span>Учебный уровень</span>
-          <input
-            type="number"
-            min={1}
-            max={60}
-            step={1}
-            value={level}
-            onChange={(event) => setLevel(event.currentTarget.value)}
-          />
-        </label>
-        </div></SectionDisclosure>
+        <SectionDisclosure
+          title="Фильтры"
+          defaultOpen={typeFromUrl !== undefined || levelFromUrl !== undefined}
+          className="search-filter-disclosure"
+        >
+          <div className="search-filter-fields">
+            <label>
+              <span>Тип материала</span>
+              <select
+                value={itemType}
+                onChange={(event) => setItemType(event.currentTarget.value as typeof itemType)}
+              >
+                <option value="">Все типы</option>
+                <option value="component">Компоненты</option>
+                <option value="kanji">Кандзи</option>
+                <option value="word">Слова</option>
+                <option value="sentence">Предложения</option>
+              </select>
+            </label>
+            <label>
+              <span>Учебный уровень</span>
+              <input
+                type="number"
+                min={1}
+                max={60}
+                step={1}
+                value={level}
+                onChange={(event) => setLevel(event.currentTarget.value)}
+              />
+            </label>
+          </div>
+        </SectionDisclosure>
         <button className="primary-action" type="submit">
           Искать
         </button>
       </form>
 
-      {typeFromUrl === undefined && levelFromUrl === undefined ? null : <div className="applied-filters" aria-label="Применённые фильтры">
-        {typeFromUrl === undefined ? null : <button className="filter-chip" aria-label="Убрать тип материала" onClick={() => router.push(searchHref(queryFromUrl, 1, { level: levelFromUrl }))}>{formatItemType(typeFromUrl)}<X size={16} aria-hidden="true" /></button>}
-        {levelFromUrl === undefined ? null : <button className="filter-chip" aria-label="Убрать учебный уровень" onClick={() => router.push(searchHref(queryFromUrl, 1, { itemType: typeFromUrl }))}>Уровень {levelFromUrl}<X size={16} aria-hidden="true" /></button>}
-        <button className="icon-button" title="Сбросить фильтры" aria-label="Сбросить фильтры" onClick={() => router.push(searchHref(queryFromUrl))}><RotateCcw size={18} aria-hidden="true" /></button>
-      </div>}
+      {typeFromUrl === undefined && levelFromUrl === undefined ? null : (
+        <div className="applied-filters" aria-label="Применённые фильтры">
+          {typeFromUrl === undefined ? null : (
+            <button
+              className="filter-chip"
+              aria-label="Убрать тип материала"
+              onClick={() => router.push(searchHref(queryFromUrl, 1, { level: levelFromUrl }))}
+            >
+              {formatItemType(typeFromUrl)}
+              <X size={16} aria-hidden="true" />
+            </button>
+          )}
+          {levelFromUrl === undefined ? null : (
+            <button
+              className="filter-chip"
+              aria-label="Убрать учебный уровень"
+              onClick={() => router.push(searchHref(queryFromUrl, 1, { itemType: typeFromUrl }))}
+            >
+              Уровень {levelFromUrl}
+              <X size={16} aria-hidden="true" />
+            </button>
+          )}
+          <button
+            className="icon-button"
+            title="Сбросить фильтры"
+            aria-label="Сбросить фильтры"
+            onClick={() => router.push(searchHref(queryFromUrl))}
+          >
+            <RotateCcw size={18} aria-hidden="true" />
+          </button>
+        </div>
+      )}
 
       <SearchResults state={state} displayMode={displayMode} isAuthenticated={token !== null} />
       {state.status === "ready" &&
@@ -326,18 +359,26 @@ function SearchResultCard({
       <div className="search-result-main">
         <span className="eyebrow">{formatItemType(item.itemType)}</span>
         <JapaneseText as="strong">{item.japanese}</JapaneseText>
-        {item.reading === null ? null : <JapaneseText as="p" className="search-result-reading">{item.reading}</JapaneseText>}
+        {item.reading === null ? null : (
+          <JapaneseText as="p" className="search-result-reading">
+            {item.reading}
+          </JapaneseText>
+        )}
         <p>{formatTranslationBundle(item.translations, displayMode)}</p>
       </div>
       <dl className="search-result-meta">
-        {item.level === null ? null : <div>
-          <dt>Уровень</dt>
-          <dd>{item.level}</dd>
-        </div>}
-        {item.jlptLevel === null ? null : <div>
-          <dt>JLPT</dt>
-          <dd>{item.jlptLevel}</dd>
-        </div>}
+        {item.level === null ? null : (
+          <div>
+            <dt>Уровень</dt>
+            <dd>{item.level}</dd>
+          </div>
+        )}
+        {item.jlptLevel === null ? null : (
+          <div>
+            <dt>JLPT</dt>
+            <dd>{item.jlptLevel}</dd>
+          </div>
+        )}
         {isAuthenticated ? (
           <div>
             <dt>Повторения</dt>

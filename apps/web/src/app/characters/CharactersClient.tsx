@@ -50,8 +50,15 @@ const STUDY_STATE_LABELS: Readonly<Record<CharacterHubKanjiItemDto["studyState"]
 
 export function CharactersClient() {
   const session = useStoredSession();
-  if (session === undefined) return <section className="page-stack" aria-busy="true"><h1>Символы</h1></section>;
-  return <CharactersScreen key={session === null ? "guest" : `${session.user.id}:${session.token}`} />;
+  if (session === undefined)
+    return (
+      <section className="page-stack" aria-busy="true">
+        <h1>Символы</h1>
+      </section>
+    );
+  return (
+    <CharactersScreen key={session === null ? "guest" : `${session.user.id}:${session.token}`} />
+  );
 }
 
 function CharactersScreen() {
@@ -115,7 +122,21 @@ function CharactersScreen() {
         </div>
       </div>
 
-      <ViewTabs active={query.tab} onChange={(tab) => router.push(buildCharacterHubHref(tab as CharacterHubTab, query.filters), { scroll: false })} label="Системы письма" idPrefix="character-tab" panelId={`character-panel-${query.tab}`} tabs={(Object.keys(TAB_LABELS) as CharacterHubTab[]).map((id) => ({ id, label: TAB_LABELS[id] }))} />
+      <ViewTabs
+        active={query.tab}
+        onChange={(tab) =>
+          router.push(buildCharacterHubHref(tab as CharacterHubTab, query.filters), {
+            scroll: false,
+          })
+        }
+        label="Системы письма"
+        idPrefix="character-tab"
+        panelId={`character-panel-${query.tab}`}
+        tabs={(Object.keys(TAB_LABELS) as CharacterHubTab[]).map((id) => ({
+          id,
+          label: TAB_LABELS[id],
+        }))}
+      />
 
       {state.status === "loading" ? (
         <div className="character-hub-loading" aria-busy="true">
@@ -137,7 +158,9 @@ function CharactersScreen() {
       {state.status === "error" ? (
         <div className="notice-panel error-panel">
           <p>{state.message}</p>
-          <button className="secondary-action" onClick={() => setRetry((value) => value + 1)}>Повторить загрузку</button>
+          <button className="secondary-action" onClick={() => setRetry((value) => value + 1)}>
+            Повторить загрузку
+          </button>
         </div>
       ) : null}
 
@@ -227,9 +250,24 @@ function KanaCharacterPanel({ section }: { readonly section: CharacterHubKanaSec
         )}
       </section>
 
-      <label className="catalog-group-control"><span>Группа знаков</span><select value={group} onChange={(event) => setGroup(event.currentTarget.value as KanaVariant | "all")}>
-        {(Object.keys(KANA_GROUP_LABELS) as (KanaVariant | "all")[]).map((id) => <option value={id} key={id}>{KANA_GROUP_LABELS[id]} ({filterKanaUnits(section.units, id).reduce((total, unit) => total + unit.totalCount, 0)})</option>)}
-      </select></label>
+      <label className="catalog-group-control">
+        <span>Группа знаков</span>
+        <select
+          value={group}
+          onChange={(event) => setGroup(event.currentTarget.value as KanaVariant | "all")}
+        >
+          {(Object.keys(KANA_GROUP_LABELS) as (KanaVariant | "all")[]).map((id) => (
+            <option value={id} key={id}>
+              {KANA_GROUP_LABELS[id]} (
+              {filterKanaUnits(section.units, id).reduce(
+                (total, unit) => total + unit.totalCount,
+                0,
+              )}
+              )
+            </option>
+          ))}
+        </select>
+      </label>
       {units.length === 0 ? <p className="muted">В этой группе знаков нет.</p> : null}
       <ol
         className="character-hub-kana-units"
@@ -408,11 +446,27 @@ function KanjiCharacterPanel({
       </div>
 
       <p className="character-hub-result-count">Показано: {items.length}</p>
-      {pageCount <= 1 ? null : <nav className="catalog-pagination" aria-label="Страницы кандзи">
-        <button className="secondary-action" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Назад</button>
-        <span role="status">{page} / {pageCount}</span>
-        <button className="secondary-action" disabled={page >= pageCount} onClick={() => setPage((value) => value + 1)}>Далее</button>
-      </nav>}
+      {pageCount <= 1 ? null : (
+        <nav className="catalog-pagination" aria-label="Страницы кандзи">
+          <button
+            className="secondary-action"
+            disabled={page <= 1}
+            onClick={() => setPage((value) => value - 1)}
+          >
+            Назад
+          </button>
+          <span role="status">
+            {page} / {pageCount}
+          </span>
+          <button
+            className="secondary-action"
+            disabled={page >= pageCount}
+            onClick={() => setPage((value) => value + 1)}
+          >
+            Далее
+          </button>
+        </nav>
+      )}
 
       {items.length === 0 ? (
         <div className="notice-panel">

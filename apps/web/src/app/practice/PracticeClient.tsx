@@ -52,8 +52,18 @@ export function PracticeClient({
   readonly initialSource?: PracticeSource;
 }) {
   const session = useStoredSession();
-  if (session === undefined) return <section className="page-stack" aria-busy="true"><h1>Практика</h1></section>;
-  return <PracticeScreen key={`${session === null ? "guest" : `${session.user.id}:${session.token}`}:${initialSource}`} initialSource={initialSource} />;
+  if (session === undefined)
+    return (
+      <section className="page-stack" aria-busy="true">
+        <h1>Практика</h1>
+      </section>
+    );
+  return (
+    <PracticeScreen
+      key={`${session === null ? "guest" : `${session.user.id}:${session.token}`}:${initialSource}`}
+      initialSource={initialSource}
+    />
+  );
 }
 
 function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSource }) {
@@ -181,7 +191,12 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
   }
 
   async function handleStart(): Promise<void> {
-    if (queueState.status !== "ready" || !ownsSession(queueState.token) || queueState.items.length === 0 || isStarting) {
+    if (
+      queueState.status !== "ready" ||
+      !ownsSession(queueState.token) ||
+      queueState.items.length === 0 ||
+      isStarting
+    ) {
       return;
     }
 
@@ -384,7 +399,9 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
         {finishedSummary === null ? null : (
           <section className="practice-summary panel" aria-label="Результат практики">
             <h2>Практика завершена</h2>
-            <Link className="primary-action" href="/dashboard">На панель</Link>
+            <Link className="primary-action" href="/dashboard">
+              На панель
+            </Link>
             <dl className="stats-list">
               <div>
                 <dt>Карточек</dt>
@@ -402,14 +419,20 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
           </section>
         )}
 
-        <div id="practice-source-panel" role="tabpanel" aria-labelledby={`practice-source-${source}`}>
-        {queueState.items.length === 0 ? (
-          <div className="notice-panel">
-            <p>{formatEmptyMessage(source)}</p>
-          </div>
-        ) : (
-          <SectionDisclosure title="Состав практики"><PracticeQueuePreview items={queueState.items} /></SectionDisclosure>
-        )}
+        <div
+          id="practice-source-panel"
+          role="tabpanel"
+          aria-labelledby={`practice-source-${source}`}
+        >
+          {queueState.items.length === 0 ? (
+            <div className="notice-panel">
+              <p>{formatEmptyMessage(source)}</p>
+            </div>
+          ) : (
+            <SectionDisclosure title="Состав практики">
+              <PracticeQueuePreview items={queueState.items} />
+            </SectionDisclosure>
+          )}
         </div>
       </section>
     );
@@ -521,11 +544,17 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
             <div>
               <h3>Правильные ответы</h3>
               <ul className="lesson-text-list">
-                {feedback.feedback.expected.filter((expected) => currentItem.card.answerType === "reading" || getContentLocalesForDisplayMode(displayMode).includes(expected.locale)).map((expected) => (
-                  <li key={`${expected.locale}:${expected.text}`}>
-                    <span>{expected.text}</span>
-                  </li>
-                ))}
+                {feedback.feedback.expected
+                  .filter(
+                    (expected) =>
+                      currentItem.card.answerType === "reading" ||
+                      getContentLocalesForDisplayMode(displayMode).includes(expected.locale),
+                  )
+                  .map((expected) => (
+                    <li key={`${expected.locale}:${expected.text}`}>
+                      <span>{expected.text}</span>
+                    </li>
+                  ))}
               </ul>
             </div>
             <div>
@@ -571,7 +600,14 @@ function PracticeSourceControl({
   readonly onChange: (source: PracticeSource) => void;
 }) {
   return (
-    <ViewTabs active={source} onChange={(value) => onChange(value as PracticeSource)} label="Источник практики" idPrefix="practice-source" panelId="practice-source-panel" tabs={PRACTICE_SOURCES.map((id) => ({ id, label: formatSource(id) }))} />
+    <ViewTabs
+      active={source}
+      onChange={(value) => onChange(value as PracticeSource)}
+      label="Источник практики"
+      idPrefix="practice-source"
+      panelId="practice-source-panel"
+      tabs={PRACTICE_SOURCES.map((id) => ({ id, label: formatSource(id) }))}
+    />
   );
 }
 

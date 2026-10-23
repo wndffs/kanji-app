@@ -14,7 +14,9 @@ const pilot = {
 };
 
 async function signIn(page: Page) {
-  await page.route(`${API}/courses`, (route) => route.fulfill({ json: { currentCourseId: null, courses: [] } }));
+  await page.route(`${API}/courses`, (route) =>
+    route.fulfill({ json: { currentCourseId: null, courses: [] } }),
+  );
   await page.addInitScript(() => {
     localStorage.setItem("kanji-srs.accessToken", "catalog-old-token");
     localStorage.setItem(
@@ -31,6 +33,66 @@ async function signIn(page: Page) {
 }
 
 test.describe("published course catalog", () => {
+  test("shows my courses and confirms selection with conflict recovery", async ({ page }) => {
+    await signIn(page);
+    const courses = [
+      {
+        ...pilot,
+        id: "starter",
+        title: "Мой стартовый курс",
+        enrollmentStatus: "active",
+        isCurrent: true,
+      },
+      { ...pilot, enrollmentStatus: "active", isCurrent: false },
+    ];
+    await page.route(`${API}/courses`, (route) =>
+      route.fulfill({ json: { currentCourseId: "starter", courses } }),
+    );
+    await page.route(`${API}/courses/available`, (route) =>
+      route.fulfill({ json: { courses: [], nextCursor: null } }),
+    );
+    let writes = 0;
+    await page.route(`${API}/courses/current`, (route) => {
+      writes++;
+      expect(route.request().method()).toBe("PATCH");
+      expect(route.request().postDataJSON()).toEqual({ courseId: ID });
+      return route.fulfill(
+        writes === 1
+          ? { status: 409, json: { message: "Active lesson" } }
+          : {
+              json: {
+                currentCourseId: ID,
+                courses: courses.map((course) => ({ ...course, isCurrent: course.id === ID })),
+              },
+            },
+      );
+    });
+    await page.goto("/courses");
+    const library = page.getByRole("region", { name: "Мои курсы", exact: true });
+    await expect(
+      library.getByRole("heading", { name: "Мой стартовый курс", exact: true }),
+    ).toBeVisible();
+    await library.getByRole("button", { name: "Выбрать", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Выбрать текущий курс?", exact: true });
+    await expect(dialog.getByRole("button", { name: "Отмена", exact: true })).toBeFocused();
+    await page.screenshot({ path: test.info().outputPath("course-confirmation.png") });
+    await page.keyboard.press("Escape");
+    expect(writes).toBe(0);
+    await expect(library.getByRole("button", { name: "Выбрать", exact: true })).toBeFocused();
+    await library.getByRole("button", { name: "Выбрать", exact: true }).click();
+    await dialog.getByRole("button", { name: "Сделать текущим", exact: true }).click();
+    await expect(dialog.getByRole("alert")).toContainText("текущий урок");
+    await expect(
+      dialog.getByRole("link", { name: "К текущему уроку", exact: true }),
+    ).toHaveAttribute("href", "/lessons");
+    await dialog.getByRole("button", { name: "Сделать текущим", exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(library.getByRole("status")).toContainText(pilot.title);
+    expect(writes).toBe(2);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+  });
   test("requires a session without making an enrollment request", async ({ page }) => {
     let writes = 0;
     await page.route(`${API}/courses/enroll`, async (route) => {
