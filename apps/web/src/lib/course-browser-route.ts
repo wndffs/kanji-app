@@ -17,3 +17,9 @@ export function courseBrowserHref(courseId: string, route: CourseBrowserRoute) {
   if (route.studyState !== "all") params.set("studyState", route.studyState);
   return `/courses/${encodeURIComponent(courseId)}${params.size ? `?${params}` : ""}`;
 }
+
+export function adjacentCourseLevels(levels: readonly number[], current: number) {
+  const sorted = [...new Set(levels)].sort((left, right) => left - right);
+  return { previous: sorted.filter((level) => level < current).at(-1) ?? null,
+    next: sorted.find((level) => level > current) ?? null };
+}

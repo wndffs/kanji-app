@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type CourseOutlineDto } from "@kanji-srs/shared";
 import { ApiError, getCourseOutline } from "../../lib/api-client";
 import { clearStoredSession } from "../../lib/auth-storage";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
 import { CourseLevelMaterials } from "./CourseLevelMaterials";
-import { courseBrowserHref, parseCourseBrowserRoute, type CourseBrowserRoute } from "../../lib/course-browser-route";
+import { adjacentCourseLevels, courseBrowserHref, parseCourseBrowserRoute, type CourseBrowserRoute } from "../../lib/course-browser-route";
+import { SectionDisclosure } from "../../components/SectionDisclosure";
 
 export function CourseExplorer({ courseId }: { readonly courseId: string }) {
   const session = useStoredSession();
@@ -30,6 +32,8 @@ function OwnedCourseExplorer({ courseId, token }: { readonly courseId: string; r
     window.history.pushState(null, "", courseBrowserHref(courseId, next));
     setRoute(next);
   };
+  const currentLevel = route?.level ?? outline?.levels[0]?.levelNumber ?? 0;
+  const adjacent = adjacentCourseLevels(outline?.levels.map((level) => level.levelNumber) ?? [], currentLevel);
   useEffect(() => {
     let active = true;
     setError(null);
@@ -53,11 +57,16 @@ function OwnedCourseExplorer({ courseId, token }: { readonly courseId: string; r
         <label className="course-level-select">Уровень курса<select value={route.level ?? outline.levels[0]!.levelNumber} onChange={(event) => navigate({ ...route, level: Number(event.target.value), page: 1 })}>
           {outline.levels.map((level) => <option value={level.levelNumber} key={level.levelNumber}>{level.levelNumber}. {level.title}</option>)}
         </select></label>
+        <nav className="course-page-navigation" aria-label="Переход между уровнями">
+          <button className="icon-button" aria-label="Предыдущий уровень" title="Предыдущий уровень" disabled={adjacent.previous === null} onClick={() => navigate({ ...route, level: adjacent.previous, page: 1 })}><ChevronLeft size={18} /></button>
+          <span>Уровень {currentLevel}</span>
+          <button className="icon-button" aria-label="Следующий уровень" title="Следующий уровень" disabled={adjacent.next === null} onClick={() => navigate({ ...route, level: adjacent.next, page: 1 })}><ChevronRight size={18} /></button>
+        </nav>
         {outline.levels.some((level) => level.levelNumber === (route.level ?? outline.levels[0]!.levelNumber)) ? <CourseLevelMaterials token={token} courseId={courseId} levelNumber={route.level ?? outline.levels[0]!.levelNumber} route={route} onNavigate={navigate} /> : <p role="alert">Такого уровня в курсе нет.</p>}
         </>}
-        <ol className="course-outline" aria-label="Уровни курса">
+        <SectionDisclosure title="Все уровни"><ol className="course-outline" aria-label="Уровни курса">
         {outline.levels.map((level) => <li key={level.levelNumber}><strong>Уровень {level.levelNumber}: {level.title}</strong><span>{level.publishedItemCount} материалов</span></li>)}
-        </ol>
+        </ol></SectionDisclosure>
       </>}
     </>}
   </section>;

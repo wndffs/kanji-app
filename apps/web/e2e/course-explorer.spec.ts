@@ -49,7 +49,17 @@ test.describe("published course explorer", () => {
     await expect(page.getByRole("alert")).toContainText("Временно недоступно");
     await page.getByRole("button", { name: "Повторить загрузку" }).click();
     await expect(page.getByRole("heading", { name: outline.title })).toBeVisible();
+    await page.getByRole("button", { name: "Все уровни", exact: true }).click();
     await expect(page.getByRole("list", { name: "Уровни курса" })).toContainText("32 материалов");
+  });
+  test("moves between existing levels while resetting only the page", async ({ page }) => {
+    await signIn(page);
+    await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+    await page.goto(`/courses/${ID}?level=1&page=2&itemType=word`);
+    await page.getByRole("button", { name: "Следующий уровень", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/courses/${ID}\\?level=2&itemType=word$`, "u"));
+    await expect(page.getByRole("button", { name: "Следующий уровень", exact: true })).toBeDisabled();
+    await expect(page.getByLabel("Тип материала", { exact: true })).toHaveValue("word");
   });
   test("requires login and does not fetch a private progress view as a guest", async ({ page }) => {
     await page.goto(`/courses/${ID}`);
