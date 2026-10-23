@@ -899,7 +899,6 @@ function CourseProgressPanel({
   return (
     <section className="panel">
       <h2>Курс</h2>
-      <CourseSelector coursesState={coursesState} onCourseChange={onCourseChange} />
       {course === null ? (
         <p className="muted">Активный курс не выбран.</p>
       ) : (
@@ -908,7 +907,6 @@ function CourseProgressPanel({
             <strong>{course.title}</strong>
             <span>Уровень {course.currentLevel}</span>
           </div>
-          <CourseNextAction course={course} timezone={timezone} />
           <div className="course-pass-progress">
             <div className="course-progress-row">
               <span>
@@ -941,6 +939,7 @@ function CourseProgressPanel({
               </p>
             )}
           </div>
+          <SectionDisclosure title="Состояние материалов уровня">
           <div className="course-progress-row">
             <span>Материалы уровня</span>
             <strong>{course.levelProgress.percent}%</strong>
@@ -1003,9 +1002,16 @@ function CourseProgressPanel({
               </table>
             </div>
           )}
-          <CourseJourneyDetails course={course} />
+          </SectionDisclosure>
+          <SectionDisclosure title="Что откроется дальше">
+            <CourseNextAction course={course} timezone={timezone} />
+            <CourseJourneyDetails course={course} />
+          </SectionDisclosure>
         </div>
       )}
+      <SectionDisclosure title="Выбор курса" defaultOpen={course === null || coursesState.status === "error"}>
+        <CourseSelector coursesState={coursesState} onCourseChange={onCourseChange} />
+      </SectionDisclosure>
     </section>
   );
 }
