@@ -446,10 +446,9 @@ export class LessonsService {
     const displayMode = user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE;
 
     if (deckId !== null) {
-      const [deck, progress] = await Promise.all([
-        this.lessonsRepository.findDeckEligibility(user.id, deckId),
-        progressPromise,
-      ]);
+      const progress = await progressPromise;
+      const remainingToday = getRemainingDailyLessons(user, progress, now);
+      const deck = await this.lessonsRepository.findDeckEligibility(user.id, deckId, remainingToday > 0);
 
       if (deck === null) {
         throw new NotFoundException("Deck not found.");
@@ -459,7 +458,6 @@ export class LessonsService {
         throw new NotFoundException("Deck not found.");
       }
 
-      const remainingToday = getRemainingDailyLessons(user, progress, now);
       const source: LessonQueueSourceDto = { kind: "deck", deckId: deck.id, title: deck.title };
 
       if (remainingToday <= 0 || deck.items.length === 0) {

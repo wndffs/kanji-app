@@ -57,4 +57,10 @@ describe("lightweight lesson eligibility", () => {
     db.deck.findFirst.mockResolvedValue(null);
     expect(await repository.findDeckEligibility("stranger", "deck")).toBeNull();
   });
+  it("does not select a deck graph when only ownership/status is needed", async () => {
+    const { db, repository } = harness();
+    db.deck.findFirst.mockResolvedValue({ id: "deck", title: "Private", status: "ACTIVE" });
+    expect(await repository.findDeckEligibility("owner", "deck", false)).toMatchObject({ items: [] });
+    expect(db.deck.findFirst.mock.calls[0]![0].select.items).toBe(false);
+  });
 });
