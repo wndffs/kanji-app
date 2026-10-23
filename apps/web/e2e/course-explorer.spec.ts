@@ -32,6 +32,11 @@ test.describe("published course explorer", () => {
     await expect(materials.getByRole("link")).toHaveAttribute("href", "/items/material-2");
     await materials.getByLabel("Тип материала", { exact: true }).selectOption("word");
     await expect(materials.getByText("Страница 1 из 2")).toBeVisible();
+    await expect(page).toHaveURL(/itemType=word/u);
+    await page.reload();
+    await expect(materials.getByLabel("Тип материала", { exact: true })).toHaveValue("word");
+    await page.goBack();
+    await expect(materials.getByText("Страница 2 из 2")).toBeVisible();
   });
   test("shows a read-only syllabus and retries a failed outline", async ({ page }) => {
     await signIn(page);

@@ -7,6 +7,7 @@ import { ApiError, getCourseOutline } from "../../lib/api-client";
 import { clearStoredSession } from "../../lib/auth-storage";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
 import { CourseLevelMaterials } from "./CourseLevelMaterials";
+import { courseBrowserHref, parseCourseBrowserRoute, type CourseBrowserRoute } from "../../lib/course-browser-route";
 
 export function CourseExplorer({ courseId }: { readonly courseId: string }) {
   const session = useStoredSession();
@@ -19,7 +20,16 @@ function OwnedCourseExplorer({ courseId, token }: { readonly courseId: string; r
   const [outline, setOutline] = useState<CourseOutlineDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
-  const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
+  const [route, setRoute] = useState<CourseBrowserRoute | null>(null);
+  useEffect(() => {
+    const sync = () => setRoute(parseCourseBrowserRoute(new URLSearchParams(window.location.search)));
+    sync(); window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
+  }, []);
+  const navigate = (next: CourseBrowserRoute) => {
+    window.history.pushState(null, "", courseBrowserHref(courseId, next));
+    setRoute(next);
+  };
   useEffect(() => {
     let active = true;
     setError(null);
@@ -39,10 +49,12 @@ function OwnedCourseExplorer({ courseId, token }: { readonly courseId: string; r
     {outline === null ? (error === null ? <p aria-busy="true">Загружаю программу курса.</p> : null) : <>
       {outline.description ? <p className="muted">{outline.description}</p> : null}
       {outline.levels.length === 0 ? <p>В курсе пока нет уровней.</p> : <>
-        <label className="course-level-select">Уровень курса<select value={selectedLevel ?? outline.levels[0]!.levelNumber} onChange={(event) => setSelectedLevel(Number(event.target.value))}>
+        {route === null ? null : <>
+        <label className="course-level-select">Уровень курса<select value={route.level ?? outline.levels[0]!.levelNumber} onChange={(event) => navigate({ ...route, level: Number(event.target.value), page: 1 })}>
           {outline.levels.map((level) => <option value={level.levelNumber} key={level.levelNumber}>{level.levelNumber}. {level.title}</option>)}
         </select></label>
-        <CourseLevelMaterials key={selectedLevel ?? outline.levels[0]!.levelNumber} token={token} courseId={courseId} levelNumber={selectedLevel ?? outline.levels[0]!.levelNumber} />
+        {outline.levels.some((level) => level.levelNumber === (route.level ?? outline.levels[0]!.levelNumber)) ? <CourseLevelMaterials token={token} courseId={courseId} levelNumber={route.level ?? outline.levels[0]!.levelNumber} route={route} onNavigate={navigate} /> : <p role="alert">Такого уровня в курсе нет.</p>}
+        </>}
         <ol className="course-outline" aria-label="Уровни курса">
         {outline.levels.map((level) => <li key={level.levelNumber}><strong>Уровень {level.levelNumber}: {level.title}</strong><span>{level.publishedItemCount} материалов</span></li>)}
         </ol>
