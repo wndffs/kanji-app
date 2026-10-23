@@ -16,6 +16,7 @@ import {
 
 import { JapaneseText } from "../../components/JapaneseText";
 import { ViewTabs } from "../../components/ViewTabs";
+import { SectionDisclosure } from "../../components/SectionDisclosure";
 import {
   ApiError,
   createTextDeck,
@@ -321,6 +322,7 @@ function DecksScreen() {
 
       {selectedDeck.status === "ready" ? (
         <DeckDetailsResult
+          key={selectedDeck.deck.id}
           deck={selectedDeck.deck}
           displayMode={displayMode}
           isStatusUpdating={
@@ -515,6 +517,7 @@ function TextDeckResult({
 }) {
   return (
     <DeckDetailsResult
+      key={result.deck.id}
       deck={result.deck}
       displayMode={displayMode}
       isStatusUpdating={isStatusUpdating}
@@ -542,6 +545,9 @@ function DeckDetailsResult({
   readonly isStatusUpdating?: boolean;
   readonly statusError?: string | null;
 }) {
+  const [kind, setKind] = useState("");
+  const [learningState, setLearningState] = useState("all");
+  const visibleItems = deck.items.filter((entry) => (kind === "" || entry.item.itemType === kind) && (learningState === "all" || entry.isNewForUser === (learningState === "new")));
   return (
     <section className="deck-result" aria-label={`Колода ${deck.title}`}>
       <div className="panel">
@@ -564,10 +570,12 @@ function DeckDetailsResult({
           </dl>
         </div>
         {tokenization === undefined ? null : (
+          <SectionDisclosure title="Разбор текста">
           <p className="muted">
             Найдено материалов: {tokenization.matchedItemCount}. Перекрывающихся слов исключено:{" "}
             {tokenization.discardedOverlapCount}.
           </p>
+          </SectionDisclosure>
         )}
         {deck.status === "archived" ? (
           <p className="muted deck-status-note">
@@ -620,11 +628,19 @@ function DeckDetailsResult({
           <p>В тексте не нашлось опубликованных Word/Kanji элементов из базы.</p>
         </div>
       ) : (
+        <>
+        <div className="deck-path-filters">
+          <label><span>Тип в колоде</span><select value={kind} onChange={(event) => setKind(event.currentTarget.value)}><option value="">Все типы</option>{(["component", "kanji", "word", "sentence"] as const).map((id) => <option key={id} value={id}>{formatItemType(id)}</option>)}</select></label>
+          <label><span>Изучение в колоде</span><select value={learningState} onChange={(event) => setLearningState(event.currentTarget.value)}><option value="all">Все материалы</option><option value="new">Новые</option><option value="started">Уже начатые</option></select></label>
+          <span role="status">Материалов: {visibleItems.length} / {deck.items.length}</span>
+        </div>
+        {visibleItems.length === 0 ? <p className="muted">Материалы не найдены.</p> : null}
         <div className="deck-item-list">
-          {deck.items.map((deckItem) => (
+          {visibleItems.map((deckItem) => (
             <DeckItemCard deckItem={deckItem} displayMode={displayMode} key={deckItem.item.id} />
           ))}
         </div>
+        </>
       )}
     </section>
   );
@@ -698,7 +714,7 @@ function DeckItemCard({
     <article className="deck-item-card">
       <div>
         <span className="eyebrow">{formatItemType(deckItem.item.itemType)}</span>
-        <JapaneseText as="strong">{deckItem.item.japanese}</JapaneseText>
+        <Link className="deck-item-link" href={`/items/${encodeURIComponent(deckItem.item.id)}`}><JapaneseText as="strong">{deckItem.item.japanese}</JapaneseText></Link>
         <p>{formatTranslationBundle(deckItem.item.translations, displayMode)}</p>
       </div>
       <dl className="deck-item-facts">
@@ -711,6 +727,7 @@ function DeckItemCard({
           <dd>{deckItem.isNewForUser ? "новый" : "уже начат"}</dd>
         </div>
       </dl>
+      <SectionDisclosure title="Почему в колоде">
       <ul className="deck-reason-list" aria-label="Причины включения">
         {deckItem.reasons.map((reason, index) => (
           <li
@@ -723,6 +740,7 @@ function DeckItemCard({
           </li>
         ))}
       </ul>
+      </SectionDisclosure>
     </article>
   );
 }

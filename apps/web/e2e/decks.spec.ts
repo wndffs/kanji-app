@@ -25,10 +25,12 @@ test.describe("dynamic text decks", () => {
     await page.getByRole("button", { name: "Создать колоду" }).click();
 
     await expect(page.getByRole("heading", { name: "Текст про школу" })).toBeVisible();
+    await page.getByRole("button", { name: "Разбор текста", exact: true }).click();
     await expect(
       page.getByText("Найдено материалов: 1. Перекрывающихся слов исключено: 0."),
     ).toBeVisible();
     await expect(page.getByText("школа / school")).toBeVisible();
+    await page.getByRole("button", { name: "Почему в колоде", exact: true }).click();
     await expect(page.getByText("Есть в тексте: 学校")).toBeVisible();
     await expect(page.getByRole("link", { name: "Учить колоду" })).toHaveAttribute(
       "href",
