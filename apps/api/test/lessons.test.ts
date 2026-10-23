@@ -329,6 +329,9 @@ describe("LessonsService", () => {
       ]),
     });
 
+    repository.addProgress("owner", "item-component-one", ["card-component-one"], 0);
+    expect((await service.getQueue(createUser("owner"))).availableItems).toEqual([]);
+
     repository.addProgress("owner", "item-component-one", ["card-component-one"], 1);
 
     await expect(service.getQueue(createUser("owner"))).resolves.toMatchObject({
