@@ -43,4 +43,18 @@ describe("lightweight lesson eligibility", () => {
     db.userEnrollment.findMany.mockResolvedValue([]);
     expect(await repository.listCourseEligibility("owner")).toEqual([]);
   });
+  it("loads only the owner's published deck items, keeping archive metadata", async () => {
+    const { db, repository } = harness();
+    db.deck.findFirst.mockResolvedValue({ id: "deck", title: "Private", status: "ARCHIVED",
+      items: [{ sortOrder: 7, learningItem: item }] });
+    expect(await repository.findDeckEligibility("owner", "deck")).toMatchObject({
+      id: "deck", status: "archived", items: [{ sortOrder: 7, item: { id: "item", cards: [{ id: "meaning" }, { id: "reading" }] } }],
+    });
+    const query = db.deck.findFirst.mock.calls[0]![0];
+    expect(query.where).toEqual({ id: "deck", ownerUserId: "owner" });
+    expect(query.select.items.where).toEqual({ learningItem: { status: "PUBLISHED" } });
+    expect(query.select.items.select.learningItem.select).not.toHaveProperty("mnemonics");
+    db.deck.findFirst.mockResolvedValue(null);
+    expect(await repository.findDeckEligibility("stranger", "deck")).toBeNull();
+  });
 });

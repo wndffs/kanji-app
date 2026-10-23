@@ -24,6 +24,7 @@ import {
   type CompletedLessonItemRecord,
   type CourseLessonItemRecord,
   type CourseLessonEligibilityRecord,
+  type DeckLessonEligibilityRecord,
   type LessonEligibilityItemRecord,
   type CreateLessonSessionInput,
   type DeckLessonRecord,
@@ -41,6 +42,7 @@ import {
 
 export abstract class LessonsRepository {
   abstract listCourseEligibility(userId: string): Promise<readonly CourseLessonEligibilityRecord[]>;
+  abstract findDeckEligibility(userId: string, deckId: string): Promise<DeckLessonEligibilityRecord | null>;
   abstract listCourseLessonItems(userId: string): Promise<readonly CourseLessonItemRecord[]>;
   abstract findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null>;
   abstract listUserProgress(userId: string): Promise<readonly UserItemProgressRecord[]>;
@@ -275,6 +277,27 @@ export class PrismaLessonsRepository extends LessonsRepository {
         }];
       }),
     ));
+  }
+
+  async findDeckEligibility(userId: string, deckId: string): Promise<DeckLessonEligibilityRecord | null> {
+    const deck = await this.prisma.db.deck.findFirst({
+      where: { id: deckId, ownerUserId: userId },
+      select: {
+        id: true, title: true, status: true,
+        items: {
+          where: { learningItem: { status: "PUBLISHED" } },
+          orderBy: [{ sortOrder: "asc" }, { learningItemId: "asc" }],
+          select: { sortOrder: true, learningItem: { select: lessonEligibilitySelect } },
+        },
+      },
+    });
+    if (deck === null) return null;
+    return { id: deck.id, title: deck.title, status: toDeckLessonStatus(deck.status),
+      items: deck.items.flatMap((entry) => {
+        const item = toEligibilityItem(entry.learningItem);
+        return item.cards.length === 0 ? [] : [{ sortOrder: entry.sortOrder, item }];
+      }),
+    };
   }
 
   async listCourseLessonItems(userId: string): Promise<readonly CourseLessonItemRecord[]> {
