@@ -10,6 +10,8 @@ export const MAX_BYTES = 2 * 1024 * 1024;
 export const REQUEST_TIMEOUT_MS = 75_000;
 export const RUN_TIMEOUT_MS = 300_000;
 export const WARM_TARGET_MS = 2_000;
+export const READINESS_ATTEMPTS = 6;
+export const READINESS_RETRY_MS = 3_000;
 const repository = fileURLToPath(new URL("../", import.meta.url));
 const uuid = (value) =>
   typeof value === "string" &&
@@ -82,6 +84,22 @@ class SmokeFailure extends Error {
     super(code);
     this.failure = { code, step, status };
   }
+}
+
+function waitForReadinessRetry(signal) {
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      globalThis.clearTimeout(timer);
+      signal.removeEventListener("abort", abort);
+      reject(new SmokeFailure("RUN_DEADLINE", "api_ready"));
+    };
+    const timer = globalThis.setTimeout(() => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }, READINESS_RETRY_MS);
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) abort();
+  });
 }
 
 function requireShape(condition, step, status = 200) {
@@ -294,7 +312,17 @@ export async function runRemoteSmoke(env, { fetchImpl = fetch } = {}) {
       apiResponse.status,
     );
     checkRevision("api", health.revision, config.expectedApi, apiResponse.status);
-    const ready = (await request("api_ready", "/ready")).value;
+    let ready;
+    for (let attempt = 1; attempt <= READINESS_ATTEMPTS; attempt += 1) {
+      try {
+        ready = (await request("api_ready", "/ready")).value;
+        break;
+      } catch (error) {
+        if (!(error instanceof SmokeFailure) || error.failure.code !== "HTTP_ERROR" ||
+          error.failure.status !== 503 || attempt === READINESS_ATTEMPTS) throw error;
+        await waitForReadinessRetry(run.signal);
+      }
+    }
     requireShape(
       ready?.status === "ready" &&
         ready.database === "available" &&

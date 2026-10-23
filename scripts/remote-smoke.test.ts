@@ -12,6 +12,8 @@ import {
   main,
   MAX_BYTES,
   REQUEST_TIMEOUT_MS,
+  READINESS_ATTEMPTS,
+  READINESS_RETRY_MS,
   RUN_TIMEOUT_MS,
   runRemoteSmoke,
   summarize,
@@ -23,6 +25,32 @@ const env = {
   STAGING_WEB_URL: "https://web.example.test",
   STAGING_API_URL: "https://api.example.test",
 };
+
+describe("bounded cold-start readiness", () => {
+  it("retries only readiness 503 before any account write", async () => {
+    vi.useFakeTimers();
+    let readyCalls = 0;
+    const h = fixture((path) => path === "/ready" && ++readyCalls < 3 ? new Response(null, { status: 503 }) : undefined);
+    const pending = runRemoteSmoke(env, { fetchImpl: h.fetchImpl });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(h.calls.some(({ init }) => init.method === "POST")).toBe(false);
+    await vi.advanceTimersByTimeAsync(READINESS_RETRY_MS * 2);
+    expect((await pending).ok).toBe(true);
+    expect(readyCalls).toBe(3);
+    expect(h.calls.filter(({ path }) => path === "/auth/register")).toHaveLength(1);
+    vi.useRealTimers();
+  });
+  it("stops after the bounded readiness budget without registering", async () => {
+    vi.useFakeTimers();
+    const h = fixture((path) => path === "/ready" ? new Response(null, { status: 503 }) : undefined);
+    const pending = runRemoteSmoke(env, { fetchImpl: h.fetchImpl });
+    await vi.advanceTimersByTimeAsync(READINESS_RETRY_MS * READINESS_ATTEMPTS);
+    expect((await pending).ok).toBe(false);
+    expect(h.calls.filter(({ path }) => path === "/ready")).toHaveLength(READINESS_ATTEMPTS);
+    expect(h.calls.some(({ init }) => init.method === "POST")).toBe(false);
+    vi.useRealTimers();
+  });
+});
 const id = "00000000-0000-4000-8000-000000000001";
 const privateText = "PRIVATE-email@example.test-password-token-body";
 const json = (value: unknown) => Response.json(value);
