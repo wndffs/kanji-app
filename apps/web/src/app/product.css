@@ -132,6 +132,30 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .lesson-quiz-prompt { padding: 28px 20px; background: var(--subject-soft, var(--surface-strong)); border-radius: 0; }
 .lesson-quiz-form { padding-block: 20px; }
 .lesson-quiz-form input { font-size: 20px; min-height: 54px; }
+.review-session { gap: 20px; }
+.review-session-header { align-items: center; gap: 16px; padding-bottom: 8px; }
+.review-session-header h1 { font-size: 22px; margin: 4px 0 0; }
+.review-progress { font-size: 12px; color: var(--muted); gap: 12px; }
+.review-card { border: 0; border-radius: 0; box-shadow: none; padding: 24px; background: var(--subject-soft, var(--surface-strong)); min-height: 260px; }
+.review-card-meta { justify-content: center; color: var(--subject-ink, var(--muted)); gap: 16px; font-size: 12px; }
+.review-card-meta > span { background: transparent; border: 0; padding: 0; }
+.review-prompt { min-height: 170px; display: grid; place-content: center; }
+.review-prompt .review-japanese { margin: 8px 0; color: var(--subject-ink, var(--foreground)); }
+.review-answer-bar { background: transparent; box-shadow: none; border: 0; border-radius: 0; padding: 0; gap: 12px; }
+.review-answer-bar input { min-height: 56px; font-size: 22px; }
+.review-answer-bar .primary-action { align-self: end; min-height: 56px; }
+.review-queue-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.review-queue-card { border: 1px solid var(--surface-border); border-radius: 8px; background: var(--surface); box-shadow: none; padding: 20px; }
+.review-queue-card .review-japanese, .review-queue-card strong { color: var(--subject-ink, var(--foreground)); }
+.feedback-panel { border-radius: 0; border: 0; border-left: 3px solid var(--success); background: var(--success-surface); box-shadow: none; padding: 20px; }
+.feedback-panel.feedback-wrong { border-color: var(--danger); }
+.feedback-header { align-items: center; gap: 16px; }
+.feedback-header h2 { font-size: 18px; }
+.feedback-grid { border-top: 1px solid var(--surface-border); margin-top: 16px; padding-top: 16px; }
+.private-answer-form { border-top: 1px solid var(--surface-border); padding-top: 16px; }
+.main[data-page="practice"] .panel { border: 0; background: transparent; }
+.main[data-page="practice"] .review-card { background: var(--subject-kanji-soft); }
+.main[data-page="practice"] .view-tabs { margin-bottom: 4px; }
 @media (max-width: 900px) {
   .app-shell { padding-left: 0; }
   .app-rail { inset: auto 0 0; width: 100%; height: calc(64px + env(safe-area-inset-bottom)); padding: 0 8px env(safe-area-inset-bottom); border: 0; border-top: 1px solid var(--surface-border); }

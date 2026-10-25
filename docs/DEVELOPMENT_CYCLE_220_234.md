@@ -29,7 +29,7 @@ meaning/reading phases. Do not reveal quiz answers early.
 | 221 | Application navigation | Desktop rail, mobile bottom navigation, active routes and focus-shell preservation | Implemented |
 | 222 | Dashboard | One clear daily action, linked counters and scannable course progress | Implemented |
 | 223 | Lessons | Clean queue selection, subject hierarchy, focused study and mandatory quiz | Implemented |
-| 224 | Reviews and practice | Stable prompt/answer/feedback composition without answer leakage or SRS changes | Pending |
+| 224 | Reviews and practice | Stable prompt/answer/feedback composition without answer leakage or SRS changes | Implemented |
 | 225 | Kana and character hub | Distinct script controls, clear mastery path, readable exercise/character surfaces | Pending |
 | 226 | Item details | Japanese/reading/meaning hierarchy, accessible tabs and optional personal/source details | Pending |
 | 227 | Courses | Compact catalog and level workspace, subject accents, preserved search/filter/history | Pending |
