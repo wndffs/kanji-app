@@ -8,6 +8,7 @@ import { InterfacePreferencesSync } from "../components/InterfacePreferencesSync
 import { OfflineShellRegistration } from "../components/OfflineShellRegistration";
 import { INTERFACE_PREFERENCES_BOOTSTRAP } from "../lib/interface-preferences";
 import "./globals.css";
+import "./product.css";
 
 export const metadata: Metadata = {
   title: APP_NAME,
