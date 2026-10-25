@@ -26,7 +26,7 @@ No new production dependency or externally hosted fonts/media are needed.
 | 241 | Review queue overview | Meaning/reading/listening counts summarize the actual queue; start action remains primary and does not alter review ordering or scheduling | Implemented |
 | 242 | Review feedback | Result has a clear icon/text identity and Continue remains reachable while details are expanded; retry/correction/typo/reveal semantics stay intact | Implemented |
 | 243 | Kana first viewport | Compact script/mode/mastery composition brings the actual exercise and action above phone navigation; mastery stays outside SRS | Implemented |
-| 244 | Kana lesson finder | Search lesson title/glyph/romaji, filter existing kana groups, clear an empty search, retain chosen lesson and script safely | Planned |
+| 244 | Kana lesson finder | Search lesson title/glyph/romaji, filter existing kana groups, clear an empty search, retain chosen lesson and script safely | Implemented |
 | 245 | Character filter recovery | Applied kanji filters and one-step reset are visible without losing the active script; filter/history/pagination remain correct | Planned |
 | 246 | Reading utility | Explicit icon action copies only an already-visible kana reading, reports success/failure and never exposes a hidden reading | Planned |
 | 247 | Search recovery | Failed search can retry the same submitted query/page/filters in place; no unsubmitted draft or stale response is substituted | Planned |

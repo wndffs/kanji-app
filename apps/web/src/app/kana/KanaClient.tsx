@@ -46,6 +46,7 @@ import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import { resolveKanaLessonDestination, type KanaRouteMode } from "../../lib/kana-route";
 import { AdaptiveKanaPractice } from "./AdaptiveKanaPractice";
 import { KanaTracingExercise } from "./KanaTracingExercise";
+import { KanaLessonFinder } from "./KanaLessonFinder";
 
 type LessonPhase = "teach" | "quiz";
 
@@ -691,32 +692,7 @@ function OwnedKanaClient({
 
             {mode === "lessons" ? (
               <SectionDisclosure title="Все уроки" key={`units:${script}`}>
-                <div className="kana-unit-list" data-testid="kana-unit-list">
-                  {state.path.units.map((unit) => (
-                    <button
-                      aria-current={unit.id === activeUnitId ? "step" : undefined}
-                      className={unit.complete ? "is-complete" : ""}
-                      disabled={!unit.unlocked || submitting}
-                      key={unit.id}
-                      onClick={() => handleStartUnit(unit)}
-                      type="button"
-                    >
-                      <span className="kana-unit-copy">
-                        <strong>{unit.title}</strong>
-                        <small>
-                          {unit.masteredCount}/{unit.totalCount}
-                        </small>
-                      </span>
-                      <span className="kana-unit-characters" lang="ja">
-                        {unit.items.map((item) => (
-                          <span className={item.mastered ? "is-mastered" : ""} key={item.character}>
-                            {item.character}
-                          </span>
-                        ))}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                <KanaLessonFinder units={state.path.units} activeUnitId={activeUnitId} submitting={submitting} onStart={handleStartUnit} />
               </SectionDisclosure>
             ) : (
               <SectionDisclosure title="Карта знаков" key={`map:${script}`}>

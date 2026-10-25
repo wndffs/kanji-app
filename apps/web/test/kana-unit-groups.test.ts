@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { listKana } from "@kanji-srs/japanese";
 import { type KanaLessonUnitDto } from "@kanji-srs/shared";
-import { filterKanaUnits } from "../src/lib/kana-unit-groups";
+import { filterKanaUnits, findKanaLessonUnits } from "../src/lib/kana-unit-groups";
 
 const items = listKana("hiragana").map((item) => ({
   ...item,
@@ -25,6 +25,12 @@ const units: readonly KanaLessonUnitDto[] = [
   },
 ];
 describe("kana chart groups", () => {
+  it("finds title, glyph and normalized romaji while returning the original locked unit", () => {
+    for (const query of ["fixture", "が", " ＧＡ "]) expect(findKanaLessonUnits(units, query, "dakuten")[0]).toBe(units[0]);
+    expect(findKanaLessonUnits(units, "が", "basic")).toEqual([]);
+    expect(findKanaLessonUnits(units, "absent", "all")).toEqual([]);
+    expect(findKanaLessonUnits(units, "", "all")[0]?.items).toBe(units[0]?.items);
+  });
   it("keeps exactly 46 basic signs separate from modified and combined sounds", () => {
     const original = structuredClone(units);
     expect(filterKanaUnits(units, "basic")[0]).toMatchObject({
