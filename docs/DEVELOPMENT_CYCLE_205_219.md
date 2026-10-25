@@ -15,7 +15,7 @@ Tests, repairs and evidence commits are not additional tasks.
 | 211 | Per-prompt progress | Expand an item's meaning/reading/listening state without opening all details | Implemented |
 | 212 | Level search API | Bounded Japanese/title/global-answer search before pagination, no private text | Implemented |
 | 213 | Search navigation | Explicit submit, clear, history and item-return preserve the query | Implemented |
-| 214 | Review ordering API | Stable course/due-first ordering without changing schedules | Pending |
+| 214 | Review ordering API | Stable course/due-first ordering without changing schedules | Implemented |
 | 215 | Review ordering control | URL-backed sorting retains filters and resets page | Pending |
 | 216 | Compact material list | Grid/list mode with kana and RU/EN content retained | Pending |
 | 217 | Remembered material view | Owner-scoped local preference with blocked-storage fallback | Pending |

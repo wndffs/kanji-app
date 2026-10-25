@@ -5,6 +5,7 @@ import {
   type ItemKind,
   type CourseMaterialStudyState,
   type CourseReviewFilter,
+  type CourseMaterialSort,
 } from "@kanji-srs/shared";
 import { LessonsRepository } from "../lessons/lessons.repository";
 import { CourseBrowserRepository } from "./course-browser.repository";
@@ -21,6 +22,7 @@ export type CourseMaterialQuery = {
   readonly studyState?: unknown;
   readonly reviewState?: unknown;
   readonly q?: unknown;
+  readonly sort?: unknown;
 };
 
 @Injectable()
@@ -57,11 +59,14 @@ export class CourseBrowserService {
       throw new BadRequestException("Поиск должен содержать не более 80 символов.");
     const q = typeof query.q === "string" ? query.q.normalize("NFKC").trim().replace(/\s+/gu, " ") : "";
     if (q.length > 80) throw new BadRequestException("Слишком длинный поисковый запрос.");
+    if (query.sort !== undefined && !["course", "review-time"].includes(query.sort as string))
+      throw new BadRequestException("Некорректная сортировка.");
     const result = await this.repository.levelPage(userId, courseId, levelNumber, page, {
       itemType: query.itemType as ItemKind | undefined,
       studyState: query.studyState as CourseMaterialStudyState | undefined,
       ...(query.reviewState === undefined ? {} : { reviewState: query.reviewState as CourseReviewFilter }),
       ...(q === "" ? {} : { q }),
+      ...(query.sort === undefined ? {} : { sort: query.sort as CourseMaterialSort }),
     });
     if (result === null) throw new NotFoundException("Опубликованный уровень не найден.");
     const items = await this.lessons.loadLessonItems(userId, result.ids);

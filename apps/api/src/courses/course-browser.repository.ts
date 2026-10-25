@@ -7,6 +7,7 @@ import {
   type ItemKind,
   type CourseMaterialStudyState,
   type CourseReviewFilter,
+  type CourseMaterialSort,
 } from "@kanji-srs/shared";
 import { PrismaService } from "../database/prisma.service";
 import { listeningCardEligibilityWhere } from "../lessons/lessons.repository";
@@ -55,7 +56,7 @@ export class CourseBrowserRepository {
     courseId: string,
     levelNumber: number,
     page: number,
-    filters: { readonly itemType?: ItemKind; readonly studyState?: CourseMaterialStudyState; readonly reviewState?: CourseReviewFilter; readonly q?: string } = {},
+    filters: { readonly itemType?: ItemKind; readonly studyState?: CourseMaterialStudyState; readonly reviewState?: CourseReviewFilter; readonly q?: string; readonly sort?: CourseMaterialSort } = {},
   ) {
     const level = await this.prisma.db.courseLevel.findFirst({
       where: { courseId, levelNumber, course: { status: "PUBLISHED", courseType: "STRUCTURED" } },
@@ -129,7 +130,11 @@ export class CourseBrowserRepository {
       .filter((entry) => filters.reviewState === undefined || (filters.reviewState === "due"
         ? entry.dueCardCount > 0
         : entry.dueCardCount === 0 && entry.scheduledCardCount > 0));
-    const selected = indexed.slice((page - 1) * 30, page * 30);
+    const ordered = filters.sort === "review-time" ? indexed.map((entry, index) => ({ entry, index }))
+      .sort((left, right) => ((left.entry.nextReviewAt === null ? Infinity : Date.parse(left.entry.nextReviewAt)) -
+        (right.entry.nextReviewAt === null ? Infinity : Date.parse(right.entry.nextReviewAt))) || left.index - right.index)
+      .map(({ entry }) => entry) : indexed;
+    const selected = ordered.slice((page - 1) * 30, page * 30);
     return {
       ids: selected.map((entry) => entry.id),
       total: indexed.length,

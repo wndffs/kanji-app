@@ -37,6 +37,7 @@ export type CourseProgressCardDto = {
 };
 export type CourseMaterialStudyState = "not-started" | "learning" | "burned";
 export type CourseReviewFilter = "due" | "scheduled";
+export type CourseMaterialSort = "course" | "review-time";
 export type CourseReviewTimeline = {
   readonly dueCardCount: number;
   readonly scheduledCardCount: number;

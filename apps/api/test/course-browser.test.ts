@@ -132,6 +132,7 @@ describe("read-only published syllabus", () => {
       "тип материала",
     );
     await expect(service.materials("owner", ID, "2", { reviewState: ["due"] })).rejects.toThrow("срок повторения");
+    await expect(service.materials("owner", ID, "2", { sort: ["course"] })).rejects.toThrow("сортировка");
     for (const q of [["one"], "x".repeat(81), "one\n"]) await expect(service.materials("owner", ID, "2", { q })).rejects.toThrow("Поиск");
     await service.materials("owner", ID, "2", { q: "  ＯＮＥ  " });
     expect(levelPage).toHaveBeenLastCalledWith("owner", ID, 2, 1, { itemType: undefined, studyState: undefined, q: "ONE" });
@@ -153,6 +154,9 @@ describe("read-only published syllabus", () => {
     } } as never);
     expect(await repository.levelPage("owner", ID, 1, 1, { reviewState: "due" })).toMatchObject({ ids: ["due"], total: 1 });
     expect(await repository.levelPage("owner", ID, 1, 2, { reviewState: "scheduled" })).toMatchObject({ ids: ["future-30"], total: 31 });
+    const sorted = await repository.levelPage("owner", ID, 1, 1, { sort: "review-time" });
+    expect(sorted?.ids.slice(0, 3)).toEqual(["due", "future-0", "future-1"]);
+    expect((await repository.levelPage("owner", ID, 1, 2, { sort: "review-time" }))?.ids.at(-1)).toBe("burned");
   });
   it("filters full own-card state before slicing the level page", async () => {
     const card = (burned: boolean | null) => ({
