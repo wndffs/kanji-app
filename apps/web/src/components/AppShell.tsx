@@ -121,6 +121,7 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <StudyFocusContext.Provider value={enterStudy}>
       <div className={`app-shell${focusTitle === null ? "" : " study-focus-shell"}${isAuthPage ? " auth-shell" : ""}`}>
+        <a className="skip-to-content" href="#main-content">К содержимому</a>
         {focusTitle === null && !isAuthPage ? <aside className="app-rail">
           <Link className="brand rail-brand" href="/dashboard"><Image src="/icons/app-192.png" width={32} height={32} alt="" />{APP_NAME}</Link>
           <nav aria-label="Основная навигация" className="nav">
@@ -214,7 +215,7 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           </div>
         </header>
-        <main className="main" id="main-content" data-page={pathname.split("/")[1] || "home"}>
+        <main className="main" id="main-content" tabIndex={-1} data-page={pathname.split("/")[1] || "home"}>
           <ConnectionStatus />
           {children}
         </main>
