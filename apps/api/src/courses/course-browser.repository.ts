@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
   courseMaterialStudyState,
+  courseReviewTimeline,
   type CourseOutlineDto,
   type ItemKind,
   type CourseMaterialStudyState,
@@ -83,13 +84,14 @@ export class CourseBrowserRepository {
                 id: true,
                 promptType: true,
                 audioAsset: { include: { dataSource: true, license: true } },
-                srsStates: { where: { userId }, select: { burnedAt: true } },
+                srsStates: { where: { userId }, select: { burnedAt: true, availableAt: true, stageIndex: true } },
               },
             },
           },
         },
       },
     });
+    const now = Date.now();
     const indexed = entries
       .map((entry) => {
         const itemType = entry.learningItem.kind.toLowerCase() as ItemKind;
@@ -99,8 +101,12 @@ export class CourseBrowserRepository {
             isEligibleListeningAudio(card.audioAsset, entry.learningItemId, itemType),
         );
         const states = cards.map((card) => ({
+          id: card.id,
+          promptType: card.promptType.toLowerCase(),
           started: card.srsStates.length > 0,
           burned: card.srsStates[0]?.burnedAt != null,
+          stageIndex: card.srsStates[0]?.stageIndex ?? null,
+          availableAt: card.srsStates[0]?.availableAt?.toISOString() ?? null,
         }));
         return {
           id: entry.learningItemId,
@@ -108,6 +114,8 @@ export class CourseBrowserRepository {
           cardCount: cards.length,
           startedCardCount: states.filter((state) => state.started).length,
           burnedCardCount: states.filter((state) => state.burned).length,
+          progressCards: states,
+          ...courseReviewTimeline(states, now),
         };
       })
       .filter(

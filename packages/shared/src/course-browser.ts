@@ -13,7 +13,7 @@ export type CourseOutlineDto = {
   readonly description: string | null;
   readonly levels: readonly CourseOutlineLevelDto[];
 };
-export type CourseMaterialDto = {
+export type CourseMaterialDto = CourseReviewTimeline & {
   readonly id: string;
   readonly itemType: ItemKind;
   readonly japanese: string;
@@ -25,6 +25,15 @@ export type CourseMaterialDto = {
   readonly cardCount: number;
   readonly startedCardCount: number;
   readonly burnedCardCount: number;
+  readonly progressCards: readonly CourseProgressCardDto[];
+};
+export type CourseProgressCardDto = {
+  readonly id: string;
+  readonly promptType: string;
+  readonly started: boolean;
+  readonly burned: boolean;
+  readonly stageIndex: number | null;
+  readonly availableAt: string | null;
 };
 export type CourseMaterialStudyState = "not-started" | "learning" | "burned";
 export type CourseReviewFilter = "due" | "scheduled";

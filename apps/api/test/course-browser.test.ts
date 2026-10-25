@@ -159,6 +159,8 @@ describe("read-only published syllabus", () => {
       studyState: "burned",
       cardCount: 2,
       burnedCardCount: 2,
+      dueCardCount: 0,
+      nextReviewAt: null,
     });
     expect(
       findMany.mock.calls[0]![0].select.learningItem.select.cards.select.srsStates.where,

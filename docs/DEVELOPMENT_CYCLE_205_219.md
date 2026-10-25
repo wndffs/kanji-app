@@ -7,7 +7,7 @@ Tests, repairs and evidence commits are not additional tasks.
 | ID | Scope | Acceptance | State |
 | --- | --- | --- | --- |
 | 205 | Review timeline projection | Deterministic due/scheduled counts exclude new and burned cards | Implemented |
-| 206 | Own card review metadata | Published level pages expose only the current user's eligible card state | Pending |
+| 206 | Own card review metadata | Published level pages expose only the current user's eligible card state | Implemented |
 | 207 | Review-time API filter | Due/scheduled predicates apply before pagination | Pending |
 | 208 | Review-time browsing | URL-backed review filter and honest per-item due labels | Pending |
 | 209 | Whole-level progress totals | Counts use all published placements, independent of page/filter | Pending |
