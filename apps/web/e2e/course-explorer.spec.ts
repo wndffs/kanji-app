@@ -229,7 +229,11 @@ test.describe("published course explorer", () => {
   }
   test("pages level materials without enrollment or scheduling writes", async ({ page }) => {
     await signIn(page);
-    await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+    await page.route(`${API}/courses/${ID}/outline`, (route) =>
+      route.fulfill({
+        json: { ...outline, title: "Пилот основ: 79 компонентов, 101 кандзи и 120 слов" },
+      }),
+    );
     await page.goto(`/courses/${ID}`);
     const materials = page.getByRole("region", { name: "Материалы уровня", exact: true });
     await expect(materials.getByRole("link")).toContainText("一");
@@ -237,6 +241,11 @@ test.describe("published course explorer", () => {
     await expect(materials.getByRole("link")).toContainText("один");
     await expect(materials.getByRole("link")).toContainText("one");
     await expect(materials.getByRole("link")).toBeInViewport({ ratio: 0.5 });
+    if (test.info().project.name === "mobile") {
+      const material = (await materials.getByRole("link").boundingBox())!;
+      const navigation = (await page.locator(".app-rail").boundingBox())!;
+      expect(material.y + material.height).toBeLessThan(navigation.y);
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );

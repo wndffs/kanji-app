@@ -77,6 +77,15 @@ automatically saving or changing personal layouts; editor save actions remain
 above mobile navigation even after scrolling its last row. A browser assertion
 checks the button against the navigation's actual bounds, not only the viewport.
 
+Live review also tightened the mobile course toolbar so a realistic long title
+does not push the first complete material below navigation. The existing course
+browser test now uses that title and checks the first material's bottom edge.
+Full cloud smoke found an overflowing confirmation on a 390 x 360 viewport:
+dialogs are now height-bounded with internal scrolling. Eight targeted course/
+admin recovery cases passed after these repairs. A separate earlier course
+rerun had one non-reproduced stale-session timeout; its four isolation cases
+passed on the targeted rerun, without changing auth logic or weakening checks.
+
 Initial bundle measurement covered five static routes: 131415 B raw / 22416 B
 gzip CSS and at most 209207 B gzip initial JS, within existing per-route budgets.
 The dynamic item/kana HTML was not captured by this local measurement, so it
