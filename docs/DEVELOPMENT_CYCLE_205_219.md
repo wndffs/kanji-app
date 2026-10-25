@@ -11,7 +11,7 @@ Tests, repairs and evidence commits are not additional tasks.
 | 207 | Review-time API filter | Due/scheduled predicates apply before pagination | Implemented |
 | 208 | Review-time browsing | URL-backed review filter and honest per-item due labels | Implemented |
 | 209 | Whole-level progress totals | Counts use all published placements, independent of page/filter | Implemented |
-| 210 | Level progress navigation | Compact counts link to new/learning/burned/due views | Pending |
+| 210 | Level progress navigation | Compact counts link to new/learning/burned/due views | Implemented |
 | 211 | Per-prompt progress | Expand an item's meaning/reading/listening state without opening all details | Pending |
 | 212 | Level search API | Bounded Japanese/title/global-answer search before pagination, no private text | Pending |
 | 213 | Search navigation | Explicit submit, clear, history and item-return preserve the query | Pending |

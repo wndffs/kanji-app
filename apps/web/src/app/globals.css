@@ -6638,6 +6638,23 @@ html
   display: grid;
   gap: 0.85rem;
 }
+.course-level-progress {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+  font-size: 14px;
+}
+.course-level-progress .text-action {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--primary);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
 .course-return-link {
   display: inline-block;
   margin-bottom: 1rem;

@@ -21,6 +21,8 @@ async function signIn(page: Page) {
         page: pageNumber,
         pageSize: 30,
         total: 32,
+        summary: { total: 32, newCount: 30, learningCount: 1, burnedCount: 1, dueItemCount: 1,
+          byKind: { component: 0, kanji: 32, word: 0, sentence: 0 } },
         items: [
           {
             id: `material-${pageNumber}`,
@@ -34,6 +36,10 @@ async function signIn(page: Page) {
             cardCount: 2,
             startedCardCount: 0,
             burnedCardCount: 0,
+            dueCardCount: 0,
+            scheduledCardCount: 0,
+            nextReviewAt: null,
+            progressCards: [],
           },
         ],
       },
@@ -165,5 +171,17 @@ test.describe("published course explorer", () => {
   test("requires login and does not fetch a private progress view as a guest", async ({ page }) => {
     await page.goto(`/courses/${ID}`);
     await expect(page.getByText("Для просмотра курса нужен вход.")).toBeVisible();
+  });
+  test("opens whole-level progress counts without scheduling writes", async ({ page }) => {
+    await signIn(page);
+    await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+    const writes: string[] = [];
+    page.on("request", (request) => { if (request.url().startsWith(API) && request.method() !== "GET" && request.method() !== "OPTIONS") writes.push(request.url()); });
+    await page.goto(`/courses/${ID}?itemType=kanji&page=2`);
+    await page.getByRole("navigation", { name: "Прогресс уровня" }).getByRole("button", { name: "Срок наступил: 1", exact: true }).click();
+    await expect(page).toHaveURL(/reviewState=due/u);
+    await expect(page.getByLabel("Срок повторения", { exact: true })).toHaveValue("due");
+    await expect(page.getByText("Страница 1 из 2")).toBeVisible();
+    expect(writes).toEqual([]);
   });
 });

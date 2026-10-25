@@ -9,6 +9,7 @@ import { ownsSession } from "../../lib/use-stored-session";
 import { JapaneseText } from "../../components/JapaneseText";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { courseItemHref, type CourseBrowserRoute } from "../../lib/course-browser-route";
+import { CourseLevelProgress } from "./CourseLevelProgress";
 
 export function CourseLevelMaterials({
   token,
@@ -63,6 +64,7 @@ export function CourseLevelMaterials({
   return (
     <section className="course-level-materials" aria-label="Материалы уровня">
       <h2>Материалы уровня {levelNumber}</h2>
+      {data?.summary ? <CourseLevelProgress summary={data.summary} route={route} onNavigate={onNavigate} /> : null}
       <div className="course-material-filters">
         <label className="course-level-select">
           Тип материала
