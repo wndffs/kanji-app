@@ -156,6 +156,9 @@ test.describe("published course explorer", () => {
     await expect(page.getByRole("heading", { name: outline.title })).toBeVisible();
     await page.getByRole("button", { name: "Все уровни", exact: true }).click();
     await expect(page.getByRole("list", { name: "Уровни курса" })).toContainText("32 материалов");
+    await page.getByRole("list", { name: "Уровни курса" }).getByRole("link", { name: /Уровень 2:/u }).click();
+    await expect(page).toHaveURL(new RegExp(`/courses/${ID}\\?level=2$`, "u"));
+    await expect(page.getByLabel("Уровень курса", { exact: true })).toHaveValue("2");
   });
   test("moves between existing levels while resetting only the page", async ({ page }) => {
     await signIn(page);

@@ -6594,6 +6594,17 @@ html
   border-bottom: 1px solid var(--surface-border);
   flex-wrap: wrap;
 }
+.course-outline li a {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  width: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+.course-outline li a:hover strong { text-decoration: underline; }
+.course-outline li a[aria-current="location"] { color: var(--primary); }
 .course-level-select {
   display: grid;
   gap: 0.4rem;

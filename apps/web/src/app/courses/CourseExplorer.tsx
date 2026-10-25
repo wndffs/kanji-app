@@ -175,10 +175,16 @@ function OwnedCourseExplorer({
                 <ol className="course-outline" aria-label="Уровни курса">
                   {outline.levels.map((level) => (
                     <li key={level.levelNumber}>
-                      <strong>
-                        Уровень {level.levelNumber}: {level.title}
-                      </strong>
-                      <span>{level.publishedItemCount} материалов</span>
+                      <Link prefetch={false} href={courseBrowserHref(courseId, { ...(route ?? parseCourseBrowserRoute(new URLSearchParams())), level: level.levelNumber, page: 1 })}
+                        aria-current={level.levelNumber === currentLevel ? "location" : undefined}
+                        onClick={(event) => {
+                          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                          event.preventDefault();
+                          navigate({ ...(route ?? parseCourseBrowserRoute(new URLSearchParams())), level: level.levelNumber, page: 1 });
+                        }}>
+                        <strong>Уровень {level.levelNumber}: {level.title}</strong>
+                        <span>{level.publishedItemCount} материалов</span>
+                      </Link>
                     </li>
                   ))}
                 </ol>
