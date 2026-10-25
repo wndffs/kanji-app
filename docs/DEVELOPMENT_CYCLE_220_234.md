@@ -34,7 +34,7 @@ meaning/reading phases. Do not reveal quiz answers early.
 | 226 | Item details | Japanese/reading/meaning hierarchy, accessible tabs and optional personal/source details | Implemented |
 | 227 | Courses | Compact catalog and level workspace, subject accents, preserved search/filter/history | Implemented |
 | 228 | Search | Search-first layout, compact bilingual results, restrained filters and metadata | Implemented |
-| 229 | Decks | Scannable private library and text-mining workspace without nested panels | Pending |
+| 229 | Decks | Scannable private library and text-mining workspace without nested panels | Implemented |
 | 230 | Settings | Legible preference groups, live appearance preview and unobscured save actions | Pending |
 | 231 | Authentication | Original compact login/register presentation with unchanged validation | Pending |
 | 232 | Loading/error/empty states | Consistent recoverable statuses, skeletons and dialogs without false success | Pending |

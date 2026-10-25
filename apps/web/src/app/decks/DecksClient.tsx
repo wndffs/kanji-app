@@ -811,7 +811,7 @@ function DeckItemCard({
   readonly displayMode: TranslationDisplayMode;
 }) {
   return (
-    <article className="deck-item-card">
+    <article className="deck-item-card" data-item-type={deckItem.item.itemType}>
       <div>
         <span className="eyebrow">{formatItemType(deckItem.item.itemType)}</span>
         <Link className="deck-item-link" href={`/items/${encodeURIComponent(deckItem.item.id)}`}>
