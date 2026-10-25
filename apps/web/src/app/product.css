@@ -84,6 +84,25 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .study-focus-shell .brand-mobile { display: inline-flex; }
 .study-focus-shell .topbar-inner { width: min(1080px, calc(100% - 32px)); margin-inline: auto; padding-inline: 0; }
 .study-focus-shell .main { width: min(960px, calc(100% - 32px)); }
+.dashboard-heading { padding-bottom: 4px; }
+.dashboard-heading > div:first-child { display: grid; gap: 8px; }
+.dashboard-page .metric-grid { gap: 12px; border: 0; }
+.dashboard-page .metric-card { position: relative; min-height: 132px; background: var(--surface); border: 1px solid var(--surface-border); border-radius: 8px; padding: 20px; gap: 8px; align-content: start; }
+.dashboard-page .metric-card > svg { position: absolute; right: 16px; top: 18px; color: var(--primary); }
+.dashboard-page .metric-card[data-tone="lesson"] > svg { color: var(--subject-kanji); }
+.dashboard-page .metric-card[data-tone="burned"] > svg { color: var(--subject-kana); }
+.dashboard-page .metric-card[data-tone="difficult"] > svg { color: var(--subject-word); }
+.dashboard-page .metric-card > span { font-size: 12px; padding-right: 22px; font-weight: 500; }
+.dashboard-page .metric-card strong { font-size: 32px; font-weight: 700; line-height: 1.2; }
+.dashboard-page .metric-card strong a { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dashboard-page .metric-card strong a svg { color: var(--muted); }
+.dashboard-widget-grid { align-items: start; gap: 28px; }
+.dashboard-page .course-progress { padding-top: 8px; }
+.dashboard-page .course-progress > div:first-child { display: grid; gap: 6px; }
+.dashboard-page .course-progress > div:first-child strong { font-size: 16px; }
+.dashboard-page .course-progress > div:first-child > span { font-size: 13px; color: var(--primary); }
+.dashboard-page .course-pass-progress { padding: 16px 0; border-block: 1px solid var(--surface-border); }
+.dashboard-widget > .section-disclosure { border-top: 1px solid var(--surface-border); }
 @media (max-width: 900px) {
   .app-shell { padding-left: 0; }
   .app-rail { inset: auto 0 0; width: 100%; height: calc(64px + env(safe-area-inset-bottom)); padding: 0 8px env(safe-area-inset-bottom); border: 0; border-top: 1px solid var(--surface-border); }

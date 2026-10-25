@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, ArrowRight, ArrowUp, ArrowDown, RotateCw, BookOpen, Flame, CircleHelp, type LucideIcon } from "lucide-react";
 import { dashboardNextAction } from "../../lib/dashboard-next-action";
 
 import {
@@ -381,6 +381,7 @@ function DashboardView({
         <div className="action-row">
           <Link className="primary-action" href={nextAction.href}>
             {nextAction.label}
+            <ArrowRight size={18} aria-hidden="true" />
           </Link>
           <button
             aria-expanded={customizationOpen}
@@ -678,7 +679,7 @@ function DashboardWidgetEditor({
                   title="Переместить выше"
                   type="button"
                 >
-                  ↑
+                  <ArrowUp size={16} aria-hidden="true" />
                 </button>
                 <button
                   aria-label={`Переместить «${title}» ниже`}
@@ -687,7 +688,7 @@ function DashboardWidgetEditor({
                   title="Переместить ниже"
                   type="button"
                 >
-                  ↓
+                  <ArrowDown size={16} aria-hidden="true" />
                 </button>
               </div>
 
@@ -882,10 +883,10 @@ function assertUnknownDashboardWidget(id: never): never {
 function DashboardSummary({ counts }: { readonly counts: DashboardDto["counts"] }) {
   return (
     <section aria-label="Счётчики" className="metric-grid">
-      <MetricCard label="К повторению" value={counts.dueReviews} />
-      <MetricCard label="Доступно уроков" value={counts.availableLessons} />
-      <MetricCard label="Сожжено" value={counts.burnedCards} />
-      <MetricCard label="Сложные" value={counts.leechCandidates} />
+      <MetricCard label="К повторению" value={counts.dueReviews} icon={RotateCw} href="/reviews" tone="review" />
+      <MetricCard label="Доступно уроков" value={counts.availableLessons} icon={BookOpen} href="/lessons" tone="lesson" />
+      <MetricCard label="Сожжено" value={counts.burnedCards} icon={Flame} tone="burned" />
+      <MetricCard label="Сложные" value={counts.leechCandidates} icon={CircleHelp} tone="difficult" />
     </section>
   );
 }
@@ -1796,11 +1797,12 @@ function formatItemType(itemType: DashboardDto["leechCandidates"][number]["item"
   }
 }
 
-function MetricCard({ label, value }: { readonly label: string; readonly value: number }) {
+function MetricCard({ label, value, icon: Icon, href, tone }: { readonly label: string; readonly value: number; readonly icon: LucideIcon; readonly href?: string; readonly tone: string }) {
   return (
-    <article className="metric-card">
+    <article className="metric-card" data-tone={tone}>
+      <Icon size={20} aria-hidden="true" />
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong>{href ? <Link href={href} aria-label={`${label}: ${value}`}>{value}<ArrowRight size={16} aria-hidden="true" /></Link> : value}</strong>
     </article>
   );
 }
