@@ -1296,26 +1296,28 @@ function ItemReadingDetails({
             </div>
           )}
         </dl>
-        {senses.length === 0 ? (
-          <p className="muted">Словарные сведения для выбранного языка пока не добавлены.</p>
-        ) : (
-          <ul className="word-sense-list">
-            {senses.map((sense, index) => (
-              <li key={`${sense.locale}-${sense.meaning}-${sense.partOfSpeech}-${index}`}>
-                <strong>{sense.meaning}</strong>
-                <span>
-                  {formatLocale(sense.locale)} · {formatPartOfSpeech(sense.partOfSpeech)}
-                  {sense.register === null ? "" : ` · ${sense.register}`}
-                </span>
-                {sense.tags.length === 0 ? null : <small>{sense.tags.join(", ")}</small>}
-                <span className={`source-kind-label ${sense.sourceKind}`}>
-                  {formatSourceKind(sense.sourceKind)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <ImportedSourceLinks sources={item.attributions} />
+        <SectionDisclosure title="Словарные значения">
+          {senses.length === 0 ? (
+            <p className="muted">Словарные сведения для выбранного языка пока не добавлены.</p>
+          ) : (
+            <ul className="word-sense-list">
+              {senses.map((sense, index) => (
+                <li key={`${sense.locale}-${sense.meaning}-${sense.partOfSpeech}-${index}`}>
+                  <strong>{sense.meaning}</strong>
+                  <span>
+                    {formatLocale(sense.locale)} · {formatPartOfSpeech(sense.partOfSpeech)}
+                    {sense.register === null ? "" : ` · ${sense.register}`}
+                  </span>
+                  {sense.tags.length === 0 ? null : <small>{sense.tags.join(", ")}</small>}
+                  <span className={`source-kind-label ${sense.sourceKind}`}>
+                    {formatSourceKind(sense.sourceKind)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <ImportedSourceLinks sources={item.attributions} />
+        </SectionDisclosure>
       </section>
     );
   }

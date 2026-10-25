@@ -86,6 +86,12 @@ admin recovery cases passed after these repairs. A separate earlier course
 rerun had one non-reproduced stale-session timeout; its four isolation cases
 passed on the targeted rerun, without changing auth logic or weakening checks.
 
+The live word page exposed a second overload source not represented by the tiny
+fixture: many raw dictionary senses preceded examples and mnemonics. They now
+have a closed-by-default native disclosure, retaining language filtering and
+source attribution. Curated meanings and kana readings stay immediately visible.
+All 24 item browser cases passed after this focused repair.
+
 Initial bundle measurement covered five static routes: 131415 B raw / 22416 B
 gzip CSS and at most 209207 B gzip initial JS, within existing per-route budgets.
 The dynamic item/kana HTML was not captured by this local measurement, so it

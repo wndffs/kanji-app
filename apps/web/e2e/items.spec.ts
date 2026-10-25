@@ -159,6 +159,8 @@ test.describe("item details", () => {
 
     const details = page.getByTestId("word-study-details");
     await expect(details.getByText("がっこう", { exact: true })).toBeVisible();
+    await expect(details.locator(".word-sense-list")).toBeHidden();
+    await details.getByRole("button", { name: "Словарные значения", exact: true }).click();
     await expect(details.getByText(/существительное/).first()).toBeVisible();
     await expect(details.getByText("420", { exact: true })).toBeVisible();
     await expect(page.getByText("Составляющие кандзи")).toBeVisible();
