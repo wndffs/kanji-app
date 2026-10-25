@@ -156,6 +156,30 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .main[data-page="practice"] .panel { border: 0; background: transparent; }
 .main[data-page="practice"] .review-card { background: var(--subject-kanji-soft); }
 .main[data-page="practice"] .view-tabs { margin-bottom: 4px; }
+.kana-heading > div:first-child { display: flex; align-items: center; gap: 14px; }
+.kana-script-mark { display: grid; place-items: center; width: 48px; height: 48px; flex: 0 0 48px; font-size: 30px; color: var(--subject-kana); background: var(--subject-kana-soft); border-radius: 8px; }
+.kana-script-control { border-radius: 6px; border: 1px solid var(--surface-border); padding: 3px; background: var(--surface); }
+.kana-script-control button { border-radius: 4px; border: 0; font-size: 13px; min-height: 36px; background: transparent; }
+.kana-script-control button[aria-pressed="true"] { background: var(--subject-kana-soft); color: var(--subject-kana); }
+.kana-progress-summary { border: 0; background: transparent; border-radius: 0; padding: 0 0 20px; border-bottom: 1px solid var(--surface-border); }
+.kana-progress-summary strong { font-size: 22px; }
+.kana-progress-track > span { background: var(--subject-kana); }
+.main[data-page="kana"] .kana-practice { background: var(--surface); padding: 28px; border: 1px solid var(--surface-border); border-radius: 8px; max-width: 720px; margin-inline: auto; width: 100%; }
+.kana-current-unit { font-size: 13px; color: var(--muted); font-weight: 500; }
+.kana-choice-grid button { background: var(--background); border: 1px solid var(--surface-border); border-radius: 6px; }
+.kana-choice-grid button:hover:not(:disabled) { border-color: var(--subject-kana); background: var(--subject-kana-soft); }
+.kana-unit-list { gap: 10px; }
+.kana-unit-list > button { border-radius: 6px; padding: 16px; }
+.kana-unit-list > button[aria-current="step"] { border-color: var(--subject-kana); box-shadow: inset 3px 0 0 var(--subject-kana); }
+.kana-unit-characters span { background: var(--surface-strong); border: 0; color: var(--foreground); }
+.character-hub-panel { border: 0; border-radius: 0; box-shadow: none; background: transparent; padding: 0; }
+.character-hub-section-heading { padding-bottom: 20px; border-bottom: 1px solid var(--surface-border); }
+.character-hub-model { font-size: 12px; color: var(--muted); }
+.character-hub-kana-chart :is(a, span) { border-radius: 6px; }
+.character-hub-kana-units > li { border: 0; border-bottom: 1px solid var(--surface-border); border-radius: 0; padding: 20px 0; background: transparent; }
+.character-hub-kanji-grid { grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px; }
+.character-hub-kanji-grid > li { background: var(--surface); border-radius: 8px; border: 1px solid var(--surface-border); }
+.character-hub-kanji-character { color: var(--subject-kanji); }
 @media (max-width: 900px) {
   .app-shell { padding-left: 0; }
   .app-rail { inset: auto 0 0; width: 100%; height: calc(64px + env(safe-area-inset-bottom)); padding: 0 8px env(safe-area-inset-bottom); border: 0; border-top: 1px solid var(--surface-border); }
