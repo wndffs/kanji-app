@@ -6,6 +6,23 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("search UI", () => {
+  test("retries the submitted search without substituting unsent drafts", async ({ page }) => {
+    await signIn(page);
+    const requested: string[] = [];
+    await page.route(`${API_BASE_URL}/search?*`, (route) => {
+      requested.push(route.request().url());
+      return requested.length === 1 ? route.fulfill({ status: 503, json: { message: "Недоступно" } }) : route.fulfill({ json: buildSearchResponse("school") });
+    });
+    await page.goto("/search?q=school&page=2&itemType=word&level=1");
+    await expect(page.getByRole("button", { name: "Повторить поиск", exact: true })).toBeVisible();
+    await page.getByLabel("Запрос", { exact: true }).fill("unsent");
+    await page.getByRole("button", { name: "Повторить поиск", exact: true }).click();
+    await expect(page.locator("a.search-result-card")).toBeVisible();
+    expect(requested).toHaveLength(2);
+    expect(requested[1]).toBe(requested[0]);
+    await expect(page.getByLabel("Запрос", { exact: true })).toHaveValue("unsent");
+    await expect(page).toHaveURL(/q=school&page=2&itemType=word&level=1$/);
+  });
   test("reopens a hidden invalid filter without sending a request", async ({ page }) => {
     await signIn(page);
     let requests = 0;
