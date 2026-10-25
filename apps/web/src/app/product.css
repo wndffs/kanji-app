@@ -1305,6 +1305,7 @@ textarea::placeholder {
   color: var(--foreground);
 }
 .settings-save-bar {
+  align-items: center;
   grid-column: 1 / -1;
   padding: 16px 0;
   border-top: 1px solid var(--surface-border);
@@ -1312,6 +1313,7 @@ textarea::placeholder {
   box-shadow: none;
   border-radius: 0;
 }
+.settings-dirty { color: var(--subject-kana); font-size: 12px; }
 .appearance-preview {
   grid-column: 2;
   grid-row: 1 / 3;

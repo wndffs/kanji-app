@@ -31,7 +31,7 @@ No new production dependency or externally hosted fonts/media are needed.
 | 246 | Reading utility | Explicit icon action copies only an already-visible kana reading, reports success/failure and never exposes a hidden reading | Implemented |
 | 247 | Search recovery | Failed search can retry the same submitted query/page/filters in place; no unsubmitted draft or stale response is substituted | Implemented |
 | 248 | Private library recovery | Retry a failed library read without losing the text-builder draft; empty filtered results have a clear reset action | Implemented |
-| 249 | Settings draft safety | Discard restores the last confirmed settings and preview; delayed load/save responses cannot overwrite another account or a later local edit | Planned |
+| 249 | Settings draft safety | Discard restores the last confirmed settings and preview; delayed load/save responses cannot overwrite another account or a later local edit | Implemented |
 
 ## Boundaries
 

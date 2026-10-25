@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { AppearancePreview } from "../../components/AppearancePreview";
 import { ViewTabs } from "../../components/ViewTabs";
+import { RotateCcw } from "lucide-react";
+import { useStoredSession } from "../../lib/use-stored-session";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import {
@@ -99,9 +101,19 @@ const MAX_LESSON_BATCH_SIZE = 5;
 const MAX_REVIEW_BUDGET = 1_000;
 
 export function SettingsClient() {
+  const session = useStoredSession();
+  if (session === undefined) return <section className="page-stack" aria-busy="true"><h1>Настройки</h1><p>Загружаю настройки.</p></section>;
+  return <SettingsScreen key={session === null ? "guest" : `${session.user.id}:${session.token}`} ownerToken={session?.token ?? null} />;
+}
+
+function SettingsScreen({ ownerToken }: { readonly ownerToken: string | null }) {
   const [section, setSection] = useState("appearance");
   const [user, setUser] = useState<CurrentUserDto | null>(null);
   const [form, setForm] = useState<SettingsForm>(() => createLocalSettingsForm());
+  const [savedForm, setSavedForm] = useState<SettingsForm>(() => createLocalSettingsForm());
+  const alive = useRef(true);
+  const isCurrent = () => alive.current && (readStoredSession()?.token ?? null) === ownerToken;
+  const dirty = (Object.keys(form) as (keyof SettingsForm)[]).some((key) => form[key] !== savedForm[key]);
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "saved" | "error">(
     "loading",
   );
@@ -138,38 +150,49 @@ export function SettingsClient() {
 
   useEffect(() => {
     const session = readStoredSession();
+    alive.current = true;
     setReminderPermission(reviewReminderPermission());
-    setForm(createLocalSettingsForm());
+    const localForm = createLocalSettingsForm();
+    setForm(localForm);
+    setSavedForm(localForm);
 
     if (session === null) {
       setStatus("idle");
       return () => {
+        alive.current = false;
         permissionRequest.current++;
       };
     }
 
     setUser(session.user);
     setForm(createSettingsForm(session.user.settings));
+    setSavedForm(createSettingsForm(session.user.settings));
 
     getCurrentUser(session.token)
       .then((currentUser) => {
+        if (!alive.current || readStoredSession()?.token !== session.token) return;
         setUser(currentUser);
         setForm(createSettingsForm(currentUser.settings));
+        setSavedForm(createSettingsForm(currentUser.settings));
         updateStoredUser(currentUser);
         setStatus("idle");
       })
       .catch((loadError: unknown) => {
+        if (!alive.current || readStoredSession()?.token !== session.token) return;
         setError(
           loadError instanceof Error ? loadError.message : "Не удалось загрузить настройки.",
         );
         setStatus("error");
       });
     return () => {
+      alive.current = false;
       permissionRequest.current++;
     };
   }, []);
 
   function updateForm<Key extends keyof SettingsForm>(key: Key, value: SettingsForm[Key]): void {
+    if (!isCurrent()) return;
+    setStatus((current) => current === "saved" ? "idle" : current);
     setForm((previous) => ({
       ...previous,
       [key]: value,
@@ -178,7 +201,7 @@ export function SettingsClient() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (permissionPending) return;
+    if (!isCurrent() || permissionPending || status === "loading" || status === "saving" || isVacationUpdating) return;
     setReminderPermission(reviewReminderPermission());
     setStatus("saving");
     setError(null);
@@ -188,6 +211,7 @@ export function SettingsClient() {
     if (session === null) {
       storeTranslationDisplayMode(form.translationDisplayMode);
       storeInterfacePreferences(form);
+      setSavedForm(form);
       setStatus("saved");
       return;
     }
@@ -204,11 +228,14 @@ export function SettingsClient() {
           reviewReminderPermission(),
         ),
       });
+      if (!isCurrent()) return;
       setUser(updated);
       setForm(createSettingsForm(updated.settings));
+      setSavedForm(createSettingsForm(updated.settings));
       updateStoredUser(updated);
       setStatus("saved");
     } catch (saveError) {
+      if (!isCurrent()) return;
       if (saveError instanceof SettingsValidationError) setSection(saveError.section);
       setError(saveError instanceof Error ? saveError.message : "Не удалось сохранить настройки.");
       setStatus("error");
@@ -252,8 +279,9 @@ export function SettingsClient() {
 
     try {
       const result = await updateVacationMode(session.token, enabled);
+      if (!isCurrent()) return;
       setUser(result.user);
-      setForm(createSettingsForm(result.user.settings));
+      setSavedForm(createSettingsForm(result.user.settings));
       updateStoredUser(result.user);
       setVacationMessage(
         enabled
@@ -261,6 +289,7 @@ export function SettingsClient() {
           : `Режим отпуска выключен. Расписание сдвинуто для ${result.shiftedReviewCount} карточек.`,
       );
     } catch (updateError) {
+      if (!isCurrent()) return;
       setError(
         updateError instanceof Error ? updateError.message : "Не удалось изменить режим отпуска.",
       );
@@ -342,7 +371,7 @@ export function SettingsClient() {
           Перевод карточек
           <select
             aria-label="Перевод карточек"
-            disabled={status === "saving"}
+            disabled={status === "loading" || status === "saving"}
             onChange={(event) =>
               updateForm(
                 "translationDisplayMode",
@@ -615,6 +644,7 @@ export function SettingsClient() {
           )}
         </fieldset>
         <div className="settings-save-bar">
+          {dirty && status !== "saving" ? <span className="settings-dirty">Есть изменения</span> : null}
           {status === "loading" ? <p className="muted">Загружаю настройки.</p> : null}
           {status === "saved" ? <p className="success-text">Сохранено.</p> : null}
           {error === null ? null : (
@@ -628,6 +658,10 @@ export function SettingsClient() {
             type="submit"
           >
             {status === "saving" ? "Сохраняю" : "Сохранить"}
+          </button>
+          <button className="secondary-action" type="button" disabled={!dirty || status === "loading" || status === "saving" || permissionPending || isVacationUpdating}
+            onClick={() => { if (!isCurrent()) return; setForm(savedForm); setError(null); setStatus("idle"); }}>
+            <RotateCcw size={16} aria-hidden="true" />Отменить изменения
           </button>
           {user === null ? (
             <Link className="inline-link" href="/login">
