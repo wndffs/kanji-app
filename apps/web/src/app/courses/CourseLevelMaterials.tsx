@@ -31,6 +31,8 @@ export function CourseLevelMaterials({
 }) {
   const displayMode = useTranslationDisplayMode();
   const { page, itemType, studyState, reviewState, q, sort } = route;
+  const hasFilters = itemType !== "all" || studyState !== "all" || reviewState !== "all" || q !== "";
+  const resetFilters = () => onNavigate({ ...route, page: 1, itemType: "all", studyState: "all", reviewState: "all", q: "" });
   const requestKey = JSON.stringify([levelNumber, page, itemType, studyState, reviewState, q, sort]);
   const [loaded, setLoaded] = useState<{
     readonly key: string;
@@ -77,6 +79,9 @@ export function CourseLevelMaterials({
     <section className="course-level-materials" aria-label="Материалы уровня">
       <h2>Материалы уровня {levelNumber}</h2>
       {data?.summary ? <CourseLevelProgress summary={data.summary} route={route} onNavigate={onNavigate} /> : null}
+      <details className="course-material-options" open={hasFilters || sort !== "course"}>
+        <summary>Поиск и фильтры</summary>
+        <div className="course-material-controls">
       <CourseMaterialSearch key={q} value={q} onSearch={(value) => onNavigate({ ...route, q: value, page: 1 })} />
       <div className="course-material-filters">
         <label className="course-level-select">
@@ -128,6 +133,9 @@ export function CourseLevelMaterials({
           <option value="scheduled">Запланированы</option>
         </select>
       </label>
+        </div>
+      </details>
+      {hasFilters ? <button className="secondary-action course-reset-filters" onClick={resetFilters}>Сбросить фильтры</button> : null}
       <label className="course-level-select">
         Порядок
         <select aria-label="Порядок материалов" value={sort}
@@ -158,7 +166,10 @@ export function CourseLevelMaterials({
             </div>
           </div>
           {data.items.length === 0 ? (
-            <p>Материалов на этой странице нет.</p>
+            <div className="course-empty-view">
+              <p>{page > Math.max(1, Math.ceil(data.total / data.pageSize)) ? "Такой страницы больше нет." : hasFilters ? "По выбранным условиям ничего не найдено." : "В этом уровне пока нет материалов."}</p>
+              {page > 1 ? <button className="secondary-action" onClick={() => onNavigate({ ...route, page: 1 })}>К первой странице</button> : null}
+            </div>
           ) : (
             <ul className="course-material-grid" data-view={view}>
               {data.items.map((item) => (
@@ -214,7 +225,7 @@ export function CourseLevelMaterials({
               <ChevronLeft size={18} />
             </button>
             <span>
-              Страница {page} из {Math.max(1, Math.ceil(data.total / data.pageSize))}
+              {page > Math.max(1, Math.ceil(data.total / data.pageSize)) ? `Страница ${page} вне диапазона` : `Страница ${page} из ${Math.max(1, Math.ceil(data.total / data.pageSize))}`}
             </span>
             <button
               className="icon-button"

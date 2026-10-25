@@ -6644,6 +6644,13 @@ html
 .course-material-search > div { display: flex; gap: 8px; }
 .course-material-search input { min-width: 0; flex: 1; }
 .course-material-search .icon-button { width: 40px; height: 40px; flex: 0 0 40px; display: grid; place-items: center; padding: 0; }
+.course-material-options > summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
+.course-material-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 18rem)); gap: 12px; padding: 8px 0; }
+.course-material-controls .course-material-search, .course-material-controls .course-material-filters { grid-column: 1 / -1; }
+.course-material-controls .course-level-select { min-width: 0; width: 100%; }
+.course-reset-filters { justify-self: start; }
+.course-empty-view { display: grid; justify-items: start; gap: 12px; }
+@media (max-width: 600px) { .course-material-controls { grid-template-columns: minmax(0, 1fr); } }
 .course-material-result-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .course-material-view { display: flex; gap: 4px; }
 .course-material-view .icon-button { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; }

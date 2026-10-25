@@ -167,7 +167,9 @@ function OwnedCourseExplorer({
                       onNavigate={navigate}
                     />
                   ) : (
-                    <p role="alert">Такого уровня в курсе нет.</p>
+                    <div className="notice-panel"><p role="alert">Такого уровня в курсе нет.</p>
+                      <button className="secondary-action" onClick={() => navigate({ ...route, level: outline.levels[0]!.levelNumber, page: 1 })}>К первому уровню</button>
+                    </div>
                   )}
                 </>
               )}

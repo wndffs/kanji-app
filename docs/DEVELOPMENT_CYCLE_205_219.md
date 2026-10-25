@@ -20,7 +20,7 @@ Tests, repairs and evidence commits are not additional tasks.
 | 216 | Compact material list | Grid/list mode with kana and RU/EN content retained | Implemented |
 | 217 | Remembered material view | Owner-scoped local preference with blocked-storage fallback | Implemented |
 | 218 | Direct level map links | Every outline level is navigable, respecting current filters | Implemented |
-| 219 | Empty-view recovery | Reset filters or recover an out-of-range page without losing the level | Pending |
+| 219 | Empty-view recovery | Reset filters or recover an out-of-range page without losing the level | Implemented |
 
 Browsing never enrolls, switches courses, unlocks lessons or writes SRS. Due
 means a stored card timestamp has arrived, not a promise that vacation/course

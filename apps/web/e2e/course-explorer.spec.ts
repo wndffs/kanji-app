@@ -131,6 +131,7 @@ test.describe("published course explorer", () => {
       "href",
       new RegExp(`/items/material-2\\?level=1&page=2&courseId=${ID}$`, "u"),
     );
+    await page.locator(".course-material-options > summary").click();
     await materials.getByLabel("Тип материала", { exact: true }).selectOption("word");
     await expect(materials.getByText("Страница 1 из 2")).toBeVisible();
     await expect(page).toHaveURL(/itemType=word/u);
