@@ -11,6 +11,7 @@ import { useTranslationDisplayMode } from "../../lib/use-translation-display-mod
 import { courseItemHref, type CourseBrowserRoute } from "../../lib/course-browser-route";
 import { CourseLevelProgress } from "./CourseLevelProgress";
 import { CourseCardProgress } from "./CourseCardProgress";
+import { CourseMaterialSearch } from "./CourseMaterialSearch";
 
 export function CourseLevelMaterials({
   token,
@@ -26,8 +27,8 @@ export function CourseLevelMaterials({
   readonly onNavigate: (route: CourseBrowserRoute) => void;
 }) {
   const displayMode = useTranslationDisplayMode();
-  const { page, itemType, studyState, reviewState } = route;
-  const requestKey = `${levelNumber}:${page}:${itemType}:${studyState}:${reviewState}`;
+  const { page, itemType, studyState, reviewState, q } = route;
+  const requestKey = JSON.stringify([levelNumber, page, itemType, studyState, reviewState, q]);
   const [loaded, setLoaded] = useState<{
     readonly key: string;
     readonly data: CourseMaterialPageDto;
@@ -45,7 +46,7 @@ export function CourseLevelMaterials({
       page,
       itemType === "all" ? undefined : itemType,
       studyState === "all" ? undefined : studyState,
-      { reviewState: reviewState === "all" ? undefined : reviewState },
+      { reviewState: reviewState === "all" ? undefined : reviewState, q },
     )
       .then((response) => {
         if (active && ownsSession(token)) setLoaded({ key: requestKey, data: response });
@@ -61,11 +62,12 @@ export function CourseLevelMaterials({
     return () => {
       active = false;
     };
-  }, [token, courseId, levelNumber, page, retry, itemType, studyState, reviewState, requestKey]);
+  }, [token, courseId, levelNumber, page, retry, itemType, studyState, reviewState, q, requestKey]);
   return (
     <section className="course-level-materials" aria-label="Материалы уровня">
       <h2>Материалы уровня {levelNumber}</h2>
       {data?.summary ? <CourseLevelProgress summary={data.summary} route={route} onNavigate={onNavigate} /> : null}
+      <CourseMaterialSearch key={q} value={q} onSearch={(value) => onNavigate({ ...route, q: value, page: 1 })} />
       <div className="course-material-filters">
         <label className="course-level-select">
           Тип материала

@@ -6,6 +6,7 @@ export type CourseBrowserRoute = {
   readonly itemType: ItemKind | "all";
   readonly studyState: CourseMaterialStudyState | "all";
   readonly reviewState: CourseReviewFilter | "all";
+  readonly q: string;
 };
 export function parseCourseBrowserRoute(params: URLSearchParams): CourseBrowserRoute {
   const integer = (value: string | null, max: number) =>
@@ -20,6 +21,7 @@ export function parseCourseBrowserRoute(params: URLSearchParams): CourseBrowserR
       ? (state as CourseMaterialStudyState)
       : "all",
     reviewState: params.get("reviewState") === "due" ? "due" : params.get("reviewState") === "scheduled" ? "scheduled" : "all",
+    q: normalizeCourseSearch(params.get("q") ?? ""),
   };
 }
 export function courseBrowserHref(courseId: string, route: CourseBrowserRoute) {
@@ -29,6 +31,7 @@ export function courseBrowserHref(courseId: string, route: CourseBrowserRoute) {
   if (route.itemType !== "all") params.set("itemType", route.itemType);
   if (route.studyState !== "all") params.set("studyState", route.studyState);
   if (route.reviewState !== "all") params.set("reviewState", route.reviewState);
+  if (route.q) params.set("q", normalizeCourseSearch(route.q));
   return `/courses/${encodeURIComponent(courseId)}${params.size ? `?${params}` : ""}`;
 }
 
@@ -55,9 +58,14 @@ export function courseReturnHref(params: Record<string, string | string[] | unde
   )
     return null;
   const query = new URLSearchParams();
-  for (const key of ["level", "page", "itemType", "studyState", "reviewState"]) {
+  for (const key of ["level", "page", "itemType", "studyState", "reviewState", "q"]) {
     const value = params[key];
     if (typeof value === "string") query.set(key, value);
   }
   return courseBrowserHref(courseId, parseCourseBrowserRoute(query));
+}
+export function normalizeCourseSearch(value: string) {
+  if (value.length > 80 || /[\u0000-\u001f]/u.test(value)) return "";
+  const normalized = value.normalize("NFKC").trim().replace(/\s+/gu, " ");
+  return normalized.length <= 80 ? normalized : "";
 }

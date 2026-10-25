@@ -6629,6 +6629,10 @@ html
 .course-card-progress summary { cursor: pointer; color: var(--muted); }
 .course-card-progress ul { list-style: none; margin: 8px 0 0; padding: 0; }
 .course-card-progress li { display: grid; gap: 3px; margin: 0 0 8px; }
+.course-material-search { display: grid; gap: 6px; max-width: 36rem; }
+.course-material-search > div { display: flex; gap: 8px; }
+.course-material-search input { min-width: 0; flex: 1; }
+.course-material-search .icon-button { width: 40px; height: 40px; flex: 0 0 40px; display: grid; place-items: center; padding: 0; }
 .course-material-grid .course-material-japanese {
   font-size: 1.5rem;
 }

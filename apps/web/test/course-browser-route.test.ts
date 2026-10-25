@@ -15,6 +15,7 @@ describe("course browser URLs", () => {
       itemType: "kanji",
       studyState: "all",
       reviewState: "all",
+      q: "",
     });
     expect(
       courseReturnHref(Object.fromEntries(new URL(href, "https://example.test").searchParams)),
@@ -28,7 +29,7 @@ describe("course browser URLs", () => {
     expect(adjacentCourseLevels([], 1)).toEqual({ previous: null, next: null });
   });
   it("round trips the complete view without including arbitrary URL destinations", () => {
-    const route = { level: 4, page: 2, itemType: "word", studyState: "learning", reviewState: "all" } as const;
+    const route = { level: 4, page: 2, itemType: "word", studyState: "learning", reviewState: "all", q: "" } as const;
     const href = courseBrowserHref("course", route);
     expect(href).toBe("/courses/course?level=4&page=2&itemType=word&studyState=learning");
     expect(parseCourseBrowserRoute(new URL(href, "https://example.test").searchParams)).toEqual(
@@ -40,6 +41,6 @@ describe("course browser URLs", () => {
       parseCourseBrowserRoute(
         new URLSearchParams("level=61&page=10001&itemType=wrong&studyState=wrong"),
       ),
-    ).toEqual({ level: null, page: 1, itemType: "all", studyState: "all", reviewState: "all" });
+    ).toEqual({ level: null, page: 1, itemType: "all", studyState: "all", reviewState: "all", q: "" });
   });
 });

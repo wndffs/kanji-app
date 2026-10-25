@@ -15,10 +15,10 @@ export function CourseLevelProgress({ summary, route, onNavigate }: {
       ["В работе", summary.learningCount, "learning"],
       ["Выучены", summary.burnedCount, "burned"],
     ] as const).map(([label, count, state]) => <button key={state} className="text-action"
-      onClick={() => onNavigate({ ...route, page: 1, itemType: "all", studyState: state, reviewState: "all" })}>
+      onClick={() => onNavigate({ ...route, q: "", page: 1, itemType: "all", studyState: state, reviewState: "all" })}>
       {label}: {count}
     </button>)}
-    <button className="text-action" onClick={() => onNavigate({ ...route, page: 1, itemType: "all", studyState: "all", reviewState: "due" })}>
+    <button className="text-action" onClick={() => onNavigate({ ...route, q: "", page: 1, itemType: "all", studyState: "all", reviewState: "due" })}>
       Срок наступил: {summary.dueItemCount}
     </button>
   </nav>;
