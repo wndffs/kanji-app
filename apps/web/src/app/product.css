@@ -441,13 +441,21 @@ textarea::placeholder {
   margin: 4px 0 0;
 }
 .lesson-phase-tabs {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   background: none;
   border: 0;
   border-bottom: 1px solid var(--surface-border);
   border-radius: 0;
-  gap: 24px;
+  gap: 8px;
 }
 .lesson-phase-tabs > button {
+  min-width: 0;
+  flex-basis: auto;
+  white-space: normal;
+  gap: 8px;
+  font-size: 14px;
   background: none;
   color: var(--muted);
   border: 0;
@@ -455,6 +463,11 @@ textarea::placeholder {
   border-radius: 0;
   padding: 10px 0;
   min-height: 46px;
+}
+.lesson-phase-tabs > button[data-phase-state="visited"] { color: var(--primary-strong); }
+@media (max-width: 600px) {
+  .lesson-phase-tabs > button { font-size: 12px; flex-wrap: wrap; padding-inline: 2px; }
+  .lesson-phase-tabs > button > span { width: 22px; height: 22px; flex-shrink: 0; }
 }
 .lesson-phase-tabs > button[aria-selected="true"] {
   color: var(--primary);

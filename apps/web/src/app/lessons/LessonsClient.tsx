@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Volume2 } from "lucide-react";
+import { Volume2, Check } from "lucide-react";
 import {
   type FormEvent,
   type RefObject,
@@ -1147,6 +1147,12 @@ function LessonStudyView({
     phase === "context" ? group.purpose === "usage" : group.purpose === phase,
   );
   const nextPhase = phases[phaseIndex + 1];
+  const [visited, setVisited] = useState({ itemId: lesson.item.id, phases: [phase] });
+  useEffect(() => {
+    setVisited((current) => current.itemId !== lesson.item.id
+      ? { itemId: lesson.item.id, phases: [phase] }
+      : current.phases.includes(phase) ? current : { ...current, phases: [...current.phases, phase] });
+  }, [lesson.item.id, phase]);
   const showsMemory = mnemonicGroups.length > 0 || hintGroups.length > 0;
   const pronunciationText = getLessonPronunciationText(lesson);
   const pronunciationRevealed = phase !== "meaning";
@@ -1162,6 +1168,8 @@ function LessonStudyView({
           <button
             aria-controls="lesson-study-phase"
             aria-selected={phase === candidate}
+            aria-label={formatStudyPhase(candidate)}
+            data-phase-state={phase === candidate ? "current" : visited.itemId === lesson.item.id && visited.phases.includes(candidate) ? "visited" : "upcoming"}
             disabled={navigationPending}
             id={`lesson-phase-${candidate}`}
             key={candidate}
@@ -1169,7 +1177,7 @@ function LessonStudyView({
             role="tab"
             type="button"
           >
-            <span>{index + 1}</span>
+            <span aria-hidden="true">{phase !== candidate && visited.itemId === lesson.item.id && visited.phases.includes(candidate) ? <Check size={14} /> : index + 1}</span>
             {formatStudyPhase(candidate)}
           </button>
         ))}

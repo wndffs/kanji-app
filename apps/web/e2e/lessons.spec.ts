@@ -74,6 +74,10 @@ test.describe("lesson session", () => {
       "true",
     );
     await expect(page.getByRole("heading", { name: "Чтения" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Значение", exact: true })).toHaveAttribute("data-phase-state", "visited");
+    const phaseTabs = await page.locator(".lesson-phase-tabs").boundingBox();
+    const phaseEnd = await page.getByRole("tab", { name: "Контекст", exact: true }).boundingBox();
+    expect(phaseEnd!.x + phaseEnd!.width).toBeLessThanOrEqual(phaseTabs!.x + phaseTabs!.width + 1);
     const readings = page
       .getByRole("heading", { name: "Чтения", exact: true })
       .locator("xpath=ancestor::section[1]")
