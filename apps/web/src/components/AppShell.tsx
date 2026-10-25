@@ -14,6 +14,11 @@ import {
   Grid2X2,
   Search,
   Languages,
+  LibraryBig,
+  Layers,
+  Settings,
+  Dumbbell,
+  ShieldCheck,
 } from "lucide-react";
 
 import {
@@ -160,10 +165,14 @@ export function AppShell({ children }: AppShellProps) {
                   );
                 })}
             </nav>
-            <Link className="rail-kana" href="/kana">
-              <Languages size={20} aria-hidden="true" />
-              <span>Хирагана и катакана</span>
-            </Link>
+            <nav className="rail-library" aria-label="Библиотека и настройки">
+              {secondaryNavigation.filter((item) => !item.adminOnly || role === "ADMIN").map((item) => {
+                const Icon = NAV_ICONS[item.href] ?? BookOpen;
+                return <Link className="nav-link" href={item.href} key={item.href} aria-current={isActivePath(pathname, item.href) ? "page" : undefined}>
+                  <Icon size={18} aria-hidden="true" /><span>{item.label}</span>
+                </Link>;
+              })}
+            </nav>
           </aside>
         ) : null}
         <header className="topbar">
@@ -275,6 +284,12 @@ const NAV_ICONS: Record<string, typeof BookOpen> = {
   "/reviews": RotateCw,
   "/characters": Grid2X2,
   "/search": Search,
+  "/kana": Languages,
+  "/courses": LibraryBig,
+  "/decks": Layers,
+  "/settings": Settings,
+  "/practice": Dumbbell,
+  "/admin": ShieldCheck,
 };
 function navigationTitle(path: string) {
   return (

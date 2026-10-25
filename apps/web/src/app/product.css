@@ -177,6 +177,7 @@ textarea::placeholder {
   border-right: 1px solid var(--surface-border);
   padding: 26px 16px;
   z-index: 20;
+  overflow-y: auto;
 }
 .rail-brand {
   padding: 0 8px;
@@ -210,18 +211,20 @@ textarea::placeholder {
   background: var(--subject-component-soft);
   color: var(--primary-strong);
 }
-.rail-kana {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin: 28px 8px 0;
-  padding-top: 24px;
+.rail-library {
+  display: grid;
+  gap: 2px;
+  margin-top: 20px;
+  padding-top: 14px;
   border-top: 1px solid var(--surface-border);
-  color: var(--subject-kana);
+}
+.rail-library .nav-link {
+  min-height: 40px;
+  padding-block: 8px;
   font-size: 13px;
 }
-.rail-kana svg {
-  flex-shrink: 0;
+.rail-library a[href="/kana"] {
+  color: var(--subject-kana);
 }
 .topbar {
   background: var(--background);
@@ -1757,7 +1760,7 @@ summary:focus-visible {
     border-top: 1px solid var(--surface-border);
   }
   .rail-brand,
-  .rail-kana {
+  .rail-library {
     display: none;
   }
   .app-rail .nav {
