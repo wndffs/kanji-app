@@ -15,23 +15,23 @@ the actual prompt and a reachable action, not only navigation and metadata.
 Use existing Lucide icons, Japanese material and original application assets.
 No new production dependency or externally hosted fonts/media are needed.
 
-| ID | Scope | Acceptance | State |
-| --- | --- | --- | --- |
-| 235 | Desktop destinations | Courses, kana, decks, practice and settings are directly reachable; current destination is marked; phone keeps five primary tabs | Implemented |
-| 236 | Overflow navigation | Arrow/Home/End navigation, Escape return, short-screen scrolling and icon labels work without duplicating primary navigation | Implemented |
-| 237 | Forecast summary | Dashboard exposes honest upcoming counts and the first populated bucket without opening the full forecast; empty/vacation states remain accurate | Implemented |
-| 238 | Dashboard targets | Whole actionable metric tiles are links, counters remain real, compact widgets do not stretch into large empty grid rows | Implemented |
-| 239 | Lesson selection | Selection count and Start remain reachable while editing a long group; limits, suggested selection and mandatory quiz are unchanged | Implemented |
-| 240 | Lesson phase navigation | Meaning/reading/context labels fit phones and large text; visited phases and current phase are visually distinct, without unlocking quiz answers | Implemented |
-| 241 | Review queue overview | Meaning/reading/listening counts summarize the actual queue; start action remains primary and does not alter review ordering or scheduling | Implemented |
-| 242 | Review feedback | Result has a clear icon/text identity and Continue remains reachable while details are expanded; retry/correction/typo/reveal semantics stay intact | Implemented |
-| 243 | Kana first viewport | Compact script/mode/mastery composition brings the actual exercise and action above phone navigation; mastery stays outside SRS | Implemented |
-| 244 | Kana lesson finder | Search lesson title/glyph/romaji, filter existing kana groups, clear an empty search, retain chosen lesson and script safely | Implemented |
-| 245 | Character filter recovery | Applied kanji filters and one-step reset are visible without losing the active script; filter/history/pagination remain correct | Implemented |
-| 246 | Reading utility | Explicit icon action copies only an already-visible kana reading, reports success/failure and never exposes a hidden reading | Implemented |
-| 247 | Search recovery | Failed search can retry the same submitted query/page/filters in place; no unsubmitted draft or stale response is substituted | Implemented |
-| 248 | Private library recovery | Retry a failed library read without losing the text-builder draft; empty filtered results have a clear reset action | Implemented |
-| 249 | Settings draft safety | Discard restores the last confirmed settings and preview; delayed load/save responses cannot overwrite another account or a later local edit | Implemented |
+| ID  | Scope                     | Acceptance                                                                                                                                          | State       |
+| --- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 235 | Desktop destinations      | Courses, kana, decks, practice and settings are directly reachable; current destination is marked; phone keeps five primary tabs                    | Implemented |
+| 236 | Overflow navigation       | Arrow/Home/End navigation, Escape return, short-screen scrolling and icon labels work without duplicating primary navigation                        | Implemented |
+| 237 | Forecast summary          | Dashboard exposes honest upcoming counts and the first populated bucket without opening the full forecast; empty/vacation states remain accurate    | Implemented |
+| 238 | Dashboard targets         | Whole actionable metric tiles are links, counters remain real, compact widgets do not stretch into large empty grid rows                            | Implemented |
+| 239 | Lesson selection          | Selection count and Start remain reachable while editing a long group; limits, suggested selection and mandatory quiz are unchanged                 | Implemented |
+| 240 | Lesson phase navigation   | Meaning/reading/context labels fit phones and large text; visited phases and current phase are visually distinct, without unlocking quiz answers    | Implemented |
+| 241 | Review queue overview     | Meaning/reading/listening counts summarize the actual queue; start action remains primary and does not alter review ordering or scheduling          | Implemented |
+| 242 | Review feedback           | Result has a clear icon/text identity and Continue remains reachable while details are expanded; retry/correction/typo/reveal semantics stay intact | Implemented |
+| 243 | Kana first viewport       | Compact script/mode/mastery composition brings the actual exercise and action above phone navigation; mastery stays outside SRS                     | Implemented |
+| 244 | Kana lesson finder        | Search lesson title/glyph/romaji, filter existing kana groups, clear an empty search, retain chosen lesson and script safely                        | Implemented |
+| 245 | Character filter recovery | Applied kanji filters and one-step reset are visible without losing the active script; filter/history/pagination remain correct                     | Implemented |
+| 246 | Reading utility           | Explicit icon action copies only an already-visible kana reading, reports success/failure and never exposes a hidden reading                        | Implemented |
+| 247 | Search recovery           | Failed search can retry the same submitted query/page/filters in place; no unsubmitted draft or stale response is substituted                       | Implemented |
+| 248 | Private library recovery  | Retry a failed library read without losing the text-builder draft; empty filtered results have a clear reset action                                 | Implemented |
+| 249 | Settings draft safety     | Discard restores the last confirmed settings and preview; delayed load/save responses cannot overwrite another account or a later local edit        | Implemented |
 
 ## Boundaries
 
@@ -51,4 +51,16 @@ After all fifteen tasks, push and verify CI, exact live web/API SHA, the bounded
 remote smoke and actual UI. Do not count overlapping reruns as extra coverage.
 Keep artifacts outside Git; stop owned test servers and close temporary IAB tabs.
 
-Implementation and release acceptance are pending.
+Implementation: 15/15 separate functional commits. Local acceptance: 40 relevant
+unit cases, changed-file lint, production build/typecheck and 269 passing learner
+browser cases with one intentional skip. These include keyboard menu controls,
+sound-group search, hidden-reading clipboard boundaries, query/library retries,
+cross-section discard and delayed settings load/save isolation (200/401).
+
+Batched repairs clarified the kana group's exact accessible label and scoped
+settings error assertions to the form rather than Next's route announcer. A
+load revision also invalidates obsolete setup requests. Visual inspection moved
+the default forecast to the top of a naturally packed second desktop column;
+personal layouts keep their own grid. The final dashboard rerun passed all 16
+cases (overlapping the broader batch). Cloud/live acceptance is pending. No new
+curriculum content is claimed.

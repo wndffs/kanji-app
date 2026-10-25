@@ -261,7 +261,12 @@ function SearchScreen({ token }: { readonly token: string | null }) {
         </div>
       )}
 
-      <SearchResults state={state} displayMode={displayMode} isAuthenticated={token !== null} onRetry={() => void runSearch(queryFromUrl, pageFromUrl)} />
+      <SearchResults
+        state={state}
+        displayMode={displayMode}
+        isAuthenticated={token !== null}
+        onRetry={() => void runSearch(queryFromUrl, pageFromUrl)}
+      />
       {state.status === "ready" &&
       (state.result.pagination.total > state.result.pagination.limit ||
         state.result.pagination.page > 1) ? (
@@ -334,7 +339,10 @@ function SearchResults({
     return (
       <div className="notice-panel error-panel">
         <p role="alert">{state.message}</p>
-        <button className="secondary-action" type="button" onClick={onRetry}><RotateCcw size={18} aria-hidden="true" />Повторить поиск</button>
+        <button className="secondary-action" type="button" onClick={onRetry}>
+          <RotateCcw size={18} aria-hidden="true" />
+          Повторить поиск
+        </button>
       </div>
     );
   }

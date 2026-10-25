@@ -364,6 +364,14 @@ test.describe("kana lessons", () => {
     await expect(yoonTile).toBeHidden();
     await page.getByText("Все уроки", { exact: true }).click();
     await expect(yoonTile).toBeVisible();
+    await page.getByLabel("Поиск урока", { exact: true }).fill("нет такого урока");
+    await expect(page.getByTestId("kana-unit-list").getByRole("button")).toHaveCount(0);
+    await page.getByRole("button", { name: "Сбросить поиск урока", exact: true }).click();
+    await expect(yoonTile).toBeVisible();
+    await page.getByLabel("Группа звуков", { exact: true }).selectOption("yoon");
+    await expect(yoonTile).toBeVisible();
+    await expect(practice).toContainText("あ");
+    await page.getByRole("button", { name: "Сбросить поиск урока", exact: true }).click();
     expect(await yoonTile.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
       true,
     );

@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, type Route, test } from "@playwright/test";
 
 import { DEFAULT_INTERFACE_PREFERENCES } from "@kanji-srs/shared";
 
@@ -6,11 +6,16 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("settings", () => {
-  test("discards unsaved edits across sections and restores the confirmed preview", async ({ page }) => {
+  test("discards unsaved edits across sections and restores the confirmed preview", async ({
+    page,
+  }) => {
     await signIn(page);
     let writes = 0;
     await page.route(`${API_BASE_URL}/auth/me`, (route) => route.fulfill({ json: createUser() }));
-    await page.route(`${API_BASE_URL}/users/settings`, (route) => { writes++; return route.fulfill({ json: createUser() }); });
+    await page.route(`${API_BASE_URL}/users/settings`, (route) => {
+      writes++;
+      return route.fulfill({ json: createUser() });
+    });
     await page.goto("/settings");
     await expect(page.getByLabel("Тема", { exact: true })).toBeEnabled();
     await page.getByLabel("Тема", { exact: true }).selectOption("dark");
@@ -20,49 +25,82 @@ test.describe("settings", () => {
     await page.getByRole("button", { name: "Отменить изменения", exact: true }).click();
     await expect(page.getByLabel("Новых материалов в день")).toHaveValue("20");
     await expect(page.locator("html")).toHaveAttribute("data-interface-theme", "system");
-    await expect(page.getByRole("button", { name: "Отменить изменения", exact: true })).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Отменить изменения", exact: true }),
+    ).toBeDisabled();
     expect(writes).toBe(0);
   });
 
-  for (const phase of ["load", "save"] as const) for (const status of [200, 401]) {
-    test(`ignores a replaced account's delayed settings ${phase} (${status})`, async ({ page }) => {
-      await signIn(page);
-      let release!: () => void;
-      let started!: () => void;
-      const gate = new Promise<void>((resolve) => { release = resolve; });
-      const seen = new Promise<void>((resolve) => { started = resolve; });
-      const nextUser = { ...createUser(), id: "next-user", email: "next@example.test", settings: { ...createUser().settings, interfaceTheme: "light" } };
-      const handle = async (route: import("@playwright/test").Route, held: boolean) => {
-        const older = route.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`;
-        if (older && held) { started(); await gate; }
-        await route.fulfill({ status: older && held ? status : 200, json: older && held && status === 401 ? { message: "Old settings session" } : older ? createUser() : nextUser });
-      };
-      await page.route(`${API_BASE_URL}/auth/me`, (route) => handle(route, phase === "load"));
-      await page.route(`${API_BASE_URL}/users/settings`, (route) => handle(route, phase === "save"));
-      await page.goto("/settings");
-      if (phase === "save") {
+  for (const phase of ["load", "save"] as const)
+    for (const status of [200, 401]) {
+      test(`ignores a replaced account's delayed settings ${phase} (${status})`, async ({
+        page,
+      }) => {
+        await signIn(page);
+        let release!: () => void;
+        let started!: () => void;
+        const gate = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        const seen = new Promise<void>((resolve) => {
+          started = resolve;
+        });
+        const nextUser = {
+          ...createUser(),
+          id: "next-user",
+          email: "next@example.test",
+          settings: { ...createUser().settings, interfaceTheme: "light" },
+        };
+        const handle = async (route: Route, held: boolean) => {
+          const older = route.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`;
+          if (older && held) {
+            started();
+            await gate;
+          }
+          await route.fulfill({
+            status: older && held ? status : 200,
+            json:
+              older && held && status === 401
+                ? { message: "Old settings session" }
+                : older
+                  ? createUser()
+                  : nextUser,
+          });
+        };
+        await page.route(`${API_BASE_URL}/auth/me`, (route) => handle(route, phase === "load"));
+        await page.route(`${API_BASE_URL}/users/settings`, (route) =>
+          handle(route, phase === "save"),
+        );
+        await page.goto("/settings");
+        if (phase === "save") {
+          await expect(page.getByLabel("Тема", { exact: true })).toBeEnabled();
+          await page.getByLabel("Тема", { exact: true }).selectOption("dark");
+          await page.getByRole("button", { name: "Сохранить", exact: true }).click();
+        }
+        await seen;
+        await page.evaluate((user) => {
+          localStorage.setItem("kanji-srs.accessToken", "next-token");
+          localStorage.setItem("kanji-srs.user", JSON.stringify(user));
+          window.dispatchEvent(new Event("kanji-srs.auth-changed"));
+        }, nextUser);
+        await expect(page.getByText("next@example.test", { exact: true })).toBeVisible();
         await expect(page.getByLabel("Тема", { exact: true })).toBeEnabled();
         await page.getByLabel("Тема", { exact: true }).selectOption("dark");
-        await page.getByRole("button", { name: "Сохранить", exact: true }).click();
-      }
-      await seen;
-      await page.evaluate((user) => {
-        localStorage.setItem("kanji-srs.accessToken", "next-token");
-        localStorage.setItem("kanji-srs.user", JSON.stringify(user));
-        window.dispatchEvent(new Event("kanji-srs.auth-changed"));
-      }, nextUser);
-      await expect(page.getByText("next@example.test", { exact: true })).toBeVisible();
-      await expect(page.getByLabel("Тема", { exact: true })).toBeEnabled();
-      await page.getByLabel("Тема", { exact: true }).selectOption("dark");
-      const response = page.waitForResponse((response) => response.request().headers().authorization === `Bearer ${ACCESS_TOKEN}` && response.url().includes(phase === "load" ? "/auth/me" : "/users/settings"));
-      release();
-      await (await response).finished();
-      await expect(page.getByLabel("Тема", { exact: true })).toHaveValue("dark");
-      await expect(page.locator("html")).toHaveAttribute("data-interface-theme", "dark");
-      expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe("next-token");
-      await expect(page.getByRole("alert")).toBeHidden();
-    });
-  }
+        const response = page.waitForResponse(
+          (response) =>
+            response.request().headers().authorization === `Bearer ${ACCESS_TOKEN}` &&
+            response.url().includes(phase === "load" ? "/auth/me" : "/users/settings"),
+        );
+        release();
+        await (await response).finished();
+        await expect(page.getByLabel("Тема", { exact: true })).toHaveValue("dark");
+        await expect(page.locator("html")).toHaveAttribute("data-interface-theme", "dark");
+        expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe(
+          "next-token",
+        );
+        await expect(page.locator(".settings-form").getByRole("alert")).toBeHidden();
+      });
+    }
   test("retains drafts between sections and reveals invalid hidden controls before saving", async ({
     page,
   }) => {

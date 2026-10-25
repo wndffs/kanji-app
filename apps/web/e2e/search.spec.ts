@@ -11,7 +11,9 @@ test.describe("search UI", () => {
     const requested: string[] = [];
     await page.route(`${API_BASE_URL}/search?*`, (route) => {
       requested.push(route.request().url());
-      return requested.length === 1 ? route.fulfill({ status: 503, json: { message: "Недоступно" } }) : route.fulfill({ json: buildSearchResponse("school") });
+      return requested.length === 1
+        ? route.fulfill({ status: 503, json: { message: "Недоступно" } })
+        : route.fulfill({ json: buildSearchResponse("school") });
     });
     await page.goto("/search?q=school&page=2&itemType=word&level=1");
     await expect(page.getByRole("button", { name: "Повторить поиск", exact: true })).toBeVisible();

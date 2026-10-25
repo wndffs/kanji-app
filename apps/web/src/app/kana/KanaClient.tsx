@@ -692,7 +692,12 @@ function OwnedKanaClient({
 
             {mode === "lessons" ? (
               <SectionDisclosure title="Все уроки" key={`units:${script}`}>
-                <KanaLessonFinder units={state.path.units} activeUnitId={activeUnitId} submitting={submitting} onStart={handleStartUnit} />
+                <KanaLessonFinder
+                  units={state.path.units}
+                  activeUnitId={activeUnitId}
+                  submitting={submitting}
+                  onStart={handleStartUnit}
+                />
               </SectionDisclosure>
             ) : (
               <SectionDisclosure title="Карта знаков" key={`map:${script}`}>

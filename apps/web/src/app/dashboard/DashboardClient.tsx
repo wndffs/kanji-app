@@ -434,7 +434,16 @@ function DashboardView({
           <p>Все виджеты скрыты. Откройте настройку панели, чтобы вернуть нужные блоки.</p>
         </div>
       ) : (
-        <div className="dashboard-widget-grid" data-composition={!customizationOpen && presentDashboardWidgets(dashboard.user.dashboardWidgets) !== dashboard.user.dashboardWidgets ? "daily" : "personal"}>
+        <div
+          className="dashboard-widget-grid"
+          data-composition={
+            !customizationOpen &&
+            presentDashboardWidgets(dashboard.user.dashboardWidgets) !==
+              dashboard.user.dashboardWidgets
+              ? "daily"
+              : "personal"
+          }
+        >
           {visibleWidgets.map((widget) => {
             const content = (
               <DashboardWidgetContent
@@ -450,7 +459,10 @@ function DashboardView({
                 data-dashboard-widget={widget.id}
                 key={widget.id}
               >
-                {customizationOpen || widget.id === "summary" || widget.id === "course-progress" || widget.id === "review-forecast" ? (
+                {customizationOpen ||
+                widget.id === "summary" ||
+                widget.id === "course-progress" ||
+                widget.id === "review-forecast" ? (
                   content
                 ) : (
                   <SectionDisclosure title={formatDashboardWidgetTitle(widget.id)}>
@@ -896,7 +908,12 @@ function DashboardWidgetContent({
         />
       );
     case "review-forecast":
-      return <ReviewForecastPanel forecast={dashboard.reviewForecast} vacationActive={readStoredSession()?.user.settings.vacationStartedAt != null} />;
+      return (
+        <ReviewForecastPanel
+          forecast={dashboard.reviewForecast}
+          vacationActive={readStoredSession()?.user.settings.vacationStartedAt != null}
+        />
+      );
     case "leech-candidates":
       return <LeechCandidatesPanel candidates={dashboard.leechCandidates} />;
     case "recent-review-stats":
@@ -1211,24 +1228,39 @@ function formatJourneyDate(value: string, timezone: string): string {
   }
 }
 
-function ReviewForecastPanel({ forecast, vacationActive }: { readonly forecast: DashboardDto["reviewForecast"]; readonly vacationActive: boolean }) {
+function ReviewForecastPanel({
+  forecast,
+  vacationActive,
+}: {
+  readonly forecast: DashboardDto["reviewForecast"];
+  readonly vacationActive: boolean;
+}) {
   const populated = forecast.filter((bucket) => bucket.dueCount > 0);
-  const renderBuckets = (buckets: typeof forecast) => <ol className="forecast-list" data-testid="forecast-list">
-    {buckets.map((bucket) => <li data-testid="forecast-bucket" key={bucket.bucketKey}>
-      <span>{formatForecastBucket(bucket)}</span>
-      <strong>{formatCount(bucket.dueCount, "карточка", "карточки", "карточек")}</strong>
-    </li>)}
-  </ol>;
+  const renderBuckets = (buckets: typeof forecast) => (
+    <ol className="forecast-list" data-testid="forecast-list">
+      {buckets.map((bucket) => (
+        <li data-testid="forecast-bucket" key={bucket.bucketKey}>
+          <span>{formatForecastBucket(bucket)}</span>
+          <strong>{formatCount(bucket.dueCount, "карточка", "карточки", "карточек")}</strong>
+        </li>
+      ))}
+    </ol>
+  );
   return (
     <section className="panel forecast-summary">
       <h2>Прогноз</h2>
-      {vacationActive ? <p className="muted">Режим отпуска: повторения приостановлены.</p> : populated.length === 0 ? (
+      {vacationActive ? (
+        <p className="muted">Режим отпуска: повторения приостановлены.</p>
+      ) : populated.length === 0 ? (
         <p className="muted">Нет запланированных повторений.</p>
-      ) : renderBuckets(populated.slice(0, 3))}
-      {(vacationActive && populated.length > 0) || populated.length > 3 ?
+      ) : (
+        renderBuckets(populated.slice(0, 3))
+      )}
+      {(vacationActive && populated.length > 0) || populated.length > 3 ? (
         <SectionDisclosure title={vacationActive ? "Сохранённые сроки" : "Остальные сроки"}>
           {renderBuckets(vacationActive ? populated : populated.slice(3))}
-        </SectionDisclosure> : null}
+        </SectionDisclosure>
+      ) : null}
     </section>
   );
 }
@@ -1859,13 +1891,28 @@ function MetricCard({
   readonly href?: string;
   readonly tone: string;
 }) {
-  const content = <>
+  const content = (
+    <>
       <Icon size={20} aria-hidden="true" />
       <span>{label}</span>
       <strong>
-        {value}{href ? <ArrowRight size={16} aria-hidden="true" /> : null}
+        {value}
+        {href ? <ArrowRight size={16} aria-hidden="true" /> : null}
       </strong>
-  </>;
-  return href ? <Link className="metric-card metric-card-link" data-tone={tone} href={href} aria-label={`${label}: ${value}`}>{content}</Link>
-    : <article className="metric-card" data-tone={tone}>{content}</article>;
+    </>
+  );
+  return href ? (
+    <Link
+      className="metric-card metric-card-link"
+      data-tone={tone}
+      href={href}
+      aria-label={`${label}: ${value}`}
+    >
+      {content}
+    </Link>
+  ) : (
+    <article className="metric-card" data-tone={tone}>
+      {content}
+    </article>
+  );
 }

@@ -808,9 +808,15 @@ export function LessonsClient() {
           />
         </SectionDisclosure>
         <div className="lesson-selection-bar">
-          <span data-testid="lesson-selection-summary">Выбрано <strong>{selectedLessons.length}</strong> / {queueState.batchLimit}</span>
-          <button className="primary-action" disabled={isStarting || selectedLessons.length === 0}
-            onClick={() => void handleStartSession()} type="button">
+          <span data-testid="lesson-selection-summary">
+            Выбрано <strong>{selectedLessons.length}</strong> / {queueState.batchLimit}
+          </span>
+          <button
+            className="primary-action"
+            disabled={isStarting || selectedLessons.length === 0}
+            onClick={() => void handleStartSession()}
+            type="button"
+          >
             {isStarting ? "Начинаю..." : "Начать урок"}
           </button>
         </div>
@@ -1149,9 +1155,13 @@ function LessonStudyView({
   const nextPhase = phases[phaseIndex + 1];
   const [visited, setVisited] = useState({ itemId: lesson.item.id, phases: [phase] });
   useEffect(() => {
-    setVisited((current) => current.itemId !== lesson.item.id
-      ? { itemId: lesson.item.id, phases: [phase] }
-      : current.phases.includes(phase) ? current : { ...current, phases: [...current.phases, phase] });
+    setVisited((current) =>
+      current.itemId !== lesson.item.id
+        ? { itemId: lesson.item.id, phases: [phase] }
+        : current.phases.includes(phase)
+          ? current
+          : { ...current, phases: [...current.phases, phase] },
+    );
   }, [lesson.item.id, phase]);
   const showsMemory = mnemonicGroups.length > 0 || hintGroups.length > 0;
   const pronunciationText = getLessonPronunciationText(lesson);
@@ -1169,7 +1179,13 @@ function LessonStudyView({
             aria-controls="lesson-study-phase"
             aria-selected={phase === candidate}
             aria-label={formatStudyPhase(candidate)}
-            data-phase-state={phase === candidate ? "current" : visited.itemId === lesson.item.id && visited.phases.includes(candidate) ? "visited" : "upcoming"}
+            data-phase-state={
+              phase === candidate
+                ? "current"
+                : visited.itemId === lesson.item.id && visited.phases.includes(candidate)
+                  ? "visited"
+                  : "upcoming"
+            }
             disabled={navigationPending}
             id={`lesson-phase-${candidate}`}
             key={candidate}
@@ -1177,7 +1193,15 @@ function LessonStudyView({
             role="tab"
             type="button"
           >
-            <span aria-hidden="true">{phase !== candidate && visited.itemId === lesson.item.id && visited.phases.includes(candidate) ? <Check size={14} /> : index + 1}</span>
+            <span aria-hidden="true">
+              {phase !== candidate &&
+              visited.itemId === lesson.item.id &&
+              visited.phases.includes(candidate) ? (
+                <Check size={14} />
+              ) : (
+                index + 1
+              )}
+            </span>
             {formatStudyPhase(candidate)}
           </button>
         ))}

@@ -3,7 +3,14 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { type ReactNode, type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type KeyboardEvent as ReactKeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   ArrowLeft,
   LogOut,
@@ -142,9 +149,14 @@ export function AppShell({ children }: AppShellProps) {
     if (!menu.open && (event.key === "Home" || event.key === "End")) return;
     event.preventDefault();
     menu.open = true;
-    const next = event.key === "Home" ? 0 : event.key === "End" ? links.length - 1
-      : event.key === "ArrowDown" ? (index + 1) % links.length
-      : (index <= 0 ? links.length : index) - 1;
+    const next =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? links.length - 1
+          : event.key === "ArrowDown"
+            ? (index + 1) % links.length
+            : (index <= 0 ? links.length : index) - 1;
     links[next]?.focus();
   }
 
@@ -181,12 +193,22 @@ export function AppShell({ children }: AppShellProps) {
                 })}
             </nav>
             <nav className="rail-library" aria-label="Библиотека и настройки">
-              {secondaryNavigation.filter((item) => !item.adminOnly || role === "ADMIN").map((item) => {
-                const Icon = NAV_ICONS[item.href] ?? BookOpen;
-                return <Link className="nav-link" href={item.href} key={item.href} aria-current={isActivePath(pathname, item.href) ? "page" : undefined}>
-                  <Icon size={18} aria-hidden="true" /><span>{item.label}</span>
-                </Link>;
-              })}
+              {secondaryNavigation
+                .filter((item) => !item.adminOnly || role === "ADMIN")
+                .map((item) => {
+                  const Icon = NAV_ICONS[item.href] ?? BookOpen;
+                  return (
+                    <Link
+                      className="nav-link"
+                      href={item.href}
+                      key={item.href}
+                      aria-current={isActivePath(pathname, item.href) ? "page" : undefined}
+                    >
+                      <Icon size={18} aria-hidden="true" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
             </nav>
           </aside>
         ) : null}
@@ -216,8 +238,15 @@ export function AppShell({ children }: AppShellProps) {
             )}
             <div className="topbar-actions">
               {focusTitle === null ? (
-                <details className="nav-overflow" ref={menuRef} onKeyDown={handleMenuKeyDown}
-                  onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false; }}>
+                <details
+                  className="nav-overflow"
+                  ref={menuRef}
+                  onKeyDown={handleMenuKeyDown}
+                  onBlur={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget))
+                      event.currentTarget.open = false;
+                  }}
+                >
                   <summary
                     role="button"
                     aria-label="Другие разделы"
@@ -232,14 +261,16 @@ export function AppShell({ children }: AppShellProps) {
                       .map((item) => {
                         const Icon = NAV_ICONS[item.href] ?? BookOpen;
                         return (
-                        <Link
-                          aria-current={isActivePath(pathname, item.href) ? "page" : undefined}
-                          href={item.href}
-                          key={item.href}
-                        >
-                          <Icon size={17} aria-hidden="true" />{item.label}
-                        </Link>
-                      ); })}
+                          <Link
+                            aria-current={isActivePath(pathname, item.href) ? "page" : undefined}
+                            href={item.href}
+                            key={item.href}
+                          >
+                            <Icon size={17} aria-hidden="true" />
+                            {item.label}
+                          </Link>
+                        );
+                      })}
                   </nav>
                 </details>
               ) : null}

@@ -26,7 +26,9 @@ test.describe("lesson session", () => {
     await optionalLesson.check();
     await expect(page.getByText(/Группа: 2 из 5/)).toBeVisible();
     await expect(page.getByTestId("lesson-selection-summary")).toHaveText("Выбрано 2 / 5");
-    const start = (await page.getByRole("button", { name: "Начать урок", exact: true }).boundingBox())!;
+    const start = (await page
+      .getByRole("button", { name: "Начать урок", exact: true })
+      .boundingBox())!;
     if (test.info().project.name === "mobile") {
       const nav = (await page.locator(".app-rail").boundingBox())!;
       expect(start.y + start.height).toBeLessThan(nav.y);
@@ -74,7 +76,10 @@ test.describe("lesson session", () => {
       "true",
     );
     await expect(page.getByRole("heading", { name: "Чтения" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Значение", exact: true })).toHaveAttribute("data-phase-state", "visited");
+    await expect(page.getByRole("tab", { name: "Значение", exact: true })).toHaveAttribute(
+      "data-phase-state",
+      "visited",
+    );
     const phaseTabs = await page.locator(".lesson-phase-tabs").boundingBox();
     const phaseEnd = await page.getByRole("tab", { name: "Контекст", exact: true }).boundingBox();
     expect(phaseEnd!.x + phaseEnd!.width).toBeLessThanOrEqual(phaseTabs!.x + phaseTabs!.width + 1);

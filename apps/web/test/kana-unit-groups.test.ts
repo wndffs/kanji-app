@@ -26,7 +26,8 @@ const units: readonly KanaLessonUnitDto[] = [
 ];
 describe("kana chart groups", () => {
   it("finds title, glyph and normalized romaji while returning the original locked unit", () => {
-    for (const query of ["fixture", "が", " ＧＡ "]) expect(findKanaLessonUnits(units, query, "dakuten")[0]).toBe(units[0]);
+    for (const query of ["fixture", "が", " ＧＡ "])
+      expect(findKanaLessonUnits(units, query, "dakuten")[0]).toBe(units[0]);
     expect(findKanaLessonUnits(units, "が", "basic")).toEqual([]);
     expect(findKanaLessonUnits(units, "absent", "all")).toEqual([]);
     expect(findKanaLessonUnits(units, "", "all")[0]?.items).toBe(units[0]?.items);

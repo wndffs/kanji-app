@@ -23,6 +23,11 @@ test.describe("dashboard smoke", () => {
     );
     await page.goto("/dashboard");
     await expect(page.locator(".dashboard-heading .primary-action")).toHaveCount(1);
+    await expect(page.locator("a.metric-card-link")).toHaveCount(2);
+    if (test.info().project.name === "desktop")
+      await expect(page.getByRole("heading", { name: "Прогноз", exact: true })).toBeInViewport({
+        ratio: 1,
+      });
     await expect(page.getByRole("heading", { name: "Баланс нагрузки", exact: true })).toBeHidden();
     await page.locator('[data-dashboard-widget="workload"] > details > summary').click();
     await expect(page.getByRole("heading", { name: "Баланс нагрузки", exact: true })).toBeVisible();

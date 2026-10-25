@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-test("direct desktop destinations and mobile overflow remain keyboard reachable", async ({ page }) => {
+test("direct desktop destinations and mobile overflow remain keyboard reachable", async ({
+  page,
+}) => {
   await page.goto("/search");
   const library = page.getByRole("navigation", { name: "Библиотека и настройки", exact: true });
   if (test.info().project.name === "desktop") {
@@ -18,7 +20,9 @@ test("direct desktop destinations and mobile overflow remain keyboard reachable"
   await expect(menu.getByRole("link", { name: "Кана", exact: true })).toBeFocused();
   await page.keyboard.press("End");
   await expect(menu.getByRole("link", { name: "Настройки", exact: true })).toBeFocused();
-  await expect(menu.getByRole("link", { name: "Настройки", exact: true })).toBeInViewport({ ratio: 1 });
+  await expect(menu.getByRole("link", { name: "Настройки", exact: true })).toBeInViewport({
+    ratio: 1,
+  });
   await page.keyboard.press("Home");
   await expect(menu.getByRole("link", { name: "Кана", exact: true })).toBeFocused();
   await page.keyboard.press("Escape");

@@ -132,7 +132,10 @@ test.describe("character hub", () => {
     await page.screenshot({ path: test.info().outputPath("character-catalog.png") });
     await page.getByRole("button", { name: "Убрать фильтр: Уровень 2", exact: true }).click();
     await expect(page.getByLabel("Уровень", { exact: true })).toHaveValue("");
-    await expect(page.getByRole("tab", { name: "Кандзи", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tab", { name: "Кандзи", exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     await page.goBack();
     await expect(page.getByLabel("Уровень", { exact: true })).toHaveValue("2");
   });

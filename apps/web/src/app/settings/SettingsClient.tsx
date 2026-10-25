@@ -102,8 +102,19 @@ const MAX_REVIEW_BUDGET = 1_000;
 
 export function SettingsClient() {
   const session = useStoredSession();
-  if (session === undefined) return <section className="page-stack" aria-busy="true"><h1>Настройки</h1><p>Загружаю настройки.</p></section>;
-  return <SettingsScreen key={session === null ? "guest" : `${session.user.id}:${session.token}`} ownerToken={session?.token ?? null} />;
+  if (session === undefined)
+    return (
+      <section className="page-stack" aria-busy="true">
+        <h1>Настройки</h1>
+        <p>Загружаю настройки.</p>
+      </section>
+    );
+  return (
+    <SettingsScreen
+      key={session === null ? "guest" : `${session.user.id}:${session.token}`}
+      ownerToken={session?.token ?? null}
+    />
+  );
 }
 
 function SettingsScreen({ ownerToken }: { readonly ownerToken: string | null }) {
@@ -112,8 +123,11 @@ function SettingsScreen({ ownerToken }: { readonly ownerToken: string | null }) 
   const [form, setForm] = useState<SettingsForm>(() => createLocalSettingsForm());
   const [savedForm, setSavedForm] = useState<SettingsForm>(() => createLocalSettingsForm());
   const alive = useRef(true);
+  const loadRevision = useRef(0);
   const isCurrent = () => alive.current && (readStoredSession()?.token ?? null) === ownerToken;
-  const dirty = (Object.keys(form) as (keyof SettingsForm)[]).some((key) => form[key] !== savedForm[key]);
+  const dirty = (Object.keys(form) as (keyof SettingsForm)[]).some(
+    (key) => form[key] !== savedForm[key],
+  );
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "saved" | "error">(
     "loading",
   );
@@ -151,6 +165,7 @@ function SettingsScreen({ ownerToken }: { readonly ownerToken: string | null }) 
   useEffect(() => {
     const session = readStoredSession();
     alive.current = true;
+    const revision = ++loadRevision.current;
     setReminderPermission(reviewReminderPermission());
     const localForm = createLocalSettingsForm();
     setForm(localForm);
@@ -160,6 +175,7 @@ function SettingsScreen({ ownerToken }: { readonly ownerToken: string | null }) 
       setStatus("idle");
       return () => {
         alive.current = false;
+        loadRevision.current++;
         permissionRequest.current++;
       };
     }
@@ -170,7 +186,12 @@ function SettingsScreen({ ownerToken }: { readonly ownerToken: string | null }) 
 
     getCurrentUser(session.token)
       .then((currentUser) => {
-        if (!alive.current || readStoredSession()?.token !== session.token) return;
+        if (
+          !alive.current ||
+          revision !== loadRevision.current ||
+          readStoredSession()?.token !== session.token
+        )
+          return;
         setUser(currentUser);
         setForm(createSettingsForm(currentUser.settings));
         setSavedForm(createSettingsForm(currentUser.settings));
@@ -178,7 +199,12 @@ function SettingsScreen({ ownerToken }: { readonly ownerToken: string | null }) 
         setStatus("idle");
       })
       .catch((loadError: unknown) => {
-        if (!alive.current || readStoredSession()?.token !== session.token) return;
+        if (
+          !alive.current ||
+          revision !== loadRevision.current ||
+          readStoredSession()?.token !== session.token
+        )
+          return;
         setError(
           loadError instanceof Error ? loadError.message : "Не удалось загрузить настройки.",
         );
@@ -186,13 +212,14 @@ function SettingsScreen({ ownerToken }: { readonly ownerToken: string | null }) 
       });
     return () => {
       alive.current = false;
+      loadRevision.current++;
       permissionRequest.current++;
     };
   }, []);
 
   function updateForm<Key extends keyof SettingsForm>(key: Key, value: SettingsForm[Key]): void {
     if (!isCurrent()) return;
-    setStatus((current) => current === "saved" ? "idle" : current);
+    setStatus((current) => (current === "saved" ? "idle" : current));
     setForm((previous) => ({
       ...previous,
       [key]: value,
@@ -201,7 +228,14 @@ function SettingsScreen({ ownerToken }: { readonly ownerToken: string | null }) 
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (!isCurrent() || permissionPending || status === "loading" || status === "saving" || isVacationUpdating) return;
+    if (
+      !isCurrent() ||
+      permissionPending ||
+      status === "loading" ||
+      status === "saving" ||
+      isVacationUpdating
+    )
+      return;
     setReminderPermission(reviewReminderPermission());
     setStatus("saving");
     setError(null);
@@ -644,7 +678,9 @@ function SettingsScreen({ ownerToken }: { readonly ownerToken: string | null }) 
           )}
         </fieldset>
         <div className="settings-save-bar">
-          {dirty && status !== "saving" ? <span className="settings-dirty">Есть изменения</span> : null}
+          {dirty && status !== "saving" ? (
+            <span className="settings-dirty">Есть изменения</span>
+          ) : null}
           {status === "loading" ? <p className="muted">Загружаю настройки.</p> : null}
           {status === "saved" ? <p className="success-text">Сохранено.</p> : null}
           {error === null ? null : (
@@ -654,14 +690,32 @@ function SettingsScreen({ ownerToken }: { readonly ownerToken: string | null }) 
           )}
           <button
             className="primary-action"
-            disabled={status === "loading" || status === "saving" || permissionPending}
+            disabled={
+              status === "loading" || status === "saving" || permissionPending || isVacationUpdating
+            }
             type="submit"
           >
             {status === "saving" ? "Сохраняю" : "Сохранить"}
           </button>
-          <button className="secondary-action" type="button" disabled={!dirty || status === "loading" || status === "saving" || permissionPending || isVacationUpdating}
-            onClick={() => { if (!isCurrent()) return; setForm(savedForm); setError(null); setStatus("idle"); }}>
-            <RotateCcw size={16} aria-hidden="true" />Отменить изменения
+          <button
+            className="secondary-action"
+            type="button"
+            disabled={
+              !dirty ||
+              status === "loading" ||
+              status === "saving" ||
+              permissionPending ||
+              isVacationUpdating
+            }
+            onClick={() => {
+              if (!isCurrent()) return;
+              setForm(savedForm);
+              setError(null);
+              setStatus("idle");
+            }}
+          >
+            <RotateCcw size={16} aria-hidden="true" />
+            Отменить изменения
           </button>
           {user === null ? (
             <Link className="inline-link" href="/login">

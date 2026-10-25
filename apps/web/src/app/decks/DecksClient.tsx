@@ -486,7 +486,8 @@ function SavedDecksPanel({
     state.status === "ready"
       ? sortDeckSummaries(state.decks).filter(
           (deck) =>
-            (status === "all" || (status === "archived" ? deck.status === "archived" : deck.status !== "archived")) &&
+            (status === "all" ||
+              (status === "archived" ? deck.status === "archived" : deck.status !== "archived")) &&
             deck.title.toLocaleLowerCase("ru").includes(query.trim().toLocaleLowerCase("ru")),
         )
       : [];
@@ -526,8 +527,14 @@ function SavedDecksPanel({
         </p>
       ) : null}
 
-      {state.status === "error" ? <div className="notice-panel error-panel"><p role="alert">{state.message}</p>
-        <button className="secondary-action" type="button" onClick={onRetry}>Повторить загрузку колод</button></div> : null}
+      {state.status === "error" ? (
+        <div className="notice-panel error-panel">
+          <p role="alert">{state.message}</p>
+          <button className="secondary-action" type="button" onClick={onRetry}>
+            Повторить загрузку колод
+          </button>
+        </div>
+      ) : null}
 
       {state.status === "ready" && visibleDecks.length === 0 ? (
         <p className="muted">
@@ -538,8 +545,21 @@ function SavedDecksPanel({
       ) : null}
 
       <div id="deck-library-results" role="tabpanel" aria-labelledby={`deck-library-${status}`}>
-        {state.status === "ready" && state.decks.length > 0 && visibleDecks.length === 0 && (query !== "" || status !== "all") ?
-          <button className="secondary-action" type="button" onClick={() => { setQuery(""); setStatus("all"); }}>Сбросить поиск колод</button> : null}
+        {state.status === "ready" &&
+        state.decks.length > 0 &&
+        visibleDecks.length === 0 &&
+        (query !== "" || status !== "all") ? (
+          <button
+            className="secondary-action"
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setStatus("all");
+            }}
+          >
+            Сбросить поиск колод
+          </button>
+        ) : null}
         {state.status === "ready" && visibleDecks.length > 0 ? (
           <ul className="saved-deck-list">
             {visibleDecks.map((deck) => {

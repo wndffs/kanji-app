@@ -30,12 +30,22 @@ export function filterKanaUnits(
   });
 }
 
-export function findKanaLessonUnits(units: readonly KanaLessonUnitDto[], query: string, group: KanaVariant | "all") {
+export function findKanaLessonUnits(
+  units: readonly KanaLessonUnitDto[],
+  query: string,
+  group: KanaVariant | "all",
+) {
   const normalize = (value: string) => value.normalize("NFKC").trim().toLocaleLowerCase("ru-RU");
   const needle = normalize(query);
   return units.filter((unit) => {
     const eligible = unit.items.filter((item) => group === "all" || item.variant === group);
-    return eligible.length > 0 && (normalize(unit.title).includes(needle) || eligible.some((item) =>
-      normalize(item.character).includes(needle) || normalize(item.romaji).includes(needle)));
+    return (
+      eligible.length > 0 &&
+      (normalize(unit.title).includes(needle) ||
+        eligible.some(
+          (item) =>
+            normalize(item.character).includes(needle) || normalize(item.romaji).includes(needle),
+        ))
+    );
   });
 }
