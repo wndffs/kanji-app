@@ -10,6 +10,7 @@ import { JapaneseText } from "../../components/JapaneseText";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { courseItemHref, type CourseBrowserRoute } from "../../lib/course-browser-route";
 import { CourseLevelProgress } from "./CourseLevelProgress";
+import { CourseCardProgress } from "./CourseCardProgress";
 
 export function CourseLevelMaterials({
   token,
@@ -171,6 +172,7 @@ export function CourseLevelMaterials({
                       {new Date(item.nextReviewAt).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                     </time> : null}
                   </Link>
+                  <CourseCardProgress cards={item.progressCards ?? []} japanese={item.japanese} />
                 </li>
               ))}
             </ul>

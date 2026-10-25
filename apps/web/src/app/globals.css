@@ -6607,19 +6607,28 @@ html
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 9rem), 1fr));
   gap: 0.6rem;
 }
+.course-material-grid > li {
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  min-width: 0;
+}
 .course-material-grid li a {
   display: flex;
   flex-direction: column;
   justify-content: center;
   min-height: 7rem;
-  height: 100%;
   gap: 0.4rem;
-  border: 1px solid var(--surface-border);
-  border-radius: 6px;
   padding: 0.75rem;
   text-decoration: none;
   overflow-wrap: anywhere;
 }
+.course-card-progress {
+  padding: 0 12px 12px;
+  font-size: 13px;
+}
+.course-card-progress summary { cursor: pointer; color: var(--muted); }
+.course-card-progress ul { list-style: none; margin: 8px 0 0; padding: 0; }
+.course-card-progress li { display: grid; gap: 3px; margin: 0 0 8px; }
 .course-material-grid .course-material-japanese {
   font-size: 1.5rem;
 }
