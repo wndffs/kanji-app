@@ -27,6 +27,38 @@ export type CourseMaterialDto = {
   readonly burnedCardCount: number;
 };
 export type CourseMaterialStudyState = "not-started" | "learning" | "burned";
+export type CourseReviewFilter = "due" | "scheduled";
+export type CourseReviewTimeline = {
+  readonly dueCardCount: number;
+  readonly scheduledCardCount: number;
+  readonly nextReviewAt: string | null;
+};
+
+export function courseReviewTimeline(
+  cards: readonly {
+    readonly started: boolean;
+    readonly burned: boolean;
+    readonly availableAt: string | null;
+  }[],
+  now: number,
+): CourseReviewTimeline {
+  let dueCardCount = 0;
+  let scheduledCardCount = 0;
+  let earliest = Infinity;
+  for (const card of cards) {
+    if (!card.started || card.burned || card.availableAt === null) continue;
+    const time = Date.parse(card.availableAt);
+    if (!Number.isFinite(time)) continue;
+    if (time <= now) dueCardCount += 1;
+    else scheduledCardCount += 1;
+    earliest = Math.min(earliest, time);
+  }
+  return {
+    dueCardCount,
+    scheduledCardCount,
+    nextReviewAt: Number.isFinite(earliest) ? new Date(earliest).toISOString() : null,
+  };
+}
 export function courseMaterialStudyState(
   cards: readonly { readonly started: boolean; readonly burned: boolean }[],
 ): CourseMaterialStudyState {
