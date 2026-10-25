@@ -342,6 +342,13 @@ test.describe("kana lessons", () => {
     await expect(page.getByRole("heading", { name: "Кана" })).toBeVisible();
     await expect(practice).toContainText("あ");
     await expect(practice).toContainText("a");
+    if (test.info().project.name === "mobile") {
+      const action = practice.getByRole("button", { name: "Проверить чтение", exact: true });
+      await expect(action).toBeInViewport({ ratio: 1 });
+      const button = (await action.boundingBox())!;
+      const navigation = (await page.locator(".app-rail").boundingBox())!;
+      expect(button.y + button.height).toBeLessThan(navigation.y);
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );

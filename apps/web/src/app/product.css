@@ -1640,11 +1640,26 @@ textarea::placeholder {
     padding: 16px;
   }
   .main[data-page="kana"] .kana-practice {
-    padding: 20px 16px;
-  }
-  .kana-heading {
+    padding: 16px;
+    min-height: 300px;
+    align-content: start;
     gap: 16px;
   }
+  .kana-page { gap: 16px; }
+  .kana-heading {
+    gap: 10px;
+  }
+  .kana-script-mark { width: 36px; height: 36px; flex-basis: 36px; font-size: 24px; }
+  .kana-page .kana-progress-summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding-bottom: 12px;
+  }
+  .kana-progress-summary > div:first-child { justify-content: start; gap: 12px; }
+  .kana-progress-summary strong { font-size: 18px; }
+  .kana-progress-summary > small { grid-column: 2; grid-row: 1; align-self: center; }
+  .kana-progress-summary > .kana-progress-track { grid-column: 1 / -1; grid-row: 2; height: 6px; }
+  .kana-teaching-step { gap: 12px; }
   .kana-script-control {
     width: 100%;
   }

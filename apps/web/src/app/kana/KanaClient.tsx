@@ -544,7 +544,7 @@ function OwnedKanaClient({
   const progressPercent = Math.round((state.path.masteredCount / state.path.totalCount) * 100);
 
   return (
-    <section className="page-stack kana-page" data-script={script}>
+    <section className="page-stack kana-page" data-script={script} data-mode={mode}>
       <div className="page-heading kana-heading">
         <div>
           <span className="kana-script-mark" lang="ja" aria-hidden="true">
