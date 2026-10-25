@@ -31,7 +31,7 @@ meaning/reading phases. Do not reveal quiz answers early.
 | 223 | Lessons | Clean queue selection, subject hierarchy, focused study and mandatory quiz | Implemented |
 | 224 | Reviews and practice | Stable prompt/answer/feedback composition without answer leakage or SRS changes | Implemented |
 | 225 | Kana and character hub | Distinct script controls, clear mastery path, readable exercise/character surfaces | Implemented |
-| 226 | Item details | Japanese/reading/meaning hierarchy, accessible tabs and optional personal/source details | Pending |
+| 226 | Item details | Japanese/reading/meaning hierarchy, accessible tabs and optional personal/source details | Implemented |
 | 227 | Courses | Compact catalog and level workspace, subject accents, preserved search/filter/history | Pending |
 | 228 | Search | Search-first layout, compact bilingual results, restrained filters and metadata | Pending |
 | 229 | Decks | Scannable private library and text-mining workspace without nested panels | Pending |

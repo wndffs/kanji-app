@@ -180,6 +180,29 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .character-hub-kanji-grid { grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px; }
 .character-hub-kanji-grid > li { background: var(--surface); border-radius: 8px; border: 1px solid var(--surface-border); }
 .character-hub-kanji-character { color: var(--subject-kanji); }
+.item-page { gap: 24px; }
+.main[data-page="items"] .item-hero, .main[data-page="kanji"] .item-hero {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 0.7fr); gap: 32px;
+  border: 0; border-radius: 0; padding: 28px; background: var(--subject-soft, var(--surface-strong));
+}
+.item-hero-main { align-items: start; text-align: left; }
+.item-hero-main h1 { color: var(--subject-ink, var(--foreground)); margin: 10px 0; }
+.item-hero-main > p { font-size: 22px; font-weight: 550; margin: 8px 0 0; }
+.item-hero .lesson-facts { align-content: center; gap: 12px 20px; }
+.item-hero .lesson-facts > div { border: 0; background: transparent; padding: 0; }
+.item-hero .lesson-facts dt { font-size: 11px; font-weight: 500; }
+.item-hero .lesson-facts dd { font-size: 14px; font-weight: 600; }
+.item-hero .lesson-facts [data-fact="reading"] { grid-column: 1 / -1; }
+.item-hero .lesson-facts [data-fact="reading"] dd { font-size: 24px; color: var(--subject-ink, var(--foreground)); }
+.item-page > .checkbox-row { justify-self: end; font-size: 12px; margin: 0; }
+.item-page .item-layout { gap: 32px; }
+.item-page .content-block { border: 0; border-radius: 0; padding: 0; background: none; }
+.item-tab-content > section { border-bottom: 1px solid var(--surface-border); padding-bottom: 20px; }
+.item-page .card-answer-grid > article { border: 0; padding: 16px 0; border-bottom: 1px solid var(--surface-border); border-radius: 0; background: none; }
+.item-page .stroke-svg-frame { background: var(--surface); border: 1px solid var(--surface-border); }
+.item-page .private-item-form { gap: 14px; }
+.item-page .private-item-form textarea { min-height: 120px; }
+.item-page .item-confusable-panel { border-bottom: 1px solid var(--surface-border); padding-bottom: 20px; }
 @media (max-width: 900px) {
   .app-shell { padding-left: 0; }
   .app-rail { inset: auto 0 0; width: 100%; height: calc(64px + env(safe-area-inset-bottom)); padding: 0 8px env(safe-area-inset-bottom); border: 0; border-top: 1px solid var(--surface-border); }

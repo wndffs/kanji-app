@@ -535,7 +535,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
   );
 
   return (
-    <section className="item-page">
+    <section className="item-page" data-item-type={item.itemType}>
       {item.reading === null &&
       item.cards.every((card) => card.answerType !== "reading") &&
       item.exampleSentences.every((sentence) => sentence.readingText === null) ? null : (
@@ -566,7 +566,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
         </div>
         <dl className="lesson-facts">
           {reading.kana === null && !readingHidden ? null : (
-            <div>
+            <div data-fact="reading">
               <dt>Чтение</dt>
               <dd>
                 {readingHidden ? (
@@ -584,7 +584,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
             </div>
           )}
           {reading.romaji === null ? null : (
-            <div>
+            <div data-fact="romaji">
               <dt>Ромадзи</dt>
               <dd>{reading.romaji}</dd>
             </div>
