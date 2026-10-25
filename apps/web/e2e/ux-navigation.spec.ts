@@ -13,6 +13,12 @@ test("direct desktop destinations and mobile overflow remain keyboard reachable"
     await expect(library).toBeHidden();
   }
   await page.setViewportSize({ width: 390, height: 360 });
+  const rail = page.locator(".app-rail");
+  expect(
+    await rail.evaluate(
+      (element) => element.clientWidth === Math.round(element.getBoundingClientRect().width),
+    ),
+  ).toBe(true);
   const trigger = page.getByRole("button", { name: "Другие разделы", exact: true });
   await trigger.focus();
   await page.keyboard.press("ArrowDown");
