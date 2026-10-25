@@ -28,7 +28,7 @@ meaning/reading phases. Do not reveal quiz answers early.
 | 220 | Visual foundations | Shared multi-hue light/dark tokens, typography and form/action primitives | Implemented |
 | 221 | Application navigation | Desktop rail, mobile bottom navigation, active routes and focus-shell preservation | Implemented |
 | 222 | Dashboard | One clear daily action, linked counters and scannable course progress | Implemented |
-| 223 | Lessons | Clean queue selection, subject hierarchy, focused study and mandatory quiz | Pending |
+| 223 | Lessons | Clean queue selection, subject hierarchy, focused study and mandatory quiz | Implemented |
 | 224 | Reviews and practice | Stable prompt/answer/feedback composition without answer leakage or SRS changes | Pending |
 | 225 | Kana and character hub | Distinct script controls, clear mastery path, readable exercise/character surfaces | Pending |
 | 226 | Item details | Japanese/reading/meaning hierarchy, accessible tabs and optional personal/source details | Pending |

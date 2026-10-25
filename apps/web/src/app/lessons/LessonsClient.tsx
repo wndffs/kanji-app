@@ -791,7 +791,7 @@ export function LessonsClient() {
         )}
         <ul aria-label="Выбранные материалы" className="recommended-group">
           {selectedLessons.map(({ item }) => (
-            <li key={item.id}>
+            <li key={item.id} data-item-type={item.itemType}>
               <JapaneseText as="strong">{item.japanese}</JapaneseText>
               <span>{formatTranslationBundle(item.translations, activeDisplayMode)}</span>
             </li>
@@ -834,7 +834,7 @@ export function LessonsClient() {
   }
 
   return (
-    <section className="lesson-session" aria-label="Сессия урока">
+    <section className="lesson-session" aria-label="Сессия урока" data-item-type={currentLesson.item.itemType}>
       <header className="lesson-session-header">
         <div>
           <span className="eyebrow">{progressLabel}</span>
@@ -1083,6 +1083,7 @@ function LessonPicker({
           return (
             <label
               className={`lesson-preview-card${isSelected ? " lesson-preview-card-selected" : ""}`}
+              data-item-type={lesson.item.itemType}
               key={lesson.item.id}
             >
               <input
