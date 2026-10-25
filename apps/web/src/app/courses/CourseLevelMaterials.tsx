@@ -24,8 +24,8 @@ export function CourseLevelMaterials({
   readonly onNavigate: (route: CourseBrowserRoute) => void;
 }) {
   const displayMode = useTranslationDisplayMode();
-  const { page, itemType, studyState } = route;
-  const requestKey = `${levelNumber}:${page}:${itemType}:${studyState}`;
+  const { page, itemType, studyState, reviewState } = route;
+  const requestKey = `${levelNumber}:${page}:${itemType}:${studyState}:${reviewState}`;
   const [loaded, setLoaded] = useState<{
     readonly key: string;
     readonly data: CourseMaterialPageDto;
@@ -43,6 +43,7 @@ export function CourseLevelMaterials({
       page,
       itemType === "all" ? undefined : itemType,
       studyState === "all" ? undefined : studyState,
+      { reviewState: reviewState === "all" ? undefined : reviewState },
     )
       .then((response) => {
         if (active && ownsSession(token)) setLoaded({ key: requestKey, data: response });
@@ -58,7 +59,7 @@ export function CourseLevelMaterials({
     return () => {
       active = false;
     };
-  }, [token, courseId, levelNumber, page, retry, itemType, studyState, requestKey]);
+  }, [token, courseId, levelNumber, page, retry, itemType, studyState, reviewState, requestKey]);
   return (
     <section className="course-level-materials" aria-label="Материалы уровня">
       <h2>Материалы уровня {levelNumber}</h2>
@@ -103,6 +104,15 @@ export function CourseLevelMaterials({
           </select>
         </label>
       </div>
+      <label className="course-level-select">
+        Срок повторения
+        <select aria-label="Срок повторения" value={reviewState}
+          onChange={(event) => onNavigate({ ...route, reviewState: event.target.value as CourseBrowserRoute["reviewState"], page: 1 })}>
+          <option value="all">Любой срок</option>
+          <option value="due">Срок наступил</option>
+          <option value="scheduled">Запланированы</option>
+        </select>
+      </label>
       {error === null ? null : (
         <div>
           <p role="alert">{error}</p>
@@ -155,6 +165,9 @@ export function CourseLevelMaterials({
                           ? `В работе: ${item.startedCardCount}/${item.cardCount}`
                           : "Новый"}
                     </span>
+                    {item.dueCardCount > 0 ? <span>Срок наступил: {item.dueCardCount}</span> : item.nextReviewAt ? <time dateTime={item.nextReviewAt} className="muted">
+                      {new Date(item.nextReviewAt).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    </time> : null}
                   </Link>
                 </li>
               ))}

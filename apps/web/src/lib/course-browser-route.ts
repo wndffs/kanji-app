@@ -1,10 +1,11 @@
-import { ITEM_KINDS, type ItemKind, type CourseMaterialStudyState } from "@kanji-srs/shared";
+import { ITEM_KINDS, type ItemKind, type CourseMaterialStudyState, type CourseReviewFilter } from "@kanji-srs/shared";
 
 export type CourseBrowserRoute = {
   readonly level: number | null;
   readonly page: number;
   readonly itemType: ItemKind | "all";
   readonly studyState: CourseMaterialStudyState | "all";
+  readonly reviewState: CourseReviewFilter | "all";
 };
 export function parseCourseBrowserRoute(params: URLSearchParams): CourseBrowserRoute {
   const integer = (value: string | null, max: number) =>
@@ -18,6 +19,7 @@ export function parseCourseBrowserRoute(params: URLSearchParams): CourseBrowserR
     studyState: ["not-started", "learning", "burned"].includes(state ?? "")
       ? (state as CourseMaterialStudyState)
       : "all",
+    reviewState: params.get("reviewState") === "due" ? "due" : params.get("reviewState") === "scheduled" ? "scheduled" : "all",
   };
 }
 export function courseBrowserHref(courseId: string, route: CourseBrowserRoute) {
@@ -26,6 +28,7 @@ export function courseBrowserHref(courseId: string, route: CourseBrowserRoute) {
   if (route.page > 1) params.set("page", String(route.page));
   if (route.itemType !== "all") params.set("itemType", route.itemType);
   if (route.studyState !== "all") params.set("studyState", route.studyState);
+  if (route.reviewState !== "all") params.set("reviewState", route.reviewState);
   return `/courses/${encodeURIComponent(courseId)}${params.size ? `?${params}` : ""}`;
 }
 
@@ -52,7 +55,7 @@ export function courseReturnHref(params: Record<string, string | string[] | unde
   )
     return null;
   const query = new URLSearchParams();
-  for (const key of ["level", "page", "itemType", "studyState"]) {
+  for (const key of ["level", "page", "itemType", "studyState", "reviewState"]) {
     const value = params[key];
     if (typeof value === "string") query.set(key, value);
   }
