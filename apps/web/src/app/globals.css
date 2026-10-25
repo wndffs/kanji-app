@@ -6633,6 +6633,31 @@ html
 .course-material-search > div { display: flex; gap: 8px; }
 .course-material-search input { min-width: 0; flex: 1; }
 .course-material-search .icon-button { width: 40px; height: 40px; flex: 0 0 40px; display: grid; place-items: center; padding: 0; }
+.course-material-result-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.course-material-view { display: flex; gap: 4px; }
+.course-material-view .icon-button { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; }
+.course-material-view [aria-pressed="true"] { border-color: var(--primary); color: var(--primary); }
+.course-material-meanings { display: grid; gap: 4px; }
+.course-material-grid[data-view="list"] { grid-template-columns: minmax(0, 1fr); }
+.course-material-grid[data-view="list"] li a {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) minmax(0, 2fr) minmax(100px, 1fr);
+  grid-template-areas: "japanese meanings state" "reading meanings review" "kind meanings review";
+  min-height: 0;
+  align-items: start;
+}
+.course-material-grid[data-view="list"] .course-material-japanese { grid-area: japanese; }
+.course-material-grid[data-view="list"] .course-material-reading { grid-area: reading; }
+.course-material-grid[data-view="list"] .course-material-meanings { grid-area: meanings; }
+.course-material-grid[data-view="list"] .course-material-kind { grid-area: kind; font-size: 13px; }
+.course-material-grid[data-view="list"] .course-material-state { grid-area: state; font-size: 13px; }
+.course-material-grid[data-view="list"] .course-material-review { grid-area: review; font-size: 13px; }
+@media (max-width: 600px) {
+  .course-material-grid[data-view="list"] li a {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "japanese meanings" "reading meanings" "kind review" "state review";
+  }
+}
 .course-material-grid .course-material-japanese {
   font-size: 1.5rem;
 }

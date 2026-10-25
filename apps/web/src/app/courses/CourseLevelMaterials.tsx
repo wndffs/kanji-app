@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, LayoutGrid, List } from "lucide-react";
 import { useEffect, useState } from "react";
 import { type CourseMaterialPageDto } from "@kanji-srs/shared";
 import { ApiError, getCourseMaterials } from "../../lib/api-client";
@@ -36,6 +36,7 @@ export function CourseLevelMaterials({
   const data = loaded?.key === requestKey ? loaded.data : null;
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
+  const [view, setView] = useState<"grid" | "list">("grid");
   useEffect(() => {
     let active = true;
     setError(null);
@@ -140,11 +141,17 @@ export function CourseLevelMaterials({
         ) : null
       ) : (
         <>
-          <p className="muted">Найдено: {data.total}</p>
+          <div className="course-material-result-toolbar">
+            <p className="muted">Найдено: {data.total}</p>
+            <div className="course-material-view" role="group" aria-label="Вид материалов">
+              <button className="icon-button" aria-label="Сетка материалов" title="Сетка" aria-pressed={view === "grid"} onClick={() => setView("grid")}><LayoutGrid size={18} /></button>
+              <button className="icon-button" aria-label="Список материалов" title="Список" aria-pressed={view === "list"} onClick={() => setView("list")}><List size={18} /></button>
+            </div>
+          </div>
           {data.items.length === 0 ? (
             <p>Материалов на этой странице нет.</p>
           ) : (
-            <ul className="course-material-grid">
+            <ul className="course-material-grid" data-view={view}>
               {data.items.map((item) => (
                 <li key={item.id}>
                   <Link href={courseItemHref(item.id, courseId, { ...route, level: levelNumber })}>
@@ -156,13 +163,13 @@ export function CourseLevelMaterials({
                         {item.reading}
                       </JapaneseText>
                     ) : null}
-                    {displayMode !== "en" && item.meaningRu ? (
+                    <span className="course-material-meanings">{displayMode !== "en" && item.meaningRu ? (
                       <span lang="ru">{item.meaningRu}</span>
                     ) : null}
                     {displayMode !== "ru" && item.meaningEn ? (
                       <span lang="en">{item.meaningEn}</span>
-                    ) : null}
-                    <span className="muted">
+                    ) : null}</span>
+                    <span className="muted course-material-kind">
                       {item.itemType === "component"
                         ? "Компонент"
                         : item.itemType === "kanji"
@@ -171,14 +178,14 @@ export function CourseLevelMaterials({
                             ? "Слово"
                             : "Предложение"}
                     </span>
-                    <span>
+                    <span className="course-material-state">
                       {item.studyState === "burned"
                         ? "Выучен"
                         : item.studyState === "learning"
                           ? `В работе: ${item.startedCardCount}/${item.cardCount}`
                           : "Новый"}
                     </span>
-                    {item.dueCardCount > 0 ? <span>Срок наступил: {item.dueCardCount}</span> : item.nextReviewAt ? <time dateTime={item.nextReviewAt} className="muted">
+                    {item.dueCardCount > 0 ? <span className="course-material-review">Срок наступил: {item.dueCardCount}</span> : item.nextReviewAt ? <time dateTime={item.nextReviewAt} className="muted course-material-review">
                       {new Date(item.nextReviewAt).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                     </time> : null}
                   </Link>
