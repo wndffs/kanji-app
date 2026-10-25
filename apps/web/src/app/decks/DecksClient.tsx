@@ -73,6 +73,7 @@ function DecksScreen() {
   const displayMode = useTranslationDisplayMode();
   const [state, setState] = useState<DecksState>({ status: "checking" });
   const [savedDecks, setSavedDecks] = useState<SavedDecksState>({ status: "idle" });
+  const [libraryRevision, setLibraryRevision] = useState(0);
   const [selectedDeck, setSelectedDeck] = useState<SelectedDeckState>({ status: "idle" });
   const [deckStatusUpdate, setDeckStatusUpdate] = useState<DeckStatusUpdateState>({
     status: "idle",
@@ -140,7 +141,7 @@ function DecksScreen() {
     return () => {
       isCurrent = false;
     };
-  }, [state]);
+  }, [state, libraryRevision]);
 
   async function handleOpenDeck(deckId: string): Promise<void> {
     if (state.status !== "ready" || !ownsSession(state.token)) {
@@ -340,6 +341,7 @@ function DecksScreen() {
 
       <SavedDecksPanel
         onOpen={(deckId) => void handleOpenDeck(deckId)}
+        onRetry={() => setLibraryRevision((value) => value + 1)}
         selectedDeck={selectedDeck}
         state={savedDecks}
       />
@@ -471,10 +473,12 @@ function SavedDecksPanel({
   state,
   selectedDeck,
   onOpen,
+  onRetry,
 }: {
   readonly state: SavedDecksState;
   readonly selectedDeck: SelectedDeckState;
   readonly onOpen: (deckId: string) => void;
+  readonly onRetry: () => void;
 }) {
   const [status, setStatus] = useState("active");
   const [query, setQuery] = useState("");
@@ -482,7 +486,7 @@ function SavedDecksPanel({
     state.status === "ready"
       ? sortDeckSummaries(state.decks).filter(
           (deck) =>
-            (status === "archived" ? deck.status === "archived" : deck.status !== "archived") &&
+            (status === "all" || (status === "archived" ? deck.status === "archived" : deck.status !== "archived")) &&
             deck.title.toLocaleLowerCase("ru").includes(query.trim().toLocaleLowerCase("ru")),
         )
       : [];
@@ -504,6 +508,7 @@ function SavedDecksPanel({
         tabs={[
           { id: "active", label: "Активные" },
           { id: "archived", label: "Архив" },
+          { id: "all", label: "Все" },
         ]}
       />
       <label className="library-search">
@@ -521,7 +526,8 @@ function SavedDecksPanel({
         </p>
       ) : null}
 
-      {state.status === "error" ? <p className="form-error">{state.message}</p> : null}
+      {state.status === "error" ? <div className="notice-panel error-panel"><p role="alert">{state.message}</p>
+        <button className="secondary-action" type="button" onClick={onRetry}>Повторить загрузку колод</button></div> : null}
 
       {state.status === "ready" && visibleDecks.length === 0 ? (
         <p className="muted">
@@ -532,6 +538,8 @@ function SavedDecksPanel({
       ) : null}
 
       <div id="deck-library-results" role="tabpanel" aria-labelledby={`deck-library-${status}`}>
+        {state.status === "ready" && state.decks.length > 0 && visibleDecks.length === 0 && (query !== "" || status !== "all") ?
+          <button className="secondary-action" type="button" onClick={() => { setQuery(""); setStatus("all"); }}>Сбросить поиск колод</button> : null}
         {state.status === "ready" && visibleDecks.length > 0 ? (
           <ul className="saved-deck-list">
             {visibleDecks.map((deck) => {

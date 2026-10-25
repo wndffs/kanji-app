@@ -11,6 +11,27 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("dynamic text decks", () => {
+  test("retries the library without clearing a builder draft and resets an empty filter", async ({ page }) => {
+    await signIn(page);
+    let reads = 0;
+    await page.route(`${API_BASE_URL}/decks`, (route) => {
+      reads++;
+      return reads === 1 ? route.fulfill({ status: 503, json: { message: "Недоступно" } }) : route.fulfill({ json: savedDeckListResponse });
+    });
+    await page.goto("/decks");
+    await page.getByRole("button", { name: "Новая колода", exact: true }).click();
+    await page.getByLabel("Название", { exact: true }).fill("Черновик без потери");
+    await page.getByLabel("Японский текст").fill("学校");
+    await page.getByRole("button", { name: "Повторить загрузку колод", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Сохранённые колоды", exact: true })).toBeVisible();
+    await expect(page.getByLabel("Название", { exact: true })).toHaveValue("Черновик без потери");
+    await expect(page.getByLabel("Японский текст")).toHaveValue("学校");
+    await page.getByLabel("Найти колоду").fill("несуществующая");
+    await page.getByRole("button", { name: "Сбросить поиск колод", exact: true }).click();
+    await expect(page.getByLabel("Найти колоду")).toHaveValue("");
+    await expect(page.getByRole("button", { name: "Открыть", exact: true })).toBeVisible();
+    expect(reads).toBe(2);
+  });
   for (const status of [200, 401])
     test(`ignores a late create response after account change (${status})`, async ({ page }) => {
       await signIn(page);
