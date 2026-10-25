@@ -23,7 +23,7 @@ No new production dependency or externally hosted fonts/media are needed.
 | 238 | Dashboard targets | Whole actionable metric tiles are links, counters remain real, compact widgets do not stretch into large empty grid rows | Implemented |
 | 239 | Lesson selection | Selection count and Start remain reachable while editing a long group; limits, suggested selection and mandatory quiz are unchanged | Implemented |
 | 240 | Lesson phase navigation | Meaning/reading/context labels fit phones and large text; visited phases and current phase are visually distinct, without unlocking quiz answers | Implemented |
-| 241 | Review queue overview | Meaning/reading/listening counts summarize the actual queue; start action remains primary and does not alter review ordering or scheduling | Planned |
+| 241 | Review queue overview | Meaning/reading/listening counts summarize the actual queue; start action remains primary and does not alter review ordering or scheduling | Implemented |
 | 242 | Review feedback | Result has a clear icon/text identity and Continue remains reachable while details are expanded; retry/correction/typo/reveal semantics stay intact | Planned |
 | 243 | Kana first viewport | Compact script/mode/mastery composition brings the actual exercise and action above phone navigation; mastery stays outside SRS | Planned |
 | 244 | Kana lesson finder | Search lesson title/glyph/romaji, filter existing kana groups, clear an empty search, retain chosen lesson and script safely | Planned |

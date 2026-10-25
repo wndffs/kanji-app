@@ -31,7 +31,7 @@ import {
 import { JapaneseText } from "../../components/JapaneseText";
 import { useStudyFocus } from "../../components/StudyFocus";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
-import { Volume2 } from "lucide-react";
+import { Volume2, Languages, Type } from "lucide-react";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
   ApiError,
@@ -591,6 +591,7 @@ export function ReviewsClient() {
           </div>
         </div>
         {sessionError === null ? null : <p className="form-error">{sessionError}</p>}
+        <ReviewQueueOverview queue={queueState.queue} />
         <SectionDisclosure title="Параметры повторения">
           <label className="review-order-picker">
             <span>Порядок карточек</span>
@@ -731,6 +732,17 @@ export function ReviewsClient() {
       )}
     </section>
   );
+}
+
+function ReviewQueueOverview({ queue }: { readonly queue: readonly ReviewQueueItem[] }) {
+  const counts = { meaning: 0, reading: 0, listening: 0 };
+  for (const { card } of queue) counts[card.promptType === "listening" ? "listening" : card.answerType]++;
+  return <dl className="review-queue-overview" aria-label="Вопросы в очереди">
+    {([{ kind: "meaning", label: "Значение", icon: Type }, { kind: "reading", label: "Чтение", icon: Languages }, { kind: "listening", label: "Аудирование", icon: Volume2 }] as const)
+      .filter(({ kind }) => counts[kind] > 0).map(({ kind, label, icon: Icon }) => <div key={kind}>
+        <dt><Icon size={18} aria-hidden="true" />{label}</dt><dd>{counts[kind]}</dd>
+      </div>)}
+  </dl>;
 }
 
 function ReviewQueuePreview({ queue }: { readonly queue: readonly ReviewQueueItem[] }) {

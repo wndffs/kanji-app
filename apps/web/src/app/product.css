@@ -610,6 +610,17 @@ textarea::placeholder {
 .review-queue-card strong {
   color: var(--subject-ink, var(--foreground));
 }
+.review-queue-overview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+  margin: 0;
+  padding-block: 20px;
+  border-block: 1px solid var(--surface-border);
+}
+.review-queue-overview > div { display: flex; align-items: center; gap: 16px; }
+.review-queue-overview dt { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.review-queue-overview dd { margin: 0; font-size: 24px; font-weight: 700; }
 .feedback-panel {
   border-radius: 0;
   border: 0;

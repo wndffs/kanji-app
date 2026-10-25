@@ -252,6 +252,8 @@ test.describe("review session", () => {
 
     await expect(page.getByRole("heading", { name: "Повторения" })).toBeVisible();
     await expect(page.getByText("Готово карточек: 1")).toBeVisible();
+    await expect(page.getByRole("definition").filter({ hasText: "1" }).first()).toBeVisible();
+    await expect(page.locator(".review-queue-overview")).toHaveText("Значение1");
     await page.getByRole("button", { name: "Начать повторение" }).click();
 
     await expect(page.getByRole("heading", { name: "Повторение" })).toBeVisible();
