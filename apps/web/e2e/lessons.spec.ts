@@ -25,6 +25,12 @@ test.describe("lesson session", () => {
     await expect(optionalLesson).not.toBeChecked();
     await optionalLesson.check();
     await expect(page.getByText(/Группа: 2 из 5/)).toBeVisible();
+    await expect(page.getByTestId("lesson-selection-summary")).toHaveText("Выбрано 2 / 5");
+    const start = (await page.getByRole("button", { name: "Начать урок", exact: true }).boundingBox())!;
+    if (test.info().project.name === "mobile") {
+      const nav = (await page.locator(".app-rail").boundingBox())!;
+      expect(start.y + start.height).toBeLessThan(nav.y);
+    }
     await page.getByRole("button", { name: "Чередовать типы" }).click();
     await expect(page.getByRole("button", { name: "Чередовать типы" })).toHaveAttribute(
       "aria-pressed",

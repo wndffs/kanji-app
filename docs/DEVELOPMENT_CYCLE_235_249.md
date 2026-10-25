@@ -21,7 +21,7 @@ No new production dependency or externally hosted fonts/media are needed.
 | 236 | Overflow navigation | Arrow/Home/End navigation, Escape return, short-screen scrolling and icon labels work without duplicating primary navigation | Implemented |
 | 237 | Forecast summary | Dashboard exposes honest upcoming counts and the first populated bucket without opening the full forecast; empty/vacation states remain accurate | Implemented |
 | 238 | Dashboard targets | Whole actionable metric tiles are links, counters remain real, compact widgets do not stretch into large empty grid rows | Implemented |
-| 239 | Lesson selection | Selection count and Start remain reachable while editing a long group; limits, suggested selection and mandatory quiz are unchanged | Planned |
+| 239 | Lesson selection | Selection count and Start remain reachable while editing a long group; limits, suggested selection and mandatory quiz are unchanged | Implemented |
 | 240 | Lesson phase navigation | Meaning/reading/context labels fit phones and large text; completed phases and current phase are visually distinct, without unlocking quiz answers | Planned |
 | 241 | Review queue overview | Meaning/reading/listening counts summarize the actual queue; start action remains primary and does not alter review ordering or scheduling | Planned |
 | 242 | Review feedback | Result has a clear icon/text identity and Continue remains reachable while details are expanded; retry/correction/typo/reveal semantics stay intact | Planned |

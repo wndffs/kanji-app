@@ -766,7 +766,7 @@ export function LessonsClient() {
     const isDeckQueue = queueState.source.kind === "deck";
 
     return (
-      <section className="page-stack">
+      <section className="page-stack lesson-queue">
         <div className="page-heading lesson-heading">
           <div>
             <h1>{isDeckQueue ? "Уроки колоды" : "Уроки"}</h1>
@@ -775,14 +775,6 @@ export function LessonsClient() {
               Группа: {selectedLessons.length} из {queueState.batchLimit}.
             </p>
           </div>
-          <button
-            className="primary-action"
-            disabled={isStarting || selectedLessons.length === 0}
-            onClick={() => void handleStartSession()}
-            type="button"
-          >
-            {isStarting ? "Начинаю..." : "Начать урок"}
-          </button>
         </div>
         {sessionError === null ? null : (
           <p className="form-error" role="alert">
@@ -815,6 +807,13 @@ export function LessonsClient() {
             onUseSuggested={handleUseSuggestedBatch}
           />
         </SectionDisclosure>
+        <div className="lesson-selection-bar">
+          <span data-testid="lesson-selection-summary">Выбрано <strong>{selectedLessons.length}</strong> / {queueState.batchLimit}</span>
+          <button className="primary-action" disabled={isStarting || selectedLessons.length === 0}
+            onClick={() => void handleStartSession()} type="button">
+            {isStarting ? "Начинаю..." : "Начать урок"}
+          </button>
+        </div>
       </section>
     );
   }

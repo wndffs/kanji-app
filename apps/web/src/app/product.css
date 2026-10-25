@@ -372,6 +372,23 @@ textarea::placeholder {
   max-width: 1000px;
   margin-inline: auto;
 }
+.lesson-selection-bar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--surface-border);
+  background: var(--background);
+  font-size: 13px;
+}
+.lesson-selection-bar strong { color: var(--primary-strong); font-size: 18px; }
+@media (max-width: 900px) {
+  .lesson-selection-bar { bottom: calc(76px + env(safe-area-inset-bottom)); }
+}
 .lesson-heading {
   align-items: center;
   padding-bottom: 8px;
