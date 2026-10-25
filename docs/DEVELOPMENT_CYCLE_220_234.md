@@ -23,23 +23,23 @@ dialogs and genuinely framed study tools, never nested section cards. Keep
 readable Japanese, stable answer controls, real counts and existing explicit
 meaning/reading phases. Do not reveal quiz answers early.
 
-| ID  | Scope                         | Acceptance                                                                               | State       |
-| --- | ----------------------------- | ---------------------------------------------------------------------------------------- | ----------- |
-| 220 | Visual foundations            | Shared multi-hue light/dark tokens, typography and form/action primitives                | Implemented |
-| 221 | Application navigation        | Desktop rail, mobile bottom navigation, active routes and focus-shell preservation       | Implemented |
-| 222 | Dashboard                     | One clear daily action, linked counters and scannable course progress                    | Implemented |
-| 223 | Lessons                       | Clean queue selection, subject hierarchy, focused study and mandatory quiz               | Implemented |
-| 224 | Reviews and practice          | Stable prompt/answer/feedback composition without answer leakage or SRS changes          | Implemented |
-| 225 | Kana and character hub        | Distinct script controls, clear mastery path, readable exercise/character surfaces       | Implemented |
-| 226 | Item details                  | Japanese/reading/meaning hierarchy, accessible tabs and optional personal/source details | Implemented |
-| 227 | Courses                       | Compact catalog and level workspace, subject accents, preserved search/filter/history    | Implemented |
-| 228 | Search                        | Search-first layout, compact bilingual results, restrained filters and metadata          | Implemented |
-| 229 | Decks                         | Scannable private library and text-mining workspace without nested panels                | Implemented |
-| 230 | Settings                      | Legible preference groups, live appearance preview and unobscured save actions           | Implemented |
-| 231 | Authentication                | Original compact login/register presentation with unchanged validation                   | Implemented |
-| 232 | Loading/error/empty states    | Consistent recoverable statuses, skeletons and dialogs without false success             | Implemented |
-| 233 | Responsive and density polish | 360/390/768/1280 layout, long labels, compact mode and large study text                  | Implemented |
-| 234 | Focus and motion polish       | Keyboard-visible navigation, safe focus targets, reduced motion and visual acceptance    | Implemented |
+| ID  | Scope                         | Acceptance                                                                               | State    |
+| --- | ----------------------------- | ---------------------------------------------------------------------------------------- | -------- |
+| 220 | Visual foundations            | Shared multi-hue light/dark tokens, typography and form/action primitives                | Accepted |
+| 221 | Application navigation        | Desktop rail, mobile bottom navigation, active routes and focus-shell preservation       | Accepted |
+| 222 | Dashboard                     | One clear daily action, linked counters and scannable course progress                    | Accepted |
+| 223 | Lessons                       | Clean queue selection, subject hierarchy, focused study and mandatory quiz               | Accepted |
+| 224 | Reviews and practice          | Stable prompt/answer/feedback composition without answer leakage or SRS changes          | Accepted |
+| 225 | Kana and character hub        | Distinct script controls, clear mastery path, readable exercise/character surfaces       | Accepted |
+| 226 | Item details                  | Japanese/reading/meaning hierarchy, accessible tabs and optional personal/source details | Accepted |
+| 227 | Courses                       | Compact catalog and level workspace, subject accents, preserved search/filter/history    | Accepted |
+| 228 | Search                        | Search-first layout, compact bilingual results, restrained filters and metadata          | Accepted |
+| 229 | Decks                         | Scannable private library and text-mining workspace without nested panels                | Accepted |
+| 230 | Settings                      | Legible preference groups, live appearance preview and unobscured save actions           | Accepted |
+| 231 | Authentication                | Original compact login/register presentation with unchanged validation                   | Accepted |
+| 232 | Loading/error/empty states    | Consistent recoverable statuses, skeletons and dialogs without false success             | Accepted |
+| 233 | Responsive and density polish | 360/390/768/1280 layout, long labels, compact mode and large study text                  | Accepted |
+| 234 | Focus and motion polish       | Keyboard-visible navigation, safe focus targets, reduced motion and visual acceptance    | Accepted |
 
 ## Invariants
 
@@ -63,7 +63,7 @@ Implementation: 15/15 separate task commits. Local batched acceptance passed:
 production build. The learner browser batch covered 249 distinct passing cases
 and one intentional skip across desktop/mobile after the editor repair below.
 The final targeted dashboard/design rerun passed all 34 cases; these overlap
-the broader batch and are not added to its total. Cloud/live acceptance is pending.
+the broader batch and are not added to its total. Cloud/live acceptance passed.
 
 The visual matrix covers 360/390/768/1280 px, light/dark themes, compact density,
 extra-large Japanese, keyboard skip navigation and reduced motion. Screenshots
@@ -96,3 +96,44 @@ Initial bundle measurement covered five static routes: 131415 B raw / 22416 B
 gzip CSS and at most 209207 B gzip initial JS, within existing per-route budgets.
 The dynamic item/kana HTML was not captured by this local measurement, so it
 reported incomplete (5/7), not a full performance-budget pass or a CWV result.
+
+## Verified Release: 2026-10-25
+
+Final runtime: `62f1797d44a76f648c230cb0193d77da1314eaeb`.
+Release tag: `cycle-220-234-design`. Fifteen functional commits plus separate
+batched repairs and this evidence-only update. Next unused task number: 235.
+
+- [CI 40193946091](https://github.com/wndffs/kanji-app/actions/runs/40193946091)
+  passed Quality and 301 production browser cases, with one intentional skip.
+  The cloud cases overlap local checks; their counts are not added together.
+- [Study integrity 40193946163](https://github.com/wndffs/kanji-app/actions/runs/40193946163)
+  passed against PostgreSQL 18. No Neon import, migration, seed or course
+  publication was performed for this cycle.
+- Both live health endpoints returned the final runtime SHA. Render initially
+  needed to wake its free instance; this release does not eliminate cold starts.
+- [Final remote smoke 40194158525](https://github.com/wndffs/kanji-app/actions/runs/40194158525)
+  passed exact web/API revision gates on a separate disposable V4 audit account.
+  Three-sample HTTP medians: dashboard 596 ms, lessons 443 ms, reviews 157 ms,
+  characters 524 ms and item 708 ms. Both warm samples per route met 2000 ms.
+  These are finite-course API measurements, not browser CWV or a full N2 benchmark.
+- Live IAB verification used the existing test profile without switching its
+  starter course or submitting a study answer. The dashboard retained two due
+  reviews and two available lessons. The V4 level-five browser retained its
+  80-item total, kana readings and bilingual meanings; dictionary senses were
+  collapsed by default on the actual mountain word, with reading `やま` visible.
+- At 393 x 852, the course document/client widths were both 378 px, with no
+  horizontal overflow. The first material ended at 722 px above navigation at
+  788 px. Desktop width was 1265 px without overflow or broken visible images.
+  Hiragana and katakana loaded their separate exercises without SRS answers.
+- The saved system theme was temporarily previewed as light, then restored by
+  leaving settings without Save. Local tests additionally cover dark/compact/
+  extra-large settings and mandatory lesson/review flows. Live screenshots are
+  stored outside the repository; the viewport override was reset and all
+  temporary IAB tabs closed. Owned local Node servers had exited; generated
+  builds and temporary test outputs were removed before final status checks.
+
+No new dependencies, downloaded teaching assets or proprietary content were
+introduced. Data/license layers remain unchanged; no detailed Neon source report
+was exported. Existing V4 remains 79 components, 101 kanji, 120 words, 300 items,
+521 cards, 120 original bilingual examples and seven levels. The unpublished
+main-course target remains 2300 kanji / 8000 words, not delivered by this redesign.
