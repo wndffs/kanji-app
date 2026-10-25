@@ -265,7 +265,7 @@ export function CourseLevelMaterials({
           ) : (
             <ul className="course-material-grid" data-view={view}>
               {data.items.map((item) => (
-                <li key={item.id}>
+                <li key={item.id} data-item-type={item.itemType}>
                   <Link href={courseItemHref(item.id, courseId, { ...route, level: levelNumber })}>
                     <JapaneseText className="course-material-japanese">
                       {item.japanese}
@@ -292,7 +292,7 @@ export function CourseLevelMaterials({
                             ? "Слово"
                             : "Предложение"}
                     </span>
-                    <span className="course-material-state">
+                    <span className="course-material-state" data-study-state={item.studyState}>
                       {item.studyState === "burned"
                         ? "Выучен"
                         : item.studyState === "learning"

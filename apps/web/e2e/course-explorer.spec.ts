@@ -269,7 +269,8 @@ test.describe("published course explorer", () => {
     await page.goto(`/courses/${ID}`);
     await expect(page.getByRole("main").getByRole("alert")).toContainText("Временно недоступно");
     await page.getByRole("button", { name: "Повторить загрузку" }).click();
-    await expect(page.getByRole("heading", { name: outline.title })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Материалы курса", exact: true })).toBeVisible();
+    await expect(page.locator(".course-identity")).toHaveText(outline.title);
     await page.getByRole("button", { name: "Все уровни", exact: true }).click();
     await expect(page.getByRole("list", { name: "Уровни курса" })).toContainText("32 материалов");
     await page

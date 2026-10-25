@@ -92,7 +92,7 @@ function OwnedCourseExplorer({
   return (
     <section className="page-stack course-explorer">
       <div className="page-heading">
-        <h1>{outline?.title ?? "Программа курса"}</h1>
+        <div><h1>Материалы курса</h1>{outline ? <p className="course-identity">{outline.title}</p> : null}</div>
         <Link href="/courses">Все курсы</Link>
       </div>
       {error === null ? null : (
