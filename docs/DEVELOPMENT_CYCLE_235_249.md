@@ -18,7 +18,7 @@ No new production dependency or externally hosted fonts/media are needed.
 | ID | Scope | Acceptance | State |
 | --- | --- | --- | --- |
 | 235 | Desktop destinations | Courses, kana, decks, practice and settings are directly reachable; current destination is marked; phone keeps five primary tabs | Implemented |
-| 236 | Overflow navigation | Arrow/Home/End navigation, Escape return, short-screen scrolling and icon labels work without duplicate visible destinations | Planned |
+| 236 | Overflow navigation | Arrow/Home/End navigation, Escape return, short-screen scrolling and icon labels work without duplicating primary navigation | Implemented |
 | 237 | Forecast summary | Dashboard exposes honest upcoming counts and the first populated bucket without opening the full forecast; empty/vacation states remain accurate | Planned |
 | 238 | Dashboard targets | Whole actionable metric tiles are links, counters remain real, compact widgets do not stretch into large empty grid rows | Planned |
 | 239 | Lesson selection | Selection count and Start remain reachable while editing a long group; limits, suggested selection and mandatory quiz are unchanged | Planned |

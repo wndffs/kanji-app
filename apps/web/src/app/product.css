@@ -1731,12 +1731,16 @@ summary:focus-visible {
 .nav-menu {
   border-radius: 8px;
   padding: 8px;
+  max-height: calc(100dvh - 96px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .nav-menu a {
   min-height: 42px;
   display: flex;
   align-items: center;
   font-weight: 500;
+  gap: 10px;
 }
 .review-answer-bar {
   background: var(--background);

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   LogOut,
@@ -133,6 +133,21 @@ export function AppShell({ children }: AppShellProps) {
     clearStoredSession();
   }
 
+  function handleMenuKeyDown(event: ReactKeyboardEvent<HTMLDetailsElement>): void {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    const menu = event.currentTarget;
+    const links = Array.from(menu.querySelectorAll<HTMLAnchorElement>("nav a"));
+    const index = links.indexOf(document.activeElement as HTMLAnchorElement);
+    if (!links.length || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    if (!menu.open && (event.key === "Home" || event.key === "End")) return;
+    event.preventDefault();
+    menu.open = true;
+    const next = event.key === "Home" ? 0 : event.key === "End" ? links.length - 1
+      : event.key === "ArrowDown" ? (index + 1) % links.length
+      : (index <= 0 ? links.length : index) - 1;
+    links[next]?.focus();
+  }
+
   return (
     <StudyFocusContext.Provider value={enterStudy}>
       <div
@@ -201,7 +216,8 @@ export function AppShell({ children }: AppShellProps) {
             )}
             <div className="topbar-actions">
               {focusTitle === null ? (
-                <details className="nav-overflow" ref={menuRef}>
+                <details className="nav-overflow" ref={menuRef} onKeyDown={handleMenuKeyDown}
+                  onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false; }}>
                   <summary
                     role="button"
                     aria-label="Другие разделы"
@@ -213,15 +229,17 @@ export function AppShell({ children }: AppShellProps) {
                   <nav aria-label="Другие разделы" className="nav-menu">
                     {secondaryNavigation
                       .filter((item) => !item.adminOnly || role === "ADMIN")
-                      .map((item) => (
+                      .map((item) => {
+                        const Icon = NAV_ICONS[item.href] ?? BookOpen;
+                        return (
                         <Link
                           aria-current={isActivePath(pathname, item.href) ? "page" : undefined}
                           href={item.href}
                           key={item.href}
                         >
-                          {item.label}
+                          <Icon size={17} aria-hidden="true" />{item.label}
                         </Link>
-                      ))}
+                      ); })}
                   </nav>
                 </details>
               ) : null}
