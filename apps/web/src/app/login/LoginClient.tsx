@@ -44,7 +44,6 @@ export function LoginClient() {
     <section className="auth-layout">
       <div className="page-heading">
         <h1>Вход</h1>
-        <p>Локальный аккаунт для разработки уже подставлен.</p>
       </div>
       <form
         aria-busy={!hydrated || isSubmitting}
@@ -73,7 +72,7 @@ export function LoginClient() {
             value={password}
           />
         </label>
-        {error === null ? null : <p className="form-error">{error}</p>}
+        {error === null ? null : <p className="form-error" role="alert">{error}</p>}
         <button className="primary-action" disabled={!hydrated || isSubmitting} type="submit">
           {isSubmitting ? "Вхожу" : "Войти"}
         </button>

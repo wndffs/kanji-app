@@ -32,6 +32,7 @@ type AppShellProps = {
 
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
+  const isAuthPage = pathname === "/login" || pathname === "/register";
   const [mode, setMode] = useState<TranslationDisplayMode>("ru");
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -119,8 +120,8 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <StudyFocusContext.Provider value={enterStudy}>
-      <div className={`app-shell${focusTitle === null ? "" : " study-focus-shell"}`}>
-        {focusTitle === null ? <aside className="app-rail">
+      <div className={`app-shell${focusTitle === null ? "" : " study-focus-shell"}${isAuthPage ? " auth-shell" : ""}`}>
+        {focusTitle === null && !isAuthPage ? <aside className="app-rail">
           <Link className="brand rail-brand" href="/dashboard"><Image src="/icons/app-192.png" width={32} height={32} alt="" />{APP_NAME}</Link>
           <nav aria-label="Основная навигация" className="nav">
             {mainNavigation.filter((item) => !item.adminOnly || role === "ADMIN").map((item) => {

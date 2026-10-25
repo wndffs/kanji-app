@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
 
 import { register } from "../../lib/api-client";
@@ -45,7 +46,6 @@ export function RegisterClient() {
     <section className="auth-layout">
       <div className="page-heading">
         <h1>Регистрация</h1>
-        <p>Новый локальный профиль.</p>
       </div>
       <form
         aria-busy={!hydrated || isSubmitting}
@@ -85,10 +85,11 @@ export function RegisterClient() {
             value={password}
           />
         </label>
-        {error === null ? null : <p className="form-error">{error}</p>}
+        {error === null ? null : <p className="form-error" role="alert">{error}</p>}
         <button className="primary-action" disabled={!hydrated || isSubmitting} type="submit">
           {isSubmitting ? "Создаю" : "Создать"}
         </button>
+        <Link className="inline-link" href="/login">Войти в существующий аккаунт</Link>
       </form>
     </section>
   );
