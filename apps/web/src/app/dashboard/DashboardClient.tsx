@@ -450,7 +450,7 @@ function DashboardView({
                 data-dashboard-widget={widget.id}
                 key={widget.id}
               >
-                {customizationOpen || widget.id === "summary" || widget.id === "course-progress" ? (
+                {customizationOpen || widget.id === "summary" || widget.id === "course-progress" || widget.id === "review-forecast" ? (
                   content
                 ) : (
                   <SectionDisclosure title={formatDashboardWidgetTitle(widget.id)}>
@@ -896,7 +896,7 @@ function DashboardWidgetContent({
         />
       );
     case "review-forecast":
-      return <ReviewForecastPanel forecast={dashboard.reviewForecast} />;
+      return <ReviewForecastPanel forecast={dashboard.reviewForecast} vacationActive={readStoredSession()?.user.settings.vacationStartedAt != null} />;
     case "leech-candidates":
       return <LeechCandidatesPanel candidates={dashboard.leechCandidates} />;
     case "recent-review-stats":
@@ -1211,22 +1211,24 @@ function formatJourneyDate(value: string, timezone: string): string {
   }
 }
 
-function ReviewForecastPanel({ forecast }: { readonly forecast: DashboardDto["reviewForecast"] }) {
+function ReviewForecastPanel({ forecast, vacationActive }: { readonly forecast: DashboardDto["reviewForecast"]; readonly vacationActive: boolean }) {
+  const populated = forecast.filter((bucket) => bucket.dueCount > 0);
+  const renderBuckets = (buckets: typeof forecast) => <ol className="forecast-list" data-testid="forecast-list">
+    {buckets.map((bucket) => <li data-testid="forecast-bucket" key={bucket.bucketKey}>
+      <span>{formatForecastBucket(bucket)}</span>
+      <strong>{formatCount(bucket.dueCount, "карточка", "карточки", "карточек")}</strong>
+    </li>)}
+  </ol>;
   return (
-    <section className="panel">
+    <section className="panel forecast-summary">
       <h2>Прогноз</h2>
-      {forecast.length === 0 ? (
+      {vacationActive ? <p className="muted">Режим отпуска: повторения приостановлены.</p> : populated.length === 0 ? (
         <p className="muted">Нет запланированных повторений.</p>
-      ) : (
-        <ol className="forecast-list" data-testid="forecast-list">
-          {forecast.slice(0, 6).map((bucket) => (
-            <li data-testid="forecast-bucket" key={bucket.bucketKey}>
-              <span>{formatForecastBucket(bucket)}</span>
-              <strong>{formatCount(bucket.dueCount, "карточка", "карточки", "карточек")}</strong>
-            </li>
-          ))}
-        </ol>
-      )}
+      ) : renderBuckets(populated.slice(0, 3))}
+      {(vacationActive && populated.length > 0) || populated.length > 3 ?
+        <SectionDisclosure title={vacationActive ? "Сохранённые сроки" : "Остальные сроки"}>
+          {renderBuckets(vacationActive ? populated : populated.slice(3))}
+        </SectionDisclosure> : null}
     </section>
   );
 }

@@ -329,6 +329,18 @@ textarea::placeholder {
 .dashboard-page .course-progress {
   padding-top: 8px;
 }
+.forecast-summary {
+  padding-top: 8px;
+}
+.forecast-summary .forecast-list li {
+  padding-block: 14px;
+  font-size: 13px;
+  gap: 16px;
+}
+.forecast-summary .forecast-list strong {
+  color: var(--primary-strong);
+  white-space: nowrap;
+}
 .dashboard-page .course-progress > div:first-child {
   display: grid;
   gap: 6px;
