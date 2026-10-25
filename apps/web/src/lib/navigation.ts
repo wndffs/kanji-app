@@ -19,6 +19,7 @@ export const primaryNavigation = [
 const mainPaths = new Set(["/dashboard", "/lessons", "/reviews", "/characters", "/search"]);
 export const mainNavigation = primaryNavigation.filter((item) => mainPaths.has(item.href));
 export const secondaryNavigation: readonly NavigationItem[] = [
+  { href: "/kana", label: "Кана" },
   { href: "/courses", label: "Курсы" },
   ...primaryNavigation.filter((item) => !mainPaths.has(item.href)),
 ];

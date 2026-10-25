@@ -25,8 +25,8 @@ meaning/reading phases. Do not reveal quiz answers early.
 
 | ID | Scope | Acceptance | State |
 | --- | --- | --- | --- |
-| 220 | Visual foundations | Shared multi-hue light/dark tokens, typography and form/action primitives | Pending |
-| 221 | Application navigation | Desktop rail, mobile bottom navigation, active routes and focus-shell preservation | Pending |
+| 220 | Visual foundations | Shared multi-hue light/dark tokens, typography and form/action primitives | Implemented |
+| 221 | Application navigation | Desktop rail, mobile bottom navigation, active routes and focus-shell preservation | Implemented |
 | 222 | Dashboard | One clear daily action, linked counters and scannable course progress | Pending |
 | 223 | Lessons | Clean queue selection, subject hierarchy, focused study and mandatory quiz | Pending |
 | 224 | Reviews and practice | Stable prompt/answer/feedback composition without answer leakage or SRS changes | Pending |
