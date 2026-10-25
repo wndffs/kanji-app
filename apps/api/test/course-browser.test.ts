@@ -174,6 +174,7 @@ describe("read-only published syllabus", () => {
     } as never);
     const result = await repository.levelPage("owner", ID, 2, 1, { studyState: "burned" });
     expect(result).toMatchObject({ ids: ["item-31"], total: 1 });
+    expect(result?.summary).toMatchObject({ total: 32, newCount: 31, burnedCount: 1, byKind: { kanji: 32 } });
     expect(result?.progress.get("item-31")).toMatchObject({
       studyState: "burned",
       cardCount: 2,

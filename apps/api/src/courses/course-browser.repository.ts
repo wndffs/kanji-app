@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import {
   courseMaterialStudyState,
   courseReviewTimeline,
+  summarizeCourseLevel,
   type CourseOutlineDto,
   type ItemKind,
   type CourseMaterialStudyState,
@@ -64,11 +65,6 @@ export class CourseBrowserRepository {
       courseLevelId: level.id,
       learningItem: {
         status: "PUBLISHED" as const,
-        ...(filters.itemType === undefined
-          ? {}
-          : {
-              kind: filters.itemType.toUpperCase() as "COMPONENT" | "KANJI" | "WORD" | "SENTENCE",
-            }),
       },
     };
     const entries = await this.prisma.db.courseLevelItem.findMany({
@@ -93,7 +89,7 @@ export class CourseBrowserRepository {
       },
     });
     const now = Date.now();
-    const indexed = entries
+    const all = entries
       .map((entry) => {
         const itemType = entry.learningItem.kind.toLowerCase() as ItemKind;
         const cards = entry.learningItem.cards.filter(
@@ -111,6 +107,7 @@ export class CourseBrowserRepository {
         }));
         return {
           id: entry.learningItemId,
+          itemType,
           studyState: courseMaterialStudyState(states),
           cardCount: cards.length,
           startedCardCount: states.filter((state) => state.started).length,
@@ -118,7 +115,10 @@ export class CourseBrowserRepository {
           progressCards: states,
           ...courseReviewTimeline(states, now),
         };
-      })
+      });
+    const summary = summarizeCourseLevel(all);
+    const indexed = all
+      .filter((entry) => filters.itemType === undefined || entry.itemType === filters.itemType)
       .filter(
         (entry) => filters.studyState === undefined || entry.studyState === filters.studyState,
       )
@@ -129,6 +129,7 @@ export class CourseBrowserRepository {
     return {
       ids: selected.map((entry) => entry.id),
       total: indexed.length,
+      summary,
       progress: new Map(selected.map((entry) => [entry.id, entry])),
     };
   }

@@ -81,4 +81,29 @@ export type CourseMaterialPageDto = {
   readonly pageSize: number;
   readonly total: number;
   readonly items: readonly CourseMaterialDto[];
+  readonly summary: CourseLevelSummaryDto;
 };
+export type CourseLevelSummaryDto = {
+  readonly total: number;
+  readonly newCount: number;
+  readonly learningCount: number;
+  readonly burnedCount: number;
+  readonly dueItemCount: number;
+  readonly byKind: Readonly<Record<ItemKind, number>>;
+};
+export function summarizeCourseLevel(items: readonly {
+  readonly itemType: ItemKind;
+  readonly studyState: CourseMaterialStudyState;
+  readonly dueCardCount: number;
+}[]): CourseLevelSummaryDto {
+  const byKind = { component: 0, kanji: 0, word: 0, sentence: 0 };
+  for (const item of items) byKind[item.itemType] += 1;
+  return {
+    total: items.length,
+    newCount: items.filter((item) => item.studyState === "not-started").length,
+    learningCount: items.filter((item) => item.studyState === "learning").length,
+    burnedCount: items.filter((item) => item.studyState === "burned").length,
+    dueItemCount: items.filter((item) => item.dueCardCount > 0).length,
+    byKind,
+  };
+}

@@ -65,6 +65,7 @@ export class CourseBrowserService {
       page,
       pageSize: 30,
       total: result.total,
+      summary: result.summary,
       items: result.ids.map((id) => {
         const item = items.get(id);
         if (item === undefined)
