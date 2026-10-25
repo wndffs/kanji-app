@@ -12,15 +12,18 @@ import { courseItemHref, type CourseBrowserRoute } from "../../lib/course-browse
 import { CourseLevelProgress } from "./CourseLevelProgress";
 import { CourseCardProgress } from "./CourseCardProgress";
 import { CourseMaterialSearch } from "./CourseMaterialSearch";
+import { readCourseMaterialView, storeCourseMaterialView, type CourseMaterialView } from "../../lib/course-material-preferences";
 
 export function CourseLevelMaterials({
   token,
+  userId,
   courseId,
   levelNumber,
   route,
   onNavigate,
 }: {
   readonly token: string;
+  readonly userId: string;
   readonly courseId: string;
   readonly levelNumber: number;
   readonly route: CourseBrowserRoute;
@@ -36,7 +39,13 @@ export function CourseLevelMaterials({
   const data = loaded?.key === requestKey ? loaded.data : null;
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
-  const [view, setView] = useState<"grid" | "list">("grid");
+  const [view, setView] = useState<CourseMaterialView>("grid");
+  useEffect(() => { setView(readCourseMaterialView(userId)); }, [userId]);
+  const changeView = (next: CourseMaterialView) => {
+    if (!ownsSession(token)) return;
+    setView(next);
+    storeCourseMaterialView(userId, next);
+  };
   useEffect(() => {
     let active = true;
     setError(null);
@@ -144,8 +153,8 @@ export function CourseLevelMaterials({
           <div className="course-material-result-toolbar">
             <p className="muted">Найдено: {data.total}</p>
             <div className="course-material-view" role="group" aria-label="Вид материалов">
-              <button className="icon-button" aria-label="Сетка материалов" title="Сетка" aria-pressed={view === "grid"} onClick={() => setView("grid")}><LayoutGrid size={18} /></button>
-              <button className="icon-button" aria-label="Список материалов" title="Список" aria-pressed={view === "list"} onClick={() => setView("list")}><List size={18} /></button>
+              <button className="icon-button" aria-label="Сетка материалов" title="Сетка" aria-pressed={view === "grid"} onClick={() => changeView("grid")}><LayoutGrid size={18} /></button>
+              <button className="icon-button" aria-label="Список материалов" title="Список" aria-pressed={view === "list"} onClick={() => changeView("list")}><List size={18} /></button>
             </div>
           </div>
           {data.items.length === 0 ? (

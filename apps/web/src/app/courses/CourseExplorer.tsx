@@ -31,6 +31,7 @@ export function CourseExplorer({ courseId }: { readonly courseId: string }) {
       key={`${session.user.id}:${session.token}:${courseId}`}
       courseId={courseId}
       token={session.token}
+      userId={session.user.id}
     />
   );
 }
@@ -38,9 +39,11 @@ export function CourseExplorer({ courseId }: { readonly courseId: string }) {
 function OwnedCourseExplorer({
   courseId,
   token,
+  userId,
 }: {
   readonly courseId: string;
   readonly token: string;
+  readonly userId: string;
 }) {
   const [outline, setOutline] = useState<CourseOutlineDto | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -156,6 +159,7 @@ function OwnedCourseExplorer({
                       level.levelNumber === (route.level ?? outline.levels[0]!.levelNumber),
                   ) ? (
                     <CourseLevelMaterials
+                      userId={userId}
                       token={token}
                       courseId={courseId}
                       levelNumber={route.level ?? outline.levels[0]!.levelNumber}
