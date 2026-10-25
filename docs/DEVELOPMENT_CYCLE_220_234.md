@@ -33,7 +33,7 @@ meaning/reading phases. Do not reveal quiz answers early.
 | 225 | Kana and character hub | Distinct script controls, clear mastery path, readable exercise/character surfaces | Implemented |
 | 226 | Item details | Japanese/reading/meaning hierarchy, accessible tabs and optional personal/source details | Implemented |
 | 227 | Courses | Compact catalog and level workspace, subject accents, preserved search/filter/history | Implemented |
-| 228 | Search | Search-first layout, compact bilingual results, restrained filters and metadata | Pending |
+| 228 | Search | Search-first layout, compact bilingual results, restrained filters and metadata | Implemented |
 | 229 | Decks | Scannable private library and text-mining workspace without nested panels | Pending |
 | 230 | Settings | Legible preference groups, live appearance preview and unobscured save actions | Pending |
 | 231 | Authentication | Original compact login/register presentation with unchanged validation | Pending |

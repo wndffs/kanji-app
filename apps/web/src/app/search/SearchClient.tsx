@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { X, RotateCcw, ArrowLeft, ArrowRight } from "lucide-react";
+import { X, RotateCcw, ArrowLeft, ArrowRight, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -176,7 +176,7 @@ function SearchScreen({ token }: { readonly token: string | null }) {
           }
         }}
       >
-        <label>
+        <div className="search-query-row"><label>
           <span>Запрос</span>
           <input
             autoComplete="off"
@@ -187,6 +187,7 @@ function SearchScreen({ token }: { readonly token: string | null }) {
             value={query}
           />
         </label>
+        <button className="primary-action" type="submit"><Search size={18} aria-hidden="true" />Искать</button></div>
         <SectionDisclosure
           title="Фильтры"
           defaultOpen={typeFromUrl !== undefined || levelFromUrl !== undefined}
@@ -220,9 +221,6 @@ function SearchScreen({ token }: { readonly token: string | null }) {
             </label>
           </div>
         </SectionDisclosure>
-        <button className="primary-action" type="submit">
-          Искать
-        </button>
       </form>
 
       {typeFromUrl === undefined && levelFromUrl === undefined ? null : (
@@ -365,7 +363,7 @@ function SearchResultCard({
   readonly isAuthenticated: boolean;
 }) {
   return (
-    <Link className="search-result-card" href={`/items/${encodeURIComponent(item.id)}`}>
+    <Link className="search-result-card" data-item-type={item.itemType} href={`/items/${encodeURIComponent(item.id)}`}>
       <div className="search-result-main">
         <span className="eyebrow">{formatItemType(item.itemType)}</span>
         <JapaneseText as="strong">{item.japanese}</JapaneseText>
@@ -374,7 +372,7 @@ function SearchResultCard({
             {item.reading}
           </JapaneseText>
         )}
-        <p>{formatTranslationBundle(item.translations, displayMode)}</p>
+        <p className="search-result-meaning">{formatTranslationBundle(item.translations, displayMode)}</p>
       </div>
       <dl className="search-result-meta">
         {item.level === null ? null : (
