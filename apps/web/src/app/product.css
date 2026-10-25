@@ -18,6 +18,7 @@
   --subject-word-soft: light-dark(#fff0eb, #432d2b);
   --subject-kana: light-dark(#855c15, #e9c679);
   --subject-kana-soft: light-dark(#fff5dc, #3c3423);
+  --danger-surface: light-dark(#fff0ef, #402728);
   --space-section: 28px;
   --space-control: 12px;
   --radius-control: 6px;
@@ -147,8 +148,9 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .review-queue-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
 .review-queue-card { border: 1px solid var(--surface-border); border-radius: 8px; background: var(--surface); box-shadow: none; padding: 20px; }
 .review-queue-card .review-japanese, .review-queue-card strong { color: var(--subject-ink, var(--foreground)); }
-.feedback-panel { border-radius: 0; border: 0; border-left: 3px solid var(--success); background: var(--success-surface); box-shadow: none; padding: 20px; }
-.feedback-panel.feedback-wrong { border-color: var(--danger); }
+.feedback-panel { border-radius: 0; border: 0; border-left: 3px solid var(--danger); background: var(--danger-surface); box-shadow: none; padding: 20px; }
+.feedback-panel-success { border-color: var(--success); background: var(--success-surface); }
+.feedback-panel-neutral { border-color: var(--subject-kana); background: var(--subject-kana-soft); }
 .feedback-header { align-items: center; gap: 16px; }
 .feedback-header h2 { font-size: 18px; }
 .feedback-grid { border-top: 1px solid var(--surface-border); margin-top: 16px; padding-top: 16px; }
@@ -314,6 +316,22 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .auth-layout input { min-height: 46px; }
 .auth-layout .primary-action { margin-top: 4px; }
 .auth-layout .inline-link { text-align: center; font-size: 13px; font-weight: 500; }
+.notice-panel { border: 0; border-left: 3px solid var(--primary); border-radius: 0; background: transparent; box-shadow: none; padding: 8px 0 8px 20px; }
+.notice-panel p { max-width: 68ch; font-size: 14px; line-height: 1.65; }
+.notice-panel.error-panel { border-color: var(--danger); }
+.error-banner { border: 0; border-left: 3px solid var(--danger); border-radius: 0; background: var(--danger-surface); padding: 16px; }
+.form-error { color: var(--danger); font-size: 13px; line-height: 1.6; }
+.success-text { color: var(--success); font-size: 13px; }
+.notice[aria-label="Состояние сети"] { display: flex; align-items: start; gap: 12px; border: 0; border-left: 3px solid var(--warning); background: var(--warning-surface); border-radius: 0; padding: 14px 16px; font-size: 13px; margin: 0 0 24px; }
+.notice > svg { flex: 0 0 18px; margin-top: 2px; }
+.connection-pending { animation: connection-spin 1.2s linear infinite; }
+@keyframes connection-spin { to { transform: rotate(360deg); } }
+.skeleton { border: 0; border-radius: 6px; box-shadow: none; }
+.confirmation-dialog { border: 1px solid var(--surface-border); border-radius: 8px; background: var(--surface); color: var(--foreground); padding: 28px; box-shadow: var(--shadow); max-width: min(480px, calc(100% - 32px)); }
+.confirmation-dialog h2 { font-size: 20px; margin-top: 0; }
+.confirmation-dialog p { font-size: 14px; line-height: 1.65; }
+.dialog-actions { padding-top: 12px; gap: 10px; }
+.course-empty-view { border-block: 1px solid var(--surface-border); padding: 24px 0; }
 @media (max-width: 900px) {
   .app-shell { padding-left: 0; }
   .app-rail { inset: auto 0 0; width: 100%; height: calc(64px + env(safe-area-inset-bottom)); padding: 0 8px env(safe-area-inset-bottom); border: 0; border-top: 1px solid var(--surface-border); }
