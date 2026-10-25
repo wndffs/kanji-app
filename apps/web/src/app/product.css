@@ -313,18 +313,27 @@ textarea::placeholder {
   font-weight: 700;
   line-height: 1.2;
 }
-.dashboard-page .metric-card strong a {
+.dashboard-page .metric-card-link strong {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
-.dashboard-page .metric-card strong a svg {
+.dashboard-page .metric-card-link strong svg {
   color: var(--muted);
 }
 .dashboard-widget-grid {
   align-items: start;
   gap: 28px;
+}
+.dashboard-page .metric-card-link:hover {
+  border-color: var(--primary);
+  background: var(--subject-component-soft);
+}
+@media (min-width: 981px) {
+  .dashboard-widget-grid[data-composition="daily"] > [data-dashboard-widget="course-progress"] {
+    grid-row: span 3;
+  }
 }
 .dashboard-page .course-progress {
   padding-top: 8px;

@@ -434,7 +434,7 @@ function DashboardView({
           <p>Все виджеты скрыты. Откройте настройку панели, чтобы вернуть нужные блоки.</p>
         </div>
       ) : (
-        <div className="dashboard-widget-grid">
+        <div className="dashboard-widget-grid" data-composition={!customizationOpen && presentDashboardWidgets(dashboard.user.dashboardWidgets) !== dashboard.user.dashboardWidgets ? "daily" : "personal"}>
           {visibleWidgets.map((widget) => {
             const content = (
               <DashboardWidgetContent
@@ -1859,20 +1859,13 @@ function MetricCard({
   readonly href?: string;
   readonly tone: string;
 }) {
-  return (
-    <article className="metric-card" data-tone={tone}>
+  const content = <>
       <Icon size={20} aria-hidden="true" />
       <span>{label}</span>
       <strong>
-        {href ? (
-          <Link href={href} aria-label={`${label}: ${value}`}>
-            {value}
-            <ArrowRight size={16} aria-hidden="true" />
-          </Link>
-        ) : (
-          value
-        )}
+        {value}{href ? <ArrowRight size={16} aria-hidden="true" /> : null}
       </strong>
-    </article>
-  );
+  </>;
+  return href ? <Link className="metric-card metric-card-link" data-tone={tone} href={href} aria-label={`${label}: ${value}`}>{content}</Link>
+    : <article className="metric-card" data-tone={tone}>{content}</article>;
 }
