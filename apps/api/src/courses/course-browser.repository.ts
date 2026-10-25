@@ -11,6 +11,7 @@ import {
 import { PrismaService } from "../database/prisma.service";
 import { listeningCardEligibilityWhere } from "../lessons/lessons.repository";
 import { isEligibleListeningAudio } from "../audio/audio-asset";
+import { normalizeJapaneseReading, normalizeRussianMeaning } from "@kanji-srs/japanese";
 
 @Injectable()
 export class CourseBrowserRepository {
@@ -54,7 +55,7 @@ export class CourseBrowserRepository {
     courseId: string,
     levelNumber: number,
     page: number,
-    filters: { readonly itemType?: ItemKind; readonly studyState?: CourseMaterialStudyState; readonly reviewState?: CourseReviewFilter } = {},
+    filters: { readonly itemType?: ItemKind; readonly studyState?: CourseMaterialStudyState; readonly reviewState?: CourseReviewFilter; readonly q?: string } = {},
   ) {
     const level = await this.prisma.db.courseLevel.findFirst({
       where: { courseId, levelNumber, course: { status: "PUBLISHED", courseType: "STRUCTURED" } },
@@ -75,6 +76,7 @@ export class CourseBrowserRepository {
         learningItem: {
           select: {
             kind: true,
+            targetId: true,
             cards: {
               where: listeningCardEligibilityWhere,
               select: {
@@ -117,7 +119,9 @@ export class CourseBrowserRepository {
         };
       });
     const summary = summarizeCourseLevel(all);
+    const matches = filters.q ? await this.searchIds(entries, filters.q) : null;
     const indexed = all
+      .filter((entry) => matches === null || matches.has(entry.id))
       .filter((entry) => filters.itemType === undefined || entry.itemType === filters.itemType)
       .filter(
         (entry) => filters.studyState === undefined || entry.studyState === filters.studyState,
@@ -132,5 +136,33 @@ export class CourseBrowserRepository {
       summary,
       progress: new Map(selected.map((entry) => [entry.id, entry])),
     };
+  }
+
+  private async searchIds(entries: readonly { readonly learningItemId: string; readonly learningItem: { readonly kind: string; readonly targetId: string } }[], q: string) {
+    const escape = (value: string) => value.replace(/[\\%_]/gu, "\\$&");
+    const contains = escape(q);
+    const normalized = [...new Set([normalizeJapaneseReading(q), normalizeRussianMeaning(q)])].filter(Boolean);
+    const ids = entries.map((entry) => entry.learningItemId);
+    if (ids.length === 0) return new Set<string>();
+    const direct = await this.prisma.db.learningItem.findMany({
+      where: { id: { in: ids }, status: "PUBLISHED", OR: [
+        { title: { contains, mode: "insensitive" } },
+        ...normalized.map((text) => ({ cards: { some: { answers: { some: { normalizedText: { contains: escape(text), mode: "insensitive" as const } } } } } })),
+      ] }, select: { id: true },
+    });
+    const matching = new Set(direct.map((item) => item.id));
+    const targets = (kind: string) => entries.filter((entry) => entry.learningItem.kind === kind).map((entry) => entry.learningItem.targetId);
+    const targetMatches = new Set<string>();
+    // Polymorphic targets have no Prisma relation. Each lookup is limited to this level's IDs.
+    const componentIds = targets("COMPONENT");
+    if (componentIds.length) for (const row of await this.prisma.db.component.findMany({ where: { id: { in: componentIds }, symbol: { contains } }, select: { id: true } })) targetMatches.add(row.id);
+    const kanjiIds = targets("KANJI");
+    if (kanjiIds.length) for (const row of await this.prisma.db.kanji.findMany({ where: { id: { in: kanjiIds }, character: { contains } }, select: { id: true } })) targetMatches.add(row.id);
+    const wordIds = targets("WORD");
+    if (wordIds.length) for (const row of await this.prisma.db.word.findMany({ where: { id: { in: wordIds }, OR: [{ expression: { contains } }, { reading: { contains: escape(normalizeJapaneseReading(q)) } }] }, select: { id: true } })) targetMatches.add(row.id);
+    const sentenceIds = targets("SENTENCE");
+    if (sentenceIds.length) for (const row of await this.prisma.db.sentence.findMany({ where: { id: { in: sentenceIds }, japaneseText: { contains } }, select: { id: true } })) targetMatches.add(row.id);
+    for (const entry of entries) if (targetMatches.has(entry.learningItem.targetId)) matching.add(entry.learningItemId);
+    return matching;
   }
 }

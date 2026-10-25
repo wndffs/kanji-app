@@ -132,6 +132,9 @@ describe("read-only published syllabus", () => {
       "тип материала",
     );
     await expect(service.materials("owner", ID, "2", { reviewState: ["due"] })).rejects.toThrow("срок повторения");
+    for (const q of [["one"], "x".repeat(81), "one\n"]) await expect(service.materials("owner", ID, "2", { q })).rejects.toThrow("Поиск");
+    await service.materials("owner", ID, "2", { q: "  ＯＮＥ  " });
+    expect(levelPage).toHaveBeenLastCalledWith("owner", ID, 2, 1, { itemType: undefined, studyState: undefined, q: "ONE" });
   });
   it("finds due entries beyond page one and excludes burned or future-only cards", async () => {
     const entry = (id: string, availableAt: Date, burnedAt: Date | null = null) => ({

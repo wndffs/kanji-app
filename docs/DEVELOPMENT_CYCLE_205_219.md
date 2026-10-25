@@ -13,7 +13,7 @@ Tests, repairs and evidence commits are not additional tasks.
 | 209 | Whole-level progress totals | Counts use all published placements, independent of page/filter | Implemented |
 | 210 | Level progress navigation | Compact counts link to new/learning/burned/due views | Implemented |
 | 211 | Per-prompt progress | Expand an item's meaning/reading/listening state without opening all details | Implemented |
-| 212 | Level search API | Bounded Japanese/title/global-answer search before pagination, no private text | Pending |
+| 212 | Level search API | Bounded Japanese/title/global-answer search before pagination, no private text | Implemented |
 | 213 | Search navigation | Explicit submit, clear, history and item-return preserve the query | Pending |
 | 214 | Review ordering API | Stable course/due-first ordering without changing schedules | Pending |
 | 215 | Review ordering control | URL-backed sorting retains filters and resets page | Pending |
