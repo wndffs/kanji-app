@@ -8,7 +8,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { AuthGuard } from "../auth/auth.guard";
-import { CourseBrowserService } from "./course-browser.service";
+import { CourseBrowserService, type CourseMaterialQuery } from "./course-browser.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { type CurrentUserDto } from "../auth/auth.types";
 
@@ -34,7 +34,7 @@ export class CourseBrowserController {
     @Param("courseId") courseId: string,
     @Param("level") level: string,
     @Query()
-    query: { readonly page?: unknown; readonly itemType?: unknown; readonly studyState?: unknown },
+    query: CourseMaterialQuery,
   ) {
     return this.service.materials(user.id, requireCourseBrowserId(courseId), level, query);
   }

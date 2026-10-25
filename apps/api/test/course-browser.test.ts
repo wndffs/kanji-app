@@ -131,6 +131,25 @@ describe("read-only published syllabus", () => {
     await expect(service.materials("owner", ID, "2", { itemType: "invalid" })).rejects.toThrow(
       "тип материала",
     );
+    await expect(service.materials("owner", ID, "2", { reviewState: ["due"] })).rejects.toThrow("срок повторения");
+  });
+  it("finds due entries beyond page one and excludes burned or future-only cards", async () => {
+    const entry = (id: string, availableAt: Date, burnedAt: Date | null = null) => ({
+      learningItemId: id,
+      learningItem: { kind: "KANJI", cards: [{ id, promptType: "READING", audioAsset: null,
+        srsStates: [{ availableAt, burnedAt, stageIndex: 2 }] }] },
+    });
+    const past = new Date(0);
+    const future = new Date("2099-01-01T00:00:00Z");
+    const repository = new CourseBrowserRepository({ db: {
+      courseLevel: { findFirst: vi.fn().mockResolvedValue({ id: "level" }) },
+      courseLevelItem: { findMany: vi.fn().mockResolvedValue([
+        ...Array.from({ length: 31 }, (_, i) => entry(`future-${i}`, future)),
+        entry("due", past), entry("burned", past, past),
+      ]) },
+    } } as never);
+    expect(await repository.levelPage("owner", ID, 1, 1, { reviewState: "due" })).toMatchObject({ ids: ["due"], total: 1 });
+    expect(await repository.levelPage("owner", ID, 1, 2, { reviewState: "scheduled" })).toMatchObject({ ids: ["future-30"], total: 31 });
   });
   it("filters full own-card state before slicing the level page", async () => {
     const card = (burned: boolean | null) => ({

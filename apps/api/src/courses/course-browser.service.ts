@@ -4,6 +4,7 @@ import {
   type CourseMaterialPageDto,
   type ItemKind,
   type CourseMaterialStudyState,
+  type CourseReviewFilter,
 } from "@kanji-srs/shared";
 import { LessonsRepository } from "../lessons/lessons.repository";
 import { CourseBrowserRepository } from "./course-browser.repository";
@@ -14,6 +15,12 @@ function boundedInteger(value: unknown, maximum: number, label: string, fallback
     throw new BadRequestException(`Некорректный ${label}.`);
   return Number(value);
 }
+export type CourseMaterialQuery = {
+  readonly page?: unknown;
+  readonly itemType?: unknown;
+  readonly studyState?: unknown;
+  readonly reviewState?: unknown;
+};
 
 @Injectable()
 export class CourseBrowserService {
@@ -32,7 +39,7 @@ export class CourseBrowserService {
     userId: string,
     courseId: string,
     levelValue: unknown,
-    query: { readonly page?: unknown; readonly itemType?: unknown; readonly studyState?: unknown },
+    query: CourseMaterialQuery,
   ): Promise<CourseMaterialPageDto> {
     const levelNumber = boundedInteger(levelValue, 60, "уровень");
     const page = boundedInteger(query.page, 10_000, "номер страницы", 1);
@@ -43,9 +50,12 @@ export class CourseBrowserService {
       !["not-started", "learning", "burned"].includes(query.studyState as string)
     )
       throw new BadRequestException("Некорректное состояние изучения.");
+    if (query.reviewState !== undefined && !["due", "scheduled"].includes(query.reviewState as string))
+      throw new BadRequestException("Некорректный срок повторения.");
     const result = await this.repository.levelPage(userId, courseId, levelNumber, page, {
       itemType: query.itemType as ItemKind | undefined,
       studyState: query.studyState as CourseMaterialStudyState | undefined,
+      ...(query.reviewState === undefined ? {} : { reviewState: query.reviewState as CourseReviewFilter }),
     });
     if (result === null) throw new NotFoundException("Опубликованный уровень не найден.");
     const items = await this.lessons.loadLessonItems(userId, result.ids);
