@@ -92,11 +92,13 @@ export type CourseLevelSummaryDto = {
   readonly dueItemCount: number;
   readonly byKind: Readonly<Record<ItemKind, number>>;
 };
-export function summarizeCourseLevel(items: readonly {
-  readonly itemType: ItemKind;
-  readonly studyState: CourseMaterialStudyState;
-  readonly dueCardCount: number;
-}[]): CourseLevelSummaryDto {
+export function summarizeCourseLevel(
+  items: readonly {
+    readonly itemType: ItemKind;
+    readonly studyState: CourseMaterialStudyState;
+    readonly dueCardCount: number;
+  }[],
+): CourseLevelSummaryDto {
   const byKind = { component: 0, kanji: 0, word: 0, sentence: 0 };
   for (const item of items) byKind[item.itemType] += 1;
   return {

@@ -53,18 +53,29 @@ export class CourseBrowserService {
       !["not-started", "learning", "burned"].includes(query.studyState as string)
     )
       throw new BadRequestException("Некорректное состояние изучения.");
-    if (query.reviewState !== undefined && !["due", "scheduled"].includes(query.reviewState as string))
+    if (
+      query.reviewState !== undefined &&
+      !["due", "scheduled"].includes(query.reviewState as string)
+    )
       throw new BadRequestException("Некорректный срок повторения.");
-    if (query.q !== undefined && (typeof query.q !== "string" || query.q.length > 80 || /[\u0000-\u001f]/u.test(query.q)))
+    if (
+      query.q !== undefined &&
+      (typeof query.q !== "string" ||
+        query.q.length > 80 ||
+        [...query.q].some((character) => character.charCodeAt(0) < 32))
+    )
       throw new BadRequestException("Поиск должен содержать не более 80 символов.");
-    const q = typeof query.q === "string" ? query.q.normalize("NFKC").trim().replace(/\s+/gu, " ") : "";
+    const q =
+      typeof query.q === "string" ? query.q.normalize("NFKC").trim().replace(/\s+/gu, " ") : "";
     if (q.length > 80) throw new BadRequestException("Слишком длинный поисковый запрос.");
     if (query.sort !== undefined && !["course", "review-time"].includes(query.sort as string))
       throw new BadRequestException("Некорректная сортировка.");
     const result = await this.repository.levelPage(userId, courseId, levelNumber, page, {
       itemType: query.itemType as ItemKind | undefined,
       studyState: query.studyState as CourseMaterialStudyState | undefined,
-      ...(query.reviewState === undefined ? {} : { reviewState: query.reviewState as CourseReviewFilter }),
+      ...(query.reviewState === undefined
+        ? {}
+        : { reviewState: query.reviewState as CourseReviewFilter }),
       ...(q === "" ? {} : { q }),
       ...(query.sort === undefined ? {} : { sort: query.sort as CourseMaterialSort }),
     });

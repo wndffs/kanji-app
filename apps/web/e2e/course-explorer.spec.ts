@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { type CourseProgressCardDto } from "@kanji-srs/shared";
 
 const API = "http://localhost:3001";
 const ID = "00000000-0000-4000-8000-000000000010";
@@ -11,7 +12,7 @@ const outline = {
     { levelNumber: 2, title: "Кандзи", band: "foundation", publishedItemCount: 2 },
   ],
 };
-async function signIn(page: Page) {
+async function signIn(page: Page, progressCards: readonly CourseProgressCardDto[] = []) {
   await page.route(`${API}/courses/${ID}/levels/*/items*`, (route) => {
     const pageNumber = Number(new URL(route.request().url()).searchParams.get("page") ?? 1);
     return route.fulfill({
@@ -21,27 +22,36 @@ async function signIn(page: Page) {
         page: pageNumber,
         pageSize: 30,
         total: 32,
-        summary: { total: 32, newCount: 30, learningCount: 1, burnedCount: 1, dueItemCount: 1,
-          byKind: { component: 0, kanji: 32, word: 0, sentence: 0 } },
-        items: [
-          {
-            id: `material-${pageNumber}`,
-            itemType: "kanji",
-            japanese: pageNumber === 1 ? "一" : "二",
-            title: "Число",
-            reading: "いち",
-            meaningRu: "один",
-            meaningEn: "one",
-            studyState: "not-started",
-            cardCount: 2,
-            startedCardCount: 0,
-            burnedCardCount: 0,
-            dueCardCount: 0,
-            scheduledCardCount: 0,
-            nextReviewAt: null,
-            progressCards: [],
-          },
-        ],
+        summary: {
+          total: 32,
+          newCount: 30,
+          learningCount: 1,
+          burnedCount: 1,
+          dueItemCount: 1,
+          byKind: { component: 0, kanji: 32, word: 0, sentence: 0 },
+        },
+        items:
+          pageNumber > 2
+            ? []
+            : [
+                {
+                  id: `material-${pageNumber}`,
+                  itemType: "kanji",
+                  japanese: pageNumber === 1 ? "一" : "二",
+                  title: "Число",
+                  reading: "いち",
+                  meaningRu: "один",
+                  meaningEn: "one",
+                  studyState: "not-started",
+                  cardCount: 2,
+                  startedCardCount: 0,
+                  burnedCardCount: 0,
+                  dueCardCount: 0,
+                  scheduledCardCount: 0,
+                  nextReviewAt: null,
+                  progressCards,
+                },
+              ],
       },
     });
   });
@@ -61,6 +71,111 @@ async function signIn(page: Page) {
   });
 }
 test.describe("published course explorer", () => {
+  test("submits search and sort explicitly and restores them through history", async ({ page }) => {
+    await signIn(page);
+    await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+    await page.goto(`/courses/${ID}?level=1&page=2`);
+    await page.locator(".course-material-options > summary").click();
+    await page.getByRole("searchbox", { name: "Поиск в уровне" }).fill("  ＯＮＥ  ");
+    await page.getByRole("button", { name: "Найти в уровне" }).click();
+    await expect(page).toHaveURL(/level=1&q=ONE$/u);
+    const request = page.waitForRequest(
+      (request) =>
+        request.url().includes("/levels/1/items") &&
+        new URL(request.url()).searchParams.get("sort") === "review-time",
+    );
+    await page.getByLabel("Порядок материалов", { exact: true }).selectOption("review-time");
+    expect(new URL((await request).url()).searchParams.get("q")).toBe("ONE");
+    await expect(page.locator(".course-material-grid a")).toHaveAttribute(
+      "href",
+      /q=ONE&sort=review-time&courseId=/u,
+    );
+    await page.reload();
+    await expect(page.getByRole("searchbox", { name: "Поиск в уровне" })).toHaveValue("ONE");
+    await expect(page.getByLabel("Порядок материалов", { exact: true })).toHaveValue("review-time");
+    await page.getByRole("button", { name: "Очистить поиск" }).click();
+    await expect(page).not.toHaveURL(/q=/u);
+    await page.goBack();
+    await expect(page.getByRole("searchbox", { name: "Поиск в уровне" })).toHaveValue("ONE");
+  });
+  test("inspects meaning and reading cards separately without opening an item", async ({
+    page,
+  }) => {
+    await signIn(page, [
+      {
+        id: "meaning",
+        promptType: "meaning",
+        started: true,
+        burned: true,
+        stageIndex: 9,
+        availableAt: null,
+      },
+      {
+        id: "reading",
+        promptType: "reading",
+        started: true,
+        burned: false,
+        stageIndex: 2,
+        availableAt: "2026-10-25T10:00:00Z",
+      },
+    ]);
+    await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+    await page.goto(`/courses/${ID}`);
+    await page.getByLabel("Карточки 一", { exact: true }).click();
+    const progress = page.locator(".course-card-progress");
+    await expect(progress.getByRole("listitem").filter({ hasText: "Значение" })).toContainText(
+      "Выучена",
+    );
+    await expect(progress.getByRole("listitem").filter({ hasText: "Чтение" })).toContainText(
+      "Ступень SRS: 2",
+    );
+    await expect(progress.locator("time")).toHaveAttribute("datetime", "2026-10-25T10:00:00Z");
+    await expect(page).toHaveURL(`/courses/${ID}`);
+  });
+  test("remembers the list only for its owner and keeps bilingual kana visible", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+    await page.goto(`/courses/${ID}`);
+    await page.getByRole("button", { name: "Список материалов", exact: true }).click();
+    await expect(page.locator(".course-material-grid")).toHaveAttribute("data-view", "list");
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "Список материалов", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".course-material-grid a")).toContainText("いち");
+    await expect(page.locator(".course-material-grid a")).toContainText("one");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.evaluate(() => {
+      const user = JSON.parse(localStorage.getItem("kanji-srs.user")!);
+      localStorage.setItem("kanji-srs.accessToken", "next-view-owner");
+      localStorage.setItem("kanji-srs.user", JSON.stringify({ ...user, id: "next-view-owner" }));
+      window.dispatchEvent(new Event("kanji-srs.auth-changed"));
+    });
+    await expect(
+      page.getByRole("button", { name: "Сетка материалов", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+  test("recovers an excessive page and resets filters without losing the level", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+    await page.goto(`/courses/${ID}?level=2&page=99&q=one&itemType=kanji`);
+    await expect(page.getByText("Такой страницы больше нет.")).toBeVisible();
+    await page.getByRole("button", { name: "К первой странице", exact: true }).click();
+    await expect(page).toHaveURL(/level=2&itemType=kanji&q=one$/u);
+    await expect(page.locator(".course-material-grid a")).toBeVisible();
+    await page.getByRole("button", { name: "Сбросить фильтры", exact: true }).click();
+    await expect(page).toHaveURL(`/courses/${ID}?level=2`);
+    await expect(page.locator(".course-material-options")).not.toHaveAttribute("open");
+    await page.goto(`/courses/${ID}?level=60`);
+    await page.getByRole("button", { name: "К первому уровню", exact: true }).click();
+    await expect(page).toHaveURL(`/courses/${ID}?level=1`);
+  });
   for (const status of [200, 401]) {
     test(`ignores stale level data after account replacement (${status})`, async ({ page }) => {
       await signIn(page);
@@ -157,7 +272,10 @@ test.describe("published course explorer", () => {
     await expect(page.getByRole("heading", { name: outline.title })).toBeVisible();
     await page.getByRole("button", { name: "Все уровни", exact: true }).click();
     await expect(page.getByRole("list", { name: "Уровни курса" })).toContainText("32 материалов");
-    await page.getByRole("list", { name: "Уровни курса" }).getByRole("link", { name: /Уровень 2:/u }).click();
+    await page
+      .getByRole("list", { name: "Уровни курса" })
+      .getByRole("link", { name: /Уровень 2:/u })
+      .click();
     await expect(page).toHaveURL(new RegExp(`/courses/${ID}\\?level=2$`, "u"));
     await expect(page.getByLabel("Уровень курса", { exact: true })).toHaveValue("2");
   });
@@ -180,9 +298,19 @@ test.describe("published course explorer", () => {
     await signIn(page);
     await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
     const writes: string[] = [];
-    page.on("request", (request) => { if (request.url().startsWith(API) && request.method() !== "GET" && request.method() !== "OPTIONS") writes.push(request.url()); });
+    page.on("request", (request) => {
+      if (
+        request.url().startsWith(API) &&
+        request.method() !== "GET" &&
+        request.method() !== "OPTIONS"
+      )
+        writes.push(request.url());
+    });
     await page.goto(`/courses/${ID}?itemType=kanji&page=2`);
-    await page.getByRole("navigation", { name: "Прогресс уровня" }).getByRole("button", { name: "Срок наступил: 1", exact: true }).click();
+    await page
+      .getByRole("navigation", { name: "Прогресс уровня" })
+      .getByRole("button", { name: "Срок наступил: 1", exact: true })
+      .click();
     await expect(page).toHaveURL(/reviewState=due/u);
     await expect(page.getByLabel("Срок повторения", { exact: true })).toHaveValue("due");
     await expect(page.getByText("Страница 1 из 2")).toBeVisible();

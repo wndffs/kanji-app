@@ -1,10 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readCourseMaterialView, storeCourseMaterialView } from "../src/lib/course-material-preferences";
+import {
+  readCourseMaterialView,
+  storeCourseMaterialView,
+} from "../src/lib/course-material-preferences";
 afterEach(() => vi.unstubAllGlobals());
 describe("owner-scoped material view", () => {
   it("does not borrow another user's preference and ignores unknown values", () => {
     const values = new Map<string, string>();
-    vi.stubGlobal("window", { localStorage: { getItem: (key: string) => values.get(key), setItem: (key: string, value: string) => values.set(key, value) } });
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: (key: string) => values.get(key),
+        setItem: (key: string, value: string) => values.set(key, value),
+      },
+    });
     storeCourseMaterialView("one", "list");
     expect(readCourseMaterialView("one")).toBe("list");
     expect(readCourseMaterialView("two")).toBe("grid");
@@ -12,7 +20,11 @@ describe("owner-scoped material view", () => {
     expect(readCourseMaterialView("two")).toBe("grid");
   });
   it("works when storage is blocked", () => {
-    vi.stubGlobal("window", { get localStorage() { throw new Error("blocked"); } });
+    vi.stubGlobal("window", {
+      get localStorage() {
+        throw new Error("blocked");
+      },
+    });
     expect(readCourseMaterialView("one")).toBe("grid");
     expect(() => storeCourseMaterialView("one", "list")).not.toThrow();
   });

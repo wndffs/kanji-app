@@ -7,6 +7,20 @@ import {
   parseCourseBrowserRoute,
 } from "../src/lib/course-browser-route";
 describe("course browser URLs", () => {
+  it("retains bounded search, due state and sort in item return links", () => {
+    const id = "00000000-0000-4000-8000-000000000010";
+    const route = parseCourseBrowserRoute(
+      new URLSearchParams("level=5&page=2&q=%20%D0%B5%D0%B6%20&reviewState=due&sort=review-time"),
+    );
+    const item = new URL(courseItemHref("word", id, route), "https://example.test");
+    expect(courseReturnHref(Object.fromEntries(item.searchParams))).toBe(
+      courseBrowserHref(id, route),
+    );
+    expect(route).toMatchObject({ q: "еж", reviewState: "due", sort: "review-time", page: 2 });
+    expect(
+      parseCourseBrowserRoute(new URLSearchParams({ q: "x".repeat(81), sort: "invalid" })),
+    ).toMatchObject({ q: "", sort: "course" });
+  });
   it("links back to only a validated internal course view", () => {
     const courseId = "00000000-0000-4000-8000-000000000010";
     const href = courseItemHref("item", courseId, {
@@ -30,7 +44,15 @@ describe("course browser URLs", () => {
     expect(adjacentCourseLevels([], 1)).toEqual({ previous: null, next: null });
   });
   it("round trips the complete view without including arbitrary URL destinations", () => {
-    const route = { level: 4, page: 2, itemType: "word", studyState: "learning", reviewState: "all", q: "", sort: "course" } as const;
+    const route = {
+      level: 4,
+      page: 2,
+      itemType: "word",
+      studyState: "learning",
+      reviewState: "all",
+      q: "",
+      sort: "course",
+    } as const;
     const href = courseBrowserHref("course", route);
     expect(href).toBe("/courses/course?level=4&page=2&itemType=word&studyState=learning");
     expect(parseCourseBrowserRoute(new URL(href, "https://example.test").searchParams)).toEqual(
@@ -42,6 +64,14 @@ describe("course browser URLs", () => {
       parseCourseBrowserRoute(
         new URLSearchParams("level=61&page=10001&itemType=wrong&studyState=wrong"),
       ),
-    ).toEqual({ level: null, page: 1, itemType: "all", studyState: "all", reviewState: "all", q: "", sort: "course" });
+    ).toEqual({
+      level: null,
+      page: 1,
+      itemType: "all",
+      studyState: "all",
+      reviewState: "all",
+      q: "",
+      sort: "course",
+    });
   });
 });

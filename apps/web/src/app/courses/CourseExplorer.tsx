@@ -167,8 +167,16 @@ function OwnedCourseExplorer({
                       onNavigate={navigate}
                     />
                   ) : (
-                    <div className="notice-panel"><p role="alert">Такого уровня в курсе нет.</p>
-                      <button className="secondary-action" onClick={() => navigate({ ...route, level: outline.levels[0]!.levelNumber, page: 1 })}>К первому уровню</button>
+                    <div className="notice-panel">
+                      <p role="alert">Такого уровня в курсе нет.</p>
+                      <button
+                        className="secondary-action"
+                        onClick={() =>
+                          navigate({ ...route, level: outline.levels[0]!.levelNumber, page: 1 })
+                        }
+                      >
+                        К первому уровню
+                      </button>
                     </div>
                   )}
                 </>
@@ -177,14 +185,34 @@ function OwnedCourseExplorer({
                 <ol className="course-outline" aria-label="Уровни курса">
                   {outline.levels.map((level) => (
                     <li key={level.levelNumber}>
-                      <Link prefetch={false} href={courseBrowserHref(courseId, { ...(route ?? parseCourseBrowserRoute(new URLSearchParams())), level: level.levelNumber, page: 1 })}
+                      <Link
+                        prefetch={false}
+                        href={courseBrowserHref(courseId, {
+                          ...(route ?? parseCourseBrowserRoute(new URLSearchParams())),
+                          level: level.levelNumber,
+                          page: 1,
+                        })}
                         aria-current={level.levelNumber === currentLevel ? "location" : undefined}
                         onClick={(event) => {
-                          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                          if (
+                            event.button !== 0 ||
+                            event.metaKey ||
+                            event.ctrlKey ||
+                            event.shiftKey ||
+                            event.altKey
+                          )
+                            return;
                           event.preventDefault();
-                          navigate({ ...(route ?? parseCourseBrowserRoute(new URLSearchParams())), level: level.levelNumber, page: 1 });
-                        }}>
-                        <strong>Уровень {level.levelNumber}: {level.title}</strong>
+                          navigate({
+                            ...(route ?? parseCourseBrowserRoute(new URLSearchParams())),
+                            level: level.levelNumber,
+                            page: 1,
+                          });
+                        }}
+                      >
+                        <strong>
+                          Уровень {level.levelNumber}: {level.title}
+                        </strong>
                         <span>{level.publishedItemCount} материалов</span>
                       </Link>
                     </li>

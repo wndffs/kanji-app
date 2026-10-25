@@ -12,7 +12,11 @@ import { courseItemHref, type CourseBrowserRoute } from "../../lib/course-browse
 import { CourseLevelProgress } from "./CourseLevelProgress";
 import { CourseCardProgress } from "./CourseCardProgress";
 import { CourseMaterialSearch } from "./CourseMaterialSearch";
-import { readCourseMaterialView, storeCourseMaterialView, type CourseMaterialView } from "../../lib/course-material-preferences";
+import {
+  readCourseMaterialView,
+  storeCourseMaterialView,
+  type CourseMaterialView,
+} from "../../lib/course-material-preferences";
 
 export function CourseLevelMaterials({
   token,
@@ -31,9 +35,26 @@ export function CourseLevelMaterials({
 }) {
   const displayMode = useTranslationDisplayMode();
   const { page, itemType, studyState, reviewState, q, sort } = route;
-  const hasFilters = itemType !== "all" || studyState !== "all" || reviewState !== "all" || q !== "";
-  const resetFilters = () => onNavigate({ ...route, page: 1, itemType: "all", studyState: "all", reviewState: "all", q: "" });
-  const requestKey = JSON.stringify([levelNumber, page, itemType, studyState, reviewState, q, sort]);
+  const hasFilters =
+    itemType !== "all" || studyState !== "all" || reviewState !== "all" || q !== "";
+  const resetFilters = () =>
+    onNavigate({
+      ...route,
+      page: 1,
+      itemType: "all",
+      studyState: "all",
+      reviewState: "all",
+      q: "",
+    });
+  const requestKey = JSON.stringify([
+    levelNumber,
+    page,
+    itemType,
+    studyState,
+    reviewState,
+    q,
+    sort,
+  ]);
   const [loaded, setLoaded] = useState<{
     readonly key: string;
     readonly data: CourseMaterialPageDto;
@@ -42,7 +63,9 @@ export function CourseLevelMaterials({
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const [view, setView] = useState<CourseMaterialView>("grid");
-  useEffect(() => { setView(readCourseMaterialView(userId)); }, [userId]);
+  useEffect(() => {
+    setView(readCourseMaterialView(userId));
+  }, [userId]);
   const changeView = (next: CourseMaterialView) => {
     if (!ownsSession(token)) return;
     setView(next);
@@ -74,76 +97,116 @@ export function CourseLevelMaterials({
     return () => {
       active = false;
     };
-  }, [token, courseId, levelNumber, page, retry, itemType, studyState, reviewState, q, sort, requestKey]);
+  }, [
+    token,
+    courseId,
+    levelNumber,
+    page,
+    retry,
+    itemType,
+    studyState,
+    reviewState,
+    q,
+    sort,
+    requestKey,
+  ]);
   return (
     <section className="course-level-materials" aria-label="Материалы уровня">
       <h2>Материалы уровня {levelNumber}</h2>
-      {data?.summary ? <CourseLevelProgress summary={data.summary} route={route} onNavigate={onNavigate} /> : null}
+      {data?.summary ? (
+        <CourseLevelProgress summary={data.summary} route={route} onNavigate={onNavigate} />
+      ) : null}
       <details className="course-material-options" open={hasFilters || sort !== "course"}>
         <summary>Поиск и фильтры</summary>
         <div className="course-material-controls">
-      <CourseMaterialSearch key={q} value={q} onSearch={(value) => onNavigate({ ...route, q: value, page: 1 })} />
-      <div className="course-material-filters">
-        <label className="course-level-select">
-          Тип материала
-          <select
-            aria-label="Тип материала"
-            value={itemType}
-            onChange={(event) =>
-              onNavigate({
-                ...route,
-                itemType: event.target.value as CourseBrowserRoute["itemType"],
-                page: 1,
-              })
-            }
-          >
-            <option value="all">Все материалы</option>
-            <option value="component">Компоненты</option>
-            <option value="kanji">Кандзи</option>
-            <option value="word">Слова</option>
-            <option value="sentence">Предложения</option>
-          </select>
-        </label>
-        <label className="course-level-select">
-          Изучение
-          <select
-            aria-label="Изучение"
-            value={studyState}
-            onChange={(event) =>
-              onNavigate({
-                ...route,
-                studyState: event.target.value as CourseBrowserRoute["studyState"],
-                page: 1,
-              })
-            }
-          >
-            <option value="all">Любое состояние</option>
-            <option value="not-started">Новые</option>
-            <option value="learning">В работе</option>
-            <option value="burned">Выучены</option>
-          </select>
-        </label>
-      </div>
-      <label className="course-level-select">
-        Срок повторения
-        <select aria-label="Срок повторения" value={reviewState}
-          onChange={(event) => onNavigate({ ...route, reviewState: event.target.value as CourseBrowserRoute["reviewState"], page: 1 })}>
-          <option value="all">Любой срок</option>
-          <option value="due">Срок наступил</option>
-          <option value="scheduled">Запланированы</option>
-        </select>
-      </label>
+          <CourseMaterialSearch
+            key={q}
+            value={q}
+            onSearch={(value) => onNavigate({ ...route, q: value, page: 1 })}
+          />
+          <div className="course-material-filters">
+            <label className="course-level-select">
+              Тип материала
+              <select
+                aria-label="Тип материала"
+                value={itemType}
+                onChange={(event) =>
+                  onNavigate({
+                    ...route,
+                    itemType: event.target.value as CourseBrowserRoute["itemType"],
+                    page: 1,
+                  })
+                }
+              >
+                <option value="all">Все материалы</option>
+                <option value="component">Компоненты</option>
+                <option value="kanji">Кандзи</option>
+                <option value="word">Слова</option>
+                <option value="sentence">Предложения</option>
+              </select>
+            </label>
+            <label className="course-level-select">
+              Изучение
+              <select
+                aria-label="Изучение"
+                value={studyState}
+                onChange={(event) =>
+                  onNavigate({
+                    ...route,
+                    studyState: event.target.value as CourseBrowserRoute["studyState"],
+                    page: 1,
+                  })
+                }
+              >
+                <option value="all">Любое состояние</option>
+                <option value="not-started">Новые</option>
+                <option value="learning">В работе</option>
+                <option value="burned">Выучены</option>
+              </select>
+            </label>
+          </div>
+          <label className="course-level-select">
+            Срок повторения
+            <select
+              aria-label="Срок повторения"
+              value={reviewState}
+              onChange={(event) =>
+                onNavigate({
+                  ...route,
+                  reviewState: event.target.value as CourseBrowserRoute["reviewState"],
+                  page: 1,
+                })
+              }
+            >
+              <option value="all">Любой срок</option>
+              <option value="due">Срок наступил</option>
+              <option value="scheduled">Запланированы</option>
+            </select>
+          </label>
+          <label className="course-level-select">
+            Порядок
+            <select
+              aria-label="Порядок материалов"
+              value={sort}
+              onChange={(event) =>
+                onNavigate({
+                  ...route,
+                  sort: event.target.value as CourseBrowserRoute["sort"],
+                  page: 1,
+                })
+              }
+            >
+              <option value="course">По программе</option>
+              <option value="review-time">По сроку повторения</option>
+            </select>
+          </label>
         </div>
       </details>
-      {hasFilters ? <button className="secondary-action course-reset-filters" onClick={resetFilters}>Сбросить фильтры</button> : null}
-      <label className="course-level-select">
-        Порядок
-        <select aria-label="Порядок материалов" value={sort}
-          onChange={(event) => onNavigate({ ...route, sort: event.target.value as CourseBrowserRoute["sort"], page: 1 })}>
-          <option value="course">По программе</option>
-          <option value="review-time">По сроку повторения</option>
-        </select>
-      </label>
+      {hasFilters ? (
+        <button className="secondary-action course-reset-filters" onClick={resetFilters}>
+          Сбросить фильтры
+        </button>
+      ) : null}
       {error === null ? null : (
         <div>
           <p role="alert">{error}</p>
@@ -161,14 +224,43 @@ export function CourseLevelMaterials({
           <div className="course-material-result-toolbar">
             <p className="muted">Найдено: {data.total}</p>
             <div className="course-material-view" role="group" aria-label="Вид материалов">
-              <button className="icon-button" aria-label="Сетка материалов" title="Сетка" aria-pressed={view === "grid"} onClick={() => changeView("grid")}><LayoutGrid size={18} /></button>
-              <button className="icon-button" aria-label="Список материалов" title="Список" aria-pressed={view === "list"} onClick={() => changeView("list")}><List size={18} /></button>
+              <button
+                className="icon-button"
+                aria-label="Сетка материалов"
+                title="Сетка"
+                aria-pressed={view === "grid"}
+                onClick={() => changeView("grid")}
+              >
+                <LayoutGrid size={18} />
+              </button>
+              <button
+                className="icon-button"
+                aria-label="Список материалов"
+                title="Список"
+                aria-pressed={view === "list"}
+                onClick={() => changeView("list")}
+              >
+                <List size={18} />
+              </button>
             </div>
           </div>
           {data.items.length === 0 ? (
             <div className="course-empty-view">
-              <p>{page > Math.max(1, Math.ceil(data.total / data.pageSize)) ? "Такой страницы больше нет." : hasFilters ? "По выбранным условиям ничего не найдено." : "В этом уровне пока нет материалов."}</p>
-              {page > 1 ? <button className="secondary-action" onClick={() => onNavigate({ ...route, page: 1 })}>К первой странице</button> : null}
+              <p>
+                {page > Math.max(1, Math.ceil(data.total / data.pageSize))
+                  ? "Такой страницы больше нет."
+                  : hasFilters
+                    ? "По выбранным условиям ничего не найдено."
+                    : "В этом уровне пока нет материалов."}
+              </p>
+              {page > 1 ? (
+                <button
+                  className="secondary-action"
+                  onClick={() => onNavigate({ ...route, page: 1 })}
+                >
+                  К первой странице
+                </button>
+              ) : null}
             </div>
           ) : (
             <ul className="course-material-grid" data-view={view}>
@@ -183,12 +275,14 @@ export function CourseLevelMaterials({
                         {item.reading}
                       </JapaneseText>
                     ) : null}
-                    <span className="course-material-meanings">{displayMode !== "en" && item.meaningRu ? (
-                      <span lang="ru">{item.meaningRu}</span>
-                    ) : null}
-                    {displayMode !== "ru" && item.meaningEn ? (
-                      <span lang="en">{item.meaningEn}</span>
-                    ) : null}</span>
+                    <span className="course-material-meanings">
+                      {displayMode !== "en" && item.meaningRu ? (
+                        <span lang="ru">{item.meaningRu}</span>
+                      ) : null}
+                      {displayMode !== "ru" && item.meaningEn ? (
+                        <span lang="en">{item.meaningEn}</span>
+                      ) : null}
+                    </span>
                     <span className="muted course-material-kind">
                       {item.itemType === "component"
                         ? "Компонент"
@@ -205,9 +299,20 @@ export function CourseLevelMaterials({
                           ? `В работе: ${item.startedCardCount}/${item.cardCount}`
                           : "Новый"}
                     </span>
-                    {item.dueCardCount > 0 ? <span className="course-material-review">Срок наступил: {item.dueCardCount}</span> : item.nextReviewAt ? <time dateTime={item.nextReviewAt} className="muted course-material-review">
-                      {new Date(item.nextReviewAt).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                    </time> : null}
+                    {item.dueCardCount > 0 ? (
+                      <span className="course-material-review">
+                        Срок наступил: {item.dueCardCount}
+                      </span>
+                    ) : item.nextReviewAt ? (
+                      <time dateTime={item.nextReviewAt} className="muted course-material-review">
+                        {new Date(item.nextReviewAt).toLocaleString("ru-RU", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </time>
+                    ) : null}
                   </Link>
                   <CourseCardProgress cards={item.progressCards ?? []} japanese={item.japanese} />
                 </li>
@@ -225,7 +330,9 @@ export function CourseLevelMaterials({
               <ChevronLeft size={18} />
             </button>
             <span>
-              {page > Math.max(1, Math.ceil(data.total / data.pageSize)) ? `Страница ${page} вне диапазона` : `Страница ${page} из ${Math.max(1, Math.ceil(data.total / data.pageSize))}`}
+              {page > Math.max(1, Math.ceil(data.total / data.pageSize))
+                ? `Страница ${page} вне диапазона`
+                : `Страница ${page} из ${Math.max(1, Math.ceil(data.total / data.pageSize))}`}
             </span>
             <button
               className="icon-button"

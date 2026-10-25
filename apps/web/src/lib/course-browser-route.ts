@@ -1,4 +1,10 @@
-import { ITEM_KINDS, type ItemKind, type CourseMaterialStudyState, type CourseReviewFilter, type CourseMaterialSort } from "@kanji-srs/shared";
+import {
+  ITEM_KINDS,
+  type ItemKind,
+  type CourseMaterialStudyState,
+  type CourseReviewFilter,
+  type CourseMaterialSort,
+} from "@kanji-srs/shared";
 
 export type CourseBrowserRoute = {
   readonly level: number | null;
@@ -21,7 +27,12 @@ export function parseCourseBrowserRoute(params: URLSearchParams): CourseBrowserR
     studyState: ["not-started", "learning", "burned"].includes(state ?? "")
       ? (state as CourseMaterialStudyState)
       : "all",
-    reviewState: params.get("reviewState") === "due" ? "due" : params.get("reviewState") === "scheduled" ? "scheduled" : "all",
+    reviewState:
+      params.get("reviewState") === "due"
+        ? "due"
+        : params.get("reviewState") === "scheduled"
+          ? "scheduled"
+          : "all",
     q: normalizeCourseSearch(params.get("q") ?? ""),
     sort: params.get("sort") === "review-time" ? "review-time" : "course",
   };
@@ -68,7 +79,7 @@ export function courseReturnHref(params: Record<string, string | string[] | unde
   return courseBrowserHref(courseId, parseCourseBrowserRoute(query));
 }
 export function normalizeCourseSearch(value: string) {
-  if (value.length > 80 || /[\u0000-\u001f]/u.test(value)) return "";
+  if (value.length > 80 || [...value].some((character) => character.charCodeAt(0) < 32)) return "";
   const normalized = value.normalize("NFKC").trim().replace(/\s+/gu, " ");
   return normalized.length <= 80 ? normalized : "";
 }
