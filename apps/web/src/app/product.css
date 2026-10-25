@@ -332,6 +332,90 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .confirmation-dialog p { font-size: 14px; line-height: 1.65; }
 .dialog-actions { padding-top: 12px; gap: 10px; }
 .course-empty-view { border-block: 1px solid var(--surface-border); padding: 24px 0; }
+
+/* Density changes spacing, never the meaning of a control or the SRS payload. */
+:root[data-interface-density="compact"] { --space-section: 18px; --space-control: 8px; }
+:root[data-interface-density="compact"] .main { padding-top: 22px; }
+:root[data-interface-density="compact"] .dashboard-page .metric-card { padding: 14px; min-height: 108px; }
+:root[data-interface-density="compact"] .course-material-grid[data-view="grid"] li a { min-height: 156px; padding: 12px; }
+:root[data-interface-density="compact"] .search-result-card { padding: 14px; }
+:root[data-interface-density="compact"] .auth-layout .form-panel { padding: 22px; }
+:root[data-study-information-density="compact"] .lesson-teaching-hero,
+:root[data-study-information-density="compact"] .review-card { padding: 16px; min-height: 200px; }
+.course-level-progress .text-action { min-height: 32px; padding-block: 6px; }
+@media (max-width: 900px) {
+  .topbar-inner { width: 100%; }
+  .dashboard-heading { grid-template-columns: minmax(0, 1fr) auto; }
+  .dashboard-page .metric-card { padding: 16px; min-height: 116px; }
+  .main[data-page="items"] .item-hero, .main[data-page="kanji"] .item-hero { grid-template-columns: minmax(0, 1fr) minmax(180px, 0.7fr); gap: 24px; padding: 24px; }
+  .settings-save-bar { bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .auth-shell .main { padding-bottom: 32px; }
+}
+@media (max-width: 600px) {
+  .page-heading h1, .course-explorer > .page-heading h1 { font-size: 24px; }
+  .main { width: calc(100% - 32px); }
+  .topbar-inner { width: 100%; padding: 0 12px; }
+  .mode-control select { width: 94px; font-size: 12px; padding-inline: 6px; }
+  .dashboard-heading { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .dashboard-heading .action-row { justify-content: space-between; }
+  .dashboard-heading .primary-action { flex: 1; }
+  .dashboard-page .metric-card > span { font-size: 11px; }
+  .dashboard-page .metric-card strong { font-size: 28px; }
+  .dashboard-page .metric-card > svg { right: 12px; top: 14px; width: 17px; }
+  .lesson-heading .primary-action, .review-heading .primary-action { width: 100%; }
+  .recommended-group { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lesson-session-header, .review-session-header { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
+  .lesson-session-header h1, .review-session-header h1 { font-size: 18px; }
+  .lesson-session-tools .secondary-action { font-size: 12px; padding: 8px 10px; }
+  .lesson-teaching-hero { padding: 20px 16px; min-height: 190px; }
+  .lesson-hero-main > p:not(.review-japanese) { font-size: 17px; }
+  .lesson-action-bar .primary-action { flex: 1; }
+  .review-card { min-height: 210px; padding: 18px; gap: 12px; }
+  .review-prompt { min-height: 138px; }
+  .review-card-meta { gap: 10px; }
+  .review-progress { font-size: 11px; gap: 4px; }
+  .review-progress span { padding: 0 6px; min-height: 24px; }
+  .review-answer-bar { grid-template-columns: minmax(0, 1fr); }
+  .review-answer-bar .primary-action { min-height: 46px; }
+  .review-answer-bar input { min-height: 52px; font-size: 20px; }
+  .feedback-header { grid-template-columns: minmax(0, 1fr); }
+  .feedback-panel { padding: 16px; }
+  .main[data-page="kana"] .kana-practice { padding: 20px 16px; }
+  .kana-heading { gap: 16px; }
+  .kana-script-control { width: 100%; }
+  .kana-script-control button { flex: 1; }
+  .kana-unit-list > button { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .kana-unit-characters { justify-content: start; }
+  .main[data-page="items"] .item-hero, .main[data-page="kanji"] .item-hero { grid-template-columns: minmax(0, 1fr); gap: 22px; padding: 20px; }
+  .item-hero .lesson-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .item-hero-main > p { font-size: 19px; }
+  .course-material-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .course-material-grid li a { padding: 14px 12px 10px; }
+  .course-material-grid[data-view="grid"] li a { min-height: 174px; }
+  .course-material-grid[data-view="list"] { grid-template-columns: minmax(0, 1fr); }
+  .course-material-grid[data-view="list"] li a { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "japanese meanings" "reading meanings" "kind review" "state review"; }
+  .course-material-controls { grid-template-columns: minmax(0, 1fr); }
+  .course-level-toolbar { gap: 12px; padding-bottom: 16px; }
+  .course-level-progress { gap: 4px 12px; }
+  .search-result-card { padding: 16px; gap: 16px; }
+  .search-result-main { grid-template-columns: minmax(60px, 0.45fr) minmax(0, 1fr); gap: 4px 14px; }
+  .search-query-row { gap: 8px; }
+  .search-query-row input { font-size: 16px; }
+  .search-query-row .primary-action { padding-inline: 12px; }
+  .search-result-meta { display: flex; flex-wrap: wrap; gap: 12px 20px; }
+  .settings-form[data-settings-view="appearance"] { grid-template-columns: minmax(0, 1fr); }
+  .appearance-preview { grid-column: 1; grid-row: auto; max-width: 320px; width: 100%; justify-self: center; }
+  .settings-grid { grid-template-columns: minmax(0, 1fr); }
+  .settings-form { gap: 20px; }
+  .auth-shell .main { padding-top: 40px; }
+  .auth-layout .form-panel { padding: 24px; }
+}
+@media (max-width: 380px) {
+  .app-shell:not(.auth-shell):not(.study-focus-shell) .brand-mobile > span { display: none; }
+  .study-focus-shell .brand { gap: 4px; font-size: 12px; }
+  .study-focus-shell .topbar-inner { gap: 6px; }
+  .study-focus-title { font-size: 12px; }
+}
 @media (max-width: 900px) {
   .app-shell { padding-left: 0; }
   .app-rail { inset: auto 0 0; width: 100%; height: calc(64px + env(safe-area-inset-bottom)); padding: 0 8px env(safe-area-inset-bottom); border: 0; border-top: 1px solid var(--surface-border); }
