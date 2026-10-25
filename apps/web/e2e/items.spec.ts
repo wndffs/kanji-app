@@ -14,6 +14,24 @@ const COMPONENT_ID = "item-component-one";
 const WORD_ID = "item-word-school";
 
 test.describe("item details", () => {
+  for (const denied of [false, true]) {
+    test(`copies only a visible kana reading and reports clipboard denial (${denied})`, async ({ page }) => {
+      await signIn(page);
+      await mockItemApi(page);
+      await page.addInitScript((fail) => {
+        Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => {
+          if (fail) throw new Error("denied");
+          (window as typeof window & { copiedReading: string }).copiedReading = text;
+        } } });
+      }, denied);
+      await page.goto(`/items/${ITEM_ID}`);
+      await page.getByRole("button", { name: "Копировать чтение", exact: true }).click();
+      await expect(page.getByRole("status", { name: "Копирование чтения", exact: true })).toHaveText(denied ? "Не удалось скопировать" : "Скопировано");
+      if (!denied) expect(await page.evaluate(() => (window as typeof window & { copiedReading: string }).copiedReading)).toBe("いち");
+      await page.getByLabel("Скрыть подсказки чтения", { exact: true }).check();
+      await expect(page.getByRole("button", { name: "Копировать чтение", exact: true })).toHaveCount(0);
+    });
+  }
   test("does not append an old user's pending history or clear a newer login", async ({ page }) => {
     await signIn(page);
     await mockItemApi(page);

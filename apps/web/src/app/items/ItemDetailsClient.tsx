@@ -19,6 +19,7 @@ import {
 
 import { JapaneseText } from "../../components/JapaneseText";
 import { ViewTabs } from "../../components/ViewTabs";
+import { CopyReadingButton } from "../../components/CopyReadingButton";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import {
   addPrivateAcceptedAnswer,
@@ -578,7 +579,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
                     Показать чтение
                   </button>
                 ) : (
-                  <JapaneseText>{reading.kana}</JapaneseText>
+                  <><JapaneseText>{reading.kana}</JapaneseText>{reading.kana === null ? null : <CopyReadingButton key={reading.kana} reading={reading.kana} />}</>
                 )}
               </dd>
             </div>

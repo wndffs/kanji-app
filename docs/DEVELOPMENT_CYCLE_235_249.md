@@ -28,7 +28,7 @@ No new production dependency or externally hosted fonts/media are needed.
 | 243 | Kana first viewport | Compact script/mode/mastery composition brings the actual exercise and action above phone navigation; mastery stays outside SRS | Implemented |
 | 244 | Kana lesson finder | Search lesson title/glyph/romaji, filter existing kana groups, clear an empty search, retain chosen lesson and script safely | Implemented |
 | 245 | Character filter recovery | Applied kanji filters and one-step reset are visible without losing the active script; filter/history/pagination remain correct | Implemented |
-| 246 | Reading utility | Explicit icon action copies only an already-visible kana reading, reports success/failure and never exposes a hidden reading | Planned |
+| 246 | Reading utility | Explicit icon action copies only an already-visible kana reading, reports success/failure and never exposes a hidden reading | Implemented |
 | 247 | Search recovery | Failed search can retry the same submitted query/page/filters in place; no unsubmitted draft or stale response is substituted | Planned |
 | 248 | Private library recovery | Retry a failed library read without losing the text-builder draft; empty filtered results have a clear reset action | Planned |
 | 249 | Settings draft safety | Discard restores the last confirmed settings and preview; delayed load/save responses cannot overwrite another account or a later local edit | Planned |
