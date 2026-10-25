@@ -35,7 +35,7 @@ meaning/reading phases. Do not reveal quiz answers early.
 | 227 | Courses | Compact catalog and level workspace, subject accents, preserved search/filter/history | Implemented |
 | 228 | Search | Search-first layout, compact bilingual results, restrained filters and metadata | Implemented |
 | 229 | Decks | Scannable private library and text-mining workspace without nested panels | Implemented |
-| 230 | Settings | Legible preference groups, live appearance preview and unobscured save actions | Pending |
+| 230 | Settings | Legible preference groups, live appearance preview and unobscured save actions | Implemented |
 | 231 | Authentication | Original compact login/register presentation with unchanged validation | Pending |
 | 232 | Loading/error/empty states | Consistent recoverable statuses, skeletons and dialogs without false success | Pending |
 | 233 | Responsive and density polish | 360/390/768/1280 layout, long labels, compact mode and large study text | Pending |

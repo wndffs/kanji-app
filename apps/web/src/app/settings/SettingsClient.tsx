@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AppearancePreview } from "../../components/AppearancePreview";
 import { ViewTabs } from "../../components/ViewTabs";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
@@ -336,6 +337,7 @@ export function SettingsClient() {
             ))}
           </select>
         </label>
+        <AppearancePreview mode={form.translationDisplayMode} />
         <div className="settings-grid" data-settings-group="study">
           <label>
             Новых материалов в день
