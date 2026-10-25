@@ -631,7 +631,11 @@ export function ReviewsClient() {
   }
 
   return (
-    <section className="review-session" aria-label="Сессия повторения" data-item-type={currentItem.item.itemType}>
+    <section
+      className="review-session"
+      aria-label="Сессия повторения"
+      data-item-type={currentItem.item.itemType}
+    >
       <header className="review-session-header">
         <div>
           <span className="eyebrow">{progressLabel}</span>
@@ -733,7 +737,11 @@ function ReviewQueuePreview({ queue }: { readonly queue: readonly ReviewQueueIte
   return (
     <div className="review-queue-grid">
       {queue.slice(0, 6).map((item) => (
-        <article className="review-queue-card" key={item.card.id} data-item-type={item.item.itemType}>
+        <article
+          className="review-queue-card"
+          key={item.card.id}
+          data-item-type={item.item.itemType}
+        >
           <div>
             <span className="eyebrow">{formatItemType(item.item.itemType)}</span>
             {item.card.promptType === "listening" ? (

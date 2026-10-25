@@ -176,18 +176,23 @@ function SearchScreen({ token }: { readonly token: string | null }) {
           }
         }}
       >
-        <div className="search-query-row"><label>
-          <span>Запрос</span>
-          <input
-            autoComplete="off"
-            name="q"
-            onChange={(event) => setQuery(event.currentTarget.value)}
-            placeholder="学校, がっこう, школа, school"
-            type="search"
-            value={query}
-          />
-        </label>
-        <button className="primary-action" type="submit"><Search size={18} aria-hidden="true" />Искать</button></div>
+        <div className="search-query-row">
+          <label>
+            <span>Запрос</span>
+            <input
+              autoComplete="off"
+              name="q"
+              onChange={(event) => setQuery(event.currentTarget.value)}
+              placeholder="学校, がっこう, школа, school"
+              type="search"
+              value={query}
+            />
+          </label>
+          <button className="primary-action" type="submit">
+            <Search size={18} aria-hidden="true" />
+            Искать
+          </button>
+        </div>
         <SectionDisclosure
           title="Фильтры"
           defaultOpen={typeFromUrl !== undefined || levelFromUrl !== undefined}
@@ -363,7 +368,11 @@ function SearchResultCard({
   readonly isAuthenticated: boolean;
 }) {
   return (
-    <Link className="search-result-card" data-item-type={item.itemType} href={`/items/${encodeURIComponent(item.id)}`}>
+    <Link
+      className="search-result-card"
+      data-item-type={item.itemType}
+      href={`/items/${encodeURIComponent(item.id)}`}
+    >
       <div className="search-result-main">
         <span className="eyebrow">{formatItemType(item.itemType)}</span>
         <JapaneseText as="strong">{item.japanese}</JapaneseText>
@@ -372,7 +381,9 @@ function SearchResultCard({
             {item.reading}
           </JapaneseText>
         )}
-        <p className="search-result-meaning">{formatTranslationBundle(item.translations, displayMode)}</p>
+        <p className="search-result-meaning">
+          {formatTranslationBundle(item.translations, displayMode)}
+        </p>
       </div>
       <dl className="search-result-meta">
         {item.level === null ? null : (

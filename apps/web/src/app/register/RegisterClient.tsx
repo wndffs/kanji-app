@@ -85,11 +85,17 @@ export function RegisterClient() {
             value={password}
           />
         </label>
-        {error === null ? null : <p className="form-error" role="alert">{error}</p>}
+        {error === null ? null : (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
         <button className="primary-action" disabled={!hydrated || isSubmitting} type="submit">
           {isSubmitting ? "Создаю" : "Создать"}
         </button>
-        <Link className="inline-link" href="/login">Войти в существующий аккаунт</Link>
+        <Link className="inline-link" href="/login">
+          Войти в существующий аккаунт
+        </Link>
       </form>
     </section>
   );

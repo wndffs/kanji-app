@@ -18,7 +18,9 @@ export function CourseCardProgress({
   if (cards.length === 0) return null;
   return (
     <details className="course-card-progress">
-      <summary aria-label={`Карточки ${japanese}`}>Прогресс: {cards.filter((card) => card.started).length}/{cards.length}</summary>
+      <summary aria-label={`Карточки ${japanese}`}>
+        Прогресс: {cards.filter((card) => card.started).length}/{cards.length}
+      </summary>
       <ul>
         {cards.map((card) => (
           <li key={card.id}>

@@ -2,8 +2,19 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { SlidersHorizontal, ArrowRight, ArrowUp, ArrowDown, RotateCw, BookOpen, Flame, CircleHelp, type LucideIcon } from "lucide-react";
+import {
+  SlidersHorizontal,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
+  RotateCw,
+  BookOpen,
+  Flame,
+  CircleHelp,
+  type LucideIcon,
+} from "lucide-react";
 import { dashboardNextAction } from "../../lib/dashboard-next-action";
+import { presentDashboardWidgets } from "../../lib/dashboard-layout";
 
 import {
   type CourseListResponse,
@@ -327,12 +338,16 @@ function DashboardView({
   ) => Promise<void>;
 }) {
   const [customizationOpen, setCustomizationOpen] = useState(false);
-  const [draftWidgets, setDraftWidgets] = useState(dashboard.user.dashboardWidgets);
+  const [draftWidgets, setDraftWidgets] = useState(() =>
+    presentDashboardWidgets(dashboard.user.dashboardWidgets),
+  );
   const [customizationStatus, setCustomizationStatus] = useState<"idle" | "saving" | "error">(
     "idle",
   );
   const [customizationError, setCustomizationError] = useState<string | null>(null);
-  const activeWidgets = customizationOpen ? draftWidgets : dashboard.user.dashboardWidgets;
+  const activeWidgets = customizationOpen
+    ? draftWidgets
+    : presentDashboardWidgets(dashboard.user.dashboardWidgets);
   const visibleWidgets = activeWidgets.filter((widget) => widget.visible);
   const nextAction = dashboardNextAction({
     ...dashboard.counts,
@@ -345,11 +360,11 @@ function DashboardView({
   );
 
   useEffect(() => {
-    setDraftWidgets(dashboard.user.dashboardWidgets);
+    setDraftWidgets(presentDashboardWidgets(dashboard.user.dashboardWidgets));
   }, [dashboard.user.dashboardWidgets]);
 
   function toggleCustomization(): void {
-    setDraftWidgets(dashboard.user.dashboardWidgets);
+    setDraftWidgets(presentDashboardWidgets(dashboard.user.dashboardWidgets));
     setCustomizationStatus("idle");
     setCustomizationError(null);
     setCustomizationOpen((current) => !current);
@@ -765,14 +780,29 @@ function DashboardWidgetEditor({
       <style jsx>{`
         .dashboard-widget-editor {
           grid-template-rows: auto minmax(0, 1fr) auto;
-          max-height: calc(100dvh - 32px);
-          overflow: hidden;
+          max-height: calc(100dvh - 112px);
+          overflow: clip;
         }
         .dashboard-widget-editor-list {
           min-height: 0;
           overflow-y: auto;
           overscroll-behavior: contain;
           scrollbar-gutter: stable;
+        }
+        .dashboard-widget-editor > footer {
+          position: sticky;
+          bottom: 12px;
+          z-index: 1;
+          padding-block: 8px;
+          background: var(--background);
+        }
+        @media (max-width: 900px) {
+          .dashboard-widget-editor {
+            max-height: calc(100dvh - 156px - env(safe-area-inset-bottom));
+          }
+          .dashboard-widget-editor > footer {
+            bottom: calc(76px + env(safe-area-inset-bottom));
+          }
         }
       `}</style>
     </section>
@@ -883,10 +913,27 @@ function assertUnknownDashboardWidget(id: never): never {
 function DashboardSummary({ counts }: { readonly counts: DashboardDto["counts"] }) {
   return (
     <section aria-label="Счётчики" className="metric-grid">
-      <MetricCard label="К повторению" value={counts.dueReviews} icon={RotateCw} href="/reviews" tone="review" />
-      <MetricCard label="Доступно уроков" value={counts.availableLessons} icon={BookOpen} href="/lessons" tone="lesson" />
+      <MetricCard
+        label="К повторению"
+        value={counts.dueReviews}
+        icon={RotateCw}
+        href="/reviews"
+        tone="review"
+      />
+      <MetricCard
+        label="Доступно уроков"
+        value={counts.availableLessons}
+        icon={BookOpen}
+        href="/lessons"
+        tone="lesson"
+      />
       <MetricCard label="Сожжено" value={counts.burnedCards} icon={Flame} tone="burned" />
-      <MetricCard label="Сложные" value={counts.leechCandidates} icon={CircleHelp} tone="difficult" />
+      <MetricCard
+        label="Сложные"
+        value={counts.leechCandidates}
+        icon={CircleHelp}
+        tone="difficult"
+      />
     </section>
   );
 }
@@ -1797,12 +1844,33 @@ function formatItemType(itemType: DashboardDto["leechCandidates"][number]["item"
   }
 }
 
-function MetricCard({ label, value, icon: Icon, href, tone }: { readonly label: string; readonly value: number; readonly icon: LucideIcon; readonly href?: string; readonly tone: string }) {
+function MetricCard({
+  label,
+  value,
+  icon: Icon,
+  href,
+  tone,
+}: {
+  readonly label: string;
+  readonly value: number;
+  readonly icon: LucideIcon;
+  readonly href?: string;
+  readonly tone: string;
+}) {
   return (
     <article className="metric-card" data-tone={tone}>
       <Icon size={20} aria-hidden="true" />
       <span>{label}</span>
-      <strong>{href ? <Link href={href} aria-label={`${label}: ${value}`}>{value}<ArrowRight size={16} aria-hidden="true" /></Link> : value}</strong>
+      <strong>
+        {href ? (
+          <Link href={href} aria-label={`${label}: ${value}`}>
+            {value}
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        ) : (
+          value
+        )}
+      </strong>
     </article>
   );
 }

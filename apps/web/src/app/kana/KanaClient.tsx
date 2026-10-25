@@ -547,7 +547,9 @@ function OwnedKanaClient({
     <section className="page-stack kana-page" data-script={script}>
       <div className="page-heading kana-heading">
         <div>
-          <span className="kana-script-mark" lang="ja" aria-hidden="true">{script === "hiragana" ? "あ" : "ア"}</span>
+          <span className="kana-script-mark" lang="ja" aria-hidden="true">
+            {script === "hiragana" ? "あ" : "ア"}
+          </span>
           <h1>Кана</h1>
         </div>
         <div

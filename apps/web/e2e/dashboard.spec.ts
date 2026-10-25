@@ -785,6 +785,11 @@ test.describe("dashboard smoke", () => {
 
     const saveLayout = editor.getByRole("button", { name: "Сохранить макет" });
     await expect(saveLayout).toBeInViewport({ ratio: 1 });
+    if (test.info().project.name === "mobile") {
+      const button = (await saveLayout.boundingBox())!;
+      const navigation = (await page.locator(".app-rail").boundingBox())!;
+      expect(button.y + button.height).toBeLessThan(navigation.y);
+    }
     await saveLayout.click();
     await expect(page.getByRole("heading", { name: "Настройка панели" })).toBeHidden();
     expect(savedWidgets.find(({ id }) => id === "review-forecast")?.visible).toBe(false);

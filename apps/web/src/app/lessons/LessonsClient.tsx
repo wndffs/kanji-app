@@ -834,7 +834,11 @@ export function LessonsClient() {
   }
 
   return (
-    <section className="lesson-session" aria-label="Сессия урока" data-item-type={currentLesson.item.itemType}>
+    <section
+      className="lesson-session"
+      aria-label="Сессия урока"
+      data-item-type={currentLesson.item.itemType}
+    >
       <header className="lesson-session-header">
         <div>
           <span className="eyebrow">{progressLabel}</span>

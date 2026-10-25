@@ -45,6 +45,7 @@ import {
   type ReviewReminderPermission,
 } from "../../lib/review-reminders";
 import {
+  applyInterfacePreferences,
   readInterfacePreferences,
   storeInterfacePreferences,
 } from "../../lib/interface-preferences";
@@ -115,6 +116,25 @@ export function SettingsClient() {
     rate: Number(form.speechRate),
     voiceUri: form.speechVoiceUri === "" ? null : form.speechVoiceUri,
   });
+
+  useEffect(() => {
+    if (readStoredSession()?.user.id !== user?.id) return;
+    applyInterfacePreferences({
+      interfaceTheme: form.interfaceTheme,
+      interfaceDensity: form.interfaceDensity,
+      interfaceMotion: form.interfaceMotion,
+      studyTextSize: form.studyTextSize,
+      studyInformationDensity: form.studyInformationDensity,
+    });
+    return () => applyInterfacePreferences(readInterfacePreferences());
+  }, [
+    form.interfaceTheme,
+    form.interfaceDensity,
+    form.interfaceMotion,
+    form.studyTextSize,
+    form.studyInformationDensity,
+    user?.id,
+  ]);
 
   useEffect(() => {
     const session = readStoredSession();
@@ -321,6 +341,7 @@ export function SettingsClient() {
         <label data-settings-group="appearance">
           Перевод карточек
           <select
+            aria-label="Перевод карточек"
             disabled={status === "saving"}
             onChange={(event) =>
               updateForm(

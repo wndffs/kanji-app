@@ -72,7 +72,11 @@ export function LoginClient() {
             value={password}
           />
         </label>
-        {error === null ? null : <p className="form-error" role="alert">{error}</p>}
+        {error === null ? null : (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
         <button className="primary-action" disabled={!hydrated || isSubmitting} type="submit">
           {isSubmitting ? "Вхожу" : "Войти"}
         </button>

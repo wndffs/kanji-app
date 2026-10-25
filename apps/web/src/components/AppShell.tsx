@@ -4,7 +4,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, LogOut, MoreHorizontal, LayoutDashboard, BookOpen, RotateCw, Grid2X2, Search, Languages } from "lucide-react";
+import {
+  ArrowLeft,
+  LogOut,
+  MoreHorizontal,
+  LayoutDashboard,
+  BookOpen,
+  RotateCw,
+  Grid2X2,
+  Search,
+  Languages,
+} from "lucide-react";
 
 import {
   APP_NAME,
@@ -120,20 +130,42 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <StudyFocusContext.Provider value={enterStudy}>
-      <div className={`app-shell${focusTitle === null ? "" : " study-focus-shell"}${isAuthPage ? " auth-shell" : ""}`}>
-        <a className="skip-to-content" href="#main-content">К содержимому</a>
-        {focusTitle === null && !isAuthPage ? <aside className="app-rail">
-          <Link className="brand rail-brand" href="/dashboard"><Image src="/icons/app-192.png" width={32} height={32} alt="" />{APP_NAME}</Link>
-          <nav aria-label="Основная навигация" className="nav">
-            {mainNavigation.filter((item) => !item.adminOnly || role === "ADMIN").map((item) => {
-              const Icon = NAV_ICONS[item.href] ?? BookOpen;
-              return <Link aria-current={isActivePath(pathname, item.href) ? "page" : undefined} className="nav-link" href={item.href} key={item.href}>
-                <Icon size={19} aria-hidden="true" /><span>{item.label}</span>
-              </Link>;
-            })}
-          </nav>
-          <Link className="rail-kana" href="/kana"><Languages size={20} aria-hidden="true" /><span>Хирагана и катакана</span></Link>
-        </aside> : null}
+      <div
+        className={`app-shell${focusTitle === null ? "" : " study-focus-shell"}${isAuthPage ? " auth-shell" : ""}`}
+      >
+        <a className="skip-to-content" href="#main-content">
+          К содержимому
+        </a>
+        {focusTitle === null && !isAuthPage ? (
+          <aside className="app-rail">
+            <Link className="brand rail-brand" href="/dashboard">
+              <Image src="/icons/app-192.png" width={32} height={32} alt="" />
+              {APP_NAME}
+            </Link>
+            <nav aria-label="Основная навигация" className="nav">
+              {mainNavigation
+                .filter((item) => !item.adminOnly || role === "ADMIN")
+                .map((item) => {
+                  const Icon = NAV_ICONS[item.href] ?? BookOpen;
+                  return (
+                    <Link
+                      aria-current={isActivePath(pathname, item.href) ? "page" : undefined}
+                      className="nav-link"
+                      href={item.href}
+                      key={item.href}
+                    >
+                      <Icon size={19} aria-hidden="true" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+            </nav>
+            <Link className="rail-kana" href="/kana">
+              <Languages size={20} aria-hidden="true" />
+              <span>Хирагана и катакана</span>
+            </Link>
+          </aside>
+        ) : null}
         <header className="topbar">
           <div className="topbar-inner">
             <Link
@@ -142,7 +174,10 @@ export function AppShell({ children }: AppShellProps) {
               title={focusTitle === null ? undefined : "На панель; занятие можно продолжить позже"}
             >
               {focusTitle === null ? (
-                <><Image src="/icons/app-192.png" width={28} height={28} alt="" /><span>{APP_NAME}</span></>
+                <>
+                  <Image src="/icons/app-192.png" width={28} height={28} alt="" />
+                  <span>{APP_NAME}</span>
+                </>
               ) : (
                 <>
                   <ArrowLeft aria-hidden="true" size={18} />
@@ -215,7 +250,12 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           </div>
         </header>
-        <main className="main" id="main-content" tabIndex={-1} data-page={pathname.split("/")[1] || "home"}>
+        <main
+          className="main"
+          id="main-content"
+          tabIndex={-1}
+          data-page={pathname.split("/")[1] || "home"}
+        >
           <ConnectionStatus />
           {children}
         </main>
@@ -230,9 +270,21 @@ function isActivePath(pathname: string, href: string): boolean {
 }
 
 const NAV_ICONS: Record<string, typeof BookOpen> = {
-  "/dashboard": LayoutDashboard, "/lessons": BookOpen, "/reviews": RotateCw,
-  "/characters": Grid2X2, "/search": Search,
+  "/dashboard": LayoutDashboard,
+  "/lessons": BookOpen,
+  "/reviews": RotateCw,
+  "/characters": Grid2X2,
+  "/search": Search,
 };
 function navigationTitle(path: string) {
-  return [...mainNavigation, ...secondaryNavigation].find((item) => path === item.href || path.startsWith(`${item.href}/`))?.label ?? (path.startsWith("/kana") ? "Кана" : path.startsWith("/items") || path.startsWith("/kanji") ? "Учебный материал" : APP_NAME);
+  return (
+    [...mainNavigation, ...secondaryNavigation].find(
+      (item) => path === item.href || path.startsWith(`${item.href}/`),
+    )?.label ??
+    (path.startsWith("/kana")
+      ? "Кана"
+      : path.startsWith("/items") || path.startsWith("/kanji")
+        ? "Учебный материал"
+        : APP_NAME)
+  );
 }
