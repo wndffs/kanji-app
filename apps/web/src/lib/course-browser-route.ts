@@ -1,4 +1,4 @@
-import { ITEM_KINDS, type ItemKind, type CourseMaterialStudyState, type CourseReviewFilter } from "@kanji-srs/shared";
+import { ITEM_KINDS, type ItemKind, type CourseMaterialStudyState, type CourseReviewFilter, type CourseMaterialSort } from "@kanji-srs/shared";
 
 export type CourseBrowserRoute = {
   readonly level: number | null;
@@ -7,6 +7,7 @@ export type CourseBrowserRoute = {
   readonly studyState: CourseMaterialStudyState | "all";
   readonly reviewState: CourseReviewFilter | "all";
   readonly q: string;
+  readonly sort: CourseMaterialSort;
 };
 export function parseCourseBrowserRoute(params: URLSearchParams): CourseBrowserRoute {
   const integer = (value: string | null, max: number) =>
@@ -22,6 +23,7 @@ export function parseCourseBrowserRoute(params: URLSearchParams): CourseBrowserR
       : "all",
     reviewState: params.get("reviewState") === "due" ? "due" : params.get("reviewState") === "scheduled" ? "scheduled" : "all",
     q: normalizeCourseSearch(params.get("q") ?? ""),
+    sort: params.get("sort") === "review-time" ? "review-time" : "course",
   };
 }
 export function courseBrowserHref(courseId: string, route: CourseBrowserRoute) {
@@ -32,6 +34,7 @@ export function courseBrowserHref(courseId: string, route: CourseBrowserRoute) {
   if (route.studyState !== "all") params.set("studyState", route.studyState);
   if (route.reviewState !== "all") params.set("reviewState", route.reviewState);
   if (route.q) params.set("q", normalizeCourseSearch(route.q));
+  if (route.sort !== "course") params.set("sort", route.sort);
   return `/courses/${encodeURIComponent(courseId)}${params.size ? `?${params}` : ""}`;
 }
 
@@ -58,7 +61,7 @@ export function courseReturnHref(params: Record<string, string | string[] | unde
   )
     return null;
   const query = new URLSearchParams();
-  for (const key of ["level", "page", "itemType", "studyState", "reviewState", "q"]) {
+  for (const key of ["level", "page", "itemType", "studyState", "reviewState", "q", "sort"]) {
     const value = params[key];
     if (typeof value === "string") query.set(key, value);
   }

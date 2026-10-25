@@ -307,13 +307,14 @@ export function getCourseMaterials(
   page: number,
   itemType?: string,
   studyState?: string,
-  options: { readonly reviewState?: string; readonly q?: string } = {},
+  options: { readonly reviewState?: string; readonly q?: string; readonly sort?: string } = {},
 ): Promise<CourseMaterialPageDto> {
   const params = new URLSearchParams({ page: String(page) });
   if (itemType !== undefined) params.set("itemType", itemType);
   if (studyState !== undefined) params.set("studyState", studyState);
   if (options.reviewState !== undefined) params.set("reviewState", options.reviewState);
   if (options.q) params.set("q", options.q);
+  if (options.sort) params.set("sort", options.sort);
   return apiRequest(`/courses/${encodeURIComponent(courseId)}/levels/${level}/items?${params}`, {
     token,
   });

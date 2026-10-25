@@ -27,8 +27,8 @@ export function CourseLevelMaterials({
   readonly onNavigate: (route: CourseBrowserRoute) => void;
 }) {
   const displayMode = useTranslationDisplayMode();
-  const { page, itemType, studyState, reviewState, q } = route;
-  const requestKey = JSON.stringify([levelNumber, page, itemType, studyState, reviewState, q]);
+  const { page, itemType, studyState, reviewState, q, sort } = route;
+  const requestKey = JSON.stringify([levelNumber, page, itemType, studyState, reviewState, q, sort]);
   const [loaded, setLoaded] = useState<{
     readonly key: string;
     readonly data: CourseMaterialPageDto;
@@ -46,7 +46,7 @@ export function CourseLevelMaterials({
       page,
       itemType === "all" ? undefined : itemType,
       studyState === "all" ? undefined : studyState,
-      { reviewState: reviewState === "all" ? undefined : reviewState, q },
+      { reviewState: reviewState === "all" ? undefined : reviewState, q, sort },
     )
       .then((response) => {
         if (active && ownsSession(token)) setLoaded({ key: requestKey, data: response });
@@ -62,7 +62,7 @@ export function CourseLevelMaterials({
     return () => {
       active = false;
     };
-  }, [token, courseId, levelNumber, page, retry, itemType, studyState, reviewState, q, requestKey]);
+  }, [token, courseId, levelNumber, page, retry, itemType, studyState, reviewState, q, sort, requestKey]);
   return (
     <section className="course-level-materials" aria-label="Материалы уровня">
       <h2>Материалы уровня {levelNumber}</h2>
@@ -116,6 +116,14 @@ export function CourseLevelMaterials({
           <option value="all">Любой срок</option>
           <option value="due">Срок наступил</option>
           <option value="scheduled">Запланированы</option>
+        </select>
+      </label>
+      <label className="course-level-select">
+        Порядок
+        <select aria-label="Порядок материалов" value={sort}
+          onChange={(event) => onNavigate({ ...route, sort: event.target.value as CourseBrowserRoute["sort"], page: 1 })}>
+          <option value="course">По программе</option>
+          <option value="review-time">По сроку повторения</option>
         </select>
       </label>
       {error === null ? null : (
