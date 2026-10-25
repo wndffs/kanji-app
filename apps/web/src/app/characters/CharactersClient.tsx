@@ -2,6 +2,7 @@
 import { kanaLessonHref } from "../../lib/kana-route";
 
 import Link from "next/link";
+import { X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -334,6 +335,13 @@ function KanjiCharacterPanel({
   const visibleItems = items.slice((page - 1) * pageSize, page * pageSize);
   const progressMaximum = Math.max(section.counts.total, 1);
   const completedCount = section.counts.passed + section.counts.burned;
+  const filterLabels: Record<keyof CharacterHubKanjiFilters, string> = {
+    level: `Уровень ${filters.level}`,
+    band: filters.band === "foundation" ? "Основы" : filters.band?.toUpperCase() ?? "",
+    jlpt: `JLPT ${filters.jlpt?.toUpperCase() ?? ""}`,
+    state: filters.state === "weak" ? "Слабые" : filters.state === null ? "" : STUDY_STATE_LABELS[filters.state],
+  };
+  const applied = (Object.keys(filters) as (keyof CharacterHubKanjiFilters)[]).filter((key) => filters[key] !== null);
 
   return (
     <section
@@ -454,6 +462,12 @@ function KanjiCharacterPanel({
         </button>
       </div>
 
+      {applied.length === 0 ? null : <div className="applied-filters" aria-label="Применённые фильтры кандзи">
+        {applied.map((key) => <button className="filter-chip" type="button" key={key}
+          aria-label={`Убрать фильтр: ${filterLabels[key]}`} onClick={() => onFiltersChange({ ...filters, [key]: null })}>
+          {filterLabels[key]}<X size={16} aria-hidden="true" />
+        </button>)}
+      </div>}
       <p className="character-hub-result-count">Найдено: {items.length}</p>
       {pageCount <= 1 ? null : (
         <nav className="catalog-pagination" aria-label="Страницы кандзи">
