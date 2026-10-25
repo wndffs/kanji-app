@@ -622,18 +622,21 @@ textarea::placeholder {
 .review-queue-overview dt { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
 .review-queue-overview dd { margin: 0; font-size: 24px; font-weight: 700; }
 .feedback-panel {
+  --feedback-surface: var(--danger-surface);
   border-radius: 0;
   border: 0;
   border-left: 3px solid var(--danger);
-  background: var(--danger-surface);
+  background: var(--feedback-surface);
   box-shadow: none;
   padding: 20px;
 }
 .feedback-panel-success {
+  --feedback-surface: var(--success-surface);
   border-color: var(--success);
   background: var(--success-surface);
 }
 .feedback-panel-neutral {
+  --feedback-surface: var(--subject-kana-soft);
   border-color: var(--subject-kana);
   background: var(--subject-kana-soft);
 }
@@ -642,8 +645,24 @@ textarea::placeholder {
   gap: 16px;
 }
 .feedback-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 18px;
 }
+.feedback-header h2 svg { flex-shrink: 0; }
+.feedback-actions {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  justify-content: flex-end;
+  padding-block: 12px;
+  background: var(--feedback-surface);
+  border-top: 1px solid var(--surface-border);
+}
+.feedback-actions > button { min-width: 160px; }
+@media (max-width: 600px) { .feedback-actions > button { width: 100%; } }
 .feedback-grid {
   border-top: 1px solid var(--surface-border);
   margin-top: 16px;

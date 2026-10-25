@@ -31,7 +31,7 @@ import {
 import { JapaneseText } from "../../components/JapaneseText";
 import { useStudyFocus } from "../../components/StudyFocus";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
-import { Volume2, Languages, Type } from "lucide-react";
+import { Volume2, Languages, Type, CircleCheck, CircleX, RotateCcw, SpellCheck } from "lucide-react";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
   ApiError,
@@ -799,6 +799,7 @@ function FeedbackPanel({
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const isAccepted = feedback.accepted;
+  const ResultIcon = feedback.retry ? RotateCcw : feedback.result === "typo" ? SpellCheck : isAccepted ? CircleCheck : CircleX;
 
   async function handleSavePrivateAnswer(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -842,25 +843,12 @@ function FeedbackPanel({
     >
       <div className="feedback-header">
         <div role="status" aria-atomic="true">
-          <h2>{feedback.retry ? "Другое чтение" : formatResult(feedback.result)}</h2>
+          <h2><ResultIcon size={22} aria-hidden="true" />{feedback.retry ? "Другое чтение" : formatResult(feedback.result)}</h2>
           <p>{feedback.feedback.message}</p>
           {"nextSrs" in feedback ? (
             <span className="feedback-stage">{formatSrsStageName(feedback.nextSrs.stageName)}</span>
           ) : null}
         </div>
-        <button
-          className="primary-action"
-          disabled={isContinuing || isSaving}
-          onClick={onContinue}
-          ref={continueButtonRef}
-          type="button"
-        >
-          {isContinuing
-            ? "Завершаю..."
-            : feedback.retry || (correction && "corrected" in feedback && !feedback.corrected)
-              ? "Ответить снова"
-              : "Дальше"}
-        </button>
       </div>
 
       <div className="feedback-grid">
@@ -955,6 +943,12 @@ function FeedbackPanel({
           )}
         </form>
       </SectionDisclosure>
+      <div className="feedback-actions">
+        <button className="primary-action" disabled={isContinuing || isSaving} onClick={onContinue}
+          ref={continueButtonRef} type="button">
+          {isContinuing ? "Завершаю..." : feedback.retry || (correction && "corrected" in feedback && !feedback.corrected) ? "Ответить снова" : "Дальше"}
+        </button>
+      </div>
     </section>
   );
 }
