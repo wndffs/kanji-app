@@ -993,7 +993,10 @@ function CourseProgressPanel({
             <Link href={`/courses/${encodeURIComponent(course.id)}?level=${course.currentLevel}`}>
               <strong>{course.title}</strong>
             </Link>
-            <Link className="inline-link" href={`/courses/${encodeURIComponent(course.id)}?level=${course.currentLevel}`}>
+            <Link
+              className="inline-link"
+              href={`/courses/${encodeURIComponent(course.id)}?level=${course.currentLevel}`}
+            >
               Материалы уровня <ArrowRight size={14} aria-hidden="true" />
             </Link>
           </div>
@@ -1039,7 +1042,10 @@ function CourseProgressPanel({
               {course.levelProgress.itemsByType.map((row) => (
                 <div data-item-type={row.itemType} key={row.itemType}>
                   <dt>{formatItemType(row.itemType)}</dt>
-                  <dd>{row.passed + row.burned}<span> / {row.totalItems}</span></dd>
+                  <dd>
+                    {row.passed + row.burned}
+                    <span> / {row.totalItems}</span>
+                  </dd>
                 </div>
               ))}
             </dl>

@@ -808,9 +808,15 @@ textarea::placeholder {
   background: var(--surface-strong);
   color: var(--primary);
 }
-.study-progress::-webkit-progress-bar { background: var(--surface-strong); }
-.study-progress::-webkit-progress-value { background: var(--primary); }
-.study-progress::-moz-progress-bar { background: var(--primary); }
+.study-progress::-webkit-progress-bar {
+  background: var(--surface-strong);
+}
+.study-progress::-webkit-progress-value {
+  background: var(--primary);
+}
+.study-progress::-moz-progress-bar {
+  background: var(--primary);
+}
 .lesson-quiz .lesson-quiz-result {
   padding: 18px 20px;
   background: var(--danger-surface);
@@ -2354,11 +2360,15 @@ textarea::placeholder {
     padding-inline: 6px;
   }
   .dashboard-heading {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 18px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: start;
   }
   .dashboard-heading .action-row {
-    justify-content: space-between;
+    justify-content: end;
+  }
+  .dashboard-heading:has(.primary-action) {
+    grid-template-columns: minmax(0, 1fr);
   }
   .dashboard-heading .primary-action {
     flex: 1;

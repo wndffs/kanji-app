@@ -1,4 +1,8 @@
-import { type KanaAssessmentItemDto, type KanaLessonUnitDto, type KanaVariant } from "@kanji-srs/shared";
+import {
+  type KanaAssessmentItemDto,
+  type KanaLessonUnitDto,
+  type KanaVariant,
+} from "@kanji-srs/shared";
 
 export const KANA_GROUP_LABELS: Readonly<Record<KanaVariant | "all", string>> = {
   basic: "Базовые знаки",
@@ -13,7 +17,11 @@ export const KANA_GROUP_LABELS: Readonly<Record<KanaVariant | "all", string>> = 
 export function groupKanaCharacters(items: readonly KanaAssessmentItemDto[]) {
   return (Object.keys(KANA_GROUP_LABELS) as (KanaVariant | "all")[])
     .filter((variant): variant is KanaVariant => variant !== "all")
-    .map((variant) => ({ variant, label: KANA_GROUP_LABELS[variant], items: items.filter((item) => item.variant === variant) }))
+    .map((variant) => ({
+      variant,
+      label: KANA_GROUP_LABELS[variant],
+      items: items.filter((item) => item.variant === variant),
+    }))
     .filter((group) => group.items.length > 0);
 }
 

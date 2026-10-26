@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { captureLearnerThemes } from "./support/capture-learner-themes";
 
 import { type CompleteLessonItemResponse, type LessonQueueItem } from "@kanji-srs/shared";
 
@@ -45,6 +46,7 @@ test.describe("lesson session", () => {
 
     await expect(page.getByRole("heading", { name: "Изучение" })).toBeVisible();
     await expect(page.locator(".lesson-teaching-layout")).toBeVisible();
+    await captureLearnerThemes(page, test.info(), "lesson");
     await expect(page.getByRole("heading", { name: "Объяснение", exact: true })).toHaveCount(0);
     await expect(page.getByText("следующий этап", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Основная навигация" })).toHaveCount(0);

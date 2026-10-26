@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { listKana } from "@kanji-srs/japanese";
 import { type KanaLessonUnitDto } from "@kanji-srs/shared";
-import { filterKanaUnits, findKanaLessonUnits, groupKanaCharacters } from "../src/lib/kana-unit-groups";
+import {
+  filterKanaUnits,
+  findKanaLessonUnits,
+  groupKanaCharacters,
+} from "../src/lib/kana-unit-groups";
 
 const items = listKana("hiragana").map((item) => ({
   ...item,
@@ -32,7 +36,7 @@ describe("kana chart groups", () => {
     expect(groups.flatMap((group) => group.items)).toHaveLength(items.length);
     for (const group of groups) {
       expect(group.items.every((item) => item.variant === group.variant)).toBe(true);
-      expect(group.items.every((item) => items.includes(item))).toBe(true);
+      expect(group.items.every((item) => items.some((original) => original === item))).toBe(true);
     }
     expect(groupKanaCharacters([])).toEqual([]);
   });

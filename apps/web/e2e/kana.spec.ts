@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, type Route, test } from "@playwright/test";
+import { captureLearnerThemes } from "./support/capture-learner-themes";
 
 import {
   type KanaAssessmentAnswerRequest,
@@ -342,6 +343,7 @@ test.describe("kana lessons", () => {
     await expect(page.getByRole("heading", { name: "Кана" })).toBeVisible();
     await expect(practice).toContainText("あ");
     await expect(practice).toContainText("a");
+    await captureLearnerThemes(page, test.info(), "kana");
     if (test.info().project.name === "mobile") {
       const action = practice.getByRole("button", { name: "Проверить чтение", exact: true });
       await expect(action).toBeInViewport({ ratio: 1 });

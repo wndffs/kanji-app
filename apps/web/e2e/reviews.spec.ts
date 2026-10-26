@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { captureLearnerThemes } from "./support/capture-learner-themes";
 
 import {
   type ContentLocale,
@@ -259,6 +260,7 @@ test.describe("review session", () => {
     await expect(page.getByRole("heading", { name: "Повторение" })).toBeVisible();
     await expect(page.getByText("Значение", { exact: true })).toBeVisible();
     await expect(page.getByText("Правильные ответы")).toBeHidden();
+    await captureLearnerThemes(page, test.info(), "review");
 
     await page.getByLabel("Ответ значением").fill("солнце");
     await page.keyboard.press("Enter");

@@ -1208,157 +1208,158 @@ function LessonStudyView({
       </div>
 
       <div className="lesson-teaching-layout">
-      <article className="lesson-hero lesson-teaching-hero">
-        <div className="lesson-hero-main">
-          <div className="lesson-item-meta">
-            <span>{formatItemType(lesson.item.itemType)}</span>
-            {lesson.item.level === null ? null : <span>Уровень {lesson.item.level}</span>}
+        <article className="lesson-hero lesson-teaching-hero">
+          <div className="lesson-hero-main">
+            <div className="lesson-item-meta">
+              <span>{formatItemType(lesson.item.itemType)}</span>
+              {lesson.item.level === null ? null : <span>Уровень {lesson.item.level}</span>}
+            </div>
+            <JapaneseText
+              as="p"
+              className="review-japanese"
+              furigana={
+                pronunciationRevealed && pronunciationMode === "furigana" ? pronunciationText : null
+              }
+              variant={lesson.item.itemType === "sentence" ? "sentence" : "display"}
+            >
+              {lesson.item.japanese}
+            </JapaneseText>
+            <p className="lesson-primary-meaning">
+              {formatTranslationBundle(lesson.item.translations, displayMode)}
+            </p>
+            {pronunciationRevealed && pronunciationMode === "kana" && pronunciationText !== null ? (
+              <JapaneseText className="lesson-primary-reading">{pronunciationText}</JapaneseText>
+            ) : null}
+            {itemRomaji === null ? null : (
+              <span className="lesson-romaji-reading">{itemRomaji}</span>
+            )}
           </div>
-          <JapaneseText
-            as="p"
-            className="review-japanese"
-            furigana={
-              pronunciationRevealed && pronunciationMode === "furigana" ? pronunciationText : null
-            }
-            variant={lesson.item.itemType === "sentence" ? "sentence" : "display"}
-          >
-            {lesson.item.japanese}
-          </JapaneseText>
-          <p className="lesson-primary-meaning">
-            {formatTranslationBundle(lesson.item.translations, displayMode)}
-          </p>
-          {pronunciationRevealed && pronunciationMode === "kana" && pronunciationText !== null ? (
-            <JapaneseText className="lesson-primary-reading">{pronunciationText}</JapaneseText>
-          ) : null}
-          {itemRomaji === null ? null : <span className="lesson-romaji-reading">{itemRomaji}</span>}
-        </div>
-      </article>
+        </article>
 
-      <div
-        aria-labelledby={`lesson-phase-${phase}`}
-        className="lesson-study-grid"
-        id="lesson-study-phase"
-        role="tabpanel"
-      >
-        {phase === "meaning" ? (
-          <>
-            <SectionDisclosure title="Допустимые значения" key={`${lesson.item.id}:meanings`}>
-              <section>
-                <h2>Значения</h2>
-                <TextList texts={collectCardAnswers(meaningCards, displayMode)} />
-              </section>
-            </SectionDisclosure>
-
-            {lesson.unlockedBy.length === 0 ? null : (
-              <SectionDisclosure title="Связи и компоненты" key={`${lesson.item.id}:relations`}>
+        <div
+          aria-labelledby={`lesson-phase-${phase}`}
+          className="lesson-study-grid"
+          id="lesson-study-phase"
+          role="tabpanel"
+        >
+          {phase === "meaning" ? (
+            <>
+              <SectionDisclosure title="Допустимые значения" key={`${lesson.item.id}:meanings`}>
                 <section>
-                  <h2>Связи</h2>
-                  {lesson.unlockedBy.length === 0 ? (
-                    <p className="muted">Материал доступен без предварительных компонентов.</p>
-                  ) : (
-                    <ul className="lesson-relation-list">
-                      {lesson.unlockedBy.map((item) => (
-                        <li key={item.id}>
-                          <JapaneseText>{item.japanese}</JapaneseText>
-                          <small>{formatTranslationBundle(item.translations, displayMode)}</small>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  <h2>Значения</h2>
+                  <TextList texts={collectCardAnswers(meaningCards, displayMode)} />
                 </section>
               </SectionDisclosure>
-            )}
-          </>
-        ) : null}
 
-        {phase === "reading" ? (
-          <section className="panel lesson-wide-panel">
-            <div className="lesson-section-heading">
-              <h2>Чтения</h2>
-              {pronunciationText === null ? null : (
-                <JapaneseSpeechButton
-                  available={speechAvailable}
-                  label="Озвучить чтение"
-                  onClick={() => void onSpeak(pronunciationText)}
-                />
-              )}
-            </div>
-            <TextList
-              textKind="reading"
-              texts={collectReadingTexts(readingCards, lesson.item.reading, displayMode)}
-            />
-          </section>
-        ) : null}
-
-        {showsMemory ? (
-          <section className="lesson-memory-section">
-            <h2>Запомнить</h2>
-            <div className="lesson-memory-grid">
-              {mnemonicGroups.length === 0 ? null : (
-                <div className="lesson-memory-column">
-                  <MemoryGroupList
-                    displayMode={displayMode}
-                    groups={mnemonicGroups}
-                    kind="mnemonic"
-                  />
-                </div>
-              )}
-              {hintGroups.length === 0 ? null : (
-                <SectionDisclosure title="Подсказки" key={`${lesson.item.id}:${phase}:hints`}>
-                  <MemoryGroupList displayMode={displayMode} groups={hintGroups} kind="hint" />
+              {lesson.unlockedBy.length === 0 ? null : (
+                <SectionDisclosure title="Связи и компоненты" key={`${lesson.item.id}:relations`}>
+                  <section>
+                    <h2>Связи</h2>
+                    {lesson.unlockedBy.length === 0 ? (
+                      <p className="muted">Материал доступен без предварительных компонентов.</p>
+                    ) : (
+                      <ul className="lesson-relation-list">
+                        {lesson.unlockedBy.map((item) => (
+                          <li key={item.id}>
+                            <JapaneseText>{item.japanese}</JapaneseText>
+                            <small>{formatTranslationBundle(item.translations, displayMode)}</small>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
                 </SectionDisclosure>
               )}
-            </div>
-          </section>
-        ) : null}
+            </>
+          ) : null}
 
-        {phase === "context" && lesson.exampleSentences.length > 0 ? (
-          <section className="panel lesson-wide-panel">
-            <h2>Примеры употребления</h2>
-            <ul className="lesson-example-list">
-              {lesson.exampleSentences.map((sentence) => {
-                const sentenceRomaji =
-                  showRomaji && sentence.readingText !== null
-                    ? romanizeKana(sentence.readingText)
-                    : null;
+          {phase === "reading" ? (
+            <section className="panel lesson-wide-panel">
+              <div className="lesson-section-heading">
+                <h2>Чтения</h2>
+                {pronunciationText === null ? null : (
+                  <JapaneseSpeechButton
+                    available={speechAvailable}
+                    label="Озвучить чтение"
+                    onClick={() => void onSpeak(pronunciationText)}
+                  />
+                )}
+              </div>
+              <TextList
+                textKind="reading"
+                texts={collectReadingTexts(readingCards, lesson.item.reading, displayMode)}
+              />
+            </section>
+          ) : null}
 
-                return (
-                  <li key={sentence.id}>
-                    <div className="lesson-example-heading">
-                      <JapaneseText
-                        furigana={pronunciationMode === "furigana" ? sentence.readingText : null}
-                        variant="sentence"
-                      >
-                        {sentence.japaneseText}
-                      </JapaneseText>
-                      <JapaneseSpeechButton
-                        available={speechAvailable}
-                        label={`Озвучить пример ${sentence.japaneseText}`}
-                        onClick={() => void onSpeak(sentence.japaneseText)}
-                      />
-                    </div>
-                    {pronunciationMode !== "kana" || sentence.readingText === null ? null : (
-                      <span className="lesson-kana-reading" lang="ja">
-                        {sentence.readingText}
-                      </span>
-                    )}
-                    {sentenceRomaji === null ? null : (
-                      <span className="lesson-romaji-reading">{sentenceRomaji}</span>
-                    )}
-                    <p>{formatLessonSentenceTranslation(sentence, displayMode)}</p>
-                    {sentence.attribution === null ? null : (
-                      <small>
-                        {sentence.attribution.sourceName} · {sentence.attribution.licenseName}
-                      </small>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ) : null}
-      </div>
+          {showsMemory ? (
+            <section className="lesson-memory-section">
+              <h2>Запомнить</h2>
+              <div className="lesson-memory-grid">
+                {mnemonicGroups.length === 0 ? null : (
+                  <div className="lesson-memory-column">
+                    <MemoryGroupList
+                      displayMode={displayMode}
+                      groups={mnemonicGroups}
+                      kind="mnemonic"
+                    />
+                  </div>
+                )}
+                {hintGroups.length === 0 ? null : (
+                  <SectionDisclosure title="Подсказки" key={`${lesson.item.id}:${phase}:hints`}>
+                    <MemoryGroupList displayMode={displayMode} groups={hintGroups} kind="hint" />
+                  </SectionDisclosure>
+                )}
+              </div>
+            </section>
+          ) : null}
 
+          {phase === "context" && lesson.exampleSentences.length > 0 ? (
+            <section className="panel lesson-wide-panel">
+              <h2>Примеры употребления</h2>
+              <ul className="lesson-example-list">
+                {lesson.exampleSentences.map((sentence) => {
+                  const sentenceRomaji =
+                    showRomaji && sentence.readingText !== null
+                      ? romanizeKana(sentence.readingText)
+                      : null;
+
+                  return (
+                    <li key={sentence.id}>
+                      <div className="lesson-example-heading">
+                        <JapaneseText
+                          furigana={pronunciationMode === "furigana" ? sentence.readingText : null}
+                          variant="sentence"
+                        >
+                          {sentence.japaneseText}
+                        </JapaneseText>
+                        <JapaneseSpeechButton
+                          available={speechAvailable}
+                          label={`Озвучить пример ${sentence.japaneseText}`}
+                          onClick={() => void onSpeak(sentence.japaneseText)}
+                        />
+                      </div>
+                      {pronunciationMode !== "kana" || sentence.readingText === null ? null : (
+                        <span className="lesson-kana-reading" lang="ja">
+                          {sentence.readingText}
+                        </span>
+                      )}
+                      {sentenceRomaji === null ? null : (
+                        <span className="lesson-romaji-reading">{sentenceRomaji}</span>
+                      )}
+                      <p>{formatLessonSentenceTranslation(sentence, displayMode)}</p>
+                      {sentence.attribution === null ? null : (
+                        <small>
+                          {sentence.attribution.sourceName} · {sentence.attribution.licenseName}
+                        </small>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ) : null}
+        </div>
       </div>
       <div className="lesson-action-bar">
         {phaseIndex === 0 ? null : (
@@ -1479,7 +1480,13 @@ function LessonQuizView({
       {feedback === null ? null : (
         <section
           className="lesson-quiz-result"
-          data-outcome={feedback.accepted ? "accepted" : feedback.diagnostic?.kind === "alternative-reading" ? "retry" : "wrong"}
+          data-outcome={
+            feedback.accepted
+              ? "accepted"
+              : feedback.diagnostic?.kind === "alternative-reading"
+                ? "retry"
+                : "wrong"
+          }
           aria-label="Результат проверки"
           role="alert"
         >

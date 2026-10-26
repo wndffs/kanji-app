@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { captureLearnerThemes } from "./support/capture-learner-themes";
 
 import {
   DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
@@ -24,10 +25,12 @@ test.describe("dashboard smoke", () => {
     await page.goto("/dashboard");
     await expect(page.locator(".dashboard-heading .primary-action")).toHaveCount(0);
     await expect(page.locator(".metric-card-action")).toHaveText([
-      "Начать повторение", "Начать урок",
+      "Начать повторение",
+      "Начать урок",
     ]);
     await expect(page.locator("a.metric-card-link")).toHaveCount(2);
     await expect(page.locator(".metric-card")).toHaveCount(2);
+    await captureLearnerThemes(page, test.info(), "dashboard");
     await expect(page.locator(".dashboard-secondary-counts")).toContainText("Сожжено");
     await expect(page.locator(".dashboard-secondary-counts")).toContainText("Сложные");
     if (test.info().project.name === "desktop")
@@ -485,9 +488,10 @@ test.describe("dashboard smoke", () => {
       "href",
       "/practice?source=recent-mistakes",
     );
-    await expect(
-      page.getByRole("link", { name: /^К повторению:/ }),
-    ).toHaveAttribute("href", "/reviews");
+    await expect(page.getByRole("link", { name: /^К повторению:/ })).toHaveAttribute(
+      "href",
+      "/reviews",
+    );
   });
 
   test("shows before-completion, just-completed, and waiting journey states after reload", async ({

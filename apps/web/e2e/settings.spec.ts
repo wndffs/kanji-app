@@ -1,4 +1,5 @@
 import { expect, type Page, type Route, test } from "@playwright/test";
+import { captureLearnerThemes } from "./support/capture-learner-themes";
 
 import { DEFAULT_INTERFACE_PREFERENCES } from "@kanji-srs/shared";
 
@@ -18,6 +19,7 @@ test.describe("settings", () => {
     });
     await page.goto("/settings");
     await expect(page.getByLabel("Тема", { exact: true })).toBeEnabled();
+    await captureLearnerThemes(page, test.info(), "settings");
     await page.getByLabel("Тема", { exact: true }).selectOption("dark");
     await expect(page.locator(".appearance-preview")).toHaveAttribute("data-preview-theme", "dark");
     await page.getByRole("tab", { name: "Обучение", exact: true }).click();

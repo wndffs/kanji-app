@@ -658,7 +658,9 @@ function OwnedKanaClient({
               {mode === "lessons" && activeUnit !== null ? (
                 <header className="kana-current-lesson">
                   <h2 className="kana-current-unit">{activeUnit.title}</h2>
-                  <span>Освоено {activeUnit.masteredCount} / {activeUnit.totalCount}</span>
+                  <span>
+                    Освоено {activeUnit.masteredCount} / {activeUnit.totalCount}
+                  </span>
                 </header>
               ) : null}
               {currentItem === null ? (
@@ -708,24 +710,34 @@ function OwnedKanaClient({
                 <section className="kana-character-map" aria-label="Карта кана">
                   {groupKanaCharacters(state.progress.items).map((group) => (
                     <section className="kana-character-group" key={group.variant}>
-                      <h3>{group.label}<span>{group.items.filter((item) => item.mastered).length} / {group.items.length}</span></h3>
+                      <h3>
+                        {group.label}
+                        <span>
+                          {group.items.filter((item) => item.mastered).length} /{" "}
+                          {group.items.length}
+                        </span>
+                      </h3>
                       <div className="kana-map">
-                  {group.items.map((item) => (
-                    <button
-                      aria-current={item.character === selectedCharacter ? "true" : undefined}
-                      aria-label={formatKanaStatus(item, state.progress.masteryThreshold)}
-                      className={
-                        item.mastered ? "is-mastered" : item.attemptCount > 0 ? "is-started" : ""
-                      }
-                      disabled={feedback !== null || submitting}
-                      key={item.character}
-                      lang="ja"
-                      onClick={() => handleSelectAssessmentCharacter(item.character)}
-                      type="button"
-                    >
-                      {item.character}
-                    </button>
-                  ))}
+                        {group.items.map((item) => (
+                          <button
+                            aria-current={item.character === selectedCharacter ? "true" : undefined}
+                            aria-label={formatKanaStatus(item, state.progress.masteryThreshold)}
+                            className={
+                              item.mastered
+                                ? "is-mastered"
+                                : item.attemptCount > 0
+                                  ? "is-started"
+                                  : ""
+                            }
+                            disabled={feedback !== null || submitting}
+                            key={item.character}
+                            lang="ja"
+                            onClick={() => handleSelectAssessmentCharacter(item.character)}
+                            type="button"
+                          >
+                            {item.character}
+                          </button>
+                        ))}
                       </div>
                     </section>
                   ))}

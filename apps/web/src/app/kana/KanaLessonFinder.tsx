@@ -63,51 +63,57 @@ export function KanaLessonFinder({
       <div className="kana-unit-list" data-testid="kana-unit-list">
         {visible.map((unit) => {
           const ordinal = units.findIndex((candidate) => candidate.id === unit.id);
-          const prerequisite = !unit.unlocked ? units[ordinal - 1] : undefined;
+          const prerequisite = !unit.unlocked
+            ? units.slice(0, ordinal).find((candidate) => !candidate.complete)
+            : undefined;
           return (
-          <button
-            aria-current={unit.id === activeUnitId ? "step" : undefined}
-            className={unit.complete ? "is-complete" : ""}
-            data-unit-state={
-              unit.id === activeUnitId
-                ? "current"
-                : !unit.unlocked
-                  ? "locked"
-                  : unit.complete
-                    ? "mastered"
-                    : "available"
-            }
-            disabled={!unit.unlocked || submitting}
-            key={unit.id}
-            onClick={() => onStart(unit)}
-            type="button"
-          >
-            <span className="kana-unit-ordinal">
-              {ordinal + 1}
-            </span>
-            <span className="kana-unit-copy">
-              <strong>{unit.title}</strong>
-              <small>
-                {unit.id === activeUnitId ? "Сейчас · " : unit.unlocked && !unit.complete ? "Доступно · " : null}
-                {!unit.unlocked ? (
-                  <Lock size={14} aria-label="Закрыто" />
-                ) : unit.complete ? (
-                  <Check size={14} aria-label="Освоено" />
-                ) : null}
-                {unit.masteredCount}/{unit.totalCount}
-              </small>
-              {prerequisite === undefined ? null : (
-                <small className="kana-unit-prerequisite">После урока «{prerequisite.title}»</small>
-              )}
-            </span>
-            <span className="kana-unit-characters" lang="ja">
-              {unit.items.map((item) => (
-                <span className={item.mastered ? "is-mastered" : ""} key={item.character}>
-                  {item.character}
-                </span>
-              ))}
-            </span>
-          </button>
+            <button
+              aria-current={unit.id === activeUnitId ? "step" : undefined}
+              className={unit.complete ? "is-complete" : ""}
+              data-unit-state={
+                unit.id === activeUnitId
+                  ? "current"
+                  : !unit.unlocked
+                    ? "locked"
+                    : unit.complete
+                      ? "mastered"
+                      : "available"
+              }
+              disabled={!unit.unlocked || submitting}
+              key={unit.id}
+              onClick={() => onStart(unit)}
+              type="button"
+            >
+              <span className="kana-unit-ordinal">{ordinal + 1}</span>
+              <span className="kana-unit-copy">
+                <strong>{unit.title}</strong>
+                <small>
+                  {unit.id === activeUnitId
+                    ? "Сейчас · "
+                    : unit.unlocked && !unit.complete
+                      ? "Доступно · "
+                      : null}
+                  {!unit.unlocked ? (
+                    <Lock size={14} aria-label="Закрыто" />
+                  ) : unit.complete ? (
+                    <Check size={14} aria-label="Освоено" />
+                  ) : null}
+                  {unit.masteredCount}/{unit.totalCount}
+                </small>
+                {prerequisite === undefined ? null : (
+                  <small className="kana-unit-prerequisite">
+                    После урока «{prerequisite.title}»
+                  </small>
+                )}
+              </span>
+              <span className="kana-unit-characters" lang="ja">
+                {unit.items.map((item) => (
+                  <span className={item.mastered ? "is-mastered" : ""} key={item.character}>
+                    {item.character}
+                  </span>
+                ))}
+              </span>
+            </button>
           );
         })}
       </div>
