@@ -1419,8 +1419,16 @@ textarea::placeholder {
   gap: 12px;
 }
 .character-hub-kanji-grid > li {
-  background: transparent;
-  border: 0;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.character-hub-kanji-grid > li:is([data-study-state="passed"], [data-study-state="burned"]) {
+  border-top: 3px solid var(--primary);
+}
+.character-hub-kanji-grid > li[data-study-state="in-progress"] {
+  border-top: 3px solid var(--subject-kanji);
 }
 .character-hub-kanji-grid a {
   grid-template-columns: minmax(0, 1fr);
@@ -1431,8 +1439,10 @@ textarea::placeholder {
 }
 .character-hub-kanji-character {
   color: var(--subject-kanji);
-  background: transparent;
+  background: var(--subject-kanji-soft);
   width: 100%;
+  height: 72px;
+  border-radius: 4px;
 }
 .character-hub-kanji-copy {
   align-content: start;
@@ -1485,6 +1495,8 @@ textarea::placeholder {
 .item-hero-main {
   align-items: start;
   text-align: left;
+  min-width: 0;
+  gap: 8px;
 }
 .item-hero-main h1 {
   color: var(--subject-ink, var(--foreground));
@@ -1554,6 +1566,32 @@ textarea::placeholder {
 }
 .item-page .item-layout {
   gap: 32px;
+}
+.item-page .view-tabs {
+  margin-top: 0;
+  border-bottom: 1px solid var(--surface-border);
+}
+.item-page .item-confusable-panel {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  font-size: 13px;
+}
+.item-page .item-confusable-panel h2 {
+  font-size: 15px;
+  margin: 0;
+}
+.item-page .private-item-form {
+  max-width: 640px;
+}
+.item-page .private-item-form :is(input, select, textarea) {
+  width: 100%;
+}
+.item-page .private-item-form textarea {
+  min-height: 112px;
+  resize: vertical;
 }
 .item-page .content-block {
   border: 0;

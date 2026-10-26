@@ -150,4 +150,8 @@ This section supersedes the checkpoint states in the table above.
   choices/matching, readable glyphs and full-width phone feedback actions.
   Existing recognition/reverse/matching/typing/listening/tracing evidence and
   separate mastery are unchanged.
-- 277-278 planned; checks batched in 279.
+- 277 implemented: glyph-first catalogue tiles now share subject surfaces and
+  actual study-state accents. Material tabs, reading facts, related practice
+  and private forms share compact hierarchy; hidden readings and attribution
+  are not replaced by preview content.
+- 278 planned; checks batched in 279.
