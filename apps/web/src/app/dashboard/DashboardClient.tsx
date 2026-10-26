@@ -993,7 +993,7 @@ function CourseProgressPanel({
           </div>
           <div className="course-pass-progress">
             <div className="course-progress-row">
-              <span>До следующего уровня</span>
+              <span>Прогресс уровня</span>
               <strong>{course.levelProgress.pass.percent}%</strong>
             </div>
             <div

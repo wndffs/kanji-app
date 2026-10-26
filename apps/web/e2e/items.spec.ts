@@ -125,6 +125,20 @@ test.describe("item details", () => {
     await expect(history.getByText("Ошибка проигнорирована", { exact: true })).toBeVisible();
   });
 
+  test("opens an encoded Japanese character route without double encoding the API lookup", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockItemApi(page);
+    const requests: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().startsWith(`${API_BASE_URL}/kanji/`)) requests.push(request.url());
+    });
+    await page.goto(`/kanji/${encodeURIComponent("一")}`);
+    await expect(page.getByRole("heading", { name: "一", exact: true })).toBeVisible();
+    expect(requests).toEqual([`${API_BASE_URL}/kanji/${encodeURIComponent("一")}`]);
+  });
+
   test("opens an item page", async ({ page }) => {
     await signIn(page);
     await mockItemApi(page);
