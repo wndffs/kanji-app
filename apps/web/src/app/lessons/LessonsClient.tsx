@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { nextTabIndex } from "../../lib/tab-navigation";
 import { Volume2, Check } from "lucide-react";
 import {
   type FormEvent,
@@ -1154,6 +1155,14 @@ function LessonStudyView({
   );
   const nextPhase = phases[phaseIndex + 1];
   const [visited, setVisited] = useState({ itemId: lesson.item.id, phases: [phase] });
+  const phaseTabsRef = useRef<HTMLDivElement>(null);
+  const restorePhaseFocus = useRef(false);
+  useEffect(() => {
+    if (!navigationPending && restorePhaseFocus.current) {
+      phaseTabsRef.current?.querySelector<HTMLButtonElement>('[aria-selected="true"]')?.focus();
+      restorePhaseFocus.current = false;
+    }
+  }, [phase, navigationPending]);
   useEffect(() => {
     setVisited((current) =>
       current.itemId !== lesson.item.id
@@ -1173,7 +1182,7 @@ function LessonStudyView({
 
   return (
     <>
-      <div className="lesson-phase-tabs" role="tablist" aria-label="Этапы изучения">
+      <div className="lesson-phase-tabs" role="tablist" aria-label="Этапы изучения" ref={phaseTabsRef}>
         {phases.map((candidate, index) => (
           <button
             aria-controls="lesson-study-phase"
@@ -1190,7 +1199,16 @@ function LessonStudyView({
             id={`lesson-phase-${candidate}`}
             key={candidate}
             onClick={() => onPhaseChange(index)}
+            onKeyDown={(event) => {
+              const next = nextTabIndex(index, phases.length, event.key);
+              if (next === null) return;
+              event.preventDefault();
+              if (navigationPending || next === phaseIndex) return;
+              restorePhaseFocus.current = true;
+              onPhaseChange(next);
+            }}
             role="tab"
+            tabIndex={phase === candidate ? 0 : -1}
             type="button"
           >
             <span aria-hidden="true">

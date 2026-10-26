@@ -72,7 +72,9 @@ test.describe("lesson session", () => {
     await expect(page.getByRole("heading", { name: "Чтения" })).not.toBeVisible();
     await expect(page.getByText("Моя личная история про единицу.")).not.toBeVisible();
 
-    await page.getByRole("button", { name: "Далее: Чтение" }).click();
+    await page.getByRole("tab", { name: "Значение", exact:true }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByRole("tab", {name:"Чтение",exact:true})).toBeFocused();
 
     await expect(page.getByRole("tab", { name: "Чтение" })).toHaveAttribute(
       "aria-selected",

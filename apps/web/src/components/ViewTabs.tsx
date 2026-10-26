@@ -1,4 +1,5 @@
 "use client";
+import { nextTabIndex } from "../lib/tab-navigation";
 
 export function ViewTabs({
   tabs,
@@ -25,16 +26,7 @@ export function ViewTabs({
           key={tab.id}
           onClick={() => onChange(tab.id)}
           onKeyDown={(event) => {
-            const next =
-              event.key === "ArrowRight"
-                ? (index + 1) % tabs.length
-                : event.key === "ArrowLeft"
-                  ? (index - 1 + tabs.length) % tabs.length
-                  : event.key === "Home"
-                    ? 0
-                    : event.key === "End"
-                      ? tabs.length - 1
-                      : null;
+            const next = nextTabIndex(index, tabs.length, event.key);
             if (next === null) return;
             event.preventDefault();
             onChange(tabs[next]!.id);
