@@ -80,10 +80,11 @@ export function DashboardClient() {
     }
 
     let cancelled = false;
+    const controller = new AbortController();
     setState({ status: "loading" });
     setCoursesState({ status: "loading" });
 
-    getDashboard(session.token)
+    getDashboard(session.token, controller.signal)
       .then((dashboard) => {
         if (!cancelled) {
           setState({ status: "ready", dashboard });
@@ -137,6 +138,7 @@ export function DashboardClient() {
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, []);
 

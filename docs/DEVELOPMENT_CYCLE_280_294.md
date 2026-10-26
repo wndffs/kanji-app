@@ -28,7 +28,7 @@ or add keep-alive traffic to hide a platform limit.
 | 281 | Dashboard timing | Safe Server-Timing for authentication/handler phases; browser-readable, no credentials/content | Implemented |
 | 282 | Request-local course resolution | Resolve once for availability, course progress and unlocks; no global user cache | Implemented |
 | 283 | Narrow course projections | Fetch only dashboard scalar/relation fields; preserve published/user filters and ordering | Implemented |
-| 284 | Cancellable dashboard reads | Abort obsolete GETs, preserve API error semantics, never replay writes | Planned |
+| 284 | Cancellable dashboard reads | Abort obsolete GETs, preserve API error semantics, never replay writes | Implemented |
 | 285 | Dashboard account ownership | Key by account/token; late old requests cannot show data, save or clear a newer session | Planned |
 | 286 | Bounded in-memory snapshots | Per-account/settings snapshot, no persistent private cache; bounded age and explicit freshness | Planned |
 | 287 | Mutation invalidation | Confirmed writes/session changes invalidate snapshots; stale in-flight loads cannot repopulate | Planned |

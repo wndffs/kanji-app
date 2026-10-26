@@ -284,8 +284,8 @@ export function register(input: {
   });
 }
 
-export function getDashboard(token: string): Promise<DashboardDto> {
-  return apiRequest<DashboardDto>("/dashboard", { token });
+export function getDashboard(token: string, signal?: AbortSignal): Promise<DashboardDto> {
+  return apiRequest<DashboardDto>("/dashboard", { token, signal });
 }
 
 export function getCharacterHub(token: string): Promise<CharacterHubResponseDto> {
