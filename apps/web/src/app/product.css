@@ -289,6 +289,11 @@ textarea::placeholder {
 .dashboard-heading {
   padding-bottom: 4px;
 }
+.dashboard-freshness {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
 .dashboard-heading > div:first-child {
   display: grid;
   gap: 8px;

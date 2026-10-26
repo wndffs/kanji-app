@@ -76,7 +76,11 @@ export function DashboardClient() {
 }
 
 function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: string; readonly identity: DashboardSnapshotIdentity }) {
+  const { accountId, settingsKey } = identity;
   const [refreshRevision, setRefreshRevision] = useState(0);
+  const [refreshing, setRefreshing] = useState(true);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [confirmedAt, setConfirmedAt] = useState(() => readDashboardSnapshot(identity)?.confirmedAt ?? null);
   const [state, setState] = useState<DashboardState>(() => {
     const cached = readDashboardSnapshot(identity);
     return cached === null ? { status:"checking" } : { status:"ready", dashboard:cached.dashboard };
@@ -102,13 +106,18 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
     let cancelled = false;
     const controller = new AbortController();
     const generation = dashboardSnapshotGeneration();
+    const requestIdentity = { accountId, settingsKey, token:ownerToken };
+    setRefreshing(true);
+    setRefreshError(null);
+    setReminderConfirmation(null);
     setState((current) => current.status === "ready" ? current : { status: "loading" });
     setCoursesState({ status: "loading" });
 
     getDashboard(session.token, controller.signal)
       .then((dashboard) => {
         if (!cancelled && ownsSession(ownerToken)) {
-          if (!storeDashboardSnapshot(identity, dashboard, generation)) return;
+          if (!storeDashboardSnapshot(requestIdentity, dashboard, generation)) return;
+          setConfirmedAt(Date.now());
           setState({ status: "ready", dashboard });
           setReminderConfirmation({
             accountId: dashboard.user.id,
@@ -129,11 +138,10 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
           return;
         }
 
-        setState({
-          status: "error",
-          message: error instanceof Error ? error.message : "Не удалось загрузить панель.",
-        });
-      });
+        const message = error instanceof Error ? error.message : "Не удалось загрузить панель.";
+        setRefreshError(message);
+        setState((current) => current.status === "ready" ? current : {status:"error",message});
+      }).finally(() => { if (!cancelled && ownsSession(ownerToken)) setRefreshing(false); });
 
     getCourses(session.token)
       .then((courses) => {
@@ -162,7 +170,7 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
       cancelled = true;
       controller.abort();
     };
-  }, [ownerToken, identity.accountId, identity.settingsKey, refreshRevision]);
+  }, [ownerToken, accountId, settingsKey, refreshRevision]);
 
   if (state.status === "checking" || state.status === "loading") {
     return (
@@ -206,9 +214,9 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
         </div>
         <div className="notice-panel error-panel">
           <p>{state.message}</p>
-          <Link className="secondary-action" href="/login">
-            Обновить вход
-          </Link>
+          <button className="secondary-action" onClick={() => setRefreshRevision((value) => value + 1)} type="button">
+            <RotateCw size={16} aria-hidden="true" /> Повторить загрузку
+          </button>
         </div>
       </section>
     );
@@ -240,34 +248,6 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
           selectedTitle === undefined ? "Курс переключён." : `Выбран курс «${selectedTitle}».`,
       });
 
-      try {
-        const dashboard = await getDashboard(session.token);
-        if (!ownsSession(ownerToken)) return;
-        setState({ status: "ready", dashboard });
-        setReminderConfirmation({
-          accountId: dashboard.user.id,
-          token: session.token,
-          dueReviews: dashboard.counts.dueReviews,
-          confirmedAt: Date.now(),
-        });
-      } catch (error: unknown) {
-        if (!ownsSession(ownerToken)) return;
-        if (error instanceof ApiError && error.status === 401) {
-          clearStoredSession();
-          setState({ status: "unauthenticated" });
-          return;
-        }
-
-        setCoursesState((current) =>
-          current.status === "ready"
-            ? {
-                ...current,
-                message: null,
-                error: "Курс выбран, но прогресс не обновился. Перезагрузите страницу.",
-              }
-            : current,
-        );
-      }
     } catch (error: unknown) {
       if (!ownsSession(ownerToken)) return;
       if (error instanceof ApiError && error.status === 401) {
@@ -345,6 +325,10 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
         />
       )}
       <DashboardView
+        confirmedAt={confirmedAt}
+        refreshing={refreshing}
+        refreshError={refreshError}
+        onRefresh={() => setRefreshRevision((value) => value + 1)}
         coursesState={coursesState}
         dashboard={state.dashboard}
         onCourseChange={(courseId) => void handleCourseChange(courseId)}
@@ -355,11 +339,19 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
 }
 
 function DashboardView({
+  confirmedAt,
+  refreshing,
+  refreshError,
+  onRefresh,
   coursesState,
   dashboard,
   onCourseChange,
   onDashboardWidgetsChange,
 }: {
+  readonly confirmedAt: number | null;
+  readonly refreshing: boolean;
+  readonly refreshError: string | null;
+  readonly onRefresh: () => void;
   readonly coursesState: CoursesState;
   readonly dashboard: DashboardDto;
   readonly onCourseChange: (courseId: string) => void;
@@ -422,13 +414,18 @@ function DashboardView({
   }
 
   return (
-    <section className="page-stack dashboard-page">
+    <section className="page-stack dashboard-page" data-dashboard-freshness={refreshing || refreshError !== null ? "snapshot" : "confirmed"}>
       <div className="page-heading dashboard-heading">
         <div>
           <h1>Панель</h1>
           <p>{nextAction.title}</p>
+          <span className="dashboard-freshness" role="status">
+            {refreshing ? "Обновляю данные..." : refreshError !== null ? "Не удалось обновить" : "Данные обновлены"}
+            {confirmedAt === null ? null : <> · <time dateTime={new Date(confirmedAt).toISOString()}>{new Date(confirmedAt).toLocaleTimeString("ru-RU", {hour:"2-digit",minute:"2-digit",timeZone:dashboard.user.timezone})}</time></>}
+          </span>
         </div>
         <div className="action-row">
+          <button className="icon-button" type="button" aria-label="Обновить панель" title="Обновить панель" disabled={refreshing} onClick={onRefresh}><RotateCw size={18} aria-hidden="true" /></button>
           {visibleWidgets.some((widget) => widget.id === "summary") ? null : (
             <Link className="primary-action" href={nextAction.href}>
               {nextAction.label}
@@ -448,6 +445,8 @@ function DashboardView({
           </button>
         </div>
       </div>
+
+      {refreshError === null ? null : <p className="form-error" role="alert">{refreshError} Показаны последние полученные данные.</p>}
 
       {customizationOpen ? (
         <DashboardWidgetEditor

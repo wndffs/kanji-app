@@ -32,7 +32,7 @@ or add keep-alive traffic to hide a platform limit.
 | 285 | Dashboard account ownership | Key by account/token; late old requests cannot show data, save or clear a newer session | Implemented |
 | 286 | Bounded in-memory snapshots | Per-account/settings snapshot, no persistent private cache; bounded age and explicit freshness | Implemented |
 | 287 | Mutation invalidation | Confirmed writes/session changes invalidate snapshots; stale in-flight loads cannot repopulate | Implemented |
-| 288 | Nonblocking refresh/recovery | Preserve useful snapshot during GET refresh; visible retry/error and no stale reminders | Planned |
+| 288 | Nonblocking refresh/recovery | Preserve useful snapshot during GET refresh; visible retry/error and no stale reminders | Implemented |
 | 289 | On-demand course selector | Fetch course list only when needed; preserve empty/current-course/conflict recovery | Planned |
 | 290 | Honest loading states | Two-tile skeleton, delayed slow-load feedback, explicit refresh; no invented counters | Planned |
 | 291 | Dashboard secondary hierarchy | Default secondary statistics share one optional area; personal widget order/visibility retained | Planned |
