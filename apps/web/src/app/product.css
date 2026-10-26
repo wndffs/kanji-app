@@ -675,14 +675,24 @@ textarea::placeholder {
   border-radius: 0;
   box-shadow: none;
   padding: 24px;
-  background: var(--subject-soft, var(--surface-strong));
+  background: var(--surface);
+  border-top: 3px solid var(--subject-ink, var(--primary));
   min-height: 260px;
 }
 .review-card-meta {
-  justify-content: center;
-  color: var(--subject-ink, var(--muted));
+  justify-content: space-between;
+  color: var(--muted);
   gap: 16px;
   font-size: 12px;
+  font-weight: 500;
+}
+.review-card-meta > span:last-child {
+  color: var(--subject-ink, var(--foreground));
+  font-weight: 650;
+}
+.review-session > .review-answer-bar {
+  width: min(100%, 720px);
+  margin-inline: auto;
 }
 .review-card-meta > span {
   background: transparent;
@@ -697,6 +707,7 @@ textarea::placeholder {
 .review-prompt .review-japanese {
   margin: 8px 0;
   color: var(--subject-ink, var(--foreground));
+  line-height: 1.5;
 }
 .review-answer-bar {
   background: transparent;

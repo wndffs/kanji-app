@@ -657,7 +657,7 @@ export function ReviewsClient() {
         </div>
       </header>
 
-      <article className="review-card">
+      <article className="review-card" data-answer-type={currentItem.card.answerType}>
         <div className="review-card-meta">
           <span>{formatItemType(currentItem.item.itemType)}</span>
           {currentItem.card.promptType === "listening" ? <span>Аудирование</span> : null}
