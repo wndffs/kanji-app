@@ -1021,7 +1021,7 @@ textarea::placeholder {
   border: 0;
   margin: 0;
 }
-.character-hub-kanji-stats div {
+.character-hub-panel .character-hub-kanji-stats > div {
   display: flex;
   align-items: baseline;
   gap: 8px;
@@ -1100,6 +1100,12 @@ textarea::placeholder {
   border-top: 1px solid var(--surface-border);
 }
 @media (max-width: 600px) {
+  .character-hub-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .character-hub-filters > button {
+    justify-self: start;
+  }
   .character-hub-kanji-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

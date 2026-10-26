@@ -120,7 +120,6 @@ function CharactersScreen() {
       <div className="page-heading character-hub-heading">
         <div>
           <h1>Символы</h1>
-          <p>Кана изучается в отдельных уроках, кандзи продвигаются по карточкам SRS.</p>
         </div>
       </div>
 
