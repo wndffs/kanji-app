@@ -103,4 +103,5 @@ export type TokenPayload = {
 export type RequestWithCurrentUser = {
   readonly headers?: Record<string, string | string[] | undefined>;
   currentUser?: CurrentUserDto;
+  authDurationMs?: number;
 };

@@ -17,7 +17,9 @@ export class AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<RequestWithCurrentUser>();
     const token = readBearerToken(request.headers ?? {});
 
+    const startedAt = performance.now();
     request.currentUser = await this.authService.authenticateToken(token);
+    request.authDurationMs = performance.now() - startedAt;
 
     return true;
   }

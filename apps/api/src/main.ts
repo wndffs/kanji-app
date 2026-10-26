@@ -17,6 +17,7 @@ export function configureApiApp(app: INestApplication): void {
   app.enableCors({
     credentials: true,
     origin: config.webOrigin,
+    exposedHeaders: ["Server-Timing"],
   });
   app.useGlobalFilters(new ApiExceptionFilter(logger));
   app.useGlobalPipes(new ApiValidationPipe());

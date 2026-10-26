@@ -59,7 +59,8 @@ export class DashboardService {
     @Inject(DashboardRepository) private readonly dashboardRepository: DashboardRepository,
   ) {}
 
-  async getDashboard(user: CurrentUserDto): Promise<DashboardDto> {
+  async getDashboard(user: CurrentUserDto, recordTiming?: (phase: "primary" | "hydrate", durationMs: number) => void): Promise<DashboardDto> {
+    const primaryStartedAt = performance.now();
     const now = new Date();
     const recentSince = addDays(now, -RECENT_REVIEW_STATS_DAYS);
     const leechSince = addDays(now, -LEECH_RECENT_REVIEW_DAYS);
@@ -98,6 +99,8 @@ export class DashboardService {
         activityTimezone,
       ),
     ]);
+    recordTiming?.("primary", performance.now() - primaryStartedAt);
+    const hydrateStartedAt = performance.now();
     const displayMode = user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE;
     const leechCandidates = toLeechCandidatesDto(leechSignals, displayMode);
     const availableLessonItems = findAvailableLessonItems(lessonItems, lessonProgress);
@@ -118,6 +121,7 @@ export class DashboardService {
       this.dashboardRepository.listRecentBurnedItems(user.id, MAX_RECENT_ACTIVITY_ITEMS),
       this.dashboardRepository.listAvailableLessonItems(journeyItemIds, journeyItemIds.length),
     ]);
+    recordTiming?.("hydrate", performance.now() - hydrateStartedAt);
     const journeyItemById = new Map(
       toRecentItemsDto(journeyItems, displayMode).map((record) => [record.item.id, record.item]),
     );

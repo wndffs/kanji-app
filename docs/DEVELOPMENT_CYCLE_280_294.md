@@ -25,7 +25,7 @@ or add keep-alive traffic to hide a platform limit.
 | ID | Scope | Acceptance | State |
 | --- | --- | --- | --- |
 | 280 | Diagnosis and specification | Record actual baseline, hypotheses and bounded task scope | Complete |
-| 281 | Dashboard timing | Safe Server-Timing for authentication/handler phases; browser-readable, no credentials/content | Planned |
+| 281 | Dashboard timing | Safe Server-Timing for authentication/handler phases; browser-readable, no credentials/content | Implemented |
 | 282 | Request-local course resolution | Resolve once for availability, course progress and unlocks; no global user cache | Planned |
 | 283 | Narrow course projections | Fetch only dashboard scalar/relation fields; preserve published/user filters and ordering | Planned |
 | 284 | Cancellable dashboard reads | Abort obsolete GETs, preserve API error semantics, never replay writes | Planned |
