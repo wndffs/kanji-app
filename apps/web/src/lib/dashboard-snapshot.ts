@@ -15,7 +15,9 @@ export function dashboardSnapshotKey(owner: DashboardSnapshotIdentity): string {
   return JSON.stringify([owner.accountId, owner.token, owner.settingsKey]);
 }
 
-export function dashboardSnapshotGeneration(): number { return generation; }
+export function dashboardSnapshotGeneration(): number {
+  return generation;
+}
 
 export function invalidateDashboardSnapshot(): void {
   generation += 1;
@@ -23,14 +25,25 @@ export function invalidateDashboardSnapshot(): void {
   if (typeof window !== "undefined") window.dispatchEvent(new Event(DASHBOARD_INVALIDATED_EVENT));
 }
 
-export function readDashboardSnapshot(owner: DashboardSnapshotIdentity, now = Date.now()): DashboardSnapshot | null {
+export function readDashboardSnapshot(
+  owner: DashboardSnapshotIdentity,
+  now = Date.now(),
+): DashboardSnapshot | null {
   if (snapshot === null || snapshot.key !== dashboardSnapshotKey(owner)) return null;
   const age = now - snapshot.confirmedAt;
-  if (age < 0 || age > DASHBOARD_SNAPSHOT_MAX_AGE_MS) { snapshot = null; return null; }
+  if (age < 0 || age > DASHBOARD_SNAPSHOT_MAX_AGE_MS) {
+    snapshot = null;
+    return null;
+  }
   return snapshot;
 }
 
-export function storeDashboardSnapshot(owner: DashboardSnapshotIdentity, dashboard: DashboardDto, expectedGeneration: number, now = Date.now()): boolean {
+export function storeDashboardSnapshot(
+  owner: DashboardSnapshotIdentity,
+  dashboard: DashboardDto,
+  expectedGeneration: number,
+  now = Date.now(),
+): boolean {
   if (generation !== expectedGeneration || dashboard.user.id !== owner.accountId) return false;
   snapshot = { key: dashboardSnapshotKey(owner), dashboard, confirmedAt: now };
   return true;

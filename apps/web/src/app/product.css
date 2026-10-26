@@ -399,7 +399,9 @@ textarea::placeholder {
   gap: 16px 32px;
 }
 @media (max-width: 700px) {
-  .dashboard-secondary-grid { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-secondary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .dashboard-page .metric-card-link:hover {
   border-color: var(--primary);

@@ -1182,7 +1182,12 @@ function LessonStudyView({
 
   return (
     <>
-      <div className="lesson-phase-tabs" role="tablist" aria-label="Этапы изучения" ref={phaseTabsRef}>
+      <div
+        className="lesson-phase-tabs"
+        role="tablist"
+        aria-label="Этапы изучения"
+        ref={phaseTabsRef}
+      >
         {phases.map((candidate, index) => (
           <button
             aria-controls="lesson-study-phase"

@@ -167,7 +167,9 @@ function configuration(env) {
 export function parseServerTiming(header) {
   const phases = {};
   for (const entry of (header ?? "").split(",")) {
-    const match = /^(auth|primary|hydrate|dashboard);dur=([0-9]+(?:\.[0-9]+)?)$/u.exec(entry.trim());
+    const match = /^(auth|primary|hydrate|dashboard);dur=([0-9]+(?:\.[0-9]+)?)$/u.exec(
+      entry.trim(),
+    );
     if (!match || Object.hasOwn(phases, match[1])) continue;
     const duration = Number(match[2]);
     if (Number.isFinite(duration) && duration <= REQUEST_TIMEOUT_MS) phases[match[1]] = duration;
@@ -182,10 +184,14 @@ export function summarize(samples) {
     const middle = Math.floor(sorted.length / 2);
     const serverTimingMedians = {};
     for (const phase of ["auth", "primary", "hydrate", "dashboard"]) {
-      const values = entries.map((entry) => entry.serverTiming?.[phase]).filter((value) => Number.isFinite(value)).sort((a,b) => a-b);
+      const values = entries
+        .map((entry) => entry.serverTiming?.[phase])
+        .filter((value) => Number.isFinite(value))
+        .sort((a, b) => a - b);
       if (values.length === 0) continue;
       const index = Math.floor(values.length / 2);
-      serverTimingMedians[phase] = values.length % 2 ? values[index] : (values[index-1] + values[index]) / 2;
+      serverTimingMedians[phase] =
+        values.length % 2 ? values[index] : (values[index - 1] + values[index]) / 2;
     }
     return {
       step,
@@ -195,7 +201,7 @@ export function summarize(samples) {
       warmTargetMs: WARM_TARGET_MS,
       warmExceeded: entries.slice(1).some(({ elapsedMs }) => elapsedMs > WARM_TARGET_MS),
       warmSamples: Math.max(0, entries.length - 1),
-      ...(Object.keys(serverTimingMedians).length === 0 ? {} : {serverTimingMedians}),
+      ...(Object.keys(serverTimingMedians).length === 0 ? {} : { serverTimingMedians }),
     };
   });
 }
@@ -296,7 +302,13 @@ export async function runRemoteSmoke(env, { fetchImpl = fetch } = {}) {
           throw new SmokeFailure("RESPONSE_INVALID", label, status);
         }
         complete = true;
-        return { value, status, elapsedMs: Math.round(performance.now() - started), bytes, serverTiming:parseServerTiming(response.headers.get("server-timing")) };
+        return {
+          value,
+          status,
+          elapsedMs: Math.round(performance.now() - started),
+          bytes,
+          serverTiming: parseServerTiming(response.headers.get("server-timing")),
+        };
       } catch (error) {
         if (error instanceof SmokeFailure) throw error;
         throw new SmokeFailure("REQUEST_FAILED", label, status);
@@ -482,7 +494,13 @@ export async function runRemoteSmoke(env, { fetchImpl = fetch } = {}) {
       for (let index = 1; index <= config.samples; index++) {
         const { value, status, elapsedMs, bytes, serverTiming } = await request(label, path);
         requireShape(validate(value), label, status);
-        samples.push({ step: label, index, elapsedMs, bytes, ...(Object.keys(serverTiming).length === 0 ? {} : {serverTiming}) });
+        samples.push({
+          step: label,
+          index,
+          elapsedMs,
+          bytes,
+          ...(Object.keys(serverTiming).length === 0 ? {} : { serverTiming }),
+        });
         if (index === 1) first = value;
       }
       return first;

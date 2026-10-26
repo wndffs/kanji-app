@@ -202,6 +202,7 @@ export type DeleteResponse = {
 };
 
 export type ApiRequestOptions = {
+  readonly affectsDashboard?: boolean;
   readonly method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   readonly token?: string | null;
   readonly body?: unknown;
@@ -261,7 +262,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   }
 
   const body = (await response.json()) as T;
-  if (request.method !== "GET") invalidateDashboardSnapshot();
+  if (request.method !== "GET" && options.affectsDashboard !== false) invalidateDashboardSnapshot();
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(API_RESPONSE_CONFIRMED_EVENT));
   }
@@ -1212,6 +1213,7 @@ export async function claimReviewReminder(
   options: Pick<ApiRequestOptions, "signal" | "fetchImpl"> = {},
 ): Promise<{ readonly shouldNotify: boolean }> {
   const result = await apiRequest<unknown>("/users/me/review-reminders/claim", {
+    affectsDashboard: false,
     ...options,
     method: "POST",
     token,

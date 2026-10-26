@@ -59,7 +59,10 @@ export class DashboardService {
     @Inject(DashboardRepository) private readonly dashboardRepository: DashboardRepository,
   ) {}
 
-  async getDashboard(user: CurrentUserDto, recordTiming?: (phase: "primary" | "hydrate", durationMs: number) => void): Promise<DashboardDto> {
+  async getDashboard(
+    user: CurrentUserDto,
+    recordTiming?: (phase: "primary" | "hydrate", durationMs: number) => void,
+  ): Promise<DashboardDto> {
     const primaryStartedAt = performance.now();
     const now = new Date();
     const recentSince = addDays(now, -RECENT_REVIEW_STATS_DAYS);

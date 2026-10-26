@@ -28,14 +28,18 @@ const env = {
 };
 
 it("exports only allowlisted numeric server timing phases and bounded medians", () => {
-  expect(parseServerTiming('auth;dur=10, dashboard;dur=400.5, private-token;dur=1, primary;dur=NaN, hydrate;dur=-1, auth;dur=999')).toEqual({auth:10,dashboard:400.5});
-  expect(parseServerTiming('auth;dur=9999999')).toEqual({});
+  expect(
+    parseServerTiming(
+      "auth;dur=10, dashboard;dur=400.5, private-token;dur=1, primary;dur=NaN, hydrate;dur=-1, auth;dur=999",
+    ),
+  ).toEqual({ auth: 10, dashboard: 400.5 });
+  expect(parseServerTiming("auth;dur=9999999")).toEqual({});
   const summary = summarize([
-    {step:'dashboard',elapsedMs:1000,serverTiming:{auth:10,dashboard:700}},
-    {step:'dashboard',elapsedMs:600,serverTiming:{auth:30,dashboard:300}},
+    { step: "dashboard", elapsedMs: 1000, serverTiming: { auth: 10, dashboard: 700 } },
+    { step: "dashboard", elapsedMs: 600, serverTiming: { auth: 30, dashboard: 300 } },
   ]);
-  expect(summary[0]?.serverTimingMedians).toEqual({auth:20,dashboard:500});
-  expect(JSON.stringify(summary)).not.toContain('private-token');
+  expect(summary[0]?.serverTimingMedians).toEqual({ auth: 20, dashboard: 500 });
+  expect(JSON.stringify(summary)).not.toContain("private-token");
 });
 
 describe("bounded cold-start readiness", () => {

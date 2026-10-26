@@ -59,7 +59,10 @@ export abstract class DashboardRepository {
     itemIds: readonly string[],
     limit: number,
   ): Promise<readonly DashboardRecentItemRecord[]>;
-  abstract listLatestUnlockEvents(userId: string, currentCourseId?: string | null): Promise<readonly DashboardUnlockEventRecord[]>;
+  abstract listLatestUnlockEvents(
+    userId: string,
+    currentCourseId?: string | null,
+  ): Promise<readonly DashboardUnlockEventRecord[]>;
   abstract listRecentBurnedItems(
     userId: string,
     limit: number,
@@ -74,7 +77,10 @@ export abstract class DashboardRepository {
     horizonEnd: Date,
   ): Promise<readonly DashboardSrsStateRecord[]>;
   abstract listSrsStageSpread(userId: string): Promise<readonly DashboardSrsStageSpreadRecord[]>;
-  abstract findCurrentCourseProgress(userId: string, currentCourseId?: string | null): Promise<DashboardCourseProgressRecord | null>;
+  abstract findCurrentCourseProgress(
+    userId: string,
+    currentCourseId?: string | null,
+  ): Promise<DashboardCourseProgressRecord | null>;
   abstract countRecentReviewResults(
     userId: string,
     since: Date,
@@ -325,8 +331,14 @@ export class PrismaDashboardRepository extends DashboardRepository {
     return { lessonItems, currentCourse, unlockEvents };
   }
 
-  async listLessonAvailabilityItems(userId: string, resolvedCourseId?: string | null): Promise<readonly DashboardLessonItemRecord[]> {
-    const currentCourseId = resolvedCourseId === undefined ? await resolveCurrentCourseId(this.prisma.db, userId) : resolvedCourseId;
+  async listLessonAvailabilityItems(
+    userId: string,
+    resolvedCourseId?: string | null,
+  ): Promise<readonly DashboardLessonItemRecord[]> {
+    const currentCourseId =
+      resolvedCourseId === undefined
+        ? await resolveCurrentCourseId(this.prisma.db, userId)
+        : resolvedCourseId;
 
     if (currentCourseId === null) {
       return [];
@@ -662,8 +674,14 @@ export class PrismaDashboardRepository extends DashboardRepository {
     );
   }
 
-  async listLatestUnlockEvents(userId: string, resolvedCourseId?: string | null): Promise<readonly DashboardUnlockEventRecord[]> {
-    const currentCourseId = resolvedCourseId === undefined ? await resolveCurrentCourseId(this.prisma.db, userId) : resolvedCourseId;
+  async listLatestUnlockEvents(
+    userId: string,
+    resolvedCourseId?: string | null,
+  ): Promise<readonly DashboardUnlockEventRecord[]> {
+    const currentCourseId =
+      resolvedCourseId === undefined
+        ? await resolveCurrentCourseId(this.prisma.db, userId)
+        : resolvedCourseId;
 
     if (currentCourseId === null) {
       return [];
@@ -902,8 +920,14 @@ export class PrismaDashboardRepository extends DashboardRepository {
     }));
   }
 
-  async findCurrentCourseProgress(userId: string, resolvedCourseId?: string | null): Promise<DashboardCourseProgressRecord | null> {
-    const currentCourseId = resolvedCourseId === undefined ? await resolveCurrentCourseId(this.prisma.db, userId) : resolvedCourseId;
+  async findCurrentCourseProgress(
+    userId: string,
+    resolvedCourseId?: string | null,
+  ): Promise<DashboardCourseProgressRecord | null> {
+    const currentCourseId =
+      resolvedCourseId === undefined
+        ? await resolveCurrentCourseId(this.prisma.db, userId)
+        : resolvedCourseId;
 
     if (currentCourseId === null) {
       return null;

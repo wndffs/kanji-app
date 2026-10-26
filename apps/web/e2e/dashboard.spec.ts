@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { captureLearnerThemes } from "./support/capture-learner-themes";
+import { changeAccount } from "./support/change-account";
 
 import {
   DEFAULT_DASHBOARD_WIDGET_PREFERENCES,
@@ -12,6 +13,172 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("dashboard smoke", () => {
+  test("defers course reads until selection is opened and retries a failed dashboard GET", async ({
+    page,
+  }) => {
+    await signIn(page);
+    let dashboardReads = 0;
+    let courseReads = 0;
+    await page.route(`${API_BASE_URL}/dashboard`, (route) =>
+      route.fulfill(
+        ++dashboardReads === 1
+          ? { status: 503, json: { message: "Временная ошибка панели" } }
+          : { json: buildMinimalDashboard("course-1", "Базовый курс") },
+      ),
+    );
+    await page.route(`${API_BASE_URL}/courses`, (route) => {
+      courseReads++;
+      return route.fulfill({ json: buildCourseList("course-1") });
+    });
+    await page.goto("/dashboard");
+    await expect(page.getByText("Временная ошибка панели", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Повторить загрузку", exact: true }).click();
+    await expect(page.locator(".dashboard-page")).toHaveAttribute(
+      "data-dashboard-freshness",
+      "confirmed",
+    );
+    expect(courseReads).toBe(0);
+    await page.getByText("Выбор курса", { exact: true }).click();
+    await expect(page.getByRole("combobox", { name: "Текущий курс" })).toBeVisible();
+    expect(courseReads).toBe(1);
+    await page.getByText("Выбор курса", { exact: true }).click();
+    await page.getByText("Выбор курса", { exact: true }).click();
+    expect(courseReads).toBe(1);
+    expect(dashboardReads).toBe(2);
+  });
+
+  for (const status of [200, 401])
+    test(`ignores an obsolete owner's dashboard response (${status})`, async ({ page }) => {
+      await signIn(page);
+      let release!: () => void;
+      let started!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const pending = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      await page.route(`${API_BASE_URL}/dashboard`, async (route) => {
+        if (route.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`) {
+          started();
+          await held;
+          await route
+            .fulfill(
+              status === 200
+                ? { json: buildMinimalDashboard("old", "Старый курс") }
+                : { status: 401, json: { message: "Old owner expired" } },
+            )
+            .catch(() => undefined);
+        } else {
+          const data = buildMinimalDashboard("new", "Новый курс");
+          await route.fulfill({ json: { ...data, user: { ...data.user, id: "new-owner" } } });
+        }
+      });
+      await page.goto("/dashboard");
+      await pending;
+      await changeAccount(page);
+      await expect(page.locator(".current-level-panel")).toContainText("Новый курс");
+      release();
+      await expect(page.locator(".current-level-panel")).toContainText("Новый курс");
+      await expect(page.getByText("Старый курс", { exact: true })).toHaveCount(0);
+      expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe(
+        "new-owner-token",
+      );
+    });
+
+  test("restores an honest snapshot on navigation and recovers a failed background refresh", async ({
+    page,
+  }) => {
+    await signIn(page);
+    let reads = 0;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(`${API_BASE_URL}/dashboard`, async (route) => {
+      reads++;
+      if (reads === 2) {
+        await held;
+        await route.fulfill({ status: 503, json: { message: "Refresh unavailable" } });
+        return;
+      }
+      const data = buildMinimalDashboard("course-1", "Базовый курс");
+      await route.fulfill({
+        json: { ...data, counts: { ...data.counts, dueReviews: reads === 1 ? 7 : 2 } },
+      });
+    });
+    await page.goto("/dashboard");
+    await expect(page.getByRole("link", { name: "К повторению: 7", exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "Поиск", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Поиск", exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "Панель", exact: true }).click();
+    await expect(page.getByRole("link", { name: "К повторению: 7", exact: true })).toBeVisible();
+    await expect(page.locator(".dashboard-page")).toHaveAttribute(
+      "data-dashboard-freshness",
+      "snapshot",
+    );
+    await expect(page.getByText("Обновляю данные...", { exact: false })).toBeVisible();
+    release();
+    await expect(page.locator('.dashboard-page .form-error[role="alert"]')).toContainText(
+      "Показаны последние полученные данные.",
+    );
+    await page.getByRole("button", { name: "Обновить панель", exact: true }).click();
+    await expect(page.getByRole("link", { name: "К повторению: 2", exact: true })).toBeVisible();
+    await expect(page.locator(".dashboard-page")).toHaveAttribute(
+      "data-dashboard-freshness",
+      "confirmed",
+    );
+  });
+  test("loads course choices automatically only when no current course is available", async ({
+    page,
+  }) => {
+    await signIn(page);
+    let courses = 0;
+    await page.route(`${API_BASE_URL}/dashboard`, (route) =>
+      route.fulfill({
+        json: { ...buildMinimalDashboard("course-1", "Fixture"), currentCourse: null },
+      }),
+    );
+    await page.route(`${API_BASE_URL}/courses`, (route) => {
+      courses++;
+      return route.fulfill({ json: buildCourseList("course-1") });
+    });
+    await page.goto("/dashboard");
+    await expect(page.getByRole("combobox", { name: "Текущий курс" })).toBeVisible();
+    expect(courses).toBe(1);
+  });
+
+  test("replaces a long initial wait with honest feedback and retries only the GET", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await page.clock.install();
+    let reads = 0;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(`${API_BASE_URL}/dashboard`, async (route) => {
+      if (++reads === 1) await held;
+      await route
+        .fulfill({ json: buildMinimalDashboard("course-1", "Базовый курс") })
+        .catch(() => undefined);
+    });
+    await page.goto("/dashboard");
+    await expect(page.getByText("Загружаю данные.", { exact: true })).toBeVisible();
+    await page.clock.fastForward(7100);
+    await expect(
+      page.getByText("Сервер отвечает дольше обычного. Данные ещё не получены.", { exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Повторить загрузку", exact: true }).click();
+    await expect(page.locator(".dashboard-page")).toHaveAttribute(
+      "data-dashboard-freshness",
+      "confirmed",
+    );
+    release();
+    expect(reads).toBe(2);
+  });
+
   test("keeps the daily action primary and opens secondary navigation with keyboard recovery", async ({
     page,
   }) => {
@@ -38,7 +205,7 @@ test.describe("dashboard smoke", () => {
         ratio: 1,
       });
     await expect(page.getByRole("heading", { name: "Баланс нагрузки", exact: true })).toBeHidden();
-    await page.getByText("Статистика и история", {exact:true}).click();
+    await page.getByText("Статистика и история", { exact: true }).click();
     await page.locator('[data-dashboard-widget="workload"] > details > summary').click();
     await expect(page.getByRole("heading", { name: "Баланс нагрузки", exact: true })).toBeVisible();
     await page.locator('[data-dashboard-widget="workload"] > details > summary').click();

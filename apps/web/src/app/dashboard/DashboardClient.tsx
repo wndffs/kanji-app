@@ -16,7 +16,15 @@ import {
 import { dashboardNextAction } from "../../lib/dashboard-next-action";
 import { presentDashboardWidgets } from "../../lib/dashboard-layout";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
-import { DASHBOARD_INVALIDATED_EVENT, dashboardSnapshotKey, dashboardSnapshotGeneration, readDashboardSnapshot, storeDashboardSnapshot, type DashboardSnapshotIdentity } from "../../lib/dashboard-snapshot";
+import {
+  DASHBOARD_INVALIDATED_EVENT,
+  DASHBOARD_SNAPSHOT_MAX_AGE_MS,
+  dashboardSnapshotKey,
+  dashboardSnapshotGeneration,
+  readDashboardSnapshot,
+  storeDashboardSnapshot,
+  type DashboardSnapshotIdentity,
+} from "../../lib/dashboard-snapshot";
 
 import {
   type CourseListResponse,
@@ -70,20 +78,49 @@ type CoursesState =
 export function DashboardClient() {
   const session = useStoredSession();
   if (session === undefined) return <DashboardLoading />;
-  if (session === null) return <section className="page-stack"><h1>Панель</h1><p>Нужен вход в аккаунт.</p><Link className="primary-action" href="/login">Войти</Link></section>;
-  const identity = { accountId:session.user.id, token:session.token, settingsKey:JSON.stringify(session.user.settings) };
-  return <OwnedDashboardClient key={dashboardSnapshotKey(identity)} ownerToken={session.token} identity={identity} />;
+  if (session === null)
+    return (
+      <section className="page-stack">
+        <h1>Панель</h1>
+        <p>Нужен вход в аккаунт.</p>
+        <Link className="primary-action" href="/login">
+          Войти
+        </Link>
+      </section>
+    );
+  const identity = {
+    accountId: session.user.id,
+    token: session.token,
+    settingsKey: JSON.stringify(session.user.settings),
+  };
+  return (
+    <OwnedDashboardClient
+      key={dashboardSnapshotKey(identity)}
+      ownerToken={session.token}
+      identity={identity}
+    />
+  );
 }
 
-function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: string; readonly identity: DashboardSnapshotIdentity }) {
+function OwnedDashboardClient({
+  ownerToken,
+  identity,
+}: {
+  readonly ownerToken: string;
+  readonly identity: DashboardSnapshotIdentity;
+}) {
   const { accountId, settingsKey } = identity;
   const [refreshRevision, setRefreshRevision] = useState(0);
   const [refreshing, setRefreshing] = useState(true);
   const [refreshError, setRefreshError] = useState<string | null>(null);
-  const [confirmedAt, setConfirmedAt] = useState(() => readDashboardSnapshot(identity)?.confirmedAt ?? null);
+  const [confirmedAt, setConfirmedAt] = useState(
+    () => readDashboardSnapshot(identity)?.confirmedAt ?? null,
+  );
   const [state, setState] = useState<DashboardState>(() => {
     const cached = readDashboardSnapshot(identity);
-    return cached === null ? { status:"checking" } : { status:"ready", dashboard:cached.dashboard };
+    return cached === null
+      ? { status: "checking" }
+      : { status: "ready", dashboard: cached.dashboard };
   });
   const [coursesState, setCoursesState] = useState<CoursesState>({ status: "loading" });
   const [coursesRequested, setCoursesRequested] = useState(false);
@@ -92,10 +129,32 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
     useState<ReviewReminderConfirmation | null>(null);
 
   useEffect(() => {
-    const invalidate = () => { setReminderConfirmation(null); setRefreshRevision((value) => value + 1); };
+    const invalidate = () => {
+      setReminderConfirmation(null);
+      setRefreshRevision((value) => value + 1);
+    };
     window.addEventListener(DASHBOARD_INVALIDATED_EVENT, invalidate);
     return () => window.removeEventListener(DASHBOARD_INVALIDATED_EVENT, invalidate);
   }, []);
+
+  useEffect(() => {
+    const refreshVisibleSnapshot = () => {
+      const age = confirmedAt === null ? 0 : Date.now() - confirmedAt;
+      if (
+        document.visibilityState === "visible" &&
+        !refreshing &&
+        (age > DASHBOARD_SNAPSHOT_MAX_AGE_MS || age < 0)
+      ) {
+        setRefreshRevision((value) => value + 1);
+      }
+    };
+    window.addEventListener("focus", refreshVisibleSnapshot);
+    document.addEventListener("visibilitychange", refreshVisibleSnapshot);
+    return () => {
+      window.removeEventListener("focus", refreshVisibleSnapshot);
+      document.removeEventListener("visibilitychange", refreshVisibleSnapshot);
+    };
+  }, [confirmedAt, refreshing]);
 
   useEffect(() => {
     const session = readStoredSession();
@@ -108,15 +167,17 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
     let cancelled = false;
     const controller = new AbortController();
     const generation = dashboardSnapshotGeneration();
-    const requestIdentity = { accountId, settingsKey, token:ownerToken };
+    const requestIdentity = { accountId, settingsKey, token: ownerToken };
     setRefreshing(true);
     setRefreshError(null);
     setReminderConfirmation(null);
-    setState((current) => current.status === "ready" ? current : { status: "loading" });
+    setState((current) => (current.status === "ready" ? current : { status: "loading" }));
 
     getDashboard(session.token, controller.signal)
       .then((dashboard) => {
         if (!cancelled && ownsSession(ownerToken)) {
+          if (dashboard.user.id !== accountId)
+            throw new Error("Не удалось подтвердить аккаунт панели.");
           if (!storeDashboardSnapshot(requestIdentity, dashboard, generation)) return;
           setConfirmedAt(Date.now());
           setState({ status: "ready", dashboard });
@@ -141,8 +202,13 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
 
         const message = error instanceof Error ? error.message : "Не удалось загрузить панель.";
         setRefreshError(message);
-        setState((current) => current.status === "ready" ? current : {status:"error",message});
-      }).finally(() => { if (!cancelled && ownsSession(ownerToken)) setRefreshing(false); });
+        setState((current) =>
+          current.status === "ready" ? current : { status: "error", message },
+        );
+      })
+      .finally(() => {
+        if (!cancelled && ownsSession(ownerToken)) setRefreshing(false);
+      });
 
     return () => {
       cancelled = true;
@@ -154,7 +220,7 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
     if (!coursesRequested) return;
     let cancelled = false;
     const controller = new AbortController();
-    setCoursesState({status:"loading"});
+    setCoursesState({ status: "loading" });
     getCourses(ownerToken, controller.signal)
       .then((courses) => {
         if (!cancelled && ownsSession(ownerToken)) {
@@ -185,7 +251,12 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
   }, [ownerToken, coursesRequested, coursesRevision]);
 
   if (state.status === "checking" || state.status === "loading") {
-    return <DashboardLoading key={refreshRevision} onRetry={() => setRefreshRevision((value) => value + 1)} />;
+    return (
+      <DashboardLoading
+        key={refreshRevision}
+        onRetry={() => setRefreshRevision((value) => value + 1)}
+      />
+    );
   }
 
   if (state.status === "unauthenticated") {
@@ -214,7 +285,11 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
         </div>
         <div className="notice-panel error-panel">
           <p>{state.message}</p>
-          <button className="secondary-action" onClick={() => setRefreshRevision((value) => value + 1)} type="button">
+          <button
+            className="secondary-action"
+            onClick={() => setRefreshRevision((value) => value + 1)}
+            type="button"
+          >
             <RotateCw size={16} aria-hidden="true" /> Повторить загрузку
           </button>
         </div>
@@ -247,7 +322,6 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
         message:
           selectedTitle === undefined ? "Курс переключён." : `Выбран курс «${selectedTitle}».`,
       });
-
     } catch (error: unknown) {
       if (!ownsSession(ownerToken)) return;
       if (error instanceof ApiError && error.status === 401) {
@@ -285,7 +359,8 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
 
     try {
       const updatedUser = await updateUserSettings(session.token, { dashboardWidgets });
-      if (!ownsSession(ownerToken)) throw new Error("Аккаунт изменился. Настройки панели не обновлены в этом окне.");
+      if (!ownsSession(ownerToken))
+        throw new Error("Аккаунт изменился. Настройки панели не обновлены в этом окне.");
       const normalizedWidgets = normalizeDashboardWidgetPreferences(
         updatedUser.settings.dashboardWidgets ?? dashboardWidgets,
       );
@@ -332,7 +407,10 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
         coursesState={coursesState}
         dashboard={state.dashboard}
         onCourseChange={(courseId) => void handleCourseChange(courseId)}
-        onCoursesRequested={(retry) => { setCoursesRequested(true); if (retry) setCoursesRevision((value) => value + 1); }}
+        onCoursesRequested={(retry) => {
+          setCoursesRequested(true);
+          if (retry) setCoursesRevision((value) => value + 1);
+        }}
         onDashboardWidgetsChange={handleDashboardWidgetsChange}
       />
     </>
@@ -345,11 +423,25 @@ function DashboardLoading({ onRetry }: { readonly onRetry?: () => void }) {
     const timer = window.setTimeout(() => setSlow(true), 7_000);
     return () => window.clearTimeout(timer);
   }, []);
-  return <section className="page-stack dashboard-page dashboard-loading" aria-busy="true">
-    <div className="page-heading"><h1>Панель</h1><p role="status">{slow ? "Сервер отвечает дольше обычного. Данные ещё не получены." : "Загружаю данные."}</p></div>
-    <div className="metric-grid" aria-hidden="true"><div className="metric-card skeleton" /><div className="metric-card skeleton" /></div>
-    {slow && onRetry !== undefined ? <button className="secondary-action" onClick={onRetry} type="button"><RotateCw size={16} aria-hidden="true" /> Повторить загрузку</button> : null}
-  </section>;
+  return (
+    <section className="page-stack dashboard-page dashboard-loading" aria-busy="true">
+      <div className="page-heading">
+        <h1>Панель</h1>
+        <p role="status">
+          {slow ? "Сервер отвечает дольше обычного. Данные ещё не получены." : "Загружаю данные."}
+        </p>
+      </div>
+      <div className="metric-grid" aria-hidden="true">
+        <div className="metric-card skeleton" />
+        <div className="metric-card skeleton" />
+      </div>
+      {slow && onRetry !== undefined ? (
+        <button className="secondary-action" onClick={onRetry} type="button">
+          <RotateCw size={16} aria-hidden="true" /> Повторить загрузку
+        </button>
+      ) : null}
+    </section>
+  );
 }
 
 function DashboardView({
@@ -429,54 +521,85 @@ function DashboardView({
     }
   }
 
-  const isDaily = !customizationOpen && presentDashboardWidgets(dashboard.user.dashboardWidgets) !== dashboard.user.dashboardWidgets;
-  const primaryWidgets = visibleWidgets.filter((widget) => ["summary", "course-progress", "review-forecast"].includes(widget.id));
+  const isDaily =
+    !customizationOpen &&
+    presentDashboardWidgets(dashboard.user.dashboardWidgets) !== dashboard.user.dashboardWidgets;
+  const primaryWidgets = visibleWidgets.filter((widget) =>
+    ["summary", "course-progress", "review-forecast"].includes(widget.id),
+  );
   const secondaryWidgets = visibleWidgets.filter((widget) => !primaryWidgets.includes(widget));
   function renderWidget(widget: DashboardWidgetPreferenceDto) {
-  const content = (
-    <DashboardWidgetContent
-      coursesState={coursesState}
-      dashboard={dashboard}
-      id={widget.id}
-      onCourseChange={onCourseChange}
-      onCoursesRequested={onCoursesRequested}
-    />
-  );
-  return (
-    <div
-      className={`dashboard-widget dashboard-widget-${widget.presentation}`}
-      data-dashboard-widget={widget.id}
-      key={widget.id}
-    >
-      {customizationOpen ||
-      widget.id === "summary" ||
-      widget.id === "course-progress" ||
-      widget.id === "review-forecast" ? (
-        content
-      ) : (
-        <SectionDisclosure title={formatDashboardWidgetTitle(widget.id)}>
-          {content}
-        </SectionDisclosure>
-      )}
-      {widget.id === "summary" ? beginnerGuide : null}
-    </div>
-  );
-
+    const content = (
+      <DashboardWidgetContent
+        coursesState={coursesState}
+        dashboard={dashboard}
+        id={widget.id}
+        onCourseChange={onCourseChange}
+        onCoursesRequested={onCoursesRequested}
+      />
+    );
+    return (
+      <div
+        className={`dashboard-widget dashboard-widget-${widget.presentation}`}
+        data-dashboard-widget={widget.id}
+        key={widget.id}
+      >
+        {customizationOpen ||
+        widget.id === "summary" ||
+        widget.id === "course-progress" ||
+        widget.id === "review-forecast" ? (
+          content
+        ) : (
+          <SectionDisclosure title={formatDashboardWidgetTitle(widget.id)}>
+            {content}
+          </SectionDisclosure>
+        )}
+        {widget.id === "summary" ? beginnerGuide : null}
+      </div>
+    );
   }
 
   return (
-    <section className="page-stack dashboard-page" data-dashboard-freshness={refreshing || refreshError !== null ? "snapshot" : "confirmed"}>
+    <section
+      className="page-stack dashboard-page"
+      data-dashboard-freshness={refreshing || refreshError !== null ? "snapshot" : "confirmed"}
+    >
       <div className="page-heading dashboard-heading">
         <div>
           <h1>Панель</h1>
           <p>{nextAction.title}</p>
           <span className="dashboard-freshness" role="status">
-            {refreshing ? "Обновляю данные..." : refreshError !== null ? "Не удалось обновить" : "Данные обновлены"}
-            {confirmedAt === null ? null : <> · <time dateTime={new Date(confirmedAt).toISOString()}>{new Date(confirmedAt).toLocaleTimeString("ru-RU", {hour:"2-digit",minute:"2-digit",timeZone:dashboard.user.timezone})}</time></>}
+            {refreshing
+              ? "Обновляю данные..."
+              : refreshError !== null
+                ? "Не удалось обновить"
+                : "Данные обновлены"}
+            {confirmedAt === null ? null : (
+              <>
+                {" "}
+                ·{" "}
+                <time dateTime={new Date(confirmedAt).toISOString()}>
+                  {new Date(confirmedAt).toLocaleTimeString("ru-RU", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    timeZone: dashboard.user.timezone,
+                  })}
+                </time>
+              </>
+            )}
           </span>
         </div>
         <div className="action-row">
-          <button className="icon-button" type="button" aria-label="Обновить панель" title="Обновить панель" disabled={refreshing} onClick={onRefresh}><RotateCw size={18} aria-hidden="true" /></button>
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="Обновить панель"
+            title="Обновить панель"
+            disabled={refreshing}
+            onClick={onRefresh}
+          >
+            <RotateCw size={18} aria-hidden="true" />
+          </button>
           {visibleWidgets.some((widget) => widget.id === "summary") ? null : (
             <Link className="primary-action" href={nextAction.href}>
               {nextAction.label}
@@ -497,7 +620,11 @@ function DashboardView({
         </div>
       </div>
 
-      {refreshError === null ? null : <p className="form-error" role="alert">{refreshError} Показаны последние полученные данные.</p>}
+      {refreshError === null ? null : (
+        <p className="form-error" role="alert">
+          {refreshError} Показаны последние полученные данные.
+        </p>
+      )}
 
       {customizationOpen ? (
         <DashboardWidgetEditor
@@ -1186,7 +1313,11 @@ function CourseProgressPanel({
         defaultOpen={course === null}
         onOpen={() => onCoursesRequested()}
       >
-        <CourseSelector coursesState={coursesState} onCourseChange={onCourseChange} onRetry={() => onCoursesRequested(true)} />
+        <CourseSelector
+          coursesState={coursesState}
+          onCourseChange={onCourseChange}
+          onRetry={() => onCoursesRequested(true)}
+        />
       </SectionDisclosure>
     </section>
   );
@@ -1457,7 +1588,9 @@ function CourseSelector({
     return (
       <div className="course-selector-status course-selector-error" role="alert">
         {coursesState.message}
-        <button className="text-action" onClick={onRetry} type="button">Повторить загрузку курсов</button>
+        <button className="text-action" onClick={onRetry} type="button">
+          Повторить загрузку курсов
+        </button>
       </div>
     );
   }
