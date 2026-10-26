@@ -461,30 +461,45 @@ textarea::placeholder {
   padding-top: 8px;
 }
 .forecast-summary .forecast-list li {
-  padding-block: 12px 16px;
-  font-size: 13px;
-  gap: 16px;
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: end;
+  padding: 0;
+  font-size: 11px;
+  gap: 10px;
+  border: 0;
+  min-width: 0;
+}
+.forecast-summary .forecast-list li > span {
+  order: 2;
+  min-height: 36px;
+  color: var(--muted);
+  line-height: 1.5;
 }
 .forecast-volume {
-  position: absolute;
-  inset: auto 0 0;
-  height: 4px;
+  display: flex;
+  align-items: end;
+  height: 72px;
   background: var(--surface-strong);
-  border-radius: 2px;
+  border-radius: 4px;
+  overflow: hidden;
 }
 .forecast-volume > span {
   display: block;
-  height: 100%;
+  width: 100%;
   border-radius: inherit;
-  background: var(--primary);
+  background: var(--subject-kanji);
 }
 .forecast-summary .forecast-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 .forecast-summary .forecast-list strong {
-  color: var(--primary-strong);
-  white-space: nowrap;
+  color: var(--foreground);
+  font-size: 12px;
+  white-space: normal;
 }
 .dashboard-page .course-progress > div:first-child {
   display: grid;

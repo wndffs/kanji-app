@@ -1276,7 +1276,7 @@ function ReviewForecastPanel({
           <span>{formatForecastBucket(bucket)}</span>
           <strong>{formatCount(bucket.dueCount, "карточка", "карточки", "карточек")}</strong>
           <div className="forecast-volume" aria-hidden="true">
-            <span style={{ width: `${peak === 0 ? 0 : (bucket.dueCount / peak) * 100}%` }} />
+            <span style={{ height: `${peak === 0 ? 0 : (bucket.dueCount / peak) * 100}%` }} />
           </div>
         </li>
       ))}

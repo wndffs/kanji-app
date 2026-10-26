@@ -127,4 +127,7 @@ This section supersedes the checkpoint states in the table above.
 - 269 implemented: level heading, immediate next step, passed/total subject
   counts and a real level-catalogue link. Detailed states and prerequisite paths
   remain available. Final/empty/completed decisions still come from the API.
-- 270-278 planned; checks batched in 279.
+- 270 implemented: forecast columns compare actual nonzero buckets, with
+  absolute count/time labels and honest vacation/empty states. Secondary
+  activity, workload and SRS tables remain optional disclosures.
+- 271-278 planned; checks batched in 279.
