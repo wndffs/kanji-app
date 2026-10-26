@@ -1001,12 +1001,50 @@ textarea::placeholder {
   padding: 0;
 }
 .character-hub-section-heading {
-  padding-bottom: 20px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--surface-border);
 }
+.character-hub-section-heading h2 {
+  font-size: 18px;
+  line-height: 1.4;
+}
 .character-hub-model {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--muted);
+  font-weight: 500;
+  text-transform: none;
+}
+.character-hub-kanji-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  border: 0;
+  margin: 0;
+}
+.character-hub-kanji-stats div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+}
+.character-hub-kanji-stats dt {
+  font-size: 12px;
+  font-weight: 500;
+}
+.character-hub-kanji-stats dd {
+  font-size: 16px;
+  font-weight: 650;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.character-hub-filters label > span {
+  font-size: 12px;
+  font-weight: 500;
+}
+.character-hub-progress {
+  height: 6px;
+  border: 0;
 }
 .character-hub-kana-chart :is(a, span) {
   border-radius: 6px;

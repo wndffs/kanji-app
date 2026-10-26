@@ -112,6 +112,11 @@ test.describe("character hub", () => {
     );
     await page.goto("/characters?tab=kanji");
     await expect(page.locator(".character-hub-kanji-grid > li")).toHaveCount(60);
+    const counters = await page.locator(".character-hub-kanji-stats").boundingBox();
+    expect(counters!.height).toBeLessThan(80);
+    await expect(page.locator(".character-hub-kanji-grid > li").first()).toBeInViewport({
+      ratio: 0.1,
+    });
     await page
       .getByRole("navigation", { name: "Страницы кандзи" })
       .getByRole("button", { name: "Далее" })
