@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -26,6 +26,12 @@ import {
   type ReferenceMode,
   type ReferenceView,
 } from "./reference-data";
+import {
+  REFERENCE_QUESTIONS,
+  referenceExpected,
+  referenceFeedback,
+  type ReferenceFeedback,
+} from "./reference-model";
 
 const SCREENS = [
   { id: "dashboard", label: "Панель" },
@@ -104,7 +110,7 @@ export function ReferenceClient() {
             ) : view === "lesson" ? (
               <ReferenceLesson mode={mode} onClose={() => open("dashboard")} />
             ) : (
-              <ReferenceReview mode={mode} onClose={() => open("dashboard")} />
+              <ReferenceReview key={mode} mode={mode} onClose={() => open("dashboard")} />
             )}
           </main>
         </div>
@@ -172,7 +178,7 @@ function ReferenceDashboard({
         </div>
         <span className="ref-day-total">
           <CheckCheck size={17} />
-          Изучено сегодня <strong>8</strong>
+          <span>Изучено сегодня</span> <strong>8</strong>
         </span>
       </header>
       <div className="ref-study-actions">
@@ -373,9 +379,18 @@ function ReferenceLesson({ mode, onClose }: { mode: ReferenceMode; onClose: () =
               Запомнить
             </span>
             <p>
-              {phase === "meaning"
-                ? "Прямоугольник 日 с перемычкой можно представить как окно: за ним светлый день."
-                : "Прочитайте に и ち слитно: にち. Это чтение встречается в слове 毎日, «каждый день»."}
+              {referenceMeaning(
+                phase === "meaning"
+                  ? {
+                      ru: "Прямоугольник 日 с перемычкой можно представить как окно: за ним светлый день.",
+                      en: "Picture 日 as a window with a bar across it. A bright day is visible outside.",
+                    }
+                  : {
+                      ru: "Прочитайте に и ち слитно: にち. Это чтение встречается в слове 毎日, «каждый день».",
+                      en: "Read に and ち together: にち. This reading occurs in 毎日, every day.",
+                    },
+                mode,
+              )}
             </p>
           </div>
           {phase === "meaning" ? (
@@ -425,6 +440,58 @@ function ReferenceLesson({ mode, onClose }: { mode: ReferenceMode; onClose: () =
 
 function ReferenceReview({ mode, onClose }: { mode: ReferenceMode; onClose: () => void }) {
   const [answer, setAnswer] = useState("");
+  const [index, setIndex] = useState(0);
+  const [correct, setCorrect] = useState(0);
+  const [revealed, setRevealed] = useState(0);
+  const [feedback, setFeedback] = useState<ReferenceFeedback | null>(null);
+  const answerInput = useRef<HTMLInputElement>(null);
+  const continueButton = useRef<HTMLButtonElement>(null);
+  const composing = useRef(false);
+  const advancing = useRef(false);
+  const question = REFERENCE_QUESTIONS[index];
+  useEffect(() => {
+    advancing.current = false;
+    if (feedback === null) answerInput.current?.focus();
+    else continueButton.current?.focus();
+  }, [index, feedback]);
+
+  function advance() {
+    if (feedback === null || advancing.current) return;
+    advancing.current = true;
+    if (feedback.kind === "correct") setCorrect((value) => value + 1);
+    if (feedback.kind === "revealed") setRevealed((value) => value + 1);
+    setIndex((value) => value + 1);
+    setAnswer("");
+    setFeedback(null);
+  }
+
+  if (question === undefined)
+    return (
+      <section className="ref-study ref-preview-complete">
+        <CheckCheck size={36} aria-hidden="true" />
+        <h1>Предпросмотр завершён</h1>
+        <dl>
+          <div>
+            <dt>Вопросов</dt>
+            <dd>{index}</dd>
+          </div>
+          <div>
+            <dt>Принято</dt>
+            <dd>{correct}</dd>
+          </div>
+          <div>
+            <dt>Ответ открыт</dt>
+            <dd>{revealed}</dd>
+          </div>
+        </dl>
+        <button className="ref-button" type="button" onClick={onClose}>
+          На панель
+          <ArrowRight size={17} />
+        </button>
+      </section>
+    );
+  const isReading = question.answerKind === "reading";
+  const answeredCount = index + (feedback === null ? 0 : 1);
   return (
     <section className="ref-study ref-review">
       <header className="ref-study-header">
@@ -433,7 +500,7 @@ function ReferenceReview({ mode, onClose }: { mode: ReferenceMode; onClose: () =
           <h1>Повторение</h1>
         </div>
         <span className="ref-position">
-          1 <span>/ 24</span>
+          {index + 1} <span>/ {REFERENCE_QUESTIONS.length}</span>
         </span>
         <button
           className="ref-icon"
@@ -445,43 +512,112 @@ function ReferenceReview({ mode, onClose }: { mode: ReferenceMode; onClose: () =
           <X size={19} />
         </button>
       </header>
-      <div className="ref-session-progress" aria-label="Отвечено 0 из 24 вопросов">
-        <span style={{ width: "0%" }} />
+      <div
+        className="ref-session-progress"
+        aria-label={`Отвечено ${answeredCount} из ${REFERENCE_QUESTIONS.length} вопросов`}
+      >
+        <span style={{ width: `${(answeredCount / REFERENCE_QUESTIONS.length) * 100}%` }} />
       </div>
       <article className="ref-review-question">
         <div className="ref-review-question-meta">
           <span className="ref-subject-label">Кандзи</span>
-          <span className="ref-question-kind">Значение</span>
+          <span className="ref-question-kind">{isReading ? "Чтение" : "Значение"}</span>
         </div>
         <h2 lang="ja" className="ref-review-glyph">
-          水
+          {question.item.glyph}
         </h2>
-        <p>Значение кандзи</p>
+        <p>{isReading ? "Чтение кандзи" : "Значение кандзи"}</p>
       </article>
-      <form className="ref-answer-form" onSubmit={(event) => event.preventDefault()}>
+      <form
+        className="ref-answer-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!composing.current && feedback === null && answer.trim() !== "")
+            setFeedback(referenceFeedback(answer, question, mode));
+        }}
+      >
         <label htmlFor="reference-answer">
-          {mode === "en" ? "Meaning" : mode === "ru-en" ? "Значение / meaning" : "Значение"}
+          {isReading
+            ? "Чтение каной"
+            : mode === "en"
+              ? "Meaning"
+              : mode === "ru-en"
+                ? "Значение / meaning"
+                : "Значение"}
         </label>
         <div className="ref-answer-row">
           <input
             id="reference-answer"
+            ref={answerInput}
+            readOnly={feedback !== null}
             autoComplete="off"
-            placeholder={mode === "en" ? "Your answer" : "Ваш ответ"}
+            spellCheck={!isReading}
+            placeholder={isReading ? "かな" : mode === "en" ? "Your answer" : "Ваш ответ"}
             value={answer}
             onChange={(event) => setAnswer(event.currentTarget.value)}
+            onCompositionStart={() => {
+              composing.current = true;
+            }}
+            onCompositionEnd={() => {
+              composing.current = false;
+            }}
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                (composing.current ||
+                  event.nativeEvent.isComposing ||
+                  event.nativeEvent.keyCode === 229)
+              )
+                event.preventDefault();
+            }}
           />
-          <button className="ref-button" type="submit">
-            Проверить
-            <ArrowRight size={18} />
-          </button>
+          {feedback === null ? (
+            <button className="ref-button" type="submit" disabled={answer.trim() === ""}>
+              Проверить
+              <ArrowRight size={18} />
+            </button>
+          ) : (
+            <button className="ref-button" type="button" ref={continueButton} onClick={advance}>
+              Продолжить
+              <ArrowRight size={18} />
+            </button>
+          )}
         </div>
       </form>
+      {feedback === null ? null : (
+        <div className="ref-answer-result" data-result={feedback.kind} role="status">
+          {feedback.kind === "correct" ? (
+            <Check size={19} aria-hidden="true" />
+          ) : feedback.kind === "wrong" ? (
+            <X size={19} aria-hidden="true" />
+          ) : (
+            <CircleHelp size={19} aria-hidden="true" />
+          )}
+          <div>
+            <strong>
+              {feedback.kind === "correct"
+                ? "Верно"
+                : feedback.kind === "wrong"
+                  ? "Пока неверно"
+                  : "Ответ открыт"}
+            </strong>
+            <span lang={isReading ? "ja" : undefined}>{feedback.expected}</span>
+          </div>
+        </div>
+      )}
       <div className="ref-review-bottom">
         <span>
           <Target size={16} />
-          Принято <strong>0</strong>
+          Принято <strong>{correct + (feedback?.kind === "correct" ? 1 : 0)}</strong>
         </span>
-        <button type="button" className="ref-text-button">
+        <button
+          type="button"
+          className="ref-text-button"
+          disabled={feedback !== null}
+          onClick={() =>
+            setFeedback({ kind: "revealed", expected: referenceExpected(question, mode) })
+          }
+        >
           <CircleHelp size={16} />
           Показать ответ
         </button>
