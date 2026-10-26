@@ -432,6 +432,9 @@ test.describe("dashboard smoke", () => {
     await expect(page.getByTestId("forecast-bucket").first()).toContainText("3");
     await expect(page.getByTestId("forecast-bucket").nth(1)).toContainText("16:00");
     await expect(page.getByTestId("forecast-bucket").nth(1)).toContainText("1");
+    await expect(page.getByTestId("forecast-bucket").first().locator(".forecast-volume > span")).toHaveAttribute("style", "width: 100%;");
+    const volume = await page.getByTestId("forecast-bucket").nth(1).locator(".forecast-volume > span").evaluate((element) => parseFloat((element as HTMLElement).style.width));
+    expect(volume).toBeCloseTo(100 / 3);
     await expect(page.getByTestId("srs-spread-stage")).toHaveCount(2);
     await expect(page.getByTestId("srs-spread-stage").first()).toContainText("Ученик 1");
     await expect(page.getByTestId("srs-spread-stage").last()).toContainText("Закреплено");

@@ -1239,12 +1239,16 @@ function ReviewForecastPanel({
   readonly vacationActive: boolean;
 }) {
   const populated = forecast.filter((bucket) => bucket.dueCount > 0);
+  const peak = populated.reduce((maximum, bucket) => Math.max(maximum, bucket.dueCount), 0);
   const renderBuckets = (buckets: typeof forecast) => (
     <ol className="forecast-list" data-testid="forecast-list">
       {buckets.map((bucket) => (
         <li data-testid="forecast-bucket" key={bucket.bucketKey}>
           <span>{formatForecastBucket(bucket)}</span>
           <strong>{formatCount(bucket.dueCount, "карточка", "карточки", "карточек")}</strong>
+          <div className="forecast-volume" aria-hidden="true">
+            <span style={{ width: `${peak === 0 ? 0 : (bucket.dueCount / peak) * 100}%` }} />
+          </div>
         </li>
       ))}
     </ol>
