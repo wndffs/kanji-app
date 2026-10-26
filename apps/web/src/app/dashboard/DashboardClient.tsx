@@ -16,6 +16,7 @@ import {
 import { dashboardNextAction } from "../../lib/dashboard-next-action";
 import { presentDashboardWidgets } from "../../lib/dashboard-layout";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
+import { dashboardSnapshotKey, dashboardSnapshotGeneration, readDashboardSnapshot, storeDashboardSnapshot, type DashboardSnapshotIdentity } from "../../lib/dashboard-snapshot";
 
 import {
   type CourseListResponse,
@@ -70,11 +71,15 @@ export function DashboardClient() {
   const session = useStoredSession();
   if (session === undefined) return <section className="page-stack" aria-busy="true"><h1>Панель</h1><p>Загружаю данные.</p></section>;
   if (session === null) return <section className="page-stack"><h1>Панель</h1><p>Нужен вход в аккаунт.</p><Link className="primary-action" href="/login">Войти</Link></section>;
-  return <OwnedDashboardClient key={`${session.user.id}:${session.token}:${JSON.stringify(session.user.settings)}`} ownerToken={session.token} />;
+  const identity = { accountId:session.user.id, token:session.token, settingsKey:JSON.stringify(session.user.settings) };
+  return <OwnedDashboardClient key={dashboardSnapshotKey(identity)} ownerToken={session.token} identity={identity} />;
 }
 
-function OwnedDashboardClient({ ownerToken }: { readonly ownerToken: string }) {
-  const [state, setState] = useState<DashboardState>({ status: "checking" });
+function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: string; readonly identity: DashboardSnapshotIdentity }) {
+  const [state, setState] = useState<DashboardState>(() => {
+    const cached = readDashboardSnapshot(identity);
+    return cached === null ? { status:"checking" } : { status:"ready", dashboard:cached.dashboard };
+  });
   const [coursesState, setCoursesState] = useState<CoursesState>({ status: "loading" });
   const [reminderConfirmation, setReminderConfirmation] =
     useState<ReviewReminderConfirmation | null>(null);
@@ -89,12 +94,14 @@ function OwnedDashboardClient({ ownerToken }: { readonly ownerToken: string }) {
 
     let cancelled = false;
     const controller = new AbortController();
-    setState({ status: "loading" });
+    const generation = dashboardSnapshotGeneration();
+    setState((current) => current.status === "ready" ? current : { status: "loading" });
     setCoursesState({ status: "loading" });
 
     getDashboard(session.token, controller.signal)
       .then((dashboard) => {
         if (!cancelled && ownsSession(ownerToken)) {
+          storeDashboardSnapshot(identity, dashboard, generation);
           setState({ status: "ready", dashboard });
           setReminderConfirmation({
             accountId: dashboard.user.id,
@@ -148,7 +155,7 @@ function OwnedDashboardClient({ ownerToken }: { readonly ownerToken: string }) {
       cancelled = true;
       controller.abort();
     };
-  }, [ownerToken]);
+  }, [ownerToken, identity.accountId, identity.settingsKey]);
 
   if (state.status === "checking" || state.status === "loading") {
     return (
