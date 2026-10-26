@@ -35,3 +35,14 @@ test("direct desktop destinations and mobile overflow remain keyboard reachable"
   await expect(trigger).toBeFocused();
   await expect(menu).toBeHidden();
 });
+
+test("kana has one visible current destination at each navigation breakpoint", async ({ page }) => {
+  await page.goto("/kana");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const current = page.locator('.app-rail a[aria-current="page"]:visible');
+  await expect(current).toHaveCount(1);
+  await expect(current).toHaveText("Кана");
+  await page.setViewportSize({ width: 390, height: 852 });
+  await expect(current).toHaveCount(1);
+  await expect(current).toHaveText("Символы");
+});

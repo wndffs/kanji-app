@@ -59,6 +59,7 @@ export function AppShell({ children }: AppShellProps) {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole>("USER");
+  const [mobileNavigation, setMobileNavigation] = useState(false);
   const menuRef = useRef<HTMLDetailsElement>(null);
   const [focusTitle, setFocusTitle] = useState<string | null>(null);
   const focusOwner = useRef<object | null>(null);
@@ -72,6 +73,14 @@ export function AppShell({ children }: AppShellProps) {
         setFocusTitle(null);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 900px)");
+    const sync = () => setMobileNavigation(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
   }, []);
 
   useEffect(() => {
@@ -175,13 +184,19 @@ export function AppShell({ children }: AppShellProps) {
               {APP_NAME}
             </Link>
             <nav aria-label="Основная навигация" className="nav">
+              <span className="rail-section-label">Учёба</span>
               {mainNavigation
                 .filter((item) => !item.adminOnly || role === "ADMIN")
                 .map((item) => {
                   const Icon = NAV_ICONS[item.href] ?? BookOpen;
                   return (
                     <Link
-                      aria-current={isActivePath(pathname, item.href) ? "page" : undefined}
+                      aria-current={
+                        isActivePath(pathname, item.href) ||
+                        (mobileNavigation && item.href === "/characters" && pathname.startsWith("/kana"))
+                          ? "page"
+                          : undefined
+                      }
                       className="nav-link"
                       href={item.href}
                       key={item.href}
@@ -193,6 +208,7 @@ export function AppShell({ children }: AppShellProps) {
                 })}
             </nav>
             <nav className="rail-library" aria-label="Библиотека и настройки">
+              <span className="rail-section-label">Библиотека</span>
               {secondaryNavigation
                 .filter((item) => !item.adminOnly || role === "ADMIN")
                 .map((item) => {
@@ -323,7 +339,6 @@ export function AppShell({ children }: AppShellProps) {
 }
 
 function isActivePath(pathname: string, href: string): boolean {
-  if (href === "/characters" && pathname.startsWith("/kana")) return true;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
