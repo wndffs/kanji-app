@@ -881,23 +881,32 @@ textarea::placeholder {
   background: var(--subject-kana);
 }
 .main[data-page="kana"] .kana-practice {
-  background: var(--surface);
-  padding: 28px;
-  border: 1px solid var(--surface-border);
-  border-radius: 8px;
+  background: transparent;
+  padding: 24px 0;
+  border: 0;
+  border-radius: 0;
   max-width: 720px;
   margin-inline: auto;
   width: 100%;
 }
 .kana-current-unit {
-  font-size: 13px;
-  color: var(--muted);
-  font-weight: 500;
+  font-size: 16px;
+  color: var(--foreground);
+  font-weight: 650;
 }
 .kana-choice-grid button {
-  background: var(--background);
+  background: var(--surface);
   border: 1px solid var(--surface-border);
   border-radius: 6px;
+  box-shadow: 0 2px 0 var(--surface-border);
+  font-weight: 600;
+}
+.kana-choice-grid button:active:not(:disabled) {
+  box-shadow: none;
+}
+.kana-choice-grid button[aria-pressed="true"] {
+  background: var(--subject-kana-soft);
+  border-color: var(--subject-kana);
 }
 .kana-choice-grid button:hover:not(:disabled) {
   border-color: var(--subject-kana);
@@ -1859,7 +1868,7 @@ textarea::placeholder {
     padding: 16px;
   }
   .main[data-page="kana"] .kana-practice {
-    padding: 16px;
+    padding: 12px 0;
     min-height: 300px;
     align-content: start;
     gap: 16px;
