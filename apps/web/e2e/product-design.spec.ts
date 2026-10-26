@@ -16,6 +16,8 @@ test.describe("original learner visual system", () => {
         await expect(page.locator("html")).toHaveAttribute("data-interface-density", "compact");
         await expect(page.locator("html")).toHaveAttribute("data-study-text-size", "extra-large");
         const preview = page.locator(".appearance-preview");
+        await expect(preview).toHaveAttribute("data-preview-theme", theme);
+        await expect(preview).toHaveAttribute("data-preview-density", "compact");
         await expect(preview.locator('[lang="ru"]')).toHaveText("день");
         await expect(preview.locator('[lang="en"]')).toHaveText("day");
         await expect(preview.locator(".appearance-preview-glyph")).toHaveText("日");

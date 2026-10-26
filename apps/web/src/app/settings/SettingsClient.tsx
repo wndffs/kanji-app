@@ -421,7 +421,7 @@ function SettingsScreen({ ownerToken }: { readonly ownerToken: string | null }) 
             ))}
           </select>
         </label>
-        <AppearancePreview mode={form.translationDisplayMode} />
+        <AppearancePreview mode={form.translationDisplayMode} preferences={form} />
         <div className="settings-grid" data-settings-group="study">
           <label>
             Новых материалов в день
