@@ -950,7 +950,39 @@ textarea::placeholder {
 }
 .kana-unit-list > button {
   border-radius: 6px;
-  padding: 16px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+}
+.kana-unit-ordinal {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-strong);
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.kana-unit-list > button[data-unit-state="mastered"] .kana-unit-ordinal {
+  background: var(--success-surface);
+  color: var(--success-ink);
+}
+.kana-unit-list > button[data-unit-state="current"] .kana-unit-ordinal {
+  background: var(--subject-kana-soft);
+  color: var(--subject-kana);
+}
+@media (max-width: 600px) {
+  .kana-unit-list > button {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+  .kana-unit-list > button > .kana-unit-characters {
+    grid-column: 2;
+  }
 }
 .kana-unit-list > button[aria-current="step"] {
   border-color: var(--subject-kana);

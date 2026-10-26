@@ -65,14 +65,19 @@ export function KanaLessonFinder({
           <button
             aria-current={unit.id === activeUnitId ? "step" : undefined}
             className={unit.complete ? "is-complete" : ""}
+            data-unit-state={unit.id === activeUnitId ? "current" : !unit.unlocked ? "locked" : unit.complete ? "mastered" : "available"}
             disabled={!unit.unlocked || submitting}
             key={unit.id}
             onClick={() => onStart(unit)}
             type="button"
           >
+            <span className="kana-unit-ordinal" aria-label="Номер урока">
+              {units.findIndex((candidate) => candidate.id === unit.id) + 1}
+            </span>
             <span className="kana-unit-copy">
               <strong>{unit.title}</strong>
               <small>
+                {unit.id === activeUnitId ? "Сейчас · " : null}
                 {!unit.unlocked ? (
                   <Lock size={14} aria-label="Закрыто" />
                 ) : unit.complete ? (
