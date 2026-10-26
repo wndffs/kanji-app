@@ -37,7 +37,7 @@ or add keep-alive traffic to hide a platform limit.
 | 290 | Honest loading states | Two-tile skeleton, delayed slow-load feedback, explicit refresh; no invented counters | Implemented |
 | 291 | Dashboard secondary hierarchy | Default secondary statistics share one optional area; personal widget order/visibility retained | Implemented |
 | 292 | Lesson phase keyboard flow | Roving phase tabs, Arrow/Home/End behavior with pending-write guards and no premature disclosure | Implemented |
-| 293 | Performance evidence | Extend bounded remote measurements with timing breakdown, warm budgets and sanitized aggregate output | Planned |
+| 293 | Performance evidence | Extend bounded remote measurements with timing breakdown, warm budgets and sanitized aggregate output | Implemented |
 | 294 | Acceptance and release | Scoped batches, desktop/phone proof, tag, deploy, exact revision remote smoke and cleanup | Planned |
 
 ## Boundaries
