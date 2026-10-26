@@ -1,12 +1,12 @@
 /* Original learner-product visual system; legacy admin tools keep their layout. */
 :root {
-  --background: light-dark(#f7f8fa, #151619);
-  --foreground: light-dark(#20242d, #f0f1f5);
-  --muted: light-dark(#626875, #a9adb9);
-  --surface: light-dark(#ffffff, #202126);
-  --surface-strong: light-dark(#eceef3, #2b2d34);
-  --surface-border: light-dark(#dce0e8, #3b3e49);
-  --primary: light-dark(#146c61, #88d5b9);
+  --background: light-dark(#f5f7fa, #18191e);
+  --foreground: light-dark(#242936, #f0f1f6);
+  --muted: light-dark(#656d7c, #a5aab9);
+  --surface: light-dark(#ffffff, #22242b);
+  --surface-strong: light-dark(#f0f2f7, #2b2e38);
+  --surface-border: light-dark(#e1e5ed, #373b48);
+  --primary: light-dark(#176b53, #8bd6b6);
   --primary-strong: light-dark(#0c544a, #b1e8d2);
   --on-primary: light-dark(#ffffff, #122c25);
   --focus: light-dark(#245dd1, #9bbfff);
@@ -46,7 +46,7 @@ h3 {
   letter-spacing: 0;
 }
 .page-heading h1 {
-  font-size: 30px;
+  font-size: 28px;
   line-height: 1.2;
   font-weight: 700;
   margin: 0;
@@ -300,12 +300,12 @@ textarea::placeholder {
 }
 .dashboard-page .metric-card {
   position: relative;
-  min-height: 118px;
+  min-height: 170px;
   background: var(--surface);
   border: 1px solid var(--surface-border);
   border-radius: 8px;
-  padding: 20px;
-  gap: 8px;
+  padding: 24px;
+  gap: 10px;
   align-content: start;
 }
 .dashboard-page .metric-card > svg {
@@ -318,10 +318,21 @@ textarea::placeholder {
   color: var(--subject-kanji);
 }
 .dashboard-page .metric-card[data-tone="review"] {
-  border-top: 3px solid var(--primary);
+  background: light-dark(#eaf4ee, #253b33);
+  border-color: light-dark(#cfe4d7, #3f5d50);
 }
 .dashboard-page .metric-card[data-tone="lesson"] {
-  border-top: 3px solid var(--subject-kanji);
+  border-color: var(--surface-border);
+}
+.dashboard-page .metric-card .metric-card-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0;
+  color: var(--primary-strong);
+  font-size: 13px;
+  font-weight: 600;
 }
 .dashboard-secondary-counts {
   display: flex;
@@ -354,7 +365,7 @@ textarea::placeholder {
   font-weight: 500;
 }
 .dashboard-page .metric-card strong {
-  font-size: 32px;
+  font-size: 40px;
   font-weight: 700;
   line-height: 1.2;
 }
@@ -377,19 +388,32 @@ textarea::placeholder {
 }
 @media (min-width: 981px) {
   .dashboard-widget-grid[data-composition="daily"] {
-    display: block;
-    column-count: 2;
-    column-gap: 28px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
+    gap: 28px 36px;
   }
   .dashboard-widget-grid[data-composition="daily"] > .dashboard-widget {
-    break-inside: avoid;
-    margin-bottom: 28px;
+    min-width: 0;
   }
   .dashboard-widget-grid[data-composition="daily"] > [data-dashboard-widget="summary"] {
-    column-span: all;
+    grid-column: 1 / -1;
   }
   .dashboard-widget-grid[data-composition="daily"] > [data-dashboard-widget="review-forecast"] {
-    break-before: column;
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+@media (max-width: 600px) {
+  .dashboard-page .metric-card {
+    min-height: 156px;
+    padding: 18px 14px;
+  }
+  .dashboard-page .metric-card .metric-card-action {
+    font-size: 12px;
+    align-items: end;
+  }
+  .dashboard-page .metric-card .metric-card-action svg {
+    flex: 0 0 16px;
   }
 }
 .dashboard-page .course-progress {

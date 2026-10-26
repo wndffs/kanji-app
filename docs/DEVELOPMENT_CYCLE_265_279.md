@@ -32,8 +32,8 @@ the visual direction as approved merely because automated tests pass.
 | ID  | Deliverable                       | Acceptance                                                                                                                                   | State    |
 | --- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | 265 | Visual brief and checkpoint       | Scope, hierarchy, constraints, original-data boundary and approval gate are explicit                                                         | Complete |
-| 266 | Three reference compositions      | Dashboard, lesson and review use one responsive visual vocabulary, light/dark and original glyph assets                                      | Review   |
-| 267 | Interactive reference and review  | Screen/phase/theme/language controls work locally; keyboard/IME/reveal boundaries tested; six desktop/phone screenshots presented for review | Review   |
+| 266 | Three reference compositions      | Dashboard, lesson and review use one responsive visual vocabulary, light/dark and original glyph assets                                      | Approved |
+| 267 | Interactive reference and review  | Screen/phase/theme/language controls work locally; keyboard/IME/reveal boundaries tested; six desktop/phone screenshots presented for review | Approved |
 | 268 | Production study dashboard        | Agreed composition uses real account counts and saved widget settings, without fake demo data                                                | Gated    |
 | 269 | Current-level path                | Real level/pass states and next goal are concise, including final/empty/completed states                                                     | Gated    |
 | 270 | Forecast and secondary statistics | Actual schedule is readable; optional history/statistics do not displace study actions                                                       | Gated    |
@@ -112,7 +112,16 @@ no dev server. The temporary IAB tab was closed and the owned dev server stopped
 App browser-tool runtimes are not learner/test servers and were left alone.
 Generated builds and temporary browser outputs are removed before final status.
 
-**Gate remains closed:** tasks 268-279 have not started. No complete-cycle release
-or new curriculum publication is claimed. Ask the user to approve or adjust
-this visual direction before porting. Retire reference-only duplicates once the
-approved screens have been integrated and verified in task 279.
+**Gate approved:** the user reviewed the screenshots and approved continuing
+("в целом да. продолжай"). Tasks 268-279 may now port the agreed direction.
+No new curriculum publication is included. Retire reference-only duplicates
+once the approved screens have been integrated and verified in task 279.
+
+## Integration Progress
+
+This section supersedes the checkpoint states in the table above.
+
+- 268 implemented: shared neutral tokens and two real study action tiles;
+  duplicate header action removed when tiles are visible. Personal widget
+  order/visibility is unchanged. Default layout uses stable grid tracks.
+- 269-278 planned; checks batched in 279.

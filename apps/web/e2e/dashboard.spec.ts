@@ -22,7 +22,10 @@ test.describe("dashboard smoke", () => {
       route.fulfill({ json: buildMinimalDashboard("course-1", "Базовый курс") }),
     );
     await page.goto("/dashboard");
-    await expect(page.locator(".dashboard-heading .primary-action")).toHaveCount(1);
+    await expect(page.locator(".dashboard-heading .primary-action")).toHaveCount(0);
+    await expect(page.locator(".metric-card-action")).toHaveText([
+      "Начать повторение", "Начать урок",
+    ]);
     await expect(page.locator("a.metric-card-link")).toHaveCount(2);
     await expect(page.locator(".metric-card")).toHaveCount(2);
     await expect(page.locator(".dashboard-secondary-counts")).toContainText("Сожжено");
@@ -483,7 +486,7 @@ test.describe("dashboard smoke", () => {
       "/practice?source=recent-mistakes",
     );
     await expect(
-      page.locator(".dashboard-heading").getByRole("link", { name: "Повторять" }),
+      page.getByRole("link", { name: /^К повторению:/ }),
     ).toHaveAttribute("href", "/reviews");
   });
 

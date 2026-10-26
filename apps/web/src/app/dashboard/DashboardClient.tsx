@@ -399,10 +399,12 @@ function DashboardView({
           <p>{nextAction.title}</p>
         </div>
         <div className="action-row">
-          <Link className="primary-action" href={nextAction.href}>
-            {nextAction.label}
-            <ArrowRight size={18} aria-hidden="true" />
-          </Link>
+          {visibleWidgets.some((widget) => widget.id === "summary") ? null : (
+            <Link className="primary-action" href={nextAction.href}>
+              {nextAction.label}
+              <ArrowRight size={18} aria-hidden="true" />
+            </Link>
+          )}
           <button
             aria-expanded={customizationOpen}
             className="icon-button"
@@ -938,6 +940,7 @@ function DashboardSummary({ counts }: { readonly counts: DashboardDto["counts"] 
           icon={RotateCw}
           href="/reviews"
           tone="review"
+          action="Начать повторение"
         />
         <MetricCard
           label="Доступно уроков"
@@ -945,6 +948,7 @@ function DashboardSummary({ counts }: { readonly counts: DashboardDto["counts"] 
           icon={BookOpen}
           href="/lessons"
           tone="lesson"
+          action="Начать урок"
         />
       </div>
       <dl className="dashboard-secondary-counts">
@@ -1904,21 +1908,24 @@ function MetricCard({
   icon: Icon,
   href,
   tone,
+  action,
 }: {
   readonly label: string;
   readonly value: number;
   readonly icon: LucideIcon;
   readonly href?: string;
   readonly tone: string;
+  readonly action: string;
 }) {
   const content = (
     <>
       <Icon size={20} aria-hidden="true" />
       <span>{label}</span>
-      <strong>
-        {value}
-        {href ? <ArrowRight size={16} aria-hidden="true" /> : null}
-      </strong>
+      <strong>{value}</strong>
+      <span className="metric-card-action">
+        {action}
+        <ArrowRight size={16} aria-hidden="true" />
+      </span>
     </>
   );
   return href ? (
