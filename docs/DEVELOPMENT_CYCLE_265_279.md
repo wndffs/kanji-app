@@ -29,23 +29,23 @@ Show desktop/phone screenshots and request feedback **before task 268**. Do
 not call the entire batch complete, publish a replacement interface, or treat
 the visual direction as approved merely because automated tests pass.
 
-| ID  | Deliverable                       | Acceptance                                                                                                                                   | State      |
-| --- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 265 | Visual brief and checkpoint       | Scope, hierarchy, constraints, original-data boundary and approval gate are explicit                                                         | Complete   |
-| 266 | Three reference compositions      | Dashboard, lesson and review use one responsive visual vocabulary, light/dark and original glyph assets                                      | Approved   |
-| 267 | Interactive reference and review  | Screen/phase/theme/language controls work locally; keyboard/IME/reveal boundaries tested; six desktop/phone screenshots presented for review | Approved   |
-| 268 | Production study dashboard        | Agreed composition uses real account counts and saved widget settings, without fake demo data                                                | Integrated |
-| 269 | Current-level path                | Real level/pass states and next goal are concise, including final/empty/completed states                                                     | Integrated |
-| 270 | Forecast and secondary statistics | Actual schedule is readable; optional history/statistics do not displace study actions                                                       | Integrated |
-| 271 | Lesson teaching composition       | Meaning/reading relationships and RU/EN modes use the approved reference without premature answer disclosure                                 | Integrated |
-| 272 | Mandatory lesson check            | Existing quiz semantics, recovery and completion remain; no SRS state before required correct answers                                        | Integrated |
-| 273 | Reviews and session results       | Keyboard/IME flow, errors, correction, reveal and real results retain their distinct semantics                                               | Integrated |
-| 274 | Kana character map                | Basic signs, modified sounds and combinations are visually distinct; original data and separate mastery retained                             | Integrated |
-| 275 | Kana lesson path                  | Current lesson and prerequisites are understandable; route/search/filter state remains recoverable                                           | Integrated |
-| 276 | Kana exercise composition         | Recognition, reverse, matching and typing fit phones and long Japanese without altering mastery rules                                        | Integrated |
-| 277 | Catalogue and material pages      | Approved hierarchy transfers to real catalogues/readings/private notes with unchanged visibility boundaries                                  | Integrated |
-| 278 | Appearance and consistency        | Saved theme/density/text-size preferences apply consistently; explicit Save/Discard and owner isolation remain                               | Integrated |
-| 279 | Batched acceptance and release    | Relevant checks, desktop/phone inspection, release tag, deploy and exact-revision server smoke completed                                     | Verifying  |
+| ID  | Deliverable                       | Acceptance                                                                                                                                   | State    |
+| --- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 265 | Visual brief and checkpoint       | Scope, hierarchy, constraints, original-data boundary and approval gate are explicit                                                         | Complete |
+| 266 | Three reference compositions      | Dashboard, lesson and review use one responsive visual vocabulary, light/dark and original glyph assets                                      | Approved |
+| 267 | Interactive reference and review  | Screen/phase/theme/language controls work locally; keyboard/IME/reveal boundaries tested; six desktop/phone screenshots presented for review | Approved |
+| 268 | Production study dashboard        | Agreed composition uses real account counts and saved widget settings, without fake demo data                                                | Complete |
+| 269 | Current-level path                | Real level/pass states and next goal are concise, including final/empty/completed states                                                     | Complete |
+| 270 | Forecast and secondary statistics | Actual schedule is readable; optional history/statistics do not displace study actions                                                       | Complete |
+| 271 | Lesson teaching composition       | Meaning/reading relationships and RU/EN modes use the approved reference without premature answer disclosure                                 | Complete |
+| 272 | Mandatory lesson check            | Existing quiz semantics, recovery and completion remain; no SRS state before required correct answers                                        | Complete |
+| 273 | Reviews and session results       | Keyboard/IME flow, errors, correction, reveal and real results retain their distinct semantics                                               | Complete |
+| 274 | Kana character map                | Basic signs, modified sounds and combinations are visually distinct; original data and separate mastery retained                             | Complete |
+| 275 | Kana lesson path                  | Current lesson and prerequisites are understandable; route/search/filter state remains recoverable                                           | Complete |
+| 276 | Kana exercise composition         | Recognition, reverse, matching and typing fit phones and long Japanese without altering mastery rules                                        | Complete |
+| 277 | Catalogue and material pages      | Approved hierarchy transfers to real catalogues/readings/private notes with unchanged visibility boundaries                                  | Complete |
+| 278 | Appearance and consistency        | Saved theme/density/text-size preferences apply consistently; explicit Save/Discard and owner isolation remain                               | Complete |
+| 279 | Batched acceptance and release    | Relevant checks, desktop/phone inspection, release tag, deploy and exact-revision server smoke completed                                     | Complete |
 
 ## Boundaries
 
@@ -158,7 +158,8 @@ This section supersedes the checkpoint states in the table above.
   spacing density, configurable lesson glyph sizes (including sentence and
   phone overrides), matching appearance preview. Save/Discard and account
   ownership guards remain the existing source of truth.
-- 279 in progress: integration checks, cleanup, release and server verification.
+- 279 complete: integration checks, prototype retirement, cleanup, deployment
+  and exact-revision server verification completed. Next task number: 280.
 
 ## Integration Acceptance
 
@@ -186,4 +187,36 @@ Local verification:
 The development prototype and its local demo state/validator were removed after
 integration. The retained route guard verifies 404 in all builds. No new corpus,
 dependency, font, external asset, schema, seed, migration or SRS policy is added.
-Live deployment verification is recorded below once the exact revisions pass.
+Live deployment verification is recorded below.
+
+## Released Revision
+
+Release tag: `cycle-265-279-ux`. Verified runtime code:
+`772b0a193f54b133ce3b8717a58ea86c9b72bdbc`.
+
+- [CI run 40368783457](https://github.com/wndffs/kanji-app/actions/runs/40368783457):
+  Quality passed; full Web smoke passed **327 cases**, with one intentional
+  desktop skip for the mobile-only input case (328 total, two workers).
+- [Study integrity 40368783538](https://github.com/wndffs/kanji-app/actions/runs/40368783538):
+  PostgreSQL 18 concurrency and review regressions passed.
+- Public web `/api/health` and API `/health` independently returned the exact
+  runtime SHA above, both healthy.
+- [Remote smoke 40369276863](https://github.com/wndffs/kanji-app/actions/runs/40369276863)
+  passed with both expected full SHAs and the already-published V4 finite pilot.
+  It used a disposable audit profile, not an existing user's course/progress.
+  No curriculum publication, seed or migration was dispatched.
+- API medians from three bounded samples: dashboard 575 ms, lessons 687 ms,
+  reviews 151 ms, characters 447 ms, item 412 ms. These are API measurements,
+  not browser Core Web Vitals or a complete N2-corpus benchmark.
+- Manual built-in-browser inspection covered real dashboard counts (2 reviews,
+  2 lessons), six kana groups (46 basic signs among 115), and the restored
+  lesson reading phase `口 / рот / くち`. No answer, course change or private
+  save was submitted on that account. Phone/both-theme inspection used the
+  local production browser captures, not an unperformed live phone audit.
+
+Review captures and offline gallery are outside the repository in the task's
+visualization folder, `cycle-268-279/`; live dashboard/kana/lesson proofs are
+stored alongside them. Both temporary IAB tabs were closed. Owned test servers
+finished, generated builds and cycle-specific temporary outputs were removed;
+app browser-tool runtimes were not terminated. The final documentation-only
+commit does not replace the verified runtime SHA or trigger a second rollout.
