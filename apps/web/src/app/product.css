@@ -580,11 +580,12 @@ textarea::placeholder {
   border-bottom-color: var(--primary);
 }
 .lesson-teaching-hero {
-  background: var(--subject-soft, var(--surface-strong));
+  background: var(--surface);
   border: 0;
+  border-left: 3px solid var(--subject-ink, var(--primary));
   border-radius: 0;
-  padding: 28px 20px;
-  min-height: 220px;
+  padding: 24px 20px;
+  min-height: 228px;
 }
 .lesson-item-meta {
   color: var(--subject-ink, var(--muted));
@@ -592,7 +593,15 @@ textarea::placeholder {
 }
 .lesson-teaching-hero .review-japanese {
   color: var(--subject-ink, var(--foreground));
-  margin-block: 12px;
+  margin-block: 8px;
+  line-height: 1.45;
+}
+.lesson-hero-main {
+  gap: 6px;
+}
+.lesson-hero-main > .lesson-primary-meaning {
+  color: var(--foreground);
+  max-width: 48ch;
 }
 .lesson-hero-main > p:not(.review-japanese) {
   font-size: 19px;
@@ -603,6 +612,11 @@ textarea::placeholder {
 }
 .lesson-study-grid {
   gap: 20px;
+}
+.lesson-study-grid p,
+.lesson-memory-column li {
+  max-width: 66ch;
+  line-height: 1.75;
 }
 .lesson-study-grid > .panel {
   padding: 0;
@@ -1790,6 +1804,10 @@ textarea::placeholder {
   }
   .lesson-hero-main > p:not(.review-japanese) {
     font-size: 17px;
+  }
+  .lesson-hero-main > .lesson-primary-reading {
+    font-size: 24px;
+    font-weight: 500;
   }
   .lesson-action-bar .primary-action {
     flex: 1;
