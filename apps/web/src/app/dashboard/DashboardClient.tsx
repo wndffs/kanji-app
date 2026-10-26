@@ -429,6 +429,41 @@ function DashboardView({
     }
   }
 
+  const isDaily = !customizationOpen && presentDashboardWidgets(dashboard.user.dashboardWidgets) !== dashboard.user.dashboardWidgets;
+  const primaryWidgets = visibleWidgets.filter((widget) => ["summary", "course-progress", "review-forecast"].includes(widget.id));
+  const secondaryWidgets = visibleWidgets.filter((widget) => !primaryWidgets.includes(widget));
+  function renderWidget(widget: DashboardWidgetPreferenceDto) {
+  const content = (
+    <DashboardWidgetContent
+      coursesState={coursesState}
+      dashboard={dashboard}
+      id={widget.id}
+      onCourseChange={onCourseChange}
+      onCoursesRequested={onCoursesRequested}
+    />
+  );
+  return (
+    <div
+      className={`dashboard-widget dashboard-widget-${widget.presentation}`}
+      data-dashboard-widget={widget.id}
+      key={widget.id}
+    >
+      {customizationOpen ||
+      widget.id === "summary" ||
+      widget.id === "course-progress" ||
+      widget.id === "review-forecast" ? (
+        content
+      ) : (
+        <SectionDisclosure title={formatDashboardWidgetTitle(widget.id)}>
+          {content}
+        </SectionDisclosure>
+      )}
+      {widget.id === "summary" ? beginnerGuide : null}
+    </div>
+  );
+
+  }
+
   return (
     <section className="page-stack dashboard-page" data-dashboard-freshness={refreshing || refreshError !== null ? "snapshot" : "confirmed"}>
       <div className="page-heading dashboard-heading">
@@ -490,36 +525,12 @@ function DashboardView({
               : "personal"
           }
         >
-          {visibleWidgets.map((widget) => {
-            const content = (
-              <DashboardWidgetContent
-                coursesState={coursesState}
-                dashboard={dashboard}
-                id={widget.id}
-                onCourseChange={onCourseChange}
-                onCoursesRequested={onCoursesRequested}
-              />
-            );
-            return (
-              <div
-                className={`dashboard-widget dashboard-widget-${widget.presentation}`}
-                data-dashboard-widget={widget.id}
-                key={widget.id}
-              >
-                {customizationOpen ||
-                widget.id === "summary" ||
-                widget.id === "course-progress" ||
-                widget.id === "review-forecast" ? (
-                  content
-                ) : (
-                  <SectionDisclosure title={formatDashboardWidgetTitle(widget.id)}>
-                    {content}
-                  </SectionDisclosure>
-                )}
-                {widget.id === "summary" ? beginnerGuide : null}
-              </div>
-            );
-          })}
+          {(isDaily ? primaryWidgets : visibleWidgets).map(renderWidget)}
+          {!isDaily || secondaryWidgets.length === 0 ? null : (
+            <SectionDisclosure title="Статистика и история" className="dashboard-secondary-area">
+              <div className="dashboard-secondary-grid">{secondaryWidgets.map(renderWidget)}</div>
+            </SectionDisclosure>
+          )}
         </div>
       )}
       {visibleWidgets.some((widget) => widget.id === "summary") ? null : beginnerGuide}

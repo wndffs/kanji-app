@@ -38,6 +38,7 @@ test.describe("dashboard smoke", () => {
         ratio: 1,
       });
     await expect(page.getByRole("heading", { name: "Баланс нагрузки", exact: true })).toBeHidden();
+    await page.getByText("Статистика и история", {exact:true}).click();
     await page.locator('[data-dashboard-widget="workload"] > details > summary').click();
     await expect(page.getByRole("heading", { name: "Баланс нагрузки", exact: true })).toBeVisible();
     await page.locator('[data-dashboard-widget="workload"] > details > summary').click();
