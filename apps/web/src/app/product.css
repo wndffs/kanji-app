@@ -659,12 +659,20 @@ textarea::placeholder {
   background: none;
   border-bottom-color: var(--primary);
 }
-.lesson-teaching-hero {
-  background: var(--surface);
+.lesson-teaching-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr);
+  align-items: start;
+  gap: 40px;
+  padding-block: 24px;
+  min-height: 340px;
+}
+.lesson-teaching-layout > .lesson-teaching-hero {
+  display: block;
+  background: transparent;
   border: 0;
-  border-left: 3px solid var(--subject-ink, var(--primary));
   border-radius: 0;
-  padding: 24px 20px;
+  padding: 16px 0;
   min-height: 228px;
 }
 .lesson-item-meta {
@@ -675,9 +683,12 @@ textarea::placeholder {
   color: var(--subject-ink, var(--foreground));
   margin-block: 8px;
   line-height: 1.45;
+  font-size: 112px;
 }
 .lesson-hero-main {
   gap: 6px;
+  text-align: center;
+  min-width: 0;
 }
 .lesson-hero-main > .lesson-primary-meaning {
   color: var(--foreground);
@@ -691,6 +702,8 @@ textarea::placeholder {
   font-size: 24px;
 }
 .lesson-study-grid {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
   gap: 20px;
 }
 .lesson-study-grid p,
@@ -703,20 +716,59 @@ textarea::placeholder {
   border: 0;
 }
 .lesson-memory-section {
-  border-top: 1px solid var(--surface-border);
-  padding-top: 20px;
+  border: 0;
+  border-left: 2px solid var(--subject-ink, var(--primary));
+  padding: 4px 0 4px 18px;
 }
 .lesson-memory-column {
   border: 0;
   background: none;
 }
 .lesson-action-bar {
+  position: static;
   background: var(--background);
   border: 0;
   border-top: 1px solid var(--surface-border);
   border-radius: 0;
   padding: 16px 0 8px;
   box-shadow: none;
+}
+@media (max-width: 700px) {
+  .lesson-teaching-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    min-height: 0;
+    padding-block: 8px;
+  }
+  .lesson-teaching-layout > .lesson-teaching-hero {
+    min-height: 0;
+    padding: 0;
+  }
+  .lesson-teaching-layout .lesson-hero-main {
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto;
+    gap: 4px 16px;
+    align-items: center;
+    text-align: left;
+  }
+  .lesson-teaching-layout .lesson-hero-main > .review-japanese {
+    grid-column: 1;
+    grid-row: 1 / 5;
+    font-size: 76px;
+    text-align: center;
+    margin: 0;
+  }
+  .lesson-teaching-layout .lesson-hero-main > :not(.review-japanese) {
+    grid-column: 2;
+    margin: 0;
+  }
+  .lesson-teaching-layout .lesson-item-meta {
+    flex-wrap: wrap;
+  }
+  .lesson-teaching-layout .lesson-study-grid {
+    gap: 16px;
+  }
 }
 .lesson-quiz {
   background: transparent;

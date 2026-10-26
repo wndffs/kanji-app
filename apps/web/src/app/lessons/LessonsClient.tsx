@@ -1207,6 +1207,7 @@ function LessonStudyView({
         ))}
       </div>
 
+      <div className="lesson-teaching-layout">
       <article className="lesson-hero lesson-teaching-hero">
         <div className="lesson-hero-main">
           <div className="lesson-item-meta">
@@ -1358,6 +1359,7 @@ function LessonStudyView({
         ) : null}
       </div>
 
+      </div>
       <div className="lesson-action-bar">
         {phaseIndex === 0 ? null : (
           <button
