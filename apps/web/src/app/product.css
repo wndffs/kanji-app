@@ -1123,6 +1123,46 @@ textarea::placeholder {
 .kana-unit-list {
   gap: 10px;
 }
+.kana-character-map {
+  display: grid;
+  gap: 28px;
+}
+.kana-character-group h3 {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+.kana-character-group h3 > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.kana-character-group .kana-map {
+  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  gap: 8px;
+}
+.kana-character-group .kana-map > button {
+  min-width: 0;
+  min-height: 56px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  font-size: 25px;
+}
+.kana-character-group .kana-map > .is-mastered {
+  background: var(--subject-component-soft);
+  border-color: var(--primary);
+}
+.kana-character-group .kana-map > .is-started {
+  border-color: var(--subject-kana);
+}
+.kana-character-group .kana-map > [aria-current="true"] {
+  outline: 2px solid var(--subject-kanji);
+  outline-offset: 2px;
+}
 .kana-lesson-finder {
   display: grid;
   gap: 12px;

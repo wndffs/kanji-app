@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { listKana } from "@kanji-srs/japanese";
 import { type KanaLessonUnitDto } from "@kanji-srs/shared";
-import { filterKanaUnits, findKanaLessonUnits } from "../src/lib/kana-unit-groups";
+import { filterKanaUnits, findKanaLessonUnits, groupKanaCharacters } from "../src/lib/kana-unit-groups";
 
 const items = listKana("hiragana").map((item) => ({
   ...item,
@@ -25,6 +25,17 @@ const units: readonly KanaLessonUnitDto[] = [
   },
 ];
 describe("kana chart groups", () => {
+  it("groups every assessment sign once in teaching order and preserves progress objects", () => {
+    const groups = groupKanaCharacters(items);
+    expect(groups[0]?.variant).toBe("basic");
+    expect(groups[0]?.items).toHaveLength(46);
+    expect(groups.flatMap((group) => group.items)).toHaveLength(items.length);
+    for (const group of groups) {
+      expect(group.items.every((item) => item.variant === group.variant)).toBe(true);
+      expect(group.items.every((item) => items.includes(item))).toBe(true);
+    }
+    expect(groupKanaCharacters([])).toEqual([]);
+  });
   it("finds title, glyph and normalized romaji while returning the original locked unit", () => {
     for (const query of ["fixture", "が", " ＧＡ "])
       expect(findKanaLessonUnits(units, query, "dakuten")[0]).toBe(units[0]);

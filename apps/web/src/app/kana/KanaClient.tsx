@@ -47,6 +47,7 @@ import { resolveKanaLessonDestination, type KanaRouteMode } from "../../lib/kana
 import { AdaptiveKanaPractice } from "./AdaptiveKanaPractice";
 import { KanaTracingExercise } from "./KanaTracingExercise";
 import { KanaLessonFinder } from "./KanaLessonFinder";
+import { groupKanaCharacters } from "../../lib/kana-unit-groups";
 
 type LessonPhase = "teach" | "quiz";
 
@@ -701,8 +702,12 @@ function OwnedKanaClient({
               </SectionDisclosure>
             ) : (
               <SectionDisclosure title="Карта знаков" key={`map:${script}`}>
-                <section className="kana-map" aria-label="Карта кана">
-                  {state.progress.items.map((item) => (
+                <section className="kana-character-map" aria-label="Карта кана">
+                  {groupKanaCharacters(state.progress.items).map((group) => (
+                    <section className="kana-character-group" key={group.variant}>
+                      <h3>{group.label}<span>{group.items.filter((item) => item.mastered).length} / {group.items.length}</span></h3>
+                      <div className="kana-map">
+                  {group.items.map((item) => (
                     <button
                       aria-current={item.character === selectedCharacter ? "true" : undefined}
                       aria-label={formatKanaStatus(item, state.progress.masteryThreshold)}
@@ -717,6 +722,9 @@ function OwnedKanaClient({
                     >
                       {item.character}
                     </button>
+                  ))}
+                      </div>
+                    </section>
                   ))}
                 </section>
               </SectionDisclosure>

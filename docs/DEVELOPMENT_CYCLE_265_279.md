@@ -140,4 +140,7 @@ This section supersedes the checkpoint states in the table above.
   stripe, thin answered-card progress and quiet result summary. Alternative
   readings remain neutral retries; correction has its own progress label and
   still does not change SRS. Existing keyboard/IME and grading paths retained.
-- 274-278 planned; checks batched in 279.
+- 274 implemented: assessment map groups actual signs by variant with separate
+  mastered/total counts, compact character tiles and current/started/mastered
+  states. No new character data or SRS state is created.
+- 275-278 planned; checks batched in 279.
