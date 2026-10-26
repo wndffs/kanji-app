@@ -22,23 +22,23 @@ or add keep-alive traffic to hide a platform limit.
 
 ## Tasks
 
-| ID  | Scope                           | Acceptance                                                                                            | State     |
-| --- | ------------------------------- | ----------------------------------------------------------------------------------------------------- | --------- |
-| 280 | Diagnosis and specification     | Record actual baseline, hypotheses and bounded task scope                                             | Complete  |
-| 281 | Dashboard timing                | Safe Server-Timing for authentication/handler phases; browser-readable, no credentials/content        | Complete  |
-| 282 | Request-local course resolution | Resolve once for availability, course progress and unlocks; no global user cache                      | Complete  |
-| 283 | Narrow course projections       | Fetch only dashboard scalar/relation fields; preserve published/user filters and ordering             | Complete  |
-| 284 | Cancellable dashboard reads     | Abort obsolete GETs, preserve API error semantics, never replay writes                                | Complete  |
-| 285 | Dashboard account ownership     | Key by account/token; late old requests cannot show data, save or clear a newer session               | Complete  |
-| 286 | Bounded in-memory snapshots     | Per-account/settings snapshot, no persistent private cache; bounded age and explicit freshness        | Complete  |
-| 287 | Mutation invalidation           | Confirmed writes/session changes invalidate snapshots; stale in-flight loads cannot repopulate        | Complete  |
-| 288 | Nonblocking refresh/recovery    | Preserve useful snapshot during GET refresh; visible retry/error and no stale reminders               | Complete  |
-| 289 | On-demand course selector       | Fetch course list only when needed; preserve empty/current-course/conflict recovery                   | Complete  |
-| 290 | Honest loading states           | Two-tile skeleton, delayed slow-load feedback, explicit refresh; no invented counters                 | Complete  |
-| 291 | Dashboard secondary hierarchy   | Default secondary statistics share one optional area; personal widget order/visibility retained       | Complete  |
-| 292 | Lesson phase keyboard flow      | Roving phase tabs, Arrow/Home/End behavior with pending-write guards and no premature disclosure      | Complete  |
-| 293 | Performance evidence            | Extend bounded remote measurements with timing breakdown, warm budgets and sanitized aggregate output | Complete  |
-| 294 | Acceptance and release          | Scoped batches, desktop/phone proof, tag, deploy, exact revision remote smoke and cleanup             | Verifying |
+| ID  | Scope                           | Acceptance                                                                                            | State    |
+| --- | ------------------------------- | ----------------------------------------------------------------------------------------------------- | -------- |
+| 280 | Diagnosis and specification     | Record actual baseline, hypotheses and bounded task scope                                             | Complete |
+| 281 | Dashboard timing                | Safe Server-Timing for authentication/handler phases; browser-readable, no credentials/content        | Complete |
+| 282 | Request-local course resolution | Resolve once for availability, course progress and unlocks; no global user cache                      | Complete |
+| 283 | Narrow course projections       | Fetch only dashboard scalar/relation fields; preserve published/user filters and ordering             | Complete |
+| 284 | Cancellable dashboard reads     | Abort obsolete GETs, preserve API error semantics, never replay writes                                | Complete |
+| 285 | Dashboard account ownership     | Key by account/token; late old requests cannot show data, save or clear a newer session               | Complete |
+| 286 | Bounded in-memory snapshots     | Per-account/settings snapshot, no persistent private cache; bounded age and explicit freshness        | Complete |
+| 287 | Mutation invalidation           | Confirmed writes/session changes invalidate snapshots; stale in-flight loads cannot repopulate        | Complete |
+| 288 | Nonblocking refresh/recovery    | Preserve useful snapshot during GET refresh; visible retry/error and no stale reminders               | Complete |
+| 289 | On-demand course selector       | Fetch course list only when needed; preserve empty/current-course/conflict recovery                   | Complete |
+| 290 | Honest loading states           | Two-tile skeleton, delayed slow-load feedback, explicit refresh; no invented counters                 | Complete |
+| 291 | Dashboard secondary hierarchy   | Default secondary statistics share one optional area; personal widget order/visibility retained       | Complete |
+| 292 | Lesson phase keyboard flow      | Roving phase tabs, Arrow/Home/End behavior with pending-write guards and no premature disclosure      | Complete |
+| 293 | Performance evidence            | Extend bounded remote measurements with timing breakdown, warm budgets and sanitized aggregate output | Complete |
+| 294 | Acceptance and release          | Scoped batches, desktop/phone proof, tag, deploy, exact revision remote smoke and cleanup             | Complete |
 
 ## Boundaries
 
@@ -113,3 +113,59 @@ first request or cold-start latency. See
 [MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Access-Control-Max-Age).
 This separate round trip is one confirmed cost, not retrospective proof of the
 user's particular 3+ second request.
+
+## Released Version
+
+All 280-294 complete. Tag: `cycle-280-294-ux`. Verified web and API revision:
+`f53eada089f5f8e045436727ef409d0e5ca0e46a`. Next task number: 295.
+
+- [CI 40385319661](https://github.com/wndffs/kanji-app/actions/runs/40385319661):
+  Quality passed; full Web smoke passed **339 cases**, with one intentional
+  desktop skip for a mobile-only case (340 total, two workers).
+- [Study integrity 40385319676](https://github.com/wndffs/kanji-app/actions/runs/40385319676):
+  PostgreSQL 18 review/concurrency regressions passed.
+- Both public health endpoints independently returned the exact revision above.
+- [Remote smoke 40386285328](https://github.com/wndffs/kanji-app/actions/runs/40386285328)
+  passed with both expected full SHAs and the already-published finite V4 pilot.
+  Only a disposable audit profile was enrolled; no curriculum was published.
+- Final OPTIONS response: 204, existing exact frontend origin, and
+  `Access-Control-Max-Age: 600` verified on the deployed API.
+- An earlier candidate CI was superseded while Ubuntu apt dependency installation
+  was stalled, before browser scenarios started. No application failure was
+  inferred from that infrastructure wait. The final run completed normally.
+
+### Timing Results And Limits
+
+Post-integration requests from the same development machine/test account:
+
+| Sample | Full HTTP ms | Auth ms | Dashboard handler ms | Bytes |
+| ------ | ------------ | ------- | -------------------- | ----- |
+| 1      | 640          | 7.8     | 162.8                | 6305  |
+| 2      | 935          | 14.0    | 316.9                | 6305  |
+| 3      | 815          | 12.8    | 270.6                | 6305  |
+
+These requests exclude the browser's separate CORS preflight. A manual OPTIONS
+request before the max-age fix took 740 ms. The cache removes eligible repeat
+preflights, not the first preflight. CLI and browser transport paths can differ.
+
+Final cloud audit medians: dashboard 622 ms (auth 8 ms; handler 450 ms), lessons
+367 ms, reviews 161 ms, characters 482 ms, item 437 ms. Warm samples stayed under
+the existing 2000 ms soft target. The cloud audit uses a different finite-pilot
+profile/network, so it is not a controlled comparison with the local account.
+
+The three local samples and the earlier baseline overlap; they do **not** prove
+a significant raw HTTP speedup or identify the original 3+ second request.
+Confirmed improvements are fewer redundant DB reads, explicit timing phases,
+bounded navigation snapshots, honest nonblocking refresh, lazy course loading
+and cached preflight permission. Free-tier cold starts and network latency still
+exist. No always-on billing or artificial keep-alive was enabled.
+
+Manual IAB inspection confirmed the published panel with 2 real reviews/2
+lessons, explicit confirmed freshness and no horizontal overflow. Saved
+light/dark desktop/phone captures live outside Git in `cycle-280-294/` under the
+task visualization folder; phone checks are local production browser checks,
+not a claimed live phone audit. No answer/course/private save was submitted on
+the existing account. IAB tabs are closed, owned test servers finished, build
+and cycle-specific temporary outputs are removed. Only the app's browser-tool
+runtimes were left alone. This final documentation-only commit does not replace
+the verified runtime revision or require another application deployment.
