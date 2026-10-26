@@ -1441,11 +1441,21 @@ textarea::placeholder {
   border-radius: 6px;
 }
 .character-hub-kana-units > li {
-  border: 0;
-  border-bottom: 1px solid var(--surface-border);
-  border-radius: 0;
-  padding: 20px 0;
-  background: transparent;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  padding: 16px;
+  background: var(--surface);
+}
+.character-hub-kana-units header {
+  flex-wrap: wrap;
+}
+.character-hub-kana-units header > div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.character-hub-kana-units header > strong {
+  flex-shrink: 0;
 }
 .character-hub-kanji-grid {
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));

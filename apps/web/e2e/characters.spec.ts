@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { changeAccount } from "./support/change-account";
+import { captureLearnerThemes } from "./support/capture-learner-themes";
 
 import {
   type CharacterHubKanaSectionDto,
@@ -11,6 +12,102 @@ import {
 const API_BASE_URL = "http://localhost:3001";
 
 test.describe("character hub", () => {
+  test("keeps kana unit insets and stable lesson numbers across groups and themes", async ({
+    page,
+  }) => {
+    await signIn(page);
+    const hub = buildHub();
+    const first = hub.kana.hiragana.units[0]!;
+    await page.route(`${API_BASE_URL}/characters`, (route) =>
+      route.fulfill({
+        json: {
+          ...hub,
+          kana: {
+            ...hub.kana,
+            hiragana: {
+              ...hub.kana.hiragana,
+              totalCount: 8,
+              units: [
+                first,
+                {
+                  ...first,
+                  id: "hiragana-k",
+                  title: "Ряд K и дополнительные упражнения",
+                  order: 1,
+                  unlocked: false,
+                  masteredCount: 0,
+                  totalCount: 5,
+                  items: ["か", "き", "く", "け", "こ"].map((character, index) =>
+                    buildKanaItem(
+                      "hiragana",
+                      character,
+                      ["ka", "ki", "ku", "ke", "ko"][index]!,
+                      false,
+                    ),
+                  ),
+                },
+                {
+                  ...first,
+                  id: "hiragana-handakuten",
+                  title: "Хандакутэн",
+                  order: 12,
+                  unlocked: false,
+                  masteredCount: 0,
+                  totalCount: 1,
+                  items: [
+                    { ...buildKanaItem("hiragana", "ぱ", "pa", false), variant: "handakuten" },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      }),
+    );
+    await page.goto("/characters?tab=hiragana");
+    const units = page.locator(".character-hub-kana-units > li");
+    await expect(units).toHaveCount(2);
+    await expect(units.first().getByText("Урок 1", { exact: true })).toBeVisible();
+    await expect(units.last().getByText("Урок 2", { exact: true })).toBeVisible();
+    await expect(units.first().getByRole("link").first()).toHaveAttribute(
+      "href",
+      "/kana?script=hiragana&mode=lessons&unit=hiragana-vowels&character=%E3%81%82",
+    );
+    await expect(units.last().getByRole("link")).toHaveCount(0);
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate((value) => {
+        document.documentElement.dataset.interfaceTheme = value;
+      }, theme);
+      expect(
+        await units.evaluateAll((items) =>
+          items.every((item) => {
+            const style = getComputedStyle(item);
+            const bounds = item.getBoundingClientRect();
+            const content = [
+              ...item.querySelectorAll("header, h3, strong, .character-hub-kana-chart > *"),
+            ];
+            return (
+              parseFloat(style.paddingLeft) >= 16 &&
+              parseFloat(style.paddingRight) >= 16 &&
+              item.scrollWidth <= item.clientWidth &&
+              content.every((child) => {
+                const rect = child.getBoundingClientRect();
+                return rect.left >= bounds.left + 16 && rect.right <= bounds.right - 16;
+              })
+            );
+          }),
+        ),
+      ).toBe(true);
+    }
+    await captureLearnerThemes(page, test.info(), "kana-unit-layout");
+    await page.getByLabel("Группа знаков").selectOption("handakuten");
+    await expect(units).toHaveCount(1);
+    await expect(units.getByText("Урок 3", { exact: true })).toBeVisible();
+    await expect(units).toContainText("ぱ");
+    await page.getByLabel("Группа знаков").selectOption("all");
+    await expect(units).toHaveCount(3);
+    await expect(units.last().getByText("Урок 3", { exact: true })).toBeVisible();
+  });
   test("recovers a failed hub load and keeps modified kana separate", async ({ page }) => {
     await signIn(page);
     let attempts = 0;
@@ -299,7 +396,7 @@ function buildKanaSection(
         id: `${script}-vowels`,
         script,
         title: "Гласные",
-        order: 1,
+        order: 0,
         unlocked: true,
         complete: false,
         masteredCount: 1,

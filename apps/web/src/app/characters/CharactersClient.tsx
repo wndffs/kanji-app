@@ -279,7 +279,9 @@ function KanaCharacterPanel({ section }: { readonly section: CharacterHubKanaSec
           <li className={unit.unlocked ? undefined : "is-locked"} key={unit.id}>
             <header>
               <div>
-                <span>Урок {unit.order}</span>
+                <span>
+                  Урок {section.units.findIndex((candidate) => candidate.id === unit.id) + 1}
+                </span>
                 <h3>{unit.title}</h3>
               </div>
               <strong>
