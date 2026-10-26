@@ -932,24 +932,36 @@ function DashboardSummary({ counts }: { readonly counts: DashboardDto["counts"] 
   return (
     <section aria-label="Счётчики" className="dashboard-study-summary">
       <div className="metric-grid">
-      <MetricCard
-        label="К повторению"
-        value={counts.dueReviews}
-        icon={RotateCw}
-        href="/reviews"
-        tone="review"
-      />
-      <MetricCard
-        label="Доступно уроков"
-        value={counts.availableLessons}
-        icon={BookOpen}
-        href="/lessons"
-        tone="lesson"
-      />
+        <MetricCard
+          label="К повторению"
+          value={counts.dueReviews}
+          icon={RotateCw}
+          href="/reviews"
+          tone="review"
+        />
+        <MetricCard
+          label="Доступно уроков"
+          value={counts.availableLessons}
+          icon={BookOpen}
+          href="/lessons"
+          tone="lesson"
+        />
       </div>
       <dl className="dashboard-secondary-counts">
-        <div><dt><Flame size={15} aria-hidden="true" />Сожжено</dt><dd>{counts.burnedCards}</dd></div>
-        <div><dt><CircleHelp size={15} aria-hidden="true" />Сложные</dt><dd>{counts.leechCandidates}</dd></div>
+        <div>
+          <dt>
+            <Flame size={15} aria-hidden="true" />
+            Сожжено
+          </dt>
+          <dd>{counts.burnedCards}</dd>
+        </div>
+        <div>
+          <dt>
+            <CircleHelp size={15} aria-hidden="true" />
+            Сложные
+          </dt>
+          <dd>{counts.leechCandidates}</dd>
+        </div>
       </dl>
     </section>
   );
@@ -1001,7 +1013,8 @@ function CourseProgressPanel({
             <SectionDisclosure title="Условия перехода">
               <p className="muted">
                 {formatItemType(course.levelProgress.pass.itemType)} до{" "}
-                {course.levelProgress.pass.stageName} · {course.levelProgress.pass.requiredPercentage}% из{" "}
+                {course.levelProgress.pass.stageName} ·{" "}
+                {course.levelProgress.pass.requiredPercentage}% из{" "}
                 {course.levelProgress.pass.totalItems}
               </p>
             </SectionDisclosure>

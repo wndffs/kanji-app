@@ -65,7 +65,15 @@ export function KanaLessonFinder({
           <button
             aria-current={unit.id === activeUnitId ? "step" : undefined}
             className={unit.complete ? "is-complete" : ""}
-            data-unit-state={unit.id === activeUnitId ? "current" : !unit.unlocked ? "locked" : unit.complete ? "mastered" : "available"}
+            data-unit-state={
+              unit.id === activeUnitId
+                ? "current"
+                : !unit.unlocked
+                  ? "locked"
+                  : unit.complete
+                    ? "mastered"
+                    : "available"
+            }
             disabled={!unit.unlocked || submitting}
             key={unit.id}
             onClick={() => onStart(unit)}

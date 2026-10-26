@@ -69,6 +69,8 @@ test.describe("published course catalog", () => {
     });
     await page.goto("/courses");
     const library = page.getByRole("region", { name: "Мои курсы", exact: true });
+    await expect(library.locator('li[data-current="true"]')).toHaveCount(1);
+    await expect(library.locator('li[data-current="true"]')).toContainText("Мой стартовый курс");
     await expect(
       library.getByRole("heading", { name: "Мой стартовый курс", exact: true }),
     ).toBeVisible();

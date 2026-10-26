@@ -2108,6 +2108,7 @@ textarea::placeholder {
   .search-result-card {
     padding: 16px;
     gap: 16px;
+    grid-template-columns: minmax(0, 1fr);
   }
   .search-result-main {
     grid-template-columns: minmax(60px, 0.45fr) minmax(0, 1fr);

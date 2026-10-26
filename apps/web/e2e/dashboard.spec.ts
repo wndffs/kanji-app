@@ -24,6 +24,9 @@ test.describe("dashboard smoke", () => {
     await page.goto("/dashboard");
     await expect(page.locator(".dashboard-heading .primary-action")).toHaveCount(1);
     await expect(page.locator("a.metric-card-link")).toHaveCount(2);
+    await expect(page.locator(".metric-card")).toHaveCount(2);
+    await expect(page.locator(".dashboard-secondary-counts")).toContainText("Сожжено");
+    await expect(page.locator(".dashboard-secondary-counts")).toContainText("Сложные");
     if (test.info().project.name === "desktop")
       await expect(page.getByRole("heading", { name: "Прогноз", exact: true })).toBeInViewport({
         ratio: 1,
@@ -432,8 +435,14 @@ test.describe("dashboard smoke", () => {
     await expect(page.getByTestId("forecast-bucket").first()).toContainText("3");
     await expect(page.getByTestId("forecast-bucket").nth(1)).toContainText("16:00");
     await expect(page.getByTestId("forecast-bucket").nth(1)).toContainText("1");
-    await expect(page.getByTestId("forecast-bucket").first().locator(".forecast-volume > span")).toHaveAttribute("style", "width: 100%;");
-    const volume = await page.getByTestId("forecast-bucket").nth(1).locator(".forecast-volume > span").evaluate((element) => parseFloat((element as HTMLElement).style.width));
+    await expect(
+      page.getByTestId("forecast-bucket").first().locator(".forecast-volume > span"),
+    ).toHaveAttribute("style", "width: 100%;");
+    const volume = await page
+      .getByTestId("forecast-bucket")
+      .nth(1)
+      .locator(".forecast-volume > span")
+      .evaluate((element) => parseFloat((element as HTMLElement).style.width));
     expect(volume).toBeCloseTo(100 / 3);
     await expect(page.getByTestId("srs-spread-stage")).toHaveCount(2);
     await expect(page.getByTestId("srs-spread-stage").first()).toContainText("Ученик 1");
@@ -629,6 +638,11 @@ test.describe("dashboard smoke", () => {
 
     const guide = page.getByTestId("new-learner-guide");
     await expect(guide).toBeHidden();
+    const tiles = await page.locator(".dashboard-study-summary").boundingBox();
+    const guideToggle = await page
+      .getByRole("button", { name: "Первый учебный цикл", exact: true })
+      .boundingBox();
+    expect(guideToggle!.y).toBeGreaterThanOrEqual(tiles!.y + tiles!.height);
     await page.getByRole("button", { name: "Первый учебный цикл", exact: true }).click();
     await expect(guide.getByRole("heading", { name: "Первый учебный цикл" })).toBeVisible();
     await expect(

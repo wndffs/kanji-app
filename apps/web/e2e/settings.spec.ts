@@ -19,6 +19,7 @@ test.describe("settings", () => {
     await page.goto("/settings");
     await expect(page.getByLabel("Тема", { exact: true })).toBeEnabled();
     await page.getByLabel("Тема", { exact: true }).selectOption("dark");
+    await expect(page.locator(".appearance-preview")).toHaveAttribute("data-preview-theme", "dark");
     await page.getByRole("tab", { name: "Обучение", exact: true }).click();
     await page.getByLabel("Новых материалов в день").fill("7");
     await expect(page.getByText("Есть изменения", { exact: true })).toBeVisible();
@@ -29,6 +30,11 @@ test.describe("settings", () => {
       page.getByRole("button", { name: "Отменить изменения", exact: true }),
     ).toBeDisabled();
     expect(writes).toBe(0);
+    await page.getByRole("tab", { name: "Внешний вид", exact: true }).click();
+    await expect(page.locator(".appearance-preview")).toHaveAttribute(
+      "data-preview-theme",
+      "system",
+    );
   });
 
   for (const phase of ["load", "save"] as const)

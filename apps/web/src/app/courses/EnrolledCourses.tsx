@@ -70,18 +70,18 @@ function CourseLibrary({ token, refresh }: { readonly token: string; readonly re
                   {course.isCurrent ? <CircleCheck size={22} /> : <BookOpen size={22} />}
                 </span>
                 <div>
-                <h3>
-                  <Link href={`/courses/${encodeURIComponent(course.id)}`}>{course.title}</Link>
-                </h3>
-                <span className="muted">
-                  {course.isCurrent
-                    ? "Текущий курс"
-                    : course.enrollmentStatus === "active"
-                      ? "Добавлен"
-                      : course.enrollmentStatus === "completed"
-                        ? "Завершён"
-                        : "На паузе"}
-                </span>
+                  <h3>
+                    <Link href={`/courses/${encodeURIComponent(course.id)}`}>{course.title}</Link>
+                  </h3>
+                  <span className="muted">
+                    {course.isCurrent
+                      ? "Текущий курс"
+                      : course.enrollmentStatus === "active"
+                        ? "Добавлен"
+                        : course.enrollmentStatus === "completed"
+                          ? "Завершён"
+                          : "На паузе"}
+                  </span>
                 </div>
               </div>
               {course.isCurrent ? (

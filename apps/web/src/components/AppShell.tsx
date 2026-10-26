@@ -193,7 +193,9 @@ export function AppShell({ children }: AppShellProps) {
                     <Link
                       aria-current={
                         isActivePath(pathname, item.href) ||
-                        (mobileNavigation && item.href === "/characters" && pathname.startsWith("/kana"))
+                        (mobileNavigation &&
+                          item.href === "/characters" &&
+                          pathname.startsWith("/kana"))
                           ? "page"
                           : undefined
                       }

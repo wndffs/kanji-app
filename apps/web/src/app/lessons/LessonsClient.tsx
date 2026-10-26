@@ -1223,7 +1223,9 @@ function LessonStudyView({
           >
             {lesson.item.japanese}
           </JapaneseText>
-          <p className="lesson-primary-meaning">{formatTranslationBundle(lesson.item.translations, displayMode)}</p>
+          <p className="lesson-primary-meaning">
+            {formatTranslationBundle(lesson.item.translations, displayMode)}
+          </p>
           {pronunciationRevealed && pronunciationMode === "kana" && pronunciationText !== null ? (
             <JapaneseText className="lesson-primary-reading">{pronunciationText}</JapaneseText>
           ) : null}

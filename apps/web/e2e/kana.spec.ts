@@ -364,12 +364,25 @@ test.describe("kana lessons", () => {
     await expect(yoonTile).toBeHidden();
     await page.getByText("Все уроки", { exact: true }).click();
     await expect(yoonTile).toBeVisible();
+    const originalOrdinal = await page
+      .getByTestId("kana-unit-list")
+      .getByRole("button")
+      .filter({ has: page.getByText("きゃ", { exact: true }) })
+      .locator(".kana-unit-ordinal")
+      .textContent();
     await page.getByLabel("Поиск урока", { exact: true }).fill("нет такого урока");
     await expect(page.getByTestId("kana-unit-list").getByRole("button")).toHaveCount(0);
     await page.getByRole("button", { name: "Сбросить поиск урока", exact: true }).click();
     await expect(yoonTile).toBeVisible();
     await page.getByLabel("Группа звуков", { exact: true }).selectOption("yoon");
     await expect(yoonTile).toBeVisible();
+    await expect(
+      page
+        .getByTestId("kana-unit-list")
+        .getByRole("button")
+        .filter({ has: page.getByText("きゃ", { exact: true }) })
+        .locator(".kana-unit-ordinal"),
+    ).toHaveText(originalOrdinal!);
     await expect(practice).toContainText("あ");
     await page.getByRole("button", { name: "Сбросить поиск урока", exact: true }).click();
     expect(await yoonTile.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
