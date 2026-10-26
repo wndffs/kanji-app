@@ -169,6 +169,10 @@ export function AppShell({ children }: AppShellProps) {
     links[next]?.focus();
   }
 
+  if (process.env.NODE_ENV === "development" && pathname === "/design-reference") {
+    return <>{children}</>;
+  }
+
   return (
     <StudyFocusContext.Provider value={enterStudy}>
       <div
