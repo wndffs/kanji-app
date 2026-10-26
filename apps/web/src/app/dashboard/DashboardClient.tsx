@@ -929,7 +929,8 @@ function assertUnknownDashboardWidget(id: never): never {
 
 function DashboardSummary({ counts }: { readonly counts: DashboardDto["counts"] }) {
   return (
-    <section aria-label="Счётчики" className="metric-grid">
+    <section aria-label="Счётчики" className="dashboard-study-summary">
+      <div className="metric-grid">
       <MetricCard
         label="К повторению"
         value={counts.dueReviews}
@@ -944,13 +945,11 @@ function DashboardSummary({ counts }: { readonly counts: DashboardDto["counts"] 
         href="/lessons"
         tone="lesson"
       />
-      <MetricCard label="Сожжено" value={counts.burnedCards} icon={Flame} tone="burned" />
-      <MetricCard
-        label="Сложные"
-        value={counts.leechCandidates}
-        icon={CircleHelp}
-        tone="difficult"
-      />
+      </div>
+      <dl className="dashboard-secondary-counts">
+        <div><dt><Flame size={15} aria-hidden="true" />Сожжено</dt><dd>{counts.burnedCards}</dd></div>
+        <div><dt><CircleHelp size={15} aria-hidden="true" />Сложные</dt><dd>{counts.leechCandidates}</dd></div>
+      </dl>
     </section>
   );
 }

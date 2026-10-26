@@ -296,10 +296,11 @@ textarea::placeholder {
 .dashboard-page .metric-grid {
   gap: 12px;
   border: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .dashboard-page .metric-card {
   position: relative;
-  min-height: 132px;
+  min-height: 118px;
   background: var(--surface);
   border: 1px solid var(--surface-border);
   border-radius: 8px;
@@ -315,6 +316,31 @@ textarea::placeholder {
 }
 .dashboard-page .metric-card[data-tone="lesson"] > svg {
   color: var(--subject-kanji);
+}
+.dashboard-page .metric-card[data-tone="review"] {
+  border-top: 3px solid var(--primary);
+}
+.dashboard-page .metric-card[data-tone="lesson"] {
+  border-top: 3px solid var(--subject-kanji);
+}
+.dashboard-secondary-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.dashboard-secondary-counts :is(div, dt) {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.dashboard-secondary-counts dd {
+  color: var(--foreground);
+  font-weight: 600;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
 }
 .dashboard-page .metric-card[data-tone="burned"] > svg {
   color: var(--subject-kana);
