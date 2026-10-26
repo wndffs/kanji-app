@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { dashboardNextAction } from "../../lib/dashboard-next-action";
 import { presentDashboardWidgets } from "../../lib/dashboard-layout";
+import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
 
 import {
   type CourseListResponse,
@@ -66,6 +67,13 @@ type CoursesState =
   | ReadyCoursesState;
 
 export function DashboardClient() {
+  const session = useStoredSession();
+  if (session === undefined) return <section className="page-stack" aria-busy="true"><h1>Панель</h1><p>Загружаю данные.</p></section>;
+  if (session === null) return <section className="page-stack"><h1>Панель</h1><p>Нужен вход в аккаунт.</p><Link className="primary-action" href="/login">Войти</Link></section>;
+  return <OwnedDashboardClient key={`${session.user.id}:${session.token}:${JSON.stringify(session.user.settings)}`} ownerToken={session.token} />;
+}
+
+function OwnedDashboardClient({ ownerToken }: { readonly ownerToken: string }) {
   const [state, setState] = useState<DashboardState>({ status: "checking" });
   const [coursesState, setCoursesState] = useState<CoursesState>({ status: "loading" });
   const [reminderConfirmation, setReminderConfirmation] =
@@ -74,7 +82,7 @@ export function DashboardClient() {
   useEffect(() => {
     const session = readStoredSession();
 
-    if (session === null) {
+    if (session === null || session.token !== ownerToken) {
       setState({ status: "unauthenticated" });
       return;
     }
@@ -86,7 +94,7 @@ export function DashboardClient() {
 
     getDashboard(session.token, controller.signal)
       .then((dashboard) => {
-        if (!cancelled) {
+        if (!cancelled && ownsSession(ownerToken)) {
           setState({ status: "ready", dashboard });
           setReminderConfirmation({
             accountId: dashboard.user.id,
@@ -97,7 +105,7 @@ export function DashboardClient() {
         }
       })
       .catch((error: unknown) => {
-        if (cancelled) {
+        if (cancelled || !ownsSession(ownerToken)) {
           return;
         }
 
@@ -115,12 +123,12 @@ export function DashboardClient() {
 
     getCourses(session.token)
       .then((courses) => {
-        if (!cancelled) {
+        if (!cancelled && ownsSession(ownerToken)) {
           setCoursesState(createReadyCoursesState(courses));
         }
       })
       .catch((error: unknown) => {
-        if (cancelled) {
+        if (cancelled || !ownsSession(ownerToken)) {
           return;
         }
 
@@ -140,7 +148,7 @@ export function DashboardClient() {
       cancelled = true;
       controller.abort();
     };
-  }, []);
+  }, [ownerToken]);
 
   if (state.status === "checking" || state.status === "loading") {
     return (
@@ -195,7 +203,7 @@ export function DashboardClient() {
   async function handleCourseChange(courseId: string): Promise<void> {
     const session = readStoredSession();
 
-    if (session === null || coursesState.status !== "ready") {
+    if (session === null || session.token !== ownerToken || coursesState.status !== "ready") {
       return;
     }
 
@@ -209,6 +217,7 @@ export function DashboardClient() {
 
     try {
       const courses = await selectCurrentCourse(session.token, { courseId });
+      if (!ownsSession(ownerToken)) return;
       const selectedTitle = courses.courses.find(({ id }) => id === courses.currentCourseId)?.title;
 
       setCoursesState({
@@ -219,6 +228,7 @@ export function DashboardClient() {
 
       try {
         const dashboard = await getDashboard(session.token);
+        if (!ownsSession(ownerToken)) return;
         setState({ status: "ready", dashboard });
         setReminderConfirmation({
           accountId: dashboard.user.id,
@@ -227,6 +237,7 @@ export function DashboardClient() {
           confirmedAt: Date.now(),
         });
       } catch (error: unknown) {
+        if (!ownsSession(ownerToken)) return;
         if (error instanceof ApiError && error.status === 401) {
           clearStoredSession();
           setState({ status: "unauthenticated" });
@@ -244,6 +255,7 @@ export function DashboardClient() {
         );
       }
     } catch (error: unknown) {
+      if (!ownsSession(ownerToken)) return;
       if (error instanceof ApiError && error.status === 401) {
         clearStoredSession();
         setState({ status: "unauthenticated" });
@@ -273,12 +285,13 @@ export function DashboardClient() {
   ): Promise<void> {
     const session = readStoredSession();
 
-    if (session === null) {
+    if (session === null || session.token !== ownerToken) {
       throw new Error("Сессия завершена. Войдите снова.");
     }
 
     try {
       const updatedUser = await updateUserSettings(session.token, { dashboardWidgets });
+      if (!ownsSession(ownerToken)) throw new Error("Аккаунт изменился. Настройки панели не обновлены в этом окне.");
       const normalizedWidgets = normalizeDashboardWidgetPreferences(
         updatedUser.settings.dashboardWidgets ?? dashboardWidgets,
       );
@@ -299,6 +312,7 @@ export function DashboardClient() {
           : current,
       );
     } catch (error) {
+      if (!ownsSession(ownerToken)) throw error;
       if (error instanceof ApiError && error.status === 401) {
         clearStoredSession();
         setState({ status: "unauthenticated" });
