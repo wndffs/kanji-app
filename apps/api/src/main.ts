@@ -18,6 +18,7 @@ export function configureApiApp(app: INestApplication): void {
     credentials: true,
     origin: config.webOrigin,
     exposedHeaders: ["Server-Timing"],
+    maxAge: 600,
   });
   app.useGlobalFilters(new ApiExceptionFilter(logger));
   app.useGlobalPipes(new ApiValidationPipe());

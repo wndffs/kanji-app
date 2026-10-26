@@ -100,3 +100,16 @@ Checks:
 
 No data import/publication, migration, account reset, dependency or hosting-plan
 change was performed. Release/deployment evidence follows after cloud acceptance.
+
+### Final Network Finding
+
+The production API is cross-origin from Vercel and uses Authorization, so browser
+GETs can require an OPTIONS preflight. A bounded check returned 204 in 740 ms,
+with the correct allowed origin but no Access-Control-Max-Age. Added a 600-second
+preflight permission cache in task 294 acceptance. This caches CORS permission,
+not API data or credentials; the allowlist and per-request authentication are
+unchanged. It removes repeat preflights within the browser's cache rules, not the
+first request or cold-start latency. See
+[MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Access-Control-Max-Age).
+This separate round trip is one confirmed cost, not retrospective proof of the
+user's particular 3+ second request.
