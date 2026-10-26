@@ -54,11 +54,11 @@ describe("PrismaDashboardRepository", () => {
     for (const query of [findMany.mock.calls[1]?.[0], findFirst.mock.calls[0]?.[0]]) {
       expect(query).toMatchObject({
         where: { courseId: "course-main" },
-        include: {
+        select: {
           course: {
-            include: {
+            select: {
               levels: {
-                include: {
+                select: {
                   items: { where: { learningItem: { status: "PUBLISHED" } } },
                 },
               },
@@ -69,17 +69,17 @@ describe("PrismaDashboardRepository", () => {
     }
 
     expect(findFirst.mock.calls[0]?.[0]).toMatchObject({
-      include: {
+      select: {
         course: {
-          include: {
+          select: {
             levels: {
-              include: {
+              select: {
                 completions: {
                   where: { userId: "user-1" },
                   select: { completedAt: true },
                 },
                 items: {
-                  include: {
+                  select: {
                     learningItem: {
                       select: {
                         kind: true,

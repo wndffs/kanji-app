@@ -341,16 +341,19 @@ export class PrismaDashboardRepository extends DashboardRepository {
           status: "PUBLISHED",
         },
       },
-      include: {
+      select: {
         course: {
-          include: {
+          select: {
+            id: true,
             levels: {
               orderBy: { levelNumber: "asc" },
-              include: {
+              select: {
+                levelNumber: true,
                 items: {
                   where: { learningItem: { status: "PUBLISHED" } },
                   orderBy: { sortOrder: "asc" },
-                  include: {
+                  select: {
+                    sortOrder: true,
                     learningItem: {
                       select: {
                         id: true,
@@ -915,12 +918,17 @@ export class PrismaDashboardRepository extends DashboardRepository {
           status: "PUBLISHED",
         },
       },
-      include: {
+      select: {
         course: {
-          include: {
+          select: {
+            id: true,
+            titleRu: true,
             levels: {
               orderBy: { levelNumber: "asc" },
-              include: {
+              select: {
+                id: true,
+                levelNumber: true,
+                passPolicyJson: true,
                 completions: {
                   where: { userId },
                   select: { completedAt: true },
@@ -929,7 +937,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
                 items: {
                   where: { learningItem: { status: "PUBLISHED" } },
                   orderBy: { sortOrder: "asc" },
-                  include: {
+                  select: {
                     learningItem: {
                       select: {
                         id: true,

@@ -5,8 +5,8 @@ it("resolves the course once per dashboard request without sharing owners or ret
   const settings = vi.fn(async ({where}: {where:{userId:string}}) => ({currentCourseId: `course-${where.userId}`}));
   const enrollments = vi.fn(async (query: {where:{userId:string;courseId?:string}}) => query.where.courseId === undefined
     ? [{courseId:`course-${query.where.userId}`,startedAt:new Date(),course:{slug:'fixture'}}] : []);
-  const progress = vi.fn(async () => null);
-  const unlocks = vi.fn(async () => null);
+  const progress = vi.fn(async (_query: unknown) => null);
+  const unlocks = vi.fn(async (_query: unknown) => null);
   const repository = new PrismaDashboardRepository({db:{
     userSettings:{findUnique:settings}, userEnrollment:{findMany:enrollments,findFirst:progress},
     userUnlockEvent:{findFirst:unlocks},
