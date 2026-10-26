@@ -1019,16 +1019,52 @@ textarea::placeholder {
   background: transparent;
 }
 .character-hub-kanji-grid {
-  grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 12px;
 }
 .character-hub-kanji-grid > li {
-  background: var(--surface);
-  border-radius: 8px;
-  border: 1px solid var(--surface-border);
+  background: transparent;
+  border: 0;
+}
+.character-hub-kanji-grid a {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 72px minmax(60px, auto) auto;
+  gap: 10px;
+  padding: 16px;
+  height: 100%;
 }
 .character-hub-kanji-character {
   color: var(--subject-kanji);
+  background: transparent;
+  width: 100%;
+}
+.character-hub-kanji-copy {
+  align-content: start;
+}
+.character-hub-kanji-copy strong {
+  font-size: 15px;
+  font-weight: 500;
+}
+.character-hub-kanji-copy span {
+  color: var(--foreground);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.character-hub-kanji-meta span {
+  border: 0;
+  padding-inline: 0;
+  min-height: 20px;
+  font-weight: 500;
+}
+.character-hub-kanji-meta {
+  gap: 2px 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--surface-border);
+}
+@media (max-width: 600px) {
+  .character-hub-kanji-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .item-page {
   gap: 24px;

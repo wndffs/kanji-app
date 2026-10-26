@@ -515,7 +515,7 @@ function KanjiCharacterPanel({
       ) : (
         <ol className="character-hub-kanji-grid">
           {visibleItems.map((item) => (
-            <li key={`${item.level}-${item.id}`}>
+            <li key={`${item.level}-${item.id}`} data-study-state={item.studyState}>
               <Link href={item.href}>
                 <JapaneseText className="character-hub-kanji-character" variant="display">
                   {item.character}
