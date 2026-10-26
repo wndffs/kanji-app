@@ -69,7 +69,7 @@ type CoursesState =
 
 export function DashboardClient() {
   const session = useStoredSession();
-  if (session === undefined) return <section className="page-stack" aria-busy="true"><h1>Панель</h1><p>Загружаю данные.</p></section>;
+  if (session === undefined) return <DashboardLoading />;
   if (session === null) return <section className="page-stack"><h1>Панель</h1><p>Нужен вход в аккаунт.</p><Link className="primary-action" href="/login">Войти</Link></section>;
   const identity = { accountId:session.user.id, token:session.token, settingsKey:JSON.stringify(session.user.settings) };
   return <OwnedDashboardClient key={dashboardSnapshotKey(identity)} ownerToken={session.token} identity={identity} />;
@@ -185,19 +185,7 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
   }, [ownerToken, coursesRequested, coursesRevision]);
 
   if (state.status === "checking" || state.status === "loading") {
-    return (
-      <section className="page-stack" aria-busy="true">
-        <div className="page-heading">
-          <h1>Панель</h1>
-          <p>Загружаю данные.</p>
-        </div>
-        <div className="metric-grid">
-          <div className="metric-card skeleton" />
-          <div className="metric-card skeleton" />
-          <div className="metric-card skeleton" />
-        </div>
-      </section>
-    );
+    return <DashboardLoading key={refreshRevision} onRetry={() => setRefreshRevision((value) => value + 1)} />;
   }
 
   if (state.status === "unauthenticated") {
@@ -349,6 +337,19 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
       />
     </>
   );
+}
+
+function DashboardLoading({ onRetry }: { readonly onRetry?: () => void }) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSlow(true), 7_000);
+    return () => window.clearTimeout(timer);
+  }, []);
+  return <section className="page-stack dashboard-page dashboard-loading" aria-busy="true">
+    <div className="page-heading"><h1>Панель</h1><p role="status">{slow ? "Сервер отвечает дольше обычного. Данные ещё не получены." : "Загружаю данные."}</p></div>
+    <div className="metric-grid" aria-hidden="true"><div className="metric-card skeleton" /><div className="metric-card skeleton" /></div>
+    {slow && onRetry !== undefined ? <button className="secondary-action" onClick={onRetry} type="button"><RotateCw size={16} aria-hidden="true" /> Повторить загрузку</button> : null}
+  </section>;
 }
 
 function DashboardView({

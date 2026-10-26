@@ -294,6 +294,9 @@ textarea::placeholder {
   font-weight: 400;
   color: var(--muted);
 }
+.dashboard-loading > .secondary-action {
+  justify-self: start;
+}
 .dashboard-heading > div:first-child {
   display: grid;
   gap: 8px;
