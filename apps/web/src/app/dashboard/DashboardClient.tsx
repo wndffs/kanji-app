@@ -981,10 +981,7 @@ function CourseProgressPanel({
           </div>
           <div className="course-pass-progress">
             <div className="course-progress-row">
-              <span>
-                Порог уровня: {formatItemType(course.levelProgress.pass.itemType)} до{" "}
-                {course.levelProgress.pass.stageName}
-              </span>
+              <span>До следующего уровня</span>
               <strong>{course.levelProgress.pass.percent}%</strong>
             </div>
             <div
@@ -999,9 +996,15 @@ function CourseProgressPanel({
             </div>
             <p className="muted">
               {course.levelProgress.pass.passedItems} из {course.levelProgress.pass.requiredItems}{" "}
-              требуемых · {course.levelProgress.pass.requiredPercentage}% из{" "}
-              {course.levelProgress.pass.totalItems}
+              требуемых материалов
             </p>
+            <SectionDisclosure title="Условия перехода">
+              <p className="muted">
+                {formatItemType(course.levelProgress.pass.itemType)} до{" "}
+                {course.levelProgress.pass.stageName} · {course.levelProgress.pass.requiredPercentage}% из{" "}
+                {course.levelProgress.pass.totalItems}
+              </p>
+            </SectionDisclosure>
             {course.levelProgress.pass.completedAt === null ? null : (
               <p className="course-pass-status">
                 Уровень завершён

@@ -420,7 +420,20 @@ textarea::placeholder {
 }
 .dashboard-page .course-pass-progress {
   padding: 16px 0;
-  border-block: 1px solid var(--surface-border);
+  border-bottom: 1px solid var(--surface-border);
+}
+.course-pass-progress > p {
+  font-size: 12px;
+  margin-bottom: 0;
+}
+.course-pass-progress > .section-disclosure {
+  margin-top: 6px;
+}
+.course-pass-progress > .section-disclosure > summary {
+  min-height: 34px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
 }
 .dashboard-widget > .section-disclosure {
   border-top: 1px solid var(--surface-border);
