@@ -983,8 +983,8 @@ function CourseProgressPanel({
   readonly timezone: string;
 }) {
   return (
-    <section className="panel">
-      <h2>Курс</h2>
+    <section className="panel current-level-panel">
+      <h2>{course === null ? "Курс" : `Уровень ${course.currentLevel}`}</h2>
       {course === null ? (
         <p className="muted">Активный курс не выбран.</p>
       ) : (
@@ -993,8 +993,11 @@ function CourseProgressPanel({
             <Link href={`/courses/${encodeURIComponent(course.id)}?level=${course.currentLevel}`}>
               <strong>{course.title}</strong>
             </Link>
-            <span>Уровень {course.currentLevel}</span>
+            <Link className="inline-link" href={`/courses/${encodeURIComponent(course.id)}?level=${course.currentLevel}`}>
+              Материалы уровня <ArrowRight size={14} aria-hidden="true" />
+            </Link>
           </div>
+          <CourseNextAction course={course} timezone={timezone} />
           <div className="course-pass-progress">
             <div className="course-progress-row">
               <span>Прогресс уровня</span>
@@ -1031,6 +1034,16 @@ function CourseProgressPanel({
               </p>
             )}
           </div>
+          {course.levelProgress.itemsByType.length === 0 ? null : (
+            <dl className="level-subject-totals" aria-label="Материалы по типам">
+              {course.levelProgress.itemsByType.map((row) => (
+                <div data-item-type={row.itemType} key={row.itemType}>
+                  <dt>{formatItemType(row.itemType)}</dt>
+                  <dd>{row.passed + row.burned}<span> / {row.totalItems}</span></dd>
+                </div>
+              ))}
+            </dl>
+          )}
           <SectionDisclosure title="Состояние материалов уровня">
             <div className="course-progress-row">
               <span>Материалы уровня</span>
@@ -1096,7 +1109,6 @@ function CourseProgressPanel({
             )}
           </SectionDisclosure>
           <SectionDisclosure title="Что откроется дальше">
-            <CourseNextAction course={course} timezone={timezone} />
             <CourseJourneyDetails course={course} />
           </SectionDisclosure>
         </div>

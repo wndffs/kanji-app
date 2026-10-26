@@ -124,4 +124,7 @@ This section supersedes the checkpoint states in the table above.
 - 268 implemented: shared neutral tokens and two real study action tiles;
   duplicate header action removed when tiles are visible. Personal widget
   order/visibility is unchanged. Default layout uses stable grid tracks.
-- 269-278 planned; checks batched in 279.
+- 269 implemented: level heading, immediate next step, passed/total subject
+  counts and a real level-catalogue link. Detailed states and prerequisite paths
+  remain available. Final/empty/completed decisions still come from the API.
+- 270-278 planned; checks batched in 279.
