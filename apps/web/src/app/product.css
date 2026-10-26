@@ -1076,8 +1076,9 @@ textarea::placeholder {
   gap: 32px;
   border: 0;
   border-radius: 0;
-  padding: 28px;
-  background: var(--subject-soft, var(--surface-strong));
+  padding: 24px 0;
+  background: transparent;
+  border-block: 1px solid var(--surface-border);
 }
 .item-hero-main {
   align-items: start;
@@ -1086,6 +1087,7 @@ textarea::placeholder {
 .item-hero-main h1 {
   color: var(--subject-ink, var(--foreground));
   margin: 10px 0;
+  line-height: 1.5;
 }
 .item-hero-main > p {
   font-size: 22px;
@@ -1120,6 +1122,8 @@ textarea::placeholder {
 .item-hero .lesson-facts {
   align-content: center;
   gap: 12px 20px;
+  padding-left: 24px;
+  border-left: 1px solid var(--surface-border);
 }
 .item-hero .lesson-facts > div {
   border: 0;
@@ -1999,6 +2003,9 @@ textarea::placeholder {
   }
   .item-hero .lesson-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-left: 0;
+    border-top: 1px solid var(--surface-border);
+    padding: 16px 0 0;
   }
   .item-hero-main > p {
     font-size: 19px;
