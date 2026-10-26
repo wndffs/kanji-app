@@ -656,7 +656,10 @@ function OwnedKanaClient({
           <>
             <section className="panel kana-practice" data-testid="kana-practice">
               {mode === "lessons" && activeUnit !== null ? (
-                <h2 className="kana-current-unit">{activeUnit.title}</h2>
+                <header className="kana-current-lesson">
+                  <h2 className="kana-current-unit">{activeUnit.title}</h2>
+                  <span>Освоено {activeUnit.masteredCount} / {activeUnit.totalCount}</span>
+                </header>
               ) : null}
               {currentItem === null ? (
                 <p className="muted">В этой азбуке пока нет знаков.</p>

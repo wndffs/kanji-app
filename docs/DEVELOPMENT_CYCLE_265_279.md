@@ -143,4 +143,7 @@ This section supersedes the checkpoint states in the table above.
 - 274 implemented: assessment map groups actual signs by variant with separate
   mastered/total counts, compact character tiles and current/started/mastered
   states. No new character data or SRS state is created.
-- 275-278 planned; checks batched in 279.
+- 275 implemented: current lesson shows actual separate mastery; finder rows
+  distinguish current/available/mastered/locked and name the preceding lesson
+  for locked rows. Search/filter retain original unit identity and ordinal.
+- 276-278 planned; checks batched in 279.

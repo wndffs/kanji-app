@@ -1101,6 +1101,20 @@ textarea::placeholder {
   font-size: 16px;
   color: var(--foreground);
   font-weight: 650;
+  margin: 0;
+}
+.kana-current-lesson {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--surface-border);
+}
+.kana-current-lesson > span {
+  font-size: 12px;
+  color: var(--muted);
 }
 .kana-choice-grid button {
   background: var(--surface);
@@ -1204,6 +1218,26 @@ textarea::placeholder {
   gap: 12px;
   align-items: center;
   text-align: left;
+  background: var(--surface);
+  box-shadow: none;
+  min-height: 88px;
+}
+.kana-unit-list > button[data-unit-state="locked"] {
+  opacity: 1;
+  background: transparent;
+  color: var(--muted);
+  border-color: transparent;
+}
+.kana-unit-copy {
+  display: grid;
+  gap: 6px;
+}
+.kana-unit-copy strong {
+  font-size: 14px;
+}
+.kana-unit-copy .kana-unit-prerequisite {
+  font-size: 11px;
+  color: var(--muted);
 }
 .kana-unit-ordinal {
   display: grid;
@@ -1237,9 +1271,12 @@ textarea::placeholder {
   box-shadow: inset 3px 0 0 var(--subject-kana);
 }
 .kana-unit-characters span {
-  background: var(--surface-strong);
+  background: transparent;
   border: 0;
   color: var(--foreground);
+  border-radius: 0;
+  min-width: 28px;
+  padding: 2px;
 }
 .character-hub-panel {
   border: 0;
