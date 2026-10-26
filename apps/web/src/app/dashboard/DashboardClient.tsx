@@ -358,6 +358,11 @@ function DashboardView({
     dashboard.newLearnerGuide,
     dashboard.counts.dueReviews,
   );
+  const beginnerGuide = newLearnerGuide.visible ? (
+    <SectionDisclosure title="Первый учебный цикл">
+      <NewLearnerGuide dashboard={dashboard} state={newLearnerGuide} />
+    </SectionDisclosure>
+  ) : null;
 
   useEffect(() => {
     setDraftWidgets(presentDashboardWidgets(dashboard.user.dashboardWidgets));
@@ -412,12 +417,6 @@ function DashboardView({
         </div>
       </div>
 
-      {newLearnerGuide.visible ? (
-        <SectionDisclosure title="Первый учебный цикл">
-          <NewLearnerGuide dashboard={dashboard} state={newLearnerGuide} />
-        </SectionDisclosure>
-      ) : null}
-
       {customizationOpen ? (
         <DashboardWidgetEditor
           error={customizationError}
@@ -469,11 +468,13 @@ function DashboardView({
                     {content}
                   </SectionDisclosure>
                 )}
+                {widget.id === "summary" ? beginnerGuide : null}
               </div>
             );
           })}
         </div>
       )}
+      {visibleWidgets.some((widget) => widget.id === "summary") ? null : beginnerGuide}
     </section>
   );
 }

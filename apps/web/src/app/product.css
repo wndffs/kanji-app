@@ -425,6 +425,9 @@ textarea::placeholder {
 .dashboard-widget > .section-disclosure {
   border-top: 1px solid var(--surface-border);
 }
+.dashboard-widget[data-dashboard-widget="summary"] > .section-disclosure {
+  margin-top: 16px;
+}
 .main[data-page="lessons"] > .page-stack {
   max-width: 1000px;
   margin-inline: auto;
