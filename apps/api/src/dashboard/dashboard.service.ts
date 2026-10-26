@@ -67,7 +67,7 @@ export class DashboardService {
     const forecastHorizonEnd = addDays(now, FORECAST_HORIZON_DAYS);
     const activityTimezone = resolveTimezone(user.settings.timezone);
     const [
-      lessonItems,
+      { lessonItems, currentCourse, unlockEvents },
       lessonProgress,
       kanaProgress,
       firstReviewCompleted,
@@ -76,12 +76,10 @@ export class DashboardService {
       leechSignals,
       forecastStates,
       srsStageSpread,
-      currentCourse,
-      unlockEvents,
       recentReviewCounts,
       studyActivity,
     ] = await Promise.all([
-      this.dashboardRepository.listLessonAvailabilityItems(user.id),
+      this.dashboardRepository.loadCourseData(user.id),
       this.dashboardRepository.listLessonProgress(user.id),
       this.dashboardRepository.listKanaProgress(user.id),
       this.dashboardRepository.hasCompletedReviewSession(user.id),
@@ -90,8 +88,6 @@ export class DashboardService {
       this.dashboardRepository.listLeechSignals(user.id, leechSince),
       this.dashboardRepository.listForecastStates(user.id, forecastHorizonEnd),
       this.dashboardRepository.listSrsStageSpread(user.id),
-      this.dashboardRepository.findCurrentCourseProgress(user.id),
-      this.dashboardRepository.listLatestUnlockEvents(user.id),
       this.dashboardRepository.countRecentReviewResults(user.id, recentSince, now),
       this.dashboardRepository.listStudyActivity(
         user.id,

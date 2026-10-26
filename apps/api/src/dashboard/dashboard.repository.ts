@@ -29,8 +29,17 @@ import {
 } from "./dashboard.types";
 
 export abstract class DashboardRepository {
+  async loadCourseData(userId: string) {
+    const [lessonItems, currentCourse, unlockEvents] = await Promise.all([
+      this.listLessonAvailabilityItems(userId),
+      this.findCurrentCourseProgress(userId),
+      this.listLatestUnlockEvents(userId),
+    ]);
+    return { lessonItems, currentCourse, unlockEvents };
+  }
   abstract listLessonAvailabilityItems(
     userId: string,
+    currentCourseId?: string | null,
   ): Promise<readonly DashboardLessonItemRecord[]>;
   abstract listLessonProgress(userId: string): Promise<readonly DashboardLessonProgressRecord[]>;
   abstract listKanaProgress(userId: string): Promise<readonly DashboardKanaProgressRecord[]>;
@@ -50,7 +59,7 @@ export abstract class DashboardRepository {
     itemIds: readonly string[],
     limit: number,
   ): Promise<readonly DashboardRecentItemRecord[]>;
-  abstract listLatestUnlockEvents(userId: string): Promise<readonly DashboardUnlockEventRecord[]>;
+  abstract listLatestUnlockEvents(userId: string, currentCourseId?: string | null): Promise<readonly DashboardUnlockEventRecord[]>;
   abstract listRecentBurnedItems(
     userId: string,
     limit: number,
@@ -65,7 +74,7 @@ export abstract class DashboardRepository {
     horizonEnd: Date,
   ): Promise<readonly DashboardSrsStateRecord[]>;
   abstract listSrsStageSpread(userId: string): Promise<readonly DashboardSrsStageSpreadRecord[]>;
-  abstract findCurrentCourseProgress(userId: string): Promise<DashboardCourseProgressRecord | null>;
+  abstract findCurrentCourseProgress(userId: string, currentCourseId?: string | null): Promise<DashboardCourseProgressRecord | null>;
   abstract countRecentReviewResults(
     userId: string,
     since: Date,
@@ -306,8 +315,18 @@ export class PrismaDashboardRepository extends DashboardRepository {
     super();
   }
 
-  async listLessonAvailabilityItems(userId: string): Promise<readonly DashboardLessonItemRecord[]> {
-    const currentCourseId = await resolveCurrentCourseId(this.prisma.db, userId);
+  override async loadCourseData(userId: string) {
+    const courseId = await resolveCurrentCourseId(this.prisma.db, userId);
+    const [lessonItems, currentCourse, unlockEvents] = await Promise.all([
+      this.listLessonAvailabilityItems(userId, courseId),
+      this.findCurrentCourseProgress(userId, courseId),
+      this.listLatestUnlockEvents(userId, courseId),
+    ]);
+    return { lessonItems, currentCourse, unlockEvents };
+  }
+
+  async listLessonAvailabilityItems(userId: string, resolvedCourseId?: string | null): Promise<readonly DashboardLessonItemRecord[]> {
+    const currentCourseId = resolvedCourseId === undefined ? await resolveCurrentCourseId(this.prisma.db, userId) : resolvedCourseId;
 
     if (currentCourseId === null) {
       return [];
@@ -640,8 +659,8 @@ export class PrismaDashboardRepository extends DashboardRepository {
     );
   }
 
-  async listLatestUnlockEvents(userId: string): Promise<readonly DashboardUnlockEventRecord[]> {
-    const currentCourseId = await resolveCurrentCourseId(this.prisma.db, userId);
+  async listLatestUnlockEvents(userId: string, resolvedCourseId?: string | null): Promise<readonly DashboardUnlockEventRecord[]> {
+    const currentCourseId = resolvedCourseId === undefined ? await resolveCurrentCourseId(this.prisma.db, userId) : resolvedCourseId;
 
     if (currentCourseId === null) {
       return [];
@@ -880,8 +899,8 @@ export class PrismaDashboardRepository extends DashboardRepository {
     }));
   }
 
-  async findCurrentCourseProgress(userId: string): Promise<DashboardCourseProgressRecord | null> {
-    const currentCourseId = await resolveCurrentCourseId(this.prisma.db, userId);
+  async findCurrentCourseProgress(userId: string, resolvedCourseId?: string | null): Promise<DashboardCourseProgressRecord | null> {
+    const currentCourseId = resolvedCourseId === undefined ? await resolveCurrentCourseId(this.prisma.db, userId) : resolvedCourseId;
 
     if (currentCourseId === null) {
       return null;
