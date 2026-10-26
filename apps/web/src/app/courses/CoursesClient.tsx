@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BookPlus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { type PublishedCourseDto } from "@kanji-srs/shared";
 
@@ -150,6 +151,7 @@ export function CoursesClient() {
                   onClick={() => void join(course)}
                 >
                   {savingId === course.id ? "Добавляю..." : "Добавить курс"}
+                  <BookPlus size={16} aria-hidden="true" />
                 </button>
               </li>
             ))}

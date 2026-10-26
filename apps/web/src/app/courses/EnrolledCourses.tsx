@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowRight, BookOpen, CircleCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { type CourseListResponse, type EnrolledCourseDto } from "@kanji-srs/shared";
 import { ApiError, getCourses, selectCurrentCourse } from "../../lib/api-client";
@@ -63,8 +64,12 @@ function CourseLibrary({ token, refresh }: { readonly token: string; readonly re
       ) : (
         <ul className="course-catalog-list">
           {library.courses.map((course) => (
-            <li key={course.id}>
-              <div>
+            <li key={course.id} data-current={course.isCurrent}>
+              <div className="course-catalog-heading">
+                <span className="course-catalog-symbol" aria-hidden="true">
+                  {course.isCurrent ? <CircleCheck size={22} /> : <BookOpen size={22} />}
+                </span>
+                <div>
                 <h3>
                   <Link href={`/courses/${encodeURIComponent(course.id)}`}>{course.title}</Link>
                 </h3>
@@ -77,10 +82,12 @@ function CourseLibrary({ token, refresh }: { readonly token: string; readonly re
                         ? "Завершён"
                         : "На паузе"}
                 </span>
+                </div>
               </div>
               {course.isCurrent ? (
                 <Link className="primary-action" href="/lessons">
                   К урокам
+                  <ArrowRight size={16} aria-hidden="true" />
                 </Link>
               ) : course.enrollmentStatus === "active" ? (
                 <button className="secondary-action" onClick={() => setTarget(course)}>

@@ -1331,11 +1331,37 @@ textarea::placeholder {
   gap: 12px;
 }
 .course-catalog-list > li {
-  border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  padding: 22px;
-  background: var(--surface);
+  border: 0;
+  border-bottom: 1px solid var(--surface-border);
+  border-radius: 0;
+  padding: 22px 0;
+  background: transparent;
   gap: 20px;
+}
+.course-catalog-list > li[data-current="true"] {
+  border-left: 3px solid var(--primary);
+  padding: 20px;
+  background: var(--surface);
+}
+.course-catalog-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.course-catalog-symbol {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-strong);
+  color: var(--muted);
+  border-radius: 6px;
+}
+[data-current="true"] .course-catalog-symbol {
+  background: var(--subject-component-soft);
+  color: var(--primary-strong);
 }
 .course-catalog-list h2,
 .course-catalog-list h3 {
