@@ -146,4 +146,8 @@ This section supersedes the checkpoint states in the table above.
 - 275 implemented: current lesson shows actual separate mastery; finder rows
   distinguish current/available/mastered/locked and name the preceding lesson
   for locked rows. Search/filter retain original unit identity and ordinal.
-- 276-278 planned; checks batched in 279.
+- 276 implemented: all kana exercise prompts have stable framing, two-column
+  choices/matching, readable glyphs and full-width phone feedback actions.
+  Existing recognition/reverse/matching/typing/listening/tracing evidence and
+  separate mastery are unchanged.
+- 277-278 planned; checks batched in 279.

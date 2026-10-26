@@ -1122,6 +1122,79 @@ textarea::placeholder {
   border-radius: 6px;
   box-shadow: 0 2px 0 var(--surface-border);
   font-weight: 600;
+  min-height: 64px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 12px;
+}
+.kana-page :is(.kana-prompt, .kana-romaji-prompt) {
+  min-height: 160px;
+  display: grid;
+  align-content: center;
+  color: var(--foreground);
+  margin: 0;
+  padding-block: 16px;
+}
+.kana-page .kana-prompt {
+  font-size: 88px;
+  line-height: 1.5;
+}
+.kana-page .kana-romaji-prompt {
+  font-size: 40px;
+}
+.kana-page .kana-choice-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.kana-page .kana-match-board {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.kana-page .kana-match-column button {
+  min-width: 0;
+  min-height: 64px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+}
+.kana-page .kana-match-column button.is-matched {
+  background: var(--subject-component-soft);
+  color: var(--primary-strong);
+  border-color: transparent;
+}
+.kana-page .kana-feedback {
+  padding: 16px;
+  border-radius: 4px;
+  gap: 16px;
+  border: 0;
+  border-left: 3px solid var(--danger);
+  background: var(--danger-surface);
+}
+.kana-page .kana-feedback.is-correct {
+  background: var(--subject-component-soft);
+  border-color: var(--primary);
+}
+.kana-page .kana-answer-row input {
+  min-height: 52px;
+  font-size: 20px;
+}
+@media (max-width: 600px) {
+  .kana-page :is(.kana-prompt, .kana-romaji-prompt) {
+    min-height: 128px;
+  }
+  .kana-page .kana-prompt {
+    font-size: 72px;
+  }
+  .kana-page .kana-choice-grid.is-kana button {
+    font-size: 30px;
+  }
+  .kana-page .kana-feedback {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .kana-page .kana-feedback button {
+    width: 100%;
+  }
 }
 .kana-choice-grid button:active:not(:disabled) {
   box-shadow: none;
