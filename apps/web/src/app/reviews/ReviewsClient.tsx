@@ -657,6 +657,12 @@ export function ReviewsClient() {
         </div>
       </header>
 
+      <progress
+        className="study-progress"
+        aria-label={isCorrecting ? "Исправленные карточки" : "Отвеченные карточки"}
+        max={Math.max(1, isCorrecting ? totalCount : scheduledTotal)}
+        value={isCorrecting ? currentIndex : progress.answered}
+      />
       <article className="review-card" data-answer-type={currentItem.card.answerType}>
         <div className="review-card-meta">
           <span>{formatItemType(currentItem.item.itemType)}</span>

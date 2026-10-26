@@ -136,4 +136,8 @@ This section supersedes the checkpoint states in the table above.
 - 272 implemented: mandatory check shares the focused prompt/answer treatment,
   per-material progress and distinct accepted/retry/wrong feedback. Scheduling,
   completion writes and recovery are unchanged; summary shows actual results.
-- 273-278 planned; checks batched in 279.
+- 273 implemented: real review queue uses the approved focused width, subject
+  stripe, thin answered-card progress and quiet result summary. Alternative
+  readings remain neutral retries; correction has its own progress label and
+  still does not change SRS. Existing keyboard/IME and grading paths retained.
+- 274-278 planned; checks batched in 279.

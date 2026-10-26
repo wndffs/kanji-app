@@ -840,6 +840,8 @@ textarea::placeholder {
 }
 .review-session {
   gap: 20px;
+  width: min(100%, 760px);
+  margin-inline: auto;
 }
 .review-session-header {
   align-items: center;
@@ -856,13 +858,13 @@ textarea::placeholder {
   gap: 12px;
 }
 .review-card {
-  border: 0;
-  border-radius: 0;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
   box-shadow: none;
   padding: 24px;
   background: var(--surface);
   border-top: 3px solid var(--subject-ink, var(--primary));
-  min-height: 260px;
+  min-height: 270px;
 }
 .review-card-meta {
   justify-content: space-between;
@@ -952,7 +954,7 @@ textarea::placeholder {
 }
 .feedback-panel {
   --feedback-surface: var(--danger-surface);
-  border-radius: 0;
+  border-radius: 4px;
   border: 0;
   border-left: 3px solid var(--danger);
   background: var(--feedback-surface);
@@ -965,9 +967,30 @@ textarea::placeholder {
   background: var(--success-surface);
 }
 .feedback-panel-neutral {
-  --feedback-surface: var(--subject-kana-soft);
-  border-color: var(--subject-kana);
-  background: var(--subject-kana-soft);
+  --feedback-surface: var(--subject-kanji-soft);
+  border-color: var(--subject-kanji);
+  background: var(--subject-kanji-soft);
+}
+.review-summary {
+  max-width: 760px;
+  margin-inline: auto;
+  width: 100%;
+}
+.review-summary .stats-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 20px;
+  padding-block: 20px;
+  border-block: 1px solid var(--surface-border);
+}
+.review-summary .stats-list > div {
+  display: grid;
+  gap: 8px;
+  border: 0;
+}
+.review-summary .stats-list dd {
+  margin: 0;
+  font-size: 28px;
 }
 .feedback-header {
   align-items: center;
