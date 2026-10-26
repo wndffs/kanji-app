@@ -122,6 +122,7 @@ test.describe("character hub", () => {
       .getByRole("button", { name: "Далее" })
       .click();
     await expect(page.locator(".character-hub-kanji-grid")).toContainText("字60");
+    await page.getByRole("button", { name: "Фильтры кандзи", exact: true }).click();
     await page.getByLabel("Уровень", { exact: true }).selectOption("2");
     await expect(page.getByRole("navigation", { name: "Страницы кандзи" })).toContainText("1 / 2");
     await page.getByRole("tab", { name: "Кандзи", exact: true }).press("Home");
@@ -183,6 +184,7 @@ test.describe("character hub", () => {
     await expect(page.getByRole("link", { name: /一/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /語/ })).toHaveCount(0);
 
+    await page.getByRole("button", { name: "Фильтры кандзи", exact: true }).click();
     await page.getByLabel("Состояние").selectOption("weak");
     await expect(page).toHaveURL(/tab=kanji.*band=n5.*state=weak/);
     await expect(page.getByRole("link", { name: /一/ })).toBeVisible();

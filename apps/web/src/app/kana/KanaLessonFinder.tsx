@@ -79,7 +79,7 @@ export function KanaLessonFinder({
             onClick={() => onStart(unit)}
             type="button"
           >
-            <span className="kana-unit-ordinal" aria-label="Номер урока">
+            <span className="kana-unit-ordinal">
               {units.findIndex((candidate) => candidate.id === unit.id) + 1}
             </span>
             <span className="kana-unit-copy">

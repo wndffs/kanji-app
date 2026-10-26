@@ -17,6 +17,7 @@ import {
 
 import { JapaneseText } from "../../components/JapaneseText";
 import { ViewTabs } from "../../components/ViewTabs";
+import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { ApiError, getCharacterHub } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import {
@@ -401,73 +402,74 @@ function KanjiCharacterPanel({
         </div>
       </dl>
 
-      <div className="character-hub-filters" aria-label="Фильтры кандзи">
-        <FilterSelect
-          label="Уровень"
-          onChange={(value) =>
-            onFiltersChange({ ...filters, level: value === "" ? null : Number(value) })
-          }
-          options={section.filters.levels.map((level) => ({
-            label: `Уровень ${level}`,
-            value: String(level),
-          }))}
-          value={filters.level === null ? "" : String(filters.level)}
-        />
-        <FilterSelect
-          label="Диапазон"
-          onChange={(value) =>
-            onFiltersChange({
-              ...filters,
-              band: value === "" ? null : (value as NonNullable<typeof filters.band>),
-            })
-          }
-          options={section.filters.bands.map((band) => ({
-            label: band === "foundation" ? "Основы" : band.toUpperCase(),
-            value: band,
-          }))}
-          value={filters.band ?? ""}
-        />
-        <FilterSelect
-          label="JLPT"
-          onChange={(value) =>
-            onFiltersChange({
-              ...filters,
-              jlpt: value === "" ? null : (value as NonNullable<typeof filters.jlpt>),
-            })
-          }
-          options={section.filters.jlptLevels.map((jlpt) => ({
-            label: jlpt.toUpperCase(),
-            value: jlpt,
-          }))}
-          value={filters.jlpt ?? ""}
-        />
-        <FilterSelect
-          label="Состояние"
-          onChange={(value) =>
-            onFiltersChange({
-              ...filters,
-              state: value === "" ? null : (value as NonNullable<typeof filters.state>),
-            })
-          }
-          options={[
-            { label: "Не начато", value: "not-started" },
-            { label: "В изучении", value: "learning" },
-            { label: "Пройдено", value: "passed" },
-            { label: "Закреплено", value: "burned" },
-            { label: "Слабые", value: "weak" },
-          ]}
-          value={filters.state ?? ""}
-        />
-        <button
-          className="secondary-action"
-          disabled={filtersEqual(filters, EMPTY_CHARACTER_HUB_FILTERS)}
-          onClick={() => onFiltersChange(EMPTY_CHARACTER_HUB_FILTERS)}
-          type="button"
-        >
-          Сбросить
-        </button>
-      </div>
-
+      <SectionDisclosure title="Фильтры кандзи" defaultOpen={applied.length > 0}>
+        <div className="character-hub-filters" aria-label="Фильтры кандзи">
+          <FilterSelect
+            label="Уровень"
+            onChange={(value) =>
+              onFiltersChange({ ...filters, level: value === "" ? null : Number(value) })
+            }
+            options={section.filters.levels.map((level) => ({
+              label: `Уровень ${level}`,
+              value: String(level),
+            }))}
+            value={filters.level === null ? "" : String(filters.level)}
+          />
+          <FilterSelect
+            label="Диапазон"
+            onChange={(value) =>
+              onFiltersChange({
+                ...filters,
+                band: value === "" ? null : (value as NonNullable<typeof filters.band>),
+              })
+            }
+            options={section.filters.bands.map((band) => ({
+              label: band === "foundation" ? "Основы" : band.toUpperCase(),
+              value: band,
+            }))}
+            value={filters.band ?? ""}
+          />
+          <FilterSelect
+            label="JLPT"
+            onChange={(value) =>
+              onFiltersChange({
+                ...filters,
+                jlpt: value === "" ? null : (value as NonNullable<typeof filters.jlpt>),
+              })
+            }
+            options={section.filters.jlptLevels.map((jlpt) => ({
+              label: jlpt.toUpperCase(),
+              value: jlpt,
+            }))}
+            value={filters.jlpt ?? ""}
+          />
+          <FilterSelect
+            label="Состояние"
+            onChange={(value) =>
+              onFiltersChange({
+                ...filters,
+                state: value === "" ? null : (value as NonNullable<typeof filters.state>),
+              })
+            }
+            options={[
+              { label: "Не начато", value: "not-started" },
+              { label: "В изучении", value: "learning" },
+              { label: "Пройдено", value: "passed" },
+              { label: "Закреплено", value: "burned" },
+              { label: "Слабые", value: "weak" },
+            ]}
+            value={filters.state ?? ""}
+          />
+          <button
+            className="secondary-action"
+            disabled={filtersEqual(filters, EMPTY_CHARACTER_HUB_FILTERS)}
+            onClick={() => onFiltersChange(EMPTY_CHARACTER_HUB_FILTERS)}
+            type="button"
+          >
+            Сбросить
+          </button>
+        </div>
+      </SectionDisclosure>
       {applied.length === 0 ? null : (
         <div className="applied-filters" aria-label="Применённые фильтры кандзи">
           {applied.map((key) => (
