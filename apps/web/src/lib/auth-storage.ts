@@ -6,6 +6,7 @@ import {
 
 import { type CurrentUserDto } from "./api-client";
 import { storeInterfacePreferences } from "./interface-preferences";
+import { invalidateDashboardSnapshot } from "./dashboard-snapshot";
 
 const TOKEN_KEY = "kanji-srs.accessToken";
 const USER_KEY = "kanji-srs.user";
@@ -42,6 +43,7 @@ export function readStoredSession(): StoredSession | null {
 }
 
 export function storeSession(session: StoredSession): void {
+  invalidateDashboardSnapshot();
   if (!canUseStorage()) {
     return;
   }
@@ -54,6 +56,7 @@ export function storeSession(session: StoredSession): void {
 }
 
 export function updateStoredUser(user: CurrentUserDto): void {
+  invalidateDashboardSnapshot();
   if (!canUseStorage()) {
     return;
   }
@@ -65,6 +68,7 @@ export function updateStoredUser(user: CurrentUserDto): void {
 }
 
 export function clearStoredSession(): void {
+  invalidateDashboardSnapshot();
   if (!canUseStorage()) {
     return;
   }

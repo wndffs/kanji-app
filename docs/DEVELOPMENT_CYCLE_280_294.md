@@ -31,7 +31,7 @@ or add keep-alive traffic to hide a platform limit.
 | 284 | Cancellable dashboard reads | Abort obsolete GETs, preserve API error semantics, never replay writes | Implemented |
 | 285 | Dashboard account ownership | Key by account/token; late old requests cannot show data, save or clear a newer session | Implemented |
 | 286 | Bounded in-memory snapshots | Per-account/settings snapshot, no persistent private cache; bounded age and explicit freshness | Implemented |
-| 287 | Mutation invalidation | Confirmed writes/session changes invalidate snapshots; stale in-flight loads cannot repopulate | Planned |
+| 287 | Mutation invalidation | Confirmed writes/session changes invalidate snapshots; stale in-flight loads cannot repopulate | Implemented |
 | 288 | Nonblocking refresh/recovery | Preserve useful snapshot during GET refresh; visible retry/error and no stale reminders | Planned |
 | 289 | On-demand course selector | Fetch course list only when needed; preserve empty/current-course/conflict recovery | Planned |
 | 290 | Honest loading states | Two-tile skeleton, delayed slow-load feedback, explicit refresh; no invented counters | Planned |

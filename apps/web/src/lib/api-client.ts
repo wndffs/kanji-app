@@ -1,4 +1,5 @@
 import { type CourseOutlineDto, type CourseMaterialPageDto } from "@kanji-srs/shared";
+import { invalidateDashboardSnapshot } from "./dashboard-snapshot";
 import {
   type AvailableCoursesResponse,
   type ContentQualityPageDto,
@@ -260,6 +261,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   }
 
   const body = (await response.json()) as T;
+  if (request.method !== "GET") invalidateDashboardSnapshot();
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(API_RESPONSE_CONFIRMED_EVENT));
   }

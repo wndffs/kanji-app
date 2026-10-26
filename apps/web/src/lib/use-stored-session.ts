@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AUTH_CHANGED_EVENT, readStoredSession, type StoredSession } from "./auth-storage";
+import { invalidateDashboardSnapshot } from "./dashboard-snapshot";
 
 export function useStoredSession(): StoredSession | null | undefined {
   const [session, setSession] = useState<StoredSession | null>();
@@ -12,8 +13,10 @@ export function useStoredSession(): StoredSession | null | undefined {
         event.key === null ||
         event.key === "kanji-srs.accessToken" ||
         event.key === "kanji-srs.user"
-      )
+      ) {
+        invalidateDashboardSnapshot();
         sync();
+      }
     };
     sync();
     window.addEventListener(AUTH_CHANGED_EVENT, sync);

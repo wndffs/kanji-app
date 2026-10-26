@@ -16,7 +16,7 @@ import {
 import { dashboardNextAction } from "../../lib/dashboard-next-action";
 import { presentDashboardWidgets } from "../../lib/dashboard-layout";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
-import { dashboardSnapshotKey, dashboardSnapshotGeneration, readDashboardSnapshot, storeDashboardSnapshot, type DashboardSnapshotIdentity } from "../../lib/dashboard-snapshot";
+import { DASHBOARD_INVALIDATED_EVENT, dashboardSnapshotKey, dashboardSnapshotGeneration, readDashboardSnapshot, storeDashboardSnapshot, type DashboardSnapshotIdentity } from "../../lib/dashboard-snapshot";
 
 import {
   type CourseListResponse,
@@ -76,6 +76,7 @@ export function DashboardClient() {
 }
 
 function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: string; readonly identity: DashboardSnapshotIdentity }) {
+  const [refreshRevision, setRefreshRevision] = useState(0);
   const [state, setState] = useState<DashboardState>(() => {
     const cached = readDashboardSnapshot(identity);
     return cached === null ? { status:"checking" } : { status:"ready", dashboard:cached.dashboard };
@@ -83,6 +84,12 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
   const [coursesState, setCoursesState] = useState<CoursesState>({ status: "loading" });
   const [reminderConfirmation, setReminderConfirmation] =
     useState<ReviewReminderConfirmation | null>(null);
+
+  useEffect(() => {
+    const invalidate = () => { setReminderConfirmation(null); setRefreshRevision((value) => value + 1); };
+    window.addEventListener(DASHBOARD_INVALIDATED_EVENT, invalidate);
+    return () => window.removeEventListener(DASHBOARD_INVALIDATED_EVENT, invalidate);
+  }, []);
 
   useEffect(() => {
     const session = readStoredSession();
@@ -101,7 +108,7 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
     getDashboard(session.token, controller.signal)
       .then((dashboard) => {
         if (!cancelled && ownsSession(ownerToken)) {
-          storeDashboardSnapshot(identity, dashboard, generation);
+          if (!storeDashboardSnapshot(identity, dashboard, generation)) return;
           setState({ status: "ready", dashboard });
           setReminderConfirmation({
             accountId: dashboard.user.id,
@@ -155,7 +162,7 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
       cancelled = true;
       controller.abort();
     };
-  }, [ownerToken, identity.accountId, identity.settingsKey]);
+  }, [ownerToken, identity.accountId, identity.settingsKey, refreshRevision]);
 
   if (state.status === "checking" || state.status === "loading") {
     return (
