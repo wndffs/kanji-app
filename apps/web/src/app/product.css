@@ -174,12 +174,12 @@ textarea::placeholder {
 /* A single navigation tree becomes the mobile tab bar, never duplicate links. */
 .app-shell {
   display: block;
-  padding-left: 224px;
+  padding-left: 216px;
 }
 .app-rail {
   position: fixed;
   inset: 0 auto 0 0;
-  width: 224px;
+  width: 216px;
   background: var(--surface);
   border-right: 1px solid var(--surface-border);
   padding: 26px 16px;
@@ -226,9 +226,9 @@ textarea::placeholder {
   background: var(--surface-strong);
 }
 .app-rail .nav-link[aria-current="page"] {
-  background: var(--surface-strong);
+  background: var(--subject-component-soft);
   color: var(--primary-strong);
-  box-shadow: inset 3px 0 0 var(--primary);
+  box-shadow: none;
 }
 .rail-library {
   display: grid;
@@ -683,7 +683,10 @@ textarea::placeholder {
   color: var(--subject-ink, var(--foreground));
   margin-block: 8px;
   line-height: 1.45;
-  font-size: 112px;
+  font-size: calc(var(--study-display-size) + 24px);
+}
+.lesson-teaching-hero .japanese-text-sentence {
+  font-size: var(--study-sentence-size);
 }
 .lesson-hero-main {
   gap: 6px;
@@ -755,13 +758,16 @@ textarea::placeholder {
   .lesson-teaching-layout .lesson-hero-main > .review-japanese {
     grid-column: 1;
     grid-row: 1 / 5;
-    font-size: 76px;
+    font-size: calc(var(--study-display-size) + 12px);
     text-align: center;
     margin: 0;
   }
   .lesson-teaching-layout .lesson-hero-main > :not(.review-japanese) {
     grid-column: 2;
     margin: 0;
+  }
+  .lesson-teaching-layout .lesson-hero-main > .japanese-text-sentence {
+    font-size: var(--study-sentence-size);
   }
   .lesson-teaching-layout .lesson-item-meta {
     flex-wrap: wrap;
@@ -2079,7 +2085,7 @@ textarea::placeholder {
   gap: 10px;
   border: 1px solid var(--surface-border);
   border-top: 3px solid var(--subject-kanji);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--surface);
   text-align: center;
 }
@@ -2274,7 +2280,7 @@ textarea::placeholder {
 }
 :root[data-interface-density="compact"] .dashboard-page .metric-card {
   padding: 14px;
-  min-height: 108px;
+  min-height: 142px;
 }
 :root[data-interface-density="compact"] .course-material-grid[data-view="grid"] li a {
   min-height: 156px;
@@ -2290,6 +2296,17 @@ textarea::placeholder {
 :root[data-study-information-density="compact"] .review-card {
   padding: 16px;
   min-height: 200px;
+}
+:root[data-study-information-density="compact"] .lesson-teaching-layout {
+  gap: 24px;
+  min-height: 0;
+  padding-block: 8px;
+}
+@media (max-width: 700px) {
+  :root[data-study-information-density="compact"] .lesson-teaching-layout > .lesson-teaching-hero {
+    padding: 0;
+    min-height: 0;
+  }
 }
 .course-level-progress .text-action {
   min-height: 32px;

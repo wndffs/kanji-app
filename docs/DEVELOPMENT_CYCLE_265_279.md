@@ -154,4 +154,8 @@ This section supersedes the checkpoint states in the table above.
   actual study-state accents. Material tabs, reading facts, related practice
   and private forms share compact hierarchy; hidden readings and attribution
   are not replaced by preview content.
-- 278 planned; checks batched in 279.
+- 278 implemented: original compact rail and active state, shared theme tokens,
+  spacing density, configurable lesson glyph sizes (including sentence and
+  phone overrides), matching appearance preview. Save/Discard and account
+  ownership guards remain the existing source of truth.
+- 279 in progress: integration checks, cleanup, release and server verification.
