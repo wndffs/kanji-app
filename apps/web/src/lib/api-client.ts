@@ -294,8 +294,8 @@ export function getCharacterHub(token: string): Promise<CharacterHubResponseDto>
   return apiRequest<CharacterHubResponseDto>("/characters", { token });
 }
 
-export function getCourses(token: string): Promise<CourseListResponse> {
-  return apiRequest<CourseListResponse>("/courses", { token });
+export function getCourses(token: string, signal?: AbortSignal): Promise<CourseListResponse> {
+  return apiRequest<CourseListResponse>("/courses", { token, signal });
 }
 
 export function getCourseOutline(token: string, courseId: string): Promise<CourseOutlineDto> {

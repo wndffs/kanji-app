@@ -86,6 +86,8 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
     return cached === null ? { status:"checking" } : { status:"ready", dashboard:cached.dashboard };
   });
   const [coursesState, setCoursesState] = useState<CoursesState>({ status: "loading" });
+  const [coursesRequested, setCoursesRequested] = useState(false);
+  const [coursesRevision, setCoursesRevision] = useState(0);
   const [reminderConfirmation, setReminderConfirmation] =
     useState<ReviewReminderConfirmation | null>(null);
 
@@ -111,7 +113,6 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
     setRefreshError(null);
     setReminderConfirmation(null);
     setState((current) => current.status === "ready" ? current : { status: "loading" });
-    setCoursesState({ status: "loading" });
 
     getDashboard(session.token, controller.signal)
       .then((dashboard) => {
@@ -143,7 +144,18 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
         setState((current) => current.status === "ready" ? current : {status:"error",message});
       }).finally(() => { if (!cancelled && ownsSession(ownerToken)) setRefreshing(false); });
 
-    getCourses(session.token)
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [ownerToken, accountId, settingsKey, refreshRevision]);
+
+  useEffect(() => {
+    if (!coursesRequested) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    setCoursesState({status:"loading"});
+    getCourses(ownerToken, controller.signal)
       .then((courses) => {
         if (!cancelled && ownsSession(ownerToken)) {
           setCoursesState(createReadyCoursesState(courses));
@@ -170,7 +182,7 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
       cancelled = true;
       controller.abort();
     };
-  }, [ownerToken, accountId, settingsKey, refreshRevision]);
+  }, [ownerToken, coursesRequested, coursesRevision]);
 
   if (state.status === "checking" || state.status === "loading") {
     return (
@@ -332,6 +344,7 @@ function OwnedDashboardClient({ ownerToken, identity }: { readonly ownerToken: s
         coursesState={coursesState}
         dashboard={state.dashboard}
         onCourseChange={(courseId) => void handleCourseChange(courseId)}
+        onCoursesRequested={(retry) => { setCoursesRequested(true); if (retry) setCoursesRevision((value) => value + 1); }}
         onDashboardWidgetsChange={handleDashboardWidgetsChange}
       />
     </>
@@ -346,6 +359,7 @@ function DashboardView({
   coursesState,
   dashboard,
   onCourseChange,
+  onCoursesRequested,
   onDashboardWidgetsChange,
 }: {
   readonly confirmedAt: number | null;
@@ -355,6 +369,7 @@ function DashboardView({
   readonly coursesState: CoursesState;
   readonly dashboard: DashboardDto;
   readonly onCourseChange: (courseId: string) => void;
+  readonly onCoursesRequested: (retry?: boolean) => void;
   readonly onDashboardWidgetsChange: (
     preferences: readonly DashboardWidgetPreferenceDto[],
   ) => Promise<void>;
@@ -481,6 +496,7 @@ function DashboardView({
                 dashboard={dashboard}
                 id={widget.id}
                 onCourseChange={onCourseChange}
+                onCoursesRequested={onCoursesRequested}
               />
             );
             return (
@@ -908,11 +924,13 @@ function DashboardWidgetContent({
   dashboard,
   id,
   onCourseChange,
+  onCoursesRequested,
 }: {
   readonly coursesState: CoursesState;
   readonly dashboard: DashboardDto;
   readonly id: DashboardWidgetId;
   readonly onCourseChange: (courseId: string) => void;
+  readonly onCoursesRequested: (retry?: boolean) => void;
 }) {
   switch (id) {
     case "summary":
@@ -936,6 +954,7 @@ function DashboardWidgetContent({
           course={dashboard.currentCourse}
           coursesState={coursesState}
           onCourseChange={onCourseChange}
+          onCoursesRequested={onCoursesRequested}
           timezone={dashboard.user.timezone}
         />
       );
@@ -1004,11 +1023,13 @@ function CourseProgressPanel({
   course,
   coursesState,
   onCourseChange,
+  onCoursesRequested,
   timezone,
 }: {
   readonly course: DashboardDto["currentCourse"];
   readonly coursesState: CoursesState;
   readonly onCourseChange: (courseId: string) => void;
+  readonly onCoursesRequested: (retry?: boolean) => void;
   readonly timezone: string;
 }) {
   return (
@@ -1150,9 +1171,10 @@ function CourseProgressPanel({
       )}
       <SectionDisclosure
         title="Выбор курса"
-        defaultOpen={course === null || coursesState.status === "error"}
+        defaultOpen={course === null}
+        onOpen={() => onCoursesRequested()}
       >
-        <CourseSelector coursesState={coursesState} onCourseChange={onCourseChange} />
+        <CourseSelector coursesState={coursesState} onCourseChange={onCourseChange} onRetry={() => onCoursesRequested(true)} />
       </SectionDisclosure>
     </section>
   );
@@ -1409,9 +1431,11 @@ function RecentReviewStatsPanel({ stats }: { readonly stats: DashboardDto["recen
 function CourseSelector({
   coursesState,
   onCourseChange,
+  onRetry,
 }: {
   readonly coursesState: CoursesState;
   readonly onCourseChange: (courseId: string) => void;
+  readonly onRetry: () => void;
 }) {
   if (coursesState.status === "loading") {
     return <p className="muted course-selector-status">Загружаю доступные курсы.</p>;
@@ -1419,9 +1443,10 @@ function CourseSelector({
 
   if (coursesState.status === "error") {
     return (
-      <p className="course-selector-status course-selector-error" role="alert">
+      <div className="course-selector-status course-selector-error" role="alert">
         {coursesState.message}
-      </p>
+        <button className="text-action" onClick={onRetry} type="button">Повторить загрузку курсов</button>
+      </div>
     );
   }
 

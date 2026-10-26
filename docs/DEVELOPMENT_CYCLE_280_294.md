@@ -33,7 +33,7 @@ or add keep-alive traffic to hide a platform limit.
 | 286 | Bounded in-memory snapshots | Per-account/settings snapshot, no persistent private cache; bounded age and explicit freshness | Implemented |
 | 287 | Mutation invalidation | Confirmed writes/session changes invalidate snapshots; stale in-flight loads cannot repopulate | Implemented |
 | 288 | Nonblocking refresh/recovery | Preserve useful snapshot during GET refresh; visible retry/error and no stale reminders | Implemented |
-| 289 | On-demand course selector | Fetch course list only when needed; preserve empty/current-course/conflict recovery | Planned |
+| 289 | On-demand course selector | Fetch course list only when needed; preserve empty/current-course/conflict recovery | Implemented |
 | 290 | Honest loading states | Two-tile skeleton, delayed slow-load feedback, explicit refresh; no invented counters | Planned |
 | 291 | Dashboard secondary hierarchy | Default secondary statistics share one optional area; personal widget order/visibility retained | Planned |
 | 292 | Lesson phase keyboard flow | Roving phase tabs, Arrow/Home/End behavior with pending-write guards and no premature disclosure | Planned |

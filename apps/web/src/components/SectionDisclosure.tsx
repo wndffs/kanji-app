@@ -6,14 +6,16 @@ export function SectionDisclosure({
   children,
   defaultOpen = false,
   className = "",
+  onOpen,
 }: {
   readonly title: string;
   readonly children: ReactNode;
   readonly defaultOpen?: boolean;
   readonly className?: string;
+  readonly onOpen?: () => void;
 }) {
   return (
-    <details className={`section-disclosure ${className}`} open={defaultOpen || undefined}>
+    <details className={`section-disclosure ${className}`} open={defaultOpen || undefined} onToggle={(event) => { if (event.currentTarget.open) onOpen?.(); }}>
       <summary role="button">
         <span>{title}</span>
         <ChevronDown aria-hidden="true" size={18} />
