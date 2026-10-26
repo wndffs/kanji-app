@@ -1421,7 +1421,13 @@ function LessonQuizView({
   const listeningReady = card?.promptType !== "listening" || listeningEvidence?.completed === true;
 
   return (
-    <article className="lesson-quiz panel">
+    <article className="lesson-quiz panel" data-answer-type={answerType}>
+      <progress
+        className="study-progress"
+        aria-label="Проверенные карточки материала"
+        max={Math.max(1, lesson.cards.length)}
+        value={completedCardCount}
+      />
       <div className="lesson-quiz-prompt">
         <span className="eyebrow">{formatAnswerType(answerType)}</span>
         <strong className="lesson-quiz-count">
@@ -1471,7 +1477,12 @@ function LessonQuizView({
       </form>
 
       {feedback === null ? null : (
-        <section className="lesson-quiz-result" aria-label="Результат проверки" role="alert">
+        <section
+          className="lesson-quiz-result"
+          data-outcome={feedback.accepted ? "accepted" : feedback.diagnostic?.kind === "alternative-reading" ? "retry" : "wrong"}
+          aria-label="Результат проверки"
+          role="alert"
+        >
           <h2>{formatLessonQuizResult(feedback)}</h2>
           {feedback.accepted ? null : <p>{formatLessonQuizExplanation(feedback)}</p>}
           {feedback.result === "correct" ? null : (

@@ -133,4 +133,7 @@ This section supersedes the checkpoint states in the table above.
 - 271 implemented: unframed two-column teaching, compact mobile identity,
   subject-accent memory notes and normal-flow footer. Existing translation,
   reading/furigana/romaji visibility and source attribution are retained.
-- 272-278 planned; checks batched in 279.
+- 272 implemented: mandatory check shares the focused prompt/answer treatment,
+  per-material progress and distinct accepted/retry/wrong feedback. Scheduling,
+  completion writes and recovery are unchanged; summary shows actual results.
+- 273-278 planned; checks batched in 279.
