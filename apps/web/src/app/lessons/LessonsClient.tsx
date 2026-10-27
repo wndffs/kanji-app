@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { nextTabIndex } from "../../lib/tab-navigation";
 import { Volume2, Check } from "lucide-react";
 import {
@@ -59,6 +60,8 @@ import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import { useLessonPronunciationPreferences } from "../../lib/use-lesson-pronunciation-preferences";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
+import { useStoredSession, ownsSession } from "../../lib/use-stored-session";
+import { parseLessonSource } from "../../lib/lesson-browser";
 
 type QueueState =
   | { readonly status: "checking" }
@@ -83,6 +86,15 @@ type CompletionSummary = {
 };
 
 export function LessonsClient() {
+  const account = useStoredSession();
+  const params = useSearchParams();
+  const source = parseLessonSource(params);
+  if (source.invalid) return <section className="page-stack"><h1>Уроки</h1><p role="alert">Некорректный источник урока.</p><Link className="secondary-action" href="/decks">К колодам</Link></section>;
+  if (account === undefined) return <section className="page-stack" aria-busy="true"><h1>Уроки</h1></section>;
+  return <LessonsScreen key={`${account === null ? "guest" : `${account.user.id}:${account.token}`}:${source.deckId ?? "course"}`} requestedDeckId={source.deckId} />;
+}
+
+function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string | null }) {
   const activeDisplayMode = useTranslationDisplayMode();
   const lessonPronunciation = useLessonPronunciationPreferences();
   const {
@@ -151,7 +163,6 @@ export function LessonsClient() {
     setCompletionSummary(null);
 
     try {
-      const requestedDeckId = readRequestedDeckId();
       const active = await getActiveLessonSession(storedSession.token);
       const activeMatchesSource =
         active.session !== null && active.session.deckId === requestedDeckId;
@@ -225,7 +236,7 @@ export function LessonsClient() {
         message: error instanceof Error ? error.message : "Не удалось загрузить очередь уроков.",
       });
     }
-  }, []);
+  }, [requestedDeckId]);
 
   useEffect(() => {
     void loadQueue();
@@ -1793,11 +1804,3 @@ function formatLocale(locale: ContentLocale): string {
   return locale === "ru-RU" ? "RU" : "EN";
 }
 
-function readRequestedDeckId(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const deckId = new URLSearchParams(window.location.search).get("deckId")?.trim() ?? "";
-  return deckId === "" ? null : deckId;
-}
