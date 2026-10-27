@@ -11,6 +11,9 @@ within that batch without silently changing its objective or numbering.
 
 Detailed acceptance: `DEVELOPMENT_CYCLE_340_354.md`.
 
+Checkpoint: 340-353 implemented and locally checked. Task 354 is releasing;
+runtime/CI evidence lives in the cycle document. No 355-399 task has started.
+
 | ID  | Planned Outcome                                                            |
 | --- | -------------------------------------------------------------------------- |
 | 340 | Validate gaps, reserve this roadmap and specify the current batch          |

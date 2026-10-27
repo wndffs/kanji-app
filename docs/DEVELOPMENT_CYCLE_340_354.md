@@ -18,23 +18,23 @@ Retain existing working teaching, phase tabs, pronunciation, private mnemonics,
 mandatory quiz and deterministic server checks. The source/eligibility/remaining
 limit from the API is authoritative. Browsing never learns/unlocks an item.
 
-| ID  | Deliverable              | Acceptance                                                                                                            | State    |
-| --- | ------------------------ | --------------------------------------------------------------------------------------------------------------------- | -------- |
-| 340 | Scope and roadmap        | Reserve 340-399; specify this batch's observed gaps and boundaries                                                    | Complete |
-| 341 | Owner/source isolation   | Remount on login/token/source changes; query-only filtering preserves the workspace                                   | Complete |
-| 342 | Cancellable queue reads  | Abort obsolete active/queue reads; old 200/401 cannot change a new login                                              | Complete |
-| 343 | Cross-source resume      | Visible unfinished-session route; no automatic abandon/start/grade                                                    | Complete |
-| 344 | Explicit search          | Bounded glyph/kana/romaji/RU/EN query, IME-safe; no per-keystroke requests/history                                    | Complete |
-| 345 | Picker filters           | URL kind/level/selected filters, combined deterministically; no extra API GET                                         | Complete |
-| 346 | Picker pages             | Max 24 visible entries; reload/Back, clamp invalid pages, actionable empty/reset                                      | Complete |
-| 347 | Selected batch           | Preview actual ordering and remove one chosen material without losing hidden selections                               | Complete |
-| 348 | Small batches            | Real capped 1/3/5 presets and recommendation reset; do not add unavailable material                                   | Complete |
-| 349 | Count and start contract | Material/card totals distinct; no selection/order mutation during start; no start during settings save                | Complete |
-| 350 | Source recovery          | Course/deck identity and useful empty/error destinations; malformed source does not silently become a course          | Complete |
-| 351 | Study progress           | Material position and current phase separate from learned/SRS count; quiz progress is confirmed/local to its card set | Complete |
-| 352 | Previous material        | Previous teaching material uses existing confirmed PATCH; no quiz bypass or grading change                            | Complete |
-| 353 | Batched acceptance       | Focused helper/API/browser cases, web build/types, touched lint/format, phone/themes                                  | Complete |
-| 354 | Release                  | Task commits/push/tag, exact runtime health, read-only real lobby, CI and cleanup                                     | Planned  |
+| ID  | Deliverable              | Acceptance                                                                                                            | State     |
+| --- | ------------------------ | --------------------------------------------------------------------------------------------------------------------- | --------- |
+| 340 | Scope and roadmap        | Reserve 340-399; specify this batch's observed gaps and boundaries                                                    | Complete  |
+| 341 | Owner/source isolation   | Remount on login/token/source changes; query-only filtering preserves the workspace                                   | Complete  |
+| 342 | Cancellable queue reads  | Abort obsolete active/queue reads; old 200/401 cannot change a new login                                              | Complete  |
+| 343 | Cross-source resume      | Visible unfinished-session route; no automatic abandon/start/grade                                                    | Complete  |
+| 344 | Explicit search          | Bounded glyph/kana/romaji/RU/EN query, IME-safe; no per-keystroke requests/history                                    | Complete  |
+| 345 | Picker filters           | URL kind/level/selected filters, combined deterministically; no extra API GET                                         | Complete  |
+| 346 | Picker pages             | Max 24 visible entries; reload/Back, clamp invalid pages, actionable empty/reset                                      | Complete  |
+| 347 | Selected batch           | Preview actual ordering and remove one chosen material without losing hidden selections                               | Complete  |
+| 348 | Small batches            | Real capped 1/3/5 presets and recommendation reset; do not add unavailable material                                   | Complete  |
+| 349 | Count and start contract | Material/card totals distinct; no selection/order mutation during start; no start during settings save                | Complete  |
+| 350 | Source recovery          | Course/deck identity and useful empty/error destinations; malformed source does not silently become a course          | Complete  |
+| 351 | Study progress           | Material position and current phase separate from learned/SRS count; quiz progress is confirmed/local to its card set | Complete  |
+| 352 | Previous material        | Previous teaching material uses existing confirmed PATCH; no quiz bypass or grading change                            | Complete  |
+| 353 | Batched acceptance       | Focused helper/API/browser cases, web build/types, touched lint/format, phone/themes                                  | Complete  |
+| 354 | Release                  | Task commits/push/tag, exact runtime health, read-only real lobby, CI and cleanup                                     | Releasing |
 
 ## Safety And Verification
 
@@ -86,3 +86,12 @@ Light/dark desktop/phone picker and teaching captures plus viewport screenshots
 are outside Git. A full-page capture can show sticky navigation over its current
 viewport; viewport images and geometric checks are used for actual control bounds.
 No competitor wording/assets, new dataset or educational translation was added.
+
+## Release Candidate
+
+Code acceptance commit: `6dd9611923caaa3e494f8f04c4cd4ccaec338efd`.
+Release tag: `cycle-340-354-lessons`. Push the 15 numbered task commits together
+through existing GitHub/Vercel/Render integrations. Check exact web and API
+revisions and real read-only lesson-lobby browsing. Do not start/answer/abandon
+a live lesson or save preferences for acceptance. No course publication, schema
+operation or test-account reset is part of this release.
