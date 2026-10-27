@@ -7,6 +7,7 @@ import {
   groupKanaCharacters,
   summarizeKanaContent,
   selectKanaResumeUnit,
+  findKanaPrerequisite,
 } from "../src/lib/kana-unit-groups";
 
 const items = listKana("hiragana").map((item) => ({
@@ -31,6 +32,14 @@ const units: readonly KanaLessonUnitDto[] = [
   },
 ];
 describe("kana chart groups", () => {
+  it("explains the first unmet prerequisite using original units, never filtered ordinals", () => {
+    const open = { ...units[0]!, id: 'first', unlocked: true };
+    const locked = { ...units[0]!, id: 'later' };
+    expect(findKanaPrerequisite([open, locked], 'later')).toBe(open);
+    expect(findKanaPrerequisite([open, locked], 'first')).toBeNull();
+    expect(findKanaPrerequisite([open, locked], 'missing')).toBeNull();
+    expect(findKanaPrerequisite([{ ...open, complete: true }, locked], 'later')).toBeNull();
+  });
   it("resumes only nonempty unlocked lessons and handles complete or empty paths", () => {
     const completed = { ...units[0]!, id: 'complete', unlocked: true, complete: true };
     const next = { ...units[0]!, id: 'next', unlocked: true };

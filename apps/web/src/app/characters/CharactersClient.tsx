@@ -31,7 +31,7 @@ import {
 } from "../../lib/character-hub";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
-import { filterKanaUnits, KANA_GROUP_LABELS, selectKanaResumeUnit } from "../../lib/kana-unit-groups";
+import { filterKanaUnits, KANA_GROUP_LABELS, selectKanaResumeUnit, findKanaPrerequisite } from "../../lib/kana-unit-groups";
 
 type CharactersState =
   | { readonly status: "loading" }
@@ -304,6 +304,9 @@ function KanaCharacterPanel({ section, group, onGroupChange }: {
                     : "Закрыто"}
               </strong>
             </header>
+            {!unit.unlocked && findKanaPrerequisite(section.units, unit.id) ? (
+              <p className="kana-unit-prerequisite">После урока «{findKanaPrerequisite(section.units, unit.id)!.title}»</p>
+            ) : null}
             <div className="character-hub-kana-chart">
               {unit.items.map((item) =>
                 unit.unlocked ? (

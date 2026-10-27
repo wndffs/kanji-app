@@ -29,7 +29,7 @@ speech/preferences components. No copied competitor data, wording, CSS or media.
 | 295 | Validated scope | Record actual gaps, acceptance and release boundaries | Complete |
 | 296 | Bookmarkable kana groups | Group survives reload, tab changes and Back; invalid query defaults safely | Implemented |
 | 297 | Precise resume destination | Hub continues the first available unfinished unit; all-complete and empty states are honest | Implemented |
-| 298 | Visible prerequisites | Locked units identify their first unfinished predecessor without granting access | Pending |
+| 298 | Visible prerequisites | Locked units identify their first unfinished predecessor without granting access | Implemented |
 | 299 | Group-specific progress | Visible group counts use matching items, not the entire alphabet; no NaN on empty groups | Pending |
 | 300 | Map status filters | All/available/started/mastered filters combine with groups and retain URL state | Pending |
 | 301 | Finder availability filter | Learner can narrow to available/unfinished/mastered lessons and clear filters | Pending |

@@ -73,6 +73,12 @@ export function selectKanaResumeUnit(units: readonly KanaLessonUnitDto[]): KanaL
   return available.find((unit) => !unit.complete) ?? available.at(-1) ?? null;
 }
 
+export function findKanaPrerequisite(units: readonly KanaLessonUnitDto[], unitId: string) {
+  const index = units.findIndex((unit) => unit.id === unitId);
+  if (index < 0 || units[index]?.unlocked) return null;
+  return units.slice(0, index).find((unit) => !unit.complete) ?? null;
+}
+
 export function findKanaLessonUnits(
   units: readonly KanaLessonUnitDto[],
   query: string,

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Check, Lock, X } from "lucide-react";
 import { type KanaLessonUnitDto, type KanaVariant } from "@kanji-srs/shared";
-import { findKanaLessonUnits, KANA_GROUP_LABELS } from "../../lib/kana-unit-groups";
+import { findKanaLessonUnits, findKanaPrerequisite, KANA_GROUP_LABELS } from "../../lib/kana-unit-groups";
 
 export function KanaLessonFinder({
   units,
@@ -63,9 +63,7 @@ export function KanaLessonFinder({
       <div className="kana-unit-list" data-testid="kana-unit-list">
         {visible.map((unit) => {
           const ordinal = units.findIndex((candidate) => candidate.id === unit.id);
-          const prerequisite = !unit.unlocked
-            ? units.slice(0, ordinal).find((candidate) => !candidate.complete)
-            : undefined;
+          const prerequisite = findKanaPrerequisite(units, unit.id);
           return (
             <button
               aria-current={unit.id === activeUnitId ? "step" : undefined}
@@ -100,7 +98,7 @@ export function KanaLessonFinder({
                   ) : null}
                   {unit.masteredCount}/{unit.totalCount}
                 </small>
-                {prerequisite === undefined ? null : (
+                {prerequisite === null ? null : (
                   <small className="kana-unit-prerequisite">
                     После урока «{prerequisite.title}»
                   </small>
