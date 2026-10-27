@@ -1268,6 +1268,7 @@ function ItemReadingDetails({
   readonly hideReadings: boolean;
 }) {
   if (item.kanjiDetails !== null) {
+    if (hideReadings) return <section className="panel" data-testid="kanji-reading-details"><h2>Чтения</h2><p className="muted">Чтение скрыто.</p></section>;
     const readingGroups = [
       ["on", "Онъёми"],
       ["kun", "Кунъёми"],
@@ -1292,9 +1293,9 @@ function ItemReadingDetails({
             <TextList textKind="reading" texts={item.kanjiDetails.additionalAcceptedReadings} />
           </div>
         </div>
+        <SectionDisclosure title="Словарные чтения">
         <div className="dictionary-evidence">
           <div className="section-heading-row">
-            <h3>Словарные чтения</h3>
             <span className="source-kind-label imported">импортированные данные</span>
           </div>
           <div className="reading-evidence-grid">
@@ -1319,6 +1320,7 @@ function ItemReadingDetails({
           </div>
           <ImportedSourceLinks sources={item.attributions} />
         </div>
+        </SectionDisclosure>
       </section>
     );
   }
