@@ -820,7 +820,7 @@ function KanaReadinessProgress({
       <div>
         <span>{label}</span>
         <strong>
-          {progress.masteredCount} / {progress.totalCount}
+          {progress.masteredCount} / {progress.totalCount} элементов
         </strong>
       </div>
       <div

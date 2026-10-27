@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Volume2 } from "lucide-react";
 import { ViewTabs } from "../../components/ViewTabs";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
+import { KanaContentSummary } from "../../components/KanaContentSummary";
 import {
   type FormEvent,
   type RefObject,
@@ -543,7 +544,10 @@ function OwnedKanaClient({
     );
   }
 
-  const progressPercent = Math.round((state.path.masteredCount / state.path.totalCount) * 100);
+  const progressPercent =
+    state.path.totalCount === 0
+      ? 0
+      : Math.round((state.path.masteredCount / state.path.totalCount) * 100);
 
   return (
     <section className="page-stack kana-page" data-script={script} data-mode={mode}>
@@ -618,7 +622,7 @@ function OwnedKanaClient({
       {mode === "practice" ? null : (
         <div className="kana-progress-summary">
           <div>
-            <span>Освоено</span>
+            <span>Освоено учебных элементов</span>
             <strong>
               {state.path.masteredCount}/{state.path.totalCount}
             </strong>
@@ -638,6 +642,8 @@ function OwnedKanaClient({
           </small>
         </div>
       )}
+
+      {mode === "practice" ? null : <KanaContentSummary items={state.progress.items} />}
 
       <div
         className="kana-workspace"

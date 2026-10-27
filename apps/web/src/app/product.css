@@ -1437,6 +1437,33 @@ textarea::placeholder {
   height: 6px;
   border: 0;
 }
+.kana-content-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 28px;
+  margin: 0;
+  padding-block: 12px;
+  border-bottom: 1px solid var(--surface-border);
+}
+.kana-content-summary dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.kana-content-summary dd {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 0;
+}
+.kana-content-summary dd strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.kana-content-summary dd span {
+  color: var(--muted);
+  font-size: 12px;
+}
 .character-hub-kana-chart :is(a, span) {
   border-radius: 6px;
 }

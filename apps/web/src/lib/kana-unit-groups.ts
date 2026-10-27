@@ -11,8 +11,31 @@ export const KANA_GROUP_LABELS: Readonly<Record<KanaVariant | "all", string>> = 
   yoon: "Сочетания: きゃ",
   sokuon: "Удвоение согласных: っ",
   "long-vowel": "Долгие гласные",
-  all: "Все знаки",
+  all: "Все элементы",
 };
+
+const CONTENT_CATEGORIES = [
+  { id: "basic", label: "Основные знаки", variants: ["basic"] },
+  { id: "modified", label: "Дакутэн и хандакутэн", variants: ["dakuten", "handakuten"] },
+  { id: "combinations", label: "Сочетания", variants: ["yoon"] },
+  { id: "exercises", label: "Упражнения", variants: ["sokuon", "long-vowel"] },
+] as const;
+
+export function summarizeKanaContent(
+  items: readonly Pick<KanaAssessmentItemDto, "variant" | "mastered">[],
+) {
+  return CONTENT_CATEGORIES.map((category) => {
+    const included = items.filter((item) =>
+      (category.variants as readonly KanaVariant[]).includes(item.variant),
+    );
+    return {
+      id: category.id,
+      label: category.label,
+      total: included.length,
+      mastered: included.filter((item) => item.mastered).length,
+    };
+  }).filter((category) => category.total > 0);
+}
 
 export function groupKanaCharacters(items: readonly KanaAssessmentItemDto[]) {
   return (Object.keys(KANA_GROUP_LABELS) as (KanaVariant | "all")[])

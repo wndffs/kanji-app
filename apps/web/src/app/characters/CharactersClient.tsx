@@ -16,6 +16,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
+import { KanaContentSummary } from "../../components/KanaContentSummary";
 import { ViewTabs } from "../../components/ViewTabs";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { ApiError, getCharacterHub } from "../../lib/api-client";
@@ -204,8 +205,8 @@ function KanaCharacterPanel({ section }: { readonly section: CharacterHubKanaSec
           <p className="character-hub-model">Прогресс каны: освоение в уроках, не SRS</p>
           <h2>{TAB_LABELS[section.script]}</h2>
           <p>
-            Освоено {section.masteredCount} из {section.totalCount}, начато {section.attemptedCount}
-            .
+            Освоено {section.masteredCount} из {section.totalCount} учебных элементов, начато{" "}
+            {section.attemptedCount}.
           </p>
         </div>
         <div
@@ -219,6 +220,8 @@ function KanaCharacterPanel({ section }: { readonly section: CharacterHubKanaSec
           <span style={{ width: `${percentage}%` }} />
         </div>
       </header>
+
+      <KanaContentSummary items={section.units.flatMap((unit) => unit.items)} />
 
       <div className="action-row character-hub-actions">
         <Link className="primary-action" href={section.actions.lessonsHref}>

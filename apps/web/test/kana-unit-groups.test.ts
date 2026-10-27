@@ -5,6 +5,7 @@ import {
   filterKanaUnits,
   findKanaLessonUnits,
   groupKanaCharacters,
+  summarizeKanaContent,
 } from "../src/lib/kana-unit-groups";
 
 const items = listKana("hiragana").map((item) => ({
@@ -29,6 +30,22 @@ const units: readonly KanaLessonUnitDto[] = [
   },
 ];
 describe("kana chart groups", () => {
+  it.each([
+    ["hiragana", 11],
+    ["katakana", 9],
+  ] as const)("separates 46 signs from combinations and exercises for %s", (script, exercises) => {
+    const content = listKana(script).map((item) => ({
+      ...item,
+      mastered: item.variant === "basic",
+    }));
+    expect(summarizeKanaContent(content)).toEqual([
+      { id: "basic", label: "Основные знаки", total: 46, mastered: 46 },
+      { id: "modified", label: "Дакутэн и хандакутэн", total: 25, mastered: 0 },
+      { id: "combinations", label: "Сочетания", total: 33, mastered: 0 },
+      { id: "exercises", label: "Упражнения", total: exercises, mastered: 0 },
+    ]);
+    expect(summarizeKanaContent([])).toEqual([]);
+  });
   it("groups every assessment sign once in teaching order and preserves progress objects", () => {
     const groups = groupKanaCharacters(items);
     expect(groups[0]?.variant).toBe("basic");
