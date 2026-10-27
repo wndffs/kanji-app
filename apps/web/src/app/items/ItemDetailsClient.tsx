@@ -47,6 +47,7 @@ import { formatSrsStageName } from "../../lib/dashboard-format";
 import { itemReadingPresentation, resolveItemReadingPreferences } from "../../lib/item-reading";
 import {
   editMnemonicBody,
+  mnemonicDraftCount,
   resolveMnemonicForm,
   selectMnemonicForm,
   type MnemonicFormState,
@@ -867,6 +868,8 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               <h2>Приватные ответы</h2>
               {token === null ? (
                 <p className="muted">Войдите, чтобы добавить личные варианты ответа.</p>
+              ) : item.cards.length === 0 ? (
+                <p className="muted">У этого материала пока нет учебных карточек для личных ответов.</p>
               ) : (
                 <>
                   <form
@@ -895,8 +898,8 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
                         }}
                         value={acceptedForm.answerKind}
                       >
-                        <option value="meaning">Значение</option>
-                        <option value="reading">Чтение</option>
+                        <option value="meaning" disabled={!item.cards.some((card) => card.answerType === "meaning")}>Значение</option>
+                        <option value="reading" disabled={!item.cards.some((card) => card.answerType === "reading")}>Чтение</option>
                       </select>
                     </label>
                     <label>
@@ -1021,6 +1024,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
                     <p role="alert">{noteReadError}</p>
                     <button className="secondary-action" type="button" onClick={() => void loadPrivateNotes(item.id, token, true)}>Повторить загрузку заметок</button>
                   </div> : null}
+                  {noteRead === "ready" && mnemonicDraftCount(mnemonicForm, privateMnemonics) > 0 ? <p className="item-draft-status" role="status">Несохранённых заметок: {mnemonicDraftCount(mnemonicForm, privateMnemonics)}</p> : null}
                   <form
                     className="private-item-form"
                     data-testid="private-mnemonic-form"
