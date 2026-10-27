@@ -118,6 +118,7 @@ function OwnedKanaClient({
   const [feedback, setFeedback] = useState<KanaAssessmentAnswerResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const practiceRef = useRef<HTMLElement>(null);
   const choiceRef = useRef<HTMLButtonElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
   const requestRevision = useRef(0);
@@ -473,7 +474,7 @@ function OwnedKanaClient({
   }
 
   function handleStartUnit(unit: KanaLessonUnitDto): void {
-    if (!unit.unlocked || feedback !== null) {
+    if (!unit.unlocked || feedback !== null || submitting) {
       return;
     }
 
@@ -482,6 +483,7 @@ function OwnedKanaClient({
     const character = selectNextLessonCharacter(unit.items, null);
     prepareExercise(character, unit.items);
     setLessonPhase(selectLessonPhase(unit.items, character));
+    requestAnimationFrame(() => practiceRef.current?.scrollIntoView({ block: "start" }));
   }
 
   function handleSelectAssessmentCharacter(character: string): void {
@@ -660,7 +662,7 @@ function OwnedKanaClient({
           />
         ) : (
           <>
-            <section className="panel kana-practice" data-testid="kana-practice">
+            <section className="panel kana-practice" data-testid="kana-practice" ref={practiceRef}>
               {mode === "lessons" && activeUnit !== null ? (
                 <header className="kana-current-lesson">
                   <h2 className="kana-current-unit">{activeUnit.title}</h2>
@@ -707,7 +709,7 @@ function OwnedKanaClient({
                 <KanaLessonFinder
                   units={state.path.units}
                   activeUnitId={activeUnitId}
-                  submitting={submitting}
+                  submitting={submitting || feedback !== null}
                   onStart={handleStartUnit}
                 />
               </SectionDisclosure>

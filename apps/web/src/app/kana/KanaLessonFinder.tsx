@@ -113,7 +113,7 @@ export function KanaLessonFinder({
                 )}
               </span>
               <span className="kana-unit-characters" lang="ja">
-                {unit.items.map((item) => (
+                {unit.items.filter((item) => group === "all" || item.variant === group).map((item) => (
                   <span className={item.mastered ? "is-mastered" : ""} key={item.character}>
                     {item.character}
                   </span>

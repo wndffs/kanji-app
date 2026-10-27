@@ -1456,6 +1456,9 @@ textarea::placeholder {
   min-width: 0;
   max-width: 400px;
 }
+.kana-practice {
+  scroll-margin-top: 88px;
+}
 .kana-content-summary dt {
   color: var(--muted);
   font-size: 12px;
