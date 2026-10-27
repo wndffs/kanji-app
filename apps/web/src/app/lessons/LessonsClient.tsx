@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { nextTabIndex } from "../../lib/tab-navigation";
-import { Volume2, Check } from "lucide-react";
+import { Volume2, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   type FormEvent,
   type RefObject,
@@ -12,6 +12,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useTransition,
 } from "react";
 
 import {
@@ -62,7 +63,7 @@ import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import { useLessonPronunciationPreferences } from "../../lib/use-lesson-pronunciation-preferences";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { useStoredSession, ownsSession } from "../../lib/use-stored-session";
-import { filterLessonBrowser, lessonBrowserHref, lessonSourceHref, parseLessonBrowser, parseLessonSource } from "../../lib/lesson-browser";
+import { filterLessonBrowser, lessonBrowserHref, lessonSourceHref, parseLessonBrowser, parseLessonSource, mergeLessonBrowser, type LessonBrowserRoute } from "../../lib/lesson-browser";
 
 type QueueState =
   | { readonly status: "checking" }
@@ -1076,8 +1077,21 @@ function LessonPicker({
   const selectedCount = selectedItemIds.size;
   const router = useRouter();
   const params = useSearchParams();
-  const browse = parseLessonBrowser(params);
+  const confirmed = useMemo(() => parseLessonBrowser(params), [params]);
+  const [navigating, startNavigation] = useTransition();
+  const [optimistic, setOptimistic] = useState(confirmed);
+  const latest = useRef(confirmed);
+  const browse = navigating ? optimistic : confirmed;
+  useEffect(() => { if (!navigating) latest.current = confirmed; }, [confirmed, navigating]);
+  function navigate(patch: Partial<LessonBrowserRoute>, replace = false) {
+    const next = mergeLessonBrowser(latest.current, patch);
+    latest.current = next;
+    setOptimistic(next);
+    const href = lessonBrowserHref(parseLessonSource(params).deckId, next);
+    startNavigation(() => { if (replace) router.replace(href, { scroll: false }); else router.push(href, { scroll: false }); });
+  }
   const visibleItems = filterLessonBrowser(availableItems, browse, selectedItemIds);
+  const levels = [...new Set(availableItems.flatMap(({ item }) => item.level === null ? [] : [item.level]))].sort((a, b) => a - b);
 
   return (
     <section className="lesson-picker" aria-labelledby="lesson-picker-heading">
@@ -1122,7 +1136,12 @@ function LessonPicker({
         </button>
       </div>
 
-      <LessonPickerSearch key={browse.q} value={browse.q} disabled={false} onSearch={(q) => router.push(lessonBrowserHref(parseLessonSource(params).deckId, { ...browse, q, page: 1 }), { scroll: false })} />
+      <LessonPickerSearch key={browse.q} value={browse.q} disabled={false} onSearch={(q) => navigate({ q })} />
+      <div className="lesson-picker-filters">
+        <label><span>Тип материала</span><select value={browse.kind} onChange={(event) => navigate({ kind: event.currentTarget.value as LessonBrowserRoute["kind"] })}><option value="all">Все типы</option>{(["component", "kanji", "word", "sentence"] as const).map((kind) => <option key={kind} value={kind}>{formatItemType(kind)}</option>)}</select></label>
+        <label><span>Уровень материалов</span><select value={browse.level ?? "all"} onChange={(event) => navigate({ level: event.currentTarget.value === "all" ? null : Number(event.currentTarget.value) })}><option value="all">Все уровни</option>{levels.map((level) => <option key={level} value={level}>Уровень {level}</option>)}</select></label>
+        <label className="checkbox-row"><input type="checkbox" checked={browse.selected} onChange={(event) => navigate({ selected: event.currentTarget.checked })} />Только выбранные</label>
+      </div>
       <div className="lesson-preview-grid">
         {visibleItems.map((lesson) => {
           const isSelected = selectedItemIds.has(lesson.item.id);
