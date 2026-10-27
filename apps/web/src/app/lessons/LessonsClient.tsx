@@ -725,7 +725,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
           <p>Нужен вход в аккаунт.</p>
         </div>
         <div className="notice-panel">
-          <p>Войдите в demo-аккаунт, чтобы открыть очередь уроков и создать карточки повторения.</p>
+          <p>Войдите, чтобы открыть свои уроки.</p>
           <Link className="primary-action" href="/login">
             Войти
           </Link>
@@ -742,10 +742,11 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
           <p>Очередь сейчас недоступна.</p>
         </div>
         <div className="notice-panel error-panel">
-          <p>{queueState.message}</p>
+          <p role="alert">{queueState.message}</p>
           <button className="secondary-action" onClick={() => void loadQueue()} type="button">
             Повторить загрузку
           </button>
+          <Link className="inline-link" href={requestedDeckId === null ? "/courses" : "/decks"}>{requestedDeckId === null ? "К курсам" : "К колодам"}</Link>
         </div>
       </section>
     );
@@ -784,14 +785,14 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
     );
   }
 
-  if (queueState.availableItems.length === 0) {
+  if (session === null && (queueState.availableItems.length === 0 || lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday) === 0)) {
     const isDeckQueue = queueState.source.kind === "deck";
 
     return (
       <section className="page-stack">
         <div className="page-heading">
           <h1>{isDeckQueue ? "Уроки колоды" : "Уроки"}</h1>
-          <p>Очередь пуста.</p>
+          <p>{queueState.remainingToday <= 0 ? "Дневной лимит исчерпан." : "Очередь пуста."}</p>
         </div>
         <div className="notice-panel">
           <p>
@@ -802,6 +803,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
           <button className="secondary-action" onClick={() => void loadQueue()} type="button">
             Проверить снова
           </button>
+          <div className="action-row"><Link className="inline-link" href={isDeckQueue ? "/decks" : "/courses"}>{isDeckQueue ? "К колодам" : "К курсам"}</Link><Link className="inline-link" href="/reviews">К повторениям</Link></div>
         </div>
       </section>
     );
@@ -814,6 +816,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
       <section className="page-stack lesson-queue">
         <div className="page-heading lesson-heading">
           <div>
+            <span className="eyebrow">{isDeckQueue ? "Колода" : "Основной курс"}</span>
             <h1>{isDeckQueue ? "Уроки колоды" : "Уроки"}</h1>
             <p>
               {isDeckQueue ? `${queueState.source.title}. ` : ""}
@@ -821,6 +824,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
             </p>
           </div>
         </div>
+        <Link className="inline-link lesson-source-link" href={isDeckQueue ? "/decks" : "/courses"}>{isDeckQueue ? "К колодам" : "К курсам"}</Link>
         {sessionError === null ? null : (
           <p className="form-error" role="alert">
             {sessionError}
@@ -836,6 +840,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
             </li>
           ))}
         </ul>
+        {selectedLessons.length === 0 ? <p className="muted">Материалы в группу не выбраны.</p> : null}
         <p className="muted lesson-queue-counts">
           Доступно: {queueState.availableItems.length} · Осталось на сегодня:{" "}
           {queueState.remainingToday}
