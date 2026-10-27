@@ -41,6 +41,11 @@ describe("character hub query", () => {
       }),
     ).toBe("/characters?tab=kanji&level=3&band=n5&state=learning");
   });
+  it('keeps view options in canonical links without inventing unsupported views', () => {
+    expect(parseCharacterHubQuery(new URLSearchParams('view=list')).catalogue.view).toBe('list');
+    expect(parseCharacterHubQuery(new URLSearchParams('view=custom')).catalogue.view).toBe('grid');
+    expect(buildCharacterHubHref('kanji', undefined, 'basic', 'all', { ...DEFAULT_CHARACTER_CATALOGUE, view: 'list' })).toBe('/characters?tab=kanji&view=list');
+  });
   it("accepts only bounded positive decimal catalogue pages", () => {
     for (const value of ['0', '-1', '1.2', 'Infinity', '1e2', '10001', '999999999999999999'])
       expect(parseCharacterHubQuery(new URLSearchParams({ page: value })).catalogue.page).toBe(1);

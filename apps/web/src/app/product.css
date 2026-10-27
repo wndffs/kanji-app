@@ -1580,6 +1580,45 @@ textarea::placeholder {
   color: var(--muted);
   font-size: 12px;
 }
+.catalogue-view-controls {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+.catalogue-view-controls [aria-pressed="true"] {
+  color: var(--primary);
+  background: var(--subject-component-soft);
+}
+.character-hub-kanji-grid[data-view="list"] {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.character-hub-kanji-grid[data-view="list"] a {
+  grid-template-columns: 60px minmax(0, 1fr) minmax(140px, 220px);
+  grid-template-rows: auto;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+}
+.character-hub-kanji-grid[data-view="list"] .character-hub-kanji-character {
+  font-size: 28px;
+}
+.character-hub-kanji-grid[data-view="list"] .character-hub-kanji-meta {
+  border: 0;
+  padding: 0;
+}
+@media (max-width: 600px) {
+  .character-hub-kanji-grid[data-view="list"] a {
+    grid-template-columns: 60px minmax(0, 1fr);
+    gap: 8px 12px;
+  }
+  .character-hub-kanji-grid[data-view="list"] .character-hub-kanji-character {
+    grid-row: 1 / span 2;
+  }
+  .character-hub-kanji-grid[data-view="list"] .character-hub-kanji-meta {
+    grid-column: 2;
+  }
+}
 .character-hub-kanji-grid > li {
   background: var(--surface);
   border: 1px solid var(--surface-border);

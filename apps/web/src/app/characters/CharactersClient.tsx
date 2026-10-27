@@ -2,7 +2,7 @@
 import { kanaLessonHref } from "../../lib/kana-route";
 
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, LayoutGrid, List, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -530,6 +530,10 @@ function KanjiCharacterPanel({
         <label><span>Порядок кандзи</span><select value={catalogue.sort} onChange={(event) => onCatalogueChange({ ...catalogue, sort: event.currentTarget.value as CharacterCatalogueSort, page: 1 })}>
           {(Object.keys(CHARACTER_CATALOGUE_SORTS) as CharacterCatalogueSort[]).map((id) => <option key={id} value={id}>{CHARACTER_CATALOGUE_SORTS[id]}</option>)}
         </select></label>
+        <div className="catalogue-view-controls" role="group" aria-label="Вид каталога кандзи">
+          <button className="icon-button" type="button" aria-label="Плитки кандзи" title="Плитки" aria-pressed={catalogue.view === 'grid'} onClick={() => onCatalogueChange({ ...catalogue, view: 'grid' })}><LayoutGrid size={18} aria-hidden="true" /></button>
+          <button className="icon-button" type="button" aria-label="Список кандзи" title="Список" aria-pressed={catalogue.view === 'list'} onClick={() => onCatalogueChange({ ...catalogue, view: 'list' })}><List size={18} aria-hidden="true" /></button>
+        </div>
       </div>
       <SectionDisclosure title="Фильтры кандзи" defaultOpen={applied.length > 0}>
         <div className="character-hub-filters" aria-label="Фильтры кандзи">
@@ -647,7 +651,7 @@ function KanjiCharacterPanel({
           <p>По выбранным фильтрам кандзи не найдены.</p>
         </div>
       ) : (
-        <ol className="character-hub-kanji-grid">
+        <ol className="character-hub-kanji-grid" data-view={catalogue.view}>
           {visibleItems.map((item) => (
             <li key={`${item.level}-${item.id}`} data-study-state={item.studyState}>
               <Link href={item.href}>
