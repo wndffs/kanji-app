@@ -31,7 +31,7 @@ import {
 } from "../../lib/character-hub";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
-import { filterKanaUnits, KANA_GROUP_LABELS, selectKanaResumeUnit, findKanaPrerequisite } from "../../lib/kana-unit-groups";
+import { filterKanaUnits, KANA_GROUP_LABELS, selectKanaResumeUnit, findKanaPrerequisite, summarizeKanaUnits } from "../../lib/kana-unit-groups";
 
 type CharactersState =
   | { readonly status: "loading" }
@@ -195,6 +195,7 @@ function KanaCharacterPanel({ section, group, onGroupChange }: {
   readonly onGroupChange: (group: KanaVariant | "all") => void;
 }) {
   const units = filterKanaUnits(section.units, group);
+  const groupProgress = summarizeKanaUnits(units);
   const resumeUnit = selectKanaResumeUnit(section.units);
   const resumeItem = resumeUnit?.items.find((item) => !item.mastered) ?? resumeUnit?.items[0];
   const percentage =
@@ -282,6 +283,9 @@ function KanaCharacterPanel({ section, group, onGroupChange }: {
           ))}
         </select>
       </label>
+      <p className="muted" aria-label="Прогресс выбранной группы">
+        Освоено {groupProgress.mastered} из {groupProgress.total} · Начато {groupProgress.started}
+      </p>
       {units.length === 0 ? <p className="muted">В этой группе знаков нет.</p> : null}
       <ol
         className="character-hub-kana-units"

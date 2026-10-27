@@ -79,6 +79,15 @@ export function findKanaPrerequisite(units: readonly KanaLessonUnitDto[], unitId
   return units.slice(0, index).find((unit) => !unit.complete) ?? null;
 }
 
+export function summarizeKanaUnits(units: readonly KanaLessonUnitDto[]) {
+  const items = units.flatMap((unit) => unit.items);
+  return {
+    total: items.length,
+    mastered: items.filter((item) => item.mastered).length,
+    started: items.filter((item) => item.attemptCount > 0).length,
+  };
+}
+
 export function findKanaLessonUnits(
   units: readonly KanaLessonUnitDto[],
   query: string,
