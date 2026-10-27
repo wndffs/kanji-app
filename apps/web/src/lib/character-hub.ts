@@ -1,5 +1,6 @@
 import {
   SUPPORTED_COURSE_BANDS,
+  getContentLocalesForDisplayMode,
   type CharacterHubKanjiItemDto,
   type CharacterHubKanjiStudyState,
   type CourseBand,
@@ -130,6 +131,14 @@ export function filterCharacterHubKanji(
       words.every((word) => [item.character, item.reading, item.meaningRu, item.meaningEn, item.reading ? romanizeKana(item.reading) : null]
         .some((text) => text !== null && normalize(text).includes(word))),
   );
+}
+
+export function characterMeaningRows(item: Pick<CharacterHubKanjiItemDto, 'meaningRu' | 'meaningEn'>, mode: TranslationDisplayMode) {
+  return getContentLocalesForDisplayMode(mode).map((locale) => ({
+    lang: locale === 'ru-RU' ? 'ru' : 'en',
+    label: locale === 'ru-RU' ? 'RU' : 'EN',
+    text: (locale === 'ru-RU' ? item.meaningRu : item.meaningEn)?.trim() || null,
+  }));
 }
 
 export function sortCharacterHubKanji(items: readonly CharacterHubKanjiItemDto[], sort: CharacterCatalogueSort, mode: TranslationDisplayMode) {

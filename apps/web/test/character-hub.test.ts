@@ -8,6 +8,7 @@ import {
   parseCharacterHubQuery,
   DEFAULT_CHARACTER_CATALOGUE,
   sortCharacterHubKanji,
+  characterMeaningRows,
 } from "../src/lib/character-hub";
 
 describe("character hub query", () => {
@@ -98,6 +99,12 @@ describe("character hub query", () => {
     expect(sortCharacterHubKanji(source, 'meaning', 'en')).toEqual([a, b, missing]);
     expect(sortCharacterHubKanji(source, 'weakness', 'ru')[0]).toBe(a);
     expect(source).toEqual([missing, b, a]);
+  });
+  it('labels both learning languages and never substitutes EN for a missing Russian meaning', () => {
+    const item = { meaningRu: ' ', meaningEn: ' one ' };
+    expect(characterMeaningRows(item, 'ru')).toEqual([{ lang: 'ru', label: 'RU', text: null }]);
+    expect(characterMeaningRows(item, 'en')).toEqual([{ lang: 'en', label: 'EN', text: 'one' }]);
+    expect(characterMeaningRows(item, 'ru-en')).toEqual([{ lang: 'ru', label: 'RU', text: null }, { lang: 'en', label: 'EN', text: 'one' }]);
   });
 });
 

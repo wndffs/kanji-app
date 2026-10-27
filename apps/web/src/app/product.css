@@ -1675,6 +1675,25 @@ textarea::placeholder {
   font-size: 13px;
   line-height: 1.6;
 }
+.character-hub-meaning-rows {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.character-hub-meaning-rows > span {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.character-hub-meaning-rows small {
+  flex: 0 0 20px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.character-hub-meaning-rows > span > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .character-hub-kanji-meta span {
   border: 0;
   padding-inline: 0;

@@ -26,6 +26,7 @@ import {
   buildCharacterHubHref,
   CHARACTER_CATALOGUE_PAGE_SIZE,
   CHARACTER_CATALOGUE_SORTS,
+  characterMeaningRows,
   sortCharacterHubKanji,
   type CharacterCatalogueSort,
   EMPTY_CHARACTER_HUB_FILTERS,
@@ -667,7 +668,9 @@ function KanjiCharacterPanel({
                 </JapaneseText>
                 <div className="character-hub-kanji-copy">
                   <strong>{item.reading ?? "Чтение уточняется"}</strong>
-                  <span>{formatMeanings(item, displayMode)}</span>
+                  <div className="character-hub-meaning-rows">
+                    {characterMeaningRows(item, displayMode).map((row) => <span key={row.lang} lang={row.text === null ? 'ru' : row.lang}><small>{row.label}</small><span>{row.text ?? 'Перевод не добавлен'}</span></span>)}
+                  </div>
                 </div>
                 <div className="character-hub-kanji-meta">
                   <span>Ур. {item.level}</span>
@@ -720,18 +723,6 @@ function FilterSelect({
       </select>
     </label>
   );
-}
-
-function formatMeanings(
-  item: CharacterHubKanjiItemDto,
-  displayMode: TranslationDisplayMode,
-): string {
-  const values = [
-    ...(displayMode === "ru" || displayMode === "ru-en" ? [item.meaningRu] : []),
-    ...(displayMode === "en" || displayMode === "ru-en" ? [item.meaningEn] : []),
-  ].filter((value): value is string => value !== null);
-
-  return values.length === 0 ? "Значение уточняется" : values.join(" · ");
 }
 
 function filtersEqual(left: CharacterHubKanjiFilters, right: CharacterHubKanjiFilters): boolean {
