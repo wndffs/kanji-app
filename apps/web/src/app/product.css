@@ -1459,6 +1459,12 @@ textarea::placeholder {
 .kana-practice {
   scroll-margin-top: 88px;
 }
+.kana-teaching-reading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
 .kana-content-summary dt {
   color: var(--muted);
   font-size: 12px;

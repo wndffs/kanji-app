@@ -203,7 +203,7 @@ function OwnedKanaClient({
     }
   }, [exerciseKind, feedback, lessonPhase, selectedCharacter]);
 
-  useEffect(() => kanaSpeech.cancel, [kanaSpeech.cancel, selectedCharacter, script]);
+  useEffect(() => kanaSpeech.cancel, [kanaSpeech.cancel, selectedCharacter, script, mode, lessonPhase]);
 
   const currentItem = useMemo(() => {
     if (state.status !== "ready") {
@@ -676,6 +676,8 @@ function OwnedKanaClient({
               ) : mode === "lessons" && lessonPhase === "teach" && currentLessonItem !== null ? (
                 <KanaTeachingStep
                   item={currentLessonItem}
+                  speechAvailable={kanaSpeech.available}
+                  onSpeak={() => kanaSpeech.speak(buildKanaSpeechText(currentLessonItem))}
                   onContinue={() => setLessonPhase("quiz")}
                 />
               ) : currentLessonItem === null ? (
@@ -1069,9 +1071,13 @@ function KanaFeedback({
 function KanaTeachingStep({
   item,
   onContinue,
+  onSpeak,
+  speechAvailable,
 }: {
   readonly item: KanaLessonItemDto;
   readonly onContinue: () => void;
+  readonly onSpeak: () => boolean;
+  readonly speechAvailable: boolean;
 }) {
   return (
     <div className="kana-teaching-step">
@@ -1079,7 +1085,12 @@ function KanaTeachingStep({
       <div className="kana-prompt" lang="ja">
         {item.character}
       </div>
-      <strong className="kana-reading">{item.romaji}</strong>
+      <div className="kana-teaching-reading">
+        <strong className="kana-reading">{item.romaji}</strong>
+        <button className="icon-button" type="button" onClick={() => void onSpeak()} disabled={!speechAvailable} aria-label="Прослушать чтение" title={speechAvailable ? "Прослушать чтение" : "Озвучивание недоступно в этом браузере"}>
+          <Volume2 size={20} aria-hidden="true" />
+        </button>
+      </div>
       {item.variant === "basic" ? null : (
         <div className="kana-base-pair" lang="ja">
           <span>{item.baseCharacter}</span>
