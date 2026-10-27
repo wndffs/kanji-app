@@ -1483,6 +1483,16 @@ textarea::placeholder {
   align-items: center;
   gap: 8px;
 }
+.kana-unit-completion {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  padding: 24px 0;
+  text-align: center;
+}
+.kana-unit-completion .action-row {
+  justify-content: center;
+}
 .kana-content-summary dt {
   color: var(--muted);
   font-size: 12px;

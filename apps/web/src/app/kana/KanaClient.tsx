@@ -113,6 +113,7 @@ function OwnedKanaClient({
   const [mode, setMode] = useState<KanaRouteMode>(initialMode);
   const [state, setState] = useState<KanaState>({ status: "checking" });
   const [activeUnitId, setActiveUnitId] = useState<string | null>(null);
+  const [completedUnitId, setCompletedUnitId] = useState<string | null>(null);
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
   const [lessonPhase, setLessonPhase] = useState<LessonPhase>("teach");
   const [exerciseKind, setExerciseKind] = useState<KanaExerciseKind>("typing");
@@ -138,6 +139,7 @@ function OwnedKanaClient({
     let cancelled = false;
     const revision = ++requestRevision.current;
     setState({ status: "loading" });
+    setCompletedUnitId(null);
     setAnswer("");
     setFeedback(null);
 
@@ -194,7 +196,9 @@ function OwnedKanaClient({
   }, [state.status, mode, activeUnitId, selectedCharacter]);
 
   useEffect(() => {
-    if (lessonPhase === "quiz" && feedback === null) {
+    if (completedUnitId !== null) {
+      continueRef.current?.focus();
+    } else if (lessonPhase === "quiz" && feedback === null) {
       if (exerciseKind === "typing") {
         inputRef.current?.focus();
       } else {
@@ -203,7 +207,7 @@ function OwnedKanaClient({
     } else if (feedback !== null) {
       continueRef.current?.focus();
     }
-  }, [exerciseKind, feedback, lessonPhase, selectedCharacter]);
+  }, [exerciseKind, feedback, lessonPhase, selectedCharacter, completedUnitId]);
 
   useEffect(() => kanaSpeech.cancel, [kanaSpeech.cancel, selectedCharacter, script, mode, lessonPhase]);
 
@@ -408,7 +412,7 @@ function OwnedKanaClient({
   }
 
   function handleNext(): void {
-    if (state.status !== "ready" || currentItem === null) {
+    if (state.status !== "ready" || currentItem === null || submitting) {
       return;
     }
 
@@ -423,11 +427,9 @@ function OwnedKanaClient({
       const unit = state.path.units.find((candidate) => candidate.id === activeUnitId) ?? null;
 
       if (unit?.complete === true) {
-        const nextUnit = selectCurrentUnit(state.path.units);
-        const nextCharacter = selectNextLessonCharacter(nextUnit?.items ?? [], null);
-        setActiveUnitId(nextUnit?.id ?? null);
-        prepareExercise(nextCharacter, nextUnit?.items ?? []);
-        setLessonPhase(selectLessonPhase(nextUnit?.items ?? [], nextCharacter));
+        setCompletedUnitId(unit.id);
+        setFeedback(null);
+        setAnswer("");
       } else {
         const nextCharacter = selectNextLessonCharacter(unit?.items ?? [], currentItem.character);
         prepareExercise(nextCharacter, unit?.items ?? []);
@@ -441,6 +443,7 @@ function OwnedKanaClient({
       return;
     }
 
+    setCompletedUnitId(null);
     setMode(nextMode);
 
     if (nextMode === "practice") {
@@ -481,6 +484,7 @@ function OwnedKanaClient({
     }
 
     setMode("lessons");
+    setCompletedUnitId(null);
     setActiveUnitId(unit.id);
     const character = selectNextLessonCharacter(unit.items, null);
     prepareExercise(character, unit.items);
@@ -552,6 +556,9 @@ function OwnedKanaClient({
     state.path.totalCount === 0
       ? 0
       : Math.round((state.path.masteredCount / state.path.totalCount) * 100);
+  const completedUnit = state.path.units.find((unit) => unit.id === completedUnitId && unit.complete) ?? null;
+  const resumeUnit = selectKanaResumeUnit(state.path.units);
+  const nextUnit = resumeUnit?.complete ? null : resumeUnit;
 
   return (
     <section className="page-stack kana-page" data-script={script} data-mode={mode}>
@@ -665,7 +672,7 @@ function OwnedKanaClient({
         ) : (
           <>
             <section className="panel kana-practice" data-testid="kana-practice" ref={practiceRef}>
-              {mode === "lessons" && activeUnit !== null ? (
+              {mode === "lessons" && activeUnit !== null && completedUnit === null ? (
                 <header className="kana-current-lesson">
                   <h2 className="kana-current-unit">{activeUnit.title}</h2>
                   <span>
@@ -673,12 +680,25 @@ function OwnedKanaClient({
                   </span>
                 </header>
               ) : null}
-              {mode === "lessons" && lessonPhase === "quiz" && feedback === null && currentLessonItem !== null ? (
+              {mode === "lessons" && completedUnit === null && lessonPhase === "quiz" && feedback === null && currentLessonItem !== null ? (
                 <button className="secondary-action kana-explanation-action" disabled={submitting} type="button" onClick={() => setLessonPhase("teach")}>
                   <BookOpen size={16} aria-hidden="true" /> Объяснение
                 </button>
               ) : null}
-              {currentItem === null ? (
+              {mode === "lessons" && completedUnit !== null ? (
+                <div className="kana-unit-completion">
+                  <span className="eyebrow">Урок освоен</span>
+                  <h2>{completedUnit.title}</h2>
+                  <p>Освоено {completedUnit.masteredCount} из {completedUnit.totalCount} элементов.</p>
+                  {nextUnit ? <p className="muted">Далее: {nextUnit.title}</p> : state.path.units.every((unit) => unit.complete) ? <p>Все уроки этой азбуки освоены.</p> : <p>Следующий урок пока недоступен.</p>}
+                  <div className="action-row">
+                    <button className="primary-action" ref={continueRef} type="button" onClick={() => nextUnit ? handleStartUnit(nextUnit) : handleModeChange("practice")}>
+                      {nextUnit ? "Следующий урок" : "Перейти к практике"}
+                    </button>
+                    <button className="secondary-action" type="button" onClick={() => { handleStartUnit(completedUnit); setLessonPhase("teach"); }}>Вернуться к объяснению</button>
+                  </div>
+                </div>
+              ) : currentItem === null ? (
                 <p className="muted">В этой азбуке пока нет знаков.</p>
               ) : mode === "lessons" && lessonPhase === "teach" && currentLessonItem !== null ? (
                 <KanaTeachingStep
