@@ -746,12 +746,12 @@ export function approveAdminImportedTranslation(
   });
 }
 
-export function getItemDetails(id: string, token?: string | null): Promise<ItemDetails> {
-  return apiRequest<ItemDetails>(`/items/${encodeURIComponent(id)}`, { token });
+export function getItemDetails(id: string, token?: string | null, options: { readonly signal?: AbortSignal } = {}): Promise<ItemDetails> {
+  return apiRequest<ItemDetails>(`/items/${encodeURIComponent(id)}`, { token, signal: options.signal });
 }
 
-export function getKanjiDetails(character: string, token?: string | null): Promise<ItemDetails> {
-  return apiRequest<ItemDetails>(`/kanji/${encodeURIComponent(character)}`, { token });
+export function getKanjiDetails(character: string, token?: string | null, options: { readonly signal?: AbortSignal } = {}): Promise<ItemDetails> {
+  return apiRequest<ItemDetails>(`/kanji/${encodeURIComponent(character)}`, { token, signal: options.signal });
 }
 
 export function getItemReviewHistory(
@@ -771,10 +771,11 @@ export function getItemReviewHistory(
 export function getConfusablePairs(
   token: string,
   itemId?: string,
+  options: { readonly signal?: AbortSignal } = {},
 ): Promise<ConfusablePairListResponse> {
   const query = itemId === undefined ? "" : `?${new URLSearchParams({ itemId }).toString()}`;
 
-  return apiRequest<ConfusablePairListResponse>(`/confusables${query}`, { token });
+  return apiRequest<ConfusablePairListResponse>(`/confusables${query}`, { token, signal: options.signal });
 }
 
 export function getActiveConfusablePracticeSession(
@@ -1173,10 +1174,11 @@ export function replacePrivateAcceptedAnswer(
 export function getPrivateMnemonics(
   token: string,
   itemId: string,
+  options: { readonly signal?: AbortSignal } = {},
 ): Promise<readonly UserMnemonicDto[]> {
   return apiRequest<readonly UserMnemonicDto[]>(
     `/items/${encodeURIComponent(itemId)}/private-mnemonics`,
-    { token },
+    { token, signal: options.signal },
   );
 }
 

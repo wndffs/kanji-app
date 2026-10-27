@@ -128,6 +128,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
   const [mnemonicForm, setMnemonicForm] = useState<MnemonicFormState>(EMPTY_MNEMONIC_FORM);
   const [privateMnemonics, setPrivateMnemonics] = useState<readonly UserMnemonicDto[]>([]);
   const itemLoadVersion = useRef(0);
+  const itemRequest = useRef<AbortController | null>(null);
   const historyRequest = useRef<AbortController | null>(null);
   const loadedItemScope = useRef<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -154,13 +155,16 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
 
   const loadItem = useCallback(async () => {
     const version = ++itemLoadVersion.current;
+    itemRequest.current?.abort();
+    const controller = new AbortController();
+    itemRequest.current = controller;
     historyRequest.current?.abort();
     historyRequest.current = null;
     setIsLoadingHistory(false);
     const storedSession = readStoredSession();
     const token = storedSession?.token ?? null;
     const isCurrent = () =>
-      version === itemLoadVersion.current && (readStoredSession()?.token ?? null) === token;
+      !controller.signal.aborted && version === itemLoadVersion.current && (readStoredSession()?.token ?? null) === token;
     const displayMode =
       storedSession?.user.settings.translationDisplayMode ?? readTranslationDisplayMode();
     const timezone =
@@ -176,10 +180,10 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
     try {
       const item =
         lookup.type === "kanji"
-          ? await getKanjiDetails(lookup.value, token)
-          : await getItemDetails(lookup.value, token);
+          ? await getKanjiDetails(lookup.value, token, { signal: controller.signal })
+          : await getItemDetails(lookup.value, token, { signal: controller.signal });
       if (!isCurrent()) return;
-      const mnemonics = token === null ? [] : await getPrivateMnemonics(token, item.id);
+      const mnemonics = token === null ? [] : await getPrivateMnemonics(token, item.id, { signal: controller.signal });
       if (!isCurrent()) {
         return;
       }
@@ -207,7 +211,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
       });
       if (token !== null && item.itemType === "kanji") {
         try {
-          const pairs = await getConfusablePairs(token, item.id);
+          const pairs = await getConfusablePairs(token, item.id, { signal: controller.signal });
           if (isCurrent()) {
             setConfusablePairs(pairs.pairs);
           }
@@ -236,6 +240,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
     void loadItem();
     return () => {
       itemLoadVersion.current += 1;
+      itemRequest.current?.abort();
       historyRequest.current?.abort();
     };
   }, [loadItem]);
