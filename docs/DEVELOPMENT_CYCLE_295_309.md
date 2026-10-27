@@ -35,7 +35,7 @@ speech/preferences components. No copied competitor data, wording, CSS or media.
 | 301 | Finder availability filter | Learner can narrow to available/unfinished/mastered lessons and clear filters | Implemented |
 | 302 | Focused finder previews | Group-filtered previews show matching symbols; original ordinals and full-unit mastery retained | Implemented |
 | 303 | Teaching audio | Existing Japanese speech supports teaching, preference restrictions and cancellation | Implemented |
-| 304 | Bilingual learning notes | Original short RU/EN notes explain basic/modified/combined/length patterns in RU/EN/RU+EN | Pending |
+| 304 | Bilingual learning notes | Original short RU/EN notes explain basic/modified/combined/length patterns in RU/EN/RU+EN | Implemented |
 | 305 | Revisit teaching | Explicit explanation action during a quiz never submits or manufactures mastery | Pending |
 | 306 | Unit completion checkpoint | Confirmed mastery shows a completion state with explicit next/repeat actions, not an automatic jump | Pending |
 | 307 | In-place answer recovery | Failed POST keeps exercise/input; explicit retry only, no automatic write replay | Pending |
@@ -55,6 +55,11 @@ complete by this UX cycle. This cycle improves the actual kana route and related
 catalogue, not unrelated administration, mining or scheduling subsystems.
 
 ## Checks
+
+Teaching notes are short project-authored RU/EN explanations, not imported rows.
+Basic rules were cross-checked against the Japan Foundation kana charts and
+[MLC's own kana worksheet](https://www.mlcjapanese.co.jp/Download/HiraganaKatakanaWorksheetAnswer.pdf).
+No text, worksheet graphics or audio was copied; no external dataset was published.
 
 Batch kana grouping/query/route/copy tests and characters/kana browser cases;
 dashboard count wording gets a focused dashboard smoke case. Build/typecheck the

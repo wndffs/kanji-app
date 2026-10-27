@@ -49,6 +49,8 @@ import { AdaptiveKanaPractice } from "./AdaptiveKanaPractice";
 import { KanaTracingExercise } from "./KanaTracingExercise";
 import { KanaLessonFinder } from "./KanaLessonFinder";
 import { groupKanaCharacters, selectKanaResumeUnit } from "../../lib/kana-unit-groups";
+import { getKanaTeachingNote } from "../../lib/kana-teaching-notes";
+import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
 type LessonPhase = "teach" | "quiz";
 
@@ -1079,6 +1081,8 @@ function KanaTeachingStep({
   readonly onSpeak: () => boolean;
   readonly speechAvailable: boolean;
 }) {
+  const displayMode = useTranslationDisplayMode();
+  const note = getKanaTeachingNote(item);
   return (
     <div className="kana-teaching-step">
       <span className="eyebrow">{formatVariant(item)}</span>
@@ -1098,6 +1102,10 @@ function KanaTeachingStep({
           <span>{item.character}</span>
         </div>
       )}
+      <div className="kana-teaching-note">
+        {displayMode === "en" ? null : <p lang="ru">{note.ru}</p>}
+        {displayMode === "ru" ? null : <p lang="en">{note.en}</p>}
+      </div>
       <button className="primary-action" onClick={onContinue} type="button">
         Проверить чтение
       </button>
