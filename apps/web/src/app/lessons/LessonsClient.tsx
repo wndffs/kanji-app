@@ -63,7 +63,7 @@ import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import { useLessonPronunciationPreferences } from "../../lib/use-lesson-pronunciation-preferences";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { useStoredSession, ownsSession } from "../../lib/use-stored-session";
-import { filterLessonBrowser, lessonBrowserHref, lessonSourceHref, parseLessonBrowser, parseLessonSource, mergeLessonBrowser, type LessonBrowserRoute } from "../../lib/lesson-browser";
+import { DEFAULT_LESSON_BROWSER, LESSON_PICKER_PAGE_SIZE, filterLessonBrowser, lessonBrowserHref, lessonSourceHref, parseLessonBrowser, parseLessonSource, mergeLessonBrowser, type LessonBrowserRoute } from "../../lib/lesson-browser";
 
 type QueueState =
   | { readonly status: "checking" }
@@ -1090,7 +1090,11 @@ function LessonPicker({
     const href = lessonBrowserHref(parseLessonSource(params).deckId, next);
     startNavigation(() => { if (replace) router.replace(href, { scroll: false }); else router.push(href, { scroll: false }); });
   }
-  const visibleItems = filterLessonBrowser(availableItems, browse, selectedItemIds);
+  const matchingItems = filterLessonBrowser(availableItems, browse, selectedItemIds);
+  const pageCount = Math.max(1, Math.ceil(matchingItems.length / LESSON_PICKER_PAGE_SIZE));
+  const page = Math.min(browse.page, pageCount);
+  const visibleItems = matchingItems.slice((page - 1) * LESSON_PICKER_PAGE_SIZE, page * LESSON_PICKER_PAGE_SIZE);
+  useEffect(() => { if (page !== browse.page) navigate({ page }, true); }, [page, browse.page, navigate]);
   const levels = [...new Set(availableItems.flatMap(({ item }) => item.level === null ? [] : [item.level]))].sort((a, b) => a - b);
 
   return (
@@ -1169,6 +1173,11 @@ function LessonPicker({
           );
         })}
       </div>
+      <div className="lesson-picker-results"><span>Найдено: {matchingItems.length}</span>{browse.q || browse.kind !== "all" || browse.level !== null || browse.selected ? <button className="link-button" type="button" onClick={() => navigate(DEFAULT_LESSON_BROWSER)}>Сбросить фильтры материалов</button> : null}</div>
+      {matchingItems.length === 0 ? <p className="muted">По выбранным фильтрам материалы не найдены.</p> : null}
+      {pageCount <= 1 ? null : <nav className="lesson-picker-pages" aria-label="Страницы новых материалов">
+        <button className="icon-button" type="button" aria-label="Предыдущая страница материалов" title="Предыдущая страница" disabled={page === 1} onClick={() => navigate({ page: page - 1 })}><ChevronLeft size={18} aria-hidden="true" /></button><span>{page} / {pageCount}</span><button className="icon-button" type="button" aria-label="Следующая страница материалов" title="Следующая страница" disabled={page === pageCount} onClick={() => navigate({ page: page + 1 })}><ChevronRight size={18} aria-hidden="true" /></button>
+      </nav>}
     </section>
   );
 }
