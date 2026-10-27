@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { nextTabIndex } from "../../lib/tab-navigation";
-import { Volume2, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Volume2, Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
   type FormEvent,
   type RefObject,
@@ -275,6 +275,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
     [queueState, selectedItemIdSet],
   );
   const currentLesson = session === null ? null : (activeQueue[currentIndex] ?? null);
+  const orderedSelection = useMemo(() => orderLessonSelection(selectedLessons, orderMode), [selectedLessons, orderMode]);
   const currentQuizCard =
     currentLesson?.cards.find((card) => card.id === quizPendingCardIds[0]) ?? null;
   const currentStudyPhases = useMemo(
@@ -295,7 +296,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
       return;
     }
 
-    const orderedLessons = orderLessonSelection(selectedLessons, orderMode);
+    const orderedLessons = orderedSelection;
     setIsStarting(true);
     setSessionError(null);
     setCompletionSummary(null);
@@ -817,10 +818,12 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
           </p>
         )}
         <ul aria-label="Выбранные материалы" className="recommended-group">
-          {selectedLessons.map(({ item }) => (
+          {orderedSelection.map(({ item }, index) => (
             <li key={item.id} data-item-type={item.itemType}>
+              <small className="lesson-batch-position">{index + 1}</small>
               <JapaneseText as="strong">{item.japanese}</JapaneseText>
               <span>{formatTranslationBundle(item.translations, activeDisplayMode)}</span>
+              <button className="icon-button lesson-batch-remove" type="button" aria-label={`Убрать из группы ${item.japanese}`} title="Убрать из группы" disabled={isStarting} onClick={() => handleToggleLesson(item.id)}><X size={16} aria-hidden="true" /></button>
             </li>
           ))}
         </ul>

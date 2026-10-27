@@ -600,6 +600,7 @@ textarea::placeholder {
   padding: 0;
 }
 .recommended-group > li {
+  position: relative;
   background: var(--subject-soft, var(--surface));
   border: 1px solid var(--surface-border);
   border-radius: 8px;
