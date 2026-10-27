@@ -14,6 +14,9 @@ import {
 export type CharacterHubTab = "hiragana" | "katakana" | "kanji";
 export type CharacterHubJlptLevel = NonNullable<CharacterHubKanjiItemDto["jlptLevel"]>;
 export type CharacterHubStateFilter = CharacterHubKanjiStudyState | "weak";
+export type CharacterCatalogueOptions = { readonly page: number };
+export const DEFAULT_CHARACTER_CATALOGUE: CharacterCatalogueOptions = { page: 1 };
+export const CHARACTER_CATALOGUE_PAGE_SIZE = 60;
 
 export type CharacterHubKanjiFilters = {
   readonly level: number | null;
@@ -27,6 +30,7 @@ export type CharacterHubQuery = {
   readonly filters: CharacterHubKanjiFilters;
   readonly kanaGroup: KanaVariant | "all";
   readonly kanaStatus: KanaUnitStatus;
+  readonly catalogue: CharacterCatalogueOptions;
 };
 
 export const EMPTY_CHARACTER_HUB_FILTERS: CharacterHubKanjiFilters = {
@@ -49,9 +53,11 @@ export function parseCharacterHubQuery(params: Pick<URLSearchParams, "get">): Ch
   const rawGroup = params.get("group");
   const rawKanaStatus = params.get("kanaState");
   const parsedLevel = rawLevel === null ? Number.NaN : Number(rawLevel);
+  const rawPage = params.get("page");
 
   return {
     tab: includes(TABS, rawTab) ? rawTab : "hiragana",
+    catalogue: { page: rawPage !== null && /^[1-9]\d{0,4}$/u.test(rawPage) && Number(rawPage) <= 10_000 ? Number(rawPage) : 1 },
     kanaGroup: includes(Object.keys(KANA_GROUP_LABELS) as (KanaVariant | "all")[], rawGroup)
       ? rawGroup
       : "basic",
@@ -72,10 +78,12 @@ export function buildCharacterHubHref(
   filters: CharacterHubKanjiFilters = EMPTY_CHARACTER_HUB_FILTERS,
   kanaGroup: KanaVariant | "all" = "basic",
   kanaStatus: KanaUnitStatus = "all",
+  catalogue: CharacterCatalogueOptions = DEFAULT_CHARACTER_CATALOGUE,
 ): string {
   const params = new URLSearchParams({ tab });
   if (kanaGroup !== "basic") params.set("group", kanaGroup);
   if (kanaStatus !== "all") params.set("kanaState", kanaStatus);
+  if (catalogue.page > 1) params.set("page", String(catalogue.page));
 
   if (filters.level !== null) {
     params.set("level", String(filters.level));

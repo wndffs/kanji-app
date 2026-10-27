@@ -6,6 +6,7 @@ import {
   buildCharacterHubHref,
   filterCharacterHubKanji,
   parseCharacterHubQuery,
+  DEFAULT_CHARACTER_CATALOGUE,
 } from "../src/lib/character-hub";
 
 describe("character hub query", () => {
@@ -16,6 +17,7 @@ describe("character hub query", () => {
       tab: "kanji",
       kanaGroup: "basic",
       kanaStatus: "all",
+      catalogue: DEFAULT_CHARACTER_CATALOGUE,
       filters: { level: 12, band: "n3", jlpt: "n2", state: "weak" },
     });
 
@@ -23,6 +25,7 @@ describe("character hub query", () => {
       tab: "hiragana",
       kanaGroup: "basic",
       kanaStatus: "all",
+      catalogue: DEFAULT_CHARACTER_CATALOGUE,
       filters: { level: null, band: null, jlpt: null, state: null },
     });
   });
@@ -36,6 +39,12 @@ describe("character hub query", () => {
         state: "learning",
       }),
     ).toBe("/characters?tab=kanji&level=3&band=n5&state=learning");
+  });
+  it("accepts only bounded positive decimal catalogue pages", () => {
+    for (const value of ['0', '-1', '1.2', 'Infinity', '1e2', '10001', '999999999999999999'])
+      expect(parseCharacterHubQuery(new URLSearchParams({ page: value })).catalogue.page).toBe(1);
+    expect(parseCharacterHubQuery(new URLSearchParams('page=3')).catalogue.page).toBe(3);
+    expect(buildCharacterHubHref('kanji', undefined, 'basic', 'all', { page: 3 })).toBe('/characters?tab=kanji&page=3');
   });
   it("round trips kana groups without changing kanji filters", () => {
     const href = buildCharacterHubHref("katakana", undefined, "handakuten");

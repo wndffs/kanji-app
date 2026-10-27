@@ -2,7 +2,7 @@
 import { kanaLessonHref } from "../../lib/kana-route";
 
 import Link from "next/link";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -23,11 +23,13 @@ import { ApiError, getCharacterHub } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import {
   buildCharacterHubHref,
+  CHARACTER_CATALOGUE_PAGE_SIZE,
   EMPTY_CHARACTER_HUB_FILTERS,
   filterCharacterHubKanji,
   parseCharacterHubQuery,
   type CharacterHubKanjiFilters,
   type CharacterHubTab,
+  type CharacterCatalogueOptions,
 } from "../../lib/character-hub";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
@@ -125,7 +127,7 @@ function CharactersScreen() {
   }, [retry]);
 
   function updateKanjiFilters(filters: CharacterHubKanjiFilters): void {
-    router.push(buildCharacterHubHref("kanji", filters, query.kanaGroup, query.kanaStatus), {
+    router.push(buildCharacterHubHref("kanji", filters, query.kanaGroup, query.kanaStatus, { ...query.catalogue, page: 1 }), {
       scroll: false,
     });
   }
@@ -147,6 +149,7 @@ function CharactersScreen() {
               query.filters,
               query.kanaGroup,
               query.kanaStatus,
+              query.catalogue,
             ),
             {
               scroll: false,
@@ -193,13 +196,13 @@ function CharactersScreen() {
           key={query.tab}
           group={query.kanaGroup}
           onGroupChange={(group) =>
-            router.push(buildCharacterHubHref(query.tab, query.filters, group, query.kanaStatus), {
+            router.push(buildCharacterHubHref(query.tab, query.filters, group, query.kanaStatus, query.catalogue), {
               scroll: false,
             })
           }
           status={query.kanaStatus}
           onStatusChange={(status) =>
-            router.push(buildCharacterHubHref(query.tab, query.filters, query.kanaGroup, status), {
+            router.push(buildCharacterHubHref(query.tab, query.filters, query.kanaGroup, status, query.catalogue), {
               scroll: false,
             })
           }
@@ -213,6 +216,12 @@ function CharactersScreen() {
           displayMode={displayMode}
           filters={query.filters}
           onFiltersChange={updateKanjiFilters}
+          catalogue={query.catalogue}
+          onCatalogueChange={(catalogue, replace = false) => {
+            const href = buildCharacterHubHref('kanji', query.filters, query.kanaGroup, query.kanaStatus, catalogue);
+            if (replace) router.replace(href, { scroll: false });
+            else router.push(href, { scroll: false });
+          }}
           section={state.hub.kanji}
         />
       ) : null}
@@ -425,16 +434,23 @@ function KanjiCharacterPanel({
   filters,
   onFiltersChange,
   section,
+  catalogue,
+  onCatalogueChange,
 }: {
   readonly displayMode: TranslationDisplayMode;
   readonly filters: CharacterHubKanjiFilters;
   readonly onFiltersChange: (filters: CharacterHubKanjiFilters) => void;
   readonly section: CharacterHubKanjiSectionDto;
+  readonly catalogue: CharacterCatalogueOptions;
+  readonly onCatalogueChange: (options: CharacterCatalogueOptions, replace?: boolean) => void;
 }) {
   const items = useMemo(() => filterCharacterHubKanji(section.items, filters), [filters, section]);
-  const [page, setPage] = useState(1);
-  const pageSize = 60;
+  const pageSize = CHARACTER_CATALOGUE_PAGE_SIZE;
   const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const page = Math.min(catalogue.page, pageCount);
+  useEffect(() => {
+    if (page !== catalogue.page) onCatalogueChange({ ...catalogue, page }, true);
+  }, [catalogue, page, onCatalogueChange]);
   const visibleItems = items.slice((page - 1) * pageSize, page * pageSize);
   const progressMaximum = Math.max(section.counts.total, 1);
   const completedCount = section.counts.passed + section.counts.burned;
@@ -564,7 +580,9 @@ function KanjiCharacterPanel({
             value={filters.state ?? ""}
           />
           <button
-            className="secondary-action"
+            className="icon-button"
+            aria-label="Назад"
+            title="Предыдущая страница"
             disabled={filtersEqual(filters, EMPTY_CHARACTER_HUB_FILTERS)}
             onClick={() => onFiltersChange(EMPTY_CHARACTER_HUB_FILTERS)}
             type="button"
@@ -595,19 +613,21 @@ function KanjiCharacterPanel({
           <button
             className="secondary-action"
             disabled={page <= 1}
-            onClick={() => setPage((value) => value - 1)}
+            onClick={() => onCatalogueChange({ ...catalogue, page: page - 1 })}
           >
-            Назад
+            <ChevronLeft size={18} aria-hidden="true" />
           </button>
           <span role="status">
             {page} / {pageCount}
           </span>
           <button
-            className="secondary-action"
+            className="icon-button"
+            aria-label="Далее"
+            title="Следующая страница"
             disabled={page >= pageCount}
-            onClick={() => setPage((value) => value + 1)}
+            onClick={() => onCatalogueChange({ ...catalogue, page: page + 1 })}
           >
-            Далее
+            <ChevronRight size={18} aria-hidden="true" />
           </button>
         </nav>
       )}
