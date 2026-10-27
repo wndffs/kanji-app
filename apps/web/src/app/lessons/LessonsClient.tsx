@@ -133,14 +133,20 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
   const [completionSummary, setCompletionSummary] = useState<CompletionSummary | null>(null);
   const quizInputRef = useRef<HTMLInputElement>(null);
   const quizActionRef = useRef<HTMLButtonElement>(null);
+  const queueRequest = useRef<AbortController | null>(null);
+  const mounted = useRef(true);
 
   const loadQueue = useCallback(async () => {
+    queueRequest.current?.abort();
+    const controller = new AbortController();
+    queueRequest.current = controller;
     const storedSession = readStoredSession();
 
     if (storedSession === null) {
       setQueueState({ status: "unauthenticated" });
       return;
     }
+    const isCurrent = () => !controller.signal.aborted && queueRequest.current === controller && ownsSession(storedSession.token);
 
     setQueueState({ status: "loading" });
     setSession(null);
@@ -163,7 +169,8 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
     setCompletionSummary(null);
 
     try {
-      const active = await getActiveLessonSession(storedSession.token);
+      const active = await getActiveLessonSession(storedSession.token, { signal: controller.signal });
+      if (!isCurrent()) return;
       const activeMatchesSource =
         active.session !== null && active.session.deckId === requestedDeckId;
 
@@ -211,7 +218,8 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
         return;
       }
 
-      const queue = await getLessonQueue(storedSession.token, requestedDeckId);
+      const queue = await getLessonQueue(storedSession.token, requestedDeckId, { signal: controller.signal });
+      if (!isCurrent()) return;
       const availableItems = queue.availableItems ?? queue.items;
       setQueueState({
         status: "ready",
@@ -225,6 +233,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
       setOrderMode(queue.orderMode ?? "course");
       setSelectedItemIds(queue.items.map((lesson) => lesson.item.id));
     } catch (error: unknown) {
+      if (!isCurrent()) return;
       if (error instanceof ApiError && error.status === 401) {
         clearStoredSession();
         setQueueState({ status: "unauthenticated" });
@@ -239,7 +248,9 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
   }, [requestedDeckId]);
 
   useEffect(() => {
+    mounted.current = true;
     void loadQueue();
+    return () => { mounted.current = false; queueRequest.current?.abort(); };
   }, [loadQueue]);
 
   const quizQueue = useMemo(
@@ -337,8 +348,10 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
       const updatedUser = await updateUserSettings(queueState.token, {
         lessonOrderMode: nextMode,
       });
+      if (!mounted.current || !ownsSession(queueState.token)) return;
       updateStoredUser(updatedUser);
     } catch (error) {
+      if (!mounted.current || !ownsSession(queueState.token)) return;
       setOrderMode(previousMode);
 
       if (error instanceof ApiError && error.status === 401) {
