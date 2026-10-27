@@ -114,7 +114,7 @@ function CharactersScreen() {
   }, [retry]);
 
   function updateKanjiFilters(filters: CharacterHubKanjiFilters): void {
-    router.push(buildCharacterHubHref("kanji", filters), { scroll: false });
+    router.push(buildCharacterHubHref("kanji", filters, query.kanaGroup), { scroll: false });
   }
 
   return (
@@ -128,7 +128,7 @@ function CharactersScreen() {
       <ViewTabs
         active={query.tab}
         onChange={(tab) =>
-          router.push(buildCharacterHubHref(tab as CharacterHubTab, query.filters), {
+          router.push(buildCharacterHubHref(tab as CharacterHubTab, query.filters, query.kanaGroup), {
             scroll: false,
           })
         }
@@ -170,6 +170,8 @@ function CharactersScreen() {
       {state.status === "ready" && query.tab !== "kanji" ? (
         <KanaCharacterPanel
           key={query.tab}
+          group={query.kanaGroup}
+          onGroupChange={(group) => router.push(buildCharacterHubHref(query.tab, query.filters, group), { scroll: false })}
           section={query.tab === "hiragana" ? state.hub.kana.hiragana : state.hub.kana.katakana}
         />
       ) : null}
@@ -187,8 +189,11 @@ function CharactersScreen() {
   );
 }
 
-function KanaCharacterPanel({ section }: { readonly section: CharacterHubKanaSectionDto }) {
-  const [group, setGroup] = useState<KanaVariant | "all">("basic");
+function KanaCharacterPanel({ section, group, onGroupChange }: {
+  readonly section: CharacterHubKanaSectionDto;
+  readonly group: KanaVariant | "all";
+  readonly onGroupChange: (group: KanaVariant | "all") => void;
+}) {
   const units = filterKanaUnits(section.units, group);
   const percentage =
     section.totalCount === 0 ? 0 : Math.round((section.masteredCount / section.totalCount) * 100);
@@ -259,7 +264,7 @@ function KanaCharacterPanel({ section }: { readonly section: CharacterHubKanaSec
         <span>Группа знаков</span>
         <select
           value={group}
-          onChange={(event) => setGroup(event.currentTarget.value as KanaVariant | "all")}
+          onChange={(event) => onGroupChange(event.currentTarget.value as KanaVariant | "all")}
         >
           {(Object.keys(KANA_GROUP_LABELS) as (KanaVariant | "all")[]).map((id) => (
             <option value={id} key={id}>

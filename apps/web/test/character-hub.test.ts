@@ -16,11 +16,13 @@ describe("character hub query", () => {
       ),
     ).toEqual({
       tab: "kanji",
+      kanaGroup: "basic",
       filters: { level: 12, band: "n3", jlpt: "n2", state: "weak" },
     });
 
     expect(parseCharacterHubQuery(new URLSearchParams("tab=words&level=-2&band=n1"))).toEqual({
       tab: "hiragana",
+      kanaGroup: "basic",
       filters: { level: null, band: null, jlpt: null, state: null },
     });
   });
@@ -34,6 +36,12 @@ describe("character hub query", () => {
         state: "learning",
       }),
     ).toBe("/characters?tab=kanji&level=3&band=n5&state=learning");
+  });
+  it("round trips kana groups without changing kanji filters", () => {
+    const href = buildCharacterHubHref("katakana", undefined, "handakuten");
+    expect(href).toBe("/characters?tab=katakana&group=handakuten");
+    expect(parseCharacterHubQuery(new URLSearchParams(href.split("?")[1])).kanaGroup).toBe("handakuten");
+    expect(parseCharacterHubQuery(new URLSearchParams("group=invalid")).kanaGroup).toBe("basic");
   });
 
   it("filters kanji without conflating weak items with SRS states", () => {
