@@ -20,23 +20,23 @@ all attribution, personal edits and authoritative API grading/history behavior.
 
 ## Tasks
 
-| ID  | Deliverable                       | Acceptance                                                                                                                | State     |
-| --- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 325 | Scope                             | Record observed gaps, exact boundaries and acceptance                                                                     | Complete  |
-| 326 | Cancellable material reads        | Abort obsolete item/kanji/private/pair GETs; retain owner and 401 guards                                                  | Complete  |
-| 327 | Independent private-note recovery | Public teaching renders without waiting for private notes; loading/error/retry is local; unsafe note writes stay disabled | Complete  |
-| 328 | Bookmarkable material tabs        | Known view query survives reload and Back without extra material reads; preserve safe catalogue/course context            | Complete  |
-| 329 | Bilingual hero meanings           | Label selected RU/EN rows and show absent translation explicitly, never substitute another language                       | Complete  |
-| 330 | Focused material header           | Compact real level/JLPT/stage; schedule details reachable in History rather than duplicated above study                   | Complete  |
-| 331 | Visible-reading audio             | Explicit browser speech for visible readings, respect existing voice/rate, cancel on hide/tab/item/unmount, no autoplay   | Complete  |
-| 332 | Reading evidence hierarchy        | Hide switch covers taught/dictionary readings; optional dictionary disclosure; global answers remain separate             | Complete  |
-| 333 | Teaching-first mnemonics          | Project learning mnemonics/hints precede related materials; private text stays in My Notes                                | Complete  |
-| 334 | Bounded relationships             | Compact previews, explicit more/less, honest loaded/server totals, related kana respects hidden-reading policy            | Complete  |
-| 335 | Focused attributed examples       | Bounded examples with labelled selected translations, honest missing values, unchanged attribution/reveal                 | Complete  |
-| 336 | Safe personal editor states       | No impossible card submission, no editing unloaded note snapshots, clear unsaved note state                               | Complete  |
-| 337 | Responsive material layout        | Low-clutter study/notes/history/source layouts, phone text fit, light/dark, no nested section cards                       | Complete  |
-| 338 | Batched acceptance                | Scoped unit/API/browser tests, web build/typecheck, touched lint/format, screenshots                                      | Complete  |
-| 339 | Release                           | Commit/push/tag, exact deployed revision, API liveness, real material navigation, resource cleanup                        | Releasing |
+| ID  | Deliverable                       | Acceptance                                                                                                                | State    |
+| --- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 325 | Scope                             | Record observed gaps, exact boundaries and acceptance                                                                     | Complete |
+| 326 | Cancellable material reads        | Abort obsolete item/kanji/private/pair GETs; retain owner and 401 guards                                                  | Complete |
+| 327 | Independent private-note recovery | Public teaching renders without waiting for private notes; loading/error/retry is local; unsafe note writes stay disabled | Complete |
+| 328 | Bookmarkable material tabs        | Known view query survives reload and Back without extra material reads; preserve safe catalogue/course context            | Complete |
+| 329 | Bilingual hero meanings           | Label selected RU/EN rows and show absent translation explicitly, never substitute another language                       | Complete |
+| 330 | Focused material header           | Compact real level/JLPT/stage; schedule details reachable in History rather than duplicated above study                   | Complete |
+| 331 | Visible-reading audio             | Explicit browser speech for visible readings, respect existing voice/rate, cancel on hide/tab/item/unmount, no autoplay   | Complete |
+| 332 | Reading evidence hierarchy        | Hide switch covers taught/dictionary readings; optional dictionary disclosure; global answers remain separate             | Complete |
+| 333 | Teaching-first mnemonics          | Project learning mnemonics/hints precede related materials; private text stays in My Notes                                | Complete |
+| 334 | Bounded relationships             | Compact previews, explicit more/less, honest loaded/server totals, related kana respects hidden-reading policy            | Complete |
+| 335 | Focused attributed examples       | Bounded examples with labelled selected translations, honest missing values, unchanged attribution/reveal                 | Complete |
+| 336 | Safe personal editor states       | No impossible card submission, no editing unloaded note snapshots, clear unsaved note state                               | Complete |
+| 337 | Responsive material layout        | Low-clutter study/notes/history/source layouts, phone text fit, light/dark, no nested section cards                       | Complete |
+| 338 | Batched acceptance                | Scoped unit/API/browser tests, web build/typecheck, touched lint/format, screenshots                                      | Complete |
+| 339 | Release                           | Commit/push/tag, exact deployed revision, API liveness, real material navigation, resource cleanup                        | Complete |
 
 ## Boundaries And Checks
 
@@ -100,3 +100,46 @@ the existing GitHub/Vercel/Render integrations. Confirm deployed full revisions,
 API liveness and read-only material/tab/reading navigation with the existing
 test profile. Do not publish a course or alter any account/progress/preferences
 for acceptance. Cloud CI and final live evidence are recorded after deployment.
+
+## Server Acceptance
+
+On 2026-10-27 both web `/api/health` and API `/health` returned the exact released
+revision `a81071bc7c88467f71f7465fc9e7fb753d0efc34`. Vercel confirmed successful
+deployment through the existing integration. No manual backend publication or
+database operation was needed.
+
+Read-only IAB acceptance used the existing test profile's starter demo course,
+not a newly published corpus. Its `ichi` catalogue result opened the real `一`
+material with visible `いち`, RU meaning and compact metadata. Dictionary
+readings expanded; concealment removed structured taught/dictionary readings
+and speech controls. Related Japanese expressions remained visible while their
+separate reading hints were hidden, as intended.
+
+History's `view=history` survived reload. My Notes loaded an enabled editor only
+after its private snapshot; Sources retained the real attribution links. Study
+and the safe catalogue return preserved the original `q=ichi&view=list` context.
+No horizontal overflow was observed. Live inspection did not submit answers,
+edit/save private content, change preferences, switch course or reset progress.
+Phone/theme checks are local production browser tests, not claimed live-mobile
+audits. Speech preference/cancellation checks use local controlled browser
+fixtures; live acceptance did not play audio or use the user's clipboard.
+
+The live screenshot and local study/notes/first-viewport captures are outside Git
+in `cycle-325-339/` under the task visualization directory. The temporary IAB
+tab is closed. Owned Next.js/Playwright processes have exited, and cycle-specific
+temp output and local `.next` were removed. The working tree was clean before
+this final report update. Next task number: **340**.
+
+## Completed Release
+
+All 325-339 are complete, committed separately and pushed. Released tag:
+`cycle-325-339-material`; verified runtime revision:
+`a81071bc7c88467f71f7465fc9e7fb753d0efc34`. This final report-only commit does
+not replace the checked runtime revision or move the release tag.
+
+[CI 40546163107](https://github.com/wndffs/kanji-app/actions/runs/40546163107)
+completed successfully for that revision. Quality job 122337248451 passed.
+Web smoke job 122338510209 ran 390 cases: **389 passed, one skipped, zero failed**
+in 3.7 minutes. Both Study integrity runs 40546162889 and 40546164165 passed.
+There are no pending required checks or known unresolved failures from this
+batch. No further numbered task was started.
