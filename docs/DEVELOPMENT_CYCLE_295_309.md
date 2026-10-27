@@ -40,7 +40,7 @@ speech/preferences components. No copied competitor data, wording, CSS or media.
 | 306 | Unit completion checkpoint | Confirmed mastery shows a completion state with explicit next/revisit actions, not an automatic jump | Implemented |
 | 307 | In-place answer recovery   | Failed POST keeps exercise/input; explicit retry only, no automatic write replay                     | Implemented |
 | 308 | Batched acceptance         | Focused unit/browser tests, type/build/lint/format; light/dark phone/desktop captures                | Complete    |
-| 309 | Release                    | Push/tag, deploy, exact revision health and live learner UI check, clean owned resources             | Pending     |
+| 309 | Release                    | Push/tag, deploy, exact revision health and live learner UI check, clean owned resources             | Releasing   |
 
 ## Boundaries
 
@@ -98,3 +98,12 @@ GET progress refresh before a deliberate retry; there is no claim that a lost
 response proves the server did not record the original answer.
 
 Task 309 records deployment evidence after the checkpoint push and server check.
+
+## Release Candidate
+
+Code acceptance commit: `f84914f`. Release tag: `cycle-295-309-kana`.
+Push the complete checked cycle together; the existing Vercel integration deploys
+the web runtime. Verify its full SHA through `/api/health` and inspect real
+authenticated kana data, without submitting learning answers or resetting the
+existing test account. Check API liveness independently; this cycle changes no
+backend code and does not require a database publication or migration.
