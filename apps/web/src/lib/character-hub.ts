@@ -21,8 +21,8 @@ export type CharacterHubJlptLevel = NonNullable<CharacterHubKanjiItemDto["jlptLe
 export type CharacterHubStateFilter = CharacterHubKanjiStudyState | "weak";
 export const CHARACTER_CATALOGUE_SORTS = { course: "Порядок курса", reading: "По чтению", meaning: "По значению", weakness: "Сначала слабые" } as const;
 export type CharacterCatalogueSort = keyof typeof CHARACTER_CATALOGUE_SORTS;
-export type CharacterCatalogueOptions = { readonly page: number; readonly q: string; readonly sort: CharacterCatalogueSort; readonly view: 'grid' | 'list' };
-export const DEFAULT_CHARACTER_CATALOGUE: CharacterCatalogueOptions = { page: 1, q: "", sort: "course", view: 'grid' };
+export type CharacterCatalogueOptions = { readonly page: number; readonly q: string; readonly sort: CharacterCatalogueSort; readonly view: 'grid' | 'list'; readonly showReadings: boolean };
+export const DEFAULT_CHARACTER_CATALOGUE: CharacterCatalogueOptions = { page: 1, q: "", sort: "course", view: 'grid', showReadings: true };
 export const CHARACTER_CATALOGUE_PAGE_SIZE = 60;
 
 export type CharacterHubKanjiFilters = {
@@ -64,7 +64,7 @@ export function parseCharacterHubQuery(params: Pick<URLSearchParams, "get">): Ch
 
   return {
     tab: includes(TABS, rawTab) ? rawTab : "hiragana",
-    catalogue: { page: rawPage !== null && /^[1-9]\d{0,4}$/u.test(rawPage) && Number(rawPage) <= 10_000 ? Number(rawPage) : 1, q: normalizeCourseSearch(params.get("q") ?? ""), sort: includes(Object.keys(CHARACTER_CATALOGUE_SORTS) as CharacterCatalogueSort[], params.get('sort')) ? params.get('sort') as CharacterCatalogueSort : 'course', view: params.get('view') === 'list' ? 'list' : 'grid' },
+    catalogue: { page: rawPage !== null && /^[1-9]\d{0,4}$/u.test(rawPage) && Number(rawPage) <= 10_000 ? Number(rawPage) : 1, q: normalizeCourseSearch(params.get("q") ?? ""), sort: includes(Object.keys(CHARACTER_CATALOGUE_SORTS) as CharacterCatalogueSort[], params.get('sort')) ? params.get('sort') as CharacterCatalogueSort : 'course', view: params.get('view') === 'list' ? 'list' : 'grid', showReadings: params.get('readings') !== 'hidden' },
     kanaGroup: includes(Object.keys(KANA_GROUP_LABELS) as (KanaVariant | "all")[], rawGroup)
       ? rawGroup
       : "basic",
@@ -94,6 +94,7 @@ export function buildCharacterHubHref(
   if (catalogue.q) params.set("q", normalizeCourseSearch(catalogue.q));
   if (catalogue.sort !== 'course') params.set('sort', catalogue.sort);
   if (catalogue.view === 'list') params.set('view', 'list');
+  if (!catalogue.showReadings) params.set('readings', 'hidden');
 
   if (filters.level !== null) {
     params.set("level", String(filters.level));

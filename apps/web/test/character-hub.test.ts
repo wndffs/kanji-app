@@ -47,6 +47,12 @@ describe("character hub query", () => {
     expect(parseCharacterHubQuery(new URLSearchParams('view=custom')).catalogue.view).toBe('grid');
     expect(buildCharacterHubHref('kanji', undefined, 'basic', 'all', { ...DEFAULT_CHARACTER_CATALOGUE, view: 'list' })).toBe('/characters?tab=kanji&view=list');
   });
+  it('requires an explicit hidden-readings URL option', () => {
+    expect(parseCharacterHubQuery(new URLSearchParams()).catalogue.showReadings).toBe(true);
+    expect(parseCharacterHubQuery(new URLSearchParams('readings=invalid')).catalogue.showReadings).toBe(true);
+    expect(parseCharacterHubQuery(new URLSearchParams('readings=hidden')).catalogue.showReadings).toBe(false);
+    expect(buildCharacterHubHref('kanji', undefined, 'basic', 'all', { ...DEFAULT_CHARACTER_CATALOGUE, showReadings: false })).toBe('/characters?tab=kanji&readings=hidden');
+  });
   it("accepts only bounded positive decimal catalogue pages", () => {
     for (const value of ['0', '-1', '1.2', 'Infinity', '1e2', '10001', '999999999999999999'])
       expect(parseCharacterHubQuery(new URLSearchParams({ page: value })).catalogue.page).toBe(1);

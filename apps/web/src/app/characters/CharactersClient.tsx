@@ -625,6 +625,7 @@ function KanjiCharacterPanel({
           >
             Сбросить
           </button>
+          <label className="catalogue-reading-option"><input type="checkbox" checked={catalogue.showReadings} onChange={(event) => onCatalogueChange({ ...catalogue, showReadings: event.currentTarget.checked })} />Показывать чтения</label>
         </div>
       </SectionDisclosure>
       {!hasFilters ? null : (
@@ -685,7 +686,7 @@ function KanjiCharacterPanel({
                   {item.character}
                 </JapaneseText>
                 <div className="character-hub-kanji-copy">
-                  <strong>{item.reading ?? "Чтение уточняется"}</strong>
+                  <strong>{!catalogue.showReadings && item.reading ? 'Чтение скрыто' : item.reading ?? "Чтение уточняется"}</strong>
                   <div className="character-hub-meaning-rows">
                     {characterMeaningRows(item, displayMode).map((row) => <span key={row.lang} lang={row.text === null ? 'ru' : row.lang}><small>{row.label}</small><span>{row.text ?? 'Перевод не добавлен'}</span></span>)}
                   </div>

@@ -37,7 +37,7 @@ remain the course order, grid and visible kana readings. No large new dashboard.
 | 318 | Bilingual meaning rows | RU/EN/RU+EN display labelled rows, explicit missing translation, no silent cross-language fallback | Implemented |
 | 319 | Safe return context | A kanji detail link can return to canonical same-origin catalogue filters/page/options; reject external/untrusted return URLs | Implemented |
 | 320 | Filter recovery | Search chips and clear actions are consistent; empty/no-course states expose a useful recovery action | Implemented |
-| 321 | Reading visibility | URL-backed reading checkbox hides kana hints by default only when requested; no grading effects | Pending |
+| 321 | Reading visibility | URL-backed reading checkbox hides kana hints by default only when requested; no grading effects | Implemented |
 | 322 | Per-item reading actions | Explicit reveal and copy controls outside navigation links; no hidden-reading leak in link labels | Pending |
 | 323 | Batched acceptance | Focused helpers/API/browser tests, TypeScript/build/lint/format and phone/desktop captures | Pending |
 | 324 | Deploy and verify | Push/tag, full web revision check, API liveness and real catalogue/material navigation; resource cleanup | Pending |
