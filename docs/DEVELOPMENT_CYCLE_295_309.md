@@ -36,7 +36,7 @@ speech/preferences components. No copied competitor data, wording, CSS or media.
 | 302 | Focused finder previews | Group-filtered previews show matching symbols; original ordinals and full-unit mastery retained | Implemented |
 | 303 | Teaching audio | Existing Japanese speech supports teaching, preference restrictions and cancellation | Implemented |
 | 304 | Bilingual learning notes | Original short RU/EN notes explain basic/modified/combined/length patterns in RU/EN/RU+EN | Implemented |
-| 305 | Revisit teaching | Explicit explanation action during a quiz never submits or manufactures mastery | Pending |
+| 305 | Revisit teaching | Explicit explanation action during a quiz never submits or manufactures mastery | Implemented |
 | 306 | Unit completion checkpoint | Confirmed mastery shows a completion state with explicit next/repeat actions, not an automatic jump | Pending |
 | 307 | In-place answer recovery | Failed POST keeps exercise/input; explicit retry only, no automatic write replay | Pending |
 | 308 | Batched acceptance | Focused unit/browser tests, type/build/lint/format; light/dark phone/desktop captures | Pending |

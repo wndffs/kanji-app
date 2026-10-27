@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Volume2 } from "lucide-react";
+import { BookOpen, Volume2 } from "lucide-react";
 import { ViewTabs } from "../../components/ViewTabs";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { KanaContentSummary } from "../../components/KanaContentSummary";
@@ -672,6 +672,11 @@ function OwnedKanaClient({
                     Освоено {activeUnit.masteredCount} / {activeUnit.totalCount}
                   </span>
                 </header>
+              ) : null}
+              {mode === "lessons" && lessonPhase === "quiz" && feedback === null && currentLessonItem !== null ? (
+                <button className="secondary-action kana-explanation-action" disabled={submitting} type="button" onClick={() => setLessonPhase("teach")}>
+                  <BookOpen size={16} aria-hidden="true" /> Объяснение
+                </button>
               ) : null}
               {currentItem === null ? (
                 <p className="muted">В этой азбуке пока нет знаков.</p>

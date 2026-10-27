@@ -1477,6 +1477,12 @@ textarea::placeholder {
 .kana-teaching-note p + p {
   margin-top: 8px;
 }
+.kana-explanation-action {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .kana-content-summary dt {
   color: var(--muted);
   font-size: 12px;
