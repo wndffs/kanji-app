@@ -14,9 +14,15 @@ export function mnemonicKey(selection: MnemonicSelection): string {
   return `${selection.locale}:${selection.mnemonicType}`;
 }
 
-export function mnemonicDraftCount(form: MnemonicFormState, mnemonics: readonly UserMnemonicDto[]): number {
+export function mnemonicDraftCount(
+  form: MnemonicFormState,
+  mnemonics: readonly UserMnemonicDto[],
+): number {
   const drafts = { ...form.drafts, [mnemonicKey(form)]: form.body };
-  return Object.entries(drafts).filter(([key, body]) => body.trim() !== (mnemonics.find((note) => mnemonicKey(note) === key)?.body.trim() ?? "")).length;
+  return Object.entries(drafts).filter(
+    ([key, body]) =>
+      body.trim() !== (mnemonics.find((note) => mnemonicKey(note) === key)?.body.trim() ?? ""),
+  ).length;
 }
 
 export function resolveMnemonicForm(

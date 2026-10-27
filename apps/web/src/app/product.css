@@ -1789,8 +1789,17 @@ textarea::placeholder {
 }
 .item-hero-main h1 {
   color: var(--subject-ink, var(--foreground));
-  margin: 10px 0;
-  line-height: 1.5;
+  margin: 0;
+  font-size: 64px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.item-page[data-item-type="word"] .item-hero-main h1 {
+  font-size: 40px;
+}
+.item-hero-main h1.japanese-text-sentence {
+  font-size: 28px;
+  line-height: 1.6;
 }
 .item-translation-rows {
   display: grid;
@@ -1877,6 +1886,14 @@ textarea::placeholder {
 }
 .item-page .item-study-memory .lesson-text-list span {
   font-weight: 500;
+}
+.item-page .leech-notice {
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+.item-page .leech-notice p {
+  margin-block: 6px;
 }
 .item-hero [data-fact="reading"] dd {
   display: flex;

@@ -1,4 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
+import { captureLearnerThemes } from "./support/capture-learner-themes";
+import { changeAccount } from "./support/change-account";
 
 import {
   type ContentLocale,
@@ -14,6 +16,327 @@ const COMPONENT_ID = "item-component-one";
 const WORD_ID = "item-word-school";
 
 test.describe("item details", () => {
+  test("renders teaching before slow notes and retries a failed private snapshot without losing the item", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockItemApi(page);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let reads = 0;
+    await page.route(`${API_BASE_URL}/items/${ITEM_ID}/private-mnemonics`, async (route) => {
+      if (++reads === 1) {
+        await gate;
+        await route.fulfill({ status: 503, json: { message: "Notes temporarily unavailable" } });
+      } else await route.fulfill({ json: [buildMnemonic("ru-RU", "story")] });
+    });
+    try {
+      await page.goto(`/items/${ITEM_ID}?view=personal`);
+      await expect(page.getByRole("heading", { name: "一", exact: true })).toBeVisible();
+      await expect(page.getByTestId("private-mnemonic-body")).toBeDisabled();
+      await expect(page.getByText("Личных заметок пока нет.", { exact: true })).toHaveCount(0);
+      release();
+      await expect(page.getByText("Notes temporarily unavailable", { exact: true })).toBeVisible();
+      await expect(page.getByTestId("private-mnemonic-submit")).toBeDisabled();
+      await expect(page.getByText("Личных заметок пока нет.", { exact: true })).toHaveCount(0);
+      await page.getByRole("button", { name: "Повторить загрузку заметок", exact: true }).click();
+      await expect(page.getByTestId("private-mnemonic-body")).toHaveValue("ru-RU:story");
+      await expect(page.getByTestId("private-mnemonic-body")).toBeEnabled();
+      expect(reads).toBe(2);
+    } finally {
+      release();
+    }
+  });
+
+  for (const status of [200, 401]) {
+    test(`ignores late private notes after an account change (${status})`, async ({ page }) => {
+      await signIn(page);
+      await mockItemApi(page);
+      let release!: () => void;
+      let started!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const pending = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      await page.route(`${API_BASE_URL}/items/${ITEM_ID}/private-mnemonics`, async (route) => {
+        if (route.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`) {
+          started();
+          await gate;
+          await route
+            .fulfill({
+              status,
+              json:
+                status === 200
+                  ? [{ ...buildMnemonic("ru-RU", "story"), body: "old private body" }]
+                  : { message: "old owner expired" },
+            })
+            .catch(() => undefined);
+        } else
+          await route.fulfill({
+            json: [{ ...buildMnemonic("ru-RU", "story"), body: "new owner body" }],
+          });
+      });
+      try {
+        await page.goto(`/items/${ITEM_ID}?view=personal`);
+        await pending;
+        await changeAccount(page);
+        await expect(page.getByTestId("private-mnemonic-body")).toHaveValue("new owner body");
+        release();
+        await expect(page.getByText("old private body", { exact: true })).toHaveCount(0);
+        await expect(page.getByText("old owner expired", { exact: true })).toHaveCount(0);
+        expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe(
+          "new-owner-token",
+        );
+      } finally {
+        release();
+      }
+    });
+  }
+
+  test("restores view URL, Back and catalogue context without refetching on tab changes", async ({
+    page,
+  }, info) => {
+    await signIn(page);
+    await mockItemApi(page);
+    let reads = 0;
+    await page.route(`${API_BASE_URL}/kanji/${encodeURIComponent("一")}`, (route) => {
+      reads++;
+      return route.fulfill({ json: buildItemDetails([], null) });
+    });
+    const catalogue = "/characters?tab=kanji&q=ichi&view=list";
+    await page.goto(
+      `/kanji/${encodeURIComponent("一")}?${new URLSearchParams({ catalogue, view: "sources" })}`,
+    );
+    await expect(page.getByRole("tab", { name: "Источники", exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await page.getByRole("tab", { name: "Мои записи", exact: true }).click();
+    await page.getByTestId("private-mnemonic-body").fill("unsaved draft");
+    await expect(page.getByText("Несохранённых заметок: 1", { exact: true })).toBeVisible();
+    await page.evaluate(() => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      window.scrollTo(0, 0);
+    });
+    await captureLearnerThemes(page, info, "material-notes");
+    await page.getByRole("tab", { name: "История", exact: true }).click();
+    await expect(page.getByTestId("item-srs-history")).toBeVisible();
+    await page.goBack();
+    await expect(page.getByTestId("private-mnemonic-body")).toHaveValue("unsaved draft");
+    expect(reads).toBe(1);
+    await page.getByRole("tab", { name: "Источники", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp("view=sources"));
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Источники", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "К каталогу кандзи", exact: true }),
+    ).toHaveAttribute("href", catalogue);
+    expect(reads).toBe(2);
+  });
+
+  test("conceals structured kanji and relation readings until deliberate reveal", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockItemApi(page);
+    const item = buildItemDetails([], null);
+    Object.assign(item, {
+      relationGroups: item.relationGroups.map((group) => ({
+        ...group,
+        items: group.items.map((related) => ({ ...related, reading: "ひとり" })),
+      })),
+    });
+    await page.route(`${API_BASE_URL}/items/${ITEM_ID}`, (route) => route.fulfill({ json: item }));
+    await page.goto(`/items/${ITEM_ID}`);
+    const details = page.getByTestId("kanji-reading-details");
+    await expect(details.getByText("ひと", { exact: true })).toBeHidden();
+    await details.getByRole("button", { name: "Словарные чтения", exact: true }).click();
+    await expect(details.getByText("ひと", { exact: true })).toBeVisible();
+    await page.getByLabel("Скрыть подсказки чтения", { exact: true }).check();
+    await expect(details).toContainText("Чтение скрыто.");
+    await expect(details.getByText("いち", { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("item-relation-groups")).not.toContainText("ひとり");
+    await expect(page.getByRole("button", { name: "Прослушать чтение", exact: true })).toHaveCount(
+      0,
+    );
+    await page.getByRole("button", { name: "Показать чтение", exact: true }).click();
+    await expect(
+      details.locator(".reading-evidence-grid").first().getByText("いち", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByTestId("item-relation-groups")).not.toContainText("ひとり");
+  });
+
+  test("bounds related materials and examples without pretending unloaded entries are available", async ({
+    page,
+  }, info) => {
+    await signIn(page);
+    await mockItemApi(page);
+    const item = buildItemDetails([], null);
+    const related = item.relationGroups[0]!.items[0]!;
+    Object.assign(item, {
+      relationGroups: [
+        {
+          kind: "vocabulary",
+          total: 20,
+          items: Array.from({ length: 9 }, (_, index) => ({
+            ...related,
+            id: `related-${index}`,
+            japanese: `一${index}`,
+            reading: "いち",
+          })),
+        },
+      ],
+      exampleSentences: Array.from({ length: 5 }, (_, index) => ({
+        ...item.exampleSentences[0]!,
+        id: `example-${index}`,
+        attribution: buildWordDetails().exampleSentences[0]!.attribution,
+      })),
+    });
+    await page.route(`${API_BASE_URL}/items/${ITEM_ID}`, (route) => route.fulfill({ json: item }));
+    await page.goto(`/items/${ITEM_ID}`);
+    const relations = page.getByTestId("item-relation-groups");
+    await expect(relations.locator("li")).toHaveCount(6);
+    await expect(relations).toContainText("Показано 6 из 20 · загружено 9.");
+    await relations
+      .getByRole("button", { name: "Показать ещё: Слова, закрепляющие материал", exact: true })
+      .click();
+    await expect(relations.locator("li")).toHaveCount(9);
+    await expect(relations).toContainText("Показано 9 из 20 · загружено 9.");
+    await relations
+      .getByRole("button", { name: "Свернуть: Слова, закрепляющие материал", exact: true })
+      .click();
+    await expect(page.locator(".example-list > li")).toHaveCount(3);
+    await page.getByRole("button", { name: "Показать ещё: Примеры", exact: true }).click();
+    await expect(page.locator(".example-list > li")).toHaveCount(5);
+    await expect(page.locator(".example-list > li").first()).toContainText("One, please.");
+    await expect(page.locator(".example-list > li").first()).toContainText("Project examples");
+    await captureLearnerThemes(page, info, "material-study");
+  });
+
+  for (const mode of ["ru", "en", "ru-en"] as const) {
+    test(`labels missing hero translations in ${mode} without other-language substitution`, async ({
+      page,
+    }) => {
+      await signIn(page, { translationDisplayMode: mode });
+      await mockItemApi(page);
+      const item = buildItemDetails([], null);
+      Object.assign(item, { translations: { ...item.translations, primaryRu: null } });
+      await page.route(`${API_BASE_URL}/items/${ITEM_ID}`, (route) =>
+        route.fulfill({ json: item }),
+      );
+      await page.goto(`/items/${ITEM_ID}`);
+      const rows = page.locator(".item-hero .item-translation-rows");
+      await expect(rows.locator("dt")).toHaveText(
+        mode === "ru-en" ? ["RU", "EN"] : [mode.toUpperCase()],
+      );
+      if (mode !== "en") await expect(rows).toContainText("Перевод пока не добавлен");
+      if (mode !== "ru") await expect(rows).toContainText("one");
+      else await expect(rows).not.toContainText("one");
+    });
+  }
+
+  test("keeps cardless personal answers unavailable and learning free from private mnemonic duplication", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockItemApi(page, {
+      mnemonics: [{ ...buildMnemonic("ru-RU", "story"), body: "private only story" }],
+    });
+    const item = buildItemDetails([], null);
+    Object.assign(item, {
+      cards: [],
+      mnemonics: {
+        ...item.mnemonics,
+        ru: [
+          ...item.mnemonics.ru,
+          { locale: "ru-RU", text: "private only story", sourceKind: "user" },
+        ],
+      },
+    });
+    await page.route(`${API_BASE_URL}/items/${ITEM_ID}`, (route) => route.fulfill({ json: item }));
+    await page.goto(`/items/${ITEM_ID}`);
+    await expect(page.locator(".item-study-memory")).not.toContainText("private only story");
+    await page.getByRole("tab", { name: "Мои записи", exact: true }).click();
+    await expect(
+      page.getByText("У этого материала пока нет учебных карточек для личных ответов.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(page.getByTestId("private-answer-form")).toHaveCount(0);
+    await expect(
+      privatePanel(page, "Приватная заметка")
+        .locator(".lesson-text-list")
+        .getByText("private only story", { exact: true }),
+    ).toBeVisible();
+  });
+
+  test("speaks only visible readings, never autoplays, and cancels on hide and view change", async ({
+    page,
+  }) => {
+    await signIn(page, { speechAutoplay: true, speechRate: 0.8 });
+    await mockItemApi(page);
+    await page.addInitScript(() => {
+      const state = window as typeof window & {
+        spoken: { text: string; rate: number; lang: string }[];
+        cancels: number;
+      };
+      state.spoken = [];
+      state.cancels = 0;
+      class Utterance {
+        text: string;
+        constructor(text: string) {
+          this.text = text;
+        }
+      }
+      Object.defineProperty(window, "SpeechSynthesisUtterance", {
+        configurable: true,
+        value: Utterance,
+      });
+      Object.defineProperty(window, "speechSynthesis", {
+        configurable: true,
+        value: {
+          getVoices: () => [{ lang: "ja-JP", voiceURI: "ja", name: "Japanese", default: true }],
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+          cancel: () => {
+            state.cancels++;
+          },
+          speak: (value: SpeechSynthesisUtterance) => {
+            state.spoken.push({ text: value.text, rate: value.rate, lang: value.lang });
+          },
+        },
+      });
+    });
+    const snapshot = () =>
+      page.evaluate(() => {
+        const state = window as typeof window & {
+          spoken: { text: string; rate: number; lang: string }[];
+          cancels: number;
+        };
+        return { spoken: state.spoken, cancels: state.cancels };
+      });
+    await page.goto(`/items/${ITEM_ID}`);
+    const play = page.getByRole("button", { name: "Прослушать чтение", exact: true });
+    await expect(play).toBeEnabled();
+    expect((await snapshot()).spoken).toEqual([]);
+    await play.click();
+    expect((await snapshot()).spoken).toEqual([{ text: "いち", rate: 0.8, lang: "ja-JP" }]);
+    const beforeHide = (await snapshot()).cancels;
+    await page.getByLabel("Скрыть подсказки чтения", { exact: true }).check();
+    await expect(play).toHaveCount(0);
+    expect((await snapshot()).cancels).toBeGreaterThan(beforeHide);
+    await page.getByRole("button", { name: "Показать чтение", exact: true }).click();
+    await play.click();
+    const beforeView = (await snapshot()).cancels;
+    await page.getByRole("tab", { name: "История", exact: true }).click();
+    await expect(play).toHaveCount(0);
+    expect((await snapshot()).cancels).toBeGreaterThan(beforeView);
+  });
+
   for (const denied of [false, true]) {
     test(`copies only a visible kana reading and reports clipboard denial (${denied})`, async ({
       page,
@@ -148,10 +471,16 @@ test.describe("item details", () => {
     await expect(page.locator(".item-hero-main > .eyebrow")).toHaveText("Кандзи");
     await expect(page.getByRole("heading", { name: "一" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Значения" })).toBeVisible();
+    const tabs = await page
+      .getByRole("tablist", { name: "Разделы материала", exact: true })
+      .boundingBox();
+    expect(tabs).not.toBeNull();
+    expect(tabs!.y + tabs!.height).toBeLessThan(await page.evaluate(() => innerHeight - 80));
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
     await page.screenshot({ path: test.info().outputPath("item-study.png"), fullPage: true });
+    await page.screenshot({ path: test.info().outputPath("material-first-viewport.png") });
     await expect(page.getByRole("heading", { name: "Глобальные ответы" })).toBeHidden();
     await page.getByText("Все допустимые ответы", { exact: true }).click();
     await expect(page.getByRole("heading", { name: "Глобальные ответы" })).toBeVisible();
@@ -183,6 +512,7 @@ test.describe("item details", () => {
     const readings = page.getByTestId("kanji-reading-details");
     await expect(readings.getByText("Основное учебное чтение")).toBeVisible();
     await expect(readings.getByText("いち", { exact: true }).first()).toBeVisible();
+    await readings.getByRole("button", { name: "Словарные чтения", exact: true }).click();
     await expect(readings.getByText("Онъёми")).toBeVisible();
     await expect(readings.getByText("Кунъёми")).toBeVisible();
     await page.getByRole("tab", { name: "История", exact: true }).click();
@@ -224,7 +554,7 @@ test.describe("item details", () => {
     await page.goto(`/items/${COMPONENT_ID}`);
 
     await expect(page.getByRole("heading", { name: "Значения" })).toBeVisible();
-    await expect(page.getByText("один / one", { exact: true })).toBeVisible();
+    await expect(page.locator(".item-hero .item-translation-rows dd")).toHaveText(["один", "one"]);
     const details = page.getByTestId("component-details");
     await expect(details.getByText("единица / one", { exact: true })).toBeVisible();
     await expect(
@@ -397,7 +727,13 @@ function privatePanel(page: Page, heading: string) {
 
 async function signIn(
   page: Page,
-  preferences: { lessonPronunciationMode?: "kana" | "furigana"; lessonRomaji?: boolean } = {},
+  preferences: {
+    lessonPronunciationMode?: "kana" | "furigana";
+    lessonRomaji?: boolean;
+    translationDisplayMode?: "ru" | "en" | "ru-en";
+    speechAutoplay?: boolean;
+    speechRate?: number;
+  } = {},
 ): Promise<void> {
   await page.route(`${API_BASE_URL}/items/*/private-mnemonics`, async (route) => {
     await route.fulfill({ json: [] });
@@ -405,7 +741,10 @@ async function signIn(
   await page.addInitScript(
     ({ accessToken, preferences }) => {
       window.localStorage.setItem("kanji-srs.accessToken", accessToken);
-      window.localStorage.setItem("kanji-srs.translationDisplayMode", "ru-en");
+      window.localStorage.setItem(
+        "kanji-srs.translationDisplayMode",
+        preferences.translationDisplayMode ?? "ru-en",
+      );
       window.localStorage.setItem(
         "kanji-srs.user",
         JSON.stringify({

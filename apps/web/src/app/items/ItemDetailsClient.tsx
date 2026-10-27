@@ -55,7 +55,12 @@ import {
 import { safeExternalUrl } from "../../lib/safe-url";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
-import { itemTranslationRows, itemViewHref, parseItemView, type ItemView } from "../../lib/item-workspace";
+import {
+  itemTranslationRows,
+  itemViewHref,
+  parseItemView,
+  type ItemView,
+} from "../../lib/item-workspace";
 
 type ItemLookup =
   | { readonly type: "item"; readonly value: string }
@@ -127,7 +132,9 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
   const searchParams = useSearchParams();
   const itemView = parseItemView(searchParams.get("view"));
   function setItemView(view: string) {
-    router.push(itemViewHref(pathname, new URLSearchParams(searchParams), view as ItemView), { scroll: false });
+    router.push(itemViewHref(pathname, new URLSearchParams(searchParams), view as ItemView), {
+      scroll: false,
+    });
   }
   const liveDisplayMode = useTranslationDisplayMode();
   const [readingPreferences, setReadingPreferences] = useState(() =>
@@ -174,12 +181,17 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
     noteRequest.current = controller;
     setNoteRead("loading");
     setNoteReadError(null);
-    const isCurrent = () => !controller.signal.aborted && noteRequest.current === controller && readStoredSession()?.token === token;
+    const isCurrent = () =>
+      !controller.signal.aborted &&
+      noteRequest.current === controller &&
+      readStoredSession()?.token === token;
     try {
       const notes = await getPrivateMnemonics(token, itemId, { signal: controller.signal });
       if (!isCurrent()) return;
       setPrivateMnemonics(notes);
-      setMnemonicForm((previous) => resolveMnemonicForm(sameItem ? previous : EMPTY_MNEMONIC_FORM, notes));
+      setMnemonicForm((previous) =>
+        resolveMnemonicForm(sameItem ? previous : EMPTY_MNEMONIC_FORM, notes),
+      );
       setNoteRead("ready");
     } catch (error: unknown) {
       if (!isCurrent()) return;
@@ -188,7 +200,9 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
         return;
       }
       setNoteRead("error");
-      setNoteReadError(error instanceof Error ? error.message : "Не удалось загрузить личные заметки.");
+      setNoteReadError(
+        error instanceof Error ? error.message : "Не удалось загрузить личные заметки.",
+      );
     }
   }, []);
 
@@ -205,7 +219,9 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
     const storedSession = readStoredSession();
     const token = storedSession?.token ?? null;
     const isCurrent = () =>
-      !controller.signal.aborted && version === itemLoadVersion.current && (readStoredSession()?.token ?? null) === token;
+      !controller.signal.aborted &&
+      version === itemLoadVersion.current &&
+      (readStoredSession()?.token ?? null) === token;
     const displayMode =
       storedSession?.user.settings.translationDisplayMode ?? readTranslationDisplayMode();
     const timezone =
@@ -395,7 +411,12 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
   async function handleSaveMnemonic(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
-    if (state.status !== "ready" || state.token === null || isSavingMnemonic || noteRead !== "ready") {
+    if (
+      state.status !== "ready" ||
+      state.token === null ||
+      isSavingMnemonic ||
+      noteRead !== "ready"
+    ) {
       return;
     }
 
@@ -427,7 +448,12 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
   }
 
   async function handleDeleteMnemonic(): Promise<void> {
-    if (state.status !== "ready" || state.token === null || isSavingMnemonic || noteRead !== "ready") {
+    if (
+      state.status !== "ready" ||
+      state.token === null ||
+      isSavingMnemonic ||
+      noteRead !== "ready"
+    ) {
       return;
     }
 
@@ -571,9 +597,9 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
   const privateOverrides = item.userOverrides.filter(
     (override) => override.kind === "accepted-answer",
   );
-  const userMnemonicTexts = getLocalizedTexts(item.mnemonics, displayMode).filter(
-    (text) => text.sourceKind === "user",
-  );
+  const userMnemonicTexts = privateMnemonics
+    .filter((note) => getContentLocalesForDisplayMode(displayMode).includes(note.locale))
+    .map((note) => ({ locale: note.locale, text: note.body, sourceKind: "user" as const }));
 
   return (
     <section className="item-page" data-item-type={item.itemType}>
@@ -603,8 +629,18 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
           >
             {item.japanese}
           </JapaneseText>
-          <ItemTranslationRows ru={item.translations.primaryRu} en={item.translations.primaryEn} displayMode={displayMode} />
-          <ItemReadingAudio reading={item.wordDetails?.reading.trim() || item.reading} hidden={readingHidden} view={itemView} />
+          <ItemTranslationRows
+            ru={item.translations.primaryRu}
+            en={item.translations.primaryEn}
+            displayMode={displayMode}
+          />
+          {reading.furigana === null ? null : (
+            <ItemReadingAudio
+              reading={item.wordDetails?.reading.trim() || item.reading}
+              hidden={readingHidden}
+              view={itemView}
+            />
+          )}
         </div>
         <dl className="lesson-facts">
           {reading.kana === null && !readingHidden ? null : (
@@ -625,6 +661,11 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
                     {reading.kana === null ? null : (
                       <CopyReadingButton key={reading.kana} reading={reading.kana} />
                     )}
+                    <ItemReadingAudio
+                      reading={reading.kana}
+                      hidden={readingHidden}
+                      view={itemView}
+                    />
                   </>
                 )}
               </dd>
@@ -650,9 +691,17 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
           )}
           <div>
             <dt>Повторения</dt>
-            <dd><button className="link-button item-history-link" type="button" onClick={() => setItemView("history")} aria-label="Открыть историю повторений">
-              <History size={16} aria-hidden="true" />{formatSrsStageName(item.srs?.stageName)}
-            </button></dd>
+            <dd>
+              <button
+                className="link-button item-history-link"
+                type="button"
+                onClick={() => setItemView("history")}
+                aria-label="Открыть историю повторений"
+              >
+                <History size={16} aria-hidden="true" />
+                {formatSrsStageName(item.srs?.stageName)}
+              </button>
+            </dd>
           </div>
         </dl>
       </header>
@@ -663,32 +712,6 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
           {formError}
         </p>
       )}
-      {itemView === "study" && item.srs?.leech?.isCandidate ? <LeechNotice item={item} /> : null}
-      {itemView === "study" && item.itemType === "kanji" && token !== null ? (
-        <section className="panel item-confusable-panel">
-          <div>
-            <span className="eyebrow">Отдельная практика</span>
-            <h2>Похожие кандзи</h2>
-          </div>
-          <div className="item-confusable-links">
-            {confusablePairs.slice(0, 3).map((pair) => (
-              <Link
-                className="secondary-action"
-                href={`/practice/confusables?pairId=${encodeURIComponent(pair.id)}`}
-                key={pair.id}
-              >
-                {pair.kanji[0].character} / {pair.kanji[1].character}
-              </Link>
-            ))}
-            <Link
-              className={confusablePairs.length === 0 ? "secondary-action" : "inline-link"}
-              href={`/practice/confusables?itemId=${encodeURIComponent(item.id)}`}
-            >
-              {confusablePairs.length === 0 ? "Найти пары" : "Все пары"}
-            </Link>
-          </div>
-        </section>
-      ) : null}
 
       <ViewTabs
         active={itemView}
@@ -712,6 +735,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
       >
         <div className="item-main">
           <div className="item-tab-content" hidden={itemView !== "study"}>
+            {item.srs?.leech?.isCandidate ? <LeechNotice item={item} /> : null}
             <section className="panel">
               <h2>Значения</h2>
               <TextList texts={getLocalizedTexts(item.translations, displayMode)} />
@@ -745,8 +769,18 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
 
             <section className="panel item-study-memory">
               <h2>Мнемоники и подсказки</h2>
-              <ContentBlock title="Мнемоники" texts={getLocalizedTexts(item.mnemonics, displayMode).filter((text) => text.sourceKind !== "user")} />
-              <ContentBlock title="Подсказки" texts={getLocalizedTexts(item.hints, displayMode).filter((text) => text.sourceKind !== "user")} />
+              <ContentBlock
+                title="Мнемоники"
+                texts={getLocalizedTexts(item.mnemonics, displayMode).filter(
+                  (text) => text.sourceKind !== "user",
+                )}
+              />
+              <ContentBlock
+                title="Подсказки"
+                texts={getLocalizedTexts(item.hints, displayMode).filter(
+                  (text) => text.sourceKind !== "user",
+                )}
+              />
             </section>
 
             <SectionDisclosure title="Все допустимые ответы">
@@ -785,7 +819,12 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               {item.exampleSentences.length === 0 ? (
                 <p className="muted">Примеры для этого материала пока не добавлены.</p>
               ) : (
-                <ItemPreviewList items={item.exampleSentences} limit={3} label="Примеры" className="example-list" renderItem={(sentence) => {
+                <ItemPreviewList
+                  items={item.exampleSentences}
+                  limit={3}
+                  label="Примеры"
+                  className="example-list"
+                  renderItem={(sentence) => {
                     const presentation = itemReadingPresentation(
                       sentence.readingText,
                       presentationPreferences,
@@ -809,16 +848,20 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
                             Показать чтение примера
                           </button>
                         ) : null}
-                        <ItemTranslationRows ru={sentence.translationRu} en={sentence.translationEn} displayMode={displayMode} />
+                        <ItemTranslationRows
+                          ru={sentence.translationRu}
+                          en={sentence.translationEn}
+                          displayMode={displayMode}
+                        />
                         {sentence.attribution === null ? null : (
                           <SourceAttribution source={sentence.attribution} />
                         )}
                       </li>
                     );
-                  }} />
+                  }}
+                />
               )}
             </section>
-
           </div>
 
           <section className="panel item-tab-content" hidden={itemView !== "sources"}>
@@ -863,13 +906,19 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
             </section>
           ) : null}
 
+          {itemView === "study" && item.itemType === "kanji" && token !== null ? (
+            <ItemConfusablePanel itemId={item.id} pairs={confusablePairs} />
+          ) : null}
+
           <div className="item-tab-content" hidden={itemView !== "personal"}>
             <section className="panel">
               <h2>Приватные ответы</h2>
               {token === null ? (
                 <p className="muted">Войдите, чтобы добавить личные варианты ответа.</p>
               ) : item.cards.length === 0 ? (
-                <p className="muted">У этого материала пока нет учебных карточек для личных ответов.</p>
+                <p className="muted">
+                  У этого материала пока нет учебных карточек для личных ответов.
+                </p>
               ) : (
                 <>
                   <form
@@ -898,8 +947,18 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
                         }}
                         value={acceptedForm.answerKind}
                       >
-                        <option value="meaning" disabled={!item.cards.some((card) => card.answerType === "meaning")}>Значение</option>
-                        <option value="reading" disabled={!item.cards.some((card) => card.answerType === "reading")}>Чтение</option>
+                        <option
+                          value="meaning"
+                          disabled={!item.cards.some((card) => card.answerType === "meaning")}
+                        >
+                          Значение
+                        </option>
+                        <option
+                          value="reading"
+                          disabled={!item.cards.some((card) => card.answerType === "reading")}
+                        >
+                          Чтение
+                        </option>
                       </select>
                     </label>
                     <label>
@@ -1019,93 +1078,114 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
                 <p className="muted">Войдите, чтобы сохранить личную мнемонику или заметку.</p>
               ) : (
                 <>
-                  {noteRead === "loading" ? <p className="muted" role="status">Загружаю личные заметки…</p> : null}
-                  {noteRead === "error" ? <div className="notice-panel error-panel">
-                    <p role="alert">{noteReadError}</p>
-                    <button className="secondary-action" type="button" onClick={() => void loadPrivateNotes(item.id, token, true)}>Повторить загрузку заметок</button>
-                  </div> : null}
-                  {noteRead === "ready" && mnemonicDraftCount(mnemonicForm, privateMnemonics) > 0 ? <p className="item-draft-status" role="status">Несохранённых заметок: {mnemonicDraftCount(mnemonicForm, privateMnemonics)}</p> : null}
+                  {noteRead === "loading" ? (
+                    <p className="muted" role="status">
+                      Загружаю личные заметки…
+                    </p>
+                  ) : null}
+                  {noteRead === "error" ? (
+                    <div className="notice-panel error-panel">
+                      <p role="alert">{noteReadError}</p>
+                      <button
+                        className="secondary-action"
+                        type="button"
+                        onClick={() => void loadPrivateNotes(item.id, token, true)}
+                      >
+                        Повторить загрузку заметок
+                      </button>
+                    </div>
+                  ) : null}
+                  {noteRead === "ready" &&
+                  mnemonicDraftCount(mnemonicForm, privateMnemonics) > 0 ? (
+                    <p className="item-draft-status" role="status">
+                      Несохранённых заметок: {mnemonicDraftCount(mnemonicForm, privateMnemonics)}
+                    </p>
+                  ) : null}
                   <form
                     className="private-item-form"
                     data-testid="private-mnemonic-form"
                     onSubmit={(event) => void handleSaveMnemonic(event)}
                   >
                     <fieldset disabled={noteRead !== "ready" || isSavingMnemonic}>
-                    <label>
-                      <span>Язык</span>
-                      <select
-                        disabled={isSavingMnemonic}
-                        onChange={(event) => {
-                          const locale = event.currentTarget.value as ContentLocale;
+                      <label>
+                        <span>Язык</span>
+                        <select
+                          disabled={isSavingMnemonic}
+                          onChange={(event) => {
+                            const locale = event.currentTarget.value as ContentLocale;
 
-                          setMnemonicForm((previous) =>
-                            selectMnemonicForm(previous, { ...previous, locale }, privateMnemonics),
-                          );
-                        }}
-                        value={mnemonicForm.locale}
-                      >
-                        <option value="ru-RU">Русский</option>
-                        <option value="en-US">English</option>
-                      </select>
-                    </label>
-                    <label>
-                      <span>Тип</span>
-                      <select
-                        disabled={isSavingMnemonic}
-                        onChange={(event) => {
-                          const mnemonicType = event.currentTarget
-                            .value as MnemonicFormState["mnemonicType"];
+                            setMnemonicForm((previous) =>
+                              selectMnemonicForm(
+                                previous,
+                                { ...previous, locale },
+                                privateMnemonics,
+                              ),
+                            );
+                          }}
+                          value={mnemonicForm.locale}
+                        >
+                          <option value="ru-RU">Русский</option>
+                          <option value="en-US">English</option>
+                        </select>
+                      </label>
+                      <label>
+                        <span>Тип</span>
+                        <select
+                          disabled={isSavingMnemonic}
+                          onChange={(event) => {
+                            const mnemonicType = event.currentTarget
+                              .value as MnemonicFormState["mnemonicType"];
 
-                          setMnemonicForm((previous) =>
-                            selectMnemonicForm(
-                              previous,
-                              { ...previous, mnemonicType },
-                              privateMnemonics,
-                            ),
-                          );
-                        }}
-                        value={mnemonicForm.mnemonicType}
-                      >
-                        <option value="story">Заметка</option>
-                        <option value="meaning">Мнемоника значения</option>
-                        <option value="reading">Мнемоника чтения</option>
-                      </select>
-                    </label>
-                    <label>
-                      <span>Текст</span>
-                      <textarea
-                        aria-label="Текст приватной заметки"
-                        data-testid="private-mnemonic-body"
-                        disabled={isSavingMnemonic}
-                        onChange={(event) => {
-                          const body = event.currentTarget.value;
+                            setMnemonicForm((previous) =>
+                              selectMnemonicForm(
+                                previous,
+                                { ...previous, mnemonicType },
+                                privateMnemonics,
+                              ),
+                            );
+                          }}
+                          value={mnemonicForm.mnemonicType}
+                        >
+                          <option value="story">Заметка</option>
+                          <option value="meaning">Мнемоника значения</option>
+                          <option value="reading">Мнемоника чтения</option>
+                        </select>
+                      </label>
+                      <label>
+                        <span>Текст</span>
+                        <textarea
+                          aria-label="Текст приватной заметки"
+                          data-testid="private-mnemonic-body"
+                          disabled={isSavingMnemonic}
+                          onChange={(event) => {
+                            const body = event.currentTarget.value;
 
-                          setMnemonicForm((previous) => editMnemonicBody(previous, body));
-                        }}
-                        value={mnemonicForm.body}
-                      />
-                    </label>
-                    <div className="action-row">
-                      <button
-                        className="secondary-action"
-                        data-testid="private-mnemonic-submit"
-                        disabled={isSavingMnemonic}
-                        type="submit"
-                      >
-                        Сохранить заметку
-                      </button>
-                      <button
-                        className="secondary-action"
-                        disabled={isSavingMnemonic}
-                        onClick={() => void handleDeleteMnemonic()}
-                        type="button"
-                      >
-                        Удалить заметку
-                      </button>
-                    </div>
+                            setMnemonicForm((previous) => editMnemonicBody(previous, body));
+                          }}
+                          value={mnemonicForm.body}
+                        />
+                      </label>
+                      <div className="action-row">
+                        <button
+                          className="secondary-action"
+                          data-testid="private-mnemonic-submit"
+                          disabled={isSavingMnemonic}
+                          type="submit"
+                        >
+                          Сохранить заметку
+                        </button>
+                        <button
+                          className="secondary-action"
+                          disabled={isSavingMnemonic}
+                          onClick={() => void handleDeleteMnemonic()}
+                          type="button"
+                        >
+                          Удалить заметку
+                        </button>
+                      </div>
                     </fieldset>
                   </form>
-                  {userMnemonicTexts.length === 0 ? (
+                  {noteRead !== "ready" ? null : userMnemonicTexts.length === 0 ? (
                     <p className="muted">Личных заметок пока нет.</p>
                   ) : (
                     <TextList texts={userMnemonicTexts} />
@@ -1115,6 +1195,40 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
             </section>
           </div>
         </aside>
+      </div>
+    </section>
+  );
+}
+
+function ItemConfusablePanel({
+  itemId,
+  pairs,
+}: {
+  readonly itemId: string;
+  readonly pairs: readonly ConfusablePairSummaryDto[];
+}) {
+  return (
+    <section className="panel item-confusable-panel">
+      <div>
+        <span className="eyebrow">Отдельная практика</span>
+        <h2>Похожие кандзи</h2>
+      </div>
+      <div className="item-confusable-links">
+        {pairs.slice(0, 3).map((pair) => (
+          <Link
+            className="secondary-action"
+            href={`/practice/confusables?pairId=${encodeURIComponent(pair.id)}`}
+            key={pair.id}
+          >
+            {pair.kanji[0].character} / {pair.kanji[1].character}
+          </Link>
+        ))}
+        <Link
+          className={pairs.length === 0 ? "secondary-action" : "inline-link"}
+          href={`/practice/confusables?itemId=${encodeURIComponent(itemId)}`}
+        >
+          {pairs.length === 0 ? "Найти пары" : "Все пары"}
+        </Link>
       </div>
     </section>
   );
@@ -1270,7 +1384,13 @@ function ItemReadingDetails({
   readonly hideReadings: boolean;
 }) {
   if (item.kanjiDetails !== null) {
-    if (hideReadings) return <section className="panel" data-testid="kanji-reading-details"><h2>Чтения</h2><p className="muted">Чтение скрыто.</p></section>;
+    if (hideReadings)
+      return (
+        <section className="panel" data-testid="kanji-reading-details">
+          <h2>Чтения</h2>
+          <p className="muted">Чтение скрыто.</p>
+        </section>
+      );
     const readingGroups = [
       ["on", "Онъёми"],
       ["kun", "Кунъёми"],
@@ -1296,32 +1416,32 @@ function ItemReadingDetails({
           </div>
         </div>
         <SectionDisclosure title="Словарные чтения">
-        <div className="dictionary-evidence">
-          <div className="section-heading-row">
-            <span className="source-kind-label imported">импортированные данные</span>
-          </div>
-          <div className="reading-evidence-grid">
-            {readingGroups.map(([kind, title]) => {
-              const readings = item.kanjiDetails?.readingEvidence.filter(
-                (reading) => reading.readingType === kind,
-              );
+          <div className="dictionary-evidence">
+            <div className="section-heading-row">
+              <span className="source-kind-label imported">импортированные данные</span>
+            </div>
+            <div className="reading-evidence-grid">
+              {readingGroups.map(([kind, title]) => {
+                const readings = item.kanjiDetails?.readingEvidence.filter(
+                  (reading) => reading.readingType === kind,
+                );
 
-              return readings === undefined || readings.length === 0 ? null : (
-                <div className="content-block" key={kind}>
-                  <h3>{title}</h3>
-                  <ul className="reading-chip-list">
-                    {readings.map((reading) => (
-                      <li key={`${kind}-${reading.reading}`}>
-                        <JapaneseText>{reading.reading}</JapaneseText>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
+                return readings === undefined || readings.length === 0 ? null : (
+                  <div className="content-block" key={kind}>
+                    <h3>{title}</h3>
+                    <ul className="reading-chip-list">
+                      {readings.map((reading) => (
+                        <li key={`${kind}-${reading.reading}`}>
+                          <JapaneseText>{reading.reading}</JapaneseText>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+            <ImportedSourceLinks sources={item.attributions} />
           </div>
-          <ImportedSourceLinks sources={item.attributions} />
-        </div>
         </SectionDisclosure>
       </section>
     );
@@ -1474,13 +1594,22 @@ function RelationGroups({
     <section className="panel" data-testid="item-relation-groups">
       <h2>Связи</h2>
       {groups.length === 0 ? (
-        <RelationsList relations={legacyRelations} displayMode={displayMode} hideReadings={hideReadings} />
+        <RelationsList
+          relations={legacyRelations}
+          displayMode={displayMode}
+          hideReadings={hideReadings}
+        />
       ) : (
         <div className="relation-group-list">
           {groups.map((group) => (
             <div className="content-block" key={group.kind}>
               <h3>{formatRelationGroup(group.kind)}</h3>
-              <ItemPreviewList items={group.items} total={group.total} label={formatRelationGroup(group.kind)} className="lesson-relation-list" renderItem={(related) => (
+              <ItemPreviewList
+                items={group.items}
+                total={group.total}
+                label={formatRelationGroup(group.kind)}
+                className="lesson-relation-list"
+                renderItem={(related) => (
                   <li key={related.id}>
                     <Link className="inline-link" href={`/items/${related.id}`}>
                       <JapaneseText>{related.japanese}</JapaneseText>
@@ -1490,7 +1619,8 @@ function RelationGroups({
                       {formatTranslationBundle(related.translations, displayMode)}
                     </small>
                   </li>
-                )} />
+                )}
+              />
             </div>
           ))}
         </div>
@@ -1513,7 +1643,11 @@ function RelationsList({
   }
 
   return (
-    <ItemPreviewList items={relations} label="Связи" className="lesson-relation-list" renderItem={(relation) => (
+    <ItemPreviewList
+      items={relations}
+      label="Связи"
+      className="lesson-relation-list"
+      renderItem={(relation) => (
         <li key={`${relation.relationType}-${relation.item.id}`}>
           <Link className="inline-link" href={`/items/${relation.item.id}`}>
             <JapaneseText>{relation.item.japanese}</JapaneseText>
@@ -1524,7 +1658,8 @@ function RelationsList({
             {formatTranslationBundle(relation.item.translations, displayMode)}
           </small>
         </li>
-      )} />
+      )}
+    />
   );
 }
 
@@ -1626,7 +1761,15 @@ function StrokePlaceholder({ character }: { readonly character: string }) {
   );
 }
 
-function ItemReadingAudio({ reading, hidden, view }: { readonly reading: string | null; readonly hidden: boolean; readonly view: ItemView }) {
+function ItemReadingAudio({
+  reading,
+  hidden,
+  view,
+}: {
+  readonly reading: string | null;
+  readonly hidden: boolean;
+  readonly view: ItemView;
+}) {
   const speech = useJapaneseSpeech();
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -1634,19 +1777,51 @@ function ItemReadingAudio({ reading, hidden, view }: { readonly reading: string 
     return speech.cancel;
   }, [reading, hidden, view, speech.cancel]);
   if (hidden || !reading?.trim() || view !== "study") return null;
-  return <div className="item-audio-control">
-    <button className="icon-button" type="button" disabled={!speech.available} aria-label="Прослушать чтение" title={speech.available ? "Прослушать чтение · синтез речи браузера" : "Озвучивание недоступно в этом браузере"} onClick={() => setFailed(!speech.speak(reading))}><Volume2 size={18} aria-hidden="true" /></button>
-    {failed ? <small role="status">Не удалось озвучить чтение</small> : null}
-  </div>;
+  return (
+    <div className="item-audio-control">
+      <button
+        className="icon-button"
+        type="button"
+        disabled={!speech.available}
+        aria-label="Прослушать чтение"
+        title={
+          speech.available
+            ? "Прослушать чтение · синтез речи браузера"
+            : "Озвучивание недоступно в этом браузере"
+        }
+        onClick={() => setFailed(!speech.speak(reading))}
+      >
+        <Volume2 size={18} aria-hidden="true" />
+      </button>
+      {failed ? <small role="status">Не удалось озвучить чтение</small> : null}
+    </div>
+  );
 }
 
-function ItemTranslationRows({ ru, en, displayMode }: { readonly ru: string | null; readonly en: string | null; readonly displayMode: TranslationDisplayMode }) {
-  return <dl className="item-translation-rows">
-    {itemTranslationRows(ru, en, displayMode).map((row) => <div key={row.locale}>
-      <dt>{row.label}</dt>
-      <dd lang={row.locale === "ru-RU" ? "ru" : "en"} className={row.text === null ? "muted" : undefined}>{row.text ?? "Перевод пока не добавлен"}</dd>
-    </div>)}
-  </dl>;
+function ItemTranslationRows({
+  ru,
+  en,
+  displayMode,
+}: {
+  readonly ru: string | null;
+  readonly en: string | null;
+  readonly displayMode: TranslationDisplayMode;
+}) {
+  return (
+    <dl className="item-translation-rows">
+      {itemTranslationRows(ru, en, displayMode).map((row) => (
+        <div key={row.locale}>
+          <dt>{row.label}</dt>
+          <dd
+            lang={row.locale === "ru-RU" ? "ru" : "en"}
+            className={row.text === null ? "muted" : undefined}
+          >
+            {row.text ?? "Перевод пока не добавлен"}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
 }
 
 function ContentBlock({

@@ -17,6 +17,10 @@ import {
   getAdminPrerequisiteCandidates,
   getAdminReviewQueueWithFilters,
   getCharacterHub,
+  getItemDetails,
+  getKanjiDetails,
+  getConfusablePairs,
+  getPrivateMnemonics,
   publishAdminMainCourse,
   rejectAdminImportedCandidate,
   restoreAdminImportedCandidate,
@@ -27,6 +31,30 @@ import {
 } from "../src/lib/api-client";
 
 describe("apiRequest", () => {
+  it("forwards cancellation to each material companion GET with unchanged auth and encoding", async () => {
+    const signal = new AbortController().signal;
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.signal).toBe(signal);
+      expect(init?.method).toBe("GET");
+      expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer material-token");
+      return new Response(JSON.stringify({}));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await getItemDetails("item/one", "material-token", { signal });
+      await getKanjiDetails("一", "material-token", { signal });
+      await getPrivateMnemonics("material-token", "item/one", { signal });
+      await getConfusablePairs("material-token", "item/one", { signal });
+      expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+        expect.stringContaining("/items/item%2Fone"),
+        expect.stringContaining("/kanji/%E4%B8%80"),
+        expect.stringContaining("/items/item%2Fone/private-mnemonics"),
+        expect.stringContaining("/confusables?itemId=item%2Fone"),
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it("forwards catalogue cancellation without retrying or swallowing abort", async () => {
     const controller = new AbortController();
     const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {

@@ -14,7 +14,11 @@ export function itemViewHref(pathname: string, search: URLSearchParams, view: It
   return `${pathname}${params.size ? `?${params}` : ""}`;
 }
 
-export function itemTranslationRows(ru: string | null, en: string | null, mode: TranslationDisplayMode) {
+export function itemTranslationRows(
+  ru: string | null,
+  en: string | null,
+  mode: TranslationDisplayMode,
+) {
   return getContentLocalesForDisplayMode(mode).map((locale) => ({
     locale,
     label: locale === "ru-RU" ? "RU" : "EN",

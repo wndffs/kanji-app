@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { type UserMnemonicDto } from "@kanji-srs/shared";
 import {
   editMnemonicBody,
+  mnemonicDraftCount,
   resolveMnemonicForm,
   selectMnemonicForm,
   type MnemonicFormState,
@@ -21,6 +22,22 @@ const notes: readonly UserMnemonicDto[] = (["ru-RU", "en-US"] as const).flatMap(
 const empty: MnemonicFormState = { locale: "ru-RU", mnemonicType: "story", body: "", drafts: {} };
 
 describe("private mnemonic editor", () => {
+  it("counts unsaved locale/type drafts against the loaded snapshot and clears after confirmation", () => {
+    let form = resolveMnemonicForm(empty, notes);
+    expect(mnemonicDraftCount(form, notes)).toBe(0);
+    form = editMnemonicBody(form, "new RU");
+    form = selectMnemonicForm(form, { locale: "en-US", mnemonicType: "reading" }, notes);
+    expect(mnemonicDraftCount(form, notes)).toBe(1);
+    form = editMnemonicBody(form, "new EN");
+    expect(mnemonicDraftCount(form, notes)).toBe(2);
+    const saved = notes.map((note) => ({
+      ...note,
+      body:
+        note.id === "ru-RU:story" ? "new RU" : note.id === "en-US:reading" ? "new EN" : note.body,
+    }));
+    expect(mnemonicDraftCount(form, saved)).toBe(0);
+    expect(mnemonicDraftCount({ ...empty, body: "  " }, [])).toBe(0);
+  });
   it("loads the exact locale and type, independently of learning-content display mode", () => {
     let form = resolveMnemonicForm(empty, notes);
     for (const note of notes) {
