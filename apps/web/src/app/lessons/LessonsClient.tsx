@@ -56,6 +56,7 @@ import { advanceLessonQuizCardQueue, buildLessonQuizQueue } from "../../lib/less
 import {
   getLessonPronunciationText,
   getLessonStudyPhases,
+  lessonStudyPosition,
   type LessonStudyPhase,
 } from "../../lib/lesson-study";
 import { useAnswerSound } from "../../lib/use-answer-sound";
@@ -286,6 +287,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
     [currentLesson],
   );
   const learnedItems = completionSummary?.learnedItems ?? 0;
+  const studyPosition = lessonStudyPosition(currentIndex, activeQueue.length, studyPhaseIndex, currentStudyPhases.length);
   const progressLabel = useMemo(() => {
     if (currentLesson === null) {
       return "";
@@ -918,6 +920,12 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
           </button>
         </div>
       </header>
+
+      <div className="lesson-session-progress" aria-label="Прогресс урока">
+        <span>{step === "study" ? `Материал ${studyPosition.item} из ${studyPosition.total} · этап ${studyPosition.phase} из ${studyPosition.phaseTotal}` : `Проверка материала ${currentIndex + 1} из ${activeQueue.length}`}</span>
+        <span>Изучено: {learnedItems}</span>
+        {step === "study" ? <progress aria-label="Текущий этап изучения" value={studyPosition.phase} max={Math.max(1, studyPosition.phaseTotal)} /> : null}
+      </div>
 
       {step === "study" ? (
         <LessonStudyView
