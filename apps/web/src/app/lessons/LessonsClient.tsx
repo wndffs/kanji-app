@@ -61,13 +61,14 @@ import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import { useLessonPronunciationPreferences } from "../../lib/use-lesson-pronunciation-preferences";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { useStoredSession, ownsSession } from "../../lib/use-stored-session";
-import { parseLessonSource } from "../../lib/lesson-browser";
+import { lessonSourceHref, parseLessonSource } from "../../lib/lesson-browser";
 
 type QueueState =
   | { readonly status: "checking" }
   | { readonly status: "loading" }
   | { readonly status: "unauthenticated" }
   | { readonly status: "error"; readonly message: string }
+  | { readonly status: "other-session"; readonly deckId: string | null; readonly title: string }
   | {
       readonly status: "ready";
       readonly token: string;
@@ -173,6 +174,11 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
       if (!isCurrent()) return;
       const activeMatchesSource =
         active.session !== null && active.session.deckId === requestedDeckId;
+
+      if (active.session !== null && !activeMatchesSource) {
+        setQueueState({ status: "other-session", deckId: active.session.deckId, title: active.source?.kind === "deck" ? active.source.title : "Основной курс" });
+        return;
+      }
 
       if (activeMatchesSource && active.session !== null && active.source !== null) {
         const resumedItems =
@@ -732,6 +738,8 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
       </section>
     );
   }
+
+  if (queueState.status === "other-session") return <section className="page-stack"><h1>Уроки</h1><div className="notice-panel"><h2>Есть незавершённый урок</h2><p>{queueState.title}</p><div className="action-row"><Link className="primary-action" href={lessonSourceHref(queueState.deckId)}>Продолжить урок</Link><Link className="secondary-action" href={requestedDeckId === null ? "/courses" : "/decks"}>{requestedDeckId === null ? "К курсам" : "К колодам"}</Link></div></div></section>;
 
   if (completionSummary !== null && session === null) {
     return (
