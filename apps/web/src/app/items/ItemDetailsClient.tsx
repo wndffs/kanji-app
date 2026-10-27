@@ -741,6 +741,12 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               hideReadings={hideReadingAnswers}
             />
 
+            <section className="panel item-study-memory">
+              <h2>Мнемоники и подсказки</h2>
+              <ContentBlock title="Мнемоники" texts={getLocalizedTexts(item.mnemonics, displayMode).filter((text) => text.sourceKind !== "user")} />
+              <ContentBlock title="Подсказки" texts={getLocalizedTexts(item.hints, displayMode).filter((text) => text.sourceKind !== "user")} />
+            </section>
+
             <SectionDisclosure title="Все допустимые ответы">
               <section>
                 <h2>Глобальные ответы</h2>
@@ -812,14 +818,6 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               )}
             </section>
 
-            <section className="panel">
-              <h2>Мнемоники и подсказки</h2>
-              <ContentBlock
-                title="Мнемоники"
-                texts={getLocalizedTexts(item.mnemonics, displayMode)}
-              />
-              <ContentBlock title="Подсказки" texts={getLocalizedTexts(item.hints, displayMode)} />
-            </section>
           </div>
 
           <section className="panel item-tab-content" hidden={itemView !== "sources"}>
