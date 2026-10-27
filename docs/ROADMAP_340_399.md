@@ -11,8 +11,11 @@ within that batch without silently changing its objective or numbering.
 
 Detailed acceptance: `DEVELOPMENT_CYCLE_340_354.md`.
 
-Checkpoint: 340-353 implemented and locally checked. Task 354 is releasing;
-runtime/CI evidence lives in the cycle document. No 355-399 task has started.
+Checkpoint: **340-354 complete and released** as `cycle-340-354-lessons`.
+Runtime/server/CI evidence lives in the cycle document. The live profile had an
+unfinished lesson, so acceptance verified safe resume without changing progress
+rather than destroying it to expose the lobby. No 355-399 task has started;
+the remaining 45 tasks begin with the review batch **355-369**.
 
 | ID  | Planned Outcome                                                            |
 | --- | -------------------------------------------------------------------------- |
@@ -30,7 +33,7 @@ runtime/CI evidence lives in the cycle document. No 355-399 task has started.
 | 351 | Distinct teaching-phase and quiz progress, without implying SRS creation   |
 | 352 | Return to a previous teaching material through confirmed progress writes   |
 | 353 | Batched scoped acceptance and responsive screenshots                       |
-| 354 | Version, push, deploy, exact revision and real lesson-lobby inspection     |
+| 354 | Version, push, deploy, exact revision and real lesson-entry inspection     |
 
 ## 355-369: Review Workspace
 
