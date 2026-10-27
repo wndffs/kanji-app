@@ -51,7 +51,7 @@ import {
   updateLessonSessionProgress,
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession, updateStoredUser } from "../../lib/auth-storage";
-import { orderLessonSelection } from "../../lib/lesson-selection";
+import { boundedLessonSelection, lessonBatchCapacity, orderLessonSelection } from "../../lib/lesson-selection";
 import { advanceLessonQuizCardQueue, buildLessonQuizQueue } from "../../lib/lesson-quiz";
 import {
   getLessonPronunciationText,
@@ -239,7 +239,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
         source: queue.source ?? { kind: "course" },
       });
       setOrderMode(queue.orderMode ?? "course");
-      setSelectedItemIds(queue.items.map((lesson) => lesson.item.id));
+      setSelectedItemIds(boundedLessonSelection(availableItems, queue.items.map((lesson) => lesson.item.id), lessonBatchCapacity(queue.batchLimit, queue.remainingToday)));
     } catch (error: unknown) {
       if (!isCurrent()) return;
       if (error instanceof ApiError && error.status === 401) {
@@ -333,13 +333,13 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
         return current.filter((candidate) => candidate !== itemId);
       }
 
-      return current.length >= queueState.batchLimit ? current : [...current, itemId];
+      return current.length >= lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday) ? current : [...current, itemId];
     });
   }
 
   function handleUseSuggestedBatch(): void {
     if (queueState.status === "ready") {
-      setSelectedItemIds(queueState.suggestedItems.map((lesson) => lesson.item.id));
+      setSelectedItemIds(boundedLessonSelection(queueState.availableItems, queueState.suggestedItems.map((lesson) => lesson.item.id), lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday)));
     }
   }
 
@@ -843,6 +843,8 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
             onOrderModeChange={(mode) => void handleOrderModeChange(mode)}
             onToggle={handleToggleLesson}
             onUseSuggested={handleUseSuggestedBatch}
+            onPreset={(size) => setSelectedItemIds(queueState.availableItems.slice(0, Math.min(size, lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday))).map(({ item }) => item.id))}
+            capacity={lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday)}
           />
         </SectionDisclosure>
         <div className="lesson-selection-bar">
@@ -1065,6 +1067,8 @@ function LessonPicker({
   onOrderModeChange,
   onToggle,
   onUseSuggested,
+  onPreset,
+  capacity,
 }: {
   readonly availableItems: readonly LessonQueueItem[];
   readonly batchLimit: number;
@@ -1076,6 +1080,8 @@ function LessonPicker({
   readonly onOrderModeChange: (mode: LessonOrderMode) => void;
   readonly onToggle: (itemId: string) => void;
   readonly onUseSuggested: () => void;
+  readonly onPreset: (size: number) => void;
+  readonly capacity: number;
 }) {
   const selectedCount = selectedItemIds.size;
   const router = useRouter();
@@ -1124,6 +1130,8 @@ function LessonPicker({
         </div>
       </header>
 
+      <div className="lesson-batch-presets" role="group" aria-label="Размер группы">{[1, 3, 5].map((size) => <button className="secondary-action" key={size} type="button" disabled={size > capacity || size > availableItems.length} onClick={() => onPreset(size)} aria-label={`Выбрать группу из ${size}`}>{size}</button>)}</div>
+
       <div className="lesson-order-control" role="group" aria-label="Порядок материалов">
         <button
           aria-pressed={orderMode === "course"}
@@ -1152,7 +1160,7 @@ function LessonPicker({
       <div className="lesson-preview-grid">
         {visibleItems.map((lesson) => {
           const isSelected = selectedItemIds.has(lesson.item.id);
-          const isDisabled = !isSelected && selectedCount >= batchLimit;
+          const isDisabled = !isSelected && selectedCount >= capacity;
 
           return (
             <label
