@@ -141,6 +141,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
   const mounted = useRef(true);
   const startPending = useRef(false);
   const orderPending = useRef(false);
+  const progressPending = useRef(false);
   function ownsWorkspace(token: string) { return mounted.current && ownsSession(token); }
 
   const loadQueue = useCallback(async () => {
@@ -392,10 +393,11 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
     currentItemId: string,
     phase: "meaning" | "reading" | "context" | "quiz",
   ): Promise<boolean> {
-    if (queueState.status !== "ready" || session === null || isSavingProgress) {
+    if (queueState.status !== "ready" || session === null || progressPending.current) {
       return false;
     }
 
+    progressPending.current = true;
     setIsSavingProgress(true);
     setSessionError(null);
 
@@ -404,14 +406,17 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
         currentItemId,
         phase,
       });
+      if (!ownsWorkspace(queueState.token)) return false;
       setSession(response.session);
       return true;
     } catch (error: unknown) {
+      if (!ownsWorkspace(queueState.token)) return false;
       setSessionError(
         error instanceof Error ? error.message : "Не удалось сохранить позицию урока.",
       );
       return false;
     } finally {
+      progressPending.current = false;
       setIsSavingProgress(false);
     }
   }
@@ -425,6 +430,15 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
 
     if (await persistStudyProgress(currentLesson.item.id, phase)) {
       setStudyPhaseIndex(index);
+    }
+  }
+
+  async function handlePreviousStudyItem(): Promise<void> {
+    if (step !== "study" || currentIndex < 1 || isCompleting) return;
+    const previous = activeQueue[currentIndex - 1];
+    if (previous !== undefined && await persistStudyProgress(previous.item.id, "meaning")) {
+      setCurrentIndex(currentIndex - 1);
+      setStudyPhaseIndex(0);
     }
   }
 
@@ -552,6 +566,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
         listeningEvidence:
           quizCard.promptType === "listening" ? quizListeningEvidence[quizCard.id] : undefined,
       });
+      if (!ownsWorkspace(queueState.token)) return;
 
       if (result.accepted) {
         setQuizAnswers((current) => ({ ...current, [quizCard.id]: quizAnswer.trim() }));
@@ -613,6 +628,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
             card.promptType === "listening" ? quizListeningEvidence[card.id] : undefined,
         })),
       });
+      if (!ownsWorkspace(queueState.token)) return;
 
       if (!result.passed) {
         const failedAnswers = result.answers.filter((answer) => !answer.accepted);
@@ -645,8 +661,10 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
               currentItemId: nextLesson.item.id,
               phase: "quiz",
             });
+            if (!ownsWorkspace(queueState.token)) return;
             setSession(progress.session);
           } catch {
+            if (!ownsWorkspace(queueState.token)) return;
             setSessionError(
               "Материал сохранён, но позицию урока не удалось обновить. При перезагрузке откроется первый незавершённый материал.",
             );
@@ -664,6 +682,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
       }
 
       await finishLessonSession(queueState.token, session.id);
+      if (!ownsWorkspace(queueState.token)) return;
       setSession(null);
       setSessionQueue([]);
       setCurrentIndex(0);
@@ -692,6 +711,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
 
     try {
       await abandonLessonSession(queueState.token, session.id);
+      if (!ownsWorkspace(queueState.token)) return;
       setIsExitDialogOpen(false);
       setSession(null);
       setSessionQueue([]);
@@ -907,6 +927,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
           <h1>{step === "study" ? "Изучение" : "Обязательная проверка"}</h1>
         </div>
         <div className="lesson-session-tools">
+          {step === "study" && currentIndex > 0 ? <button className="secondary-action" type="button" disabled={isSavingProgress || isCompleting} onClick={() => void handlePreviousStudyItem()}><ChevronLeft size={16} aria-hidden="true" />Предыдущий материал</button> : null}
           <button
             className="secondary-action"
             disabled={isSavingProgress || isCompleting}
