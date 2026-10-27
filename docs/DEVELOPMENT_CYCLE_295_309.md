@@ -38,7 +38,7 @@ speech/preferences components. No copied competitor data, wording, CSS or media.
 | 304 | Bilingual learning notes | Original short RU/EN notes explain basic/modified/combined/length patterns in RU/EN/RU+EN | Implemented |
 | 305 | Revisit teaching | Explicit explanation action during a quiz never submits or manufactures mastery | Implemented |
 | 306 | Unit completion checkpoint | Confirmed mastery shows a completion state with explicit next/revisit actions, not an automatic jump | Implemented |
-| 307 | In-place answer recovery | Failed POST keeps exercise/input; explicit retry only, no automatic write replay | Pending |
+| 307 | In-place answer recovery | Failed POST keeps exercise/input; explicit retry only, no automatic write replay | Implemented |
 | 308 | Batched acceptance | Focused unit/browser tests, type/build/lint/format; light/dark phone/desktop captures | Pending |
 | 309 | Release | Push/tag, deploy, exact revision health and live learner UI check, clean owned resources | Pending |
 

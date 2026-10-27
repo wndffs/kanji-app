@@ -1493,6 +1493,16 @@ textarea::placeholder {
 .kana-unit-completion .action-row {
   justify-content: center;
 }
+.kana-answer-error {
+  width: 100%;
+  padding: 12px;
+  border-left: 3px solid var(--danger);
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.kana-answer-error p {
+  margin: 0 0 8px;
+}
 .kana-content-summary dt {
   color: var(--muted);
   font-size: 12px;

@@ -119,12 +119,14 @@ function OwnedKanaClient({
   const [exerciseKind, setExerciseKind] = useState<KanaExerciseKind>("typing");
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<KanaAssessmentAnswerResponse | null>(null);
+  const [answerError, setAnswerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const practiceRef = useRef<HTMLElement>(null);
   const choiceRef = useRef<HTMLButtonElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
   const requestRevision = useRef(0);
+  const pendingAnswer = useRef(false);
   const desiredDestination = useRef({ unitId: initialUnitId, character: initialCharacter });
   const kanaSpeech = useJapaneseSpeech();
   const { play: playAnswerSound } = useAnswerSound();
@@ -140,6 +142,7 @@ function OwnedKanaClient({
     const revision = ++requestRevision.current;
     setState({ status: "loading" });
     setCompletedUnitId(null);
+    setAnswerError(null);
     setAnswer("");
     setFeedback(null);
 
@@ -344,11 +347,13 @@ function OwnedKanaClient({
     submittedAnswer: string,
     selectedAnswerCharacter?: string,
   ): Promise<KanaAssessmentAnswerResponse | null> {
-    if (state.status !== "ready" || submitting || !ownsSession(token)) {
+    if (state.status !== "ready" || pendingAnswer.current || submitting || !ownsSession(token)) {
       return null;
     }
 
+    pendingAnswer.current = true;
     setSubmitting(true);
+    setAnswerError(null);
     const revision = requestRevision.current;
 
     try {
@@ -385,12 +390,10 @@ function OwnedKanaClient({
         return null;
       }
 
-      setState({
-        status: "error",
-        message: error instanceof Error ? error.message : "Не удалось проверить ответ.",
-      });
+      setAnswerError(error instanceof Error ? error.message : "Не удалось проверить ответ.");
       return null;
     } finally {
+      pendingAnswer.current = false;
       if (revision === requestRevision.current && ownsSession(token)) setSubmitting(false);
     }
   }
@@ -399,6 +402,7 @@ function OwnedKanaClient({
     const item = items.find((candidate) => candidate.character === character);
 
     setSelectedCharacter(character);
+    setAnswerError(null);
     setExerciseKind(
       item === undefined
         ? "typing"
@@ -445,6 +449,7 @@ function OwnedKanaClient({
 
     setCompletedUnitId(null);
     setMode(nextMode);
+    setAnswerError(null);
 
     if (nextMode === "practice") {
       setPracticeScript(script);
@@ -672,6 +677,13 @@ function OwnedKanaClient({
         ) : (
           <>
             <section className="panel kana-practice" data-testid="kana-practice" ref={practiceRef}>
+              {answerError === null ? null : (
+                <div className="kana-answer-error" role="alert">
+                  <p>{answerError}</p>
+                  <p>Ответ не подтверждён. Перед повторной отправкой можно обновить прогресс.</p>
+                  <button className="secondary-action" disabled={submitting} type="button" onClick={() => setDataRevision((value) => value + 1)}>Обновить прогресс</button>
+                </div>
+              )}
               {mode === "lessons" && activeUnit !== null && completedUnit === null ? (
                 <header className="kana-current-lesson">
                   <h2 className="kana-current-unit">{activeUnit.title}</h2>
