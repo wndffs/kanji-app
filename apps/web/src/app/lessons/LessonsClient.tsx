@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { nextTabIndex } from "../../lib/tab-navigation";
 import { Volume2, Check } from "lucide-react";
 import {
@@ -33,6 +33,7 @@ import {
 import { normalizeJapaneseReading, romanizeKana } from "@kanji-srs/japanese";
 
 import { JapaneseText } from "../../components/JapaneseText";
+import { LessonPickerSearch } from "../../components/LessonPickerSearch";
 import { useStudyFocus } from "../../components/StudyFocus";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
@@ -61,7 +62,7 @@ import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import { useLessonPronunciationPreferences } from "../../lib/use-lesson-pronunciation-preferences";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { useStoredSession, ownsSession } from "../../lib/use-stored-session";
-import { lessonSourceHref, parseLessonSource } from "../../lib/lesson-browser";
+import { filterLessonBrowser, lessonBrowserHref, lessonSourceHref, parseLessonBrowser, parseLessonSource } from "../../lib/lesson-browser";
 
 type QueueState =
   | { readonly status: "checking" }
@@ -1073,6 +1074,10 @@ function LessonPicker({
   readonly onUseSuggested: () => void;
 }) {
   const selectedCount = selectedItemIds.size;
+  const router = useRouter();
+  const params = useSearchParams();
+  const browse = parseLessonBrowser(params);
+  const visibleItems = filterLessonBrowser(availableItems, browse, selectedItemIds);
 
   return (
     <section className="lesson-picker" aria-labelledby="lesson-picker-heading">
@@ -1117,8 +1122,9 @@ function LessonPicker({
         </button>
       </div>
 
+      <LessonPickerSearch key={browse.q} value={browse.q} disabled={false} onSearch={(q) => router.push(lessonBrowserHref(parseLessonSource(params).deckId, { ...browse, q, page: 1 }), { scroll: false })} />
       <div className="lesson-preview-grid">
-        {availableItems.map((lesson) => {
+        {visibleItems.map((lesson) => {
           const isSelected = selectedItemIds.has(lesson.item.id);
           const isDisabled = !isSelected && selectedCount >= batchLimit;
 
