@@ -16,6 +16,7 @@ import {
   getAdminMainCourseEnrollmentRolloutPreview,
   getAdminPrerequisiteCandidates,
   getAdminReviewQueueWithFilters,
+  getCharacterHub,
   publishAdminMainCourse,
   rejectAdminImportedCandidate,
   restoreAdminImportedCandidate,
@@ -26,6 +27,23 @@ import {
 } from "../src/lib/api-client";
 
 describe("apiRequest", () => {
+  it("forwards catalogue cancellation without retrying or swallowing abort", async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.signal).toBe(controller.signal);
+      expect(init?.method).toBe("GET");
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("Cancelled", "AbortError")), { once: true });
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const pending = getCharacterHub("catalogue-token", controller.signal);
+      controller.abort();
+      await expect(pending).rejects.toHaveProperty("name", "AbortError");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally { vi.unstubAllGlobals(); }
+  });
   it("confirms reachability only after a successful response body, without exposing request data", async () => {
     const target = new EventTarget();
     const events: Event[] = [];

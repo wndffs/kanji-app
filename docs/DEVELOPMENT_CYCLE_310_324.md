@@ -27,7 +27,7 @@ remain the course order, grid and visible kana readings. No large new dashboard.
 | ID | Deliverable | Acceptance | State |
 | --- | --- | --- | --- |
 | 310 | Scope and prior release check | Record observed gaps, safety boundaries and the prior completed CI | Complete |
-| 311 | Cancel obsolete catalogue reads | Abort old GETs on retry/unmount, preserve owner checks and 401 handling | Pending |
+| 311 | Cancel obsolete catalogue reads | Abort old GETs on retry/unmount, preserve owner checks and 401 handling | Implemented |
 | 312 | URL pagination | Reload/Back retain pages; invalid and out-of-range pages are bounded without empty phantom pages | Pending |
 | 313 | Multilingual search | Explicit search covers glyph, kana, romaji and RU/EN meaning; bounded normalized query, no per-keystroke history spam | Pending |
 | 314 | Deterministic ordering | Course/reading/meaning/weakness ordering, stable ties, missing values last, no mutated API arrays | Pending |

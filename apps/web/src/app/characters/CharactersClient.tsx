@@ -91,9 +91,10 @@ function CharactersScreen() {
     }
 
     let cancelled = false;
+    const controller = new AbortController();
     setState({ status: "loading" });
 
-    void getCharacterHub(session.token)
+    void getCharacterHub(session.token, controller.signal)
       .then((hub) => {
         if (!cancelled && ownsSession(session.token)) {
           setState({ status: "ready", hub });
@@ -119,6 +120,7 @@ function CharactersScreen() {
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [retry]);
 

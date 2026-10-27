@@ -188,6 +188,8 @@ test.describe("character hub", () => {
       await signIn(page);
       let release!: () => void;
       let started!: () => void;
+      let delivered!: () => void;
+      const settled = new Promise<void>((resolve) => { delivered = resolve; });
       const held = new Promise<void>((resolve) => {
         release = resolve;
       });
@@ -204,6 +206,7 @@ test.describe("character hub", () => {
               json: status === 200 ? buildHub() : { message: "Old account expired" },
             })
             .catch(() => undefined);
+          delivered();
         } else {
           const hub = buildHub();
           await route.fulfill({
@@ -222,13 +225,8 @@ test.describe("character hub", () => {
         await pending;
         await changeAccount(page);
         await expect(page.getByRole("heading", { name: "Новый курс", exact: true })).toBeVisible();
-        const old = page.waitForResponse(
-          (response) =>
-            response.url().endsWith("/characters") &&
-            response.request().headers().authorization === "Bearer character-hub-token",
-        );
         release();
-        await (await old).finished();
+        await settled;
         await expect(page.getByRole("heading", { name: "Основной курс", exact: true })).toHaveCount(
           0,
         );
