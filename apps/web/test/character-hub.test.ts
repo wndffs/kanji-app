@@ -7,6 +7,7 @@ import {
   filterCharacterHubKanji,
   parseCharacterHubQuery,
   DEFAULT_CHARACTER_CATALOGUE,
+  sortCharacterHubKanji,
 } from "../src/lib/character-hub";
 
 describe("character hub query", () => {
@@ -80,6 +81,18 @@ describe("character hub query", () => {
       expect(filterCharacterHubKanji([item], { level: null, band: null, jlpt: null, state: null }, q)).toEqual([item]);
     expect(filterCharacterHubKanji([item], { level: null, band: null, jlpt: null, state: null }, 'absent')).toEqual([]);
     expect(parseCharacterHubQuery(new URLSearchParams({ q: 'x'.repeat(81) })).catalogue.q).toBe('');
+  });
+  it('sorts a copy with stable ties, missing values last and the selected meaning language', () => {
+    const a = { ...buildItem('一', 'learning', true), reading: 'いち', meaningRu: 'я', meaningEn: 'a', weaknessScore: 10 };
+    const b = { ...buildItem('二', 'passed', false), reading: 'に', meaningRu: 'а', meaningEn: 'z' };
+    const missing = buildItem('三', 'not-started', false);
+    const source = [missing, b, a];
+    expect(sortCharacterHubKanji(source, 'course', 'ru')).toBe(source);
+    expect(sortCharacterHubKanji(source, 'reading', 'ru')).toEqual([a, b, missing]);
+    expect(sortCharacterHubKanji(source, 'meaning', 'ru')).toEqual([b, a, missing]);
+    expect(sortCharacterHubKanji(source, 'meaning', 'en')).toEqual([a, b, missing]);
+    expect(sortCharacterHubKanji(source, 'weakness', 'ru')[0]).toBe(a);
+    expect(source).toEqual([missing, b, a]);
   });
 });
 

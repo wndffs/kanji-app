@@ -25,6 +25,9 @@ import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 import {
   buildCharacterHubHref,
   CHARACTER_CATALOGUE_PAGE_SIZE,
+  CHARACTER_CATALOGUE_SORTS,
+  sortCharacterHubKanji,
+  type CharacterCatalogueSort,
   EMPTY_CHARACTER_HUB_FILTERS,
   filterCharacterHubKanji,
   parseCharacterHubQuery,
@@ -445,7 +448,7 @@ function KanjiCharacterPanel({
   readonly catalogue: CharacterCatalogueOptions;
   readonly onCatalogueChange: (options: CharacterCatalogueOptions, replace?: boolean) => void;
 }) {
-  const items = useMemo(() => filterCharacterHubKanji(section.items, filters, catalogue.q), [filters, section, catalogue.q]);
+  const items = useMemo(() => sortCharacterHubKanji(filterCharacterHubKanji(section.items, filters, catalogue.q), catalogue.sort, displayMode), [filters, section, catalogue.q, catalogue.sort, displayMode]);
   const pageSize = CHARACTER_CATALOGUE_PAGE_SIZE;
   const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
   const page = Math.min(catalogue.page, pageCount);
@@ -522,7 +525,12 @@ function KanjiCharacterPanel({
         </div>
       </dl>
 
-      <CharacterCatalogueSearch key={catalogue.q} value={catalogue.q} onSearch={(q) => onCatalogueChange({ ...catalogue, q, page: 1 })} />
+      <div className="character-catalogue-toolbar">
+        <CharacterCatalogueSearch key={catalogue.q} value={catalogue.q} onSearch={(q) => onCatalogueChange({ ...catalogue, q, page: 1 })} />
+        <label><span>Порядок кандзи</span><select value={catalogue.sort} onChange={(event) => onCatalogueChange({ ...catalogue, sort: event.currentTarget.value as CharacterCatalogueSort, page: 1 })}>
+          {(Object.keys(CHARACTER_CATALOGUE_SORTS) as CharacterCatalogueSort[]).map((id) => <option key={id} value={id}>{CHARACTER_CATALOGUE_SORTS[id]}</option>)}
+        </select></label>
+      </div>
       <SectionDisclosure title="Фильтры кандзи" defaultOpen={applied.length > 0}>
         <div className="character-hub-filters" aria-label="Фильтры кандзи">
           <FilterSelect

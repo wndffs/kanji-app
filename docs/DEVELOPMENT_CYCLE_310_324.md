@@ -30,7 +30,7 @@ remain the course order, grid and visible kana readings. No large new dashboard.
 | 311 | Cancel obsolete catalogue reads | Abort old GETs on retry/unmount, preserve owner checks and 401 handling | Implemented |
 | 312 | URL pagination | Reload/Back retain pages; invalid and out-of-range pages are bounded without empty phantom pages | Implemented |
 | 313 | Multilingual search | Explicit search covers glyph, kana, romaji and RU/EN meaning; bounded normalized query, no per-keystroke history spam | Implemented |
-| 314 | Deterministic ordering | Course/reading/meaning/weakness ordering, stable ties, missing values last, no mutated API arrays | Pending |
+| 314 | Deterministic ordering | Course/reading/meaning/weakness ordering, stable ties, missing values last, no mutated API arrays | Implemented |
 | 315 | Grid and list | URL-backed icon control, same links/results, stable phone layout | Pending |
 | 316 | Current-level shortcuts | Real current level and weak-item scopes; no fake level when course is absent | Pending |
 | 317 | Honest study metadata | Started count is labelled honestly; actual stage is distinct from aggregate item completion | Pending |
