@@ -40,7 +40,7 @@ remain the course order, grid and visible kana readings. No large new dashboard.
 | 321 | Reading visibility              | URL-backed reading checkbox hides kana hints by default only when requested; no grading effects                               | Implemented |
 | 322 | Per-item reading actions        | Explicit reveal and copy controls outside navigation links; no hidden-reading leak in link labels                             | Implemented |
 | 323 | Batched acceptance              | Focused helpers/API/browser tests, TypeScript/build/lint/format and phone/desktop captures                                    | Complete    |
-| 324 | Deploy and verify               | Push/tag, full web revision check, API liveness and real catalogue/material navigation; resource cleanup                      | Pending     |
+| 324 | Deploy and verify               | Push/tag, full web revision check, API liveness and real catalogue/material navigation; resource cleanup                      | Releasing   |
 
 ## Boundaries
 
@@ -98,3 +98,12 @@ its own column; phone rows wrap without horizontal overflow. Reading tools are
 outside links, and hidden kana is not present in their link text or labels.
 
 Task 324 will record the deployed full SHA and live catalogue/material checks.
+
+## Release Candidate
+
+Code acceptance commit: `a9ce868`. Version tag: `cycle-310-324-catalogue`.
+Push the checked cycle together for the existing Vercel integration. This is a
+web-only release; validate its exact runtime SHA and check API liveness separately,
+without forcing backend publication, schema changes or course enrollment. Inspect
+the existing test profile with read-only catalogue/material navigation; no learning
+answers or preferences need to be saved for live acceptance.
