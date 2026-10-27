@@ -24,23 +24,23 @@ remain the course order, grid and visible kana readings. No large new dashboard.
 
 ## Tasks
 
-| ID  | Deliverable                     | Acceptance                                                                                                                    | State       |
-| --- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| 310 | Scope and prior release check   | Record observed gaps, safety boundaries and the prior completed CI                                                            | Complete    |
-| 311 | Cancel obsolete catalogue reads | Abort old GETs on retry/unmount, preserve owner checks and 401 handling                                                       | Implemented |
-| 312 | URL pagination                  | Reload/Back retain pages; invalid and out-of-range pages are bounded without empty phantom pages                              | Implemented |
-| 313 | Multilingual search             | Explicit search covers glyph, kana, romaji and RU/EN meaning; bounded normalized query, no per-keystroke history spam         | Implemented |
-| 314 | Deterministic ordering          | Course/reading/meaning/weakness ordering, stable ties, missing values last, no mutated API arrays                             | Implemented |
-| 315 | Grid and list                   | URL-backed icon control, same links/results, stable phone layout                                                              | Implemented |
-| 316 | Current-level shortcuts         | Real current level and weak-item scopes; no fake level when course is absent                                                  | Implemented |
-| 317 | Honest study metadata           | Started count is labelled honestly; actual stage is distinct from aggregate item completion                                   | Implemented |
-| 318 | Bilingual meaning rows          | RU/EN/RU+EN display labelled rows, explicit missing translation, no silent cross-language fallback                            | Implemented |
-| 319 | Safe return context             | A kanji detail link can return to canonical same-origin catalogue filters/page/options; reject external/untrusted return URLs | Implemented |
-| 320 | Filter recovery                 | Search chips and clear actions are consistent; empty/no-course states expose a useful recovery action                         | Implemented |
-| 321 | Reading visibility              | URL-backed reading checkbox hides kana hints by default only when requested; no grading effects                               | Implemented |
-| 322 | Per-item reading actions        | Explicit reveal and copy controls outside navigation links; no hidden-reading leak in link labels                             | Implemented |
-| 323 | Batched acceptance              | Focused helpers/API/browser tests, TypeScript/build/lint/format and phone/desktop captures                                    | Complete    |
-| 324 | Deploy and verify               | Push/tag, full web revision check, API liveness and real catalogue/material navigation; resource cleanup                      | Releasing   |
+| ID  | Deliverable                     | Acceptance                                                                                                                    | State    |
+| --- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 310 | Scope and prior release check   | Record observed gaps, safety boundaries and the prior completed CI                                                            | Complete |
+| 311 | Cancel obsolete catalogue reads | Abort old GETs on retry/unmount, preserve owner checks and 401 handling                                                       | Complete |
+| 312 | URL pagination                  | Reload/Back retain pages; invalid and out-of-range pages are bounded without empty phantom pages                              | Complete |
+| 313 | Multilingual search             | Explicit search covers glyph, kana, romaji and RU/EN meaning; bounded normalized query, no per-keystroke history spam         | Complete |
+| 314 | Deterministic ordering          | Course/reading/meaning/weakness ordering, stable ties, missing values last, no mutated API arrays                             | Complete |
+| 315 | Grid and list                   | URL-backed icon control, same links/results, stable phone layout                                                              | Complete |
+| 316 | Current-level shortcuts         | Real current level and weak-item scopes; no fake level when course is absent                                                  | Complete |
+| 317 | Honest study metadata           | Started count is labelled honestly; actual stage is distinct from aggregate item completion                                   | Complete |
+| 318 | Bilingual meaning rows          | RU/EN/RU+EN display labelled rows, explicit missing translation, no silent cross-language fallback                            | Complete |
+| 319 | Safe return context             | A kanji detail link can return to canonical same-origin catalogue filters/page/options; reject external/untrusted return URLs | Complete |
+| 320 | Filter recovery                 | Search chips and clear actions are consistent; empty/no-course states expose a useful recovery action                         | Complete |
+| 321 | Reading visibility              | URL-backed reading checkbox hides kana hints by default only when requested; no grading effects                               | Complete |
+| 322 | Per-item reading actions        | Explicit reveal and copy controls outside navigation links; no hidden-reading leak in link labels                             | Complete |
+| 323 | Batched acceptance              | Focused helpers/API/browser tests, TypeScript/build/lint/format and phone/desktop captures                                    | Complete |
+| 324 | Deploy and verify               | Push/tag, full web revision check, API liveness and real catalogue/material navigation; resource cleanup                      | Complete |
 
 ## Boundaries
 
@@ -97,7 +97,7 @@ Light/dark desktop/phone captures are outside Git. Desktop list metadata occupie
 its own column; phone rows wrap without horizontal overflow. Reading tools are
 outside links, and hidden kana is not present in their link text or labels.
 
-Task 324 will record the deployed full SHA and live catalogue/material checks.
+Task 324 deployment and live acceptance are recorded below.
 
 ## Release Candidate
 
@@ -128,3 +128,30 @@ Final local correction checks: **52 unit cases**, web build/TypeScript, changed-
 file ESLint/format and **all 28 character browser cases** passed. A fresh version
 tag `cycle-310-324-catalogue-r2` supersedes the initial candidate without moving
 or rewriting the already-pushed tag. Final cloud/deployment evidence follows.
+
+## Deployed Acceptance
+
+Correction runtime: `f35366629b661ebee73f3875947e8d53e972bb06`.
+Released tag: `cycle-310-324-catalogue-r2`. Both the Vercel web health endpoint
+and the Render API liveness endpoint returned that exact revision on 2026-10-27.
+No manual backend deploy, migrations, seed, enrollment or content publication
+was needed. The final report-only commit is separate from this runtime revision.
+
+Corrected [CI 40537818883](https://github.com/wndffs/kanji-app/actions/runs/40537818883)
+completed successfully: Quality job 122307735950 passed; Web smoke job
+122309439994 reported **367 passed, one skipped, zero failed** in 2.4 minutes.
+Both Study integrity runs 40537817557 and 40537818888 also passed. This replaces
+the failed initial candidate's acceptance, not its historical results.
+
+Read-only live acceptance used the existing test profile and its starter demo
+course (two kanji; not evidence of a larger published corpus). Searching `ichi`
+returned `一`, list view persisted, hiding readings removed `いち` from the item
+link, and per-item reveal restored it. The real `一` material opened; its safe
+catalogue return restored the search, list and hidden readings. The returned
+page had no horizontal overflow. No learning answer, progress, account or
+preference was changed. The live screenshot and light/dark phone/desktop
+captures are stored outside the repository.
+
+The temporary in-app browser tab is closed. No owned Next.js/Playwright server
+was left running. Cycle-specific temp test output and the local `.next` build
+were removed. All source/content licensing assumptions remain unchanged.
