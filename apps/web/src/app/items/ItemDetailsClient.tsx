@@ -784,8 +784,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               {item.exampleSentences.length === 0 ? (
                 <p className="muted">Примеры для этого материала пока не добавлены.</p>
               ) : (
-                <ul className="example-list">
-                  {item.exampleSentences.map((sentence) => {
+                <ItemPreviewList items={item.exampleSentences} limit={3} label="Примеры" className="example-list" renderItem={(sentence) => {
                     const presentation = itemReadingPresentation(
                       sentence.readingText,
                       presentationPreferences,
@@ -809,14 +808,13 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
                             Показать чтение примера
                           </button>
                         ) : null}
-                        <p>{formatSentenceTranslation(sentence, displayMode)}</p>
+                        <ItemTranslationRows ru={sentence.translationRu} en={sentence.translationEn} displayMode={displayMode} />
                         {sentence.attribution === null ? null : (
                           <SourceAttribution source={sentence.attribution} />
                         )}
                       </li>
                     );
-                  })}
-                </ul>
+                  }} />
               )}
             </section>
 
@@ -1755,23 +1753,6 @@ function formatTranslationBundle(
 
   if ((displayMode === "en" || displayMode === "ru-en") && translations.primaryEn !== null) {
     parts.push(translations.primaryEn);
-  }
-
-  return parts.length === 0 ? "перевод пока не добавлен" : parts.join(" / ");
-}
-
-function formatSentenceTranslation(
-  sentence: ItemDetails["exampleSentences"][number],
-  displayMode: TranslationDisplayMode,
-): string {
-  const parts: string[] = [];
-
-  if ((displayMode === "ru" || displayMode === "ru-en") && sentence.translationRu !== null) {
-    parts.push(sentence.translationRu);
-  }
-
-  if ((displayMode === "en" || displayMode === "ru-en") && sentence.translationEn !== null) {
-    parts.push(sentence.translationEn);
   }
 
   return parts.length === 0 ? "перевод пока не добавлен" : parts.join(" / ");
