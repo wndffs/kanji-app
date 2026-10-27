@@ -38,6 +38,7 @@ import {
 } from "../../lib/character-hub";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { formatSrsStageName } from "../../lib/dashboard-format";
+import { characterCatalogueItemHref } from "../../lib/character-catalogue-context";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
 import {
   filterKanaUnits,
@@ -223,6 +224,7 @@ function CharactersScreen() {
           filters={query.filters}
           onFiltersChange={updateKanjiFilters}
           catalogue={query.catalogue}
+          catalogueHref={buildCharacterHubHref('kanji', query.filters, query.kanaGroup, query.kanaStatus, query.catalogue)}
           onCatalogueChange={(catalogue, replace = false) => {
             const href = buildCharacterHubHref('kanji', query.filters, query.kanaGroup, query.kanaStatus, catalogue);
             if (replace) router.replace(href, { scroll: false });
@@ -441,6 +443,7 @@ function KanjiCharacterPanel({
   onFiltersChange,
   section,
   catalogue,
+  catalogueHref,
   onCatalogueChange,
 }: {
   readonly displayMode: TranslationDisplayMode;
@@ -448,6 +451,7 @@ function KanjiCharacterPanel({
   readonly onFiltersChange: (filters: CharacterHubKanjiFilters) => void;
   readonly section: CharacterHubKanjiSectionDto;
   readonly catalogue: CharacterCatalogueOptions;
+  readonly catalogueHref: string;
   readonly onCatalogueChange: (options: CharacterCatalogueOptions, replace?: boolean) => void;
 }) {
   const items = useMemo(() => sortCharacterHubKanji(filterCharacterHubKanji(section.items, filters, catalogue.q), catalogue.sort, displayMode), [filters, section, catalogue.q, catalogue.sort, displayMode]);
@@ -662,7 +666,7 @@ function KanjiCharacterPanel({
         <ol className="character-hub-kanji-grid" data-view={catalogue.view}>
           {visibleItems.map((item) => (
             <li key={`${item.level}-${item.id}`} data-study-state={item.studyState}>
-              <Link href={item.href}>
+              <Link href={characterCatalogueItemHref(item.character, catalogueHref)}>
                 <JapaneseText className="character-hub-kanji-character" variant="display">
                   {item.character}
                 </JapaneseText>

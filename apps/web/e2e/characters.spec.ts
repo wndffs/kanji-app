@@ -339,7 +339,7 @@ test.describe("character hub", () => {
     await expect(page.getByRole("link", { name: /二/ })).toHaveCount(0);
     await expect(page.getByRole("link", { name: /一/ })).toHaveAttribute(
       "href",
-      "/kanji/%E4%B8%80",
+      /^\/kanji\/%E4%B8%80\?catalogue=/,
     );
 
     await page.reload();
