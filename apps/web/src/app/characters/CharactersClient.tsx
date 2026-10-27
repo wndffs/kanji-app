@@ -135,9 +135,15 @@ function CharactersScreen() {
   }, [retry]);
 
   function updateKanjiFilters(filters: CharacterHubKanjiFilters): void {
-    router.push(buildCharacterHubHref("kanji", filters, query.kanaGroup, query.kanaStatus, { ...query.catalogue, page: 1 }), {
-      scroll: false,
-    });
+    router.push(
+      buildCharacterHubHref("kanji", filters, query.kanaGroup, query.kanaStatus, {
+        ...query.catalogue,
+        page: 1,
+      }),
+      {
+        scroll: false,
+      },
+    );
   }
 
   return (
@@ -204,15 +210,33 @@ function CharactersScreen() {
           key={query.tab}
           group={query.kanaGroup}
           onGroupChange={(group) =>
-            router.push(buildCharacterHubHref(query.tab, query.filters, group, query.kanaStatus, query.catalogue), {
-              scroll: false,
-            })
+            router.push(
+              buildCharacterHubHref(
+                query.tab,
+                query.filters,
+                group,
+                query.kanaStatus,
+                query.catalogue,
+              ),
+              {
+                scroll: false,
+              },
+            )
           }
           status={query.kanaStatus}
           onStatusChange={(status) =>
-            router.push(buildCharacterHubHref(query.tab, query.filters, query.kanaGroup, status, query.catalogue), {
-              scroll: false,
-            })
+            router.push(
+              buildCharacterHubHref(
+                query.tab,
+                query.filters,
+                query.kanaGroup,
+                status,
+                query.catalogue,
+              ),
+              {
+                scroll: false,
+              },
+            )
           }
           section={query.tab === "hiragana" ? state.hub.kana.hiragana : state.hub.kana.katakana}
         />
@@ -224,11 +248,34 @@ function CharactersScreen() {
           displayMode={displayMode}
           filters={query.filters}
           onFiltersChange={updateKanjiFilters}
-          onResetFilters={() => router.push(buildCharacterHubHref('kanji', EMPTY_CHARACTER_HUB_FILTERS, query.kanaGroup, query.kanaStatus, { ...query.catalogue, q: '', page: 1 }), { scroll: false })}
+          onResetFilters={() =>
+            router.push(
+              buildCharacterHubHref(
+                "kanji",
+                EMPTY_CHARACTER_HUB_FILTERS,
+                query.kanaGroup,
+                query.kanaStatus,
+                { ...query.catalogue, q: "", page: 1 },
+              ),
+              { scroll: false },
+            )
+          }
           catalogue={query.catalogue}
-          catalogueHref={buildCharacterHubHref('kanji', query.filters, query.kanaGroup, query.kanaStatus, query.catalogue)}
+          catalogueHref={buildCharacterHubHref(
+            "kanji",
+            query.filters,
+            query.kanaGroup,
+            query.kanaStatus,
+            query.catalogue,
+          )}
           onCatalogueChange={(catalogue, replace = false) => {
-            const href = buildCharacterHubHref('kanji', query.filters, query.kanaGroup, query.kanaStatus, catalogue);
+            const href = buildCharacterHubHref(
+              "kanji",
+              query.filters,
+              query.kanaGroup,
+              query.kanaStatus,
+              catalogue,
+            );
             if (replace) router.replace(href, { scroll: false });
             else router.push(href, { scroll: false });
           }}
@@ -458,7 +505,15 @@ function KanjiCharacterPanel({
   readonly catalogueHref: string;
   readonly onCatalogueChange: (options: CharacterCatalogueOptions, replace?: boolean) => void;
 }) {
-  const items = useMemo(() => sortCharacterHubKanji(filterCharacterHubKanji(section.items, filters, catalogue.q), catalogue.sort, displayMode), [filters, section, catalogue.q, catalogue.sort, displayMode]);
+  const items = useMemo(
+    () =>
+      sortCharacterHubKanji(
+        filterCharacterHubKanji(section.items, filters, catalogue.q),
+        catalogue.sort,
+        displayMode,
+      ),
+    [filters, section, catalogue.q, catalogue.sort, displayMode],
+  );
   const pageSize = CHARACTER_CATALOGUE_PAGE_SIZE;
   const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
   const page = Math.min(catalogue.page, pageCount);
@@ -482,15 +537,23 @@ function KanjiCharacterPanel({
   const applied = (Object.keys(filters) as (keyof CharacterHubKanjiFilters)[]).filter(
     (key) => filters[key] !== null,
   );
-  const hasFilters = applied.length > 0 || catalogue.q !== '';
+  const hasFilters = applied.length > 0 || catalogue.q !== "";
 
-  if (section.currentCourse === null) return (
-    <section aria-labelledby="character-tab-kanji" className="character-hub-panel" id="character-panel-kanji" role="tabpanel">
-      <h2>Курс не выбран</h2>
-      <p>Выберите структурированный курс, чтобы увидеть его кандзи.</p>
-      <Link className="primary-action" href="/courses">Выбрать курс</Link>
-    </section>
-  );
+  if (section.currentCourse === null)
+    return (
+      <section
+        aria-labelledby="character-tab-kanji"
+        className="character-hub-panel"
+        id="character-panel-kanji"
+        role="tabpanel"
+      >
+        <h2>Курс не выбран</h2>
+        <p>Выберите структурированный курс, чтобы увидеть его кандзи.</p>
+        <Link className="primary-action" href="/courses">
+          Выбрать курс
+        </Link>
+      </section>
+    );
 
   return (
     <section
@@ -545,22 +608,90 @@ function KanjiCharacterPanel({
       </dl>
 
       <div className="character-catalogue-toolbar">
-        <CharacterCatalogueSearch key={catalogue.q} value={catalogue.q} onSearch={(q) => onCatalogueChange({ ...catalogue, q, page: 1 })} />
-        <label><span>Порядок кандзи</span><select value={catalogue.sort} onChange={(event) => onCatalogueChange({ ...catalogue, sort: event.currentTarget.value as CharacterCatalogueSort, page: 1 })}>
-          {(Object.keys(CHARACTER_CATALOGUE_SORTS) as CharacterCatalogueSort[]).map((id) => <option key={id} value={id}>{CHARACTER_CATALOGUE_SORTS[id]}</option>)}
-        </select></label>
+        <CharacterCatalogueSearch
+          key={catalogue.q}
+          value={catalogue.q}
+          onSearch={(q) => onCatalogueChange({ ...catalogue, q, page: 1 })}
+        />
+        <label>
+          <span>Порядок кандзи</span>
+          <select
+            value={catalogue.sort}
+            onChange={(event) =>
+              onCatalogueChange({
+                ...catalogue,
+                sort: event.currentTarget.value as CharacterCatalogueSort,
+                page: 1,
+              })
+            }
+          >
+            {(Object.keys(CHARACTER_CATALOGUE_SORTS) as CharacterCatalogueSort[]).map((id) => (
+              <option key={id} value={id}>
+                {CHARACTER_CATALOGUE_SORTS[id]}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="catalogue-view-controls" role="group" aria-label="Вид каталога кандзи">
-          <button className="icon-button" type="button" aria-label="Плитки кандзи" title="Плитки" aria-pressed={catalogue.view === 'grid'} onClick={() => onCatalogueChange({ ...catalogue, view: 'grid' })}><LayoutGrid size={18} aria-hidden="true" /></button>
-          <button className="icon-button" type="button" aria-label="Список кандзи" title="Список" aria-pressed={catalogue.view === 'list'} onClick={() => onCatalogueChange({ ...catalogue, view: 'list' })}><List size={18} aria-hidden="true" /></button>
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="Плитки кандзи"
+            title="Плитки"
+            aria-pressed={catalogue.view === "grid"}
+            onClick={() => onCatalogueChange({ ...catalogue, view: "grid" })}
+          >
+            <LayoutGrid size={18} aria-hidden="true" />
+          </button>
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="Список кандзи"
+            title="Список"
+            aria-pressed={catalogue.view === "list"}
+            onClick={() => onCatalogueChange({ ...catalogue, view: "list" })}
+          >
+            <List size={18} aria-hidden="true" />
+          </button>
         </div>
       </div>
-      {section.currentCourse === null ? null : (
-        <div className="character-catalogue-shortcuts" role="group" aria-label="Быстрые фильтры кандзи">
-          <label><input type="checkbox" aria-label="Текущий уровень" checked={filters.level === section.currentCourse.currentLevel} disabled={!section.filters.levels.includes(section.currentCourse.currentLevel)} onChange={(event) => onFiltersChange({ ...filters, level: event.currentTarget.checked ? section.currentCourse!.currentLevel : null })} />Текущий уровень {section.currentCourse.currentLevel}</label>
-          <label><input type="checkbox" checked={filters.state === 'weak'} onChange={(event) => onFiltersChange({ ...filters, state: event.currentTarget.checked ? 'weak' : null })} />Только слабые</label>
-        </div>
-      )}
       <SectionDisclosure title="Фильтры кандзи" defaultOpen={applied.length > 0}>
+        {section.currentCourse === null ? null : (
+          <div
+            className="character-catalogue-shortcuts"
+            role="group"
+            aria-label="Быстрые фильтры кандзи"
+          >
+            <label>
+              <input
+                type="checkbox"
+                aria-label="Текущий уровень"
+                checked={filters.level === section.currentCourse.currentLevel}
+                disabled={!section.filters.levels.includes(section.currentCourse.currentLevel)}
+                onChange={(event) =>
+                  onFiltersChange({
+                    ...filters,
+                    level: event.currentTarget.checked ? section.currentCourse!.currentLevel : null,
+                  })
+                }
+              />
+              Текущий уровень {section.currentCourse.currentLevel}
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={filters.state === "weak"}
+                onChange={(event) =>
+                  onFiltersChange({
+                    ...filters,
+                    state: event.currentTarget.checked ? "weak" : null,
+                  })
+                }
+              />
+              Только слабые
+            </label>
+          </div>
+        )}
         <div className="character-hub-filters" aria-label="Фильтры кандзи">
           <FilterSelect
             label="Уровень"
@@ -626,12 +757,31 @@ function KanjiCharacterPanel({
           >
             Сбросить
           </button>
-          <label className="catalogue-reading-option"><input type="checkbox" checked={catalogue.showReadings} onChange={(event) => onCatalogueChange({ ...catalogue, showReadings: event.currentTarget.checked })} />Показывать чтения</label>
+          <label className="catalogue-reading-option">
+            <input
+              type="checkbox"
+              checked={catalogue.showReadings}
+              onChange={(event) =>
+                onCatalogueChange({ ...catalogue, showReadings: event.currentTarget.checked })
+              }
+            />
+            Показывать чтения
+          </label>
         </div>
       </SectionDisclosure>
       {!hasFilters ? null : (
         <div className="applied-filters" aria-label="Применённые фильтры кандзи">
-          {catalogue.q ? <button className="filter-chip" type="button" aria-label="Убрать поисковый запрос" onClick={() => onCatalogueChange({ ...catalogue, q: '', page: 1 })}><span>Поиск: {catalogue.q}</span><X size={16} aria-hidden="true" /></button> : null}
+          {catalogue.q ? (
+            <button
+              className="filter-chip"
+              type="button"
+              aria-label="Убрать поисковый запрос"
+              onClick={() => onCatalogueChange({ ...catalogue, q: "", page: 1 })}
+            >
+              <span>Поиск: {catalogue.q}</span>
+              <X size={16} aria-hidden="true" />
+            </button>
+          ) : null}
           {applied.map((key) => (
             <button
               className="filter-chip"
@@ -646,7 +796,12 @@ function KanjiCharacterPanel({
           ))}
         </div>
       )}
-      <p className="character-hub-result-count" role="status">Найдено: {items.length}{items.length > pageSize ? ` · Показано ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, items.length)}` : ''}</p>
+      <p className="character-hub-result-count" role="status">
+        Найдено: {items.length}
+        {items.length > pageSize
+          ? ` · Показано ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, items.length)}`
+          : ""}
+      </p>
       {pageCount <= 1 ? null : (
         <nav className="catalog-pagination" aria-label="Страницы кандзи">
           <button
@@ -675,13 +830,31 @@ function KanjiCharacterPanel({
 
       {items.length === 0 ? (
         <div className="notice-panel">
-          <p>{section.items.length === 0 ? 'В этом курсе пока нет опубликованных кандзи.' : 'По выбранным фильтрам кандзи не найдены.'}</p>
-          {hasFilters ? <button className="secondary-action" type="button" onClick={onResetFilters}>Сбросить фильтры</button> : <Link className="secondary-action" href="/courses">Выбрать другой курс</Link>}
+          <p>
+            {section.items.length === 0
+              ? "В этом курсе пока нет опубликованных кандзи."
+              : "По выбранным фильтрам кандзи не найдены."}
+          </p>
+          {hasFilters ? (
+            <button className="secondary-action" type="button" onClick={onResetFilters}>
+              Сбросить фильтры
+            </button>
+          ) : (
+            <Link className="secondary-action" href="/courses">
+              Выбрать другой курс
+            </Link>
+          )}
         </div>
       ) : (
         <ol className="character-hub-kanji-grid" data-view={catalogue.view}>
           {visibleItems.map((item) => (
-            <CharacterCatalogueEntry key={`${item.level}-${item.id}:${catalogue.page}:${catalogue.q}:${catalogue.sort}:${catalogue.showReadings}`} item={item} catalogueHref={catalogueHref} displayMode={displayMode} showReadings={catalogue.showReadings} />
+            <CharacterCatalogueEntry
+              key={`${item.level}-${item.id}:${catalogue.page}:${catalogue.q}:${catalogue.sort}:${catalogue.showReadings}`}
+              item={item}
+              catalogueHref={catalogueHref}
+              displayMode={displayMode}
+              showReadings={catalogue.showReadings}
+            />
           ))}
         </ol>
       )}
@@ -689,7 +862,12 @@ function KanjiCharacterPanel({
   );
 }
 
-function CharacterCatalogueEntry({ item, catalogueHref, displayMode, showReadings }: {
+function CharacterCatalogueEntry({
+  item,
+  catalogueHref,
+  displayMode,
+  showReadings,
+}: {
   readonly item: CharacterHubKanjiItemDto;
   readonly catalogueHref: string;
   readonly displayMode: TranslationDisplayMode;
@@ -701,25 +879,66 @@ function CharacterCatalogueEntry({ item, catalogueHref, displayMode, showReading
   return (
     <li data-study-state={item.studyState}>
       <Link href={characterCatalogueItemHref(item.character, catalogueHref)}>
-        <JapaneseText className="character-hub-kanji-character" variant="display">{item.character}</JapaneseText>
+        <JapaneseText className="character-hub-kanji-character" variant="display">
+          {item.character}
+        </JapaneseText>
         <div className="character-hub-kanji-copy">
-          <strong className="catalogue-reading">{reading === null ? 'Чтение уточняется' : visible ? <JapaneseText>{reading}</JapaneseText> : 'Чтение скрыто'}</strong>
+          <strong className="catalogue-reading">
+            {reading === null ? (
+              "Чтение уточняется"
+            ) : visible ? (
+              <JapaneseText>{reading}</JapaneseText>
+            ) : (
+              "Чтение скрыто"
+            )}
+          </strong>
           <div className="character-hub-meaning-rows">
-            {characterMeaningRows(item, displayMode).map((row) => <span key={row.lang} lang={row.text === null ? 'ru' : row.lang}><small>{row.label}</small><span>{row.text ?? 'Перевод не добавлен'}</span></span>)}
+            {characterMeaningRows(item, displayMode).map((row) => (
+              <span key={row.lang} lang={row.text === null ? "ru" : row.lang}>
+                <small>{row.label}</small>
+                <span>{row.text ?? "Перевод не добавлен"}</span>
+              </span>
+            ))}
           </div>
         </div>
         <div className="character-hub-kanji-meta">
           <span>Ур. {item.level}</span>
-          <span>{item.jlptLevel?.toUpperCase() ?? (item.legacyJlptLevel == null ? 'JLPT —' : `JLPT до 2010: ${item.legacyJlptLevel}`)}</span>
+          <span>
+            {item.jlptLevel?.toUpperCase() ??
+              (item.legacyJlptLevel == null ? "JLPT —" : `JLPT до 2010: ${item.legacyJlptLevel}`)}
+          </span>
           <span className={`state-${item.studyState}`}>{STUDY_STATE_LABELS[item.studyState]}</span>
           {item.weak ? <span className="is-weak">Слабый</span> : null}
-          {item.stageName === null ? null : <span className="catalogue-card-stage" title="Самая ранняя ступень среди начатых карточек материала">Начатые карточки: от {formatSrsStageName(item.stageName)}</span>}
+          {item.stageName === null ? null : (
+            <span
+              className="catalogue-card-stage"
+              title="Самая ранняя ступень среди начатых карточек материала"
+            >
+              Начатые карточки: от {formatSrsStageName(item.stageName)}
+            </span>
+          )}
         </div>
       </Link>
-      {reading === null ? null : <div className="catalogue-reading-actions">
-        {showReadings ? null : <button className="icon-button" type="button" aria-label={`${revealed ? 'Скрыть' : 'Показать'} чтение ${item.character}`} title={revealed ? 'Скрыть чтение' : 'Показать чтение'} onClick={() => setRevealed((value) => !value)}>{revealed ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}</button>}
-        {visible ? <CopyReadingButton reading={reading} /> : null}
-      </div>}
+      {reading === null ? null : (
+        <div className="catalogue-reading-actions">
+          {showReadings ? null : (
+            <button
+              className="icon-button"
+              type="button"
+              aria-label={`${revealed ? "Скрыть" : "Показать"} чтение ${item.character}`}
+              title={revealed ? "Скрыть чтение" : "Показать чтение"}
+              onClick={() => setRevealed((value) => !value)}
+            >
+              {revealed ? (
+                <EyeOff size={18} aria-hidden="true" />
+              ) : (
+                <Eye size={18} aria-hidden="true" />
+              )}
+            </button>
+          )}
+          {visible ? <CopyReadingButton reading={reading} /> : null}
+        </div>
+      )}
     </li>
   );
 }
@@ -753,4 +972,3 @@ function FilterSelect({
     </label>
   );
 }
-

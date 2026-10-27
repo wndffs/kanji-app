@@ -291,7 +291,10 @@ export function getDashboard(token: string, signal?: AbortSignal): Promise<Dashb
   return apiRequest<DashboardDto>("/dashboard", { token, signal });
 }
 
-export function getCharacterHub(token: string, signal?: AbortSignal): Promise<CharacterHubResponseDto> {
+export function getCharacterHub(
+  token: string,
+  signal?: AbortSignal,
+): Promise<CharacterHubResponseDto> {
   return apiRequest<CharacterHubResponseDto>("/characters", { token, signal });
 }
 

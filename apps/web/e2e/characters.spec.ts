@@ -13,6 +13,203 @@ import {
 const API_BASE_URL = "http://localhost:3001";
 
 test.describe("character hub", () => {
+  test("searches after submission, respects IME and combines real course scopes without extra reads", async ({
+    page,
+  }) => {
+    await signIn(page);
+    let reads = 0;
+    await page.route(`${API_BASE_URL}/characters`, (route) => {
+      reads++;
+      return route.fulfill({ json: buildHub() });
+    });
+    await page.goto("/characters?tab=kanji");
+    const input = page.getByRole("searchbox", { name: "Поиск кандзи", exact: true });
+    const rows = page.locator(".character-hub-kanji-grid > li");
+    await expect(rows).toHaveCount(3);
+    await input.dispatchEvent("compositionstart");
+    await input.fill("ichi");
+    await input.press("Enter");
+    await expect(rows).toHaveCount(3);
+    expect(new URL(page.url()).searchParams.has("q")).toBe(false);
+    await input.dispatchEvent("compositionend");
+    await page.getByRole("button", { name: "Найти кандзи", exact: true }).click();
+    await expect(rows).toHaveCount(1);
+    await expect(rows).toContainText("一");
+    await page.getByRole("button", { name: "Очистить поиск кандзи", exact: true }).click();
+    await expect(rows).toHaveCount(3);
+    await page.getByRole("button", { name: "Фильтры кандзи", exact: true }).click();
+    await page.getByRole("checkbox", { name: "Текущий уровень", exact: true }).click();
+    await expect(
+      page.getByRole("checkbox", { name: "Текущий уровень", exact: true }),
+    ).toBeChecked();
+    await expect(rows).toHaveCount(1);
+    await expect(rows).toContainText("語");
+    await page.getByRole("checkbox", { name: "Только слабые", exact: true }).click();
+    await expect(page.getByRole("checkbox", { name: "Только слабые", exact: true })).toBeChecked();
+    await expect(
+      page.getByText("По выбранным фильтрам кандзи не найдены.", { exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Сбросить фильтры", exact: true }).click();
+    await expect(rows).toHaveCount(3);
+    expect(reads).toBe(1);
+  });
+
+  test("keeps list pages across reload, Back and safe material return", async ({ page }) => {
+    await signIn(page);
+    await page.route(`${API_BASE_URL}/characters`, (route) =>
+      route.fulfill({ json: buildLargeHub() }),
+    );
+    await page.route(`${API_BASE_URL}/kanji/**`, (route) =>
+      route.fulfill({ status: 404, json: { message: "Материал не найден" } }),
+    );
+    await page.goto("/characters?tab=kanji&page=2&view=list");
+    const rows = page.locator(".character-hub-kanji-grid > li");
+    const first = String.fromCodePoint(0x4e00 + 60);
+    await expect(rows.first()).toContainText(first);
+    await expect(rows).toHaveCount(60);
+    await page.reload();
+    await expect(rows.first()).toContainText(first);
+    await page
+      .getByRole("navigation", { name: "Страницы кандзи" })
+      .getByRole("button", { name: "Далее", exact: true })
+      .click();
+    await expect(rows).toHaveCount(5);
+    await page.goBack();
+    await expect(rows.first()).toContainText(first);
+    await rows.first().getByRole("link").click();
+    const back = page.getByRole("link", { name: "К каталогу кандзи", exact: true });
+    await expect(back).toHaveAttribute("href", "/characters?tab=kanji&page=2&view=list");
+    await back.click();
+    await expect(rows.first()).toContainText(first);
+    await expect(page.getByRole("button", { name: "Список кандзи", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  test("clamps large pages and resets pagination on search or ordering", async ({ page }) => {
+    await signIn(page);
+    await page.route(`${API_BASE_URL}/characters`, (route) =>
+      route.fulfill({ json: buildLargeHub() }),
+    );
+    await page.goto("/characters?tab=kanji&page=9999");
+    const rows = page.locator(".character-hub-kanji-grid > li");
+    await expect(rows).toHaveCount(5);
+    await expect(page).toHaveURL("/characters?tab=kanji&page=3");
+    await page.getByLabel("Порядок кандзи").selectOption("weakness");
+    await expect(rows).toHaveCount(60);
+    await expect(rows.first()).toContainText("一");
+    expect(new URL(page.url()).searchParams.has("page")).toBe(false);
+    await page.getByRole("searchbox", { name: "Поиск кандзи", exact: true }).fill("zzzzmissing");
+    await page.getByRole("button", { name: "Найти кандзи", exact: true }).click();
+    await expect(rows).toHaveCount(0);
+    await page.getByRole("button", { name: "Убрать поисковый запрос", exact: true }).click();
+    await expect(rows).toHaveCount(60);
+    await expect(page.getByLabel("Порядок кандзи")).toHaveValue("weakness");
+  });
+
+  test("reveals and copies only requested readings outside navigation links", async ({ page }) => {
+    await signIn(page);
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (text: string) => {
+            (window as typeof window & { __copiedReading: string }).__copiedReading = text;
+          },
+        },
+      });
+    });
+    let writes = 0;
+    page.on("request", (request) => {
+      if (request.method() === "POST" || request.method() === "PUT") writes++;
+    });
+    await page.route(`${API_BASE_URL}/characters`, (route) => route.fulfill({ json: buildHub() }));
+    await page.goto("/characters?tab=kanji&view=list&readings=hidden");
+    const row = page.locator(".character-hub-kanji-grid > li").first();
+    await expect(row.getByRole("link")).not.toContainText("いち");
+    await expect(row.getByRole("button", { name: "Копировать чтение", exact: true })).toHaveCount(
+      0,
+    );
+    await row.getByRole("button", { name: "Показать чтение 一", exact: true }).click();
+    await expect(row.getByRole("link")).toContainText("いち");
+    await row.getByRole("button", { name: "Копировать чтение", exact: true }).click();
+    await expect(row.getByLabel("Копирование чтения", { exact: true })).toHaveText("Скопировано");
+    expect(
+      await page.evaluate(
+        () => (window as typeof window & { __copiedReading: string }).__copiedReading,
+      ),
+    ).toBe("いち");
+    await row.getByRole("button", { name: "Скрыть чтение 一", exact: true }).click();
+    await expect(row.getByRole("link")).not.toContainText("いち");
+    await expect(page).toHaveURL("/characters?tab=kanji&view=list&readings=hidden");
+    expect(writes).toBe(0);
+    expect(
+      await row.evaluate((item) => {
+        const body = item.querySelector("a")!.getBoundingClientRect();
+        const tools = item.querySelector(".catalogue-reading-actions")!.getBoundingClientRect();
+        return body.bottom <= tools.top + 1;
+      }),
+    ).toBe(true);
+    if (test.info().project.name === "desktop") {
+      const meaning = await row.locator(".character-hub-kanji-copy").boundingBox();
+      const metadata = await row.locator(".character-hub-kanji-meta").boundingBox();
+      expect(metadata!.x).toBeGreaterThan(meaning!.x + meaning!.width - 1);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await captureLearnerThemes(page, test.info(), "kanji-list-hidden-readings");
+  });
+
+  test("labels selected translation rows and reports missing content without fallback", async ({
+    page,
+  }) => {
+    await signIn(page);
+    const hub = buildHub();
+    await page.route(`${API_BASE_URL}/characters`, (route) =>
+      route.fulfill({
+        json: {
+          ...hub,
+          kanji: { ...hub.kanji, items: [{ ...hub.kanji.items[0]!, meaningRu: null }] },
+        },
+      }),
+    );
+    await page.route(`${API_BASE_URL}/users/settings`, async (route) => {
+      const user = await page.evaluate(() => JSON.parse(localStorage.getItem("kanji-srs.user")!));
+      await route.fulfill({
+        json: { ...user, settings: { ...user.settings, ...route.request().postDataJSON() } },
+      });
+    });
+    await page.goto("/characters?tab=kanji");
+    const meanings = page.locator(".character-hub-meaning-rows");
+    await expect(meanings).toContainText("Перевод не добавлен");
+    await expect(meanings).toContainText("one");
+    await page.getByLabel("Режим перевода карточек", { exact: true }).selectOption("en");
+    await expect(meanings.locator(":scope > span")).toHaveCount(1);
+    await expect(meanings).not.toContainText("Перевод не добавлен");
+    await page.getByLabel("Режим перевода карточек", { exact: true }).selectOption("ru");
+    await expect(meanings).toContainText("Перевод не добавлен");
+    await expect(meanings).not.toContainText("one");
+    await captureLearnerThemes(page, test.info(), "kanji-grid-missing-meaning");
+  });
+
+  test("offers course selection when no course is active", async ({ page }) => {
+    await signIn(page);
+    const hub = buildHub();
+    await page.route(`${API_BASE_URL}/characters`, (route) =>
+      route.fulfill({ json: { ...hub, kanji: { ...hub.kanji, currentCourse: null, items: [] } } }),
+    );
+    await page.goto("/characters?tab=kanji");
+    await expect(page.getByRole("link", { name: "Выбрать курс", exact: true })).toHaveAttribute(
+      "href",
+      "/courses",
+    );
+    await expect(page.getByRole("searchbox", { name: "Поиск кандзи", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("checkbox", { name: "Текущий уровень", exact: true })).toHaveCount(
+      0,
+    );
+  });
   test("separates alphabet signs from exercises and restores combined URL filters", async ({
     page,
   }) => {
@@ -189,7 +386,9 @@ test.describe("character hub", () => {
       let release!: () => void;
       let started!: () => void;
       let delivered!: () => void;
-      const settled = new Promise<void>((resolve) => { delivered = resolve; });
+      const settled = new Promise<void>((resolve) => {
+        delivered = resolve;
+      });
       const held = new Promise<void>((resolve) => {
         release = resolve;
       });
@@ -386,6 +585,29 @@ async function signIn(page: Page): Promise<void> {
       }),
     );
   });
+}
+
+function buildLargeHub(): CharacterHubResponseDto {
+  const hub = buildHub();
+  return {
+    ...hub,
+    kanji: {
+      ...hub.kanji,
+      counts: { ...hub.kanji.counts, total: 125 },
+      filters: { ...hub.kanji.filters, levels: [1, 2, 3] },
+      items: Array.from({ length: 125 }, (_, index) => ({
+        ...buildKanji(
+          String.fromCodePoint(0x4e00 + index),
+          Math.floor(index / 60) + 1,
+          "n5",
+          "n5",
+          index === 0 ? "learning" : index === 1 ? "passed" : "not-started",
+          index === 0,
+        ),
+        id: `kanji-${index}`,
+      })),
+    },
+  };
 }
 
 function buildHub(): CharacterHubResponseDto {

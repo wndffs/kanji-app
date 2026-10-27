@@ -1630,9 +1630,6 @@ textarea::placeholder {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
 }
-.character-hub-kanji-grid a {
-  height: auto;
-}
 .character-hub-kanji-copy .catalogue-reading .japanese-text {
   font-size: inherit;
 }
@@ -1655,6 +1652,7 @@ textarea::placeholder {
   gap: 8px;
 }
 .character-hub-kanji-grid[data-view="list"] a {
+  min-height: 96px;
   grid-template-columns: 60px minmax(0, 1fr) minmax(140px, 220px);
   grid-template-rows: auto;
   align-items: center;
@@ -1665,6 +1663,7 @@ textarea::placeholder {
   font-size: 28px;
 }
 .character-hub-kanji-grid[data-view="list"] .character-hub-kanji-meta {
+  grid-column: 3;
   border: 0;
   padding: 0;
 }
@@ -1697,7 +1696,9 @@ textarea::placeholder {
   grid-template-rows: 72px minmax(60px, auto) auto;
   gap: 10px;
   padding: 16px;
-  height: 100%;
+  height: auto;
+  border: 0;
+  border-radius: 0;
 }
 .character-hub-kanji-character {
   color: var(--subject-kanji);

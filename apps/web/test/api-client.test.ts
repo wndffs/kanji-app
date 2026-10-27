@@ -33,7 +33,11 @@ describe("apiRequest", () => {
       expect(init?.signal).toBe(controller.signal);
       expect(init?.method).toBe("GET");
       return new Promise<Response>((_resolve, reject) => {
-        init?.signal?.addEventListener("abort", () => reject(new DOMException("Cancelled", "AbortError")), { once: true });
+        init?.signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("Cancelled", "AbortError")),
+          { once: true },
+        );
       });
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -42,7 +46,9 @@ describe("apiRequest", () => {
       controller.abort();
       await expect(pending).rejects.toHaveProperty("name", "AbortError");
       expect(fetchMock).toHaveBeenCalledTimes(1);
-    } finally { vi.unstubAllGlobals(); }
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
   it("confirms reachability only after a successful response body, without exposing request data", async () => {
     const target = new EventTarget();

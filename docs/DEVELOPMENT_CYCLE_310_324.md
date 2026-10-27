@@ -24,23 +24,23 @@ remain the course order, grid and visible kana readings. No large new dashboard.
 
 ## Tasks
 
-| ID | Deliverable | Acceptance | State |
-| --- | --- | --- | --- |
-| 310 | Scope and prior release check | Record observed gaps, safety boundaries and the prior completed CI | Complete |
-| 311 | Cancel obsolete catalogue reads | Abort old GETs on retry/unmount, preserve owner checks and 401 handling | Implemented |
-| 312 | URL pagination | Reload/Back retain pages; invalid and out-of-range pages are bounded without empty phantom pages | Implemented |
-| 313 | Multilingual search | Explicit search covers glyph, kana, romaji and RU/EN meaning; bounded normalized query, no per-keystroke history spam | Implemented |
-| 314 | Deterministic ordering | Course/reading/meaning/weakness ordering, stable ties, missing values last, no mutated API arrays | Implemented |
-| 315 | Grid and list | URL-backed icon control, same links/results, stable phone layout | Implemented |
-| 316 | Current-level shortcuts | Real current level and weak-item scopes; no fake level when course is absent | Implemented |
-| 317 | Honest study metadata | Started count is labelled honestly; actual stage is distinct from aggregate item completion | Implemented |
-| 318 | Bilingual meaning rows | RU/EN/RU+EN display labelled rows, explicit missing translation, no silent cross-language fallback | Implemented |
-| 319 | Safe return context | A kanji detail link can return to canonical same-origin catalogue filters/page/options; reject external/untrusted return URLs | Implemented |
-| 320 | Filter recovery | Search chips and clear actions are consistent; empty/no-course states expose a useful recovery action | Implemented |
-| 321 | Reading visibility | URL-backed reading checkbox hides kana hints by default only when requested; no grading effects | Implemented |
-| 322 | Per-item reading actions | Explicit reveal and copy controls outside navigation links; no hidden-reading leak in link labels | Implemented |
-| 323 | Batched acceptance | Focused helpers/API/browser tests, TypeScript/build/lint/format and phone/desktop captures | Pending |
-| 324 | Deploy and verify | Push/tag, full web revision check, API liveness and real catalogue/material navigation; resource cleanup | Pending |
+| ID  | Deliverable                     | Acceptance                                                                                                                    | State       |
+| --- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 310 | Scope and prior release check   | Record observed gaps, safety boundaries and the prior completed CI                                                            | Complete    |
+| 311 | Cancel obsolete catalogue reads | Abort old GETs on retry/unmount, preserve owner checks and 401 handling                                                       | Implemented |
+| 312 | URL pagination                  | Reload/Back retain pages; invalid and out-of-range pages are bounded without empty phantom pages                              | Implemented |
+| 313 | Multilingual search             | Explicit search covers glyph, kana, romaji and RU/EN meaning; bounded normalized query, no per-keystroke history spam         | Implemented |
+| 314 | Deterministic ordering          | Course/reading/meaning/weakness ordering, stable ties, missing values last, no mutated API arrays                             | Implemented |
+| 315 | Grid and list                   | URL-backed icon control, same links/results, stable phone layout                                                              | Implemented |
+| 316 | Current-level shortcuts         | Real current level and weak-item scopes; no fake level when course is absent                                                  | Implemented |
+| 317 | Honest study metadata           | Started count is labelled honestly; actual stage is distinct from aggregate item completion                                   | Implemented |
+| 318 | Bilingual meaning rows          | RU/EN/RU+EN display labelled rows, explicit missing translation, no silent cross-language fallback                            | Implemented |
+| 319 | Safe return context             | A kanji detail link can return to canonical same-origin catalogue filters/page/options; reject external/untrusted return URLs | Implemented |
+| 320 | Filter recovery                 | Search chips and clear actions are consistent; empty/no-course states expose a useful recovery action                         | Implemented |
+| 321 | Reading visibility              | URL-backed reading checkbox hides kana hints by default only when requested; no grading effects                               | Implemented |
+| 322 | Per-item reading actions        | Explicit reveal and copy controls outside navigation links; no hidden-reading leak in link labels                             | Implemented |
+| 323 | Batched acceptance              | Focused helpers/API/browser tests, TypeScript/build/lint/format and phone/desktop captures                                    | Complete    |
+| 324 | Deploy and verify               | Push/tag, full web revision check, API liveness and real catalogue/material navigation; resource cleanup                      | Pending     |
 
 ## Boundaries
 
@@ -65,3 +65,36 @@ IME search, empty results, both themes/viewports, list/grid consistency, hidden
 reading controls and same-origin safe return. Build/typecheck web and lint/format
 only touched files; use cloud CI for its full suite. Keep captures/temp results
 outside Git, close IAB tabs and stop only owned test/dev servers.
+
+## Local Acceptance
+
+Implemented tasks 311-322. Changes are limited to the character catalogue,
+its safe kanji-detail return link, GET cancellation, supporting helpers and tests.
+No database publication, migration, import, new dependency, preference save or
+SRS/answer-validation change occurred. UI uses existing original assets/icons.
+
+- Four relevant unit files: **50 cases passed**. The URL validator's 11 cases
+  also passed after replacing a control-character regex with explicit character
+  checks required by the existing ESLint policy; rejection rules are unchanged.
+- Final web production build/TypeScript passed. Changed-file ESLint and formatting
+  passed. No full local monorepo test loop was run.
+- Initial browser batch: **28 of 30 passed** across desktop/phone. The two failures
+  were one scenario's immediate checkbox assertion against a pre-navigation DOM
+  node; snapshots already showed the correct checked filter and results. Use a
+  click followed by awaited checked/results assertions for asynchronous URL state.
+  All four focused filter/reading repair cases passed.
+- Screenshot inspection found old CSS moving desktop list metadata to a new row
+  and nesting an anchor border inside the entry border. Fixed the explicit list
+  grid column and anchor framing. Four final list/grid translation/copy cases
+  passed on both viewports, including geometric bounds and nonoverlapping tools.
+- New coverage includes explicit/IME search, no extra GET on filters, sorting,
+  URL paging/reload/Back, clamped pages, canonical safe material return, absent
+  course, RU/EN missing translations, visibility/reveal/copy without navigation
+  or writes, and old-account responses (200/401). Existing kana and encoded
+  Japanese item routes remain covered.
+
+Light/dark desktop/phone captures are outside Git. Desktop list metadata occupies
+its own column; phone rows wrap without horizontal overflow. Reading tools are
+outside links, and hidden kana is not present in their link text or labels.
+
+Task 324 will record the deployed full SHA and live catalogue/material checks.

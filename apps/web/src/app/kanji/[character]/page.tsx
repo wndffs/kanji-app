@@ -16,7 +16,11 @@ export default async function KanjiPage({ params, searchParams }: KanjiPageProps
 
   return (
     <>
-      {returnHref === null ? null : <Link className="course-return-link" href={returnHref}>К каталогу кандзи</Link>}
+      {returnHref === null ? null : (
+        <Link className="course-return-link" href={returnHref}>
+          К каталогу кандзи
+        </Link>
+      )}
       <ItemDetailsClient lookup={{ type: "kanji", value: decodeItemRouteParameter(character) }} />
     </>
   );

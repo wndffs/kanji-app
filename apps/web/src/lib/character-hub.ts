@@ -19,10 +19,27 @@ import {
 export type CharacterHubTab = "hiragana" | "katakana" | "kanji";
 export type CharacterHubJlptLevel = NonNullable<CharacterHubKanjiItemDto["jlptLevel"]>;
 export type CharacterHubStateFilter = CharacterHubKanjiStudyState | "weak";
-export const CHARACTER_CATALOGUE_SORTS = { course: "Порядок курса", reading: "По чтению", meaning: "По значению", weakness: "Сначала слабые" } as const;
+export const CHARACTER_CATALOGUE_SORTS = {
+  course: "Порядок курса",
+  reading: "По чтению",
+  meaning: "По значению",
+  weakness: "Сначала слабые",
+} as const;
 export type CharacterCatalogueSort = keyof typeof CHARACTER_CATALOGUE_SORTS;
-export type CharacterCatalogueOptions = { readonly page: number; readonly q: string; readonly sort: CharacterCatalogueSort; readonly view: 'grid' | 'list'; readonly showReadings: boolean };
-export const DEFAULT_CHARACTER_CATALOGUE: CharacterCatalogueOptions = { page: 1, q: "", sort: "course", view: 'grid', showReadings: true };
+export type CharacterCatalogueOptions = {
+  readonly page: number;
+  readonly q: string;
+  readonly sort: CharacterCatalogueSort;
+  readonly view: "grid" | "list";
+  readonly showReadings: boolean;
+};
+export const DEFAULT_CHARACTER_CATALOGUE: CharacterCatalogueOptions = {
+  page: 1,
+  q: "",
+  sort: "course",
+  view: "grid",
+  showReadings: true,
+};
 export const CHARACTER_CATALOGUE_PAGE_SIZE = 60;
 
 export type CharacterHubKanjiFilters = {
@@ -64,7 +81,21 @@ export function parseCharacterHubQuery(params: Pick<URLSearchParams, "get">): Ch
 
   return {
     tab: includes(TABS, rawTab) ? rawTab : "hiragana",
-    catalogue: { page: rawPage !== null && /^[1-9]\d{0,4}$/u.test(rawPage) && Number(rawPage) <= 10_000 ? Number(rawPage) : 1, q: normalizeCourseSearch(params.get("q") ?? ""), sort: includes(Object.keys(CHARACTER_CATALOGUE_SORTS) as CharacterCatalogueSort[], params.get('sort')) ? params.get('sort') as CharacterCatalogueSort : 'course', view: params.get('view') === 'list' ? 'list' : 'grid', showReadings: params.get('readings') !== 'hidden' },
+    catalogue: {
+      page:
+        rawPage !== null && /^[1-9]\d{0,4}$/u.test(rawPage) && Number(rawPage) <= 10_000
+          ? Number(rawPage)
+          : 1,
+      q: normalizeCourseSearch(params.get("q") ?? ""),
+      sort: includes(
+        Object.keys(CHARACTER_CATALOGUE_SORTS) as CharacterCatalogueSort[],
+        params.get("sort"),
+      )
+        ? (params.get("sort") as CharacterCatalogueSort)
+        : "course",
+      view: params.get("view") === "list" ? "list" : "grid",
+      showReadings: params.get("readings") !== "hidden",
+    },
     kanaGroup: includes(Object.keys(KANA_GROUP_LABELS) as (KanaVariant | "all")[], rawGroup)
       ? rawGroup
       : "basic",
@@ -92,9 +123,9 @@ export function buildCharacterHubHref(
   if (kanaStatus !== "all") params.set("kanaState", kanaStatus);
   if (catalogue.page > 1) params.set("page", String(catalogue.page));
   if (catalogue.q) params.set("q", normalizeCourseSearch(catalogue.q));
-  if (catalogue.sort !== 'course') params.set('sort', catalogue.sort);
-  if (catalogue.view === 'list') params.set('view', 'list');
-  if (!catalogue.showReadings) params.set('readings', 'hidden');
+  if (catalogue.sort !== "course") params.set("sort", catalogue.sort);
+  if (catalogue.view === "list") params.set("view", "list");
+  if (!catalogue.showReadings) params.set("readings", "hidden");
 
   if (filters.level !== null) {
     params.set("level", String(filters.level));
@@ -129,32 +160,56 @@ export function filterCharacterHubKanji(
       (filters.jlpt === null || item.jlptLevel === filters.jlpt) &&
       (filters.state === null ||
         (filters.state === "weak" ? item.weak : item.studyState === filters.state)) &&
-      words.every((word) => [item.character, item.reading, item.meaningRu, item.meaningEn, item.reading ? romanizeKana(item.reading) : null]
-        .some((text) => text !== null && normalize(text).includes(word))),
+      words.every((word) =>
+        [
+          item.character,
+          item.reading,
+          item.meaningRu,
+          item.meaningEn,
+          item.reading ? romanizeKana(item.reading) : null,
+        ].some((text) => text !== null && normalize(text).includes(word)),
+      ),
   );
 }
 
-export function characterMeaningRows(item: Pick<CharacterHubKanjiItemDto, 'meaningRu' | 'meaningEn'>, mode: TranslationDisplayMode) {
+export function characterMeaningRows(
+  item: Pick<CharacterHubKanjiItemDto, "meaningRu" | "meaningEn">,
+  mode: TranslationDisplayMode,
+) {
   return getContentLocalesForDisplayMode(mode).map((locale) => ({
-    lang: locale === 'ru-RU' ? 'ru' : 'en',
-    label: locale === 'ru-RU' ? 'RU' : 'EN',
-    text: (locale === 'ru-RU' ? item.meaningRu : item.meaningEn)?.trim() || null,
+    lang: locale === "ru-RU" ? "ru" : "en",
+    label: locale === "ru-RU" ? "RU" : "EN",
+    text: (locale === "ru-RU" ? item.meaningRu : item.meaningEn)?.trim() || null,
   }));
 }
 
-export function sortCharacterHubKanji(items: readonly CharacterHubKanjiItemDto[], sort: CharacterCatalogueSort, mode: TranslationDisplayMode) {
-  if (sort === 'course') return items;
-  const meaning = (item: CharacterHubKanjiItemDto) => mode === 'en' ? item.meaningEn : mode === 'ru' ? item.meaningRu : item.meaningRu || item.meaningEn;
-  const value = (item: CharacterHubKanjiItemDto) => (sort === 'reading' ? item.reading : meaning(item))?.trim() || null;
-  const collator = new Intl.Collator(sort === 'reading' ? 'ja' : mode === 'en' ? 'en' : 'ru', { numeric: true, sensitivity: 'base' });
+export function sortCharacterHubKanji(
+  items: readonly CharacterHubKanjiItemDto[],
+  sort: CharacterCatalogueSort,
+  mode: TranslationDisplayMode,
+) {
+  if (sort === "course") return items;
+  const meaning = (item: CharacterHubKanjiItemDto) =>
+    mode === "en"
+      ? item.meaningEn
+      : mode === "ru"
+        ? item.meaningRu
+        : item.meaningRu || item.meaningEn;
+  const value = (item: CharacterHubKanjiItemDto) =>
+    (sort === "reading" ? item.reading : meaning(item))?.trim() || null;
+  const collator = new Intl.Collator(sort === "reading" ? "ja" : mode === "en" ? "en" : "ru", {
+    numeric: true,
+    sensitivity: "base",
+  });
   return [...items].sort((left, right) => {
     let comparison: number;
-    if (sort === 'weakness') comparison = right.weaknessScore - left.weaknessScore;
+    if (sort === "weakness") comparison = right.weaknessScore - left.weaknessScore;
     else {
-      const a = value(left), b = value(right);
+      const a = value(left),
+        b = value(right);
       comparison = a === null ? (b === null ? 0 : 1) : b === null ? -1 : collator.compare(a, b);
     }
-    return comparison || left.level - right.level || left.id.localeCompare(right.id, 'en');
+    return comparison || left.level - right.level || left.id.localeCompare(right.id, "en");
   });
 }
 
