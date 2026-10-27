@@ -68,6 +68,11 @@ export function filterKanaUnits(
   });
 }
 
+export function selectKanaResumeUnit(units: readonly KanaLessonUnitDto[]): KanaLessonUnitDto | null {
+  const available = units.filter((unit) => unit.unlocked && unit.items.length > 0);
+  return available.find((unit) => !unit.complete) ?? available.at(-1) ?? null;
+}
+
 export function findKanaLessonUnits(
   units: readonly KanaLessonUnitDto[],
   query: string,

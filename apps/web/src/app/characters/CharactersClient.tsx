@@ -31,7 +31,7 @@ import {
 } from "../../lib/character-hub";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
-import { filterKanaUnits, KANA_GROUP_LABELS } from "../../lib/kana-unit-groups";
+import { filterKanaUnits, KANA_GROUP_LABELS, selectKanaResumeUnit } from "../../lib/kana-unit-groups";
 
 type CharactersState =
   | { readonly status: "loading" }
@@ -195,6 +195,8 @@ function KanaCharacterPanel({ section, group, onGroupChange }: {
   readonly onGroupChange: (group: KanaVariant | "all") => void;
 }) {
   const units = filterKanaUnits(section.units, group);
+  const resumeUnit = selectKanaResumeUnit(section.units);
+  const resumeItem = resumeUnit?.items.find((item) => !item.mastered) ?? resumeUnit?.items[0];
   const percentage =
     section.totalCount === 0 ? 0 : Math.round((section.masteredCount / section.totalCount) * 100);
 
@@ -229,9 +231,11 @@ function KanaCharacterPanel({ section, group, onGroupChange }: {
       <KanaContentSummary items={section.units.flatMap((unit) => unit.items)} />
 
       <div className="action-row character-hub-actions">
-        <Link className="primary-action" href={section.actions.lessonsHref}>
-          Продолжить уроки
-        </Link>
+        {resumeUnit && resumeItem ? (
+          <Link className="primary-action" href={kanaLessonHref(section.script, resumeUnit.id, resumeItem.character)}>
+            {resumeUnit.complete ? "Повторить уроки" : section.attemptedCount === 0 ? "Начать уроки" : "Продолжить уроки"}
+          </Link>
+        ) : <span className="muted">Нет доступных уроков.</span>}
         <Link className="secondary-action" href={section.actions.practiceHref}>
           Адаптивная практика
         </Link>

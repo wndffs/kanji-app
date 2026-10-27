@@ -6,6 +6,7 @@ import {
   findKanaLessonUnits,
   groupKanaCharacters,
   summarizeKanaContent,
+  selectKanaResumeUnit,
 } from "../src/lib/kana-unit-groups";
 
 const items = listKana("hiragana").map((item) => ({
@@ -30,6 +31,15 @@ const units: readonly KanaLessonUnitDto[] = [
   },
 ];
 describe("kana chart groups", () => {
+  it("resumes only nonempty unlocked lessons and handles complete or empty paths", () => {
+    const completed = { ...units[0]!, id: 'complete', unlocked: true, complete: true };
+    const next = { ...units[0]!, id: 'next', unlocked: true };
+    expect(selectKanaResumeUnit([completed, next, units[0]!])).toBe(next);
+    expect(selectKanaResumeUnit([completed, units[0]!])).toBe(completed);
+    expect(selectKanaResumeUnit([units[0]!])).toBeNull();
+    expect(selectKanaResumeUnit([{ ...next, items: [] }])).toBeNull();
+    expect(selectKanaResumeUnit([])).toBeNull();
+  });
   it.each([
     ["hiragana", 11],
     ["katakana", 9],

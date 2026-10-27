@@ -48,7 +48,7 @@ import { resolveKanaLessonDestination, type KanaRouteMode } from "../../lib/kana
 import { AdaptiveKanaPractice } from "./AdaptiveKanaPractice";
 import { KanaTracingExercise } from "./KanaTracingExercise";
 import { KanaLessonFinder } from "./KanaLessonFinder";
-import { groupKanaCharacters } from "../../lib/kana-unit-groups";
+import { groupKanaCharacters, selectKanaResumeUnit } from "../../lib/kana-unit-groups";
 
 type LessonPhase = "teach" | "quiz";
 
@@ -1132,7 +1132,7 @@ function updateLessonPath(
 }
 
 function selectCurrentUnit(units: readonly KanaLessonUnitDto[]): KanaLessonUnitDto | null {
-  return units.find((unit) => unit.unlocked && !unit.complete) ?? units.at(-1) ?? null;
+  return selectKanaResumeUnit(units);
 }
 
 function selectNextLessonCharacter(
