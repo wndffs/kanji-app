@@ -51,7 +51,7 @@ import {
 } from "../../lib/private-mnemonic-editor";
 import { safeExternalUrl } from "../../lib/safe-url";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
-import { itemViewHref, parseItemView, type ItemView } from "../../lib/item-workspace";
+import { itemTranslationRows, itemViewHref, parseItemView, type ItemView } from "../../lib/item-workspace";
 
 type ItemLookup =
   | { readonly type: "item"; readonly value: string }
@@ -599,7 +599,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
           >
             {item.japanese}
           </JapaneseText>
-          <p>{formatTranslationBundle(item.translations, displayMode)}</p>
+          <ItemTranslationRows ru={item.translations.primaryRu} en={item.translations.primaryEn} displayMode={displayMode} />
         </div>
         <dl className="lesson-facts">
           {reading.kana === null && !readingHidden ? null : (
@@ -1624,6 +1624,15 @@ function StrokePlaceholder({ character }: { readonly character: string }) {
       </p>
     </>
   );
+}
+
+function ItemTranslationRows({ ru, en, displayMode }: { readonly ru: string | null; readonly en: string | null; readonly displayMode: TranslationDisplayMode }) {
+  return <dl className="item-translation-rows">
+    {itemTranslationRows(ru, en, displayMode).map((row) => <div key={row.locale}>
+      <dt>{row.label}</dt>
+      <dd lang={row.locale === "ru-RU" ? "ru" : "en"} className={row.text === null ? "muted" : undefined}>{row.text ?? "Перевод пока не добавлен"}</dd>
+    </div>)}
+  </dl>;
 }
 
 function ContentBlock({
