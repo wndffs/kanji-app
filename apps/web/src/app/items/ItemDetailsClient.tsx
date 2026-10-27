@@ -52,6 +52,7 @@ import {
 } from "../../lib/private-mnemonic-editor";
 import { safeExternalUrl } from "../../lib/safe-url";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
+import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import { itemTranslationRows, itemViewHref, parseItemView, type ItemView } from "../../lib/item-workspace";
 
 type ItemLookup =
@@ -601,6 +602,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
             {item.japanese}
           </JapaneseText>
           <ItemTranslationRows ru={item.translations.primaryRu} en={item.translations.primaryEn} displayMode={displayMode} />
+          <ItemReadingAudio reading={item.wordDetails?.reading.trim() || item.reading} hidden={readingHidden} view={itemView} />
         </div>
         <dl className="lesson-facts">
           {reading.kana === null && !readingHidden ? null : (
@@ -1623,6 +1625,20 @@ function StrokePlaceholder({ character }: { readonly character: string }) {
       </p>
     </>
   );
+}
+
+function ItemReadingAudio({ reading, hidden, view }: { readonly reading: string | null; readonly hidden: boolean; readonly view: ItemView }) {
+  const speech = useJapaneseSpeech();
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+    return speech.cancel;
+  }, [reading, hidden, view, speech.cancel]);
+  if (hidden || !reading?.trim() || view !== "study") return null;
+  return <div className="item-audio-control">
+    <button className="icon-button" type="button" disabled={!speech.available} aria-label="Прослушать чтение" title={speech.available ? "Прослушать чтение · синтез речи браузера" : "Озвучивание недоступно в этом браузере"} onClick={() => setFailed(!speech.speak(reading))}><Volume2 size={18} aria-hidden="true" /></button>
+    {failed ? <small role="status">Не удалось озвучить чтение</small> : null}
+  </div>;
 }
 
 function ItemTranslationRows({ ru, en, displayMode }: { readonly ru: string | null; readonly en: string | null; readonly displayMode: TranslationDisplayMode }) {
