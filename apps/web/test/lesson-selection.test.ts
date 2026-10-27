@@ -2,9 +2,27 @@ import { describe, expect, it } from "vitest";
 
 import { type ItemKind, type LessonQueueItem } from "@kanji-srs/shared";
 
-import { orderLessonSelection } from "../src/lib/lesson-selection";
+import {
+  boundedLessonSelection,
+  lessonBatchCapacity,
+  lessonSelectionCardCount,
+  orderLessonSelection,
+} from "../src/lib/lesson-selection";
 
 describe("orderLessonSelection", () => {
+  it("caps recommendations to eligible unique materials and the remaining daily allowance", () => {
+    const lessons = [createLesson("one", "kanji"), createLesson("two", "word")];
+    expect(boundedLessonSelection(lessons, ["missing", "two", "two", "one"], 2)).toEqual([
+      "two",
+      "one",
+    ]);
+    expect(boundedLessonSelection(lessons, ["two", "one"], 1)).toEqual(["two"]);
+    expect(lessonBatchCapacity(5, 2)).toBe(2);
+    expect(lessonBatchCapacity(5, -1)).toBe(0);
+    expect(lessonBatchCapacity(3.9, 20)).toBe(3);
+    expect(lessonBatchCapacity(5, Number.NaN)).toBe(0);
+    expect(lessonSelectionCardCount(lessons)).toBe(0);
+  });
   it("preserves course order when interleaving is disabled", () => {
     const lessons = [createLesson("component-1", "component"), createLesson("kanji-1", "kanji")];
 

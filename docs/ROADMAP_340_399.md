@@ -11,63 +11,63 @@ within that batch without silently changing its objective or numbering.
 
 Detailed acceptance: `DEVELOPMENT_CYCLE_340_354.md`.
 
-| ID | Planned Outcome |
-| --- | --- |
-| 340 | Validate gaps, reserve this roadmap and specify the current batch |
-| 341 | Isolate lesson UI by account and requested course/deck source |
-| 342 | Cancel obsolete queue/active reads and reject stale-owner results |
-| 343 | Expose an unfinished lesson from another source without abandoning it |
+| ID  | Planned Outcome                                                            |
+| --- | -------------------------------------------------------------------------- |
+| 340 | Validate gaps, reserve this roadmap and specify the current batch          |
+| 341 | Isolate lesson UI by account and requested course/deck source              |
+| 342 | Cancel obsolete queue/active reads and reject stale-owner results          |
+| 343 | Expose an unfinished lesson from another source without abandoning it      |
 | 344 | Explicit bounded search of eligible materials, including kana/romaji/RU/EN |
-| 345 | Bookmarkable kind/level/selected filters, without changing eligibility |
-| 346 | Bounded picker pages with useful empty/reset states |
+| 345 | Bookmarkable kind/level/selected filters, without changing eligibility     |
+| 346 | Bounded picker pages with useful empty/reset states                        |
 | 347 | Ordered selected-batch preview and individual removal, even across filters |
-| 348 | Small-batch size presets, constrained by actual server limits |
-| 349 | Honest material/card totals and pending-start/settings guards |
-| 350 | Clear source identity and actionable empty/error navigation |
-| 351 | Distinct teaching-phase and quiz progress, without implying SRS creation |
-| 352 | Return to a previous teaching material through confirmed progress writes |
-| 353 | Batched scoped acceptance and responsive screenshots |
-| 354 | Version, push, deploy, exact revision and real lesson-lobby inspection |
+| 348 | Small-batch size presets, constrained by actual server limits              |
+| 349 | Honest material/card totals and pending-start/settings guards              |
+| 350 | Clear source identity and actionable empty/error navigation                |
+| 351 | Distinct teaching-phase and quiz progress, without implying SRS creation   |
+| 352 | Return to a previous teaching material through confirmed progress writes   |
+| 353 | Batched scoped acceptance and responsive screenshots                       |
+| 354 | Version, push, deploy, exact revision and real lesson-lobby inspection     |
 
 ## 355-369: Review Workspace
 
-| ID | Planned Outcome |
-| --- | --- |
-| 355 | Audit the real review journey and refine this batch's acceptance |
-| 356 | Verify account/source isolation for queue and session reads |
-| 357 | Recover queue load failures locally with bounded explicit retries |
-| 358 | Simplify the review lobby around due work and the primary next action |
+| ID  | Planned Outcome                                                            |
+| --- | -------------------------------------------------------------------------- |
+| 355 | Audit the real review journey and refine this batch's acceptance           |
+| 356 | Verify account/source isolation for queue and session reads                |
+| 357 | Recover queue load failures locally with bounded explicit retries          |
+| 358 | Simplify the review lobby around due work and the primary next action      |
 | 359 | Distinguish scheduled cards, distinct materials and unfinished corrections |
-| 360 | Add or refine usable due-queue filters based only on loaded real data |
-| 361 | Make scheduled-time previews readable in the user's timezone |
+| 360 | Add or refine usable due-queue filters based only on loaded real data      |
+| 361 | Make scheduled-time previews readable in the user's timezone               |
 | 362 | Tighten meaning/reading/listening prompt hierarchy and reading concealment |
-| 363 | Clarify wrong/typo/reveal/manual-ignore feedback without changing grading |
-| 364 | Preserve answer text and recover ambiguous failed writes without replay |
-| 365 | Complete keyboard/focus behavior across answer, feedback and correction |
-| 366 | Refine phone answer/feedback controls above navigation and keyboards |
-| 367 | Make confirmed session completion and the next useful route unambiguous |
-| 368 | Batch review regression tests and both-theme viewport acceptance |
-| 369 | Release and verify real queue/review entry without altering user progress |
+| 363 | Clarify wrong/typo/reveal/manual-ignore feedback without changing grading  |
+| 364 | Preserve answer text and recover ambiguous failed writes without replay    |
+| 365 | Complete keyboard/focus behavior across answer, feedback and correction    |
+| 366 | Refine phone answer/feedback controls above navigation and keyboards       |
+| 367 | Make confirmed session completion and the next useful route unambiguous    |
+| 368 | Batch review regression tests and both-theme viewport acceptance           |
+| 369 | Release and verify real queue/review entry without altering user progress  |
 
 ## 370-384: Course Path And Content
 
-| ID | Planned Outcome |
-| --- | --- |
-| 370 | Audit published course coverage separately from imported dictionary volume |
-| 371 | Report actual kanji/word/card and RU/EN/reading gaps by level and JLPT band |
-| 372 | Improve the next-learning-path entry using real prerequisites |
-| 373 | Make locked material reasons and the first required predecessor actionable |
-| 374 | Strengthen component-to-kanji navigation without conflating shape and meaning |
-| 375 | Strengthen kanji-to-vocabulary reinforcement and taught-reading evidence |
-| 376 | Show selected versus dictionary meanings/readings consistently in course views |
-| 377 | Define the next bounded content wave from existing legal local source snapshots |
-| 378 | Prepare independently authored/reviewed Russian learning meanings for that wave |
-| 379 | Prepare matching English learning meanings and explicit missing-content gates |
-| 380 | Validate primary taught readings and accepted alternatives for that wave |
-| 381 | Validate independent placement order, prerequisites and source provenance |
+| ID  | Planned Outcome                                                                  |
+| --- | -------------------------------------------------------------------------------- |
+| 370 | Audit published course coverage separately from imported dictionary volume       |
+| 371 | Report actual kanji/word/card and RU/EN/reading gaps by level and JLPT band      |
+| 372 | Improve the next-learning-path entry using real prerequisites                    |
+| 373 | Make locked material reasons and the first required predecessor actionable       |
+| 374 | Strengthen component-to-kanji navigation without conflating shape and meaning    |
+| 375 | Strengthen kanji-to-vocabulary reinforcement and taught-reading evidence         |
+| 376 | Show selected versus dictionary meanings/readings consistently in course views   |
+| 377 | Define the next bounded content wave from existing legal local source snapshots  |
+| 378 | Prepare independently authored/reviewed Russian learning meanings for that wave  |
+| 379 | Prepare matching English learning meanings and explicit missing-content gates    |
+| 380 | Validate primary taught readings and accepted alternatives for that wave         |
+| 381 | Validate independent placement order, prerequisites and source provenance        |
 | 382 | Produce an aggregate publication/readiness report with exact counts and blockers |
-| 383 | Batch content/route regressions, license and pedagogical spot checks |
-| 384 | Release code; publish course content only with separate explicit authorization |
+| 383 | Batch content/route regressions, license and pedagogical spot checks             |
+| 384 | Release code; publish course content only with separate explicit authorization   |
 
 The content wave's exact volume is set after task 371, not invented in advance.
 N2 is the intended ceiling of the learning programme, not a claim of current
@@ -77,23 +77,23 @@ not satisfy that target, and imported rows are not published course items.
 
 ## 385-399: Cohesion And Performance
 
-| ID | Planned Outcome |
-| --- | --- |
-| 385 | Audit full learner journeys and reserve measurable acceptance thresholds |
-| 386 | Make course/catalogue/material/lesson return navigation consistent |
-| 387 | Consolidate duplicate or competing primary actions on learner screens |
-| 388 | Make loading, stale, empty, offline and retry states consistent and honest |
-| 389 | Verify RU/EN/RU+EN and pronunciation settings across all learning routes |
-| 390 | Verify theme/density preferences and long-text fit across desktop/phone |
-| 391 | Measure dashboard/lesson/review latency and identify network versus query cost |
-| 392 | Remove evidenced redundant sequential reads without weakening owner checks |
-| 393 | Optimize evidenced expensive database queries with scoped regression coverage |
-| 394 | Refine account-scoped transient caching only where measured and justified |
-| 395 | Verify writes remain recoverable across reconnect/navigation/account changes |
-| 396 | Align keyboard, touch, focus and reduced-motion behavior on core journeys |
-| 397 | Complete the visual consistency pass against original design conventions |
+| ID  | Planned Outcome                                                                   |
+| --- | --------------------------------------------------------------------------------- |
+| 385 | Audit full learner journeys and reserve measurable acceptance thresholds          |
+| 386 | Make course/catalogue/material/lesson return navigation consistent                |
+| 387 | Consolidate duplicate or competing primary actions on learner screens             |
+| 388 | Make loading, stale, empty, offline and retry states consistent and honest        |
+| 389 | Verify RU/EN/RU+EN and pronunciation settings across all learning routes          |
+| 390 | Verify theme/density preferences and long-text fit across desktop/phone           |
+| 391 | Measure dashboard/lesson/review latency and identify network versus query cost    |
+| 392 | Remove evidenced redundant sequential reads without weakening owner checks        |
+| 393 | Optimize evidenced expensive database queries with scoped regression coverage     |
+| 394 | Refine account-scoped transient caching only where measured and justified         |
+| 395 | Verify writes remain recoverable across reconnect/navigation/account changes      |
+| 396 | Align keyboard, touch, focus and reduced-motion behavior on core journeys         |
+| 397 | Complete the visual consistency pass against original design conventions          |
 | 398 | Batch end-to-end beginner and continuing-learner acceptance plus regression audit |
-| 399 | Release, verify deployment and report actual feature/content gaps that remain |
+| 399 | Release, verify deployment and report actual feature/content gaps that remain     |
 
 ## Boundaries
 

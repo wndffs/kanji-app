@@ -17,6 +17,8 @@ import {
   getAdminPrerequisiteCandidates,
   getAdminReviewQueueWithFilters,
   getCharacterHub,
+  getActiveLessonSession,
+  getLessonQueue,
   getItemDetails,
   getKanjiDetails,
   getConfusablePairs,
@@ -31,6 +33,36 @@ import {
 } from "../src/lib/api-client";
 
 describe("apiRequest", () => {
+  it("aborts active and queue lesson GETs without retrying and keeps encoded source/auth", async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.signal).toBe(controller.signal);
+      expect(init?.method).toBe("GET");
+      expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer lesson-token");
+      return new Promise<Response>((_resolve, reject) =>
+        init?.signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("Cancelled", "AbortError")),
+          { once: true },
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const active = getActiveLessonSession("lesson-token", { signal: controller.signal });
+      const queue = getLessonQueue("lesson-token", "deck/one", { signal: controller.signal });
+      controller.abort();
+      await expect(active).rejects.toHaveProperty("name", "AbortError");
+      await expect(queue).rejects.toHaveProperty("name", "AbortError");
+      expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+        expect.stringContaining("/lessons/active"),
+        expect.stringContaining("/lessons/queue?deckId=deck%2Fone"),
+      ]);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it("forwards cancellation to each material companion GET with unchanged auth and encoding", async () => {
     const signal = new AbortController().signal;
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {

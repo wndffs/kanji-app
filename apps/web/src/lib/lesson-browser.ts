@@ -4,17 +4,43 @@ import { normalizeCourseSearch } from "./course-browser-route";
 
 export { normalizeCourseSearch as normalizeLessonSearch } from "./course-browser-route";
 export const LESSON_PICKER_PAGE_SIZE = 24;
-export type LessonBrowserRoute = { readonly q: string; readonly kind: ItemKind | "all"; readonly level: number | null; readonly selected: boolean; readonly page: number };
-export const DEFAULT_LESSON_BROWSER: LessonBrowserRoute = { q: "", kind: "all", level: null, selected: false, page: 1 };
+export type LessonBrowserRoute = {
+  readonly q: string;
+  readonly kind: ItemKind | "all";
+  readonly level: number | null;
+  readonly selected: boolean;
+  readonly page: number;
+};
+export const DEFAULT_LESSON_BROWSER: LessonBrowserRoute = {
+  q: "",
+  kind: "all",
+  level: null,
+  selected: false,
+  page: 1,
+};
 
 export function parseLessonBrowser(params: URLSearchParams): LessonBrowserRoute {
-  const positive = (value: string | null, max: number) => value !== null && /^[1-9]\d*$/u.test(value) && Number(value) <= max ? Number(value) : null;
+  const positive = (value: string | null, max: number) =>
+    value !== null && /^[1-9]\d*$/u.test(value) && Number(value) <= max ? Number(value) : null;
   const kind = params.get("kind");
-  return { q: normalizeCourseSearch(params.get("q") ?? ""), kind: ITEM_KINDS.includes(kind as ItemKind) ? kind as ItemKind : "all", level: positive(params.get("level"), 60), selected: params.get("selected") === "1", page: positive(params.get("page"), 10_000) ?? 1 };
+  return {
+    q: normalizeCourseSearch(params.get("q") ?? ""),
+    kind: ITEM_KINDS.includes(kind as ItemKind) ? (kind as ItemKind) : "all",
+    level: positive(params.get("level"), 60),
+    selected: params.get("selected") === "1",
+    page: positive(params.get("page"), 10_000) ?? 1,
+  };
 }
 
-export function mergeLessonBrowser(current: LessonBrowserRoute, patch: Partial<LessonBrowserRoute>): LessonBrowserRoute {
-  return { ...current, ...(Object.keys(patch).some((key) => key !== "page") ? { page: 1 } : {}), ...patch };
+export function mergeLessonBrowser(
+  current: LessonBrowserRoute,
+  patch: Partial<LessonBrowserRoute>,
+): LessonBrowserRoute {
+  return {
+    ...current,
+    ...(Object.keys(patch).some((key) => key !== "page") ? { page: 1 } : {}),
+    ...patch,
+  };
 }
 
 export function lessonBrowserHref(deckId: string | null, route: LessonBrowserRoute): string {
@@ -28,21 +54,42 @@ export function lessonBrowserHref(deckId: string | null, route: LessonBrowserRou
   return `/lessons${params.size ? `?${params}` : ""}`;
 }
 
-export function filterLessonBrowser(items: readonly LessonQueueItem[], route: LessonBrowserRoute, selected: ReadonlySet<string>): readonly LessonQueueItem[] {
-  const normalize = (text: string) => normalizeRussianMeaning(normalizeKana(text.normalize("NFKC")));
+export function filterLessonBrowser(
+  items: readonly LessonQueueItem[],
+  route: LessonBrowserRoute,
+  selected: ReadonlySet<string>,
+): readonly LessonQueueItem[] {
+  const normalize = (text: string) =>
+    normalizeRussianMeaning(normalizeKana(text.normalize("NFKC")));
   const words = normalize(route.q).split(/\s+/u).filter(Boolean);
   return items.filter(({ item, cards }) => {
     if (route.kind !== "all" && item.itemType !== route.kind) return false;
     if (route.level !== null && item.level !== route.level) return false;
     if (route.selected && !selected.has(item.id)) return false;
     if (!words.length) return true;
-    const readings = [item.reading ?? "", ...cards.filter((card) => card.answerType === "reading").flatMap((card) => card.acceptedAnswers.map((answer) => answer.text))];
-    const fields = [item.japanese, ...readings, ...readings.map(romanizeKana), item.translations.primaryRu ?? "", item.translations.primaryEn ?? "", ...item.translations.ru.map((row) => row.text), ...item.translations.en.map((row) => row.text)].map(normalize);
+    const readings = [
+      item.reading ?? "",
+      ...cards
+        .filter((card) => card.answerType === "reading")
+        .flatMap((card) => card.acceptedAnswers.map((answer) => answer.text)),
+    ];
+    const fields = [
+      item.japanese,
+      ...readings,
+      ...readings.map((reading) => romanizeKana(reading) ?? ""),
+      item.translations.primaryRu ?? "",
+      item.translations.primaryEn ?? "",
+      ...item.translations.ru.map((row) => row.text),
+      ...item.translations.en.map((row) => row.text),
+    ].map(normalize);
     return words.every((word) => fields.some((field) => field.includes(word)));
   });
 }
 
-export function parseLessonSource(params: URLSearchParams): { readonly deckId: string | null; readonly invalid: boolean } {
+export function parseLessonSource(params: URLSearchParams): {
+  readonly deckId: string | null;
+  readonly invalid: boolean;
+} {
   const values = params.getAll("deckId");
   const value = values[0]?.trim() ?? "";
   const invalid = values.length > 1 || (value !== "" && !/^[a-zA-Z0-9_-]{1,128}$/u.test(value));

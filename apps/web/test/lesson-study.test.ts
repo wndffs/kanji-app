@@ -2,9 +2,23 @@ import { describe, expect, it } from "vitest";
 
 import { type LessonQueueItem } from "@kanji-srs/shared";
 
-import { getLessonPronunciationText, getLessonStudyPhases } from "../src/lib/lesson-study";
+import {
+  getLessonPronunciationText,
+  getLessonStudyPhases,
+  lessonStudyPosition,
+} from "../src/lib/lesson-study";
 
 describe("getLessonStudyPhases", () => {
+  it("reports bounded teaching position independently from learned/SRS counts", () => {
+    expect(lessonStudyPosition(0, 3, 1, 3)).toEqual({ item: 1, total: 3, phase: 2, phaseTotal: 3 });
+    expect(lessonStudyPosition(10, 3, -1, 1)).toEqual({
+      item: 3,
+      total: 3,
+      phase: 1,
+      phaseTotal: 1,
+    });
+    expect(lessonStudyPosition(0, 0, 0, 0)).toEqual({ item: 0, total: 0, phase: 0, phaseTotal: 0 });
+  });
   it("keeps a meaning-only item on one stage", () => {
     expect(getLessonStudyPhases(createLesson())).toEqual(["meaning"]);
   });

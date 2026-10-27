@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { captureLearnerThemes } from "./support/capture-learner-themes";
+import { changeAccount } from "./support/change-account";
 
 import { type CompleteLessonItemResponse, type LessonQueueItem } from "@kanji-srs/shared";
 
@@ -8,6 +9,400 @@ const ACCESS_TOKEN = "test-token";
 const SESSION_ID = "lesson-session-1";
 
 test.describe("lesson session", () => {
+  test("searches with IME, combines rapid URL filters, and retains selections without extra reads", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockLessonApi(page);
+    const items = largeLessonQueue();
+    let reads = 0;
+    let writes = 0;
+    page.on("request", (request) => {
+      if (request.url().startsWith(API_BASE_URL) && request.method() !== "GET") writes++;
+    });
+    await page.route(`${API_BASE_URL}/lessons/queue`, (route) => {
+      reads++;
+      return route.fulfill({ json: queueResponse(items) });
+    });
+    await page.goto("/lessons");
+    await page.getByRole("button", { name: "Изменить группу", exact: true }).click();
+    const input = page.getByRole("searchbox", { name: "Поиск новых материалов", exact: true });
+    const rows = page.locator(".lesson-preview-grid > label");
+    await expect(rows).toHaveCount(24);
+    await input.dispatchEvent("compositionstart");
+    await input.fill("missing");
+    await input.press("Enter");
+    await expect(rows).toHaveCount(24);
+    await input.dispatchEvent("compositionend");
+    await page.getByRole("button", { name: "Найти новые материалы", exact: true }).click();
+    await expect(rows).toHaveCount(0);
+    await page.getByRole("button", { name: "Сбросить фильтры материалов", exact: true }).click();
+    await page.evaluate(() => {
+      const kind = document.querySelector<HTMLSelectElement>(".lesson-picker-filters select")!;
+      const level = document.querySelectorAll<HTMLSelectElement>(
+        ".lesson-picker-filters select",
+      )[1]!;
+      kind.value = "word";
+      kind.dispatchEvent(new Event("change", { bubbles: true }));
+      level.value = "2";
+      level.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await expect(page).toHaveURL(/kind=word&level=2/u);
+    await expect(page.getByRole("combobox", { name: "Тип материала", exact: true })).toHaveValue(
+      "word",
+    );
+    await expect(
+      page.getByRole("combobox", { name: "Уровень материалов", exact: true }),
+    ).toHaveValue("2");
+    await expect(
+      page.getByRole("list", { name: "Выбранные материалы", exact: true }).locator("li"),
+    ).toHaveCount(1);
+    await page.getByRole("button", { name: "Сбросить фильтры материалов", exact: true }).click();
+    await page.getByRole("checkbox", { name: "Только выбранные", exact: true }).click();
+    await expect(rows).toHaveCount(1);
+    expect(reads).toBe(1);
+    expect(writes).toBe(0);
+    await page
+      .getByRole("button", { name: `Убрать из группы ${items[0]!.item.japanese}`, exact: true })
+      .click();
+    await expect(rows).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Начать урок", exact: true })).toBeDisabled();
+  });
+
+  test("restores bounded picker pages and source on reload and Back", async ({ page }) => {
+    await signIn(page);
+    await mockLessonApi(page);
+    await page.route(`${API_BASE_URL}/lessons/queue?deckId=deck-saved`, (route) =>
+      route.fulfill({ json: queueResponse(largeLessonQueue(), true) }),
+    );
+    await page.goto("/lessons?deckId=deck-saved&page=9999");
+    await expect(page).toHaveURL("/lessons?deckId=deck-saved&page=3");
+    await page.getByRole("button", { name: "Изменить группу", exact: true }).click();
+    await expect(page.locator(".lesson-preview-grid > label")).toHaveCount(2);
+    await page.reload();
+    await page.getByRole("button", { name: "Изменить группу", exact: true }).click();
+    await page.getByRole("button", { name: "Предыдущая страница материалов", exact: true }).click();
+    await expect(page).toHaveURL("/lessons?deckId=deck-saved&page=2");
+    await expect(page.locator(".lesson-preview-grid > label")).toHaveCount(24);
+    await page.goBack();
+    await expect(page.locator(".lesson-preview-grid > label")).toHaveCount(2);
+    await expect(page).toHaveURL("/lessons?deckId=deck-saved&page=3");
+  });
+
+  test("previews exact interleaved small batch and starts only those materials", async ({
+    page,
+  }, info) => {
+    await signIn(page);
+    await mockLessonApi(page);
+    const items = largeLessonQueue();
+    await page.route(`${API_BASE_URL}/lessons/queue`, (route) =>
+      route.fulfill({ json: queueResponse(items) }),
+    );
+    let body: unknown;
+    await page.route(`${API_BASE_URL}/lessons/start`, (route) => {
+      body = route.request().postDataJSON();
+      return route.fulfill({
+        json: {
+          session: {
+            ...lessonSession("meaning", "large-0"),
+            itemIds: ["large-0", "large-2", "large-3", "large-1", "large-4"],
+          },
+        },
+      });
+    });
+    await page.goto("/lessons");
+    await page.getByRole("button", { name: "Изменить группу", exact: true }).click();
+    await page.getByRole("button", { name: "Выбрать группу из 5", exact: true }).click();
+    await page.getByRole("button", { name: "Чередовать типы", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Начать урок", exact: true })).toBeEnabled();
+    await expect(
+      page.getByRole("list", { name: "Выбранные материалы", exact: true }).locator("li > strong"),
+    ).toHaveText([0, 2, 3, 1, 4].map((i) => items[i]!.item.japanese));
+    await expect(page.getByText("Карточек в группе: 10", { exact: true })).toBeVisible();
+    const selectedStrip = await page
+      .getByRole("list", { name: "Выбранные материалы", exact: true })
+      .boundingBox();
+    expect(selectedStrip!.height).toBeLessThan(160);
+    await page.evaluate(() => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      window.scrollTo(0, 0);
+    });
+    await captureLearnerThemes(page, info, "lesson-picker");
+    const firstRow = await page.locator(".lesson-preview-grid > label").first().boundingBox();
+    expect(firstRow!.height).toBeLessThanOrEqual(90);
+    await page.screenshot({
+      path: info.outputPath("lesson-picker-viewport.png"),
+      animations: "disabled",
+    });
+    await page.getByRole("button", { name: "Начать урок", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Изучение", exact: true })).toBeVisible();
+    expect(body).toEqual({ itemIds: ["large-0", "large-2", "large-3", "large-1", "large-4"] });
+  });
+
+  for (const endpoint of ["active", "queue"] as const)
+    for (const status of [200, 401]) {
+      test(`rejects old-owner ${endpoint} response after login changes (${status})`, async ({
+        page,
+      }) => {
+        await signIn(page);
+        await mockLessonApi(page);
+        let release!: () => void;
+        let started!: () => void;
+        const gate = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        const pending = new Promise<void>((resolve) => {
+          started = resolve;
+        });
+        const emptyActive = {
+          session: null,
+          items: [],
+          source: null,
+          completedItemCount: 0,
+          createdSrsStateCount: 0,
+        };
+        let oldQueueReads = 0;
+        await page.route(`${API_BASE_URL}/lessons/queue`, async (route) => {
+          const old = route.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`;
+          if (old) oldQueueReads++;
+          if (endpoint === "queue" && old) {
+            started();
+            await gate;
+            await route
+              .fulfill({
+                status,
+                json:
+                  status === 401
+                    ? { message: "Old owner expired" }
+                    : queueResponse([lessonQueueItem]),
+              })
+              .catch(() => undefined);
+          } else await route.fulfill({ json: queueResponse([optionalLessonQueueItem]) });
+        });
+        await page.route(`${API_BASE_URL}/lessons/active`, async (route) => {
+          const old = route.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`;
+          if (endpoint === "active" && old) {
+            started();
+            await gate;
+            await route
+              .fulfill({
+                status,
+                json: status === 401 ? { message: "Old owner expired" } : emptyActive,
+              })
+              .catch(() => undefined);
+          } else await route.fulfill({ json: emptyActive });
+        });
+        try {
+          await page.goto("/lessons");
+          await pending;
+          await changeAccount(page);
+          await expect(
+            page.getByRole("list", { name: "Выбранные материалы", exact: true }),
+          ).toContainText("二");
+          release();
+          await expect(page.getByText("Old owner expired", { exact: true })).toHaveCount(0);
+          expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe(
+            "new-owner-token",
+          );
+          if (endpoint === "active") expect(oldQueueReads).toBe(0);
+        } finally {
+          release();
+        }
+      });
+    }
+
+  for (const activeDeck of [false, true]) {
+    test(`continues the unfinished other source without fetching or replacing the requested queue (${activeDeck})`, async ({
+      page,
+    }) => {
+      await signIn(page);
+      let queueReads = 0;
+      let writes = 0;
+      page.on("request", (request) => {
+        if (request.url().startsWith(API_BASE_URL) && request.method() !== "GET") writes++;
+      });
+      await page.route(`${API_BASE_URL}/lessons/queue**`, (route) => {
+        queueReads++;
+        return route.fulfill({ json: queueResponse([lessonQueueItem]) });
+      });
+      await page.route(`${API_BASE_URL}/lessons/active`, (route) =>
+        route.fulfill({
+          json: {
+            session: lessonSession("reading", "item-kanji-one", activeDeck ? "deck-saved" : null),
+            items: [lessonQueueItem],
+            source: activeDeck
+              ? { kind: "deck", deckId: "deck-saved", title: "Saved deck" }
+              : { kind: "course" },
+            completedItemCount: 0,
+            createdSrsStateCount: 0,
+          },
+        }),
+      );
+      await page.goto(activeDeck ? "/lessons" : "/lessons?deckId=deck-saved");
+      await expect(
+        page.getByRole("heading", { name: "Есть незавершённый урок", exact: true }),
+      ).toBeVisible();
+      await page.getByRole("link", { name: "Продолжить урок", exact: true }).click();
+      await expect(page.getByRole("tab", { name: "Чтение", exact: true })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      expect(queueReads).toBe(0);
+      expect(writes).toBe(0);
+    });
+  }
+
+  test("freezes a pending start and sends only one write for two same-turn clicks", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockLessonApi(page);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let writes = 0;
+    await page.route(`${API_BASE_URL}/lessons/start`, async (route) => {
+      writes++;
+      expect(route.request().postDataJSON()).toEqual({ itemIds: ["item-kanji-one"] });
+      await gate;
+      await route.fulfill({ json: { session: lessonSession("meaning") } });
+    });
+    try {
+      await page.goto("/lessons");
+      await page.getByRole("button", { name: "Изменить группу", exact: true }).click();
+      await page
+        .getByRole("button", { name: "Начать урок", exact: true })
+        .evaluate((button: HTMLButtonElement) => {
+          button.click();
+          button.click();
+        });
+      await expect(page.getByRole("button", { name: "Начинаю...", exact: true })).toBeDisabled();
+      await expect(
+        page.getByRole("button", { name: "Убрать из группы 一", exact: true }),
+      ).toBeDisabled();
+      await expect(page.getByRole("button", { name: "Очистить", exact: true })).toBeDisabled();
+      await expect(
+        page.getByRole("searchbox", { name: "Поиск новых материалов", exact: true }),
+      ).toBeDisabled();
+      release();
+      await expect(page.getByRole("heading", { name: "Изучение", exact: true })).toBeVisible();
+      expect(writes).toBe(1);
+    } finally {
+      release();
+    }
+  });
+
+  test("blocks start during settings save and never overwrites a newer owner with its late response", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockLessonApi(page);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(`${API_BASE_URL}/users/settings`, async (route) => {
+      await gate;
+      await route
+        .fulfill({
+          json: {
+            id: "user-1",
+            email: "old@example.test",
+            displayName: "Old owner",
+            role: "USER",
+            settings: { translationDisplayMode: "ru-en", lessonOrderMode: "interleaved" },
+          },
+        })
+        .catch(() => undefined);
+    });
+    try {
+      await page.goto("/lessons");
+      await page.getByRole("button", { name: "Изменить группу", exact: true }).click();
+      await page.getByRole("button", { name: "Чередовать типы", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Начать урок", exact: true })).toBeDisabled();
+      await changeAccount(page);
+      await expect(page.getByRole("button", { name: "Начать урок", exact: true })).toBeEnabled();
+      release();
+      expect(
+        await page.evaluate(() => JSON.parse(localStorage.getItem("kanji-srs.user")!).id),
+      ).toBe("new-owner");
+    } finally {
+      release();
+    }
+  });
+
+  test("returns to the previous teaching material only after a confirmed progress write", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockLessonApi(page);
+    let writes = 0;
+    await page.route(`${API_BASE_URL}/lessons/active`, (route) =>
+      route.fulfill({
+        json: {
+          session: {
+            ...lessonSession("meaning", optionalLessonQueueItem.item.id),
+            itemIds: [lessonQueueItem.item.id, optionalLessonQueueItem.item.id],
+          },
+          items: [lessonQueueItem, optionalLessonQueueItem],
+          source: { kind: "course" },
+          completedItemCount: 0,
+          createdSrsStateCount: 0,
+        },
+      }),
+    );
+    await page.route(`${API_BASE_URL}/lessons/${SESSION_ID}/progress`, (route) => {
+      writes++;
+      expect(route.request().postDataJSON()).toEqual({
+        currentItemId: lessonQueueItem.item.id,
+        phase: "meaning",
+      });
+      return route.fulfill(
+        writes === 1
+          ? { status: 503, json: { message: "Position not saved" } }
+          : { json: { session: lessonSession("meaning") } },
+      );
+    });
+    await page.goto("/lessons");
+    await expect(page.getByText("Материал 2 из 2 · этап 1 из 3", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Предыдущий материал", exact: true }).click();
+    await expect(page.getByText("Position not saved", { exact: true })).toBeVisible();
+    await expect(page.getByText("Материал 2 из 2 · этап 1 из 3", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Предыдущий материал", exact: true }).click();
+    await expect(page.getByText("Материал 1 из 2 · этап 1 из 3", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Предыдущий материал", exact: true }),
+    ).toHaveCount(0);
+    expect(writes).toBe(2);
+  });
+
+  test("does not convert an invalid source into a course and offers real empty-queue destinations", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockLessonApi(page);
+    let reads = 0;
+    await page.route(`${API_BASE_URL}/lessons/queue`, (route) => {
+      reads++;
+      return route.fulfill({ json: { ...queueResponse([]), remainingToday: 0 } });
+    });
+    await page.goto("/lessons?deckId=..%2Fsecret");
+    await expect(page.getByText("Некорректный источник урока.", { exact: true })).toBeVisible();
+    expect(reads).toBe(0);
+    await page.goto("/lessons");
+    await expect(page.getByText("Дневной лимит исчерпан.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "К курсам", exact: true })).toHaveAttribute(
+      "href",
+      "/courses",
+    );
+    await expect(page.getByRole("link", { name: "К повторениям", exact: true })).toHaveAttribute(
+      "href",
+      "/reviews",
+    );
+    await expect(page.getByRole("button", { name: "Начать урок", exact: true })).toHaveCount(0);
+  });
+
   test("requires every lesson quiz answer before completing one item", async ({ page }) => {
     await signIn(page);
     const savedSettings = await mockLessonApi(page);
@@ -452,6 +847,41 @@ async function signIn(
     },
     { accessToken: ACCESS_TOKEN, audioSettings },
   );
+}
+
+function queueResponse(items: readonly LessonQueueItem[], deck = false) {
+  return {
+    items: items.slice(0, 1),
+    availableItems: items,
+    batchLimit: 5,
+    remainingToday: 20,
+    orderMode: "course",
+    source: deck
+      ? { kind: "deck", deckId: "deck-saved", title: "Новости на японском" }
+      : { kind: "course" },
+  };
+}
+
+function largeLessonQueue(): readonly LessonQueueItem[] {
+  return Array.from({ length: 50 }, (_, index) => {
+    const itemType = index < 2 ? "kanji" : index % 2 ? "component" : "word";
+    return {
+      ...lessonQueueItem,
+      item: {
+        ...lessonQueueItem.item,
+        id: `large-${index}`,
+        japanese: String.fromCodePoint(0x4e00 + index),
+        itemType,
+        level: (index % 2) + 1,
+      },
+      cards: lessonQueueItem.cards.map((card) => ({
+        ...card,
+        id: `card-${index}-${card.id}`,
+        learningItemId: `large-${index}`,
+        itemType,
+      })),
+    };
+  });
 }
 
 async function mockLessonApi(page: Page): Promise<() => unknown> {

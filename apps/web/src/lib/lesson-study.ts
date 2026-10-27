@@ -2,9 +2,19 @@ import { type LessonQueueItem } from "@kanji-srs/shared";
 
 export type LessonStudyPhase = "meaning" | "reading" | "context";
 
-export function lessonStudyPosition(itemIndex: number, itemCount: number, phaseIndex: number, phaseCount: number) {
+export function lessonStudyPosition(
+  itemIndex: number,
+  itemCount: number,
+  phaseIndex: number,
+  phaseCount: number,
+) {
   const total = Math.max(0, itemCount);
-  return { item: total === 0 ? 0 : Math.min(total, Math.max(1, itemIndex + 1)), total, phase: phaseCount === 0 ? 0 : Math.min(phaseCount, Math.max(1, phaseIndex + 1)), phaseTotal: Math.max(0, phaseCount) };
+  return {
+    item: total === 0 ? 0 : Math.min(total, Math.max(1, itemIndex + 1)),
+    total,
+    phase: phaseCount === 0 ? 0 : Math.min(phaseCount, Math.max(1, phaseIndex + 1)),
+    phaseTotal: Math.max(0, phaseCount),
+  };
 }
 
 export function getLessonStudyPhases(lesson: LessonQueueItem): readonly LessonStudyPhase[] {

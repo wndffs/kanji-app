@@ -9,7 +9,11 @@ export function lessonSelectionCardCount(items: readonly LessonQueueItem[]): num
   return new Set(items.flatMap((lesson) => lesson.cards.map((card) => card.id))).size;
 }
 
-export function boundedLessonSelection(eligible: readonly LessonQueueItem[], requestedIds: readonly string[], limit: number): readonly string[] {
+export function boundedLessonSelection(
+  eligible: readonly LessonQueueItem[],
+  requestedIds: readonly string[],
+  limit: number,
+): readonly string[] {
   const allowed = new Set(eligible.map(({ item }) => item.id));
   return [...new Set(requestedIds)].filter((id) => allowed.has(id)).slice(0, Math.max(0, limit));
 }

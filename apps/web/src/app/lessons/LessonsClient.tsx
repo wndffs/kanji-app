@@ -51,7 +51,12 @@ import {
   updateLessonSessionProgress,
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession, updateStoredUser } from "../../lib/auth-storage";
-import { boundedLessonSelection, lessonBatchCapacity, lessonSelectionCardCount, orderLessonSelection } from "../../lib/lesson-selection";
+import {
+  boundedLessonSelection,
+  lessonBatchCapacity,
+  lessonSelectionCardCount,
+  orderLessonSelection,
+} from "../../lib/lesson-selection";
 import { advanceLessonQuizCardQueue, buildLessonQuizQueue } from "../../lib/lesson-quiz";
 import {
   getLessonPronunciationText,
@@ -64,7 +69,17 @@ import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import { useLessonPronunciationPreferences } from "../../lib/use-lesson-pronunciation-preferences";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { useStoredSession, ownsSession } from "../../lib/use-stored-session";
-import { DEFAULT_LESSON_BROWSER, LESSON_PICKER_PAGE_SIZE, filterLessonBrowser, lessonBrowserHref, lessonSourceHref, parseLessonBrowser, parseLessonSource, mergeLessonBrowser, type LessonBrowserRoute } from "../../lib/lesson-browser";
+import {
+  DEFAULT_LESSON_BROWSER,
+  LESSON_PICKER_PAGE_SIZE,
+  filterLessonBrowser,
+  lessonBrowserHref,
+  lessonSourceHref,
+  parseLessonBrowser,
+  parseLessonSource,
+  mergeLessonBrowser,
+  type LessonBrowserRoute,
+} from "../../lib/lesson-browser";
 
 type QueueState =
   | { readonly status: "checking" }
@@ -93,9 +108,28 @@ export function LessonsClient() {
   const account = useStoredSession();
   const params = useSearchParams();
   const source = parseLessonSource(params);
-  if (source.invalid) return <section className="page-stack"><h1>Уроки</h1><p role="alert">Некорректный источник урока.</p><Link className="secondary-action" href="/decks">К колодам</Link></section>;
-  if (account === undefined) return <section className="page-stack" aria-busy="true"><h1>Уроки</h1></section>;
-  return <LessonsScreen key={`${account === null ? "guest" : `${account.user.id}:${account.token}`}:${source.deckId ?? "course"}`} requestedDeckId={source.deckId} />;
+  if (source.invalid)
+    return (
+      <section className="page-stack">
+        <h1>Уроки</h1>
+        <p role="alert">Некорректный источник урока.</p>
+        <Link className="secondary-action" href="/decks">
+          К колодам
+        </Link>
+      </section>
+    );
+  if (account === undefined)
+    return (
+      <section className="page-stack" aria-busy="true">
+        <h1>Уроки</h1>
+      </section>
+    );
+  return (
+    <LessonsScreen
+      key={`${account === null ? "guest" : `${account.user.id}:${account.token}`}:${source.deckId ?? "course"}`}
+      requestedDeckId={source.deckId}
+    />
+  );
 }
 
 function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string | null }) {
@@ -142,7 +176,9 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
   const startPending = useRef(false);
   const orderPending = useRef(false);
   const progressPending = useRef(false);
-  function ownsWorkspace(token: string) { return mounted.current && ownsSession(token); }
+  function ownsWorkspace(token: string) {
+    return mounted.current && ownsSession(token);
+  }
 
   const loadQueue = useCallback(async () => {
     queueRequest.current?.abort();
@@ -154,7 +190,10 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
       setQueueState({ status: "unauthenticated" });
       return;
     }
-    const isCurrent = () => !controller.signal.aborted && queueRequest.current === controller && ownsSession(storedSession.token);
+    const isCurrent = () =>
+      !controller.signal.aborted &&
+      queueRequest.current === controller &&
+      ownsSession(storedSession.token);
 
     setQueueState({ status: "loading" });
     setSession(null);
@@ -177,13 +216,19 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
     setCompletionSummary(null);
 
     try {
-      const active = await getActiveLessonSession(storedSession.token, { signal: controller.signal });
+      const active = await getActiveLessonSession(storedSession.token, {
+        signal: controller.signal,
+      });
       if (!isCurrent()) return;
       const activeMatchesSource =
         active.session !== null && active.session.deckId === requestedDeckId;
 
       if (active.session !== null && !activeMatchesSource) {
-        setQueueState({ status: "other-session", deckId: active.session.deckId, title: active.source?.kind === "deck" ? active.source.title : "Основной курс" });
+        setQueueState({
+          status: "other-session",
+          deckId: active.session.deckId,
+          title: active.source?.kind === "deck" ? active.source.title : "Основной курс",
+        });
         return;
       }
 
@@ -231,7 +276,9 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
         return;
       }
 
-      const queue = await getLessonQueue(storedSession.token, requestedDeckId, { signal: controller.signal });
+      const queue = await getLessonQueue(storedSession.token, requestedDeckId, {
+        signal: controller.signal,
+      });
       if (!isCurrent()) return;
       const availableItems = queue.availableItems ?? queue.items;
       setQueueState({
@@ -244,7 +291,13 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
         source: queue.source ?? { kind: "course" },
       });
       setOrderMode(queue.orderMode ?? "course");
-      setSelectedItemIds(boundedLessonSelection(availableItems, queue.items.map((lesson) => lesson.item.id), lessonBatchCapacity(queue.batchLimit, queue.remainingToday)));
+      setSelectedItemIds(
+        boundedLessonSelection(
+          availableItems,
+          queue.items.map((lesson) => lesson.item.id),
+          lessonBatchCapacity(queue.batchLimit, queue.remainingToday),
+        ),
+      );
     } catch (error: unknown) {
       if (!isCurrent()) return;
       if (error instanceof ApiError && error.status === 401) {
@@ -263,7 +316,10 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
   useEffect(() => {
     mounted.current = true;
     void loadQueue();
-    return () => { mounted.current = false; queueRequest.current?.abort(); };
+    return () => {
+      mounted.current = false;
+      queueRequest.current?.abort();
+    };
   }, [loadQueue]);
 
   const quizQueue = useMemo(
@@ -280,7 +336,10 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
     [queueState, selectedItemIdSet],
   );
   const currentLesson = session === null ? null : (activeQueue[currentIndex] ?? null);
-  const orderedSelection = useMemo(() => orderLessonSelection(selectedLessons, orderMode), [selectedLessons, orderMode]);
+  const orderedSelection = useMemo(
+    () => orderLessonSelection(selectedLessons, orderMode),
+    [selectedLessons, orderMode],
+  );
   const currentQuizCard =
     currentLesson?.cards.find((card) => card.id === quizPendingCardIds[0]) ?? null;
   const currentStudyPhases = useMemo(
@@ -288,7 +347,12 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
     [currentLesson],
   );
   const learnedItems = completionSummary?.learnedItems ?? 0;
-  const studyPosition = lessonStudyPosition(currentIndex, activeQueue.length, studyPhaseIndex, currentStudyPhases.length);
+  const studyPosition = lessonStudyPosition(
+    currentIndex,
+    activeQueue.length,
+    studyPhaseIndex,
+    currentStudyPhases.length,
+  );
   const progressLabel = useMemo(() => {
     if (currentLesson === null) {
       return "";
@@ -298,7 +362,13 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
   }, [activeQueue.length, currentIndex, currentLesson]);
 
   async function handleStartSession(): Promise<void> {
-    if (queueState.status !== "ready" || selectedLessons.length === 0 || startPending.current || orderPending.current || selectedLessons.length > lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday)) {
+    if (
+      queueState.status !== "ready" ||
+      selectedLessons.length === 0 ||
+      startPending.current ||
+      orderPending.current ||
+      selectedLessons.length > lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday)
+    ) {
       return;
     }
 
@@ -334,7 +404,11 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
   }
 
   function handleToggleLesson(itemId: string): void {
-    if (queueState.status !== "ready" || startPending.current || !queueState.availableItems.some(({ item }) => item.id === itemId)) {
+    if (
+      queueState.status !== "ready" ||
+      startPending.current ||
+      !queueState.availableItems.some(({ item }) => item.id === itemId)
+    ) {
       return;
     }
 
@@ -343,18 +417,31 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
         return current.filter((candidate) => candidate !== itemId);
       }
 
-      return current.length >= lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday) ? current : [...current, itemId];
+      return current.length >= lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday)
+        ? current
+        : [...current, itemId];
     });
   }
 
   function handleUseSuggestedBatch(): void {
     if (queueState.status === "ready" && !startPending.current) {
-      setSelectedItemIds(boundedLessonSelection(queueState.availableItems, queueState.suggestedItems.map((lesson) => lesson.item.id), lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday)));
+      setSelectedItemIds(
+        boundedLessonSelection(
+          queueState.availableItems,
+          queueState.suggestedItems.map((lesson) => lesson.item.id),
+          lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday),
+        ),
+      );
     }
   }
 
   async function handleOrderModeChange(nextMode: LessonOrderMode): Promise<void> {
-    if (queueState.status !== "ready" || orderPending.current || startPending.current || nextMode === orderMode) {
+    if (
+      queueState.status !== "ready" ||
+      orderPending.current ||
+      startPending.current ||
+      nextMode === orderMode
+    ) {
       return;
     }
 
@@ -436,7 +523,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
   async function handlePreviousStudyItem(): Promise<void> {
     if (step !== "study" || currentIndex < 1 || isCompleting) return;
     const previous = activeQueue[currentIndex - 1];
-    if (previous !== undefined && await persistStudyProgress(previous.item.id, "meaning")) {
+    if (previous !== undefined && (await persistStudyProgress(previous.item.id, "meaning"))) {
       setCurrentIndex(currentIndex - 1);
       setStudyPhaseIndex(0);
     }
@@ -768,13 +855,35 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
           <button className="secondary-action" onClick={() => void loadQueue()} type="button">
             Повторить загрузку
           </button>
-          <Link className="inline-link" href={requestedDeckId === null ? "/courses" : "/decks"}>{requestedDeckId === null ? "К курсам" : "К колодам"}</Link>
+          <Link className="inline-link" href={requestedDeckId === null ? "/courses" : "/decks"}>
+            {requestedDeckId === null ? "К курсам" : "К колодам"}
+          </Link>
         </div>
       </section>
     );
   }
 
-  if (queueState.status === "other-session") return <section className="page-stack"><h1>Уроки</h1><div className="notice-panel"><h2>Есть незавершённый урок</h2><p>{queueState.title}</p><div className="action-row"><Link className="primary-action" href={lessonSourceHref(queueState.deckId)}>Продолжить урок</Link><Link className="secondary-action" href={requestedDeckId === null ? "/courses" : "/decks"}>{requestedDeckId === null ? "К курсам" : "К колодам"}</Link></div></div></section>;
+  if (queueState.status === "other-session")
+    return (
+      <section className="page-stack">
+        <h1>Уроки</h1>
+        <div className="notice-panel">
+          <h2>Есть незавершённый урок</h2>
+          <p>{queueState.title}</p>
+          <div className="action-row">
+            <Link className="primary-action" href={lessonSourceHref(queueState.deckId)}>
+              Продолжить урок
+            </Link>
+            <Link
+              className="secondary-action"
+              href={requestedDeckId === null ? "/courses" : "/decks"}
+            >
+              {requestedDeckId === null ? "К курсам" : "К колодам"}
+            </Link>
+          </div>
+        </div>
+      </section>
+    );
 
   if (completionSummary !== null && session === null) {
     return (
@@ -807,7 +916,11 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
     );
   }
 
-  if (session === null && (queueState.availableItems.length === 0 || lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday) === 0)) {
+  if (
+    session === null &&
+    (queueState.availableItems.length === 0 ||
+      lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday) === 0)
+  ) {
     const isDeckQueue = queueState.source.kind === "deck";
 
     return (
@@ -825,7 +938,14 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
           <button className="secondary-action" onClick={() => void loadQueue()} type="button">
             Проверить снова
           </button>
-          <div className="action-row"><Link className="inline-link" href={isDeckQueue ? "/decks" : "/courses"}>{isDeckQueue ? "К колодам" : "К курсам"}</Link><Link className="inline-link" href="/reviews">К повторениям</Link></div>
+          <div className="action-row">
+            <Link className="inline-link" href={isDeckQueue ? "/decks" : "/courses"}>
+              {isDeckQueue ? "К колодам" : "К курсам"}
+            </Link>
+            <Link className="inline-link" href="/reviews">
+              К повторениям
+            </Link>
+          </div>
         </div>
       </section>
     );
@@ -842,11 +962,14 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
             <h1>{isDeckQueue ? "Уроки колоды" : "Уроки"}</h1>
             <p>
               {isDeckQueue ? `${queueState.source.title}. ` : ""}
-              Группа: {selectedLessons.length} из {lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday)}.
+              Группа: {selectedLessons.length} из{" "}
+              {lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday)}.
             </p>
           </div>
         </div>
-        <Link className="inline-link lesson-source-link" href={isDeckQueue ? "/decks" : "/courses"}>{isDeckQueue ? "К колодам" : "К курсам"}</Link>
+        <Link className="inline-link lesson-source-link" href={isDeckQueue ? "/decks" : "/courses"}>
+          {isDeckQueue ? "К колодам" : "К курсам"}
+        </Link>
         {sessionError === null ? null : (
           <p className="form-error" role="alert">
             {sessionError}
@@ -858,11 +981,22 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
               <small className="lesson-batch-position">{index + 1}</small>
               <JapaneseText as="strong">{item.japanese}</JapaneseText>
               <span>{formatTranslationBundle(item.translations, activeDisplayMode)}</span>
-              <button className="icon-button lesson-batch-remove" type="button" aria-label={`Убрать из группы ${item.japanese}`} title="Убрать из группы" disabled={isStarting} onClick={() => handleToggleLesson(item.id)}><X size={16} aria-hidden="true" /></button>
+              <button
+                className="icon-button lesson-batch-remove"
+                type="button"
+                aria-label={`Убрать из группы ${item.japanese}`}
+                title="Убрать из группы"
+                disabled={isStarting}
+                onClick={() => handleToggleLesson(item.id)}
+              >
+                <X size={16} aria-hidden="true" />
+              </button>
             </li>
           ))}
         </ul>
-        {selectedLessons.length === 0 ? <p className="muted">Материалы в группу не выбраны.</p> : null}
+        {selectedLessons.length === 0 ? (
+          <p className="muted">Материалы в группу не выбраны.</p>
+        ) : null}
         <p className="muted lesson-queue-counts">
           Доступно: {queueState.availableItems.length} · Осталось на сегодня:{" "}
           {queueState.remainingToday}
@@ -875,19 +1009,38 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
             orderMode={orderMode}
             orderModeSaving={isSavingOrderMode}
             selectedItemIds={selectedItemIdSet}
-            onClear={() => { if (!startPending.current) setSelectedItemIds([]); }}
+            onClear={() => {
+              if (!startPending.current) setSelectedItemIds([]);
+            }}
             onOrderModeChange={(mode) => void handleOrderModeChange(mode)}
             onToggle={handleToggleLesson}
             onUseSuggested={handleUseSuggestedBatch}
-            onPreset={(size) => { if (!startPending.current) setSelectedItemIds(queueState.availableItems.slice(0, Math.min(size, lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday))).map(({ item }) => item.id)); }}
+            onPreset={(size) => {
+              if (!startPending.current)
+                setSelectedItemIds(
+                  queueState.availableItems
+                    .slice(
+                      0,
+                      Math.min(
+                        size,
+                        lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday),
+                      ),
+                    )
+                    .map(({ item }) => item.id),
+                );
+            }}
             capacity={lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday)}
             disabled={isStarting || isSavingOrderMode}
           />
         </SectionDisclosure>
         <div className="lesson-selection-bar">
-          <div className="lesson-batch-totals"><span data-testid="lesson-selection-summary">
-            Выбрано <strong>{selectedLessons.length}</strong> / {lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday)}
-          </span><small>Карточек в группе: {lessonSelectionCardCount(selectedLessons)}</small></div>
+          <div className="lesson-batch-totals">
+            <span data-testid="lesson-selection-summary">
+              Выбрано <strong>{selectedLessons.length}</strong> /{" "}
+              {lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday)}
+            </span>
+            <small>Карточек в группе: {lessonSelectionCardCount(selectedLessons)}</small>
+          </div>
           <button
             className="primary-action"
             disabled={isStarting || isSavingOrderMode || selectedLessons.length === 0}
@@ -927,7 +1080,17 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
           <h1>{step === "study" ? "Изучение" : "Обязательная проверка"}</h1>
         </div>
         <div className="lesson-session-tools">
-          {step === "study" && currentIndex > 0 ? <button className="secondary-action" type="button" disabled={isSavingProgress || isCompleting} onClick={() => void handlePreviousStudyItem()}><ChevronLeft size={16} aria-hidden="true" />Предыдущий материал</button> : null}
+          {step === "study" && currentIndex > 0 ? (
+            <button
+              className="secondary-action"
+              type="button"
+              disabled={isSavingProgress || isCompleting}
+              onClick={() => void handlePreviousStudyItem()}
+            >
+              <ChevronLeft size={16} aria-hidden="true" />
+              Предыдущий материал
+            </button>
+          ) : null}
           <button
             className="secondary-action"
             disabled={isSavingProgress || isCompleting}
@@ -943,9 +1106,19 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
       </header>
 
       <div className="lesson-session-progress" aria-label="Прогресс урока">
-        <span>{step === "study" ? `Материал ${studyPosition.item} из ${studyPosition.total} · этап ${studyPosition.phase} из ${studyPosition.phaseTotal}` : `Проверка материала ${currentIndex + 1} из ${activeQueue.length}`}</span>
+        <span>
+          {step === "study"
+            ? `Материал ${studyPosition.item} из ${studyPosition.total} · этап ${studyPosition.phase} из ${studyPosition.phaseTotal}`
+            : `Проверка материала ${currentIndex + 1} из ${activeQueue.length}`}
+        </span>
         <span>Изучено: {learnedItems}</span>
-        {step === "study" ? <progress aria-label="Текущий этап изучения" value={studyPosition.phase} max={Math.max(1, studyPosition.phaseTotal)} /> : null}
+        {step === "study" ? (
+          <progress
+            aria-label="Текущий этап изучения"
+            value={studyPosition.phase}
+            max={Math.max(1, studyPosition.phaseTotal)}
+          />
+        ) : null}
       </div>
 
       {step === "study" ? (
@@ -1137,105 +1310,213 @@ function LessonPicker({
   const [optimistic, setOptimistic] = useState(confirmed);
   const latest = useRef(confirmed);
   const browse = navigating ? optimistic : confirmed;
-  useEffect(() => { if (!navigating) latest.current = confirmed; }, [confirmed, navigating]);
+  useEffect(() => {
+    if (!navigating) latest.current = confirmed;
+  }, [confirmed, navigating]);
   function navigate(patch: Partial<LessonBrowserRoute>, replace = false) {
     const next = mergeLessonBrowser(latest.current, patch);
     latest.current = next;
     setOptimistic(next);
     const href = lessonBrowserHref(parseLessonSource(params).deckId, next);
-    startNavigation(() => { if (replace) router.replace(href, { scroll: false }); else router.push(href, { scroll: false }); });
+    startNavigation(() => {
+      if (replace) router.replace(href, { scroll: false });
+      else router.push(href, { scroll: false });
+    });
   }
   const matchingItems = filterLessonBrowser(availableItems, browse, selectedItemIds);
   const pageCount = Math.max(1, Math.ceil(matchingItems.length / LESSON_PICKER_PAGE_SIZE));
   const page = Math.min(browse.page, pageCount);
-  const visibleItems = matchingItems.slice((page - 1) * LESSON_PICKER_PAGE_SIZE, page * LESSON_PICKER_PAGE_SIZE);
-  useEffect(() => { if (page !== browse.page) navigate({ page }, true); }, [page, browse.page, navigate]);
-  const levels = [...new Set(availableItems.flatMap(({ item }) => item.level === null ? [] : [item.level]))].sort((a, b) => a - b);
+  const visibleItems = matchingItems.slice(
+    (page - 1) * LESSON_PICKER_PAGE_SIZE,
+    page * LESSON_PICKER_PAGE_SIZE,
+  );
+  useEffect(() => {
+    if (page !== browse.page) navigate({ page }, true);
+  }, [page, browse.page, navigate]);
+  const levels = [
+    ...new Set(availableItems.flatMap(({ item }) => (item.level === null ? [] : [item.level]))),
+  ].sort((a, b) => a - b);
 
   return (
     <section className="lesson-picker" aria-labelledby="lesson-picker-heading">
       <fieldset className="lesson-picker-controls" disabled={disabled}>
-      <header className="lesson-picker-header">
-        <div>
-          <span className="eyebrow">
-            {selectedCount} / {batchLimit}
-          </span>
-          <h2 id="lesson-picker-heading">Группа урока</h2>
+        <header className="lesson-picker-header">
+          <div>
+            <span className="eyebrow">
+              {selectedCount} / {batchLimit}
+            </span>
+            <h2 id="lesson-picker-heading">Группа урока</h2>
+          </div>
+          <div className="lesson-picker-actions">
+            <button className="text-action" onClick={onUseSuggested} type="button">
+              Рекомендованные
+            </button>
+            <button
+              className="text-action"
+              disabled={selectedCount === 0}
+              onClick={onClear}
+              type="button"
+            >
+              Очистить
+            </button>
+          </div>
+        </header>
+
+        <div className="lesson-batch-presets" role="group" aria-label="Размер группы">
+          <span>Размер группы</span>
+          {[1, 3, 5].map((size) => (
+            <button
+              className="secondary-action"
+              key={size}
+              type="button"
+              disabled={size > capacity || size > availableItems.length}
+              onClick={() => onPreset(size)}
+              aria-label={`Выбрать группу из ${size}`}
+            >
+              {size}
+            </button>
+          ))}
         </div>
-        <div className="lesson-picker-actions">
-          <button className="text-action" onClick={onUseSuggested} type="button">
-            Рекомендованные
-          </button>
+
+        <div className="lesson-order-control" role="group" aria-label="Порядок материалов">
           <button
-            className="text-action"
-            disabled={selectedCount === 0}
-            onClick={onClear}
+            aria-pressed={orderMode === "course"}
+            disabled={orderModeSaving}
+            onClick={() => onOrderModeChange("course")}
             type="button"
           >
-            Очистить
+            Порядок источника
+          </button>
+          <button
+            aria-pressed={orderMode === "interleaved"}
+            disabled={orderModeSaving}
+            onClick={() => onOrderModeChange("interleaved")}
+            type="button"
+          >
+            Чередовать типы
           </button>
         </div>
-      </header>
 
-      <div className="lesson-batch-presets" role="group" aria-label="Размер группы">{[1, 3, 5].map((size) => <button className="secondary-action" key={size} type="button" disabled={size > capacity || size > availableItems.length} onClick={() => onPreset(size)} aria-label={`Выбрать группу из ${size}`}>{size}</button>)}</div>
-
-      <div className="lesson-order-control" role="group" aria-label="Порядок материалов">
-        <button
-          aria-pressed={orderMode === "course"}
-          disabled={orderModeSaving}
-          onClick={() => onOrderModeChange("course")}
-          type="button"
-        >
-          Порядок источника
-        </button>
-        <button
-          aria-pressed={orderMode === "interleaved"}
-          disabled={orderModeSaving}
-          onClick={() => onOrderModeChange("interleaved")}
-          type="button"
-        >
-          Чередовать типы
-        </button>
-      </div>
-
-      <LessonPickerSearch key={browse.q} value={browse.q} disabled={disabled} onSearch={(q) => navigate({ q })} />
-      <div className="lesson-picker-filters">
-        <label><span>Тип материала</span><select value={browse.kind} onChange={(event) => navigate({ kind: event.currentTarget.value as LessonBrowserRoute["kind"] })}><option value="all">Все типы</option>{(["component", "kanji", "word", "sentence"] as const).map((kind) => <option key={kind} value={kind}>{formatItemType(kind)}</option>)}</select></label>
-        <label><span>Уровень материалов</span><select value={browse.level ?? "all"} onChange={(event) => navigate({ level: event.currentTarget.value === "all" ? null : Number(event.currentTarget.value) })}><option value="all">Все уровни</option>{levels.map((level) => <option key={level} value={level}>Уровень {level}</option>)}</select></label>
-        <label className="checkbox-row"><input type="checkbox" checked={browse.selected} onChange={(event) => navigate({ selected: event.currentTarget.checked })} />Только выбранные</label>
-      </div>
-      <div className="lesson-preview-grid">
-        {visibleItems.map((lesson) => {
-          const isSelected = selectedItemIds.has(lesson.item.id);
-          const isDisabled = !isSelected && selectedCount >= capacity;
-
-          return (
-            <label
-              className={`lesson-preview-card${isSelected ? " lesson-preview-card-selected" : ""}`}
-              data-item-type={lesson.item.itemType}
-              key={lesson.item.id}
+        <LessonPickerSearch
+          key={browse.q}
+          value={browse.q}
+          disabled={disabled}
+          onSearch={(q) => navigate({ q })}
+        />
+        <div className="lesson-picker-filters">
+          <label>
+            <span>Тип материала</span>
+            <select
+              value={browse.kind}
+              onChange={(event) =>
+                navigate({ kind: event.currentTarget.value as LessonBrowserRoute["kind"] })
+              }
             >
-              <input
-                aria-label={`Выбрать ${lesson.item.japanese}: ${formatTranslationBundle(lesson.item.translations, displayMode)}`}
-                checked={isSelected}
-                disabled={isDisabled}
-                onChange={() => onToggle(lesson.item.id)}
-                type="checkbox"
-              />
-              <span className="lesson-preview-content">
-                <span className="eyebrow">{formatItemType(lesson.item.itemType)}</span>
-                <JapaneseText as="strong">{lesson.item.japanese}</JapaneseText>
-                <span>{formatTranslationBundle(lesson.item.translations, displayMode)}</span>
-              </span>
-            </label>
-          );
-        })}
-      </div>
-      <div className="lesson-picker-results"><span>Найдено: {matchingItems.length}</span>{browse.q || browse.kind !== "all" || browse.level !== null || browse.selected ? <button className="link-button" type="button" onClick={() => navigate(DEFAULT_LESSON_BROWSER)}>Сбросить фильтры материалов</button> : null}</div>
-      {matchingItems.length === 0 ? <p className="muted">По выбранным фильтрам материалы не найдены.</p> : null}
-      {pageCount <= 1 ? null : <nav className="lesson-picker-pages" aria-label="Страницы новых материалов">
-        <button className="icon-button" type="button" aria-label="Предыдущая страница материалов" title="Предыдущая страница" disabled={page === 1} onClick={() => navigate({ page: page - 1 })}><ChevronLeft size={18} aria-hidden="true" /></button><span>{page} / {pageCount}</span><button className="icon-button" type="button" aria-label="Следующая страница материалов" title="Следующая страница" disabled={page === pageCount} onClick={() => navigate({ page: page + 1 })}><ChevronRight size={18} aria-hidden="true" /></button>
-      </nav>}
+              <option value="all">Все типы</option>
+              {(["component", "kanji", "word", "sentence"] as const).map((kind) => (
+                <option key={kind} value={kind}>
+                  {formatItemType(kind)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Уровень материалов</span>
+            <select
+              value={browse.level ?? "all"}
+              onChange={(event) =>
+                navigate({
+                  level:
+                    event.currentTarget.value === "all" ? null : Number(event.currentTarget.value),
+                })
+              }
+            >
+              <option value="all">Все уровни</option>
+              {levels.map((level) => (
+                <option key={level} value={level}>
+                  Уровень {level}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={browse.selected}
+              onChange={(event) => navigate({ selected: event.currentTarget.checked })}
+            />
+            Только выбранные
+          </label>
+        </div>
+        <div className="lesson-preview-grid">
+          {visibleItems.map((lesson) => {
+            const isSelected = selectedItemIds.has(lesson.item.id);
+            const isDisabled = !isSelected && selectedCount >= capacity;
+
+            return (
+              <label
+                className={`lesson-preview-card${isSelected ? " lesson-preview-card-selected" : ""}`}
+                data-item-type={lesson.item.itemType}
+                key={lesson.item.id}
+              >
+                <input
+                  aria-label={`Выбрать ${lesson.item.japanese}: ${formatTranslationBundle(lesson.item.translations, displayMode)}`}
+                  checked={isSelected}
+                  disabled={isDisabled}
+                  onChange={() => onToggle(lesson.item.id)}
+                  type="checkbox"
+                />
+                <span className="lesson-preview-content">
+                  <span className="eyebrow">{formatItemType(lesson.item.itemType)}</span>
+                  <JapaneseText as="strong">{lesson.item.japanese}</JapaneseText>
+                  <span>{formatTranslationBundle(lesson.item.translations, displayMode)}</span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+        <div className="lesson-picker-results">
+          <span>Найдено: {matchingItems.length}</span>
+          {browse.q || browse.kind !== "all" || browse.level !== null || browse.selected ? (
+            <button
+              className="link-button"
+              type="button"
+              onClick={() => navigate(DEFAULT_LESSON_BROWSER)}
+            >
+              Сбросить фильтры материалов
+            </button>
+          ) : null}
+        </div>
+        {matchingItems.length === 0 ? (
+          <p className="muted">По выбранным фильтрам материалы не найдены.</p>
+        ) : null}
+        {pageCount <= 1 ? null : (
+          <nav className="lesson-picker-pages" aria-label="Страницы новых материалов">
+            <button
+              className="icon-button"
+              type="button"
+              aria-label="Предыдущая страница материалов"
+              title="Предыдущая страница"
+              disabled={page === 1}
+              onClick={() => navigate({ page: page - 1 })}
+            >
+              <ChevronLeft size={18} aria-hidden="true" />
+            </button>
+            <span>
+              {page} / {pageCount}
+            </span>
+            <button
+              className="icon-button"
+              type="button"
+              aria-label="Следующая страница материалов"
+              title="Следующая страница"
+              disabled={page === pageCount}
+              onClick={() => navigate({ page: page + 1 })}
+            >
+              <ChevronRight size={18} aria-hidden="true" />
+            </button>
+          </nav>
+        )}
       </fieldset>
     </section>
   );
@@ -1917,4 +2198,3 @@ function formatLessonQuizExplanation(
 function formatLocale(locale: ContentLocale): string {
   return locale === "ru-RU" ? "RU" : "EN";
 }
-

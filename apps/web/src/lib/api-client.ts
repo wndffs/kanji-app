@@ -912,7 +912,10 @@ export function getLessonQueue(
   options: { readonly signal?: AbortSignal } = {},
 ): Promise<LessonQueueResponse> {
   const params = deckId === null ? "" : `?${new URLSearchParams({ deckId }).toString()}`;
-  return apiRequest<LessonQueueResponse>(`/lessons/queue${params}`, { token, signal: options.signal });
+  return apiRequest<LessonQueueResponse>(`/lessons/queue${params}`, {
+    token,
+    signal: options.signal,
+  });
 }
 
 export function startLessonSession(
@@ -926,8 +929,14 @@ export function startLessonSession(
   });
 }
 
-export function getActiveLessonSession(token: string, options: { readonly signal?: AbortSignal } = {}): Promise<ActiveLessonSessionResponse> {
-  return apiRequest<ActiveLessonSessionResponse>("/lessons/active", { token, signal: options.signal });
+export function getActiveLessonSession(
+  token: string,
+  options: { readonly signal?: AbortSignal } = {},
+): Promise<ActiveLessonSessionResponse> {
+  return apiRequest<ActiveLessonSessionResponse>("/lessons/active", {
+    token,
+    signal: options.signal,
+  });
 }
 
 export function updateLessonSessionProgress(
