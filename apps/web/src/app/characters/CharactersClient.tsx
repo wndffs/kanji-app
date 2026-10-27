@@ -535,6 +535,12 @@ function KanjiCharacterPanel({
           <button className="icon-button" type="button" aria-label="Список кандзи" title="Список" aria-pressed={catalogue.view === 'list'} onClick={() => onCatalogueChange({ ...catalogue, view: 'list' })}><List size={18} aria-hidden="true" /></button>
         </div>
       </div>
+      {section.currentCourse === null ? null : (
+        <div className="character-catalogue-shortcuts" role="group" aria-label="Быстрые фильтры кандзи">
+          <label><input type="checkbox" aria-label="Текущий уровень" checked={filters.level === section.currentCourse.currentLevel} disabled={!section.filters.levels.includes(section.currentCourse.currentLevel)} onChange={(event) => onFiltersChange({ ...filters, level: event.currentTarget.checked ? section.currentCourse!.currentLevel : null })} />Текущий уровень {section.currentCourse.currentLevel}</label>
+          <label><input type="checkbox" checked={filters.state === 'weak'} onChange={(event) => onFiltersChange({ ...filters, state: event.currentTarget.checked ? 'weak' : null })} />Только слабые</label>
+        </div>
+      )}
       <SectionDisclosure title="Фильтры кандзи" defaultOpen={applied.length > 0}>
         <div className="character-hub-filters" aria-label="Фильтры кандзи">
           <FilterSelect

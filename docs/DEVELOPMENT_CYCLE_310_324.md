@@ -32,7 +32,7 @@ remain the course order, grid and visible kana readings. No large new dashboard.
 | 313 | Multilingual search | Explicit search covers glyph, kana, romaji and RU/EN meaning; bounded normalized query, no per-keystroke history spam | Implemented |
 | 314 | Deterministic ordering | Course/reading/meaning/weakness ordering, stable ties, missing values last, no mutated API arrays | Implemented |
 | 315 | Grid and list | URL-backed icon control, same links/results, stable phone layout | Implemented |
-| 316 | Current-level shortcuts | Real current level and weak-item scopes; no fake level when course is absent | Pending |
+| 316 | Current-level shortcuts | Real current level and weak-item scopes; no fake level when course is absent | Implemented |
 | 317 | Honest study metadata | Started count is labelled honestly; actual stage is distinct from aggregate item completion | Pending |
 | 318 | Bilingual meaning rows | RU/EN/RU+EN display labelled rows, explicit missing translation, no silent cross-language fallback | Pending |
 | 319 | Safe return context | A kanji detail link can return to canonical same-origin catalogue filters/page/options; reject external/untrusted return URLs | Pending |
