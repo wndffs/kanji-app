@@ -1782,6 +1782,7 @@ textarea::placeholder {
 }
 .item-hero-main {
   align-items: start;
+  justify-items: start;
   text-align: left;
   min-width: 0;
   gap: 8px;
@@ -1791,10 +1792,91 @@ textarea::placeholder {
   margin: 10px 0;
   line-height: 1.5;
 }
-.item-hero-main > p {
+.item-translation-rows {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+}
+.item-translation-rows > div {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+}
+.item-translation-rows dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+.item-translation-rows dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.item-hero .item-translation-rows dd {
+  font-size: 20px;
+  font-weight: 600;
+}
+.item-history-link,
+.item-preview-toggle,
+.item-audio-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.item-history-link {
+  text-align: left;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.item-audio-control {
+  min-height: 36px;
+}
+.item-preview {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.item-preview-toggle {
+  justify-self: start;
+}
+.item-page .lesson-relation-list li {
+  display: grid;
+  grid-template-columns: minmax(60px, 0.4fr) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+.item-page .lesson-relation-list a {
   font-size: 22px;
-  font-weight: 550;
-  margin: 8px 0 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.item-page .lesson-relation-list small,
+.item-page .source-list {
+  overflow-wrap: anywhere;
+}
+.item-page .private-item-form fieldset {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.item-draft-status {
+  color: var(--muted);
+  font-size: 12px;
+}
+.item-page .item-study-memory .lesson-text-list li {
+  align-items: start;
+  line-height: 1.65;
+}
+.item-page .item-study-memory .lesson-text-list span {
+  font-weight: 500;
 }
 .item-hero [data-fact="reading"] dd {
   display: flex;
@@ -2609,7 +2691,7 @@ textarea::placeholder {
   .main[data-page="kanji"] .item-hero {
     grid-template-columns: minmax(0, 1fr) minmax(180px, 0.7fr);
     gap: 24px;
-    padding: 24px;
+    padding: 24px 0;
   }
   .settings-save-bar {
     bottom: calc(64px + env(safe-area-inset-bottom));
@@ -2806,7 +2888,7 @@ textarea::placeholder {
   .main[data-page="kanji"] .item-hero {
     grid-template-columns: minmax(0, 1fr);
     gap: 22px;
-    padding: 20px;
+    padding: 20px 0;
   }
   .item-hero .lesson-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2814,8 +2896,8 @@ textarea::placeholder {
     border-top: 1px solid var(--surface-border);
     padding: 16px 0 0;
   }
-  .item-hero-main > p {
-    font-size: 19px;
+  .item-hero .item-translation-rows dd {
+    font-size: 18px;
   }
   .course-material-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
