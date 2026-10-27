@@ -1626,6 +1626,26 @@ textarea::placeholder {
   height: 18px;
   min-height: 0;
 }
+.character-hub-kanji-grid > li {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+.character-hub-kanji-grid a {
+  height: auto;
+}
+.character-hub-kanji-copy .catalogue-reading .japanese-text {
+  font-size: inherit;
+}
+.catalogue-reading-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  min-height: 48px;
+  padding: 6px 12px;
+  gap: 8px;
+  border-top: 1px solid var(--surface-border);
+  overflow-wrap: anywhere;
+}
 .catalogue-view-controls [aria-pressed="true"] {
   color: var(--primary);
   background: var(--subject-component-soft);

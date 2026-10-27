@@ -2,7 +2,7 @@
 import { kanaLessonHref } from "../../lib/kana-route";
 
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, LayoutGrid, List, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, List, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -18,6 +18,7 @@ import {
 import { JapaneseText } from "../../components/JapaneseText";
 import { KanaContentSummary } from "../../components/KanaContentSummary";
 import { CharacterCatalogueSearch } from "../../components/CharacterCatalogueSearch";
+import { CopyReadingButton } from "../../components/CopyReadingButton";
 import { ViewTabs } from "../../components/ViewTabs";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { ApiError, getCharacterHub } from "../../lib/api-client";
@@ -680,37 +681,46 @@ function KanjiCharacterPanel({
       ) : (
         <ol className="character-hub-kanji-grid" data-view={catalogue.view}>
           {visibleItems.map((item) => (
-            <li key={`${item.level}-${item.id}`} data-study-state={item.studyState}>
-              <Link href={characterCatalogueItemHref(item.character, catalogueHref)}>
-                <JapaneseText className="character-hub-kanji-character" variant="display">
-                  {item.character}
-                </JapaneseText>
-                <div className="character-hub-kanji-copy">
-                  <strong>{!catalogue.showReadings && item.reading ? 'Чтение скрыто' : item.reading ?? "Чтение уточняется"}</strong>
-                  <div className="character-hub-meaning-rows">
-                    {characterMeaningRows(item, displayMode).map((row) => <span key={row.lang} lang={row.text === null ? 'ru' : row.lang}><small>{row.label}</small><span>{row.text ?? 'Перевод не добавлен'}</span></span>)}
-                  </div>
-                </div>
-                <div className="character-hub-kanji-meta">
-                  <span>Ур. {item.level}</span>
-                  <span>
-                    {item.jlptLevel?.toUpperCase() ??
-                      (item.legacyJlptLevel == null
-                        ? "JLPT —"
-                        : `JLPT до 2010: ${item.legacyJlptLevel}`)}
-                  </span>
-                  <span className={`state-${item.studyState}`}>
-                    {STUDY_STATE_LABELS[item.studyState]}
-                  </span>
-                  {item.weak ? <span className="is-weak">Слабый</span> : null}
-                  {item.stageName === null ? null : <span className="catalogue-card-stage" title="Самая ранняя ступень среди начатых карточек материала">Начатые карточки: от {formatSrsStageName(item.stageName)}</span>}
-                </div>
-              </Link>
-            </li>
+            <CharacterCatalogueEntry key={`${item.level}-${item.id}:${catalogue.page}:${catalogue.q}:${catalogue.sort}:${catalogue.showReadings}`} item={item} catalogueHref={catalogueHref} displayMode={displayMode} showReadings={catalogue.showReadings} />
           ))}
         </ol>
       )}
     </section>
+  );
+}
+
+function CharacterCatalogueEntry({ item, catalogueHref, displayMode, showReadings }: {
+  readonly item: CharacterHubKanjiItemDto;
+  readonly catalogueHref: string;
+  readonly displayMode: TranslationDisplayMode;
+  readonly showReadings: boolean;
+}) {
+  const [revealed, setRevealed] = useState(false);
+  const reading = item.reading?.trim() || null;
+  const visible = showReadings || revealed;
+  return (
+    <li data-study-state={item.studyState}>
+      <Link href={characterCatalogueItemHref(item.character, catalogueHref)}>
+        <JapaneseText className="character-hub-kanji-character" variant="display">{item.character}</JapaneseText>
+        <div className="character-hub-kanji-copy">
+          <strong className="catalogue-reading">{reading === null ? 'Чтение уточняется' : visible ? <JapaneseText>{reading}</JapaneseText> : 'Чтение скрыто'}</strong>
+          <div className="character-hub-meaning-rows">
+            {characterMeaningRows(item, displayMode).map((row) => <span key={row.lang} lang={row.text === null ? 'ru' : row.lang}><small>{row.label}</small><span>{row.text ?? 'Перевод не добавлен'}</span></span>)}
+          </div>
+        </div>
+        <div className="character-hub-kanji-meta">
+          <span>Ур. {item.level}</span>
+          <span>{item.jlptLevel?.toUpperCase() ?? (item.legacyJlptLevel == null ? 'JLPT —' : `JLPT до 2010: ${item.legacyJlptLevel}`)}</span>
+          <span className={`state-${item.studyState}`}>{STUDY_STATE_LABELS[item.studyState]}</span>
+          {item.weak ? <span className="is-weak">Слабый</span> : null}
+          {item.stageName === null ? null : <span className="catalogue-card-stage" title="Самая ранняя ступень среди начатых карточек материала">Начатые карточки: от {formatSrsStageName(item.stageName)}</span>}
+        </div>
+      </Link>
+      {reading === null ? null : <div className="catalogue-reading-actions">
+        {showReadings ? null : <button className="icon-button" type="button" aria-label={`${revealed ? 'Скрыть' : 'Показать'} чтение ${item.character}`} title={revealed ? 'Скрыть чтение' : 'Показать чтение'} onClick={() => setRevealed((value) => !value)}>{revealed ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}</button>}
+        {visible ? <CopyReadingButton reading={reading} /> : null}
+      </div>}
+    </li>
   );
 }
 
