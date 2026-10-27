@@ -127,6 +127,9 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
   const [acceptedForm, setAcceptedForm] = useState<AcceptedAnswerFormState>(EMPTY_ACCEPTED_FORM);
   const [mnemonicForm, setMnemonicForm] = useState<MnemonicFormState>(EMPTY_MNEMONIC_FORM);
   const [privateMnemonics, setPrivateMnemonics] = useState<readonly UserMnemonicDto[]>([]);
+  const [noteRead, setNoteRead] = useState<"loading" | "ready" | "error">("loading");
+  const [noteReadError, setNoteReadError] = useState<string | null>(null);
+  const noteRequest = useRef<AbortController | null>(null);
   const itemLoadVersion = useRef(0);
   const itemRequest = useRef<AbortController | null>(null);
   const historyRequest = useRef<AbortController | null>(null);
@@ -153,11 +156,37 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
     setRevealedReadings((previous) => new Set([...previous, key]));
   }
 
+  const loadPrivateNotes = useCallback(async (itemId: string, token: string, sameItem: boolean) => {
+    noteRequest.current?.abort();
+    const controller = new AbortController();
+    noteRequest.current = controller;
+    setNoteRead("loading");
+    setNoteReadError(null);
+    const isCurrent = () => !controller.signal.aborted && noteRequest.current === controller && readStoredSession()?.token === token;
+    try {
+      const notes = await getPrivateMnemonics(token, itemId, { signal: controller.signal });
+      if (!isCurrent()) return;
+      setPrivateMnemonics(notes);
+      setMnemonicForm((previous) => resolveMnemonicForm(sameItem ? previous : EMPTY_MNEMONIC_FORM, notes));
+      setNoteRead("ready");
+    } catch (error: unknown) {
+      if (!isCurrent()) return;
+      if (error instanceof ApiError && error.status === 401) {
+        clearStoredSession();
+        return;
+      }
+      setNoteRead("error");
+      setNoteReadError(error instanceof Error ? error.message : "Не удалось загрузить личные заметки.");
+    }
+  }, []);
+
   const loadItem = useCallback(async () => {
     const version = ++itemLoadVersion.current;
     itemRequest.current?.abort();
     const controller = new AbortController();
     itemRequest.current = controller;
+    noteRequest.current?.abort();
+    setNoteRead("loading");
     historyRequest.current?.abort();
     historyRequest.current = null;
     setIsLoadingHistory(false);
@@ -183,10 +212,6 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
           ? await getKanjiDetails(lookup.value, token, { signal: controller.signal })
           : await getItemDetails(lookup.value, token, { signal: controller.signal });
       if (!isCurrent()) return;
-      const mnemonics = token === null ? [] : await getPrivateMnemonics(token, item.id, { signal: controller.signal });
-      if (!isCurrent()) {
-        return;
-      }
       const scope = `${storedSession?.user.id ?? "guest"}:${item.id}`;
       const sameItem = loadedItemScope.current === scope;
       if (!sameItem) {
@@ -194,12 +219,8 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
         setHideReadingHints(false);
       }
       loadedItemScope.current = scope;
-      setPrivateMnemonics(mnemonics);
       setAcceptedForm((previous) =>
         resolveAcceptedFormDefaults(sameItem ? previous : EMPTY_ACCEPTED_FORM, item),
-      );
-      setMnemonicForm((previous) =>
-        resolveMnemonicForm(sameItem ? previous : EMPTY_MNEMONIC_FORM, mnemonics),
       );
 
       setState({
@@ -209,6 +230,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
         displayMode,
         timezone,
       });
+      if (token !== null) void loadPrivateNotes(item.id, token, sameItem);
       if (token !== null && item.itemType === "kanji") {
         try {
           const pairs = await getConfusablePairs(token, item.id, { signal: controller.signal });
@@ -234,13 +256,14 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
         message: error instanceof Error ? error.message : "Не удалось загрузить материал.",
       });
     }
-  }, [lookup.type, lookup.value]);
+  }, [lookup.type, lookup.value, loadPrivateNotes]);
 
   useEffect(() => {
     void loadItem();
     return () => {
       itemLoadVersion.current += 1;
       itemRequest.current?.abort();
+      noteRequest.current?.abort();
       historyRequest.current?.abort();
     };
   }, [loadItem]);
@@ -360,7 +383,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
   async function handleSaveMnemonic(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
-    if (state.status !== "ready" || state.token === null || isSavingMnemonic) {
+    if (state.status !== "ready" || state.token === null || isSavingMnemonic || noteRead !== "ready") {
       return;
     }
 
@@ -392,7 +415,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
   }
 
   async function handleDeleteMnemonic(): Promise<void> {
-    if (state.status !== "ready" || state.token === null || isSavingMnemonic) {
+    if (state.status !== "ready" || state.token === null || isSavingMnemonic || noteRead !== "ready") {
       return;
     }
 
@@ -986,11 +1009,17 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
                 <p className="muted">Войдите, чтобы сохранить личную мнемонику или заметку.</p>
               ) : (
                 <>
+                  {noteRead === "loading" ? <p className="muted" role="status">Загружаю личные заметки…</p> : null}
+                  {noteRead === "error" ? <div className="notice-panel error-panel">
+                    <p role="alert">{noteReadError}</p>
+                    <button className="secondary-action" type="button" onClick={() => void loadPrivateNotes(item.id, token, true)}>Повторить загрузку заметок</button>
+                  </div> : null}
                   <form
                     className="private-item-form"
                     data-testid="private-mnemonic-form"
                     onSubmit={(event) => void handleSaveMnemonic(event)}
                   >
+                    <fieldset disabled={noteRead !== "ready" || isSavingMnemonic}>
                     <label>
                       <span>Язык</span>
                       <select
@@ -1063,6 +1092,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
                         Удалить заметку
                       </button>
                     </div>
+                    </fieldset>
                   </form>
                   {userMnemonicTexts.length === 0 ? (
                     <p className="muted">Личных заметок пока нет.</p>
