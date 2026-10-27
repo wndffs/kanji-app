@@ -20,23 +20,23 @@ all attribution, personal edits and authoritative API grading/history behavior.
 
 ## Tasks
 
-| ID  | Deliverable                       | Acceptance                                                                                                                | State    |
-| --- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------- |
-| 325 | Scope                             | Record observed gaps, exact boundaries and acceptance                                                                     | Complete |
-| 326 | Cancellable material reads        | Abort obsolete item/kanji/private/pair GETs; retain owner and 401 guards                                                  | Complete |
-| 327 | Independent private-note recovery | Public teaching renders without waiting for private notes; loading/error/retry is local; unsafe note writes stay disabled | Complete |
-| 328 | Bookmarkable material tabs        | Known view query survives reload and Back without extra material reads; preserve safe catalogue/course context            | Complete |
-| 329 | Bilingual hero meanings           | Label selected RU/EN rows and show absent translation explicitly, never substitute another language                       | Complete |
-| 330 | Focused material header           | Compact real level/JLPT/stage; schedule details reachable in History rather than duplicated above study                   | Complete |
-| 331 | Visible-reading audio             | Explicit browser speech for visible readings, respect existing voice/rate, cancel on hide/tab/item/unmount, no autoplay   | Complete |
-| 332 | Reading evidence hierarchy        | Hide switch covers taught/dictionary readings; optional dictionary disclosure; global answers remain separate             | Complete |
-| 333 | Teaching-first mnemonics          | Project learning mnemonics/hints precede related materials; private text stays in My Notes                                | Complete |
-| 334 | Bounded relationships             | Compact previews, explicit more/less, honest loaded/server totals, related kana respects hidden-reading policy            | Complete |
-| 335 | Focused attributed examples       | Bounded examples with labelled selected translations, honest missing values, unchanged attribution/reveal                 | Complete |
-| 336 | Safe personal editor states       | No impossible card submission, no editing unloaded note snapshots, clear unsaved note state                               | Complete |
-| 337 | Responsive material layout        | Low-clutter study/notes/history/source layouts, phone text fit, light/dark, no nested section cards                       | Complete |
-| 338 | Batched acceptance                | Scoped unit/API/browser tests, web build/typecheck, touched lint/format, screenshots                                      | Complete |
-| 339 | Release                           | Commit/push/tag, exact deployed revision, API liveness, real material navigation, resource cleanup                        | Planned  |
+| ID  | Deliverable                       | Acceptance                                                                                                                | State     |
+| --- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 325 | Scope                             | Record observed gaps, exact boundaries and acceptance                                                                     | Complete  |
+| 326 | Cancellable material reads        | Abort obsolete item/kanji/private/pair GETs; retain owner and 401 guards                                                  | Complete  |
+| 327 | Independent private-note recovery | Public teaching renders without waiting for private notes; loading/error/retry is local; unsafe note writes stay disabled | Complete  |
+| 328 | Bookmarkable material tabs        | Known view query survives reload and Back without extra material reads; preserve safe catalogue/course context            | Complete  |
+| 329 | Bilingual hero meanings           | Label selected RU/EN rows and show absent translation explicitly, never substitute another language                       | Complete  |
+| 330 | Focused material header           | Compact real level/JLPT/stage; schedule details reachable in History rather than duplicated above study                   | Complete  |
+| 331 | Visible-reading audio             | Explicit browser speech for visible readings, respect existing voice/rate, cancel on hide/tab/item/unmount, no autoplay   | Complete  |
+| 332 | Reading evidence hierarchy        | Hide switch covers taught/dictionary readings; optional dictionary disclosure; global answers remain separate             | Complete  |
+| 333 | Teaching-first mnemonics          | Project learning mnemonics/hints precede related materials; private text stays in My Notes                                | Complete  |
+| 334 | Bounded relationships             | Compact previews, explicit more/less, honest loaded/server totals, related kana respects hidden-reading policy            | Complete  |
+| 335 | Focused attributed examples       | Bounded examples with labelled selected translations, honest missing values, unchanged attribution/reveal                 | Complete  |
+| 336 | Safe personal editor states       | No impossible card submission, no editing unloaded note snapshots, clear unsaved note state                               | Complete  |
+| 337 | Responsive material layout        | Low-clutter study/notes/history/source layouts, phone text fit, light/dark, no nested section cards                       | Complete  |
+| 338 | Batched acceptance                | Scoped unit/API/browser tests, web build/typecheck, touched lint/format, screenshots                                      | Complete  |
+| 339 | Release                           | Commit/push/tag, exact deployed revision, API liveness, real material navigation, resource cleanup                        | Releasing |
 
 ## Boundaries And Checks
 
@@ -91,3 +91,12 @@ Light/dark study and notes captures plus first-viewport images are stored outsid
 Git. Full-page captures are visual aids; fixed navigation is also checked in
 viewport captures. Browser speech is synthesis, not a recorded native-speaker
 asset. No new dataset or competitor material was used.
+
+## Release Candidate
+
+Code acceptance: `6792abde1f6eafe3bc62c95a89b35834a2b7e820`.
+Version tag: `cycle-325-339-material`. Push all 15 task commits together through
+the existing GitHub/Vercel/Render integrations. Confirm deployed full revisions,
+API liveness and read-only material/tab/reading navigation with the existing
+test profile. Do not publish a course or alter any account/progress/preferences
+for acceptance. Cloud CI and final live evidence are recorded after deployment.
