@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { History, Volume2 } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -645,11 +646,9 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
           )}
           <div>
             <dt>Повторения</dt>
-            <dd>{formatSrsStageName(item.srs?.stageName)}</dd>
-          </div>
-          <div>
-            <dt>Следующее повторение</dt>
-            <dd>{formatReviewSchedule(item.nextReviewAt, timezone)}</dd>
+            <dd><button className="link-button item-history-link" type="button" onClick={() => setItemView("history")} aria-label="Открыть историю повторений">
+              <History size={16} aria-hidden="true" />{formatSrsStageName(item.srs?.stageName)}
+            </button></dd>
           </div>
         </dl>
       </header>
