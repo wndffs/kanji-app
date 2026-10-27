@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -50,6 +51,7 @@ import {
 } from "../../lib/private-mnemonic-editor";
 import { safeExternalUrl } from "../../lib/safe-url";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
+import { itemViewHref, parseItemView, type ItemView } from "../../lib/item-workspace";
 
 type ItemLookup =
   | { readonly type: "item"; readonly value: string }
@@ -116,13 +118,19 @@ export function ItemDetailsClient({ lookup }: { readonly lookup: ItemLookup }) {
 }
 
 function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const itemView = parseItemView(searchParams.get("view"));
+  function setItemView(view: string) {
+    router.push(itemViewHref(pathname, new URLSearchParams(searchParams), view as ItemView), { scroll: false });
+  }
   const liveDisplayMode = useTranslationDisplayMode();
   const [readingPreferences, setReadingPreferences] = useState(() =>
     resolveItemReadingPreferences(),
   );
   const [revealedReadings, setRevealedReadings] = useState<ReadonlySet<string>>(() => new Set());
   const [hideReadingHints, setHideReadingHints] = useState(false);
-  const [itemView, setItemView] = useState("study");
   const [state, setState] = useState<ItemState>({ status: "loading" });
   const [acceptedForm, setAcceptedForm] = useState<AcceptedAnswerFormState>(EMPTY_ACCEPTED_FORM);
   const [mnemonicForm, setMnemonicForm] = useState<MnemonicFormState>(EMPTY_MNEMONIC_FORM);
