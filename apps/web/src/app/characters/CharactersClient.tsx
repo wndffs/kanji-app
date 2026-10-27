@@ -223,6 +223,7 @@ function CharactersScreen() {
           displayMode={displayMode}
           filters={query.filters}
           onFiltersChange={updateKanjiFilters}
+          onResetFilters={() => router.push(buildCharacterHubHref('kanji', EMPTY_CHARACTER_HUB_FILTERS, query.kanaGroup, query.kanaStatus, { ...query.catalogue, q: '', page: 1 }), { scroll: false })}
           catalogue={query.catalogue}
           catalogueHref={buildCharacterHubHref('kanji', query.filters, query.kanaGroup, query.kanaStatus, query.catalogue)}
           onCatalogueChange={(catalogue, replace = false) => {
@@ -441,6 +442,7 @@ function KanjiCharacterPanel({
   displayMode,
   filters,
   onFiltersChange,
+  onResetFilters,
   section,
   catalogue,
   catalogueHref,
@@ -449,6 +451,7 @@ function KanjiCharacterPanel({
   readonly displayMode: TranslationDisplayMode;
   readonly filters: CharacterHubKanjiFilters;
   readonly onFiltersChange: (filters: CharacterHubKanjiFilters) => void;
+  readonly onResetFilters: () => void;
   readonly section: CharacterHubKanjiSectionDto;
   readonly catalogue: CharacterCatalogueOptions;
   readonly catalogueHref: string;
@@ -477,6 +480,15 @@ function KanjiCharacterPanel({
   };
   const applied = (Object.keys(filters) as (keyof CharacterHubKanjiFilters)[]).filter(
     (key) => filters[key] !== null,
+  );
+  const hasFilters = applied.length > 0 || catalogue.q !== '';
+
+  if (section.currentCourse === null) return (
+    <section aria-labelledby="character-tab-kanji" className="character-hub-panel" id="character-panel-kanji" role="tabpanel">
+      <h2>Курс не выбран</h2>
+      <p>Выберите структурированный курс, чтобы увидеть его кандзи.</p>
+      <Link className="primary-action" href="/courses">Выбрать курс</Link>
+    </section>
   );
 
   return (
@@ -607,16 +619,17 @@ function KanjiCharacterPanel({
           />
           <button
             className="secondary-action"
-            disabled={filtersEqual(filters, EMPTY_CHARACTER_HUB_FILTERS)}
-            onClick={() => onFiltersChange(EMPTY_CHARACTER_HUB_FILTERS)}
+            disabled={!hasFilters}
+            onClick={onResetFilters}
             type="button"
           >
             Сбросить
           </button>
         </div>
       </SectionDisclosure>
-      {applied.length === 0 ? null : (
+      {!hasFilters ? null : (
         <div className="applied-filters" aria-label="Применённые фильтры кандзи">
+          {catalogue.q ? <button className="filter-chip" type="button" aria-label="Убрать поисковый запрос" onClick={() => onCatalogueChange({ ...catalogue, q: '', page: 1 })}><span>Поиск: {catalogue.q}</span><X size={16} aria-hidden="true" /></button> : null}
           {applied.map((key) => (
             <button
               className="filter-chip"
@@ -631,7 +644,7 @@ function KanjiCharacterPanel({
           ))}
         </div>
       )}
-      <p className="character-hub-result-count">Найдено: {items.length}</p>
+      <p className="character-hub-result-count" role="status">Найдено: {items.length}{items.length > pageSize ? ` · Показано ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, items.length)}` : ''}</p>
       {pageCount <= 1 ? null : (
         <nav className="catalog-pagination" aria-label="Страницы кандзи">
           <button
@@ -660,7 +673,8 @@ function KanjiCharacterPanel({
 
       {items.length === 0 ? (
         <div className="notice-panel">
-          <p>По выбранным фильтрам кандзи не найдены.</p>
+          <p>{section.items.length === 0 ? 'В этом курсе пока нет опубликованных кандзи.' : 'По выбранным фильтрам кандзи не найдены.'}</p>
+          {hasFilters ? <button className="secondary-action" type="button" onClick={onResetFilters}>Сбросить фильтры</button> : <Link className="secondary-action" href="/courses">Выбрать другой курс</Link>}
         </div>
       ) : (
         <ol className="character-hub-kanji-grid" data-view={catalogue.view}>
@@ -729,11 +743,3 @@ function FilterSelect({
   );
 }
 
-function filtersEqual(left: CharacterHubKanjiFilters, right: CharacterHubKanjiFilters): boolean {
-  return (
-    left.level === right.level &&
-    left.band === right.band &&
-    left.jlpt === right.jlpt &&
-    left.state === right.state
-  );
-}

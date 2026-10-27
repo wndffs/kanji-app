@@ -1603,6 +1603,16 @@ textarea::placeholder {
   height: 18px;
   min-height: 0;
 }
+#character-panel-kanji .filter-chip {
+  max-width: 100%;
+}
+#character-panel-kanji .filter-chip > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#character-panel-kanji .filter-chip svg {
+  flex-shrink: 0;
+}
 .catalogue-view-controls [aria-pressed="true"] {
   color: var(--primary);
   background: var(--subject-component-soft);
