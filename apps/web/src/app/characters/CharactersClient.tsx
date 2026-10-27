@@ -36,6 +36,7 @@ import {
   type CharacterCatalogueOptions,
 } from "../../lib/character-hub";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
+import { formatSrsStageName } from "../../lib/dashboard-format";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
 import {
   filterKanaUnits,
@@ -508,7 +509,7 @@ function KanjiCharacterPanel({
           <dd>{section.counts.total}</dd>
         </div>
         <div>
-          <dt>Изучается</dt>
+          <dt title="Есть хотя бы одна начатая карточка, включая пройденные материалы">Начато</dt>
           <dd>{section.counts.learned}</dd>
         </div>
         <div>
@@ -680,6 +681,7 @@ function KanjiCharacterPanel({
                     {STUDY_STATE_LABELS[item.studyState]}
                   </span>
                   {item.weak ? <span className="is-weak">Слабый</span> : null}
+                  {item.stageName === null ? null : <span className="catalogue-card-stage" title="Самая ранняя ступень среди начатых карточек материала">Начатые карточки: от {formatSrsStageName(item.stageName)}</span>}
                 </div>
               </Link>
             </li>

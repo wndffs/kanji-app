@@ -1646,7 +1646,7 @@ textarea::placeholder {
 .character-hub-kanji-grid > li:is([data-study-state="passed"], [data-study-state="burned"]) {
   border-top: 3px solid var(--primary);
 }
-.character-hub-kanji-grid > li[data-study-state="in-progress"] {
+.character-hub-kanji-grid > li[data-study-state="learning"] {
   border-top: 3px solid var(--subject-kanji);
 }
 .character-hub-kanji-grid a {
@@ -1685,6 +1685,12 @@ textarea::placeholder {
   gap: 2px 10px;
   padding-top: 8px;
   border-top: 1px solid var(--surface-border);
+}
+.character-hub-kanji-meta .catalogue-card-stage {
+  flex-basis: 100%;
+  font-size: 11px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 @media (max-width: 600px) {
   .character-hub-filters {
