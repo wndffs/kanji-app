@@ -44,7 +44,7 @@ describe("character hub query", () => {
     for (const value of ['0', '-1', '1.2', 'Infinity', '1e2', '10001', '999999999999999999'])
       expect(parseCharacterHubQuery(new URLSearchParams({ page: value })).catalogue.page).toBe(1);
     expect(parseCharacterHubQuery(new URLSearchParams('page=3')).catalogue.page).toBe(3);
-    expect(buildCharacterHubHref('kanji', undefined, 'basic', 'all', { page: 3 })).toBe('/characters?tab=kanji&page=3');
+    expect(buildCharacterHubHref('kanji', undefined, 'basic', 'all', { ...DEFAULT_CHARACTER_CATALOGUE, page: 3 })).toBe('/characters?tab=kanji&page=3');
   });
   it("round trips kana groups without changing kanji filters", () => {
     const href = buildCharacterHubHref("katakana", undefined, "handakuten");
@@ -73,6 +73,13 @@ describe("character hub query", () => {
         state: "weak",
       }).map((item) => item.character),
     ).toEqual(["一"]);
+  });
+  it('matches glyph, kana, romaji and both normalized learning languages', () => {
+    const item = { ...buildItem('一', 'learning', false), reading: 'いち', meaningRu: 'Ёлка', meaningEn: 'One' };
+    for (const q of ['一', 'イチ', ' ＩＣＨＩ ', 'елка', 'ONE', '一 one'])
+      expect(filterCharacterHubKanji([item], { level: null, band: null, jlpt: null, state: null }, q)).toEqual([item]);
+    expect(filterCharacterHubKanji([item], { level: null, band: null, jlpt: null, state: null }, 'absent')).toEqual([]);
+    expect(parseCharacterHubQuery(new URLSearchParams({ q: 'x'.repeat(81) })).catalogue.q).toBe('');
   });
 });
 

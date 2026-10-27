@@ -17,6 +17,7 @@ import {
 
 import { JapaneseText } from "../../components/JapaneseText";
 import { KanaContentSummary } from "../../components/KanaContentSummary";
+import { CharacterCatalogueSearch } from "../../components/CharacterCatalogueSearch";
 import { ViewTabs } from "../../components/ViewTabs";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { ApiError, getCharacterHub } from "../../lib/api-client";
@@ -444,7 +445,7 @@ function KanjiCharacterPanel({
   readonly catalogue: CharacterCatalogueOptions;
   readonly onCatalogueChange: (options: CharacterCatalogueOptions, replace?: boolean) => void;
 }) {
-  const items = useMemo(() => filterCharacterHubKanji(section.items, filters), [filters, section]);
+  const items = useMemo(() => filterCharacterHubKanji(section.items, filters, catalogue.q), [filters, section, catalogue.q]);
   const pageSize = CHARACTER_CATALOGUE_PAGE_SIZE;
   const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
   const page = Math.min(catalogue.page, pageCount);
@@ -521,6 +522,7 @@ function KanjiCharacterPanel({
         </div>
       </dl>
 
+      <CharacterCatalogueSearch key={catalogue.q} value={catalogue.q} onSearch={(q) => onCatalogueChange({ ...catalogue, q, page: 1 })} />
       <SectionDisclosure title="Фильтры кандзи" defaultOpen={applied.length > 0}>
         <div className="character-hub-filters" aria-label="Фильтры кандзи">
           <FilterSelect
@@ -580,9 +582,7 @@ function KanjiCharacterPanel({
             value={filters.state ?? ""}
           />
           <button
-            className="icon-button"
-            aria-label="Назад"
-            title="Предыдущая страница"
+            className="secondary-action"
             disabled={filtersEqual(filters, EMPTY_CHARACTER_HUB_FILTERS)}
             onClick={() => onFiltersChange(EMPTY_CHARACTER_HUB_FILTERS)}
             type="button"
@@ -611,7 +611,9 @@ function KanjiCharacterPanel({
       {pageCount <= 1 ? null : (
         <nav className="catalog-pagination" aria-label="Страницы кандзи">
           <button
-            className="secondary-action"
+            className="icon-button"
+            aria-label="Назад"
+            title="Предыдущая страница"
             disabled={page <= 1}
             onClick={() => onCatalogueChange({ ...catalogue, page: page - 1 })}
           >

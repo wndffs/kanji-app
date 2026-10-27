@@ -5,6 +5,9 @@ import {
   type CourseBand,
   type KanaVariant,
 } from "@kanji-srs/shared";
+import { normalizeKana, normalizeRussianMeaning, romanizeKana } from "@kanji-srs/japanese";
+import { normalizeCourseSearch } from "./course-browser-route";
+export { normalizeCourseSearch as normalizeCharacterSearch } from "./course-browser-route";
 import {
   KANA_GROUP_LABELS,
   KANA_UNIT_STATUS_LABELS,
@@ -14,8 +17,8 @@ import {
 export type CharacterHubTab = "hiragana" | "katakana" | "kanji";
 export type CharacterHubJlptLevel = NonNullable<CharacterHubKanjiItemDto["jlptLevel"]>;
 export type CharacterHubStateFilter = CharacterHubKanjiStudyState | "weak";
-export type CharacterCatalogueOptions = { readonly page: number };
-export const DEFAULT_CHARACTER_CATALOGUE: CharacterCatalogueOptions = { page: 1 };
+export type CharacterCatalogueOptions = { readonly page: number; readonly q: string };
+export const DEFAULT_CHARACTER_CATALOGUE: CharacterCatalogueOptions = { page: 1, q: "" };
 export const CHARACTER_CATALOGUE_PAGE_SIZE = 60;
 
 export type CharacterHubKanjiFilters = {
@@ -57,7 +60,7 @@ export function parseCharacterHubQuery(params: Pick<URLSearchParams, "get">): Ch
 
   return {
     tab: includes(TABS, rawTab) ? rawTab : "hiragana",
-    catalogue: { page: rawPage !== null && /^[1-9]\d{0,4}$/u.test(rawPage) && Number(rawPage) <= 10_000 ? Number(rawPage) : 1 },
+    catalogue: { page: rawPage !== null && /^[1-9]\d{0,4}$/u.test(rawPage) && Number(rawPage) <= 10_000 ? Number(rawPage) : 1, q: normalizeCourseSearch(params.get("q") ?? "") },
     kanaGroup: includes(Object.keys(KANA_GROUP_LABELS) as (KanaVariant | "all")[], rawGroup)
       ? rawGroup
       : "basic",
@@ -84,6 +87,7 @@ export function buildCharacterHubHref(
   if (kanaGroup !== "basic") params.set("group", kanaGroup);
   if (kanaStatus !== "all") params.set("kanaState", kanaStatus);
   if (catalogue.page > 1) params.set("page", String(catalogue.page));
+  if (catalogue.q) params.set("q", normalizeCourseSearch(catalogue.q));
 
   if (filters.level !== null) {
     params.set("level", String(filters.level));
@@ -107,14 +111,19 @@ export function buildCharacterHubHref(
 export function filterCharacterHubKanji(
   items: readonly CharacterHubKanjiItemDto[],
   filters: CharacterHubKanjiFilters,
+  query = "",
 ): readonly CharacterHubKanjiItemDto[] {
+  const normalize = (text: string) => normalizeRussianMeaning(normalizeKana(text));
+  const words = normalize(query).split(" ").filter(Boolean);
   return items.filter(
     (item) =>
       (filters.level === null || item.level === filters.level) &&
       (filters.band === null || item.band === filters.band) &&
       (filters.jlpt === null || item.jlptLevel === filters.jlpt) &&
       (filters.state === null ||
-        (filters.state === "weak" ? item.weak : item.studyState === filters.state)),
+        (filters.state === "weak" ? item.weak : item.studyState === filters.state)) &&
+      words.every((word) => [item.character, item.reading, item.meaningRu, item.meaningEn, item.reading ? romanizeKana(item.reading) : null]
+        .some((text) => text !== null && normalize(text).includes(word))),
   );
 }
 
