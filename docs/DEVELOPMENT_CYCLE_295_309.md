@@ -31,7 +31,7 @@ speech/preferences components. No copied competitor data, wording, CSS or media.
 | 297 | Precise resume destination | Hub continues the first available unfinished unit; all-complete and empty states are honest | Implemented |
 | 298 | Visible prerequisites | Locked units identify their first unfinished predecessor without granting access | Implemented |
 | 299 | Group-specific progress | Visible group counts use matching items, not the entire alphabet; no NaN on empty groups | Implemented |
-| 300 | Map status filters | All/available/started/mastered filters combine with groups and retain URL state | Pending |
+| 300 | Map status filters | All/available/started/mastered filters combine with groups and retain URL state | Implemented |
 | 301 | Finder availability filter | Learner can narrow to available/unfinished/mastered lessons and clear filters | Pending |
 | 302 | Focused finder previews | Group-filtered previews show matching symbols; original ordinals and full-unit mastery retained | Pending |
 | 303 | Teaching audio | Existing Japanese speech supports teaching, preference restrictions and cancellation | Pending |

@@ -14,6 +14,27 @@ export const KANA_GROUP_LABELS: Readonly<Record<KanaVariant | "all", string>> = 
   all: "Все элементы",
 };
 
+export const KANA_UNIT_STATUS_LABELS = {
+  all: "Все уроки",
+  available: "Доступные",
+  started: "Начаты",
+  unfinished: "Не освоены",
+  mastered: "Освоены",
+} as const;
+export type KanaUnitStatus = keyof typeof KANA_UNIT_STATUS_LABELS;
+
+export function filterKanaUnitStatus(units: readonly KanaLessonUnitDto[], status: KanaUnitStatus) {
+  return units.filter((unit) => {
+    switch (status) {
+      case "available": return unit.unlocked;
+      case "started": return unit.items.some((item) => item.attemptCount > 0);
+      case "unfinished": return !unit.complete;
+      case "mastered": return unit.complete;
+      default: return true;
+    }
+  });
+}
+
 const CONTENT_CATEGORIES = [
   { id: "basic", label: "Основные знаки", variants: ["basic"] },
   { id: "modified", label: "Дакутэн и хандакутэн", variants: ["dakuten", "handakuten"] },

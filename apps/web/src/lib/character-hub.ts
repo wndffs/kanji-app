@@ -5,7 +5,7 @@ import {
   type CourseBand,
   type KanaVariant,
 } from "@kanji-srs/shared";
-import { KANA_GROUP_LABELS } from "./kana-unit-groups";
+import { KANA_GROUP_LABELS, KANA_UNIT_STATUS_LABELS, type KanaUnitStatus } from "./kana-unit-groups";
 
 export type CharacterHubTab = "hiragana" | "katakana" | "kanji";
 export type CharacterHubJlptLevel = NonNullable<CharacterHubKanjiItemDto["jlptLevel"]>;
@@ -22,6 +22,7 @@ export type CharacterHubQuery = {
   readonly tab: CharacterHubTab;
   readonly filters: CharacterHubKanjiFilters;
   readonly kanaGroup: KanaVariant | "all";
+  readonly kanaStatus: KanaUnitStatus;
 };
 
 export const EMPTY_CHARACTER_HUB_FILTERS: CharacterHubKanjiFilters = {
@@ -42,11 +43,13 @@ export function parseCharacterHubQuery(params: Pick<URLSearchParams, "get">): Ch
   const rawJlpt = params.get("jlpt");
   const rawState = params.get("state");
   const rawGroup = params.get("group");
+  const rawKanaStatus = params.get("kanaState");
   const parsedLevel = rawLevel === null ? Number.NaN : Number(rawLevel);
 
   return {
     tab: includes(TABS, rawTab) ? rawTab : "hiragana",
     kanaGroup: includes(Object.keys(KANA_GROUP_LABELS) as (KanaVariant | "all")[], rawGroup) ? rawGroup : "basic",
+    kanaStatus: includes(Object.keys(KANA_UNIT_STATUS_LABELS) as KanaUnitStatus[], rawKanaStatus) ? rawKanaStatus : "all",
     filters: {
       level: Number.isInteger(parsedLevel) && parsedLevel > 0 ? parsedLevel : null,
       band: includes(SUPPORTED_COURSE_BANDS, rawBand) ? rawBand : null,
@@ -60,9 +63,11 @@ export function buildCharacterHubHref(
   tab: CharacterHubTab,
   filters: CharacterHubKanjiFilters = EMPTY_CHARACTER_HUB_FILTERS,
   kanaGroup: KanaVariant | "all" = "basic",
+  kanaStatus: KanaUnitStatus = "all",
 ): string {
   const params = new URLSearchParams({ tab });
   if (kanaGroup !== "basic") params.set("group", kanaGroup);
+  if (kanaStatus !== "all") params.set("kanaState", kanaStatus);
 
   if (filters.level !== null) {
     params.set("level", String(filters.level));

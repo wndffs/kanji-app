@@ -17,12 +17,14 @@ describe("character hub query", () => {
     ).toEqual({
       tab: "kanji",
       kanaGroup: "basic",
+      kanaStatus: "all",
       filters: { level: 12, band: "n3", jlpt: "n2", state: "weak" },
     });
 
     expect(parseCharacterHubQuery(new URLSearchParams("tab=words&level=-2&band=n1"))).toEqual({
       tab: "hiragana",
       kanaGroup: "basic",
+      kanaStatus: "all",
       filters: { level: null, band: null, jlpt: null, state: null },
     });
   });
@@ -42,6 +44,9 @@ describe("character hub query", () => {
     expect(href).toBe("/characters?tab=katakana&group=handakuten");
     expect(parseCharacterHubQuery(new URLSearchParams(href.split("?")[1])).kanaGroup).toBe("handakuten");
     expect(parseCharacterHubQuery(new URLSearchParams("group=invalid")).kanaGroup).toBe("basic");
+    expect(parseCharacterHubQuery(new URLSearchParams("kanaState=mastered")).kanaStatus).toBe("mastered");
+    expect(parseCharacterHubQuery(new URLSearchParams("kanaState=invalid")).kanaStatus).toBe("all");
+    expect(buildCharacterHubHref("hiragana", undefined, "basic", "started")).toBe("/characters?tab=hiragana&kanaState=started");
   });
 
   it("filters kanji without conflating weak items with SRS states", () => {

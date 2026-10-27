@@ -31,7 +31,7 @@ import {
 } from "../../lib/character-hub";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
-import { filterKanaUnits, KANA_GROUP_LABELS, selectKanaResumeUnit, findKanaPrerequisite, summarizeKanaUnits } from "../../lib/kana-unit-groups";
+import { filterKanaUnits, KANA_GROUP_LABELS, selectKanaResumeUnit, findKanaPrerequisite, summarizeKanaUnits, filterKanaUnitStatus, KANA_UNIT_STATUS_LABELS, type KanaUnitStatus } from "../../lib/kana-unit-groups";
 
 type CharactersState =
   | { readonly status: "loading" }
@@ -114,7 +114,7 @@ function CharactersScreen() {
   }, [retry]);
 
   function updateKanjiFilters(filters: CharacterHubKanjiFilters): void {
-    router.push(buildCharacterHubHref("kanji", filters, query.kanaGroup), { scroll: false });
+    router.push(buildCharacterHubHref("kanji", filters, query.kanaGroup, query.kanaStatus), { scroll: false });
   }
 
   return (
@@ -128,7 +128,7 @@ function CharactersScreen() {
       <ViewTabs
         active={query.tab}
         onChange={(tab) =>
-          router.push(buildCharacterHubHref(tab as CharacterHubTab, query.filters, query.kanaGroup), {
+          router.push(buildCharacterHubHref(tab as CharacterHubTab, query.filters, query.kanaGroup, query.kanaStatus), {
             scroll: false,
           })
         }
@@ -171,7 +171,9 @@ function CharactersScreen() {
         <KanaCharacterPanel
           key={query.tab}
           group={query.kanaGroup}
-          onGroupChange={(group) => router.push(buildCharacterHubHref(query.tab, query.filters, group), { scroll: false })}
+          onGroupChange={(group) => router.push(buildCharacterHubHref(query.tab, query.filters, group, query.kanaStatus), { scroll: false })}
+          status={query.kanaStatus}
+          onStatusChange={(status) => router.push(buildCharacterHubHref(query.tab, query.filters, query.kanaGroup, status), { scroll: false })}
           section={query.tab === "hiragana" ? state.hub.kana.hiragana : state.hub.kana.katakana}
         />
       ) : null}
@@ -189,13 +191,16 @@ function CharactersScreen() {
   );
 }
 
-function KanaCharacterPanel({ section, group, onGroupChange }: {
+function KanaCharacterPanel({ section, group, onGroupChange, status, onStatusChange }: {
   readonly section: CharacterHubKanaSectionDto;
   readonly group: KanaVariant | "all";
   readonly onGroupChange: (group: KanaVariant | "all") => void;
+  readonly status: KanaUnitStatus;
+  readonly onStatusChange: (status: KanaUnitStatus) => void;
 }) {
-  const units = filterKanaUnits(section.units, group);
-  const groupProgress = summarizeKanaUnits(units);
+  const groupedUnits = filterKanaUnits(section.units, group);
+  const units = filterKanaUnitStatus(groupedUnits, status);
+  const groupProgress = summarizeKanaUnits(groupedUnits);
   const resumeUnit = selectKanaResumeUnit(section.units);
   const resumeItem = resumeUnit?.items.find((item) => !item.mastered) ?? resumeUnit?.items[0];
   const percentage =
@@ -265,6 +270,7 @@ function KanaCharacterPanel({ section, group, onGroupChange }: {
         )}
       </section>
 
+      <div className="kana-map-controls">
       <label className="catalog-group-control">
         <span>Группа знаков</span>
         <select
@@ -283,10 +289,18 @@ function KanaCharacterPanel({ section, group, onGroupChange }: {
           ))}
         </select>
       </label>
+      <label className="catalog-group-control">
+        <span>Состояние уроков</span>
+        <select value={status} onChange={(event) => onStatusChange(event.currentTarget.value as KanaUnitStatus)}>
+          {(Object.keys(KANA_UNIT_STATUS_LABELS) as KanaUnitStatus[]).map((id) => <option value={id} key={id}>{KANA_UNIT_STATUS_LABELS[id]}</option>)}
+        </select>
+      </label>
+      <button className="icon-button" title="Сбросить состояние уроков" aria-label="Сбросить состояние уроков" disabled={status === "all"} type="button" onClick={() => onStatusChange("all")}><X size={18} aria-hidden="true" /></button>
+      </div>
       <p className="muted" aria-label="Прогресс выбранной группы">
         Освоено {groupProgress.mastered} из {groupProgress.total} · Начато {groupProgress.started}
       </p>
-      {units.length === 0 ? <p className="muted">В этой группе знаков нет.</p> : null}
+      {units.length === 0 ? <p className="muted">{groupedUnits.length === 0 ? "В этой группе знаков нет." : "Нет уроков с таким состоянием."}</p> : null}
       <ol
         className="character-hub-kana-units"
         aria-label={`Все уроки: ${TAB_LABELS[section.script]}`}
