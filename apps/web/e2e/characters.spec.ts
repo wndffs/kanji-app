@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { changeAccount } from "./support/change-account";
 import { captureLearnerThemes } from "./support/capture-learner-themes";
+import { listKana } from "@kanji-srs/japanese";
 
 import {
   type CharacterHubKanaSectionDto,
@@ -12,6 +13,59 @@ import {
 const API_BASE_URL = "http://localhost:3001";
 
 test.describe("character hub", () => {
+  test("separates alphabet signs from exercises and restores combined URL filters", async ({
+    page,
+  }) => {
+    await signIn(page);
+    const hub = buildHub();
+    const kana = { ...hub.kana };
+    for (const script of ["hiragana", "katakana"] as const) {
+      const section = kana[script];
+      const items = listKana(script).map((item) => ({
+        ...buildKanaItem(script, item.character, item.romaji, item.variant === "basic"),
+        ...item,
+      }));
+      kana[script] = {
+        ...section,
+        totalCount: items.length,
+        masteredCount: 46,
+        attemptedCount: items.length,
+        units: [{ ...section.units[0]!, totalCount: items.length, masteredCount: 46, items }],
+      };
+    }
+    await page.route(`${API_BASE_URL}/characters`, (route) =>
+      route.fulfill({ json: { ...hub, kana } }),
+    );
+    await page.goto("/characters?tab=hiragana");
+    const summary = page.getByLabel("Состав учебного набора");
+    await expect(
+      summary.locator("div").filter({ has: page.getByText("Основные знаки", { exact: true }) }),
+    ).toContainText("46");
+    await expect(
+      summary.locator("div").filter({ has: page.getByText("Сочетания", { exact: true }) }),
+    ).toContainText("33");
+    await expect(
+      summary.locator("div").filter({ has: page.getByText("Упражнения", { exact: true }) }),
+    ).toContainText("11");
+    await page.getByLabel("Группа знаков").selectOption("handakuten");
+    await page.getByRole("combobox", { name: /^Состояние уроков/ }).selectOption("mastered");
+    await expect(page.getByText("Нет уроков с таким состоянием.", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Прогресс выбранной группы")).toHaveText(
+      "Освоено 0 из 5 · Начато 5",
+    );
+    await page.reload();
+    await expect(page.getByLabel("Группа знаков")).toHaveValue("handakuten");
+    await expect(page.getByRole("combobox", { name: /^Состояние уроков/ })).toHaveValue("mastered");
+    await page.getByRole("tab", { name: "Катакана", exact: true }).click();
+    await expect(page.getByLabel("Группа знаков")).toHaveValue("handakuten");
+    await expect(
+      summary.locator("div").filter({ has: page.getByText("Упражнения", { exact: true }) }),
+    ).toContainText("9");
+    await page.getByRole("button", { name: "Сбросить состояние уроков", exact: true }).click();
+    await expect(page.locator(".character-hub-kana-units > li")).toHaveCount(1);
+    await page.goBack();
+    await expect(page.getByRole("combobox", { name: /^Состояние уроков/ })).toHaveValue("mastered");
+  });
   test("keeps kana unit insets and stable lesson numbers across groups and themes", async ({
     page,
   }) => {

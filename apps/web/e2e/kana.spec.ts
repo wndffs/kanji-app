@@ -19,6 +19,197 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "kana-token";
 
 test.describe("kana lessons", () => {
+  test("filters finder availability and shows only matching preview symbols", async ({ page }) => {
+    await signIn(page);
+    await mockKanaApi(page);
+    const progress = buildProgress("hiragana", ["あ", "きゃ", "っか"]);
+    const path = buildLessonPath(progress);
+    const mixed = {
+      ...path.units[0]!,
+      totalCount: 2,
+      items: [...path.units[0]!.items, ...path.units[1]!.items],
+    };
+    await page.route(`${API_BASE_URL}/kana/lessons?script=hiragana`, (route) =>
+      route.fulfill({ json: { ...path, units: [mixed, path.units[2]!] } }),
+    );
+    await page.goto("/kana");
+    await page.getByRole("button", { name: "Все уроки", exact: true }).click();
+    await page.getByLabel("Группа звуков", { exact: true }).selectOption("yoon");
+    await page.getByLabel("Состояние урока").selectOption("available");
+    const results = page.getByTestId("kana-unit-list");
+    await expect(results.getByRole("button")).toHaveCount(1);
+    await expect(results.locator(".kana-unit-characters")).toHaveText("きゃ");
+    await expect(results.locator(".kana-unit-copy")).toContainText("0/2");
+    await page.getByLabel("Состояние урока").selectOption("mastered");
+    await expect(page.getByText("Уроки не найдены.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Сбросить поиск урока", exact: true }).click();
+    await expect(results.getByRole("button")).toHaveCount(2);
+  });
+
+  test("blocks duplicate writes and lesson changes while an answer is pending", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockKanaApi(page);
+    let release!: () => void;
+    let started!: () => void;
+    let writes = 0;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const pending = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    await page.route(`${API_BASE_URL}/kana/lessons/answer`, async (route) => {
+      writes++;
+      started();
+      await held;
+      await route.fallback();
+    });
+    try {
+      await page.goto("/kana");
+      const practice = page.getByTestId("kana-practice");
+      await practice.getByRole("button", { name: "Проверить чтение", exact: true }).click();
+      await practice.getByLabel("Ромадзи", { exact: true }).fill("a");
+      await practice.getByRole("button", { name: "Проверить", exact: true }).click();
+      await pending;
+      await expect(
+        practice.getByRole("button", { name: "Объяснение", exact: true }),
+      ).toBeDisabled();
+      await expect(page.getByRole("button", { name: "Катакана", exact: true })).toBeDisabled();
+      await page.keyboard.press("Enter");
+      expect(writes).toBe(1);
+      release();
+      await expect(practice.getByText("Верно", { exact: true })).toBeVisible();
+      expect(writes).toBe(1);
+    } finally {
+      release();
+    }
+  });
+  test("keeps bilingual explanations and teaching audio separate from grading", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockKanaApi(page);
+    let writes = 0;
+    page.on("request", (request) => {
+      if (request.method() === "POST" && request.url().includes("/kana/")) writes++;
+    });
+    await page.goto("/kana");
+    const practice = page.getByTestId("kana-practice");
+    await expect(practice.locator(".kana-teaching-note [lang=ru]")).toBeVisible();
+    await expect(practice.locator(".kana-teaching-note [lang=en]")).toBeVisible();
+    await practice.getByRole("button", { name: "Прослушать чтение", exact: true }).click();
+    expect(
+      await page.evaluate(() =>
+        (window as typeof window & { __spokenKana: string[] }).__spokenKana.at(-1),
+      ),
+    ).toBe("あ");
+    await page.route(`${API_BASE_URL}/users/settings`, async (route) => {
+      const user = await page.evaluate(() => JSON.parse(localStorage.getItem("kanji-srs.user")!));
+      await route.fulfill({
+        json: { ...user, settings: { ...user.settings, ...route.request().postDataJSON() } },
+      });
+    });
+    const translations = page.getByLabel("Режим перевода карточек");
+    await translations.selectOption("en");
+    await expect(practice.locator(".kana-teaching-note [lang=ru]")).toHaveCount(0);
+    await expect(practice.locator(".kana-teaching-note [lang=en]")).toBeVisible();
+    await translations.selectOption("ru");
+    await expect(practice.locator(".kana-teaching-note [lang=en]")).toHaveCount(0);
+    await practice.getByRole("button", { name: "Проверить чтение", exact: true }).click();
+    await practice.getByLabel("Ромадзи", { exact: true }).fill("a");
+    await practice.getByRole("button", { name: "Объяснение", exact: true }).click();
+    await expect(practice.locator(".kana-teaching-note [lang=ru]")).toBeVisible();
+    expect(writes).toBe(0);
+    await captureLearnerThemes(page, test.info(), "kana-teaching-notes");
+  });
+
+  test("retains a failed answer in place and retries only on explicit submission", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockKanaApi(page);
+    let writes = 0;
+    await page.route(`${API_BASE_URL}/kana/lessons/answer`, (route) =>
+      ++writes === 1
+        ? route.fulfill({ status: 503, json: { message: "Ответ временно недоступен" } })
+        : route.fallback(),
+    );
+    await page.goto("/kana");
+    const practice = page.getByTestId("kana-practice");
+    await practice.getByRole("button", { name: "Проверить чтение", exact: true }).click();
+    await practice.getByLabel("Ромадзи", { exact: true }).fill("a");
+    await practice.getByRole("button", { name: "Проверить", exact: true }).click();
+    await expect(practice.getByRole("alert")).toContainText("Ответ временно недоступен");
+    await expect(practice.getByLabel("Ромадзи", { exact: true })).toHaveValue("a");
+    await expect(practice.getByRole("heading", { name: "Гласные", exact: true })).toBeVisible();
+    expect(writes).toBe(1);
+    await practice.getByRole("button", { name: "Проверить", exact: true }).click();
+    await expect(practice.getByText("Верно", { exact: true })).toBeVisible();
+    await expect(practice.getByRole("alert")).toHaveCount(0);
+    expect(writes).toBe(2);
+  });
+
+  for (const hasNext of [true, false])
+    test(`shows a confirmed lesson checkpoint with next=${hasNext}`, async ({ page }) => {
+      await signIn(page);
+      await mockKanaApi(page);
+      const progress = buildProgress("hiragana", hasNext ? ["あ", "きゃ"] : ["あ"]);
+      const path = buildLessonPath(progress);
+      await page.route(`${API_BASE_URL}/kana/assessment?script=hiragana`, (route) =>
+        route.fulfill({ json: progress }),
+      );
+      await page.route(`${API_BASE_URL}/kana/lessons?script=hiragana`, (route) =>
+        route.fulfill({
+          json: { ...path, units: path.units.filter((unit) => unit.items.length > 0) },
+        }),
+      );
+      let writes = 0;
+      await page.route(`${API_BASE_URL}/kana/lessons/answer`, (route) => {
+        writes++;
+        return route.fulfill({
+          json: {
+            correct: true,
+            normalizedAnswer: "a",
+            expectedRomaji: "a",
+            attemptedCount: 1,
+            masteredCount: 1,
+            item: {
+              ...progress.items[0]!,
+              attemptCount: 3,
+              correctCount: 3,
+              currentStreak: 3,
+              mastered: true,
+            },
+          } satisfies KanaAssessmentAnswerResponse,
+        });
+      });
+      await page.goto("/kana");
+      const practice = page.getByTestId("kana-practice");
+      await practice.getByRole("button", { name: "Проверить чтение", exact: true }).click();
+      await practice.getByLabel("Ромадзи", { exact: true }).fill("a");
+      await practice.getByRole("button", { name: "Проверить", exact: true }).click();
+      await expect(practice.getByText("Верно", { exact: true })).toBeVisible();
+      await practice.getByRole("button", { name: "Следующий", exact: true }).click();
+      await expect(practice.getByText("Урок освоен", { exact: true })).toBeVisible();
+      await expect(
+        practice.getByRole("button", {
+          name: hasNext ? "Следующий урок" : "Перейти к практике",
+          exact: true,
+        }),
+      ).toBeFocused();
+      expect(writes).toBe(1);
+      if (hasNext) {
+        await practice.getByRole("button", { name: "Следующий урок", exact: true }).click();
+        await expect(practice.getByRole("heading", { name: "Ёон: KY", exact: true })).toBeVisible();
+        await expect(practice).toContainText("きゃ");
+      } else
+        await expect(
+          practice.getByText("Все уроки этой азбуки освоены.", { exact: true }),
+        ).toBeVisible();
+      expect(writes).toBe(1);
+    });
   test("retries a failed katakana load in place without reverting script or replaying answers", async ({
     page,
   }) => {
@@ -364,7 +555,7 @@ test.describe("kana lessons", () => {
       .toBe("あ");
     const yoonTile = page.getByTestId("kana-unit-list").getByText("きゃ", { exact: true });
     await expect(yoonTile).toBeHidden();
-    await page.getByText("Все уроки", { exact: true }).click();
+    await page.getByRole("button", { name: "Все уроки", exact: true }).click();
     await expect(yoonTile).toBeVisible();
     const originalOrdinal = await page
       .getByTestId("kana-unit-list")
@@ -469,7 +660,7 @@ test.describe("kana lessons", () => {
     await page.getByRole("tab", { name: "Уроки" }).click();
     await page.getByRole("button", { name: "Катакана" }).click();
     await expect(practice).toContainText("ア");
-    await page.getByText("Все уроки", { exact: true }).click();
+    await page.getByRole("button", { name: "Все уроки", exact: true }).click();
     await expect(
       page.getByTestId("kana-unit-list").getByText("キャ", { exact: true }),
     ).toBeVisible();

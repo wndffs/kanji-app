@@ -35,32 +35,44 @@ const units: readonly KanaLessonUnitDto[] = [
 ];
 describe("kana chart groups", () => {
   it("filters lesson states without changing locks, mastery or original objects", () => {
-    const mastered = { ...units[0]!, id: 'done', complete: true, unlocked: true };
-    const unopened = { ...units[0]!, id: 'new', items: units[0]!.items.map(item => ({ ...item, attemptCount: 0 })) };
+    const mastered = { ...units[0]!, id: "done", complete: true, unlocked: true };
+    const unopened = {
+      ...units[0]!,
+      id: "new",
+      items: units[0]!.items.map((item) => ({ ...item, attemptCount: 0 })),
+    };
     const all = [mastered, unopened];
-    expect(filterKanaUnitStatus(all, 'available')).toEqual([mastered]);
-    expect(filterKanaUnitStatus(all, 'mastered')).toEqual([mastered]);
-    expect(filterKanaUnitStatus(all, 'started')).toEqual([mastered]);
-    expect(filterKanaUnitStatus(all, 'unfinished')).toEqual([unopened]);
-    expect(filterKanaUnitStatus(all, 'all')).toEqual(all);
-    expect(filterKanaUnitStatus(all, 'unfinished')[0]).toBe(unopened);
+    expect(filterKanaUnitStatus(all, "available")).toEqual([mastered]);
+    expect(filterKanaUnitStatus(all, "mastered")).toEqual([mastered]);
+    expect(filterKanaUnitStatus(all, "started")).toEqual([mastered]);
+    expect(filterKanaUnitStatus(all, "unfinished")).toEqual([unopened]);
+    expect(filterKanaUnitStatus(all, "all")).toEqual(all);
+    expect(filterKanaUnitStatus(all, "unfinished")[0]).toBe(unopened);
   });
   it("summarizes only matching group items and handles empty groups", () => {
-    expect(summarizeKanaUnits(filterKanaUnits(units, 'basic'))).toEqual({ total: 46, mastered: 46, started: 46 });
-    expect(summarizeKanaUnits(filterKanaUnits(units, 'yoon'))).toEqual({ total: 33, mastered: 0, started: 33 });
+    expect(summarizeKanaUnits(filterKanaUnits(units, "basic"))).toEqual({
+      total: 46,
+      mastered: 46,
+      started: 46,
+    });
+    expect(summarizeKanaUnits(filterKanaUnits(units, "yoon"))).toEqual({
+      total: 33,
+      mastered: 0,
+      started: 33,
+    });
     expect(summarizeKanaUnits([])).toEqual({ total: 0, mastered: 0, started: 0 });
   });
   it("explains the first unmet prerequisite using original units, never filtered ordinals", () => {
-    const open = { ...units[0]!, id: 'first', unlocked: true };
-    const locked = { ...units[0]!, id: 'later' };
-    expect(findKanaPrerequisite([open, locked], 'later')).toBe(open);
-    expect(findKanaPrerequisite([open, locked], 'first')).toBeNull();
-    expect(findKanaPrerequisite([open, locked], 'missing')).toBeNull();
-    expect(findKanaPrerequisite([{ ...open, complete: true }, locked], 'later')).toBeNull();
+    const open = { ...units[0]!, id: "first", unlocked: true };
+    const locked = { ...units[0]!, id: "later" };
+    expect(findKanaPrerequisite([open, locked], "later")).toBe(open);
+    expect(findKanaPrerequisite([open, locked], "first")).toBeNull();
+    expect(findKanaPrerequisite([open, locked], "missing")).toBeNull();
+    expect(findKanaPrerequisite([{ ...open, complete: true }, locked], "later")).toBeNull();
   });
   it("resumes only nonempty unlocked lessons and handles complete or empty paths", () => {
-    const completed = { ...units[0]!, id: 'complete', unlocked: true, complete: true };
-    const next = { ...units[0]!, id: 'next', unlocked: true };
+    const completed = { ...units[0]!, id: "complete", unlocked: true, complete: true };
+    const next = { ...units[0]!, id: "next", unlocked: true };
     expect(selectKanaResumeUnit([completed, next, units[0]!])).toBe(next);
     expect(selectKanaResumeUnit([completed, units[0]!])).toBe(completed);
     expect(selectKanaResumeUnit([units[0]!])).toBeNull();

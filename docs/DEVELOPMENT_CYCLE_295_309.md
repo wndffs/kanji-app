@@ -24,23 +24,23 @@ speech/preferences components. No copied competitor data, wording, CSS or media.
 
 ## Tasks
 
-| ID | Deliverable | Acceptance | State |
-| --- | --- | --- | --- |
-| 295 | Validated scope | Record actual gaps, acceptance and release boundaries | Complete |
-| 296 | Bookmarkable kana groups | Group survives reload, tab changes and Back; invalid query defaults safely | Implemented |
-| 297 | Precise resume destination | Hub continues the first available unfinished unit; all-complete and empty states are honest | Implemented |
-| 298 | Visible prerequisites | Locked units identify their first unfinished predecessor without granting access | Implemented |
-| 299 | Group-specific progress | Visible group counts use matching items, not the entire alphabet; no NaN on empty groups | Implemented |
-| 300 | Map status filters | All/available/started/mastered filters combine with groups and retain URL state | Implemented |
-| 301 | Finder availability filter | Learner can narrow to available/unfinished/mastered lessons and clear filters | Implemented |
-| 302 | Focused finder previews | Group-filtered previews show matching symbols; original ordinals and full-unit mastery retained | Implemented |
-| 303 | Teaching audio | Existing Japanese speech supports teaching, preference restrictions and cancellation | Implemented |
-| 304 | Bilingual learning notes | Original short RU/EN notes explain basic/modified/combined/length patterns in RU/EN/RU+EN | Implemented |
-| 305 | Revisit teaching | Explicit explanation action during a quiz never submits or manufactures mastery | Implemented |
+| ID  | Deliverable                | Acceptance                                                                                           | State       |
+| --- | -------------------------- | ---------------------------------------------------------------------------------------------------- | ----------- |
+| 295 | Validated scope            | Record actual gaps, acceptance and release boundaries                                                | Complete    |
+| 296 | Bookmarkable kana groups   | Group survives reload, tab changes and Back; invalid query defaults safely                           | Implemented |
+| 297 | Precise resume destination | Hub continues the first available unfinished unit; all-complete and empty states are honest          | Implemented |
+| 298 | Visible prerequisites      | Locked units identify their first unfinished predecessor without granting access                     | Implemented |
+| 299 | Group-specific progress    | Visible group counts use matching items, not the entire alphabet; no NaN on empty groups             | Implemented |
+| 300 | Map status filters         | All/available/started/mastered filters combine with groups and retain URL state                      | Implemented |
+| 301 | Finder availability filter | Learner can narrow to available/unfinished/mastered lessons and clear filters                        | Implemented |
+| 302 | Focused finder previews    | Group-filtered previews show matching symbols; original ordinals and full-unit mastery retained      | Implemented |
+| 303 | Teaching audio             | Existing Japanese speech supports teaching, preference restrictions and cancellation                 | Implemented |
+| 304 | Bilingual learning notes   | Original short RU/EN notes explain basic/modified/combined/length patterns in RU/EN/RU+EN            | Implemented |
+| 305 | Revisit teaching           | Explicit explanation action during a quiz never submits or manufactures mastery                      | Implemented |
 | 306 | Unit completion checkpoint | Confirmed mastery shows a completion state with explicit next/revisit actions, not an automatic jump | Implemented |
-| 307 | In-place answer recovery | Failed POST keeps exercise/input; explicit retry only, no automatic write replay | Implemented |
-| 308 | Batched acceptance | Focused unit/browser tests, type/build/lint/format; light/dark phone/desktop captures | Pending |
-| 309 | Release | Push/tag, deploy, exact revision health and live learner UI check, clean owned resources | Pending |
+| 307 | In-place answer recovery   | Failed POST keeps exercise/input; explicit retry only, no automatic write replay                     | Implemented |
+| 308 | Batched acceptance         | Focused unit/browser tests, type/build/lint/format; light/dark phone/desktop captures                | Complete    |
+| 309 | Release                    | Push/tag, deploy, exact revision health and live learner UI check, clean owned resources             | Pending     |
 
 ## Boundaries
 
@@ -67,3 +67,34 @@ web workspace and lint/format touched files. Use existing cloud CI for its broad
 suite, not repeated full local runs. Check stale-account responses, locked
 navigation, zero/full mastery, POST failures and pending-write controls. Keep
 screenshots/logs outside Git and stop temporary servers/close used IAB tabs.
+
+## Local Acceptance
+
+Tasks 295-307 are implemented. No course, source import, account reset or SRS
+change occurred. UI totals now distinguish 46 basic signs, 25 modified signs,
+33 combinations and 11/9 exercises, derived from loaded items. Small fixtures
+and empty paths do not pretend to contain 46 signs. Category details are always
+visible in the catalogue and optional below the active exercise in lessons.
+
+- Five relevant unit files: 20 cases passed.
+- Web production build and its TypeScript pass completed; changed-file ESLint
+  and Prettier checks passed. No full local monorepo suite was run.
+- The 54-case browser batch covered characters, kana and the dashboard newcomer
+  guide on desktop/phone: 46 initially passed, eight failed across four scenarios.
+  Two failures were ambiguous locators, one lacked a settings PATCH fixture, and
+  the phone bilingual note pushed the primary action under navigation. Corrected
+  semantic locators/mocks, moved optional counts after the exercise and composed
+  the phone glyph/reading side by side. All eight focused repair cases passed.
+- Existing late-owner/late-script isolation, speech cancellation, adaptive mixed
+  practice and exercise rotation passed. New checks cover filtered previews,
+  original ordinals, URL reload/Back, pending POST guards, retained answer input,
+  explicit retry and both next-lesson/all-complete checkpoints. No write occurs
+  merely from opening explanations, selecting filters or advancing a checkpoint.
+- Light/dark desktop/phone screenshots were inspected outside Git. The phone
+  primary action is fully in the viewport above the navigation bar.
+
+An unconfirmed POST is not reported as saved. The retained workspace offers a
+GET progress refresh before a deliberate retry; there is no claim that a lost
+response proves the server did not record the original answer.
+
+Task 309 records deployment evidence after the checkpoint push and server check.

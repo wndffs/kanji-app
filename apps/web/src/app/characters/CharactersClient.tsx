@@ -31,7 +31,16 @@ import {
 } from "../../lib/character-hub";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
-import { filterKanaUnits, KANA_GROUP_LABELS, selectKanaResumeUnit, findKanaPrerequisite, summarizeKanaUnits, filterKanaUnitStatus, KANA_UNIT_STATUS_LABELS, type KanaUnitStatus } from "../../lib/kana-unit-groups";
+import {
+  filterKanaUnits,
+  KANA_GROUP_LABELS,
+  selectKanaResumeUnit,
+  findKanaPrerequisite,
+  summarizeKanaUnits,
+  filterKanaUnitStatus,
+  KANA_UNIT_STATUS_LABELS,
+  type KanaUnitStatus,
+} from "../../lib/kana-unit-groups";
 
 type CharactersState =
   | { readonly status: "loading" }
@@ -114,7 +123,9 @@ function CharactersScreen() {
   }, [retry]);
 
   function updateKanjiFilters(filters: CharacterHubKanjiFilters): void {
-    router.push(buildCharacterHubHref("kanji", filters, query.kanaGroup, query.kanaStatus), { scroll: false });
+    router.push(buildCharacterHubHref("kanji", filters, query.kanaGroup, query.kanaStatus), {
+      scroll: false,
+    });
   }
 
   return (
@@ -128,9 +139,17 @@ function CharactersScreen() {
       <ViewTabs
         active={query.tab}
         onChange={(tab) =>
-          router.push(buildCharacterHubHref(tab as CharacterHubTab, query.filters, query.kanaGroup, query.kanaStatus), {
-            scroll: false,
-          })
+          router.push(
+            buildCharacterHubHref(
+              tab as CharacterHubTab,
+              query.filters,
+              query.kanaGroup,
+              query.kanaStatus,
+            ),
+            {
+              scroll: false,
+            },
+          )
         }
         label="Системы письма"
         idPrefix="character-tab"
@@ -171,9 +190,17 @@ function CharactersScreen() {
         <KanaCharacterPanel
           key={query.tab}
           group={query.kanaGroup}
-          onGroupChange={(group) => router.push(buildCharacterHubHref(query.tab, query.filters, group, query.kanaStatus), { scroll: false })}
+          onGroupChange={(group) =>
+            router.push(buildCharacterHubHref(query.tab, query.filters, group, query.kanaStatus), {
+              scroll: false,
+            })
+          }
           status={query.kanaStatus}
-          onStatusChange={(status) => router.push(buildCharacterHubHref(query.tab, query.filters, query.kanaGroup, status), { scroll: false })}
+          onStatusChange={(status) =>
+            router.push(buildCharacterHubHref(query.tab, query.filters, query.kanaGroup, status), {
+              scroll: false,
+            })
+          }
           section={query.tab === "hiragana" ? state.hub.kana.hiragana : state.hub.kana.katakana}
         />
       ) : null}
@@ -191,7 +218,13 @@ function CharactersScreen() {
   );
 }
 
-function KanaCharacterPanel({ section, group, onGroupChange, status, onStatusChange }: {
+function KanaCharacterPanel({
+  section,
+  group,
+  onGroupChange,
+  status,
+  onStatusChange,
+}: {
   readonly section: CharacterHubKanaSectionDto;
   readonly group: KanaVariant | "all";
   readonly onGroupChange: (group: KanaVariant | "all") => void;
@@ -238,10 +271,19 @@ function KanaCharacterPanel({ section, group, onGroupChange, status, onStatusCha
 
       <div className="action-row character-hub-actions">
         {resumeUnit && resumeItem ? (
-          <Link className="primary-action" href={kanaLessonHref(section.script, resumeUnit.id, resumeItem.character)}>
-            {resumeUnit.complete ? "Повторить уроки" : section.attemptedCount === 0 ? "Начать уроки" : "Продолжить уроки"}
+          <Link
+            className="primary-action"
+            href={kanaLessonHref(section.script, resumeUnit.id, resumeItem.character)}
+          >
+            {resumeUnit.complete
+              ? "Повторить уроки"
+              : section.attemptedCount === 0
+                ? "Начать уроки"
+                : "Продолжить уроки"}
           </Link>
-        ) : <span className="muted">Нет доступных уроков.</span>}
+        ) : (
+          <span className="muted">Нет доступных уроков.</span>
+        )}
         <Link className="secondary-action" href={section.actions.practiceHref}>
           Адаптивная практика
         </Link>
@@ -271,36 +313,58 @@ function KanaCharacterPanel({ section, group, onGroupChange, status, onStatusCha
       </section>
 
       <div className="kana-map-controls">
-      <label className="catalog-group-control">
-        <span>Группа знаков</span>
-        <select
-          value={group}
-          onChange={(event) => onGroupChange(event.currentTarget.value as KanaVariant | "all")}
+        <label className="catalog-group-control">
+          <span>Группа знаков</span>
+          <select
+            value={group}
+            onChange={(event) => onGroupChange(event.currentTarget.value as KanaVariant | "all")}
+          >
+            {(Object.keys(KANA_GROUP_LABELS) as (KanaVariant | "all")[]).map((id) => (
+              <option value={id} key={id}>
+                {KANA_GROUP_LABELS[id]} (
+                {filterKanaUnits(section.units, id).reduce(
+                  (total, unit) => total + unit.totalCount,
+                  0,
+                )}
+                )
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="catalog-group-control">
+          <span>Состояние уроков</span>
+          <select
+            value={status}
+            onChange={(event) => onStatusChange(event.currentTarget.value as KanaUnitStatus)}
+          >
+            {(Object.keys(KANA_UNIT_STATUS_LABELS) as KanaUnitStatus[]).map((id) => (
+              <option value={id} key={id}>
+                {KANA_UNIT_STATUS_LABELS[id]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          className="icon-button"
+          title="Сбросить состояние уроков"
+          aria-label="Сбросить состояние уроков"
+          disabled={status === "all"}
+          type="button"
+          onClick={() => onStatusChange("all")}
         >
-          {(Object.keys(KANA_GROUP_LABELS) as (KanaVariant | "all")[]).map((id) => (
-            <option value={id} key={id}>
-              {KANA_GROUP_LABELS[id]} (
-              {filterKanaUnits(section.units, id).reduce(
-                (total, unit) => total + unit.totalCount,
-                0,
-              )}
-              )
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="catalog-group-control">
-        <span>Состояние уроков</span>
-        <select value={status} onChange={(event) => onStatusChange(event.currentTarget.value as KanaUnitStatus)}>
-          {(Object.keys(KANA_UNIT_STATUS_LABELS) as KanaUnitStatus[]).map((id) => <option value={id} key={id}>{KANA_UNIT_STATUS_LABELS[id]}</option>)}
-        </select>
-      </label>
-      <button className="icon-button" title="Сбросить состояние уроков" aria-label="Сбросить состояние уроков" disabled={status === "all"} type="button" onClick={() => onStatusChange("all")}><X size={18} aria-hidden="true" /></button>
+          <X size={18} aria-hidden="true" />
+        </button>
       </div>
       <p className="muted" aria-label="Прогресс выбранной группы">
         Освоено {groupProgress.mastered} из {groupProgress.total} · Начато {groupProgress.started}
       </p>
-      {units.length === 0 ? <p className="muted">{groupedUnits.length === 0 ? "В этой группе знаков нет." : "Нет уроков с таким состоянием."}</p> : null}
+      {units.length === 0 ? (
+        <p className="muted">
+          {groupedUnits.length === 0
+            ? "В этой группе знаков нет."
+            : "Нет уроков с таким состоянием."}
+        </p>
+      ) : null}
       <ol
         className="character-hub-kana-units"
         aria-label={`Все уроки: ${TAB_LABELS[section.script]}`}
@@ -323,7 +387,9 @@ function KanaCharacterPanel({ section, group, onGroupChange, status, onStatusCha
               </strong>
             </header>
             {!unit.unlocked && findKanaPrerequisite(section.units, unit.id) ? (
-              <p className="kana-unit-prerequisite">После урока «{findKanaPrerequisite(section.units, unit.id)!.title}»</p>
+              <p className="kana-unit-prerequisite">
+                После урока «{findKanaPrerequisite(section.units, unit.id)!.title}»
+              </p>
             ) : null}
             <div className="character-hub-kana-chart">
               {unit.items.map((item) =>

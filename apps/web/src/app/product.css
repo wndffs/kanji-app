@@ -1289,7 +1289,7 @@ textarea::placeholder {
 }
 .kana-finder-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1.3fr) repeat(2, minmax(0, 1fr)) auto;
   gap: 12px;
   align-items: end;
 }
@@ -1310,7 +1310,7 @@ textarea::placeholder {
 }
 @media (max-width: 600px) {
   .kana-finder-controls {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .kana-finder-controls > label:first-child {
     grid-column: 1 / -1;
@@ -2611,6 +2611,23 @@ textarea::placeholder {
   }
   .kana-teaching-step {
     gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: center;
+  }
+  .kana-teaching-step > :is(.eyebrow, .kana-base-pair, .kana-teaching-note, .primary-action) {
+    grid-column: 1 / -1;
+  }
+  .kana-page .kana-teaching-step .kana-prompt {
+    min-height: 96px;
+    padding-block: 0;
+    font-size: 64px;
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .kana-teaching-reading {
+    grid-column: 2;
+    grid-row: 2;
+    flex-wrap: wrap;
   }
   .kana-script-control {
     width: 100%;

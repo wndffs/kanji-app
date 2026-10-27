@@ -14,6 +14,8 @@ describe("original kana teaching notes", () => {
   it("distinguishes hiragana spelling from the katakana length mark", () => {
     expect(getKanaTeachingNote({ script: "hiragana", variant: "long-vowel" }).en).toContain("えい");
     expect(getKanaTeachingNote({ script: "katakana", variant: "long-vowel" }).en).toContain("ー");
-    expect(getKanaTeachingNote({ script: "katakana", variant: "long-vowel" }).en).not.toContain("えい");
+    expect(getKanaTeachingNote({ script: "katakana", variant: "long-vowel" }).en).not.toContain(
+      "えい",
+    );
   });
 });

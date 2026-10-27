@@ -26,11 +26,16 @@ export type KanaUnitStatus = keyof typeof KANA_UNIT_STATUS_LABELS;
 export function filterKanaUnitStatus(units: readonly KanaLessonUnitDto[], status: KanaUnitStatus) {
   return units.filter((unit) => {
     switch (status) {
-      case "available": return unit.unlocked;
-      case "started": return unit.items.some((item) => item.attemptCount > 0);
-      case "unfinished": return !unit.complete;
-      case "mastered": return unit.complete;
-      default: return true;
+      case "available":
+        return unit.unlocked;
+      case "started":
+        return unit.items.some((item) => item.attemptCount > 0);
+      case "unfinished":
+        return !unit.complete;
+      case "mastered":
+        return unit.complete;
+      default:
+        return true;
     }
   });
 }
@@ -89,7 +94,9 @@ export function filterKanaUnits(
   });
 }
 
-export function selectKanaResumeUnit(units: readonly KanaLessonUnitDto[]): KanaLessonUnitDto | null {
+export function selectKanaResumeUnit(
+  units: readonly KanaLessonUnitDto[],
+): KanaLessonUnitDto | null {
   const available = units.filter((unit) => unit.unlocked && unit.items.length > 0);
   return available.find((unit) => !unit.complete) ?? available.at(-1) ?? null;
 }

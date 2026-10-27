@@ -27,10 +27,14 @@ const NOTES: Readonly<Record<KanaVariant, { readonly ru: string; readonly en: st
   },
 };
 
-export function getKanaTeachingNote(item: { readonly script: KanaScript; readonly variant: KanaVariant }) {
-  if (item.variant === "long-vowel" && item.script === "katakana") return {
-    ru: "Знак ー продлевает предыдущий гласный. Долгий гласный занимает два ритмических счёта; в ромадзи здесь гласный записан дважды.",
-    en: "The mark ー lengthens the preceding vowel. A long vowel takes two rhythmic beats; romaji here writes the vowel twice.",
-  };
+export function getKanaTeachingNote(item: {
+  readonly script: KanaScript;
+  readonly variant: KanaVariant;
+}) {
+  if (item.variant === "long-vowel" && item.script === "katakana")
+    return {
+      ru: "Знак ー продлевает предыдущий гласный. Долгий гласный занимает два ритмических счёта; в ромадзи здесь гласный записан дважды.",
+      en: "The mark ー lengthens the preceding vowel. A long vowel takes two rhythmic beats; romaji here writes the vowel twice.",
+    };
   return NOTES[item.variant];
 }

@@ -1,7 +1,14 @@
 import { useState } from "react";
 import { Check, Lock, X } from "lucide-react";
 import { type KanaLessonUnitDto, type KanaVariant } from "@kanji-srs/shared";
-import { findKanaLessonUnits, findKanaPrerequisite, KANA_GROUP_LABELS, KANA_UNIT_STATUS_LABELS, filterKanaUnitStatus, type KanaUnitStatus } from "../../lib/kana-unit-groups";
+import {
+  findKanaLessonUnits,
+  findKanaPrerequisite,
+  KANA_GROUP_LABELS,
+  KANA_UNIT_STATUS_LABELS,
+  filterKanaUnitStatus,
+  type KanaUnitStatus,
+} from "../../lib/kana-unit-groups";
 
 export function KanaLessonFinder({
   units,
@@ -45,8 +52,15 @@ export function KanaLessonFinder({
         </label>
         <label>
           Состояние урока
-          <select value={status} onChange={(event) => setStatus(event.currentTarget.value as KanaUnitStatus)}>
-            {(Object.keys(KANA_UNIT_STATUS_LABELS) as KanaUnitStatus[]).map((key) => <option key={key} value={key}>{KANA_UNIT_STATUS_LABELS[key]}</option>)}
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.currentTarget.value as KanaUnitStatus)}
+          >
+            {(Object.keys(KANA_UNIT_STATUS_LABELS) as KanaUnitStatus[]).map((key) => (
+              <option key={key} value={key}>
+                {KANA_UNIT_STATUS_LABELS[key]}
+              </option>
+            ))}
           </select>
         </label>
         <button
@@ -113,11 +127,13 @@ export function KanaLessonFinder({
                 )}
               </span>
               <span className="kana-unit-characters" lang="ja">
-                {unit.items.filter((item) => group === "all" || item.variant === group).map((item) => (
-                  <span className={item.mastered ? "is-mastered" : ""} key={item.character}>
-                    {item.character}
-                  </span>
-                ))}
+                {unit.items
+                  .filter((item) => group === "all" || item.variant === group)
+                  .map((item) => (
+                    <span className={item.mastered ? "is-mastered" : ""} key={item.character}>
+                      {item.character}
+                    </span>
+                  ))}
               </span>
             </button>
           );

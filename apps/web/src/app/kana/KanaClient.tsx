@@ -212,7 +212,10 @@ function OwnedKanaClient({
     }
   }, [exerciseKind, feedback, lessonPhase, selectedCharacter, completedUnitId]);
 
-  useEffect(() => kanaSpeech.cancel, [kanaSpeech.cancel, selectedCharacter, script, mode, lessonPhase]);
+  useEffect(
+    () => kanaSpeech.cancel,
+    [kanaSpeech.cancel, selectedCharacter, script, mode, lessonPhase],
+  );
 
   const currentItem = useMemo(() => {
     if (state.status !== "ready") {
@@ -267,6 +270,7 @@ function OwnedKanaClient({
   useEffect(() => {
     if (
       !kanaSpeech.available ||
+      completedUnitId !== null ||
       !kanaSpeech.autoplay ||
       currentLessonItem === null ||
       feedback !== null ||
@@ -279,6 +283,7 @@ function OwnedKanaClient({
     return kanaSpeech.cancel;
   }, [
     currentLessonItem,
+    completedUnitId,
     exerciseKind,
     feedback,
     kanaSpeech.available,
@@ -561,7 +566,8 @@ function OwnedKanaClient({
     state.path.totalCount === 0
       ? 0
       : Math.round((state.path.masteredCount / state.path.totalCount) * 100);
-  const completedUnit = state.path.units.find((unit) => unit.id === completedUnitId && unit.complete) ?? null;
+  const completedUnit =
+    state.path.units.find((unit) => unit.id === completedUnitId && unit.complete) ?? null;
   const resumeUnit = selectKanaResumeUnit(state.path.units);
   const nextUnit = resumeUnit?.complete ? null : resumeUnit;
 
@@ -659,8 +665,6 @@ function OwnedKanaClient({
         </div>
       )}
 
-      {mode === "practice" ? null : <KanaContentSummary items={state.progress.items} />}
-
       <div
         className="kana-workspace"
         id="kana-workspace"
@@ -681,7 +685,14 @@ function OwnedKanaClient({
                 <div className="kana-answer-error" role="alert">
                   <p>{answerError}</p>
                   <p>Ответ не подтверждён. Перед повторной отправкой можно обновить прогресс.</p>
-                  <button className="secondary-action" disabled={submitting} type="button" onClick={() => setDataRevision((value) => value + 1)}>Обновить прогресс</button>
+                  <button
+                    className="secondary-action"
+                    disabled={submitting}
+                    type="button"
+                    onClick={() => setDataRevision((value) => value + 1)}
+                  >
+                    Обновить прогресс
+                  </button>
                 </div>
               )}
               {mode === "lessons" && activeUnit !== null && completedUnit === null ? (
@@ -692,8 +703,17 @@ function OwnedKanaClient({
                   </span>
                 </header>
               ) : null}
-              {mode === "lessons" && completedUnit === null && lessonPhase === "quiz" && feedback === null && currentLessonItem !== null ? (
-                <button className="secondary-action kana-explanation-action" disabled={submitting} type="button" onClick={() => setLessonPhase("teach")}>
+              {mode === "lessons" &&
+              completedUnit === null &&
+              lessonPhase === "quiz" &&
+              feedback === null &&
+              currentLessonItem !== null ? (
+                <button
+                  className="secondary-action kana-explanation-action"
+                  disabled={submitting}
+                  type="button"
+                  onClick={() => setLessonPhase("teach")}
+                >
                   <BookOpen size={16} aria-hidden="true" /> Объяснение
                 </button>
               ) : null}
@@ -701,13 +721,37 @@ function OwnedKanaClient({
                 <div className="kana-unit-completion">
                   <span className="eyebrow">Урок освоен</span>
                   <h2>{completedUnit.title}</h2>
-                  <p>Освоено {completedUnit.masteredCount} из {completedUnit.totalCount} элементов.</p>
-                  {nextUnit ? <p className="muted">Далее: {nextUnit.title}</p> : state.path.units.every((unit) => unit.complete) ? <p>Все уроки этой азбуки освоены.</p> : <p>Следующий урок пока недоступен.</p>}
+                  <p>
+                    Освоено {completedUnit.masteredCount} из {completedUnit.totalCount} элементов.
+                  </p>
+                  {nextUnit ? (
+                    <p className="muted">Далее: {nextUnit.title}</p>
+                  ) : state.path.units.every((unit) => unit.complete) ? (
+                    <p>Все уроки этой азбуки освоены.</p>
+                  ) : (
+                    <p>Следующий урок пока недоступен.</p>
+                  )}
                   <div className="action-row">
-                    <button className="primary-action" ref={continueRef} type="button" onClick={() => nextUnit ? handleStartUnit(nextUnit) : handleModeChange("practice")}>
+                    <button
+                      className="primary-action"
+                      ref={continueRef}
+                      type="button"
+                      onClick={() =>
+                        nextUnit ? handleStartUnit(nextUnit) : handleModeChange("practice")
+                      }
+                    >
                       {nextUnit ? "Следующий урок" : "Перейти к практике"}
                     </button>
-                    <button className="secondary-action" type="button" onClick={() => { handleStartUnit(completedUnit); setLessonPhase("teach"); }}>Вернуться к объяснению</button>
+                    <button
+                      className="secondary-action"
+                      type="button"
+                      onClick={() => {
+                        handleStartUnit(completedUnit);
+                        setLessonPhase("teach");
+                      }}
+                    >
+                      Вернуться к объяснению
+                    </button>
                   </div>
                 </div>
               ) : currentItem === null ? (
@@ -796,6 +840,11 @@ function OwnedKanaClient({
           </>
         )}
       </div>
+      {mode === "practice" ? null : (
+        <SectionDisclosure title="Состав набора">
+          <KanaContentSummary items={state.progress.items} />
+        </SectionDisclosure>
+      )}
     </section>
   );
 }
@@ -1128,7 +1177,14 @@ function KanaTeachingStep({
       </div>
       <div className="kana-teaching-reading">
         <strong className="kana-reading">{item.romaji}</strong>
-        <button className="icon-button" type="button" onClick={() => void onSpeak()} disabled={!speechAvailable} aria-label="Прослушать чтение" title={speechAvailable ? "Прослушать чтение" : "Озвучивание недоступно в этом браузере"}>
+        <button
+          className="icon-button"
+          type="button"
+          onClick={() => void onSpeak()}
+          disabled={!speechAvailable}
+          aria-label="Прослушать чтение"
+          title={speechAvailable ? "Прослушать чтение" : "Озвучивание недоступно в этом браузере"}
+        >
           <Volume2 size={20} aria-hidden="true" />
         </button>
       </div>

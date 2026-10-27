@@ -11,9 +11,7 @@ import {
 describe("character hub query", () => {
   it("parses supported URL filters and rejects invalid values", () => {
     expect(
-      parseCharacterHubQuery(
-        new URLSearchParams("tab=kanji&level=12&band=n3&jlpt=n2&state=weak"),
-      ),
+      parseCharacterHubQuery(new URLSearchParams("tab=kanji&level=12&band=n3&jlpt=n2&state=weak")),
     ).toEqual({
       tab: "kanji",
       kanaGroup: "basic",
@@ -42,18 +40,21 @@ describe("character hub query", () => {
   it("round trips kana groups without changing kanji filters", () => {
     const href = buildCharacterHubHref("katakana", undefined, "handakuten");
     expect(href).toBe("/characters?tab=katakana&group=handakuten");
-    expect(parseCharacterHubQuery(new URLSearchParams(href.split("?")[1])).kanaGroup).toBe("handakuten");
+    expect(parseCharacterHubQuery(new URLSearchParams(href.split("?")[1])).kanaGroup).toBe(
+      "handakuten",
+    );
     expect(parseCharacterHubQuery(new URLSearchParams("group=invalid")).kanaGroup).toBe("basic");
-    expect(parseCharacterHubQuery(new URLSearchParams("kanaState=mastered")).kanaStatus).toBe("mastered");
+    expect(parseCharacterHubQuery(new URLSearchParams("kanaState=mastered")).kanaStatus).toBe(
+      "mastered",
+    );
     expect(parseCharacterHubQuery(new URLSearchParams("kanaState=invalid")).kanaStatus).toBe("all");
-    expect(buildCharacterHubHref("hiragana", undefined, "basic", "started")).toBe("/characters?tab=hiragana&kanaState=started");
+    expect(buildCharacterHubHref("hiragana", undefined, "basic", "started")).toBe(
+      "/characters?tab=hiragana&kanaState=started",
+    );
   });
 
   it("filters kanji without conflating weak items with SRS states", () => {
-    const items = [
-      buildItem("一", "learning", true),
-      buildItem("二", "passed", false),
-    ];
+    const items = [buildItem("一", "learning", true), buildItem("二", "passed", false)];
 
     expect(
       filterCharacterHubKanji(items, {

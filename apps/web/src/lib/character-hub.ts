@@ -5,7 +5,11 @@ import {
   type CourseBand,
   type KanaVariant,
 } from "@kanji-srs/shared";
-import { KANA_GROUP_LABELS, KANA_UNIT_STATUS_LABELS, type KanaUnitStatus } from "./kana-unit-groups";
+import {
+  KANA_GROUP_LABELS,
+  KANA_UNIT_STATUS_LABELS,
+  type KanaUnitStatus,
+} from "./kana-unit-groups";
 
 export type CharacterHubTab = "hiragana" | "katakana" | "kanji";
 export type CharacterHubJlptLevel = NonNullable<CharacterHubKanjiItemDto["jlptLevel"]>;
@@ -48,8 +52,12 @@ export function parseCharacterHubQuery(params: Pick<URLSearchParams, "get">): Ch
 
   return {
     tab: includes(TABS, rawTab) ? rawTab : "hiragana",
-    kanaGroup: includes(Object.keys(KANA_GROUP_LABELS) as (KanaVariant | "all")[], rawGroup) ? rawGroup : "basic",
-    kanaStatus: includes(Object.keys(KANA_UNIT_STATUS_LABELS) as KanaUnitStatus[], rawKanaStatus) ? rawKanaStatus : "all",
+    kanaGroup: includes(Object.keys(KANA_GROUP_LABELS) as (KanaVariant | "all")[], rawGroup)
+      ? rawGroup
+      : "basic",
+    kanaStatus: includes(Object.keys(KANA_UNIT_STATUS_LABELS) as KanaUnitStatus[], rawKanaStatus)
+      ? rawKanaStatus
+      : "all",
     filters: {
       level: Number.isInteger(parsedLevel) && parsedLevel > 0 ? parsedLevel : null,
       band: includes(SUPPORTED_COURSE_BANDS, rawBand) ? rawBand : null,
