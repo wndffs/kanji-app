@@ -51,7 +51,7 @@ import {
   updateLessonSessionProgress,
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession, updateStoredUser } from "../../lib/auth-storage";
-import { boundedLessonSelection, lessonBatchCapacity, orderLessonSelection } from "../../lib/lesson-selection";
+import { boundedLessonSelection, lessonBatchCapacity, lessonSelectionCardCount, orderLessonSelection } from "../../lib/lesson-selection";
 import { advanceLessonQuizCardQueue, buildLessonQuizQueue } from "../../lib/lesson-quiz";
 import {
   getLessonPronunciationText,
@@ -138,6 +138,9 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
   const quizActionRef = useRef<HTMLButtonElement>(null);
   const queueRequest = useRef<AbortController | null>(null);
   const mounted = useRef(true);
+  const startPending = useRef(false);
+  const orderPending = useRef(false);
+  function ownsWorkspace(token: string) { return mounted.current && ownsSession(token); }
 
   const loadQueue = useCallback(async () => {
     queueRequest.current?.abort();
@@ -292,11 +295,12 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
   }, [activeQueue.length, currentIndex, currentLesson]);
 
   async function handleStartSession(): Promise<void> {
-    if (queueState.status !== "ready" || selectedLessons.length === 0 || isStarting) {
+    if (queueState.status !== "ready" || selectedLessons.length === 0 || startPending.current || orderPending.current || selectedLessons.length > lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday)) {
       return;
     }
 
     const orderedLessons = orderedSelection;
+    startPending.current = true;
     setIsStarting(true);
     setSessionError(null);
     setCompletionSummary(null);
@@ -306,6 +310,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
         ...(queueState.source.kind === "deck" ? { deckId: queueState.source.deckId } : {}),
         itemIds: orderedLessons.map((lesson) => lesson.item.id),
       });
+      if (!ownsWorkspace(queueState.token)) return;
       setSession(response.session);
       setSessionQueue(orderedLessons);
       setCurrentIndex(0);
@@ -317,14 +322,16 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
       setQuizListeningEvidence({});
       setQuizFeedback(null);
     } catch (error: unknown) {
+      if (!ownsWorkspace(queueState.token)) return;
       setSessionError(error instanceof Error ? error.message : "Не удалось начать урок.");
     } finally {
+      startPending.current = false;
       setIsStarting(false);
     }
   }
 
   function handleToggleLesson(itemId: string): void {
-    if (queueState.status !== "ready") {
+    if (queueState.status !== "ready" || startPending.current || !queueState.availableItems.some(({ item }) => item.id === itemId)) {
       return;
     }
 
@@ -338,17 +345,18 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
   }
 
   function handleUseSuggestedBatch(): void {
-    if (queueState.status === "ready") {
+    if (queueState.status === "ready" && !startPending.current) {
       setSelectedItemIds(boundedLessonSelection(queueState.availableItems, queueState.suggestedItems.map((lesson) => lesson.item.id), lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday)));
     }
   }
 
   async function handleOrderModeChange(nextMode: LessonOrderMode): Promise<void> {
-    if (queueState.status !== "ready" || isSavingOrderMode || nextMode === orderMode) {
+    if (queueState.status !== "ready" || orderPending.current || startPending.current || nextMode === orderMode) {
       return;
     }
 
     const previousMode = orderMode;
+    orderPending.current = true;
     setOrderMode(nextMode);
     setIsSavingOrderMode(true);
     setSessionError(null);
@@ -373,6 +381,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
         error instanceof Error ? error.message : "Не удалось сохранить порядок уроков.",
       );
     } finally {
+      orderPending.current = false;
       setIsSavingOrderMode(false);
     }
   }
@@ -808,7 +817,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
             <h1>{isDeckQueue ? "Уроки колоды" : "Уроки"}</h1>
             <p>
               {isDeckQueue ? `${queueState.source.title}. ` : ""}
-              Группа: {selectedLessons.length} из {queueState.batchLimit}.
+              Группа: {selectedLessons.length} из {lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday)}.
             </p>
           </div>
         </div>
@@ -839,21 +848,22 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
             orderMode={orderMode}
             orderModeSaving={isSavingOrderMode}
             selectedItemIds={selectedItemIdSet}
-            onClear={() => setSelectedItemIds([])}
+            onClear={() => { if (!startPending.current) setSelectedItemIds([]); }}
             onOrderModeChange={(mode) => void handleOrderModeChange(mode)}
             onToggle={handleToggleLesson}
             onUseSuggested={handleUseSuggestedBatch}
-            onPreset={(size) => setSelectedItemIds(queueState.availableItems.slice(0, Math.min(size, lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday))).map(({ item }) => item.id))}
+            onPreset={(size) => { if (!startPending.current) setSelectedItemIds(queueState.availableItems.slice(0, Math.min(size, lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday))).map(({ item }) => item.id)); }}
             capacity={lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday)}
+            disabled={isStarting || isSavingOrderMode}
           />
         </SectionDisclosure>
         <div className="lesson-selection-bar">
-          <span data-testid="lesson-selection-summary">
-            Выбрано <strong>{selectedLessons.length}</strong> / {queueState.batchLimit}
-          </span>
+          <div className="lesson-batch-totals"><span data-testid="lesson-selection-summary">
+            Выбрано <strong>{selectedLessons.length}</strong> / {lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday)}
+          </span><small>Карточек в группе: {lessonSelectionCardCount(selectedLessons)}</small></div>
           <button
             className="primary-action"
-            disabled={isStarting || selectedLessons.length === 0}
+            disabled={isStarting || isSavingOrderMode || selectedLessons.length === 0}
             onClick={() => void handleStartSession()}
             type="button"
           >
@@ -1069,6 +1079,7 @@ function LessonPicker({
   onUseSuggested,
   onPreset,
   capacity,
+  disabled,
 }: {
   readonly availableItems: readonly LessonQueueItem[];
   readonly batchLimit: number;
@@ -1082,6 +1093,7 @@ function LessonPicker({
   readonly onUseSuggested: () => void;
   readonly onPreset: (size: number) => void;
   readonly capacity: number;
+  readonly disabled: boolean;
 }) {
   const selectedCount = selectedItemIds.size;
   const router = useRouter();
@@ -1108,6 +1120,7 @@ function LessonPicker({
 
   return (
     <section className="lesson-picker" aria-labelledby="lesson-picker-heading">
+      <fieldset className="lesson-picker-controls" disabled={disabled}>
       <header className="lesson-picker-header">
         <div>
           <span className="eyebrow">
@@ -1151,7 +1164,7 @@ function LessonPicker({
         </button>
       </div>
 
-      <LessonPickerSearch key={browse.q} value={browse.q} disabled={false} onSearch={(q) => navigate({ q })} />
+      <LessonPickerSearch key={browse.q} value={browse.q} disabled={disabled} onSearch={(q) => navigate({ q })} />
       <div className="lesson-picker-filters">
         <label><span>Тип материала</span><select value={browse.kind} onChange={(event) => navigate({ kind: event.currentTarget.value as LessonBrowserRoute["kind"] })}><option value="all">Все типы</option>{(["component", "kanji", "word", "sentence"] as const).map((kind) => <option key={kind} value={kind}>{formatItemType(kind)}</option>)}</select></label>
         <label><span>Уровень материалов</span><select value={browse.level ?? "all"} onChange={(event) => navigate({ level: event.currentTarget.value === "all" ? null : Number(event.currentTarget.value) })}><option value="all">Все уровни</option>{levels.map((level) => <option key={level} value={level}>Уровень {level}</option>)}</select></label>
@@ -1189,6 +1202,7 @@ function LessonPicker({
       {pageCount <= 1 ? null : <nav className="lesson-picker-pages" aria-label="Страницы новых материалов">
         <button className="icon-button" type="button" aria-label="Предыдущая страница материалов" title="Предыдущая страница" disabled={page === 1} onClick={() => navigate({ page: page - 1 })}><ChevronLeft size={18} aria-hidden="true" /></button><span>{page} / {pageCount}</span><button className="icon-button" type="button" aria-label="Следующая страница материалов" title="Следующая страница" disabled={page === pageCount} onClick={() => navigate({ page: page + 1 })}><ChevronRight size={18} aria-hidden="true" /></button>
       </nav>}
+      </fieldset>
     </section>
   );
 }

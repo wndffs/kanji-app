@@ -1,7 +1,12 @@
 import { type LessonOrderMode, type LessonQueueItem } from "@kanji-srs/shared";
 
 export function lessonBatchCapacity(batchLimit: number, remainingToday: number): number {
+  if (!Number.isFinite(batchLimit) || !Number.isFinite(remainingToday)) return 0;
   return Math.max(0, Math.floor(Math.min(batchLimit, remainingToday)));
+}
+
+export function lessonSelectionCardCount(items: readonly LessonQueueItem[]): number {
+  return new Set(items.flatMap((lesson) => lesson.cards.map((card) => card.id))).size;
 }
 
 export function boundedLessonSelection(eligible: readonly LessonQueueItem[], requestedIds: readonly string[], limit: number): readonly string[] {
