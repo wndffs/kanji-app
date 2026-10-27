@@ -9,9 +9,34 @@ import {
   DEFAULT_CHARACTER_CATALOGUE,
   sortCharacterHubKanji,
   characterMeaningRows,
+  mergeCharacterHubQuery,
 } from "../src/lib/character-hub";
 
 describe("character hub query", () => {
+  it("merges rapid independent controls against the latest intent without losing filters", () => {
+    const initial = parseCharacterHubQuery(new URLSearchParams("tab=kanji&page=3&q=one&view=list"));
+    const before = structuredClone(initial);
+    let route = mergeCharacterHubQuery(initial, { kanaGroup: "handakuten" });
+    route = mergeCharacterHubQuery(route, { kanaStatus: "mastered" });
+    route = mergeCharacterHubQuery(route, { filters: { level: 2 } });
+    route = mergeCharacterHubQuery(route, { filters: { state: "weak" } });
+    route = mergeCharacterHubQuery(route, { catalogue: { showReadings: false } });
+    expect(route).toMatchObject({
+      kanaGroup: "handakuten",
+      kanaStatus: "mastered",
+      filters: { level: 2, state: "weak" },
+      catalogue: { page: 1, q: "one", view: "list", showReadings: false },
+    });
+    expect(initial).toEqual(before);
+  });
+  it("resets page for search and sort while presentation changes retain the current page", () => {
+    const initial = parseCharacterHubQuery(new URLSearchParams("tab=kanji&page=3"));
+    expect(mergeCharacterHubQuery(initial, { catalogue: { q: "ichi" } }).catalogue.page).toBe(1);
+    expect(mergeCharacterHubQuery(initial, { catalogue: { sort: "reading" } }).catalogue.page).toBe(
+      1,
+    );
+    expect(mergeCharacterHubQuery(initial, { catalogue: { view: "list" } }).catalogue.page).toBe(3);
+  });
   it("parses supported URL filters and rejects invalid values", () => {
     expect(
       parseCharacterHubQuery(new URLSearchParams("tab=kanji&level=12&band=n3&jlpt=n2&state=weak")),

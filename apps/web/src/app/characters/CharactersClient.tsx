@@ -4,7 +4,7 @@ import { kanaLessonHref } from "../../lib/kana-route";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, List, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import {
   type CharacterHubKanaSectionDto,
@@ -33,6 +33,8 @@ import {
   EMPTY_CHARACTER_HUB_FILTERS,
   filterCharacterHubKanji,
   parseCharacterHubQuery,
+  mergeCharacterHubQuery,
+  type CharacterHubQueryPatch,
   type CharacterHubKanjiFilters,
   type CharacterHubTab,
   type CharacterCatalogueOptions,
@@ -87,10 +89,35 @@ export function CharactersClient() {
 function CharactersScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const query = useMemo(() => parseCharacterHubQuery(searchParams), [searchParams]);
+  const confirmedQuery = useMemo(() => parseCharacterHubQuery(searchParams), [searchParams]);
+  const [isNavigating, startNavigation] = useTransition();
+  const [optimisticQuery, setOptimisticQuery] = useState(confirmedQuery);
+  const latestQuery = useRef(confirmedQuery);
+  const query = isNavigating ? optimisticQuery : confirmedQuery;
   const displayMode = useTranslationDisplayMode();
   const [state, setState] = useState<CharactersState>({ status: "loading" });
   const [retry, setRetry] = useState(0);
+
+  useEffect(() => {
+    if (!isNavigating) latestQuery.current = confirmedQuery;
+  }, [confirmedQuery, isNavigating]);
+
+  function navigate(patch: CharacterHubQueryPatch, replace = false): void {
+    const next = mergeCharacterHubQuery(latestQuery.current, patch);
+    latestQuery.current = next;
+    setOptimisticQuery(next);
+    const href = buildCharacterHubHref(
+      next.tab,
+      next.filters,
+      next.kanaGroup,
+      next.kanaStatus,
+      next.catalogue,
+    );
+    startNavigation(() => {
+      if (replace) router.replace(href, { scroll: false });
+      else router.push(href, { scroll: false });
+    });
+  }
 
   useEffect(() => {
     const session = readStoredSession();
@@ -134,20 +161,12 @@ function CharactersScreen() {
     };
   }, [retry]);
 
-  function updateKanjiFilters(filters: CharacterHubKanjiFilters): void {
-    router.push(
-      buildCharacterHubHref("kanji", filters, query.kanaGroup, query.kanaStatus, {
-        ...query.catalogue,
-        page: 1,
-      }),
-      {
-        scroll: false,
-      },
-    );
+  function updateKanjiFilters(filters: Partial<CharacterHubKanjiFilters>): void {
+    navigate({ tab: "kanji", filters });
   }
 
   return (
-    <section className="page-stack">
+    <section className="page-stack" aria-busy={isNavigating}>
       <div className="page-heading character-hub-heading">
         <div>
           <h1>Символы</h1>
@@ -156,20 +175,7 @@ function CharactersScreen() {
 
       <ViewTabs
         active={query.tab}
-        onChange={(tab) =>
-          router.push(
-            buildCharacterHubHref(
-              tab as CharacterHubTab,
-              query.filters,
-              query.kanaGroup,
-              query.kanaStatus,
-              query.catalogue,
-            ),
-            {
-              scroll: false,
-            },
-          )
-        }
+        onChange={(tab) => navigate({ tab: tab as CharacterHubTab })}
         label="Системы письма"
         idPrefix="character-tab"
         panelId={`character-panel-${query.tab}`}
@@ -209,35 +215,9 @@ function CharactersScreen() {
         <KanaCharacterPanel
           key={query.tab}
           group={query.kanaGroup}
-          onGroupChange={(group) =>
-            router.push(
-              buildCharacterHubHref(
-                query.tab,
-                query.filters,
-                group,
-                query.kanaStatus,
-                query.catalogue,
-              ),
-              {
-                scroll: false,
-              },
-            )
-          }
+          onGroupChange={(group) => navigate({ kanaGroup: group })}
           status={query.kanaStatus}
-          onStatusChange={(status) =>
-            router.push(
-              buildCharacterHubHref(
-                query.tab,
-                query.filters,
-                query.kanaGroup,
-                status,
-                query.catalogue,
-              ),
-              {
-                scroll: false,
-              },
-            )
-          }
+          onStatusChange={(status) => navigate({ kanaStatus: status })}
           section={query.tab === "hiragana" ? state.hub.kana.hiragana : state.hub.kana.katakana}
         />
       ) : null}
@@ -249,16 +229,7 @@ function CharactersScreen() {
           filters={query.filters}
           onFiltersChange={updateKanjiFilters}
           onResetFilters={() =>
-            router.push(
-              buildCharacterHubHref(
-                "kanji",
-                EMPTY_CHARACTER_HUB_FILTERS,
-                query.kanaGroup,
-                query.kanaStatus,
-                { ...query.catalogue, q: "", page: 1 },
-              ),
-              { scroll: false },
-            )
+            navigate({ filters: EMPTY_CHARACTER_HUB_FILTERS, catalogue: { q: "", page: 1 } })
           }
           catalogue={query.catalogue}
           catalogueHref={buildCharacterHubHref(
@@ -268,17 +239,7 @@ function CharactersScreen() {
             query.kanaStatus,
             query.catalogue,
           )}
-          onCatalogueChange={(catalogue, replace = false) => {
-            const href = buildCharacterHubHref(
-              "kanji",
-              query.filters,
-              query.kanaGroup,
-              query.kanaStatus,
-              catalogue,
-            );
-            if (replace) router.replace(href, { scroll: false });
-            else router.push(href, { scroll: false });
-          }}
+          onCatalogueChange={(catalogue, replace = false) => navigate({ catalogue }, replace)}
           section={state.hub.kanji}
         />
       ) : null}
@@ -498,12 +459,15 @@ function KanjiCharacterPanel({
 }: {
   readonly displayMode: TranslationDisplayMode;
   readonly filters: CharacterHubKanjiFilters;
-  readonly onFiltersChange: (filters: CharacterHubKanjiFilters) => void;
+  readonly onFiltersChange: (filters: Partial<CharacterHubKanjiFilters>) => void;
   readonly onResetFilters: () => void;
   readonly section: CharacterHubKanjiSectionDto;
   readonly catalogue: CharacterCatalogueOptions;
   readonly catalogueHref: string;
-  readonly onCatalogueChange: (options: CharacterCatalogueOptions, replace?: boolean) => void;
+  readonly onCatalogueChange: (
+    options: Partial<CharacterCatalogueOptions>,
+    replace?: boolean,
+  ) => void;
 }) {
   const items = useMemo(
     () =>
@@ -518,7 +482,7 @@ function KanjiCharacterPanel({
   const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
   const page = Math.min(catalogue.page, pageCount);
   useEffect(() => {
-    if (page !== catalogue.page) onCatalogueChange({ ...catalogue, page }, true);
+    if (page !== catalogue.page) onCatalogueChange({ page }, true);
   }, [catalogue, page, onCatalogueChange]);
   const visibleItems = items.slice((page - 1) * pageSize, page * pageSize);
   const progressMaximum = Math.max(section.counts.total, 1);
@@ -611,7 +575,7 @@ function KanjiCharacterPanel({
         <CharacterCatalogueSearch
           key={catalogue.q}
           value={catalogue.q}
-          onSearch={(q) => onCatalogueChange({ ...catalogue, q, page: 1 })}
+          onSearch={(q) => onCatalogueChange({ q, page: 1 })}
         />
         <label>
           <span>Порядок кандзи</span>
@@ -619,7 +583,6 @@ function KanjiCharacterPanel({
             value={catalogue.sort}
             onChange={(event) =>
               onCatalogueChange({
-                ...catalogue,
                 sort: event.currentTarget.value as CharacterCatalogueSort,
                 page: 1,
               })
@@ -639,7 +602,7 @@ function KanjiCharacterPanel({
             aria-label="Плитки кандзи"
             title="Плитки"
             aria-pressed={catalogue.view === "grid"}
-            onClick={() => onCatalogueChange({ ...catalogue, view: "grid" })}
+            onClick={() => onCatalogueChange({ view: "grid" })}
           >
             <LayoutGrid size={18} aria-hidden="true" />
           </button>
@@ -649,7 +612,7 @@ function KanjiCharacterPanel({
             aria-label="Список кандзи"
             title="Список"
             aria-pressed={catalogue.view === "list"}
-            onClick={() => onCatalogueChange({ ...catalogue, view: "list" })}
+            onClick={() => onCatalogueChange({ view: "list" })}
           >
             <List size={18} aria-hidden="true" />
           </button>
@@ -670,7 +633,6 @@ function KanjiCharacterPanel({
                 disabled={!section.filters.levels.includes(section.currentCourse.currentLevel)}
                 onChange={(event) =>
                   onFiltersChange({
-                    ...filters,
                     level: event.currentTarget.checked ? section.currentCourse!.currentLevel : null,
                   })
                 }
@@ -683,7 +645,6 @@ function KanjiCharacterPanel({
                 checked={filters.state === "weak"}
                 onChange={(event) =>
                   onFiltersChange({
-                    ...filters,
                     state: event.currentTarget.checked ? "weak" : null,
                   })
                 }
@@ -695,9 +656,7 @@ function KanjiCharacterPanel({
         <div className="character-hub-filters" aria-label="Фильтры кандзи">
           <FilterSelect
             label="Уровень"
-            onChange={(value) =>
-              onFiltersChange({ ...filters, level: value === "" ? null : Number(value) })
-            }
+            onChange={(value) => onFiltersChange({ level: value === "" ? null : Number(value) })}
             options={section.filters.levels.map((level) => ({
               label: `Уровень ${level}`,
               value: String(level),
@@ -708,7 +667,6 @@ function KanjiCharacterPanel({
             label="Диапазон"
             onChange={(value) =>
               onFiltersChange({
-                ...filters,
                 band: value === "" ? null : (value as NonNullable<typeof filters.band>),
               })
             }
@@ -722,7 +680,6 @@ function KanjiCharacterPanel({
             label="JLPT"
             onChange={(value) =>
               onFiltersChange({
-                ...filters,
                 jlpt: value === "" ? null : (value as NonNullable<typeof filters.jlpt>),
               })
             }
@@ -736,7 +693,6 @@ function KanjiCharacterPanel({
             label="Состояние"
             onChange={(value) =>
               onFiltersChange({
-                ...filters,
                 state: value === "" ? null : (value as NonNullable<typeof filters.state>),
               })
             }
@@ -761,9 +717,7 @@ function KanjiCharacterPanel({
             <input
               type="checkbox"
               checked={catalogue.showReadings}
-              onChange={(event) =>
-                onCatalogueChange({ ...catalogue, showReadings: event.currentTarget.checked })
-              }
+              onChange={(event) => onCatalogueChange({ showReadings: event.currentTarget.checked })}
             />
             Показывать чтения
           </label>
@@ -776,7 +730,7 @@ function KanjiCharacterPanel({
               className="filter-chip"
               type="button"
               aria-label="Убрать поисковый запрос"
-              onClick={() => onCatalogueChange({ ...catalogue, q: "", page: 1 })}
+              onClick={() => onCatalogueChange({ q: "", page: 1 })}
             >
               <span>Поиск: {catalogue.q}</span>
               <X size={16} aria-hidden="true" />
@@ -788,7 +742,7 @@ function KanjiCharacterPanel({
               type="button"
               key={key}
               aria-label={`Убрать фильтр: ${filterLabels[key]}`}
-              onClick={() => onFiltersChange({ ...filters, [key]: null })}
+              onClick={() => onFiltersChange({ [key]: null })}
             >
               {filterLabels[key]}
               <X size={16} aria-hidden="true" />
@@ -809,7 +763,7 @@ function KanjiCharacterPanel({
             aria-label="Назад"
             title="Предыдущая страница"
             disabled={page <= 1}
-            onClick={() => onCatalogueChange({ ...catalogue, page: page - 1 })}
+            onClick={() => onCatalogueChange({ page: page - 1 })}
           >
             <ChevronLeft size={18} aria-hidden="true" />
           </button>
@@ -821,7 +775,7 @@ function KanjiCharacterPanel({
             aria-label="Далее"
             title="Следующая страница"
             disabled={page >= pageCount}
-            onClick={() => onCatalogueChange({ ...catalogue, page: page + 1 })}
+            onClick={() => onCatalogueChange({ page: page + 1 })}
           >
             <ChevronRight size={18} aria-hidden="true" />
           </button>

@@ -244,8 +244,17 @@ test.describe("character hub", () => {
     await expect(
       summary.locator("div").filter({ has: page.getByText("Упражнения", { exact: true }) }),
     ).toContainText("11");
-    await page.getByLabel("Группа знаков").selectOption("handakuten");
-    await page.getByRole("combobox", { name: /^Состояние уроков/ }).selectOption("mastered");
+    // Change both controls before the router can acknowledge the first navigation.
+    await page.evaluate(() => {
+      const [group, state] = Array.from(
+        document.querySelectorAll(".kana-map-controls select"),
+      ) as HTMLSelectElement[];
+      group!.value = "handakuten";
+      group!.dispatchEvent(new Event("change", { bubbles: true }));
+      state!.value = "mastered";
+      state!.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await expect(page).toHaveURL(/group=handakuten&kanaState=mastered/);
     await expect(page.getByText("Нет уроков с таким состоянием.", { exact: true })).toBeVisible();
     await expect(page.getByLabel("Прогресс выбранной группы")).toHaveText(
       "Освоено 0 из 5 · Начато 5",

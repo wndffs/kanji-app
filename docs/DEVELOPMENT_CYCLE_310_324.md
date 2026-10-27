@@ -107,3 +107,24 @@ web-only release; validate its exact runtime SHA and check API liveness separate
 without forcing backend publication, schema changes or course enrollment. Inspect
 the existing test profile with read-only catalogue/material navigation; no learning
 answers or preferences need to be saved for live acceptance.
+
+## Release Correction
+
+The initial candidate deployed successfully, and live search/list/reveal/material
+return checks passed. Full cloud CI 40534414252 then exposed a real rapid-filter
+race: 366 browser cases passed, one skipped and one kana group/state case failed.
+Two sequential router pushes could rebuild from an older confirmed URL and lose
+the first control's choice. Do not relabel that as infrastructure or merely wait
+longer in the test.
+
+Task 324 correction merges partial control changes against the latest intent,
+uses a React navigation transition for immediate view-control feedback, and
+resynchronizes confirmed URL state after navigation or Back. This optimistic
+state contains only browsing options, never grading or progress. No stale full
+filter/catalogue objects are sent by controls. The regression now dispatches
+both select changes in one browser turn and verifies the confirmed URL/reload.
+
+Final local correction checks: **52 unit cases**, web build/TypeScript, changed-
+file ESLint/format and **all 28 character browser cases** passed. A fresh version
+tag `cycle-310-324-catalogue-r2` supersedes the initial candidate without moving
+or rewriting the already-pushed tag. Final cloud/deployment evidence follows.

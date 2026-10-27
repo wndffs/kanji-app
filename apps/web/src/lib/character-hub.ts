@@ -57,6 +57,27 @@ export type CharacterHubQuery = {
   readonly catalogue: CharacterCatalogueOptions;
 };
 
+export type CharacterHubQueryPatch = Partial<Omit<CharacterHubQuery, "filters" | "catalogue">> & {
+  readonly filters?: Partial<CharacterHubKanjiFilters>;
+  readonly catalogue?: Partial<CharacterCatalogueOptions>;
+};
+
+export function mergeCharacterHubQuery(
+  current: CharacterHubQuery,
+  patch: CharacterHubQueryPatch,
+): CharacterHubQuery {
+  const resetPage =
+    patch.filters !== undefined ||
+    patch.catalogue?.q !== undefined ||
+    patch.catalogue?.sort !== undefined;
+  return {
+    ...current,
+    ...patch,
+    filters: { ...current.filters, ...patch.filters },
+    catalogue: { ...current.catalogue, ...(resetPage ? { page: 1 } : {}), ...patch.catalogue },
+  };
+}
+
 export const EMPTY_CHARACTER_HUB_FILTERS: CharacterHubKanjiFilters = {
   level: null,
   band: null,
