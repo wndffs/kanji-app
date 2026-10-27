@@ -22,6 +22,7 @@ import {
 import { JapaneseText } from "../../components/JapaneseText";
 import { ViewTabs } from "../../components/ViewTabs";
 import { CopyReadingButton } from "../../components/CopyReadingButton";
+import { ItemPreviewList } from "../../components/ItemPreviewList";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import {
   addPrivateAcceptedAnswer,
@@ -775,6 +776,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               displayMode={displayMode}
               groups={item.relationGroups}
               legacyRelations={item.relations}
+              hideReadings={hideReadingHints}
             />
 
             <section className="panel">
@@ -1459,39 +1461,34 @@ function RelationGroups({
   displayMode,
   groups,
   legacyRelations,
+  hideReadings,
 }: {
   readonly displayMode: TranslationDisplayMode;
   readonly groups: ItemDetails["relationGroups"];
   readonly legacyRelations: ItemDetails["relations"];
+  readonly hideReadings: boolean;
 }) {
   return (
     <section className="panel" data-testid="item-relation-groups">
       <h2>Связи</h2>
       {groups.length === 0 ? (
-        <RelationsList relations={legacyRelations} displayMode={displayMode} />
+        <RelationsList relations={legacyRelations} displayMode={displayMode} hideReadings={hideReadings} />
       ) : (
         <div className="relation-group-list">
           {groups.map((group) => (
             <div className="content-block" key={group.kind}>
               <h3>{formatRelationGroup(group.kind)}</h3>
-              <ul className="lesson-relation-list">
-                {group.items.map((related) => (
+              <ItemPreviewList items={group.items} total={group.total} label={formatRelationGroup(group.kind)} className="lesson-relation-list" renderItem={(related) => (
                   <li key={related.id}>
                     <Link className="inline-link" href={`/items/${related.id}`}>
                       <JapaneseText>{related.japanese}</JapaneseText>
                     </Link>
                     <small>
-                      {related.reading === null ? "" : `${related.reading} · `}
+                      {hideReadings || related.reading === null ? "" : `${related.reading} · `}
                       {formatTranslationBundle(related.translations, displayMode)}
                     </small>
                   </li>
-                ))}
-              </ul>
-              {group.total > group.items.length ? (
-                <p className="relation-group-summary">
-                  Показаны первые {group.items.length} из {group.total}.
-                </p>
-              ) : null}
+                )} />
             </div>
           ))}
         </div>
@@ -1503,29 +1500,29 @@ function RelationGroups({
 function RelationsList({
   relations,
   displayMode,
+  hideReadings,
 }: {
   readonly relations: ItemDetails["relations"];
   readonly displayMode: TranslationDisplayMode;
+  readonly hideReadings: boolean;
 }) {
   if (relations.length === 0) {
     return <p className="muted">Связанные материалы пока не добавлены.</p>;
   }
 
   return (
-    <ul className="lesson-relation-list">
-      {relations.map((relation) => (
+    <ItemPreviewList items={relations} label="Связи" className="lesson-relation-list" renderItem={(relation) => (
         <li key={`${relation.relationType}-${relation.item.id}`}>
           <Link className="inline-link" href={`/items/${relation.item.id}`}>
             <JapaneseText>{relation.item.japanese}</JapaneseText>
           </Link>
           <small>
             {formatRelationType(relation.relationType)} ·{" "}
-            {relation.item.reading === null ? "" : `${relation.item.reading} · `}
+            {hideReadings || relation.item.reading === null ? "" : `${relation.item.reading} · `}
             {formatTranslationBundle(relation.item.translations, displayMode)}
           </small>
         </li>
-      ))}
-    </ul>
+      )} />
   );
 }
 
