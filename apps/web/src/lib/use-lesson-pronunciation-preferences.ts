@@ -38,9 +38,11 @@ export function useLessonPronunciationPreferences(): LessonPronunciationPreferen
 
     updatePreferences();
     window.addEventListener(AUTH_CHANGED_EVENT, updatePreferences);
+    window.addEventListener("storage", updatePreferences);
 
     return () => {
       window.removeEventListener(AUTH_CHANGED_EVENT, updatePreferences);
+      window.removeEventListener("storage", updatePreferences);
     };
   }, []);
 

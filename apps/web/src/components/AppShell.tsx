@@ -47,6 +47,7 @@ import { formatTranslationDisplayMode } from "../lib/dashboard-format";
 import { mainNavigation, secondaryNavigation } from "../lib/navigation";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { StudyFocusContext } from "./StudyFocus";
+import { ownsSession } from "../lib/use-stored-session";
 
 type AppShellProps = {
   readonly children: ReactNode;
@@ -56,6 +57,10 @@ export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const isAuthPage = pathname === "/login" || pathname === "/register";
   const [mode, setMode] = useState<TranslationDisplayMode>("ru");
+  const [isSavingMode, setIsSavingMode] = useState(false);
+  const [modeError, setModeError] = useState<string | null>(null);
+  const modeRequest = useRef<object | null>(null);
+  const shellOwner = useRef<string | null>(null);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole>("USER");
@@ -115,6 +120,13 @@ export function AppShell({ children }: AppShellProps) {
   useEffect(() => {
     function syncSessionState(): void {
       const session = readStoredSession();
+      const owner = session === null ? null : `${session.user.id}:${session.token}`;
+      if (owner !== shellOwner.current) {
+        shellOwner.current = owner;
+        modeRequest.current = null;
+        setIsSavingMode(false);
+        setModeError(null);
+      }
       setMode(readTranslationDisplayMode());
       setIsSignedIn(session !== null);
       setDisplayName(session?.user.displayName ?? session?.user.email ?? null);
@@ -123,10 +135,16 @@ export function AppShell({ children }: AppShellProps) {
 
     syncSessionState();
     window.addEventListener(AUTH_CHANGED_EVENT, syncSessionState);
-    return () => window.removeEventListener(AUTH_CHANGED_EVENT, syncSessionState);
+    window.addEventListener("storage", syncSessionState);
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, syncSessionState);
+      window.removeEventListener("storage", syncSessionState);
+    };
   }, []);
 
   async function handleModeChange(nextMode: TranslationDisplayMode): Promise<void> {
+    if (modeRequest.current !== null) return;
+    setModeError(null);
     setMode(nextMode);
     storeTranslationDisplayMode(nextMode);
 
@@ -135,15 +153,26 @@ export function AppShell({ children }: AppShellProps) {
     if (session === null) {
       return;
     }
-
+    const request = {};
+    modeRequest.current = request;
+    setIsSavingMode(true);
     try {
       const user = await updateUserSettings(session.token, {
         translationDisplayMode: nextMode,
       });
+      if (modeRequest.current !== request || !ownsSession(session.token)) return;
+      if (user.id !== session.user.id) throw new Error("Неверный владелец настроек.");
       updateStoredUser(user);
     } catch {
+      if (modeRequest.current !== request || !ownsSession(session.token)) return;
       setMode(session.user.settings.translationDisplayMode);
       storeTranslationDisplayMode(session.user.settings.translationDisplayMode);
+      setModeError("Сохранение режима не подтверждено.");
+    } finally {
+      if (modeRequest.current === request) {
+        modeRequest.current = null;
+        setIsSavingMode(false);
+      }
     }
   }
 
@@ -296,6 +325,7 @@ export function AppShell({ children }: AppShellProps) {
               ) : null}
               <label className="mode-control">
                 <select
+                  disabled={isSavingMode}
                   aria-label="Режим перевода карточек"
                   title={formatTranslationDisplayMode(mode)}
                   onChange={(event) =>
@@ -328,6 +358,7 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           </div>
         </header>
+        {modeError ? <p className="shell-mode-status form-error" role="alert">{modeError}</p> : null}
         <main
           className="main"
           id="main-content"

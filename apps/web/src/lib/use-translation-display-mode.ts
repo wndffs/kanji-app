@@ -21,10 +21,12 @@ export function useTranslationDisplayMode(): TranslationDisplayMode {
     syncDisplayMode();
     window.addEventListener(AUTH_CHANGED_EVENT, syncDisplayMode);
     window.addEventListener(TRANSLATION_DISPLAY_MODE_CHANGED_EVENT, syncDisplayMode);
+    window.addEventListener("storage", syncDisplayMode);
 
     return () => {
       window.removeEventListener(AUTH_CHANGED_EVENT, syncDisplayMode);
       window.removeEventListener(TRANSLATION_DISPLAY_MODE_CHANGED_EVENT, syncDisplayMode);
+      window.removeEventListener("storage", syncDisplayMode);
     };
   }, []);
 
