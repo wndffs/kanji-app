@@ -276,21 +276,23 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       feedback === null &&
       currentItem !== null &&
       !isSubmitting &&
+      !isReconciling &&
       (currentItem.card.promptType !== "listening" || listeningEvidence.completed)
     ) {
       answerInputRef.current?.focus();
     }
-  }, [currentItem, feedback, isSubmitting, listeningEvidence.completed, session]);
+  }, [currentItem, feedback, isSubmitting, isReconciling, listeningEvidence.completed, session]);
 
   useEffect(() => {
+    composingAnswer.current = false;
     setListeningEvidence({ completed: false, playCount: 0 });
   }, [currentItem?.card.id, isCorrecting, currentIndex]);
 
   useEffect(() => {
-    if (feedback !== null) {
+    if (feedback !== null && !isContinuing) {
       continueButtonRef.current?.focus();
     }
-  }, [feedback]);
+  }, [feedback, isContinuing]);
 
   useEffect(() => { continuePending.current = false; }, [feedback, currentIndex, isCorrecting]);
 
@@ -923,6 +925,9 @@ function FeedbackPanel({
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const savePending = useRef(false);
+  useEffect(() => {
+    if (!isSaving && saveMessage !== null) continueButtonRef.current?.focus();
+  }, [isSaving, saveMessage, continueButtonRef]);
   const isAccepted = feedback.accepted;
   const ResultIcon = feedback.retry
     ? RotateCcw
