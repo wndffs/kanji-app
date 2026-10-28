@@ -115,14 +115,20 @@ export class DashboardService {
     const availableItemIds = new Set(availableLessonItems.map((item) => item.id));
     const journeyPlan = findNextLockedPath(lessonItems, lessonProgress);
     const journeyItemIds = collectJourneyItemIds(unlockEvents, journeyPlan);
-    const recentAvailableIds = availableLessonItems.slice(0, MAX_RECENT_ACTIVITY_ITEMS).map((item) => item.id);
+    const recentAvailableIds = availableLessonItems
+      .slice(0, MAX_RECENT_ACTIVITY_ITEMS)
+      .map((item) => item.id);
     const hydrationIds = [...new Set([...recentAvailableIds, ...journeyItemIds])];
-    const hydratedItems = await this.dashboardRepository.listAvailableLessonItems(hydrationIds, hydrationIds.length);
+    const hydratedItems = await this.dashboardRepository.listAvailableLessonItems(
+      hydrationIds,
+      hydrationIds.length,
+    );
     const hydratedById = new Map(hydratedItems.map((record) => [record.item.id, record]));
-    const selectItems = (ids: readonly string[]) => ids.flatMap((id) => {
-      const item = hydratedById.get(id);
-      return item ? [item] : [];
-    });
+    const selectItems = (ids: readonly string[]) =>
+      ids.flatMap((id) => {
+        const item = hydratedById.get(id);
+        return item ? [item] : [];
+      });
     const recentAvailableLessons = selectItems(recentAvailableIds);
     const journeyItems = selectItems(journeyItemIds);
     recordTiming?.("hydrate", performance.now() - hydrateStartedAt);

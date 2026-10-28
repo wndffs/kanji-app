@@ -86,10 +86,16 @@ export function CourseLevelMaterials({
       page,
       itemType === "all" ? undefined : itemType,
       studyState === "all" ? undefined : studyState,
-      { reviewState: reviewState === "all" ? undefined : reviewState, q, sort, signal: request.signal },
+      {
+        reviewState: reviewState === "all" ? undefined : reviewState,
+        q,
+        sort,
+        signal: request.signal,
+      },
     )
       .then((response) => {
-        if (!request.signal.aborted && ownsSession(token)) setLoaded({ key: requestKey, data: response });
+        if (!request.signal.aborted && ownsSession(token))
+          setLoaded({ key: requestKey, data: response });
       })
       .catch((reason: unknown) => {
         if (request.signal.aborted || !ownsSession(token)) return;
@@ -98,7 +104,10 @@ export function CourseLevelMaterials({
           setError(
             reason instanceof Error ? reason.message : "Не удалось загрузить материалы уровня.",
           );
-      }).finally(() => { if (!request.signal.aborted && ownsSession(token)) setPending(false); });
+      })
+      .finally(() => {
+        if (!request.signal.aborted && ownsSession(token)) setPending(false);
+      });
     return () => {
       request.abort();
     };
@@ -212,11 +221,19 @@ export function CourseLevelMaterials({
           Сбросить фильтры
         </button>
       ) : null}
-      {pending && data !== null ? <p className="muted" role="status">Обновляю материалы.</p> : null}
+      {pending && data !== null ? (
+        <p className="muted" role="status">
+          Обновляю материалы.
+        </p>
+      ) : null}
       {error === null ? null : (
         <div>
           <p role="alert">{error}</p>
-          <button className="secondary-action" disabled={pending} onClick={() => setRetry((value) => value + 1)}>
+          <button
+            className="secondary-action"
+            disabled={pending}
+            onClick={() => setRetry((value) => value + 1)}
+          >
             Повторить загрузку материалов
           </button>
         </div>
@@ -273,7 +290,10 @@ export function CourseLevelMaterials({
               {data.items.map((item) => (
                 <li key={item.id} data-item-type={item.itemType}>
                   <Link href={courseItemHref(item.id, courseId, { ...route, level: levelNumber })}>
-                    <JapaneseText className="course-material-japanese" furigana={pronunciation.mode === "furigana" ? item.reading : null}>
+                    <JapaneseText
+                      className="course-material-japanese"
+                      furigana={pronunciation.mode === "furigana" ? item.reading : null}
+                    >
                       {item.japanese}
                     </JapaneseText>
                     {item.reading ? (
@@ -285,13 +305,17 @@ export function CourseLevelMaterials({
                               : "Чтение из метаданных"}
                           </small>
                         ) : null}
-                        {pronunciation.mode === "kana" ? <JapaneseText>{item.reading}</JapaneseText> : null}
+                        {pronunciation.mode === "kana" ? (
+                          <JapaneseText>{item.reading}</JapaneseText>
+                        ) : null}
+                        {pronunciation.showRomaji && romanizeKana(item.reading) ? (
+                          <small className="course-material-romaji">
+                            {romanizeKana(item.reading)}
+                          </small>
+                        ) : null}
                       </span>
                     ) : item.itemType !== "component" && item.readingSource === "missing" ? (
                       <small>Учебное чтение не выбрано</small>
-                    ) : null}
-                    {pronunciation.showRomaji && item.reading && romanizeKana(item.reading) ? (
-                      <small className="course-material-romaji">{romanizeKana(item.reading)}</small>
                     ) : null}
                     <span className="course-material-meanings">
                       {displayMode !== "en" && item.meaningRu ? (

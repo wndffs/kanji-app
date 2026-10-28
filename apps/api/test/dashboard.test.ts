@@ -321,6 +321,51 @@ describe("PrismaDashboardRepository", () => {
 });
 
 describe("DashboardService", () => {
+  it("starts independent activity reads before course data resolves", async () => {
+    const { service, repository } = createHarness();
+    let release!: (value: Awaited<ReturnType<DashboardRepository["loadCourseData"]>>) => void;
+    vi.spyOn(repository, "loadCourseData").mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    const mistakes = vi.spyOn(repository, "listRecentMistakeItems");
+    const burned = vi.spyOn(repository, "listRecentBurnedItems");
+    const pending = service.getDashboard(createUser("owner"));
+    expect(mistakes).toHaveBeenCalledWith("owner", expect.any(Date), 5);
+    expect(burned).toHaveBeenCalledWith("owner", 5);
+    release({ lessonItems: [], currentCourse: null, unlockEvents: [] });
+    await pending;
+  });
+
+  it("hydrates a stable capped union once and reconstructs original order after missing records", async () => {
+    const { service, repository } = createHarness();
+    repository.setLessonItems(
+      Array.from({ length: 8 }, (_, index) => createLessonItem(`item-${index}`, index)),
+    );
+    repository.setUnlockEvents([
+      { reviewSessionId: "latest", learningItemId: "item-1", unlockedAt: NOW },
+      { reviewSessionId: "latest", learningItemId: "item-7", unlockedAt: NOW },
+    ]);
+    const original = repository.listAvailableLessonItems.bind(repository);
+    const hydrate = vi
+      .spyOn(repository, "listAvailableLessonItems")
+      .mockImplementation(async (ids, limit) =>
+        (await original(ids, limit)).filter((record) => record.item.id !== "item-2").reverse(),
+      );
+    const result = await service.getDashboard(createUser("owner"));
+    expect(hydrate).toHaveBeenCalledTimes(1);
+    const ids = hydrate.mock.calls[0]![0];
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.slice(0, 5)).toEqual(["item-0", "item-1", "item-2", "item-3", "item-4"]);
+    expect(ids).toContain("item-7");
+    expect(result.recentActivity.availableLessons.map((record) => record.item.id)).toEqual([
+      "item-0",
+      "item-1",
+      "item-3",
+      "item-4",
+    ]);
+  });
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);

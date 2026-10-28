@@ -82,6 +82,142 @@ async function signIn(
   });
 }
 test.describe("published course explorer", () => {
+  test("reconciles a lost global mode response with one GET and no write replay", async ({
+    page,
+  }, info) => {
+    await signIn(page);
+    await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+    let writes = 0;
+    let reads = 0;
+    await page.route(`${API}/users/settings`, async (route) => {
+      writes++;
+      await route.abort("failed");
+    });
+    await page.route(`${API}/auth/me`, (route) => {
+      reads++;
+      return route.fulfill({
+        json: {
+          id: "explorer-user",
+          email: "explorer@example.test",
+          role: "USER",
+          settings: { translationDisplayMode: "en", timezone: "Europe/Moscow" },
+        },
+      });
+    });
+    await page.goto(`/courses/${ID}`);
+    const select = page.getByRole("combobox", { name: "Режим перевода карточек", exact: true });
+    await select.focus();
+    await select.selectOption("en");
+    await expect(page.getByRole("main").getByRole("alert")).toContainText(
+      "Сохранение режима не подтверждено",
+    );
+    await expect(select).toBeDisabled();
+    const retry = page.getByRole("button", { name: "Сверить режим", exact: true });
+    await expect(retry).toBeFocused();
+    await captureLearnerThemes(page, info, "journey-mode-recovery");
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    expect(writes).toBe(1);
+    expect(reads).toBe(0);
+    await retry.press("Enter");
+    await expect(select).toBeEnabled();
+    await expect(select).toHaveValue("en");
+    await expect(select).toBeFocused();
+    expect(reads).toBe(1);
+    expect(writes).toBe(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+  });
+  for (const status of [200, 401]) {
+    test(`ignores replaced-owner global mode response (${status}) and same-turn duplicates`, async ({
+      page,
+    }) => {
+      await signIn(page);
+      await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+      let release!: () => void;
+      let seen!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const started = new Promise<void>((resolve) => {
+        seen = resolve;
+      });
+      let writes = 0;
+      await page.route(`${API}/users/settings`, async (route) => {
+        writes++;
+        seen();
+        await gate;
+        await route.fulfill({
+          status,
+          json: { id: "explorer-user", settings: { translationDisplayMode: "en" } },
+        });
+      });
+      await page.goto(`/courses/${ID}`);
+      await page.getByRole("combobox", { name: "Режим перевода карточек", exact: true }).waitFor();
+      await page.evaluate(() => {
+        const select = document.querySelector<HTMLSelectElement>(".mode-control select")!;
+        for (const value of ["en", "ru"]) {
+          select.value = value;
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      });
+      await started;
+      await changeAccount(page);
+      const finished = page.waitForResponse(
+        (response) => response.url() === `${API}/users/settings` && response.status() === status,
+      );
+      release();
+      await finished;
+      await expect(
+        page.getByRole("heading", { name: "Материалы уровня 1", exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("combobox", { name: "Режим перевода карточек", exact: true }),
+      ).toBeEnabled();
+      expect(writes).toBe(1);
+      expect(
+        await page.evaluate(() => JSON.parse(localStorage.getItem("kanji-srs.user")!).id),
+      ).toBe("new-owner");
+      await expect(page.getByRole("button", { name: "Сверить режим", exact: true })).toHaveCount(0);
+    });
+  }
+  test("syncs cross-tab reading preferences without extra material reads", async ({
+    page,
+  }, info) => {
+    await signIn(page);
+    await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+    let reads = 0;
+    page.on("request", (request) => {
+      if (request.url().includes("/levels/")) reads++;
+    });
+    await page.goto(`/courses/${ID}`);
+    const materials = page.locator(".course-material-grid");
+    await expect(materials.locator("rt")).toHaveCount(0);
+    await expect(materials.locator(".course-material-reading")).toContainText("いち");
+    await page.evaluate(() => {
+      const user = JSON.parse(localStorage.getItem("kanji-srs.user")!);
+      Object.assign(user.settings, {
+        lessonPronunciationMode: "furigana",
+        lessonRomaji: true,
+        translationDisplayMode: "en",
+      });
+      localStorage.setItem("kanji-srs.user", JSON.stringify(user));
+      localStorage.setItem("kanji-srs.translationDisplayMode", "en");
+      window.dispatchEvent(new StorageEvent("storage", { key: "kanji-srs.user" }));
+    });
+    await expect(materials.locator("rt")).toHaveText("いち");
+    await expect(materials.locator(".course-material-romaji")).toHaveText("ichi");
+    await expect(materials.locator('[lang="ru"]')).toHaveCount(0);
+    expect(reads).toBe(1);
+    await page.getByRole("button", { name: "Список материалов", exact: true }).click();
+    const romaji = await materials.locator(".course-material-romaji").boundingBox();
+    const kind = await materials.locator(".course-material-kind").boundingBox();
+    expect(romaji!.y + romaji!.height).toBeLessThanOrEqual(kind!.y + 1);
+    await captureLearnerThemes(page, info, "journey-reading-list");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+  });
   test("loads aggregate coverage on demand and groups it without more reads or writes", async ({
     page,
   }, info) => {
@@ -186,7 +322,7 @@ test.describe("published course explorer", () => {
         await expect(page.getByLabel("Следующий шаг курса")).toContainText("Доступен материал: 日");
         await expect(page.getByRole("link", { name: "К урокам", exact: true })).toHaveAttribute(
           "href",
-          "/lessons",
+          `/lessons?${new URLSearchParams({ returnTo: `/courses/${ID}` })}`,
         );
       } else
         await expect(
@@ -386,7 +522,7 @@ test.describe("published course explorer", () => {
     await expect(page).toHaveURL(`/courses/${ID}?level=1`);
   });
   for (const status of [200, 401]) {
-    test(`ignores stale level data after account replacement (${status})`, async ({ page }) => {
+    test(`cancels stale level data after account replacement (${status})`, async ({ page }) => {
       await signIn(page);
       await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
       let release = () => {};
@@ -413,6 +549,12 @@ test.describe("published course explorer", () => {
       });
       await page.goto(`/courses/${ID}`);
       await seen;
+      const cancelled = page.waitForEvent(
+        "requestfailed",
+        (request) =>
+          request.url().includes("/levels/") &&
+          request.headers().authorization === "Bearer explorer-token",
+      );
       await page.evaluate(() => {
         const user = JSON.parse(localStorage.getItem("kanji-srs.user")!);
         localStorage.setItem("kanji-srs.accessToken", "explorer-next-token");
@@ -423,13 +565,8 @@ test.describe("published course explorer", () => {
         window.dispatchEvent(new Event("kanji-srs.auth-changed"));
       });
       await expect(page.getByText("Найдено: 0", { exact: true })).toBeVisible();
-      const response = page.waitForResponse(
-        (response) =>
-          response.url().includes("/levels/") &&
-          response.request().headers().authorization === "Bearer explorer-token",
-      );
+      await cancelled;
       release();
-      await response;
       await expect(page.getByText("Найдено: 0", { exact: true })).toBeVisible();
       expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe(
         "explorer-next-token",

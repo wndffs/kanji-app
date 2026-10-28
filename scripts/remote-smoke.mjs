@@ -167,9 +167,10 @@ function configuration(env) {
 export function parseServerTiming(header) {
   const phases = {};
   for (const entry of (header ?? "").split(",")) {
-    const match = /^(auth|primary|hydrate|dashboard|lessons|reviews);dur=([0-9]+(?:\.[0-9]+)?)$/u.exec(
-      entry.trim(),
-    );
+    const match =
+      /^(auth|primary|hydrate|dashboard|lessons|reviews);dur=([0-9]+(?:\.[0-9]+)?)$/u.exec(
+        entry.trim(),
+      );
     if (!match || Object.hasOwn(phases, match[1])) continue;
     const duration = Number(match[2]);
     if (Number.isFinite(duration) && duration <= REQUEST_TIMEOUT_MS) phases[match[1]] = duration;

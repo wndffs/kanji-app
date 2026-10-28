@@ -82,7 +82,10 @@ export function CourseNextStep({
         </div>
       ) : null}
       {next ? (
-        <Link className="primary-action" href={lessonEntryHref(returnHref ?? `/courses/${courseId}`)}>
+        <Link
+          className="primary-action"
+          href={lessonEntryHref(returnHref ?? `/courses/${courseId}`)}
+        >
           К урокам <ArrowRight size={16} />
         </Link>
       ) : null}

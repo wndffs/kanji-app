@@ -44,7 +44,11 @@ export function mergeLessonBrowser(
   };
 }
 
-export function lessonBrowserHref(deckId: string | null, route: LessonBrowserRoute, returnHref?: string | null): string {
+export function lessonBrowserHref(
+  deckId: string | null,
+  route: LessonBrowserRoute,
+  returnHref?: string | null,
+): string {
   const params = new URLSearchParams();
   const safeReturn = canonicalCourseReturn(returnHref);
   if (safeReturn !== null) params.set("returnTo", safeReturn);

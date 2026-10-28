@@ -9,6 +9,34 @@ const ACCESS_TOKEN = "test-token";
 const SESSION_ID = "lesson-session-1";
 
 test.describe("lesson session", () => {
+  test("retains validated course return through picker filters, focus and an empty queue", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockLessonApi(page);
+    const target = "/courses/00000000-0000-4000-8000-000000000010?level=2&itemType=kanji";
+    const params = new URLSearchParams({ returnTo: target });
+    await page.goto(`/lessons?${params}`);
+    await expect(
+      page.getByRole("link", { name: "К материалам уровня", exact: true }),
+    ).toHaveAttribute("href", target);
+    await page.getByRole("button", { name: "Изменить группу", exact: true }).click();
+    await page.getByRole("combobox", { name: "Тип материала", exact: true }).selectOption("kanji");
+    expect(new URL(page.url()).searchParams.get("returnTo")).toBe(target);
+    await page.getByRole("button", { name: "Начать урок", exact: true }).click();
+    await expect(page.getByRole("link", { name: "К курсу", exact: true })).toHaveAttribute(
+      "href",
+      target,
+    );
+    await page.route(`${API_BASE_URL}/lessons/queue`, (route) =>
+      route.fulfill({ json: queueResponse([]) }),
+    );
+    await page.goto(`/lessons?${params}`);
+    await expect(
+      page.getByRole("link", { name: "К материалам уровня", exact: true }),
+    ).toHaveAttribute("href", target);
+    await expect(page.getByRole("button", { name: "Начать урок", exact: true })).toHaveCount(0);
+  });
   test("searches with IME, combines rapid URL filters, and retains selections without extra reads", async ({
     page,
   }) => {
@@ -406,8 +434,8 @@ test.describe("lesson session", () => {
   test("requires every lesson quiz answer before completing one item", async ({ page }) => {
     await signIn(page);
     const savedSettings = await mockLessonApi(page);
-
-    await page.goto("/lessons");
+    const returnTo = "/courses/00000000-0000-4000-8000-000000000010?level=2";
+    await page.goto(`/lessons?${new URLSearchParams({ returnTo })}`);
 
     await expect(page.getByRole("heading", { name: "Уроки" })).toBeVisible();
     await expect(page.getByText(/Группа: 1 из 5/)).toBeVisible();
@@ -445,7 +473,10 @@ test.describe("lesson session", () => {
     await expect(page.getByRole("heading", { name: "Объяснение", exact: true })).toHaveCount(0);
     await expect(page.getByText("следующий этап", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Основная навигация" })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "На панель", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "К курсу", exact: true })).toHaveAttribute(
+      "href",
+      returnTo,
+    );
     await expect(page.getByLabel("Режим перевода карточек")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
@@ -586,10 +617,7 @@ test.describe("lesson session", () => {
     await expect(page.getByText("Изучено")).toBeVisible();
     await expect(page.getByText("Карточек повторения")).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Основная навигация" })).toBeVisible();
-    await expect(page.locator(".lesson-summary .primary-action")).toHaveAttribute(
-      "href",
-      "/dashboard",
-    );
+    await expect(page.locator(".lesson-summary .primary-action")).toHaveAttribute("href", returnTo);
   });
 
   test("applies saved pronunciation aids only to study stages", async ({ page }) => {

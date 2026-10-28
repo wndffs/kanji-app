@@ -18,23 +18,23 @@ data, and available/journey materials are hydrated twice with overlapping IDs.
 Measure total HTTP and handler timing before/after; structural request-count
 reductions are not automatically a latency or full-N2 scalability claim.
 
-| Task | Deliverable | State |
-| --- | --- | --- |
-| 385 | Audit, measurable scope and boundaries | Complete |
-| 386 | Validated course/level return through lesson filtering and study focus | Planned |
-| 387 | One coherent completion/empty-state return action for the originating course | Planned |
-| 388 | Abort obsolete outline/material reads; retain confirmed catalogue content on same-query retry | Planned |
-| 389 | Single-flight, owner-guarded RU/EN selector and cross-tab preference synchronization | Planned |
-| 390 | Course kana/furigana/romaji and translation modes obey stored settings with long-text fit | Planned |
-| 391 | Bounded baseline measurement and numeric queue-handler timing without data leakage | Planned |
-| 392 | Overlap evidenced independent dashboard activity reads with primary reads | Planned |
-| 393 | Coalesce overlapping dashboard target hydration, preserving IDs/order/limits | Planned |
-| 394 | Bounded owner-scoped confirmed-outline cache, explicit invalidation, no due/progress caching | Planned |
-| 395 | Explicit GET reconciliation of unconfirmed translation-setting writes, never automatic replay | Planned |
-| 396 | Keyboard/focus recovery and reduced-motion behavior for affected controls | Planned |
-| 397 | Original visual-cohesion pass for return links, mode status, narrow tables and long settings | Planned |
-| 398 | Scoped unit/browser matrix, account/race/failure checks, themes/viewports, types/build/lint | Planned |
-| 399 | Release, CI, exact runtime, finite remote measurements and real learner-route inspection | Planned |
+| Task | Deliverable                                                                                   | State    |
+| ---- | --------------------------------------------------------------------------------------------- | -------- |
+| 385  | Audit, measurable scope and boundaries                                                        | Complete |
+| 386  | Validated course/level return through lesson filtering and study focus                        | Complete |
+| 387  | One coherent completion/empty-state return action for the originating course                  | Complete |
+| 388  | Abort obsolete outline/material reads; retain confirmed catalogue content on same-query retry | Complete |
+| 389  | Single-flight, owner-guarded RU/EN selector and cross-tab preference synchronization          | Complete |
+| 390  | Course kana/furigana/romaji and translation modes obey stored settings with long-text fit     | Complete |
+| 391  | Bounded baseline measurement and numeric queue-handler timing without data leakage            | Complete |
+| 392  | Overlap evidenced independent dashboard activity reads with primary reads                     | Complete |
+| 393  | Coalesce overlapping dashboard target hydration, preserving IDs/order/limits                  | Complete |
+| 394  | Bounded owner-scoped confirmed-outline cache, explicit invalidation, no due/progress caching  | Complete |
+| 395  | Explicit GET reconciliation of unconfirmed translation-setting writes, never automatic replay | Complete |
+| 396  | Keyboard/focus recovery and reduced-motion behavior for affected controls                     | Complete |
+| 397  | Original visual-cohesion pass for return links, mode status, narrow tables and long settings  | Complete |
+| 398  | Scoped unit/browser matrix, account/race/failure checks, themes/viewports, types/build/lint   | Complete |
+| 399  | Release, CI, exact runtime, finite remote measurements and real learner-route inspection      | Planned  |
 
 ## Acceptance
 
@@ -74,3 +74,25 @@ Dashboard handler `[892.8,298.9,290.7]`; phase medians: auth 9,
 primary 206.1, hydrate 105.9 ms. Phase medians are not additive.
 All warm samples met the existing 2000ms budget. This small starter-account
 sample is not a full-N2 load benchmark; HTTP minus handler is not pure network.
+
+## Local Acceptance
+
+47 affected web units, 181 affected API units and 115 remote-smoke safety tests
+passed. API/web types, changed-file lint/format and production web build passed.
+48 scoped desktop/phone browser cases passed across the initial run and focused
+rechecks. Six initial failures were test-contract issues: the generic alert
+selector matched Next's announcer, and superseded reads now abort rather than
+producing the response an old test awaited. These assertions were corrected,
+not skipped or relaxed. The focused recheck passed all six.
+
+Screenshot inspection found an actual mobile list defect: a new romaji grid
+area conflicted with the product stylesheet. Romaji now belongs to the reading
+group. Rebuilt production and four affected desktop/phone cases passed, with a
+geometry assertion placing romaji before the material kind. Light/dark images
+are outside Git in the cycle visualization directory. Existing reduced-motion
+CSS already suppresses animations/transitions; no duplicate override was added.
+
+Dashboard independent mistake/burned reads now belong to `primary`; `hydrate`
+contains the one stable-union target read. Compare total handler/HTTP timing,
+not isolated before/after phase medians. No query eligibility, limits, ordering,
+SRS or grading semantics changed.

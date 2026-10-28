@@ -134,7 +134,13 @@ export function LessonsClient() {
   );
 }
 
-function LessonsScreen({ requestedDeckId, returnHref }: { readonly requestedDeckId: string | null; readonly returnHref: string | null }) {
+function LessonsScreen({
+  requestedDeckId,
+  returnHref,
+}: {
+  readonly requestedDeckId: string | null;
+  readonly returnHref: string | null;
+}) {
   const activeDisplayMode = useTranslationDisplayMode();
   const lessonPronunciation = useLessonPronunciationPreferences();
   const {
@@ -941,7 +947,10 @@ function LessonsScreen({ requestedDeckId, returnHref }: { readonly requestedDeck
             Проверить снова
           </button>
           <div className="action-row">
-            <Link className="inline-link" href={returnHref ?? (isDeckQueue ? "/decks" : "/courses")}>
+            <Link
+              className="inline-link"
+              href={returnHref ?? (isDeckQueue ? "/decks" : "/courses")}
+            >
               {returnHref ? "К материалам уровня" : isDeckQueue ? "К колодам" : "К курсам"}
             </Link>
             <Link className="inline-link" href="/reviews">
@@ -969,7 +978,10 @@ function LessonsScreen({ requestedDeckId, returnHref }: { readonly requestedDeck
             </p>
           </div>
         </div>
-        <Link className="inline-link lesson-source-link" href={returnHref ?? (isDeckQueue ? "/decks" : "/courses")}>
+        <Link
+          className="inline-link lesson-source-link"
+          href={returnHref ?? (isDeckQueue ? "/decks" : "/courses")}
+        >
           {returnHref ? "К материалам уровня" : isDeckQueue ? "К колодам" : "К курсам"}
         </Link>
         {sessionError === null ? null : (
@@ -1319,7 +1331,11 @@ function LessonPicker({
     const next = mergeLessonBrowser(latest.current, patch);
     latest.current = next;
     setOptimistic(next);
-    const href = lessonBrowserHref(parseLessonSource(params).deckId, next, lessonReturnHref(params));
+    const href = lessonBrowserHref(
+      parseLessonSource(params).deckId,
+      next,
+      lessonReturnHref(params),
+    );
     startNavigation(() => {
       if (replace) router.replace(href, { scroll: false });
       else router.push(href, { scroll: false });

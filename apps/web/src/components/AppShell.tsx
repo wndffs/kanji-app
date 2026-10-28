@@ -153,7 +153,11 @@ export function AppShell({ children }: AppShellProps) {
   useEffect(() => {
     if (isSavingMode || !restoreModeFocus.current) return;
     restoreModeFocus.current = false;
-    if (document.activeElement === document.body || document.activeElement === modeSelect.current || document.activeElement === modeRetry.current) {
+    if (
+      document.activeElement === document.body ||
+      document.activeElement === modeSelect.current ||
+      document.activeElement === modeRetry.current
+    ) {
       (modeError ? modeRetry.current : modeSelect.current)?.focus();
     }
   }, [isSavingMode, modeError]);
@@ -205,12 +209,21 @@ export function AppShell({ children }: AppShellProps) {
     setIsSavingMode(true);
     try {
       const user = await getCurrentUser(session.token, controller.signal);
-      if (controller.signal.aborted || modeRequest.current !== request || !ownsSession(session.token)) return;
+      if (
+        controller.signal.aborted ||
+        modeRequest.current !== request ||
+        !ownsSession(session.token)
+      )
+        return;
       if (user.id !== session.user.id) throw new Error("Неверный владелец настроек.");
       updateStoredUser(user);
       setModeError(null);
     } catch {
-      if (!controller.signal.aborted && modeRequest.current === request && ownsSession(session.token)) {
+      if (
+        !controller.signal.aborted &&
+        modeRequest.current === request &&
+        ownsSession(session.token)
+      ) {
         setModeError("Не удалось сверить режим с сервером.");
       }
     } finally {
@@ -414,8 +427,16 @@ export function AppShell({ children }: AppShellProps) {
           <ConnectionStatus />
           {modeError ? (
             <div className="shell-mode-status">
-              <p className="form-error" role="alert">{modeError}</p>
-              <button ref={modeRetry} type="button" className="secondary-action" disabled={isSavingMode} onClick={() => void reconcileMode()}>
+              <p className="form-error" role="alert">
+                {modeError}
+              </p>
+              <button
+                ref={modeRetry}
+                type="button"
+                className="secondary-action"
+                disabled={isSavingMode}
+                onClick={() => void reconcileMode()}
+              >
                 Сверить режим
               </button>
             </div>

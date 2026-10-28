@@ -13,7 +13,11 @@ export function invalidateCourseOutline(): void {
   snapshot = null;
 }
 
-export function readCourseOutline(token: string, courseId: string, now = Date.now()): CourseOutlineDto | null {
+export function readCourseOutline(
+  token: string,
+  courseId: string,
+  now = Date.now(),
+): CourseOutlineDto | null {
   if (snapshot?.key !== JSON.stringify([token, courseId])) return null;
   const age = now - snapshot.confirmedAt;
   if (age < 0 || age > COURSE_OUTLINE_MAX_AGE_MS) {
@@ -23,7 +27,13 @@ export function readCourseOutline(token: string, courseId: string, now = Date.no
   return snapshot.outline;
 }
 
-export function storeCourseOutline(token: string, courseId: string, outline: CourseOutlineDto, expectedGeneration: number, now = Date.now()): void {
+export function storeCourseOutline(
+  token: string,
+  courseId: string,
+  outline: CourseOutlineDto,
+  expectedGeneration: number,
+  now = Date.now(),
+): void {
   if (generation !== expectedGeneration) return;
   snapshot = { key: JSON.stringify([token, courseId]), outline, confirmedAt: now };
 }

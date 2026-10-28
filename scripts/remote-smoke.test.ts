@@ -30,9 +30,9 @@ const env = {
 it("exports only allowlisted numeric server timing phases and bounded medians", () => {
   expect(
     parseServerTiming(
-      "auth;dur=10, dashboard;dur=400.5, private-token;dur=1, primary;dur=NaN, hydrate;dur=-1, auth;dur=999",
+      "auth;dur=10, dashboard;dur=400.5, lessons;dur=25.1, reviews;dur=8, private-token;dur=1, primary;dur=NaN, hydrate;dur=-1, auth;dur=999",
     ),
-  ).toEqual({ auth: 10, dashboard: 400.5 });
+  ).toEqual({ auth: 10, dashboard: 400.5, lessons: 25.1, reviews: 8 });
   expect(parseServerTiming("auth;dur=9999999")).toEqual({});
   const summary = summarize([
     { step: "dashboard", elapsedMs: 1000, serverTiming: { auth: 10, dashboard: 700 } },

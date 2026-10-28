@@ -4,7 +4,12 @@ import {
   type CourseCoverageDto,
 } from "@kanji-srs/shared";
 import { invalidateDashboardSnapshot } from "./dashboard-snapshot";
-import { courseOutlineGeneration, invalidateCourseOutline, readCourseOutline, storeCourseOutline } from "./course-outline-snapshot";
+import {
+  courseOutlineGeneration,
+  invalidateCourseOutline,
+  readCourseOutline,
+  storeCourseOutline,
+} from "./course-outline-snapshot";
 import {
   type AvailableCoursesResponse,
   type ContentQualityPageDto,
@@ -309,12 +314,20 @@ export function getCourses(token: string, signal?: AbortSignal): Promise<CourseL
   return apiRequest<CourseListResponse>("/courses", { token, signal });
 }
 
-export async function getCourseOutline(token: string, courseId: string, signal?: AbortSignal, force = false): Promise<CourseOutlineDto> {
+export async function getCourseOutline(
+  token: string,
+  courseId: string,
+  signal?: AbortSignal,
+  force = false,
+): Promise<CourseOutlineDto> {
   signal?.throwIfAborted();
   const cached = force ? null : readCourseOutline(token, courseId);
   if (cached !== null) return cached;
   const generation = courseOutlineGeneration();
-  const outline = await apiRequest<CourseOutlineDto>(`/courses/${encodeURIComponent(courseId)}/outline`, { token, signal });
+  const outline = await apiRequest<CourseOutlineDto>(
+    `/courses/${encodeURIComponent(courseId)}/outline`,
+    { token, signal },
+  );
   if (!signal?.aborted) storeCourseOutline(token, courseId, outline, generation);
   return outline;
 }
@@ -334,7 +347,12 @@ export function getCourseMaterials(
   page: number,
   itemType?: string,
   studyState?: string,
-  options: { readonly reviewState?: string; readonly q?: string; readonly sort?: string; readonly signal?: AbortSignal } = {},
+  options: {
+    readonly reviewState?: string;
+    readonly q?: string;
+    readonly sort?: string;
+    readonly signal?: AbortSignal;
+  } = {},
 ): Promise<CourseMaterialPageDto> {
   const params = new URLSearchParams({ page: String(page) });
   if (itemType !== undefined) params.set("itemType", itemType);
