@@ -8,6 +8,8 @@ import { clearStoredSession } from "../../lib/auth-storage";
 import { ownsSession } from "../../lib/use-stored-session";
 import { JapaneseText } from "../../components/JapaneseText";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
+import { useLessonPronunciationPreferences } from "../../lib/use-lesson-pronunciation-preferences";
+import { romanizeKana } from "@kanji-srs/japanese";
 import { courseItemHref, type CourseBrowserRoute } from "../../lib/course-browser-route";
 import { CourseLevelProgress } from "./CourseLevelProgress";
 import { CourseCardProgress } from "./CourseCardProgress";
@@ -34,6 +36,7 @@ export function CourseLevelMaterials({
   readonly onNavigate: (route: CourseBrowserRoute) => void;
 }) {
   const displayMode = useTranslationDisplayMode();
+  const pronunciation = useLessonPronunciationPreferences();
   const { page, itemType, studyState, reviewState, q, sort } = route;
   const hasFilters =
     itemType !== "all" || studyState !== "all" || reviewState !== "all" || q !== "";
@@ -270,7 +273,7 @@ export function CourseLevelMaterials({
               {data.items.map((item) => (
                 <li key={item.id} data-item-type={item.itemType}>
                   <Link href={courseItemHref(item.id, courseId, { ...route, level: levelNumber })}>
-                    <JapaneseText className="course-material-japanese">
+                    <JapaneseText className="course-material-japanese" furigana={pronunciation.mode === "furigana" ? item.reading : null}>
                       {item.japanese}
                     </JapaneseText>
                     {item.reading ? (
@@ -282,10 +285,13 @@ export function CourseLevelMaterials({
                               : "Чтение из метаданных"}
                           </small>
                         ) : null}
-                        <JapaneseText>{item.reading}</JapaneseText>
+                        {pronunciation.mode === "kana" ? <JapaneseText>{item.reading}</JapaneseText> : null}
                       </span>
                     ) : item.itemType !== "component" && item.readingSource === "missing" ? (
                       <small>Учебное чтение не выбрано</small>
+                    ) : null}
+                    {pronunciation.showRomaji && item.reading && romanizeKana(item.reading) ? (
+                      <small className="course-material-romaji">{romanizeKana(item.reading)}</small>
                     ) : null}
                     <span className="course-material-meanings">
                       {displayMode !== "en" && item.meaningRu ? (
