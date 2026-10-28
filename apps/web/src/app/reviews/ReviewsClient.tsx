@@ -60,7 +60,7 @@ import { formatReviewOrderMode, formatSrsStageName } from "../../lib/dashboard-f
 import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
-import { formatReviewDueAt, pendingReviewCorrections, reviewTimezone, summarizeReviewQueue } from "../../lib/review-workspace";
+import { formatReviewDueAt, pendingReviewCorrections, reviewPromptKind, reviewTimezone, summarizeReviewQueue } from "../../lib/review-workspace";
 
 type QueueState =
   | { readonly status: "checking" }
@@ -126,6 +126,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
     playCount: 0,
   });
   const answerInputRef = useRef<HTMLInputElement>(null);
+  const composingAnswer = useRef(false);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
   const requestRevision = useRef(0);
   const readRequest = useRef<AbortController | null>(null);
@@ -369,6 +370,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    if (composingAnswer.current) return;
 
     if (
       queueState.status !== "ready" ||
@@ -731,9 +733,8 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       <article className="review-card" data-answer-type={currentItem.card.answerType}>
         <div className="review-card-meta">
           <span>{formatItemType(currentItem.item.itemType)}</span>
-          {currentItem.card.promptType === "listening" ? <span>Аудирование</span> : null}
-          <span>{formatAnswerType(currentItem.card.answerType)}</span>
         </div>
+        <h2 className="review-question">{reviewPromptKind(currentItem) === "listening" ? <><Volume2 size={20} aria-hidden="true" />Аудирование</> : currentItem.card.answerType === "reading" ? <><Languages size={20} aria-hidden="true" />Чтение</> : <><Type size={20} aria-hidden="true" />Значение</>}</h2>
         <div className="review-prompt">
           {currentItem.card.promptType === "listening" ? (
             <ListeningPrompt
@@ -781,12 +782,16 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
               aria-describedby={formError === null ? undefined : "review-answer-error"}
               aria-invalid={formError !== null}
               autoComplete="off"
+              autoCapitalize="none"
               disabled={
                 isSubmitting ||
                 (currentItem.card.promptType === "listening" && !listeningEvidence.completed)
               }
               id="review-answer"
               onChange={(event) => setAnswer(event.currentTarget.value)}
+              onCompositionStart={() => { composingAnswer.current = true; }}
+              onCompositionEnd={() => { composingAnswer.current = false; }}
+              onKeyDown={(event) => { if (event.key === "Enter" && (composingAnswer.current || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229)) event.preventDefault(); }}
               placeholder={formatInputPlaceholder(currentItem.card.answerType)}
               ref={answerInputRef}
               spellCheck={currentItem.card.answerType === "meaning"}
