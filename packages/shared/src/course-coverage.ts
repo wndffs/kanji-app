@@ -12,6 +12,12 @@ export type CourseCoverageDto = {
   readonly courseId: string;
   readonly observedAt: string;
   readonly scope: "published-course-core-cards";
+  readonly teachingAspects?: {
+    readonly assessedItems: number;
+    readonly missingMeaningCards: number;
+    readonly missingReadingCards: number;
+    readonly withBothCardTypes: number;
+  };
   readonly total: CourseCoverageCounts;
   readonly levels: readonly { readonly level: number; readonly counts: CourseCoverageCounts }[];
   readonly bands: readonly { readonly band: string; readonly counts: CourseCoverageCounts }[];
@@ -28,6 +34,7 @@ export type CourseCoverageRow = {
   readonly hasEn: boolean;
   readonly hasReading: boolean;
   readonly readingRequired?: boolean;
+  readonly cardAnswerTypes?: readonly ("meaning" | "reading")[];
 };
 export function countCourseCoverage(rows: readonly CourseCoverageRow[]): CourseCoverageCounts {
   const unique = [...new Map(rows.map((row) => [row.id, row])).values()];
@@ -58,6 +65,7 @@ export function buildCourseCoverage(
     courseId,
     observedAt,
     scope: "published-course-core-cards",
+    teachingAspects: countTeachingAspects(rows),
     total: countCourseCoverage(rows),
     levels: [
       ...new Set([...rows.map((row) => row.level), ...declaredLevels.map((row) => row.level)]),
@@ -75,5 +83,18 @@ export function buildCourseCoverage(
       band,
       counts: countCourseCoverage(rows.filter((row) => (row.jlpt ?? "unassigned") === band)),
     })),
+  };
+}
+
+function countTeachingAspects(rows: readonly CourseCoverageRow[]) {
+  const assessed = [...new Map(rows.map((row) => [row.id, row])).values()].filter(
+    (row) => (row.kind === "kanji" || row.kind === "word") && row.cardAnswerTypes !== undefined,
+  );
+  const has = (row: CourseCoverageRow, type: "meaning" | "reading") => row.cardAnswerTypes!.includes(type);
+  return {
+    assessedItems: assessed.length,
+    missingMeaningCards: assessed.filter((row) => !has(row, "meaning")).length,
+    missingReadingCards: assessed.filter((row) => !has(row, "reading")).length,
+    withBothCardTypes: assessed.filter((row) => has(row, "meaning") && has(row, "reading")).length,
   };
 }

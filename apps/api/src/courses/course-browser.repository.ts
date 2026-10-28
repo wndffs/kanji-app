@@ -101,6 +101,7 @@ export class CourseBrowserRepository {
             band: level.band.toLowerCase(),
             jlpt: jlpt.get(`${item.kind}:${item.targetId}`) ?? null,
             cardIds: item.cards.map((card) => card.id),
+            cardAnswerTypes: item.cards.map((card) => card.answerType === "READING" ? "reading" as const : "meaning" as const),
             hasRu: answers.some(
               (answer) => answer.answerKind === "MEANING" && answer.locale === "ru-RU",
             ),
