@@ -20,7 +20,8 @@ export function planEditorialWave(input = nextEditorialWave()) {
       kanji: input.kanji.kanji.length,
       words: input.words.words.length,
       examples: input.words.words.length,
-      proposedCards: input.kanji.components.length + 2 * (input.kanji.kanji.length + input.words.words.length),
+      proposedCards:
+        input.kanji.components.length + 2 * (input.kanji.kanji.length + input.words.words.length),
     },
     levels: {
       components: input.kanji.componentLevelNumber,
@@ -28,6 +29,10 @@ export function planEditorialWave(input = nextEditorialWave()) {
       words: input.words.levelNumber,
     },
     sourceFamiliesRequired: ["KANJIDIC2", "KanjiVG", "JMdict"],
-    blockers: ["exact-source-evidence-not-verified", "independent-review-required", "publication-not-authorized"],
+    blockers: [
+      "exact-source-evidence-not-verified",
+      "independent-review-required",
+      "publication-not-authorized",
+    ],
   };
 }

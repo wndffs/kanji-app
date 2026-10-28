@@ -6,8 +6,10 @@ import { buildEditorialCoverage } from "./editorial-coverage";
 
 export function buildEditorialWaveReport(input: EditorialWaveInput = nextEditorialWave()) {
   const plan = planEditorialWave(input);
-  const ru = auditWaveLocale("ru", input); const en = auditWaveLocale("en", input);
-  const readings = auditWaveReadings(input); const placement = auditWavePlacement(input);
+  const ru = auditWaveLocale("ru", input);
+  const en = auditWaveLocale("en", input);
+  const readings = auditWaveReadings(input);
+  const placement = auditWavePlacement(input);
   const registry = buildEditorialCoverage();
   return {
     ...plan,
@@ -16,6 +18,7 @@ export function buildEditorialWaveReport(input: EditorialWaveInput = nextEditori
     checks: { ru, en, readings, placement },
     reviewedRegistry: registry.reviewedRegistry,
     remainingReviewedContent: registry.remainingReviewedContent,
-    caveat: "Local source-only preparation, not a live publication audit, source attestation, independent review or approval. Drafts do not reduce the reviewed backlog.",
+    caveat:
+      "Local source-only preparation, not a live publication audit, source attestation, independent review or approval. Drafts do not reduce the reviewed backlog.",
   };
 }

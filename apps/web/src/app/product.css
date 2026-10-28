@@ -1060,6 +1060,69 @@ textarea::placeholder {
   margin: 0;
   font-size: 32px;
 }
+.course-next-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding-block: 8px;
+  border-block: 1px solid var(--surface-border);
+}
+.course-next-step > div {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.course-next-step h2 {
+  font-size: 18px;
+  margin: 0;
+}
+.course-next-step p {
+  margin-block: 6px 0;
+  overflow-wrap: anywhere;
+}
+.course-coverage-scroll {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+.course-coverage-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.course-coverage-table caption {
+  text-align: left;
+  padding-block: 12px;
+  font-weight: 600;
+}
+.course-coverage-table :is(th, td) {
+  text-align: right;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--surface-border);
+}
+.course-coverage-table :is(th, td):first-child {
+  text-align: left;
+}
+.course-prerequisite {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border-top: 1px solid var(--surface-border);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.course-material-reading {
+  display: grid;
+  gap: 2px;
+}
+.course-material-reading small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.relation-group-list [id] {
+  scroll-margin-top: 96px;
+}
 .review-session {
   gap: 20px;
   width: min(100%, 760px);

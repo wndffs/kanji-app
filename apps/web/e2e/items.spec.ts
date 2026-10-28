@@ -16,6 +16,56 @@ const COMPONENT_ID = "item-component-one";
 const WORD_ID = "item-word-school";
 
 test.describe("item details", () => {
+  test("preserves course return context through component study links", async ({ page }) => {
+    await signIn(page);
+    await mockItemApi(page);
+    const courseId = "00000000-0000-4000-8000-000000000010";
+    await page.goto(`/items/${ITEM_ID}?courseId=${courseId}&level=2&q=one`);
+    const group = page.getByTestId("item-relation-groups");
+    await expect(group).toContainText("Компонент — зрительная опора.");
+    const link = group.getByRole("link", { name: "一", exact: true });
+    await expect(link).toHaveAttribute(
+      "href",
+      `/items/${COMPONENT_ID}?level=2&q=one&courseId=${courseId}`,
+    );
+    await link.click();
+    await expect(
+      page.getByRole("link", { name: "К материалам уровня", exact: true }),
+    ).toHaveAttribute("href", `/courses/${courseId}?level=2&q=one`);
+  });
+  test("connects selected readings to whole-word reinforcement without losing course context", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockItemApi(page);
+    const item = buildItemDetails([], null);
+    Object.assign(item, {
+      relationGroups: [
+        {
+          kind: "vocabulary",
+          total: 1,
+          items: [
+            {
+              ...item.relationGroups[0]!.items[0]!,
+              id: WORD_ID,
+              itemType: "word",
+              japanese: "学校",
+              reading: "がっこう",
+            },
+          ],
+        },
+      ],
+    });
+    await page.route(`${API_BASE_URL}/items/${ITEM_ID}`, (route) => route.fulfill({ json: item }));
+    await page.goto(`/items/${ITEM_ID}?courseId=00000000-0000-4000-8000-000000000010&level=2`);
+    const reading = page.getByTestId("kanji-reading-details");
+    await expect(reading).toContainText("Учебное чтение относится к этой карточке кандзи.");
+    await reading.getByRole("link", { name: "Слова с этим кандзи", exact: true }).click();
+    await expect(page).toHaveURL(/level=2#item-related-vocabulary$/u);
+    await expect(
+      page.getByTestId("item-relation-groups").getByRole("link", { name: "学校", exact: true }),
+    ).toHaveAttribute("href", /courseId=00000000-0000-4000-8000-000000000010/u);
+  });
   test("renders teaching before slow notes and retries a failed private snapshot without losing the item", async ({
     page,
   }) => {

@@ -1,5 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
-import { type CourseProgressCardDto } from "@kanji-srs/shared";
+import {
+  buildCourseCoverage,
+  type CourseProgressCardDto,
+  type CourseMaterialDto,
+} from "@kanji-srs/shared";
+import { captureLearnerThemes } from "./support/capture-learner-themes";
+import { changeAccount } from "./support/change-account";
 
 const API = "http://localhost:3001";
 const ID = "00000000-0000-4000-8000-000000000010";
@@ -12,7 +18,11 @@ const outline = {
     { levelNumber: 2, title: "Кандзи", band: "foundation", publishedItemCount: 2 },
   ],
 };
-async function signIn(page: Page, progressCards: readonly CourseProgressCardDto[] = []) {
+async function signIn(
+  page: Page,
+  progressCards: readonly CourseProgressCardDto[] = [],
+  extras: Partial<CourseMaterialDto> = {},
+) {
   await page.route(`${API}/courses/${ID}/levels/*/items*`, (route) => {
     const pageNumber = Number(new URL(route.request().url()).searchParams.get("page") ?? 1);
     return route.fulfill({
@@ -50,6 +60,7 @@ async function signIn(page: Page, progressCards: readonly CourseProgressCardDto[
                   scheduledCardCount: 0,
                   nextReviewAt: null,
                   progressCards,
+                  ...extras,
                 },
               ],
       },
@@ -71,6 +82,204 @@ async function signIn(page: Page, progressCards: readonly CourseProgressCardDto[
   });
 }
 test.describe("published course explorer", () => {
+  test("loads aggregate coverage on demand and groups it without more reads or writes", async ({
+    page,
+  }, info) => {
+    await signIn(page);
+    await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+    const report = buildCourseCoverage(
+      ID,
+      [
+        {
+          id: "kanji",
+          kind: "kanji",
+          level: 2,
+          band: "foundation",
+          jlpt: "N5",
+          cardIds: ["m", "r"],
+          hasRu: true,
+          hasEn: true,
+          hasReading: true,
+        },
+        {
+          id: "component",
+          kind: "component",
+          level: 1,
+          band: "foundation",
+          jlpt: null,
+          cardIds: ["c"],
+          hasRu: true,
+          hasEn: false,
+          hasReading: false,
+        },
+      ],
+      "2026-10-28T00:00:00Z",
+    );
+    let reads = 0;
+    let writes = 0;
+    page.on("request", (request) => {
+      if (request.url().startsWith(API) && request.method() !== "GET") writes++;
+    });
+    await page.route(`${API}/courses/${ID}/coverage`, (route) => {
+      reads++;
+      return route.fulfill({ json: report });
+    });
+    await page.goto(`/courses/${ID}`);
+    await expect(
+      page.getByRole("heading", { name: "Материалы уровня 1", exact: true }),
+    ).toBeVisible();
+    expect(reads).toBe(0);
+    await page.getByRole("button", { name: "Наполнение курса", exact: true }).click();
+    const table = page.getByRole("table", {
+      name: "Наполнение и пробелы учебных ответов",
+      exact: true,
+    });
+    await expect(table).toContainText("Уровень 2");
+    await page
+      .getByRole("combobox", { name: "Группировка наполнения", exact: true })
+      .selectOption("jlpt");
+    await expect(table).toContainText("N5");
+    await expect(table).toContainText("Без JLPT");
+    await page
+      .getByRole("combobox", { name: "Группировка наполнения", exact: true })
+      .selectOption("bands");
+    await expect(table).toContainText("Основы");
+    expect(reads).toBe(1);
+    expect(writes).toBe(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await captureLearnerThemes(page, info, "course-path-coverage");
+    await page.screenshot({
+      path: info.outputPath("course-path-coverage-viewport.png"),
+      animations: "disabled",
+    });
+  });
+  for (const current of [true, false]) {
+    test(`checks the next step without switching course (current: ${current})`, async ({
+      page,
+    }) => {
+      await signIn(page);
+      await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+      await page.route(`${API}/courses`, (route) =>
+        route.fulfill({ json: { currentCourseId: current ? ID : "other", courses: [] } }),
+      );
+      let reads = 0;
+      let writes = 0;
+      page.on("request", (request) => {
+        if (request.url().startsWith(API) && request.method() !== "GET") writes++;
+      });
+      await page.route(`${API}/lessons/queue`, (route) => {
+        reads++;
+        return route.fulfill({
+          json: {
+            items: [{ item: { japanese: "日" }, unlockedBy: [{ japanese: "口" }] }],
+            availableItems: [],
+            source: { kind: "course" },
+            remainingToday: 5,
+          },
+        });
+      });
+      await page.goto(`/courses/${ID}`);
+      await page.getByRole("button", { name: "Проверить следующий шаг", exact: true }).click();
+      if (current) {
+        await expect(page.getByLabel("Следующий шаг курса")).toContainText("Доступен материал: 日");
+        await expect(page.getByRole("link", { name: "К урокам", exact: true })).toHaveAttribute(
+          "href",
+          "/lessons",
+        );
+      } else
+        await expect(
+          page.getByText("Этот курс не выбран текущим.", { exact: false }),
+        ).toBeVisible();
+      expect(reads).toBe(current ? 1 : 0);
+      expect(writes).toBe(0);
+    });
+  }
+  test("retries coverage explicitly after failure without discarding the course", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+    let reads = 0;
+    await page.route(`${API}/courses/${ID}/coverage`, (route) =>
+      route.fulfill(
+        ++reads === 1
+          ? { status: 503, json: { message: "Coverage unavailable" } }
+          : { json: buildCourseCoverage(ID, [], "2026-10-28T00:00:00Z") },
+      ),
+    );
+    await page.goto(`/courses/${ID}`);
+    await page.getByRole("button", { name: "Наполнение курса", exact: true }).click();
+    await expect(page.getByText("Coverage unavailable", { exact: true })).toBeVisible();
+    expect(reads).toBe(1);
+    await expect(page.getByRole("heading", { name: "Материалы курса", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Повторить проверку наполнения", exact: true }).click();
+    await expect(page.getByRole("table")).toBeVisible();
+    expect(reads).toBe(2);
+  });
+  test("links the first unmet prerequisite and labels learning versus fallback fields", async ({
+    page,
+  }) => {
+    await signIn(page, [], {
+      readingSource: "card",
+      meaningEn: null,
+      meaningSources: { ru: "card", en: "missing" },
+      prerequisites: {
+        total: 2,
+        unmet: 1,
+        firstUnmet: {
+          itemId: "support",
+          title: "Опорный компонент",
+          requiredStage: 4,
+          minimumStage: 2,
+        },
+      },
+    });
+    await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+    await page.goto(`/courses/${ID}?level=1`);
+    await expect(page.getByText("Учебное чтение", { exact: true })).toBeVisible();
+    await expect(page.getByText("Нет значения EN", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Сначала: Опорный компонент", exact: true }),
+    ).toHaveAttribute("href", `/items/support?level=1&courseId=${ID}`);
+    await expect(page.getByText("Требуемая ступень SRS: 4", { exact: true })).toBeVisible();
+  });
+  test("ignores a late old-owner coverage 401", async ({ page }) => {
+    await signIn(page);
+    await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const pending = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    await page.route(`${API}/courses/${ID}/coverage`, async (route) => {
+      started();
+      await gate;
+      await route
+        .fulfill({ status: 401, json: { message: "Old coverage expired" } })
+        .catch(() => undefined);
+    });
+    try {
+      await page.goto(`/courses/${ID}`);
+      await page.getByRole("button", { name: "Наполнение курса", exact: true }).click();
+      await pending;
+      await changeAccount(page);
+      release();
+      await expect(
+        page.getByRole("heading", { name: "Материалы курса", exact: true }),
+      ).toBeVisible();
+      await expect(page.getByText("Old coverage expired", { exact: true })).toHaveCount(0);
+      expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe(
+        "new-owner-token",
+      );
+    } finally {
+      release();
+    }
+  });
   test("submits search and sort explicitly and restores them through history", async ({ page }) => {
     await signIn(page);
     await page.route(`${API}/courses/${ID}/outline`, (route) => route.fulfill({ json: outline }));

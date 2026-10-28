@@ -272,10 +272,18 @@ export function CourseLevelMaterials({
                     </JapaneseText>
                     {item.reading ? (
                       <span className="course-material-reading">
-                        {item.readingSource ? <small>{item.readingSource === "card" ? "Учебное чтение" : "Чтение из метаданных"}</small> : null}
+                        {item.readingSource ? (
+                          <small>
+                            {item.readingSource === "card"
+                              ? "Учебное чтение"
+                              : "Чтение из метаданных"}
+                          </small>
+                        ) : null}
                         <JapaneseText>{item.reading}</JapaneseText>
                       </span>
-                    ) : item.itemType !== "component" && item.readingSource === "missing" ? <small>Учебное чтение не выбрано</small> : null}
+                    ) : item.itemType !== "component" && item.readingSource === "missing" ? (
+                      <small>Учебное чтение не выбрано</small>
+                    ) : null}
                     <span className="course-material-meanings">
                       {displayMode !== "en" && item.meaningRu ? (
                         <span lang="ru">{item.meaningRu}</span>
@@ -283,9 +291,16 @@ export function CourseLevelMaterials({
                       {displayMode !== "ru" && item.meaningEn ? (
                         <span lang="en">{item.meaningEn}</span>
                       ) : null}
-                      {displayMode !== "en" && !item.meaningRu ? <small>Нет значения RU</small> : null}
-                      {displayMode !== "ru" && !item.meaningEn ? <small>Нет значения EN</small> : null}
-                      {((displayMode !== "en" && item.meaningSources?.ru === "target") || (displayMode !== "ru" && item.meaningSources?.en === "target")) ? <small>Значение из метаданных</small> : null}
+                      {displayMode !== "en" && !item.meaningRu ? (
+                        <small>Нет значения RU</small>
+                      ) : null}
+                      {displayMode !== "ru" && !item.meaningEn ? (
+                        <small>Нет значения EN</small>
+                      ) : null}
+                      {(displayMode !== "en" && item.meaningSources?.ru === "target") ||
+                      (displayMode !== "ru" && item.meaningSources?.en === "target") ? (
+                        <small>Значение из метаданных</small>
+                      ) : null}
                     </span>
                     <span className="muted course-material-kind">
                       {item.itemType === "component"
@@ -322,12 +337,21 @@ export function CourseLevelMaterials({
                   {item.studyState === "not-started" && item.prerequisites?.firstUnmet ? (
                     <div className="course-prerequisite">
                       <span>Опор осталось: {item.prerequisites.unmet}</span>
-                      {item.prerequisites.firstUnmet.itemId === null ? <span>{item.prerequisites.firstUnmet.title}</span> : (
-                        <Link href={courseItemHref(item.prerequisites.firstUnmet.itemId, courseId, { ...route, level: levelNumber })}>
+                      {item.prerequisites.firstUnmet.itemId === null ? (
+                        <span>{item.prerequisites.firstUnmet.title}</span>
+                      ) : (
+                        <Link
+                          href={courseItemHref(item.prerequisites.firstUnmet.itemId, courseId, {
+                            ...route,
+                            level: levelNumber,
+                          })}
+                        >
                           Сначала: {item.prerequisites.firstUnmet.title}
                         </Link>
                       )}
-                      <small>Требуемая ступень SRS: {item.prerequisites.firstUnmet.requiredStage}</small>
+                      <small>
+                        Требуемая ступень SRS: {item.prerequisites.firstUnmet.requiredStage}
+                      </small>
                     </div>
                   ) : null}
                 </li>

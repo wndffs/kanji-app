@@ -1,4 +1,8 @@
-import { type CourseOutlineDto, type CourseMaterialPageDto, type CourseCoverageDto } from "@kanji-srs/shared";
+import {
+  type CourseOutlineDto,
+  type CourseMaterialPageDto,
+  type CourseCoverageDto,
+} from "@kanji-srs/shared";
 import { invalidateDashboardSnapshot } from "./dashboard-snapshot";
 import {
   type AvailableCoursesResponse,
@@ -306,7 +310,11 @@ export function getCourseOutline(token: string, courseId: string): Promise<Cours
   return apiRequest(`/courses/${encodeURIComponent(courseId)}/outline`, { token });
 }
 
-export function getCourseCoverage(token: string, courseId: string, signal?: AbortSignal): Promise<CourseCoverageDto> {
+export function getCourseCoverage(
+  token: string,
+  courseId: string,
+  signal?: AbortSignal,
+): Promise<CourseCoverageDto> {
   return apiRequest(`/courses/${encodeURIComponent(courseId)}/coverage`, { token, signal });
 }
 

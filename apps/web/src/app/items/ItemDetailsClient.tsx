@@ -1406,9 +1406,14 @@ function ItemReadingDetails({
     return (
       <section className="panel" data-testid="kanji-reading-details">
         <h2>Чтения</h2>
-        <p className="muted">Учебное чтение относится к этой карточке кандзи. В слове возможны другое чтение и изменения звуков.</p>
+        <p className="muted">
+          Учебное чтение относится к этой карточке кандзи. В слове возможны другое чтение и
+          изменения звуков.
+        </p>
         {item.relationGroups.some((group) => group.kind === "vocabulary" && group.total > 0) ? (
-          <Link className="inline-link" href={`${studyHref}#item-related-vocabulary`}>Слова с этим кандзи</Link>
+          <Link className="inline-link" href={`${studyHref}#item-related-vocabulary`}>
+            Слова с этим кандзи
+          </Link>
         ) : null}
         <div className="reading-evidence-grid">
           <div className="content-block">
@@ -1463,9 +1468,14 @@ function ItemReadingDetails({
     return (
       <section className="panel" data-testid="word-study-details">
         <h2>Чтение и словарные сведения</h2>
-        <p className="muted">Чтение слова изучается целиком: его нельзя всегда получить сложением чтений отдельных кандзи.</p>
+        <p className="muted">
+          Чтение слова изучается целиком: его нельзя всегда получить сложением чтений отдельных
+          кандзи.
+        </p>
         {item.relationGroups.some((group) => group.kind === "kanji" && group.total > 0) ? (
-          <Link className="inline-link" href={`${studyHref}#item-related-kanji`}>Кандзи этого слова</Link>
+          <Link className="inline-link" href={`${studyHref}#item-related-kanji`}>
+            Кандзи этого слова
+          </Link>
         ) : null}
         <dl className="lesson-facts">
           {kanaReading === null ? null : (
@@ -1621,7 +1631,10 @@ function RelationGroups({
             <div className="content-block" key={group.kind} id={`item-related-${group.kind}`}>
               <h3>{formatRelationGroup(group.kind)}</h3>
               {group.kind === "components" || group.kind === "used-in-kanji" ? (
-                <p className="muted">Компонент — зрительная опора. Его условное имя не заменяет значение кандзи и не объясняет происхождение знака.</p>
+                <p className="muted">
+                  Компонент — зрительная опора. Его условное имя не заменяет значение кандзи и не
+                  объясняет происхождение знака.
+                </p>
               ) : null}
               <ItemPreviewList
                 items={group.items}

@@ -24,43 +24,91 @@ export class CourseBrowserRepository {
   async coverage(courseId: string) {
     const course = await this.prisma.db.course.findFirst({
       where: { id: courseId, status: "PUBLISHED", courseType: "STRUCTURED" },
-      select: { levels: { orderBy: { levelNumber: "asc" }, select: {
-        levelNumber: true, band: true, items: {
-          where: { learningItem: { status: "PUBLISHED" } },
-          select: { learningItem: { select: {
-            id: true, kind: true, targetId: true,
-            cards: { where: { promptType: { not: "LISTENING" } }, select: {
-              id: true, answerType: true,
-              answers: { where: { sourceKind: { in: ["CURATED", "PROJECT_AUTHORED"] } },
-                select: { locale: true, answerKind: true, text: true } },
-            } },
-          } } },
+      select: {
+        levels: {
+          orderBy: { levelNumber: "asc" },
+          select: {
+            levelNumber: true,
+            band: true,
+            items: {
+              where: { learningItem: { status: "PUBLISHED" } },
+              select: {
+                learningItem: {
+                  select: {
+                    id: true,
+                    kind: true,
+                    targetId: true,
+                    cards: {
+                      where: { promptType: { not: "LISTENING" } },
+                      select: {
+                        id: true,
+                        answerType: true,
+                        answers: {
+                          where: { sourceKind: "PROJECT_AUTHORED" },
+                          select: { locale: true, answerKind: true, text: true },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
-      } } },
+      },
     });
     if (course === null) return null;
-    const items = course.levels.flatMap((level) => level.items.map(({ learningItem }) => learningItem));
+    const items = course.levels.flatMap((level) =>
+      level.items.map(({ learningItem }) => learningItem),
+    );
     const jlpt = new Map<string, string | null>();
     for (const kind of ["KANJI", "WORD"] as const) {
-      const ids = [...new Set(items.filter((item) => item.kind === kind).map((item) => item.targetId))];
+      const ids = [
+        ...new Set(items.filter((item) => item.kind === kind).map((item) => item.targetId)),
+      ];
       if (ids.length === 0) continue;
-      const rows = kind === "KANJI"
-        ? await this.prisma.db.kanji.findMany({ where: { id: { in: ids } }, select: { id: true, jlptLevel: true } })
-        : await this.prisma.db.word.findMany({ where: { id: { in: ids } }, select: { id: true, jlptLevel: true } });
-      for (const row of rows) jlpt.set(`${kind}:${row.id}`, row.jlptLevel === null ? null : `N${row.jlptLevel}`);
+      const rows =
+        kind === "KANJI"
+          ? await this.prisma.db.kanji.findMany({
+              where: { id: { in: ids } },
+              select: { id: true, jlptLevel: true },
+            })
+          : await this.prisma.db.word.findMany({
+              where: { id: { in: ids } },
+              select: { id: true, jlptLevel: true },
+            });
+      for (const row of rows)
+        jlpt.set(`${kind}:${row.id}`, row.jlptLevel === null ? null : `N${row.jlptLevel}`);
     }
-    return buildCourseCoverage(courseId, course.levels.flatMap((level) => level.items.map(({ learningItem: item }) => {
-      const answers = item.cards.flatMap((card) => card.answers.filter((answer) => answer.answerKind === card.answerType && answer.text.trim() !== ""));
-      return {
-        id: item.id, kind: item.kind.toLowerCase() as ItemKind,
-        level: level.levelNumber, band: level.band.toLowerCase(),
-        jlpt: jlpt.get(`${item.kind}:${item.targetId}`) ?? null,
-        cardIds: item.cards.map((card) => card.id),
-        hasRu: answers.some((answer) => answer.answerKind === "MEANING" && answer.locale === "ru-RU"),
-        hasEn: answers.some((answer) => answer.answerKind === "MEANING" && answer.locale === "en-US"),
-        hasReading: answers.some((answer) => answer.answerKind === "READING"),
-      };
-    })), new Date().toISOString());
+    return buildCourseCoverage(
+      courseId,
+      course.levels.flatMap((level) =>
+        level.items.map(({ learningItem: item }) => {
+          const answers = item.cards.flatMap((card) =>
+            card.answers.filter(
+              (answer) => answer.answerKind === card.answerType && answer.text.trim() !== "",
+            ),
+          );
+          return {
+            id: item.id,
+            kind: item.kind.toLowerCase() as ItemKind,
+            level: level.levelNumber,
+            band: level.band.toLowerCase(),
+            jlpt: jlpt.get(`${item.kind}:${item.targetId}`) ?? null,
+            cardIds: item.cards.map((card) => card.id),
+            hasRu: answers.some(
+              (answer) => answer.answerKind === "MEANING" && answer.locale === "ru-RU",
+            ),
+            hasEn: answers.some(
+              (answer) => answer.answerKind === "MEANING" && answer.locale === "en-US",
+            ),
+            hasReading: answers.some((answer) => answer.answerKind === "READING"),
+          };
+        }),
+      ),
+      new Date().toISOString(),
+      course.levels.map((level) => ({ level: level.levelNumber, band: level.band.toLowerCase() })),
+    );
   }
 
   async outline(courseId: string): Promise<CourseOutlineDto | null> {
@@ -209,12 +257,20 @@ export class CourseBrowserRepository {
             .map(({ entry }) => entry)
         : indexed;
     const selected = ordered.slice((page - 1) * 30, page * 30);
-    const prerequisites = await this.prerequisiteStatus(userId, selected.map((entry) => entry.id));
+    const prerequisites = await this.prerequisiteStatus(
+      userId,
+      selected.map((entry) => entry.id),
+    );
     return {
       ids: selected.map((entry) => entry.id),
       total: indexed.length,
       summary,
-      progress: new Map(selected.map((entry) => [entry.id, { ...entry, prerequisites: prerequisites.get(entry.id)! }])),
+      progress: new Map(
+        selected.map((entry) => [
+          entry.id,
+          { ...entry, prerequisites: prerequisites.get(entry.id)! },
+        ]),
+      ),
     };
   }
 
@@ -224,28 +280,75 @@ export class CourseBrowserRepository {
     const rows = await this.prisma.db.dependency.findMany({
       where: { learningItemId: { in: [...ids] }, dependencyType: "PREREQUISITE" },
       orderBy: [{ learningItemId: "asc" }, { prerequisiteItemId: "asc" }],
-      select: { learningItemId: true, requiredStage: true, prerequisiteItem: { select: {
-        id: true, title: true, status: true, kind: true,
-        cards: { where: listeningCardEligibilityWhere, select: {
-          id: true, promptType: true, audioAsset: { include: { dataSource: true, license: true } },
-          srsStates: { where: { userId }, select: { stageIndex: true } },
-        } },
-      } } },
+      select: {
+        learningItemId: true,
+        requiredStage: true,
+        prerequisiteItem: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            kind: true,
+            cards: {
+              where: listeningCardEligibilityWhere,
+              select: {
+                id: true,
+                promptType: true,
+                audioAsset: { include: { dataSource: true, license: true } },
+                srsStates: { where: { userId }, select: { stageIndex: true } },
+              },
+            },
+          },
+        },
+      },
     });
     for (const id of ids) {
       const dependencies = rows.filter((row) => row.learningItemId === id);
       const unmet = dependencies.flatMap((row) => {
         const item = row.prerequisiteItem;
-        const cards = item.status !== "PUBLISHED" ? [] : item.cards.filter((card) =>
-          card.promptType !== "LISTENING" || isEligibleListeningAudio(card.audioAsset, item.id, item.kind.toLowerCase() as ItemKind));
+        const cards =
+          item.status !== "PUBLISHED"
+            ? []
+            : item.cards.filter(
+                (card) =>
+                  card.promptType !== "LISTENING" ||
+                  isEligibleListeningAudio(
+                    card.audioAsset,
+                    item.id,
+                    item.kind.toLowerCase() as ItemKind,
+                  ),
+              );
         const requiredStage = row.requiredStage ?? 1;
-        const stages = new Map(cards.flatMap((card) => card.srsStates[0] ? [[card.id, card.srsStates[0].stageIndex] as const] : []));
-        if (satisfiesCardPrerequisite(cards.map((card) => card.id), stages, requiredStage)) return [];
-        return [{ itemId: item.status === "PUBLISHED" ? item.id : null,
-          title: item.status === "PUBLISHED" ? item.title : "Материал пока недоступен",
-          requiredStage, minimumStage: cards.length > 0 && cards.every((card) => stages.has(card.id)) ? Math.min(...stages.values()) : null }];
+        const stages = new Map(
+          cards.flatMap((card) =>
+            card.srsStates[0] ? [[card.id, card.srsStates[0].stageIndex] as const] : [],
+          ),
+        );
+        if (
+          satisfiesCardPrerequisite(
+            cards.map((card) => card.id),
+            stages,
+            requiredStage,
+          )
+        )
+          return [];
+        return [
+          {
+            itemId: item.status === "PUBLISHED" ? item.id : null,
+            title: item.status === "PUBLISHED" ? item.title : "Материал пока недоступен",
+            requiredStage,
+            minimumStage:
+              cards.length > 0 && cards.every((card) => stages.has(card.id))
+                ? Math.min(...stages.values())
+                : null,
+          },
+        ];
       });
-      result.set(id, { total: dependencies.length, unmet: unmet.length, firstUnmet: unmet[0] ?? null });
+      result.set(id, {
+        total: dependencies.length,
+        unmet: unmet.length,
+        firstUnmet: unmet[0] ?? null,
+      });
     }
     return result;
   }

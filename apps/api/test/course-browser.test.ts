@@ -27,6 +27,7 @@ describe("read-only published syllabus", () => {
     const word = vi.fn().mockResolvedValue([]);
     const repository = new CourseBrowserRepository({
       db: {
+        dependency: { findMany: vi.fn().mockResolvedValue([]) },
         courseLevel: { findFirst: vi.fn().mockResolvedValue({ id: "level" }) },
         courseLevelItem: { findMany: vi.fn().mockResolvedValue(entries) },
         learningItem: { findMany: direct },
@@ -215,6 +216,7 @@ describe("read-only published syllabus", () => {
     const future = new Date("2099-01-01T00:00:00Z");
     const repository = new CourseBrowserRepository({
       db: {
+        dependency: { findMany: vi.fn().mockResolvedValue([]) },
         courseLevel: { findFirst: vi.fn().mockResolvedValue({ id: "level" }) },
         courseLevelItem: {
           findMany: vi
@@ -257,6 +259,7 @@ describe("read-only published syllabus", () => {
     const findMany = vi.fn().mockResolvedValue(entries);
     const repository = new CourseBrowserRepository({
       db: {
+        dependency: { findMany: vi.fn().mockResolvedValue([]) },
         courseLevel: { findFirst: vi.fn().mockResolvedValue({ id: "level" }) },
         courseLevelItem: { findMany },
       },

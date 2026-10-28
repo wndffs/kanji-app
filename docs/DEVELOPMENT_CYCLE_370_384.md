@@ -8,8 +8,8 @@ One numbered commit per task; scoped checks are batched before release.
 Published placements are already distinct from imported dictionary rows, but
 the course explorer exposes only item totals. It has no per-level/band/JLPT
 learning-answer gap report, no current-course next-step entry and no actionable
-prerequisite state. Its reading field comes from the dictionary target rather
-than the reading card. Item details already separate dictionary evidence and
+prerequisite state. Its reading field may be a target-resolved taught reading
+or dictionary fallback, without identifying which. Item details already separate dictionary evidence and
 accepted answers and already group relations; extend those rather than rebuild.
 
 The last verified publication was V4: 79 components, 101 kanji, 120 words,
@@ -22,23 +22,23 @@ snapshot; fixtures must never be presented as complete source evidence.
 
 ## Acceptance
 
-| Task | Deliverable | State |
-| --- | --- | --- |
-| 370 | Audit and bounded specification; distinguish published/imported/draft | Complete |
-| 371 | Authenticated, read-only aggregate published coverage by level/band/JLPT and RU/EN/reading gaps | Planned |
-| 372 | Current-course next step from authoritative lesson queue, honest unavailable/non-current states | Planned |
-| 373 | Bounded prerequisite details and links; all required cards/stages checked, no eligibility bypass | Planned |
-| 374 | Component/kanji relationship context and navigable study links without conflating shapes and meanings | Planned |
-| 375 | Kanji/vocabulary reinforcement with explicit taught versus dictionary reading evidence | Planned |
-| 376 | Consistent selected meaning/reading presentation in course cards, explicit missing selection | Planned |
-| 377 | Reserve existing draft07 as the next bounded wave, not another unreviewed expansion | Planned |
-| 378 | Prepare original Russian wave review notes and conservative accepted-meaning gates | Planned |
-| 379 | Matching English review notes and bilingual missing-content checks | Planned |
-| 380 | Validate kana readings and alternatives without claiming source attestation | Planned |
-| 381 | Validate independent placement/prerequisites and explicit provenance blockers | Planned |
-| 382 | Reproducible aggregate readiness CLI/report; no detailed Neon export | Planned |
-| 383 | Scoped helper/API/content/browser acceptance, responsive screenshots, types/build/lint | Planned |
-| 384 | Commit/push/version, deploy code, exact health revisions, read-only live acceptance and CI | Planned |
+| Task | Deliverable                                                                                           | State    |
+| ---- | ----------------------------------------------------------------------------------------------------- | -------- |
+| 370  | Audit and bounded specification; distinguish published/imported/draft                                 | Complete |
+| 371  | Authenticated, read-only aggregate published coverage by level/band/JLPT and RU/EN/reading gaps       | Complete |
+| 372  | Current-course next step from authoritative lesson queue, honest unavailable/non-current states       | Complete |
+| 373  | Bounded prerequisite details and links; all required cards/stages checked, no eligibility bypass      | Complete |
+| 374  | Component/kanji relationship context and navigable study links without conflating shapes and meanings | Complete |
+| 375  | Kanji/vocabulary reinforcement with explicit taught versus dictionary reading evidence                | Complete |
+| 376  | Consistent selected meaning/reading presentation in course cards, explicit missing selection          | Complete |
+| 377  | Reserve existing draft07 as the next bounded wave, not another unreviewed expansion                   | Complete |
+| 378  | Prepare original Russian wave review notes and conservative accepted-meaning gates                    | Complete |
+| 379  | Matching English review notes and bilingual missing-content checks                                    | Complete |
+| 380  | Validate kana readings and alternatives without claiming source attestation                           | Complete |
+| 381  | Validate independent placement/prerequisites and explicit provenance blockers                         | Complete |
+| 382  | Reproducible aggregate readiness CLI/report; no detailed Neon export                                  | Complete |
+| 383  | Scoped helper/API/content/browser acceptance, responsive screenshots, types/build/lint                | Complete |
+| 384  | Commit/push/version, deploy code, exact health revisions, read-only live acceptance and CI            | Planned  |
 
 ## Boundaries
 
@@ -57,3 +57,40 @@ Only explicitly requested coverage reads run, with no polling or extra reads
 per filter. Reject stale owners; preserve course navigation context where valid.
 Batch local tests and use cloud CI for broad regressions. Keep all screenshots
 outside Git; close owned browser tabs/servers and remove generated outputs.
+
+## Local Acceptance
+
+Implemented 371-382 with no database write, source download, dependency, schema
+or publication change. The report reads only published structured placements,
+non-listening cards and project-authored global answers. It contains no raw
+dictionary rows or private progress/text. Declared empty levels stay visible
+with zero counts. Coverage is loaded explicitly once per owner/course view;
+grouping does not issue requests. The same all-required-card stage predicate is
+used by lesson eligibility and prerequisite explanations, without changing it.
+
+- **108 unique relevant unit cases** passed: shared aggregates/stage predicate
+  (9), wave validation (13), API/course/lesson eligibility (57), web course/item
+  routes and reading modes (29). API/shared/DB/web types and production web build
+  passed. Touched-file ESLint and formatting passed.
+- Initial browser batch passed 45/50. Four failures were test assumptions:
+  getByLabel exact versus the actual combobox accessible name, and expecting a
+  redundant view=study in the canonical default-study URL. The fifth exposed
+  a real phone layout regression: new controls pushed the first material under
+  navigation. Coverage now follows the material list, and the unqueried next
+  step is compact. All six affected desktop/phone scenarios then passed.
+- All **50 scoped browser scenarios** have passed across the main and focused
+  runs. They cover no automatic coverage read, local grouping, explicit retry,
+  current/non-current course behavior without switching, old-owner 401,
+  prerequisites, selected/fallback fields, related course-return links, whole-word
+  reinforcement, reading concealment, bounded relation previews and existing
+  catalogue history/filter/progress behavior.
+- Local aggregate wave report passes structural checks for 9 components,
+  10 kanji, 20 word pairs, 20 examples and 69 proposed cards. Strict
+  --require-ready exits 1 as expected. Independent review, exact source
+  evidence and authorization remain blockers; reviewed/published volumes are
+  not increased by this batch.
+
+Desktop/phone light/dark coverage captures and viewport images are outside Git.
+The table scrolls within its own container on narrow screens; the document does
+not overflow. No claim of OS virtual-keyboard or live-write acceptance is made.
+The existing Vite config-loader warning is unrelated to these changes.

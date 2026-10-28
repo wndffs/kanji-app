@@ -45,17 +45,32 @@ export function buildCourseCoverage(
   courseId: string,
   rows: readonly CourseCoverageRow[],
   observedAt: string,
+  declaredLevels: readonly { readonly level: number; readonly band: string }[] = [],
 ): CourseCoverageDto {
-  const bands = [...new Set(rows.map((row) => row.band))].sort();
+  const bands = [
+    ...new Set([...rows.map((row) => row.band), ...declaredLevels.map((row) => row.band)]),
+  ].sort();
   const jlpt = [...new Set(rows.map((row) => row.jlpt ?? "unassigned"))].sort();
   return {
     courseId,
     observedAt,
     scope: "published-course-core-cards",
     total: countCourseCoverage(rows),
-    levels: [...new Set(rows.map((row) => row.level))].sort((a, b) => a - b)
-      .map((level) => ({ level, counts: countCourseCoverage(rows.filter((row) => row.level === level)) })),
-    bands: bands.map((band) => ({ band, counts: countCourseCoverage(rows.filter((row) => row.band === band)) })),
-    jlpt: jlpt.map((band) => ({ band, counts: countCourseCoverage(rows.filter((row) => (row.jlpt ?? "unassigned") === band)) })),
+    levels: [
+      ...new Set([...rows.map((row) => row.level), ...declaredLevels.map((row) => row.level)]),
+    ]
+      .sort((a, b) => a - b)
+      .map((level) => ({
+        level,
+        counts: countCourseCoverage(rows.filter((row) => row.level === level)),
+      })),
+    bands: bands.map((band) => ({
+      band,
+      counts: countCourseCoverage(rows.filter((row) => row.band === band)),
+    })),
+    jlpt: jlpt.map((band) => ({
+      band,
+      counts: countCourseCoverage(rows.filter((row) => (row.jlpt ?? "unassigned") === band)),
+    })),
   };
 }
