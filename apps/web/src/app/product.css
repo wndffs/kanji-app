@@ -1085,6 +1085,27 @@ textarea::placeholder {
   min-width: 0;
   overflow-x: auto;
 }
+.course-scope-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 12px 24px;
+  margin: 12px 0;
+}
+.course-scope-counts > div {
+  min-width: 0;
+  padding-block: 10px;
+  border-bottom: 1px solid var(--surface-border);
+}
+.course-scope-counts dt {
+  font-size: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.course-scope-counts dd {
+  margin: 4px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+}
 .course-coverage-table {
   width: 100%;
   min-width: 680px;

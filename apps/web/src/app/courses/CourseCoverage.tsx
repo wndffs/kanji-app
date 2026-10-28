@@ -75,6 +75,23 @@ export function CourseCoverage({
             Опубликованные материалы и неаудиальные карточки. Не объём словаря. JLPT — метки
             источника, не полнота экзамена.
           </p>
+          <dl className="course-scope-counts" aria-label="Учебные аспекты и метаданные">
+            {report.teachingAspects ? (
+              <>
+                <div><dt>Кандзи и слова с карточками значения и чтения</dt><dd>{report.teachingAspects.withBothCardTypes} / {report.teachingAspects.assessedItems}</dd></div>
+                <div><dt>Без карточки значения</dt><dd>{report.teachingAspects.missingMeaningCards}</dd></div>
+                <div><dt>Без карточки чтения</dt><dd>{report.teachingAspects.missingReadingCards}</dd></div>
+              </>
+            ) : null}
+            {report.jlptMetadata ? (
+              <>
+                <div><dt>Кандзи без современной метки JLPT</dt><dd>{report.jlptMetadata.kanji.unknown}</dd></div>
+                <div><dt>Слова без современной метки JLPT</dt><dd>{report.jlptMetadata.words.unknown}</dd></div>
+                <div><dt>Покрытие экзамена N4–N3</dt><dd>Не подтверждено</dd></div>
+              </>
+            ) : null}
+          </dl>
+          <a href="https://www.jlpt.jp/e/about/levelsummary.html" target="_blank" rel="noreferrer">Требования JLPT</a>
           <label className="course-level-select">
             Группировка наполнения{" "}
             <select
