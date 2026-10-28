@@ -15,6 +15,8 @@ import {
   type CourseBrowserRoute,
 } from "../../lib/course-browser-route";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
+import { CourseNextStep } from "./CourseNextStep";
+import { CourseCoverage } from "./CourseCoverage";
 
 export function CourseExplorer({ courseId }: { readonly courseId: string }) {
   const session = useStoredSession();
@@ -116,6 +118,8 @@ function OwnedCourseExplorer({
             <p>В курсе пока нет уровней.</p>
           ) : (
             <>
+              <CourseNextStep token={token} courseId={courseId}/>
+              <CourseCoverage token={token} courseId={courseId}/>
               {route === null ? null : (
                 <>
                   <div className="course-level-toolbar">
