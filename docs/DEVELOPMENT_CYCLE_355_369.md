@@ -32,7 +32,7 @@ and listening concealment already work and must be preserved, not rebuilt.
 | 366 | Responsive controls         | Compact lobby, long feedback fit, phone/small-height answer and continuation controls                   | Complete |
 | 367 | Confirmed completion        | Opening/resuming is read-only; explicit finish checkpoint after all work, honest summary/next route     | Complete |
 | 368 | Batched acceptance          | Scoped helpers/API/browser tests, build/types, touched lint/format and both-theme screenshots           | Complete |
-| 369 | Release                     | Commit/push/tag, exact health revisions, read-only real review entry, CI, cleanup                       | Planned  |
+| 369 | Release                     | Commit/push/tag, exact health revisions, read-only real review entry, CI, cleanup                       | Complete |
 
 ## Boundaries
 
@@ -141,14 +141,26 @@ changed assertion; it is not counted as a clean run. Production build/types,
 the changed integration file's ESLint and Prettier passed. The test-only repair
 is released under `cycle-355-369-reviews.1`; the original tag is not moved.
 
-## Release Candidate
+## Completed Release
 
-Code acceptance commit: `19d58c0e1229fd39ceda44cc667d72406576b0fe`.
-Release tag: `cycle-355-369-reviews`. Push the 15 numbered commits together
-through the existing GitHub/Vercel/Render integrations. Verify the exact web
-and API revisions, cloud CI and real read-only review entry. Opening/resuming
-must not start, answer, correct or finish a live session. Do not change the
-account's settings to manufacture a particular acceptance state.
+All 355-369 are complete, individually committed and pushed, with one additional
+test-only CI repair. Original runtime tag: `cycle-355-369-reviews`. Final patch
+tag: `cycle-355-369-reviews.1`, commit
+`3ff02fc097012350f3eecf505a0fefc66a8b9e70`.
 
-No schema operation, seed, course publication or Neon content change is part
-of this release. Next batch is 370-384; none of those tasks has started.
+[CI 40710885018](https://github.com/wndffs/kanji-app/actions/runs/40710885018)
+succeeded. Quality job 122895514834 passed. Web smoke job 122897228027 ran 454
+cases: **453 passed, one skipped, zero failed** in 3.0 minutes. Both Study
+integrity runs 40710886706 and 40710885294 succeeded. The original failed CI run
+40708902912 is superseded by this verified successful run, not concealed.
+
+The runtime remains `b97f57b0a2e5b4d0d28bde69e51610d8869e6ae9` on web and API.
+The patch changes only the integration test and this report; Vercel explicitly
+reported `Canceled by Ignored Build Step`, and Render's existing ignoredPaths
+also excludes those files. No extra deployment is needed to apply the tested
+runtime code. The final report-only commit does not move either tag or replace
+the checked runtime revision.
+
+No owned server/test process, temporary browser tab or cycle build/test output
+remains. Screenshots are preserved outside Git. No Neon data, private content,
+account, progress, dependency or license boundary changed. Next task is **370**.

@@ -36,9 +36,11 @@ rather than destroying it to expose the lobby. The review batch follows below.
 
 ## 355-369: Review Workspace
 
-Current specification: `DEVELOPMENT_CYCLE_355_369.md`. Tasks 355-368 are complete
-with scoped batched acceptance. Task 369 is the release checkpoint, awaiting
-deployment and server/CI verification. No task 370-399 has started.
+Checkpoint: **355-369 complete and released**. Evidence and the test-only patch
+tag `cycle-355-369-reviews.1` are in `DEVELOPMENT_CYCLE_355_369.md`. Runtime
+`b97f57b` was verified on web/API and through real read-only queue browsing;
+the patch does not change runtime code. CI 40710885018 passed 453 browser cases
+with one skip. The remaining 30 tasks start at **370-384**; none has started.
 
 | ID  | Planned Outcome                                                            |
 | --- | -------------------------------------------------------------------------- |
