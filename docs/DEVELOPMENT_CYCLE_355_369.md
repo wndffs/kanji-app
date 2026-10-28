@@ -91,3 +91,27 @@ viewport; viewport images and bounds check actual fit. Short-height tests use a
 480px viewport, not a real OS virtual keyboard. No claim of physical-keyboard
 or device-keyboard acceptance is made. Owned test servers exited after each run.
 No competitor content/assets or educational dataset was introduced.
+
+## Release Candidate
+
+Code acceptance commit: `19d58c0e1229fd39ceda44cc667d72406576b0fe`.
+Release tag: `cycle-355-369-reviews`. Push the 15 numbered commits together
+through the existing GitHub/Vercel/Render integrations. Verify the exact web
+and API revisions, cloud CI and real read-only review entry. Opening/resuming
+must not start, answer, correct or finish a live session. Do not change the
+account's settings to manufacture a particular acceptance state.
+
+No schema operation, seed, course publication or Neon content change is part
+of this release. Next batch is 370-384; none of those tasks has started.
+
+## Release Candidate
+
+Code acceptance commit: `19d58c0e1229fd39ceda44cc667d72406576b0fe`.
+Release tag: `cycle-355-369-reviews`. Push the 15 numbered commits together
+through the existing GitHub/Vercel/Render integrations. Verify the exact web
+and API revisions, cloud CI and real read-only review entry. Opening/resuming
+must not start, answer, correct or finish a live session. Do not change the
+account's settings to manufacture a particular acceptance state.
+
+No schema operation, seed, course publication or Neon content change is part
+of this release. Next batch is 370-384; none of those tasks has started.

@@ -14,8 +14,7 @@ Detailed acceptance: `DEVELOPMENT_CYCLE_340_354.md`.
 Checkpoint: **340-354 complete and released** as `cycle-340-354-lessons`.
 Runtime/server/CI evidence lives in the cycle document. The live profile had an
 unfinished lesson, so acceptance verified safe resume without changing progress
-rather than destroying it to expose the lobby. No 355-399 task has started;
-the remaining 45 tasks begin with the now-authorized review batch **355-369**.
+rather than destroying it to expose the lobby. The review batch follows below.
 
 | ID  | Planned Outcome                                                            |
 | --- | -------------------------------------------------------------------------- |
@@ -37,8 +36,9 @@ the remaining 45 tasks begin with the now-authorized review batch **355-369**.
 
 ## 355-369: Review Workspace
 
-Current specification: `DEVELOPMENT_CYCLE_355_369.md`. Task 355 validated the
-existing implementation; 356-369 are the active batch, not completed claims.
+Current specification: `DEVELOPMENT_CYCLE_355_369.md`. Tasks 355-368 are complete
+with scoped batched acceptance. Task 369 is the release checkpoint, awaiting
+deployment and server/CI verification. No task 370-399 has started.
 
 | ID  | Planned Outcome                                                            |
 | --- | -------------------------------------------------------------------------- |
