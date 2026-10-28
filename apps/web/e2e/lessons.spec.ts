@@ -70,10 +70,20 @@ test.describe("lesson session", () => {
       const level = document.querySelectorAll<HTMLSelectElement>(
         ".lesson-picker-filters select",
       )[1]!;
-      kind.value = "word";
-      kind.dispatchEvent(new Event("change", { bubbles: true }));
-      level.value = "2";
-      level.dispatchEvent(new Event("change", { bubbles: true }));
+      for (let attempt = 0; attempt < 12; attempt++) {
+        for (const [select, value] of [
+          [kind, "all"],
+          [level, "all"],
+          [kind, "word"],
+          [level, "2"],
+        ] as const) {
+          select.value = value;
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        const params = new URLSearchParams(location.search);
+        if (params.get("kind") !== "word" || params.get("level") !== "2")
+          throw new Error("Rapid filter intent was lost");
+      }
     });
     await expect(page).toHaveURL(/kind=word&level=2/u);
     await expect(page.getByRole("combobox", { name: "Тип материала", exact: true })).toHaveValue(

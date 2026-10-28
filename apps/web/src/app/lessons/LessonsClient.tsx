@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { nextTabIndex } from "../../lib/tab-navigation";
 import { lessonReturnHref } from "../../lib/learning-return";
 import { Volume2, Check, ChevronLeft, ChevronRight, X } from "lucide-react";
@@ -13,7 +13,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useTransition,
 } from "react";
 
 import {
@@ -1317,29 +1316,19 @@ function LessonPicker({
   readonly disabled: boolean;
 }) {
   const selectedCount = selectedItemIds.size;
-  const router = useRouter();
   const params = useSearchParams();
-  const confirmed = useMemo(() => parseLessonBrowser(params), [params]);
-  const [navigating, startNavigation] = useTransition();
-  const [optimistic, setOptimistic] = useState(confirmed);
-  const latest = useRef(confirmed);
-  const browse = navigating ? optimistic : confirmed;
-  useEffect(() => {
-    if (!navigating) latest.current = confirmed;
-  }, [confirmed, navigating]);
+  const browse = useMemo(() => parseLessonBrowser(params), [params]);
   function navigate(patch: Partial<LessonBrowserRoute>, replace = false) {
-    const next = mergeLessonBrowser(latest.current, patch);
-    latest.current = next;
-    setOptimistic(next);
+    // History is synchronous, so a second change merges the first even before React renders.
+    const currentParams = new URLSearchParams(window.location.search);
+    const next = mergeLessonBrowser(parseLessonBrowser(currentParams), patch);
     const href = lessonBrowserHref(
-      parseLessonSource(params).deckId,
+      parseLessonSource(currentParams).deckId,
       next,
-      lessonReturnHref(params),
+      lessonReturnHref(currentParams),
     );
-    startNavigation(() => {
-      if (replace) router.replace(href, { scroll: false });
-      else router.push(href, { scroll: false });
-    });
+    if (replace) window.history.replaceState(null, "", href);
+    else window.history.pushState(null, "", href);
   }
   const matchingItems = filterLessonBrowser(availableItems, browse, selectedItemIds);
   const pageCount = Math.max(1, Math.ceil(matchingItems.length / LESSON_PICKER_PAGE_SIZE));

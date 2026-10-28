@@ -119,3 +119,78 @@ The PUBLISHED course/item gates, authentication and private GOAL exclusion
 remain intact. No course type/status or enrollment is written to Neon.
 Tag `cycle-385-399-journeys.1` contains this release repair; the original tag
 is retained. Verify its exact runtime before claiming live acceptance.
+
+The repair passed 13 directly affected API units, API types and changed-file
+lint/format. Both health endpoints returned patch revision
+`f3778833d9c0be7663820b76fe05b2e54e50e91d` before final measurements.
+
+## Post-Release Measurements
+
+Two local Node smoke attempts failed on the public web-health TCP connection
+before authentication. Separate default/IPv4 diagnostics returned
+`UND_ERR_CONNECT_TIMEOUT`.
+No credentials or learning data were sent by those failed attempts. Browser and
+PowerShell HTTPS worked. No VPN, proxy, certificate or firewall setting was
+changed. A temporary bounded PowerShell/.NET check verified both exact revisions,
+readiness and existing-account login, then made exactly three GET samples per
+route. It was removed after use; only numeric aggregates are kept here.
+
+| Route      | HTTP ms (PowerShell/.NET) | Median HTTP | Handler ms          |
+| ---------- | ------------------------- | ----------- | ------------------- |
+| dashboard  | 1407, 689, 777            | 777         | 915.7, 189.0, 197.1 |
+| lessons    | 1097, 724, 588            | 724         | 457.7, 117.8, 112.9 |
+| reviews    | 539, 533, 522             | 533         | 38.3, 25.1, 19.7    |
+| characters | 3586, 578, 676            | 676         | Not instrumented    |
+| item       | 844, 902, 839             | 844         | Not instrumented    |
+
+Dashboard handler median was 197.1ms versus baseline 298.9ms. This is an observed
+three-sample small-account result, not a causal guarantee or full-size N2 load
+claim. HTTP totals are not comparable to the Node baseline because transport
+changed. The first characters sample exceeded 2000ms; all second/third samples
+met the existing warm budget. Response sizes remained 6305/12799/1265/58703/12342
+bytes respectively. Queue timings contain only numeric allowlisted phases.
+
+## Live Journey
+
+Real IAB verified that the published demo outline, materials and coverage now
+load. Its next-step link preserved course/level context; opening the existing
+unfinished lesson showed the same reading stage and a `К курсу` link, which
+returned to the original level. No lesson start/progress/answer/finish, preference,
+enrollment or course-switch action was submitted. Completion/failure/owner-race
+and mobile/theme behavior are controlled browser tests, not live write claims.
+The legacy demo report has seven items/eleven core cards and one sentence without
+a selected reading; this is separate from V4 and not silently repaired content.
+
+The existing V4 aggregate report still showed 300 items: 79 components, 101
+kanji, 120 word pairs and 521 core cards, with zero selected RU/EN/reading field
+gaps. This confirms presence, not independent pedagogical quality or N2 coverage.
+No new content wave was published. All live inspection tabs were closed after
+preserving screenshots; local servers and temporary measurement/build/test files
+were removed. Only the intentional source, tests and aggregate reports remain.
+
+Changed areas: lesson navigation/focus/completion, course material previews and
+read lifecycle, shell translation settings and preference hooks, API client and
+outline snapshot, dashboard orchestration and queue timing, and published course
+read predicates. Prisma/schema/data, SRS scheduling and answer grading are
+unchanged. No dependency or license/source inventory changes were needed.
+
+Initial release CI 40728717759 succeeded: Quality 122958886012; Web smoke
+122960529340, 479 passed/one skipped in 4.4 minutes. Live screenshots are outside Git.
+
+## Rapid Filter Repair
+
+Patch CI 40730438870 initially passed Quality and 478 browser cases, but Chromium
+segfaulted before creating the installation test's context. A targeted rerun of
+Web smoke (without debug logs or changed assertions) exposed a real intermittent
+lesson-filter race: an old transition effect could overwrite the latest partial
+filter intent between two changes. The second run again passed 478 cases, but
+failed the strict same-turn filter assertion. Neither result is reported green.
+
+Lesson filters now use Next's existing native-history integration, already used
+by the course catalogue. Each merge reads the synchronously updated URL, with
+no RSC navigation/transition effect that can restore stale filters. Back/reload,
+source, safe return context, selection and grading are unchanged. The regression
+now repeats twelve sequences of four immediate changes and checks every merged
+URL; all eight focused desktop/phone navigation/completion cases passed, along
+with 13 relevant units, lint and production build/types. Patch tag:
+`cycle-385-399-journeys.2`; earlier tags remain unchanged. Final CI is required.
