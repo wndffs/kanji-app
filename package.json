@@ -22,6 +22,7 @@
     "content:quality": "npm run prisma:report-content-quality --workspace @kanji-srs/db --",
     "content:inventory": "npm run prisma:report-editorial-registry --workspace @kanji-srs/db --",
     "content:drafts:evidence": "npm run prisma:report-editorial-draft-evidence --workspace @kanji-srs/db --",
+    "content:drafts:local": "tsx scripts/inspect-local-draft-sources.mts",
     "content:drafts:preview": "npm run prisma:preview-editorial-drafts --workspace @kanji-srs/db --",
     "content:coverage": "npm run prisma:report-editorial-coverage --workspace @kanji-srs/db --",
     "content:wave": "npm run prisma:report-editorial-wave --workspace @kanji-srs/db --",

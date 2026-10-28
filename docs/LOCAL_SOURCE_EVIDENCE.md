@@ -25,3 +25,11 @@ not the web/API runtime. No external DTD/entity is fetched. Only bounded literal
 internal entities are expanded; malformed XML, excessive depth/records/text,
 unexpected roots, cancellation and changed-file hashes fail closed. Existing
 dictionary parsers handle selected candidate records, not a second import path.
+
+Run `npm run content:drafts:local -- --snapshot-dir ABSOLUTE_DIRECTORY`.
+The default stdout is aggregate counts only. `--report ABSOLUTE_EXTERNAL_FILE`
+creates an exclusive local detailed report (never overwrites); its directory
+must already exist and resolve outside the repository. `--require-complete`
+exits 2 for missing/ambiguous/nonbilingual evidence, but even exit 0 is not
+publication readiness. `--help` does no I/O. No environment credentials are
+read. Tool modules use explicit `.mts` ESM, not a package-wide module change.
