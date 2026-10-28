@@ -1,7 +1,7 @@
 # Product Roadmap 340-399
 
 Baseline: `f57802f`. The next 60 task numbers are reserved below. The current
-request authorizes implementation of **340-354 only**, with one task commit,
+request authorizes implementation of **355-369 only**, with one task commit,
 batched checks, checkpoint push, deployment and server acceptance. Future
 batches are plans, not claims of completed work. Revalidate each against the
 then-current application before implementation; replace already-solved gaps
@@ -15,7 +15,7 @@ Checkpoint: **340-354 complete and released** as `cycle-340-354-lessons`.
 Runtime/server/CI evidence lives in the cycle document. The live profile had an
 unfinished lesson, so acceptance verified safe resume without changing progress
 rather than destroying it to expose the lobby. No 355-399 task has started;
-the remaining 45 tasks begin with the review batch **355-369**.
+the remaining 45 tasks begin with the now-authorized review batch **355-369**.
 
 | ID  | Planned Outcome                                                            |
 | --- | -------------------------------------------------------------------------- |
@@ -36,6 +36,9 @@ the remaining 45 tasks begin with the review batch **355-369**.
 | 354 | Version, push, deploy, exact revision and real lesson-entry inspection     |
 
 ## 355-369: Review Workspace
+
+Current specification: `DEVELOPMENT_CYCLE_355_369.md`. Task 355 validated the
+existing implementation; 356-369 are the active batch, not completed claims.
 
 | ID  | Planned Outcome                                                            |
 | --- | -------------------------------------------------------------------------- |
