@@ -114,6 +114,9 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
   const [isContinuing, setIsContinuing] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const readBusy = useRef(false);
   const [listeningEvidence, setListeningEvidence] = useState<ListeningPlaybackEvidenceDto>({
     completed: false,
     playCount: 0,
@@ -129,7 +132,9 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
   const continuePending = useRef(false);
   const ownsWorkspace = (token: string) => mounted.current && ownsSession(token);
 
-  const loadQueue = useCallback(async () => {
+  const loadQueue = useCallback(async (preserve = false) => {
+    if (preserve && readBusy.current) return;
+    readBusy.current = true;
     const revision = ++requestRevision.current;
     readRequest.current?.abort();
     const controller = new AbortController();
@@ -137,11 +142,15 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
     const storedSession = readStoredSession();
 
     if (storedSession === null) {
+      readBusy.current = false;
       setQueueState({ status: "unauthenticated" });
       return;
     }
     const isCurrent = () => !controller.signal.aborted && revision === requestRevision.current && ownsSession(storedSession.token);
+    setIsRefreshing(true);
+    setReadError(null);
 
+    if (!preserve) {
     setQueueState({ status: "loading" });
     setSession(null);
     setCurrentIndex(0);
@@ -155,6 +164,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
     setScheduledOffset(0);
     setFormError(null);
     setSessionError(null);
+    }
 
     try {
       const [queue, savedActive] = await Promise.all([
@@ -201,11 +211,18 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
         return;
       }
 
+      if (preserve) {
+        setReadError(error instanceof Error ? error.message : "Не удалось обновить очередь.");
+        return;
+      }
+
       setQueueState({
         status: "error",
         message:
           error instanceof Error ? error.message : "Не удалось загрузить очередь повторений.",
       });
+    } finally {
+      if (isCurrent()) { readBusy.current = false; setIsRefreshing(false); }
     }
   }, []);
 
@@ -261,7 +278,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
   useEffect(() => { continuePending.current = false; }, [feedback, currentIndex, isCorrecting]);
 
   async function handleStartSession(): Promise<void> {
-    if (queueState.status !== "ready" || queueState.queue.length === 0 || startPending.current || orderPending.current || queueState.vacationStartedAt !== null) {
+    if (queueState.status !== "ready" || queueState.queue.length === 0 || startPending.current || orderPending.current || readBusy.current || queueState.vacationStartedAt !== null) {
       return;
     }
 
@@ -299,7 +316,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
   }
 
   async function handleOrderModeChange(nextMode: ReviewOrderMode): Promise<void> {
-    if (queueState.status !== "ready" || orderPending.current || startPending.current || nextMode === queueState.orderMode) {
+    if (queueState.status !== "ready" || orderPending.current || startPending.current || readBusy.current || nextMode === queueState.orderMode) {
       return;
     }
 
@@ -511,7 +528,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           <p>Очередь сейчас недоступна.</p>
         </div>
         <div className="notice-panel error-panel">
-          <p>{queueState.message}</p>
+          <p role="alert">{queueState.message}</p>
           <button className="secondary-action" onClick={() => void loadQueue()} type="button">
             Повторить загрузку
           </button>
@@ -631,7 +648,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           <div className="review-heading-actions">
             <button
               className="primary-action"
-              disabled={isStarting || isSavingOrderMode}
+              disabled={isStarting || isSavingOrderMode || isRefreshing}
               onClick={() => void handleStartSession()}
               type="button"
             >
@@ -640,12 +657,14 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           </div>
         </div>
         {sessionError === null ? null : <p className="form-error">{sessionError}</p>}
+        {readError === null ? null : <p className="form-error" role="alert">{readError}</p>}
+        <button className="link-button review-refresh" type="button" disabled={isRefreshing || isStarting || isSavingOrderMode} onClick={() => void loadQueue(true)}>{isRefreshing ? "Обновляю…" : "Обновить очередь"}</button>
         <ReviewQueueOverview queue={queueState.queue} />
         <SectionDisclosure title="Параметры повторения">
           <label className="review-order-picker">
             <span>Порядок карточек</span>
             <select
-              disabled={isSavingOrderMode}
+              disabled={isSavingOrderMode || isStarting || isRefreshing}
               onChange={(event) =>
                 void handleOrderModeChange(event.currentTarget.value as ReviewOrderMode)
               }
