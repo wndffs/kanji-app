@@ -766,6 +766,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               readingCards={readingCards}
               kanaReading={reading.kana}
               hideReadings={hideReadingAnswers}
+              studyHref={itemViewHref(pathname, new URLSearchParams(searchParams), "study")}
             />
 
             <section className="panel item-study-memory">
@@ -1378,12 +1379,14 @@ function ItemReadingDetails({
   readingCards,
   kanaReading,
   hideReadings,
+  studyHref,
 }: {
   readonly displayMode: TranslationDisplayMode;
   readonly item: ItemDetails;
   readonly readingCards: readonly LearningCardDto[];
   readonly kanaReading: string | null;
   readonly hideReadings: boolean;
+  readonly studyHref: string;
 }) {
   if (item.kanjiDetails !== null) {
     if (hideReadings)
@@ -1403,6 +1406,10 @@ function ItemReadingDetails({
     return (
       <section className="panel" data-testid="kanji-reading-details">
         <h2>Чтения</h2>
+        <p className="muted">Учебное чтение относится к этой карточке кандзи. В слове возможны другое чтение и изменения звуков.</p>
+        {item.relationGroups.some((group) => group.kind === "vocabulary" && group.total > 0) ? (
+          <Link className="inline-link" href={`${studyHref}#item-related-vocabulary`}>Слова с этим кандзи</Link>
+        ) : null}
         <div className="reading-evidence-grid">
           <div className="content-block">
             <h3>Основное учебное чтение</h3>
@@ -1456,6 +1463,10 @@ function ItemReadingDetails({
     return (
       <section className="panel" data-testid="word-study-details">
         <h2>Чтение и словарные сведения</h2>
+        <p className="muted">Чтение слова изучается целиком: его нельзя всегда получить сложением чтений отдельных кандзи.</p>
+        {item.relationGroups.some((group) => group.kind === "kanji" && group.total > 0) ? (
+          <Link className="inline-link" href={`${studyHref}#item-related-kanji`}>Кандзи этого слова</Link>
+        ) : null}
         <dl className="lesson-facts">
           {kanaReading === null ? null : (
             <div>
