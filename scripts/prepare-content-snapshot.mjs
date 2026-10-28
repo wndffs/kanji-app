@@ -7,6 +7,7 @@ import { pipeline } from "node:stream/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 import { createGunzip } from "node:zlib";
+import { homedir } from "node:os";
 
 const SNAPSHOT_VERSION_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/iu;
@@ -62,11 +63,13 @@ export function buildContentSources(options = {}) {
 
 export async function prepareContentSnapshot(options, dependencies = {}) {
   const snapshotVersion = validateSnapshotVersion(options.snapshotVersion);
-  const cacheRoot = resolve(options.cacheRoot ?? ".cache/content-sources");
+  const cacheRoot = resolve(options.cacheRoot ?? process.env.KANJI_CONTENT_CACHE ?? join(homedir(), ".cache", "kanji-srs", "content-sources"));
   const snapshotDir = join(cacheRoot, snapshotVersion);
   const manifestPath = join(snapshotDir, "manifest.json");
   const sources = options.sources ?? buildContentSources(options);
-  const downloadArchive = dependencies.downloadArchive ?? downloadArchiveWithRetries;
+  const downloadArchive = options.offline
+    ? async () => { throw new Error("Offline source cache is incomplete or does not match its manifest."); }
+    : dependencies.downloadArchive ?? downloadArchiveWithRetries;
   const now = dependencies.now ?? (() => new Date());
 
   await mkdir(snapshotDir, { recursive: true });
@@ -369,6 +372,7 @@ function parseArguments(args) {
 
   for (let index = 0; index < args.length; index += 1) {
     const flag = args[index];
+    if (flag === "--offline") { values.set(flag, true); continue; }
     const value = args[index + 1];
 
     if (!flag.startsWith("--") || value === undefined || value.startsWith("--")) {
@@ -382,6 +386,7 @@ function parseArguments(args) {
   const knownFlags = new Set([
     "--snapshot-version",
     "--cache-root",
+    "--offline",
     "--github-env",
     "--jmdict-url",
     "--kanjidic2-url",
@@ -401,6 +406,7 @@ function parseArguments(args) {
   return {
     snapshotVersion: values.get("--snapshot-version"),
     cacheRoot: values.get("--cache-root"),
+    offline: values.get("--offline") === true,
     githubEnvPath: values.get("--github-env"),
     jmdictUrl: values.get("--jmdict-url"),
     kanjidic2Url: values.get("--kanjidic2-url"),
