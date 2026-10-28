@@ -107,3 +107,47 @@ save preferences or publish draft07 to manufacture acceptance states.
 
 The wave CLI and review notes are development artifacts only. No source IDs,
 course content, account state or Neon data are published by this release.
+
+## Server Acceptance
+
+On 2026-10-28 both public health endpoints returned
+`0be79ef135fc52c613060965bdf5879b8858a1b0`; Vercel reported deployment success.
+The API health request took longer to return but completed successfully. This
+single observation is not an attribution of delay to a query or cold start.
+
+The real authenticated IAB session opened the published V4 course without
+enrolling or switching from the existing starter course. Its on-demand report
+confirmed **300 items: 79 components, 101 kanji, 120 words and 521 non-listening
+cards across seven levels**. Missing selected RU answers: 0; EN: 0; reading
+answers where applicable: 0. These are field-presence counts, not independent
+pedagogical approval or proof of full N2 coverage.
+
+JLPT grouping exposed sparse source metadata: N5 labels on two kanji and one
+word; no stored JLPT on 99 kanji and 119 words. The 79 components are also in
+the unassigned bucket. This does not mean those words/kanji are outside JLPT or
+that other bands have been fully covered. Future content audits must account
+for these unknown labels rather than filling them from guesses.
+
+The next-step read correctly reported that V4 was not the current course and
+did not offer to start its lessons or switch it. Level two showed selected
+readings and real unsatisfied predecessor links/stage requirements. Opening a
+component preserved the course/level return link; returning restored level two.
+No enrollment, course switch, preference save, lesson/review action, import,
+seed or content publication was submitted. No horizontal overflow was observed
+in the live report. Current-course positive and phone/theme acceptance are
+controlled local browser cases, not claims of live writes or live-mobile tests.
+
+The live aggregate screenshot is outside Git at
+`cycle-370-384/live-coverage.png` in the task visualization directory. The
+temporary IAB tab is closed; owned local servers exited and cycle-specific
+build/test output was removed after preserving final screenshots.
+
+## Cross-Platform Layout Repair
+
+Initial cloud CI 40718876986 passed Quality and 468 browser cases with one
+skip, but the Linux phone first-material boundary still failed by 22px. The
+optional next-step check now follows the material list, before coverage, rather
+than spending first-viewport space above it. The strict geometry assertion was
+not relaxed. Production build/types, targeted lint/format and all eight focused
+desktop/phone next-step/coverage/paging cases passed after this repair.
+Patch tag: `cycle-370-384-course-path.1`; the original tag is not moved.

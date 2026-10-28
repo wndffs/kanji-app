@@ -118,7 +118,6 @@ function OwnedCourseExplorer({
             <p>В курсе пока нет уровней.</p>
           ) : (
             <>
-              <CourseNextStep token={token} courseId={courseId} />
               {route === null ? null : (
                 <>
                   <div className="course-level-toolbar">
@@ -187,6 +186,7 @@ function OwnedCourseExplorer({
                   )}
                 </>
               )}
+              <CourseNextStep token={token} courseId={courseId} />
               <CourseCoverage token={token} courseId={courseId} />
               <SectionDisclosure title="Все уровни">
                 <ol className="course-outline" aria-label="Уровни курса">
