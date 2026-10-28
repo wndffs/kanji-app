@@ -5,12 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Volume2 } from "lucide-react";
 import { type ReviewQueueItem } from "@kanji-srs/shared";
 import { JapaneseText } from "./JapaneseText";
-import { DEFAULT_REVIEW_BROWSER, REVIEW_PREVIEW_PAGE_SIZE, filterReviewPreview, mergeReviewBrowser, parseReviewBrowser, reviewBrowserHref, reviewPromptKind, type ReviewBrowserRoute } from "../lib/review-workspace";
+import { DEFAULT_REVIEW_BROWSER, REVIEW_PREVIEW_PAGE_SIZE, filterReviewPreview, formatReviewDueAt, mergeReviewBrowser, parseReviewBrowser, reviewBrowserHref, reviewPromptKind, type ReviewBrowserRoute } from "../lib/review-workspace";
 
 const KINDS = { component: "Компонент", kanji: "Кандзи", word: "Слово", sentence: "Предложение" } as const;
 const PROMPTS = { meaning: "Значение", reading: "Чтение", listening: "Аудирование" } as const;
 
-export function ReviewQueueBrowser({ queue, disabled }: { readonly queue: readonly ReviewQueueItem[]; readonly disabled: boolean }) {
+export function ReviewQueueBrowser({ queue, disabled, timezone }: { readonly queue: readonly ReviewQueueItem[]; readonly disabled: boolean; readonly timezone: string }) {
   const router = useRouter(); const params = useSearchParams();
   const confirmed = useMemo(() => parseReviewBrowser(params), [params]);
   const [pending, startTransition] = useTransition(); const [optimistic, setOptimistic] = useState(confirmed); const latest = useRef(confirmed);
@@ -36,6 +36,7 @@ export function ReviewQueueBrowser({ queue, disabled }: { readonly queue: readon
       <div className="review-queue-grid">{matching.slice((page - 1) * REVIEW_PREVIEW_PAGE_SIZE, page * REVIEW_PREVIEW_PAGE_SIZE).map((row) => <article className="review-queue-card" key={row.card.id} data-item-type={row.item.itemType}>
         <div><span className="eyebrow">{KINDS[row.item.itemType]}</span>{reviewPromptKind(row) === "listening" ? <strong className="audio-queue-label"><Volume2 size={20} aria-hidden="true" />Аудио</strong> : <JapaneseText as="strong">{row.item.japanese}</JapaneseText>}</div>
         <span>{PROMPTS[reviewPromptKind(row)]}</span>
+        <time dateTime={row.dueAt}>{formatReviewDueAt(row.dueAt, timezone)}</time>
       </article>)}</div>
       {pageCount <= 1 ? null : <nav className="review-preview-pages" aria-label="Страницы очереди"><button className="icon-button" type="button" title="Предыдущая страница" aria-label="Предыдущая страница очереди" disabled={page === 1} onClick={() => navigate({ page: page - 1 })}><ChevronLeft size={18} aria-hidden="true" /></button><span>{page} / {pageCount}</span><button className="icon-button" type="button" title="Следующая страница" aria-label="Следующая страница очереди" disabled={page === pageCount} onClick={() => navigate({ page: page + 1 })}><ChevronRight size={18} aria-hidden="true" /></button></nav>}
     </fieldset>

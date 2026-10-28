@@ -60,7 +60,7 @@ import { formatReviewOrderMode, formatSrsStageName } from "../../lib/dashboard-f
 import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
-import { pendingReviewCorrections, summarizeReviewQueue } from "../../lib/review-workspace";
+import { formatReviewDueAt, pendingReviewCorrections, reviewTimezone, summarizeReviewQueue } from "../../lib/review-workspace";
 
 type QueueState =
   | { readonly status: "checking" }
@@ -90,7 +90,7 @@ const INITIAL_PROGRESS: ReviewProgress = {
 export function ReviewsClient() {
   const account = useStoredSession();
   if (account === undefined) return <section className="page-stack" aria-busy="true"><h1>Повторения</h1></section>;
-  return <ReviewsScreen key={account === null ? "guest" : `${account.user.id}:${account.token}`} timezone={account?.user.settings.timezone ?? "UTC"} />;
+  return <ReviewsScreen key={account === null ? "guest" : `${account.user.id}:${account.token}`} timezone={reviewTimezone(account?.user.settings.timezone ?? "UTC")} />;
 }
 
 function ReviewsScreen({ timezone }: { readonly timezone: string }) {
@@ -682,7 +682,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           </label>
         </SectionDisclosure>
         <SectionDisclosure title="Состав очереди">
-          <ReviewQueueBrowser queue={queueState.queue} disabled={isStarting || isSavingOrderMode || isRefreshing} />
+          <ReviewQueueBrowser queue={queueState.queue} disabled={isStarting || isSavingOrderMode || isRefreshing} timezone={timezone} />
         </SectionDisclosure>
         <div className="review-lobby-actions"><span>К сессии: {queueState.queue.length} карточек</span><button className="primary-action" type="button" disabled={isStarting || isSavingOrderMode || isRefreshing} onClick={() => void handleStartSession()}>{isStarting ? "Начинаю..." : "Начать повторение"}</button></div>
       </section>
@@ -763,6 +763,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           displayMode={displayMode}
           isContinuing={isContinuing}
           token={queueState.token}
+          timezone={timezone}
         />
       )}
 
@@ -850,6 +851,7 @@ function FeedbackPanel({
   displayMode,
   isContinuing,
   token,
+  timezone,
 }: {
   readonly answer: string;
   readonly feedback: ReviewAnswerResponse | ReviewCorrectionResponse;
@@ -860,6 +862,7 @@ function FeedbackPanel({
   readonly displayMode: TranslationDisplayMode;
   readonly isContinuing: boolean;
   readonly token: string;
+  readonly timezone: string;
 }) {
   const [privateAnswer, setPrivateAnswer] = useState(answer.trim());
   const [privateLocale, setPrivateLocale] = useState<ContentLocale>("ru-RU");
@@ -952,7 +955,7 @@ function FeedbackPanel({
               {formatSrsStageName(feedback.nextSrs.stageName)}
               {feedback.nextSrs.availableAt === null
                 ? ""
-                : ` · ${new Date(feedback.nextSrs.availableAt).toLocaleString("ru-RU")}`}
+                : ` · ${formatReviewDueAt(feedback.nextSrs.availableAt, timezone)}`}
             </p>
           </div>
         ) : (

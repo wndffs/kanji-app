@@ -39,3 +39,12 @@ export function pendingReviewCorrections(queue: readonly ReviewQueueItem[], corr
   const ids = new Set(corrected);
   return new Set(queue.filter((row) => !ids.has(row.card.id)).map((row) => row.card.id)).size;
 }
+
+export function reviewTimezone(value: string): string {
+  try { new Intl.DateTimeFormat("ru-RU", { timeZone: value }).format(0); return value; } catch { return "UTC"; }
+}
+export function formatReviewDueAt(value: string | null, timezone: string): string {
+  if (value === null || !Number.isFinite(new Date(value).getTime())) return "Дата недоступна";
+  const zone = reviewTimezone(timezone);
+  return `${new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short", timeZone: zone }).format(new Date(value))} (${zone})`;
+}
