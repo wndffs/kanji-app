@@ -94,3 +94,16 @@ Desktop/phone light/dark coverage captures and viewport images are outside Git.
 The table scrolls within its own container on narrow screens; the document does
 not overflow. No claim of OS virtual-keyboard or live-write acceptance is made.
 The existing Vite config-loader warning is unrelated to these changes.
+
+## Release Candidate
+
+Code acceptance: `5a664bdebf15ab0fffc74b275320b97888172b3f`.
+Release tag: `cycle-370-384-course-path`. Push all fifteen numbered commits
+together. Verify exact web/API health revisions and cloud CI. Live acceptance
+is read-only: open a published course, inspect aggregate coverage and selected
+versus fallback fields, and use prerequisite/related navigation where the real
+profile has such data. Do not enroll, switch courses, start/answer lessons,
+save preferences or publish draft07 to manufacture acceptance states.
+
+The wave CLI and review notes are development artifacts only. No source IDs,
+course content, account state or Neon data are published by this release.

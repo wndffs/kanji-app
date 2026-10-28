@@ -62,8 +62,10 @@ with one skip. The remaining 30 tasks start at **370-384**; none has started.
 
 ## 370-384: Course Path And Content
 
-Active specification: `DEVELOPMENT_CYCLE_370_384.md`. Task 370 validated the
-existing course/content boundaries; 371-384 are planned, not completed claims.
+Active specification: `DEVELOPMENT_CYCLE_370_384.md`. Tasks 370-383 passed
+scoped acceptance; task 384 is the deployment/CI checkpoint. Draft07 remains
+unpublished, without exact-source or independent editorial approval. No task
+385-399 has started.
 
 | ID  | Planned Outcome                                                                  |
 | --- | -------------------------------------------------------------------------------- |
