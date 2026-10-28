@@ -38,7 +38,7 @@ snapshot; fixtures must never be presented as complete source evidence.
 | 381  | Validate independent placement/prerequisites and explicit provenance blockers                         | Complete |
 | 382  | Reproducible aggregate readiness CLI/report; no detailed Neon export                                  | Complete |
 | 383  | Scoped helper/API/content/browser acceptance, responsive screenshots, types/build/lint                | Complete |
-| 384  | Commit/push/version, deploy code, exact health revisions, read-only live acceptance and CI            | Planned  |
+| 384  | Commit/push/version, deploy code, exact health revisions, read-only live acceptance and CI            | Complete |
 
 ## Boundaries
 
@@ -151,3 +151,32 @@ than spending first-viewport space above it. The strict geometry assertion was
 not relaxed. Production build/types, targeted lint/format and all eight focused
 desktop/phone next-step/coverage/paging cases passed after this repair.
 Patch tag: `cycle-370-384-course-path.1`; the original tag is not moved.
+
+Both public health endpoints subsequently returned patch revision
+`d9614dd0c8ddb2ee7386cc598a23b01ccf804438`. A fresh real IAB visit verified
+that materials precede the optional next-step block, level-two prerequisites
+still render, and the aggregate report retains 300 items/521 cards with zero
+RU/EN/reading gaps. Grouping by course stage remains separate from the sparse
+JLPT-source labels described above. The final live screenshot was renewed;
+the temporary tab was closed. No live writes were made during patch acceptance.
+
+## Completed Release
+
+All 370-384 are complete, individually committed and pushed, followed by the
+cross-platform layout repair. Final tag: `cycle-370-384-course-path.1`.
+Verified runtime and CI commit: `d9614dd0c8ddb2ee7386cc598a23b01ccf804438`.
+The original `cycle-370-384-course-path` tag is retained unchanged.
+
+[CI 40721147665](https://github.com/wndffs/kanji-app/actions/runs/40721147665)
+succeeded. Quality job 122932060851 passed. Web smoke job 122933422411 ran
+470 cases: **469 passed, one skipped, zero failed** in 4.4 minutes. Both Study
+integrity runs 40721150557 and 40721147656 succeeded. The original Linux phone
+failure is superseded by this passing run with the strict assertion retained.
+
+The final report-only commit does not replace the verified runtime revision
+or move either tag. No new course content was published; draft07 still requires
+exact source evidence, independent review and separate publication permission.
+Only aggregate source/live counts are retained in Git. All owned browser tabs
+and local servers are closed; temporary build/test outputs are removed and
+final screenshots remain outside Git. Next task is **385**; none of 385-399
+has started.

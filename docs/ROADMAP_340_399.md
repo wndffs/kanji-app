@@ -40,7 +40,7 @@ Checkpoint: **355-369 complete and released**. Evidence and the test-only patch
 tag `cycle-355-369-reviews.1` are in `DEVELOPMENT_CYCLE_355_369.md`. Runtime
 `b97f57b` was verified on web/API and through real read-only queue browsing;
 the patch does not change runtime code. CI 40710885018 passed 453 browser cases
-with one skip. The remaining 30 tasks start at **370-384**; none has started.
+with one skip. The course-path batch's checkpoint follows below.
 
 | ID  | Planned Outcome                                                            |
 | --- | -------------------------------------------------------------------------- |
@@ -62,10 +62,12 @@ with one skip. The remaining 30 tasks start at **370-384**; none has started.
 
 ## 370-384: Course Path And Content
 
-Active specification: `DEVELOPMENT_CYCLE_370_384.md`. Tasks 370-383 passed
-scoped acceptance; task 384 is the deployment/CI checkpoint. Draft07 remains
-unpublished, without exact-source or independent editorial approval. No task
-385-399 has started.
+Checkpoint: **370-384 complete and released**. Specification and evidence:
+`DEVELOPMENT_CYCLE_370_384.md`. Final tag `cycle-370-384-course-path.1`, runtime
+`d9614dd` verified on web/API. CI 40721147665 passed 469 browser cases with one
+skip. V4 live coverage is 79 components, 101 kanji, 120 words and 521 cards.
+Draft07 remains unpublished, without exact-source or independent editorial
+approval. The remaining 15 tasks are **385-399**; none has started.
 
 | ID  | Planned Outcome                                                                  |
 | --- | -------------------------------------------------------------------------------- |
