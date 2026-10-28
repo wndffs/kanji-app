@@ -1,6 +1,7 @@
 import { ITEM_KINDS, type ItemKind, type LessonQueueItem } from "@kanji-srs/shared";
 import { normalizeKana, normalizeRussianMeaning, romanizeKana } from "@kanji-srs/japanese";
 import { normalizeCourseSearch } from "./course-browser-route";
+import { canonicalCourseReturn } from "./learning-return";
 
 export { normalizeCourseSearch as normalizeLessonSearch } from "./course-browser-route";
 export const LESSON_PICKER_PAGE_SIZE = 24;
@@ -43,8 +44,10 @@ export function mergeLessonBrowser(
   };
 }
 
-export function lessonBrowserHref(deckId: string | null, route: LessonBrowserRoute): string {
+export function lessonBrowserHref(deckId: string | null, route: LessonBrowserRoute, returnHref?: string | null): string {
   const params = new URLSearchParams();
+  const safeReturn = canonicalCourseReturn(returnHref);
+  if (safeReturn !== null) params.set("returnTo", safeReturn);
   if (deckId !== null) params.set("deckId", deckId);
   if (route.q) params.set("q", normalizeCourseSearch(route.q));
   if (route.kind !== "all") params.set("kind", route.kind);

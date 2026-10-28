@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { nextTabIndex } from "../../lib/tab-navigation";
+import { lessonReturnHref } from "../../lib/learning-return";
 import { Volume2, Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
   type FormEvent,
@@ -128,11 +129,12 @@ export function LessonsClient() {
     <LessonsScreen
       key={`${account === null ? "guest" : `${account.user.id}:${account.token}`}:${source.deckId ?? "course"}`}
       requestedDeckId={source.deckId}
+      returnHref={lessonReturnHref(params)}
     />
   );
 }
 
-function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string | null }) {
+function LessonsScreen({ requestedDeckId, returnHref }: { readonly requestedDeckId: string | null; readonly returnHref: string | null }) {
   const activeDisplayMode = useTranslationDisplayMode();
   const lessonPronunciation = useLessonPronunciationPreferences();
   const {
@@ -144,7 +146,7 @@ function LessonsScreen({ requestedDeckId }: { readonly requestedDeckId: string |
   const { play: playAnswerSound } = useAnswerSound();
   const [queueState, setQueueState] = useState<QueueState>({ status: "checking" });
   const [session, setSession] = useState<LessonSessionDto | null>(null);
-  useStudyFocus(session !== null, "Урок");
+  useStudyFocus(session !== null, "Урок", returnHref ?? "/dashboard");
   const [sessionQueue, setSessionQueue] = useState<readonly LessonQueueItem[]>([]);
   const [selectedItemIds, setSelectedItemIds] = useState<readonly string[]>([]);
   const [orderMode, setOrderMode] = useState<LessonOrderMode>("course");
@@ -1317,7 +1319,7 @@ function LessonPicker({
     const next = mergeLessonBrowser(latest.current, patch);
     latest.current = next;
     setOptimistic(next);
-    const href = lessonBrowserHref(parseLessonSource(params).deckId, next);
+    const href = lessonBrowserHref(parseLessonSource(params).deckId, next, lessonReturnHref(params));
     startNavigation(() => {
       if (replace) router.replace(href, { scroll: false });
       else router.push(href, { scroll: false });

@@ -62,11 +62,13 @@ export function AppShell({ children }: AppShellProps) {
   const [mobileNavigation, setMobileNavigation] = useState(false);
   const menuRef = useRef<HTMLDetailsElement>(null);
   const [focusTitle, setFocusTitle] = useState<string | null>(null);
+  const [focusReturnHref, setFocusReturnHref] = useState("/dashboard");
   const focusOwner = useRef<object | null>(null);
-  const enterStudy = useCallback((title: string) => {
+  const enterStudy = useCallback((title: string, returnHref = "/dashboard") => {
     const owner = {};
     focusOwner.current = owner;
     setFocusTitle(title);
+    setFocusReturnHref(returnHref);
     return () => {
       if (focusOwner.current === owner) {
         focusOwner.current = null;
@@ -234,8 +236,8 @@ export function AppShell({ children }: AppShellProps) {
           <div className="topbar-inner">
             <Link
               className="brand brand-mobile"
-              href="/dashboard"
-              title={focusTitle === null ? undefined : "На панель; занятие можно продолжить позже"}
+              href={focusTitle === null ? "/dashboard" : focusReturnHref}
+              title={focusTitle === null ? undefined : "Вернуться; занятие можно продолжить позже"}
             >
               {focusTitle === null ? (
                 <>
@@ -245,7 +247,7 @@ export function AppShell({ children }: AppShellProps) {
               ) : (
                 <>
                   <ArrowLeft aria-hidden="true" size={18} />
-                  <span>На панель</span>
+                  <span>{focusReturnHref.startsWith("/courses/") ? "К курсу" : "На панель"}</span>
                 </>
               )}
             </Link>

@@ -186,7 +186,7 @@ function OwnedCourseExplorer({
                   )}
                 </>
               )}
-              <CourseNextStep token={token} courseId={courseId} />
+              <CourseNextStep token={token} courseId={courseId} returnHref={courseBrowserHref(courseId, route ?? parseCourseBrowserRoute(new URLSearchParams()))} />
               <CourseCoverage token={token} courseId={courseId} />
               <SectionDisclosure title="Все уровни">
                 <ol className="course-outline" aria-label="Уровни курса">

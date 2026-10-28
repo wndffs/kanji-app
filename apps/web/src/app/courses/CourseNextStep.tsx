@@ -7,13 +7,16 @@ import { getCourses, getLessonQueue, ApiError } from "../../lib/api-client";
 import { clearStoredSession } from "../../lib/auth-storage";
 import { ownsSession } from "../../lib/use-stored-session";
 import { JapaneseText } from "../../components/JapaneseText";
+import { lessonEntryHref } from "../../lib/learning-return";
 
 export function CourseNextStep({
   token,
   courseId,
+  returnHref,
 }: {
   readonly token: string;
   readonly courseId: string;
+  readonly returnHref?: string;
 }) {
   const request = useRef<AbortController | null>(null);
   const busy = useRef(false);
@@ -79,7 +82,7 @@ export function CourseNextStep({
         </div>
       ) : null}
       {next ? (
-        <Link className="primary-action" href="/lessons">
+        <Link className="primary-action" href={lessonEntryHref(returnHref ?? `/courses/${courseId}`)}>
           К урокам <ArrowRight size={16} />
         </Link>
       ) : null}
