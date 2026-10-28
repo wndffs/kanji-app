@@ -67,7 +67,7 @@ Checkpoint: **370-384 complete and released**. Specification and evidence:
 `d9614dd` verified on web/API. CI 40721147665 passed 469 browser cases with one
 skip. V4 live coverage is 79 components, 101 kanji, 120 words and 521 cards.
 Draft07 remains unpublished, without exact-source or independent editorial
-approval. The remaining 15 tasks are **385-399**; none has started.
+approval. The next checkpoint below covers **385-399**.
 
 | ID  | Planned Outcome                                                                  |
 | --- | -------------------------------------------------------------------------------- |
@@ -95,8 +95,9 @@ not satisfy that target, and imported rows are not published course items.
 
 ## 385-399: Cohesion And Performance
 
-Active specification: `DEVELOPMENT_CYCLE_385_399.md`. Task 385 revalidated
-existing behavior and narrowed acceptance; 386-399 are not yet completed claims.
+Specification and acceptance: `DEVELOPMENT_CYCLE_385_399.md`. Tasks 385-398
+are implemented and locally verified. Task 399 is in release acceptance;
+deployment, CI and live measurements are not presumed complete.
 
 | ID  | Planned Outcome                                                                   |
 | --- | --------------------------------------------------------------------------------- |

@@ -18,23 +18,23 @@ data, and available/journey materials are hydrated twice with overlapping IDs.
 Measure total HTTP and handler timing before/after; structural request-count
 reductions are not automatically a latency or full-N2 scalability claim.
 
-| Task | Deliverable                                                                                   | State    |
-| ---- | --------------------------------------------------------------------------------------------- | -------- |
-| 385  | Audit, measurable scope and boundaries                                                        | Complete |
-| 386  | Validated course/level return through lesson filtering and study focus                        | Complete |
-| 387  | One coherent completion/empty-state return action for the originating course                  | Complete |
-| 388  | Abort obsolete outline/material reads; retain confirmed catalogue content on same-query retry | Complete |
-| 389  | Single-flight, owner-guarded RU/EN selector and cross-tab preference synchronization          | Complete |
-| 390  | Course kana/furigana/romaji and translation modes obey stored settings with long-text fit     | Complete |
-| 391  | Bounded baseline measurement and numeric queue-handler timing without data leakage            | Complete |
-| 392  | Overlap evidenced independent dashboard activity reads with primary reads                     | Complete |
-| 393  | Coalesce overlapping dashboard target hydration, preserving IDs/order/limits                  | Complete |
-| 394  | Bounded owner-scoped confirmed-outline cache, explicit invalidation, no due/progress caching  | Complete |
-| 395  | Explicit GET reconciliation of unconfirmed translation-setting writes, never automatic replay | Complete |
-| 396  | Keyboard/focus recovery and reduced-motion behavior for affected controls                     | Complete |
-| 397  | Original visual-cohesion pass for return links, mode status, narrow tables and long settings  | Complete |
-| 398  | Scoped unit/browser matrix, account/race/failure checks, themes/viewports, types/build/lint   | Complete |
-| 399  | Release, CI, exact runtime, finite remote measurements and real learner-route inspection      | Planned  |
+| Task | Deliverable                                                                                   | State      |
+| ---- | --------------------------------------------------------------------------------------------- | ---------- |
+| 385  | Audit, measurable scope and boundaries                                                        | Complete   |
+| 386  | Validated course/level return through lesson filtering and study focus                        | Complete   |
+| 387  | One coherent completion/empty-state return action for the originating course                  | Complete   |
+| 388  | Abort obsolete outline/material reads; retain confirmed catalogue content on same-query retry | Complete   |
+| 389  | Single-flight, owner-guarded RU/EN selector and cross-tab preference synchronization          | Complete   |
+| 390  | Course kana/furigana/romaji and translation modes obey stored settings with long-text fit     | Complete   |
+| 391  | Bounded baseline measurement and numeric queue-handler timing without data leakage            | Complete   |
+| 392  | Overlap evidenced independent dashboard activity reads with primary reads                     | Complete   |
+| 393  | Coalesce overlapping dashboard target hydration, preserving IDs/order/limits                  | Complete   |
+| 394  | Bounded owner-scoped confirmed-outline cache, explicit invalidation, no due/progress caching  | Complete   |
+| 395  | Explicit GET reconciliation of unconfirmed translation-setting writes, never automatic replay | Complete   |
+| 396  | Keyboard/focus recovery and reduced-motion behavior for affected controls                     | Complete   |
+| 397  | Original visual-cohesion pass for return links, mode status, narrow tables and long settings  | Complete   |
+| 398  | Scoped unit/browser matrix, account/race/failure checks, themes/viewports, types/build/lint   | Complete   |
+| 399  | Release, CI, exact runtime, finite remote measurements and real learner-route inspection      | In release |
 
 ## Acceptance
 
@@ -96,3 +96,16 @@ Dashboard independent mistake/burned reads now belong to `primary`; `hydrate`
 contains the one stable-union target read. Compare total handler/HTTP timing,
 not isolated before/after phase medians. No query eligibility, limits, ordering,
 SRS or grading semantics changed.
+
+## Release Checkpoint
+
+Release tag: `cycle-385-399-journeys`. Push the 15 numbered task commits together;
+cloud CI provides broad regressions. Completion requires green CI, exact web/API
+runtime checks, the same finite existing-account measurement and read-only live
+inspection. Record those results below, not as presumed successes.
+
+Remaining product gaps are distinct from the finished reserved UI roadmap:
+independent approval/source evidence for draft07, separately authorized content
+publication, expansion beyond 101 published kanji/120 word pairs, sparse JLPT
+metadata and representative full-size course measurement. No 400+ tasks are
+authorized or started by this batch.
