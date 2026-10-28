@@ -54,6 +54,17 @@ describe("published course preparation context", () => {
       scope: "published-course-core-cards",
       total: { items: 1, cards: 2, missingRu: 0, missingEn: 1, missingReading: 0 },
       jlpt: [{ band: "N5" }],
+      teachingAspects: {
+        assessedItems: 1,
+        missingMeaningCards: 0,
+        missingReadingCards: 0,
+        withBothCardTypes: 1,
+      },
+      jlptMetadata: {
+        kanji: { labeled: 1, unknown: 0 },
+        words: { labeled: 0, unknown: 0 },
+        officialSyllabus: false,
+      },
     });
     const query = findFirst.mock.calls[0]![0];
     expect(query.where).toEqual({

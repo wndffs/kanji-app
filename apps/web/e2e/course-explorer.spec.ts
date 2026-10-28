@@ -233,6 +233,7 @@ test.describe("published course explorer", () => {
           band: "foundation",
           jlpt: "N5",
           cardIds: ["m", "r"],
+          cardAnswerTypes: ["meaning", "reading"],
           hasRu: true,
           hasEn: true,
           hasReading: true,
@@ -271,6 +272,13 @@ test.describe("published course explorer", () => {
       exact: true,
     });
     await expect(table).toContainText("Уровень 2");
+    const scope = page.getByLabel("Учебные аспекты и метаданные", { exact: true });
+    await expect(scope).toContainText("1 / 1");
+    await expect(scope).toContainText("Не подтверждено");
+    await expect(page.getByRole("link", { name: "Требования JLPT", exact: true })).toHaveAttribute(
+      "href",
+      "https://www.jlpt.jp/e/about/levelsummary.html",
+    );
     await page
       .getByRole("combobox", { name: "Группировка наполнения", exact: true })
       .selectOption("jlpt");

@@ -50,7 +50,9 @@ jobs:
         run: npm test
 
       - name: Smoke and bundle-measurement guardrails
-        run: npx vitest run scripts/remote-smoke.test.ts scripts/measure-web-bundles.test.ts
+        run: |
+          npm run typecheck:source-tools
+          npx vitest run scripts/remote-smoke.test.ts scripts/measure-web-bundles.test.ts scripts/prepare-content-snapshot.test.ts scripts/local-source-evidence.test.ts
 
       - name: Build
         run: npm run build

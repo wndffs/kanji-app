@@ -51,8 +51,9 @@ export function countCourseCoverage(rows: readonly CourseCoverageRow[]): CourseC
     byKind,
     missingRu: unique.filter((row) => !row.hasRu).length,
     missingEn: unique.filter((row) => !row.hasEn).length,
-    missingReading: unique.filter((row) =>
-      (row.readingRequired ?? (row.kind === "kanji" || row.kind === "word")) && !row.hasReading,
+    missingReading: unique.filter(
+      (row) =>
+        (row.readingRequired ?? (row.kind === "kanji" || row.kind === "word")) && !row.hasReading,
     ).length,
   };
 }
@@ -65,10 +66,13 @@ export function buildCourseCoverage(
   const bands = [
     ...new Set([...rows.map((row) => row.band), ...declaredLevels.map((row) => row.band)]),
   ].sort();
-  const label = (row: CourseCoverageRow) => row.jlpt && /^N[1-5]$/u.test(row.jlpt) ? row.jlpt : "unassigned";
+  const label = (row: CourseCoverageRow) =>
+    row.jlpt && /^N[1-5]$/u.test(row.jlpt) ? row.jlpt : "unassigned";
   const jlpt = [...new Set(rows.map(label))].sort();
   const metadata = (kind: ItemKind) => {
-    const selected = [...new Map(rows.filter((row) => row.kind === kind).map((row) => [row.id, row])).values()];
+    const selected = [
+      ...new Map(rows.filter((row) => row.kind === kind).map((row) => [row.id, row])).values(),
+    ];
     const labeled = selected.filter((row) => label(row) !== "unassigned").length;
     return { labeled, unknown: selected.length - labeled };
   };
@@ -102,7 +106,8 @@ function countTeachingAspects(rows: readonly CourseCoverageRow[]) {
   const assessed = [...new Map(rows.map((row) => [row.id, row])).values()].filter(
     (row) => (row.kind === "kanji" || row.kind === "word") && row.cardAnswerTypes !== undefined,
   );
-  const has = (row: CourseCoverageRow, type: "meaning" | "reading") => row.cardAnswerTypes!.includes(type);
+  const has = (row: CourseCoverageRow, type: "meaning" | "reading") =>
+    row.cardAnswerTypes!.includes(type);
   return {
     assessedItems: assessed.length,
     missingMeaningCards: assessed.filter((row) => !has(row, "meaning")).length,

@@ -19,6 +19,21 @@ afterEach(async () => {
 });
 
 describe("content snapshot cache", () => {
+  it("fails closed offline without a matching manifest and never downloads", async () => {
+    const cacheRoot = await createTemporaryDirectory();
+    let calls = 0;
+    await expect(
+      prepareContentSnapshot(
+        { snapshotVersion: "2026-10-28", cacheRoot, offline: true },
+        {
+          downloadArchive: async () => {
+            calls++;
+          },
+        },
+      ),
+    ).rejects.toThrow("matching existing source manifest");
+    expect(calls).toBe(0);
+  });
   it("downloads once and reuses verified archives and XML content", async () => {
     const cacheRoot = await createTemporaryDirectory();
     const githubEnvPath = join(cacheRoot, "github-env");
@@ -36,7 +51,7 @@ describe("content snapshot cache", () => {
       { downloadArchive, now },
     );
     const second = await prepareContentSnapshot(
-      { snapshotVersion: "2026-07-13", cacheRoot, sources },
+      { snapshotVersion: "2026-07-13", cacheRoot, sources, offline: true },
       {
         downloadArchive: async () => {
           throw new Error("The cache should avoid another download.");

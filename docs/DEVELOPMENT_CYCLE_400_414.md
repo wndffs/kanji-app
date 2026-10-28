@@ -21,23 +21,23 @@ ambiguous or stale evidence. Matching a source is not pedagogical approval.
 
 ## Tasks
 
-| ID | Acceptance | State |
-| --- | --- | --- |
-| 400 | Compare objective/current app, reserve 400-499 and define this batch | Complete |
-| 401 | Required-reading gaps follow actual card types; tests cover cloze and ordinary cards | Planned |
-| 402 | Report absent required kanji/word teaching aspects independently | Planned |
-| 403 | Count modern-label coverage/unknowns without implying syllabus coverage | Planned |
-| 404 | Extend on-demand course coverage UI with compact honest scope counters | Planned |
-| 405 | External persistent source cache defaults and explicit offline reuse | Planned |
-| 406 | Validate local manifest paths/checksums/source identity and attribution contract | Planned |
-| 407 | Stream exact candidate KANJIDIC2 reading evidence | Planned |
-| 408 | Stream exact JMdict pairs, restrictions and ambiguity | Planned |
-| 409 | Stream exact primary KanjiVG stroke evidence | Planned |
-| 410 | Aggregate observations and explicit blockers, no automatic ready flag | Planned |
-| 411 | Safe local evidence CLI, no network/DB writes and no detailed Git report | Planned |
-| 412 | Fingerprinted review worksheet, rejecting stale/missing approval bindings | Planned |
-| 413 | Scoped units/browser matrix, types/build/lint and actual source run where available | Planned |
-| 414 | Version/push/deploy/exact runtime and live coverage inspection | Planned |
+| ID  | Acceptance                                                                           | State    |
+| --- | ------------------------------------------------------------------------------------ | -------- |
+| 400 | Compare objective/current app, reserve 400-499 and define this batch                 | Complete |
+| 401 | Required-reading gaps follow actual card types; tests cover cloze and ordinary cards | Complete |
+| 402 | Report absent required kanji/word teaching aspects independently                     | Complete |
+| 403 | Count modern-label coverage/unknowns without implying syllabus coverage              | Complete |
+| 404 | Extend on-demand course coverage UI with compact honest scope counters               | Complete |
+| 405 | External persistent source cache defaults and explicit offline reuse                 | Complete |
+| 406 | Validate local manifest paths/checksums/source identity and attribution contract     | Complete |
+| 407 | Stream exact candidate KANJIDIC2 reading evidence                                    | Complete |
+| 408 | Stream exact JMdict pairs, restrictions and ambiguity                                | Complete |
+| 409 | Stream exact primary KanjiVG stroke evidence                                         | Complete |
+| 410 | Aggregate observations and explicit blockers, no automatic ready flag                | Complete |
+| 411 | Safe local evidence CLI, no network/DB writes and no detailed Git report             | Complete |
+| 412 | Fingerprinted review worksheet, rejecting stale/missing approval bindings            | Complete |
+| 413 | Scoped units/browser matrix, types/build/lint and actual source run where available  | Complete |
+| 414 | Version/push/deploy/exact runtime and live coverage inspection                       | Planned  |
 
 ## Boundaries
 
@@ -53,3 +53,24 @@ blocker rather than simulating attestation. A source update invalidates evidence
 existing reviewed/published seals are immutable. Any parser dependency must be
 small, licensed and development-tool-only, with no browser/API payload increase.
 Close owned browser tabs/processes and remove generated test/build files.
+
+## Batched Local Acceptance
+
+- 38 focused tests passed across shared coverage, API course projection, snapshot
+  cache and local source readers. Fixtures only; no external network in tests.
+- Eight production-web Playwright cases passed: desktop/mobile on-demand coverage,
+  local grouping, retry, late old-owner response and material paging. Coverage
+  still performs one explicit read and no writes; theme captures and overflow
+  checks use the existing runner.
+- Web production build, API typecheck, source-tool typecheck and changed-file
+  ESLint passed. CI now explicitly includes the source-tool tests/typecheck.
+- CLI help works without I/O. No source import, database changes or publication.
+- Real-source attestation remains **blocked by download**, not passed: the official
+  JMdict endpoint returned only 15,894 of 22,207,146 bytes before a bounded curl
+  transfer timed out at 45 seconds. The earlier stalled transfer was stopped;
+  the incomplete archive was removed. No full snapshot manifest was created and
+  no fixture is substituted for corpus evidence. Retry from a working route/cache
+  before using task 415 to resolve actual wave07 blockers.
+- `npm audit` reports six high advisories in existing Nest/Prisma dependency
+  chains, none in `saxes`/`xmlchars`. No unrelated dependency upgrades performed.
+  Parser use remains local/dev-only and its archived upstream is documented.

@@ -18,6 +18,50 @@ const row: CourseCoverageRow = {
   hasReading: true,
 };
 describe("published course aggregates", () => {
+  it("requires sentence readings only when a real reading-answer card requires them", () => {
+    expect(
+      countCourseCoverage([{ ...row, kind: "sentence", hasReading: false, readingRequired: false }])
+        .missingReading,
+    ).toBe(0);
+    expect(
+      countCourseCoverage([{ ...row, kind: "sentence", hasReading: false, readingRequired: true }])
+        .missingReading,
+    ).toBe(1);
+    expect(countCourseCoverage([{ ...row, kind: "word", hasReading: false }]).missingReading).toBe(
+      1,
+    );
+  });
+  it("separates absent card types, answer fields and unknown metadata", () => {
+    const result = buildCourseCoverage(
+      "course",
+      [
+        { ...row, cardAnswerTypes: ["meaning", "reading"] },
+        {
+          ...row,
+          id: "word",
+          kind: "word",
+          jlpt: null,
+          cardAnswerTypes: ["meaning"],
+          hasReading: false,
+        },
+        { ...row, id: "empty", jlpt: "N9", cardAnswerTypes: [] },
+        { ...row, id: "old-contract", jlpt: "до 2010: 4" },
+      ],
+      "2026-10-28",
+    );
+    expect(result.teachingAspects).toEqual({
+      assessedItems: 3,
+      missingMeaningCards: 1,
+      missingReadingCards: 2,
+      withBothCardTypes: 1,
+    });
+    expect(result.jlptMetadata).toEqual({
+      kanji: { labeled: 1, unknown: 2 },
+      words: { labeled: 0, unknown: 1 },
+      officialSyllabus: false,
+    });
+    expect(result.jlpt.map((bucket) => bucket.band)).toEqual(["N5", "unassigned"]);
+  });
   it("includes declared empty levels without inventing content", () => {
     const result = buildCourseCoverage("course", [], "2026-10-28T00:00:00Z", [
       { level: 60, band: "n2" },

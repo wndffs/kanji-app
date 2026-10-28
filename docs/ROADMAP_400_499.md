@@ -29,12 +29,12 @@ volume ratios, not learner proficiency, JLPT coverage or chances of passing.
 
 Subjective engineering estimates, not external benchmarks or pass probabilities:
 
-| Area | Estimate /100 | Evidence and missing acceptance |
-| --- | --- | --- |
-| WaniKani-style learning mechanics | 75 | Card-local SRS, prerequisites, separate reading/meaning, sessions and corrections; need larger real-course validation |
-| Duolingo-style character practice only | 75 | Both 46-base kana sets, variants, adaptive exercises and tracing; quality/audio/device acceptance incomplete |
-| Selected Renshuu-style study tools | 50 | Private decks, mistakes and related materials; full schedules, broader context and linguistic analysis remain gaps |
-| Complete WaniKani replacement today | 35-40 | Mechanics ahead of content; small published volume, limited independent editorial evidence, variable free-host latency |
+| Area                                   | Estimate /100 | Evidence and missing acceptance                                                                                        |
+| -------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| WaniKani-style learning mechanics      | 75            | Card-local SRS, prerequisites, separate reading/meaning, sessions and corrections; need larger real-course validation  |
+| Duolingo-style character practice only | 75            | Both 46-base kana sets, variants, adaptive exercises and tracing; quality/audio/device acceptance incomplete           |
+| Selected Renshuu-style study tools     | 50            | Private decks, mistakes and related materials; full schedules, broader context and linguistic analysis remain gaps     |
+| Complete WaniKani replacement today    | 35-40         | Mechanics ahead of content; small published volume, limited independent editorial evidence, variable free-host latency |
 
 The last estimate deliberately includes content breadth, editorial reliability
 and repeated daily use. It is not an average of the three feature scores.
@@ -60,23 +60,23 @@ Sources checked 2026-10-28 (feature inspiration only, no copied content):
 
 ## 400-414: Trustworthy Coverage And Local Source Evidence
 
-| ID | Deliverable and acceptance |
-| --- | --- |
-| 400 | Audit, comparison rubric and this 100-task roadmap; freeze first-batch boundaries |
+| ID  | Deliverable and acceptance                                                                                        |
+| --- | ----------------------------------------------------------------------------------------------------------------- |
+| 400 | Audit, comparison rubric and this 100-task roadmap; freeze first-batch boundaries                                 |
 | 401 | Reading-gap applicability based on actual card answer types; cloze-only sentences are not falsely missing reading |
-| 402 | Separate missing required kanji/word teaching aspects from nonempty answer-field counts |
-| 403 | Explicit modern JLPT metadata completeness, including unknown labels, without exam percentages |
-| 404 | Compact on-demand course scope view showing actual published counts, answer gaps and metadata limits |
-| 405 | Persistent source cache defaults outside Git; explicit offline reuse rather than silent downloads |
-| 406 | Verified local snapshot contract: identity, version, checksums, paths and licensing references |
-| 407 | Bounded streaming exact KANJIDIC2 evidence for candidate characters/readings using a proven parser |
-| 408 | Exact JMdict spelling-reading evidence respecting reading restrictions and ambiguity |
-| 409 | KanjiVG primary-character/stroke evidence; variants and absent graphics are not invented matches |
-| 410 | Deterministic aggregate evidence report, separating observed source matches from publication readiness |
-| 411 | Local-only evidence CLI with safe external report paths, bounded input and no database/network writes |
-| 412 | Bind review worksheets to candidate/source fingerprints; stale or missing evidence cannot become approval |
-| 413 | Batched focused units/browser tests and real-snapshot verification where sources are available |
-| 414 | Version, push, deploy, exact runtime and live read-only acceptance; report content blockers honestly |
+| 402 | Separate missing required kanji/word teaching aspects from nonempty answer-field counts                           |
+| 403 | Explicit modern JLPT metadata completeness, including unknown labels, without exam percentages                    |
+| 404 | Compact on-demand course scope view showing actual published counts, answer gaps and metadata limits              |
+| 405 | Persistent source cache defaults outside Git; explicit offline reuse rather than silent downloads                 |
+| 406 | Verified local snapshot contract: identity, version, checksums, paths and licensing references                    |
+| 407 | Bounded streaming exact KANJIDIC2 evidence for candidate characters/readings using a proven parser                |
+| 408 | Exact JMdict spelling-reading evidence respecting reading restrictions and ambiguity                              |
+| 409 | KanjiVG primary-character/stroke evidence; variants and absent graphics are not invented matches                  |
+| 410 | Deterministic aggregate evidence report, separating observed source matches from publication readiness            |
+| 411 | Local-only evidence CLI with safe external report paths, bounded input and no database/network writes             |
+| 412 | Bind review worksheets to candidate/source fingerprints; stale or missing evidence cannot become approval         |
+| 413 | Batched focused units/browser tests and real-snapshot verification where sources are available                    |
+| 414 | Version, push, deploy, exact runtime and live read-only acceptance; report content blockers honestly              |
 
 Detailed specification: `DEVELOPMENT_CYCLE_400_414.md`. Actual publication is
 separate from code deployment and requires authorization plus existing source,
@@ -85,117 +85,117 @@ batches; no unanswered question is treated as approval.
 
 ## 415-429: First Verified Expansion And Editorial Production
 
-| ID | Deliverable and acceptance |
-| --- | --- |
-| 415 | Audit 400-414 evidence and actual wave07 blockers, choose the smallest publishable wave |
-| 416 | Independently review RU primary meanings and blocked near-synonyms |
-| 417 | Independently review EN meanings against the same selected senses |
-| 418 | Review whole-word readings, special readings and accepted alternatives |
-| 419 | Review original examples, kana transcriptions and both translations |
-| 420 | Correct component naming and mnemonic factual claims without changing sealed batches |
-| 421 | Resolve proven source identities through existing import/curator preflight |
-| 422 | Validate prerequisite graph, placement order and level policies for the chosen wave |
-| 423 | Produce a versioned review decision with reviewer/source/content fingerprints |
-| 424 | Prepare a new finite manifest without modifying V1-V4 hashes |
-| 425 | Preview additive application, storage/query costs and idempotent rerun |
-| 426 | With explicit authorization, apply approved teaching rows without resetting SRS |
+| ID  | Deliverable and acceptance                                                                        |
+| --- | ------------------------------------------------------------------------------------------------- |
+| 415 | Audit 400-414 evidence and actual wave07 blockers, choose the smallest publishable wave           |
+| 416 | Independently review RU primary meanings and blocked near-synonyms                                |
+| 417 | Independently review EN meanings against the same selected senses                                 |
+| 418 | Review whole-word readings, special readings and accepted alternatives                            |
+| 419 | Review original examples, kana transcriptions and both translations                               |
+| 420 | Correct component naming and mnemonic factual claims without changing sealed batches              |
+| 421 | Resolve proven source identities through existing import/curator preflight                        |
+| 422 | Validate prerequisite graph, placement order and level policies for the chosen wave               |
+| 423 | Produce a versioned review decision with reviewer/source/content fingerprints                     |
+| 424 | Prepare a new finite manifest without modifying V1-V4 hashes                                      |
+| 425 | Preview additive application, storage/query costs and idempotent rerun                            |
+| 426 | With explicit authorization, apply approved teaching rows without resetting SRS                   |
 | 427 | With explicit authorization, publish the new manifest; otherwise retain a clearly blocked preview |
-| 428 | Batch content/answer/integrity checks and unchanged-progress acceptance |
-| 429 | Deploy and report real new published counts, not proposed counts |
+| 428 | Batch content/answer/integrity checks and unchanged-progress acceptance                           |
+| 429 | Deploy and report real new published counts, not proposed counts                                  |
 
 ## 430-444: N4-Oriented Vocabulary And Kanji Backbone
 
-| ID | Deliverable and acceptance |
-| --- | --- |
-| 430 | Define an independent N4-oriented lexical selection policy and nonofficial labels |
+| ID  | Deliverable and acceptance                                                          |
+| --- | ----------------------------------------------------------------------------------- |
+| 430 | Define an independent N4-oriented lexical selection policy and nonofficial labels   |
 | 431 | Rank reusable source candidates by frequency, usefulness and prerequisite readiness |
-| 432 | Separate word senses/readings; deduplicate by exact expression-reading identity |
-| 433 | Build bounded batches for everyday verbs and adjectives |
-| 434 | Build bounded batches for everyday nouns and time/place vocabulary |
-| 435 | Prepare prerequisite kanji/components for those batches |
-| 436 | Author curated RU meanings and conservative accepted answers |
-| 437 | Author matching EN content and sense restrictions |
-| 438 | Select taught kanji versus word readings with exact evidence |
-| 439 | Create original reinforcement examples with known-lexicon checks |
-| 440 | Independently review and correct the bounded batches |
-| 441 | Validate placement, accessibility, load and reviewed/content/source fingerprints |
-| 442 | Authorized additive publication with rollback preview and preserved progress |
-| 443 | Batch learner/content quality acceptance and measured database impact |
-| 444 | Release with actual N4-oriented coverage gaps; no claim of complete N4 preparation |
+| 432 | Separate word senses/readings; deduplicate by exact expression-reading identity     |
+| 433 | Build bounded batches for everyday verbs and adjectives                             |
+| 434 | Build bounded batches for everyday nouns and time/place vocabulary                  |
+| 435 | Prepare prerequisite kanji/components for those batches                             |
+| 436 | Author curated RU meanings and conservative accepted answers                        |
+| 437 | Author matching EN content and sense restrictions                                   |
+| 438 | Select taught kanji versus word readings with exact evidence                        |
+| 439 | Create original reinforcement examples with known-lexicon checks                    |
+| 440 | Independently review and correct the bounded batches                                |
+| 441 | Validate placement, accessibility, load and reviewed/content/source fingerprints    |
+| 442 | Authorized additive publication with rollback preview and preserved progress        |
+| 443 | Batch learner/content quality acceptance and measured database impact               |
+| 444 | Release with actual N4-oriented coverage gaps; no claim of complete N4 preparation  |
 
 ## 445-459: Retention, Context And Pronunciation
 
-| ID | Deliverable and acceptance |
-| --- | --- |
-| 445 | Audit missed readings/meanings on real representative test data |
-| 446 | Improve kanji-to-word reinforcement from published relationships |
-| 447 | Contrast on/kun and whole-word special readings without overgeneralized rules |
-| 448 | Distinguish visually similar published kanji with original explanations |
-| 449 | Add sense-specific usage/context where source evidence and original prose permit |
-| 450 | Improve long-vowel, small-tsu and kana spelling feedback |
-| 451 | Introduce a validated audio source/storage/attribution policy, distinct from TTS |
-| 452 | Attach only licensed verified word audio to appropriate cards |
-| 453 | Offer listening practice without revealing answers prematurely |
-| 454 | Bound media loading, failure recovery and phone controls |
-| 455 | Tune focused weak-item practice without changing core scheduling silently |
-| 456 | Make practice-to-review distinctions and result history unambiguous |
-| 457 | Preserve personal answers/notes through additive content versions |
-| 458 | Batch pronunciation/context/concealment and owner-isolation tests |
+| ID  | Deliverable and acceptance                                                              |
+| --- | --------------------------------------------------------------------------------------- |
+| 445 | Audit missed readings/meanings on real representative test data                         |
+| 446 | Improve kanji-to-word reinforcement from published relationships                        |
+| 447 | Contrast on/kun and whole-word special readings without overgeneralized rules           |
+| 448 | Distinguish visually similar published kanji with original explanations                 |
+| 449 | Add sense-specific usage/context where source evidence and original prose permit        |
+| 450 | Improve long-vowel, small-tsu and kana spelling feedback                                |
+| 451 | Introduce a validated audio source/storage/attribution policy, distinct from TTS        |
+| 452 | Attach only licensed verified word audio to appropriate cards                           |
+| 453 | Offer listening practice without revealing answers prematurely                          |
+| 454 | Bound media loading, failure recovery and phone controls                                |
+| 455 | Tune focused weak-item practice without changing core scheduling silently               |
+| 456 | Make practice-to-review distinctions and result history unambiguous                     |
+| 457 | Preserve personal answers/notes through additive content versions                       |
+| 458 | Batch pronunciation/context/concealment and owner-isolation tests                       |
 | 459 | Deploy and validate a real reinforcement path without claiming exam listening readiness |
 
 ## 460-474: N3-Oriented Expansion
 
-| ID | Deliverable and acceptance |
-| --- | --- |
+| ID  | Deliverable and acceptance                                                       |
+| --- | -------------------------------------------------------------------------------- |
 | 460 | Re-audit published N4-oriented coverage and reserve concrete N3-oriented batches |
-| 461 | Define broader everyday-topic selection, not a copied competitor level order |
-| 462 | Prepare new prerequisite kanji/components in bounded waves |
-| 463 | Prepare verb/adjective word-reading pairs and sense boundaries |
-| 464 | Prepare topic vocabulary with common-use evidence |
-| 465 | Author independent RU teaching copy and blocked-answer distinctions |
-| 466 | Author corresponding EN teaching copy |
-| 467 | Verify exact source identities, pronunciations and special readings |
-| 468 | Review original context and transcription quality |
-| 469 | Independently review all candidate educational material |
-| 470 | Validate manifests, graph coverage and query/storage budgets |
-| 471 | Preview additive application and preserve existing target/card identities |
-| 472 | Authorized publication of only the approved waves |
-| 473 | Batch course progression and content/source integrity acceptance |
-| 474 | Release with measured published counts and unresolved N3 gaps |
+| 461 | Define broader everyday-topic selection, not a copied competitor level order     |
+| 462 | Prepare new prerequisite kanji/components in bounded waves                       |
+| 463 | Prepare verb/adjective word-reading pairs and sense boundaries                   |
+| 464 | Prepare topic vocabulary with common-use evidence                                |
+| 465 | Author independent RU teaching copy and blocked-answer distinctions              |
+| 466 | Author corresponding EN teaching copy                                            |
+| 467 | Verify exact source identities, pronunciations and special readings              |
+| 468 | Review original context and transcription quality                                |
+| 469 | Independently review all candidate educational material                          |
+| 470 | Validate manifests, graph coverage and query/storage budgets                     |
+| 471 | Preview additive application and preserve existing target/card identities        |
+| 472 | Authorized publication of only the approved waves                                |
+| 473 | Batch course progression and content/source integrity acceptance                 |
+| 474 | Release with measured published counts and unresolved N3 gaps                    |
 
 ## 475-489: Kana And Personal Study Tools
 
-| ID | Deliverable and acceptance |
-| --- | --- |
-| 475 | Re-audit kana exercise coverage and actual phone ergonomics |
-| 476 | Close specific base/dakuten/handakuten/yoon recognition gaps |
-| 477 | Improve similar-kana contrast based on real error categories |
-| 478 | Improve matching/typing pacing without misleading mastery labels |
-| 479 | Strengthen tracing geometry and forgiving touch recovery |
-| 480 | Refine optional kana audio with explicit TTS/source status |
-| 481 | Improve adaptive short sessions without adding kana to SRS |
-| 482 | Audit text-derived decks against actual Japanese segmentation limitations |
+| ID  | Deliverable and acceptance                                                                    |
+| --- | --------------------------------------------------------------------------------------------- |
+| 475 | Re-audit kana exercise coverage and actual phone ergonomics                                   |
+| 476 | Close specific base/dakuten/handakuten/yoon recognition gaps                                  |
+| 477 | Improve similar-kana contrast based on real error categories                                  |
+| 478 | Improve matching/typing pacing without misleading mastery labels                              |
+| 479 | Strengthen tracing geometry and forgiving touch recovery                                      |
+| 480 | Refine optional kana audio with explicit TTS/source status                                    |
+| 481 | Improve adaptive short sessions without adding kana to SRS                                    |
+| 482 | Audit text-derived decks against actual Japanese segmentation limitations                     |
 | 483 | Adopt a proven analyzer only if justified; retain an explicit fallback and license boundaries |
-| 484 | Let users correct ambiguous source matches privately |
-| 485 | Improve dictionary-to-private-deck selection without duplicate cards |
-| 486 | Add efficient private study grouping and pacing using existing queue constraints |
-| 487 | Keep custom content and progress isolated across users/versions |
-| 488 | Batch kana, analysis and deck regressions with device/theme checks |
-| 489 | Deploy and verify the chosen Renshuu/Duolingo-inspired workflows |
+| 484 | Let users correct ambiguous source matches privately                                          |
+| 485 | Improve dictionary-to-private-deck selection without duplicate cards                          |
+| 486 | Add efficient private study grouping and pacing using existing queue constraints              |
+| 487 | Keep custom content and progress isolated across users/versions                               |
+| 488 | Batch kana, analysis and deck regressions with device/theme checks                            |
+| 489 | Deploy and verify the chosen Renshuu/Duolingo-inspired workflows                              |
 
 ## 490-499: Sustainable Replacement Acceptance
 
-| ID | Deliverable and acceptance |
-| --- | --- |
-| 490 | Re-score the comparison rubric using delivered code and live content |
-| 491 | Measure complete published kanji/word placement versus 2,300/8,000 |
-| 492 | Measure editorial review, examples and source/reading gaps separately |
-| 493 | Test representative beginner, returning and continuing-learner journeys |
-| 494 | Measure large-course query/storage/media budgets without perpetual keepalive |
-| 495 | Fix evidenced cold/warm latency bottlenecks with comparable measurements |
-| 496 | Verify export/restore and additive content recovery without real-account resets |
-| 497 | Targeted UX repair from daily-use findings, not another blanket redesign |
-| 498 | Batch full release, integrity, licensing and responsive acceptance |
+| ID  | Deliverable and acceptance                                                            |
+| --- | ------------------------------------------------------------------------------------- |
+| 490 | Re-score the comparison rubric using delivered code and live content                  |
+| 491 | Measure complete published kanji/word placement versus 2,300/8,000                    |
+| 492 | Measure editorial review, examples and source/reading gaps separately                 |
+| 493 | Test representative beginner, returning and continuing-learner journeys               |
+| 494 | Measure large-course query/storage/media budgets without perpetual keepalive          |
+| 495 | Fix evidenced cold/warm latency bottlenecks with comparable measurements              |
+| 496 | Verify export/restore and additive content recovery without real-account resets       |
+| 497 | Targeted UX repair from daily-use findings, not another blanket redesign              |
+| 498 | Batch full release, integrity, licensing and responsive acceptance                    |
 | 499 | Deploy and publish an honest replacement/N4/N3 readiness report and remaining backlog |
 
 ## Delivery Rules

@@ -37,6 +37,7 @@
     "content:report": "npm run report:corpus --workspace @kanji-srs/content-importers --",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck:source-tools": "tsc -p tsconfig.source-tools.json",
     "test": "npm run test --workspaces --if-present",
     "smoke:remote": "node scripts/remote-smoke.mjs",
     "measure:web:bundles": "node scripts/measure-web-bundles.mjs",

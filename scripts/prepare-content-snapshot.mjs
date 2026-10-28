@@ -63,18 +63,37 @@ export function buildContentSources(options = {}) {
 
 export async function prepareContentSnapshot(options, dependencies = {}) {
   const snapshotVersion = validateSnapshotVersion(options.snapshotVersion);
-  const cacheRoot = resolve(options.cacheRoot ?? process.env.KANJI_CONTENT_CACHE ?? join(homedir(), ".cache", "kanji-srs", "content-sources"));
+  const cacheRoot = resolve(
+    options.cacheRoot ??
+      process.env.KANJI_CONTENT_CACHE ??
+      join(homedir(), ".cache", "kanji-srs", "content-sources"),
+  );
   const snapshotDir = join(cacheRoot, snapshotVersion);
   const manifestPath = join(snapshotDir, "manifest.json");
   const sources = options.sources ?? buildContentSources(options);
   const downloadArchive = options.offline
-    ? async () => { throw new Error("Offline source cache is incomplete or does not match its manifest."); }
-    : dependencies.downloadArchive ?? downloadArchiveWithRetries;
+    ? async () => {
+        throw new Error("Offline source cache is incomplete or does not match its manifest.");
+      }
+    : (dependencies.downloadArchive ?? downloadArchiveWithRetries);
   const now = dependencies.now ?? (() => new Date());
 
   await mkdir(snapshotDir, { recursive: true });
   const existingManifest = await readManifest(manifestPath, snapshotVersion);
-  if (options.offline && (existingManifest === null || sources.some((source) => !existingManifest.sources.some((cached) => cached.id === source.id && cached.url === source.url && cached.archiveFile === source.archiveFile && cached.contentFile === source.contentFile)))) {
+  if (
+    options.offline &&
+    (existingManifest === null ||
+      sources.some(
+        (source) =>
+          !existingManifest.sources.some(
+            (cached) =>
+              cached.id === source.id &&
+              cached.url === source.url &&
+              cached.archiveFile === source.archiveFile &&
+              cached.contentFile === source.contentFile,
+          ),
+      ))
+  ) {
     throw new Error("Offline mode requires a matching existing source manifest.");
   }
   const preparedSources = [];
@@ -375,7 +394,10 @@ function parseArguments(args) {
 
   for (let index = 0; index < args.length; index += 1) {
     const flag = args[index];
-    if (flag === "--offline") { values.set(flag, true); continue; }
+    if (flag === "--offline") {
+      values.set(flag, true);
+      continue;
+    }
     const value = args[index + 1];
 
     if (!flag.startsWith("--") || value === undefined || value.startsWith("--")) {
