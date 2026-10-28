@@ -104,6 +104,43 @@ account's settings to manufacture a particular acceptance state.
 No schema operation, seed, course publication or Neon content change is part
 of this release. Next batch is 370-384; none of those tasks has started.
 
+## Server Acceptance
+
+On 2026-10-28 both public health endpoints returned the released full revision
+`b97f57b0a2e5b4d0d28bde69e51610d8869e6ae9`. Vercel reported deployment
+success. The API also returned production/local-auth and healthy status.
+
+Read-only IAB acceptance opened the actual authenticated review lobby: two due
+cards, two materials and two meaning prompts. The expanded preview showed the
+real due timestamps in the profile's Europe/Moscow timezone. Selecting reading
+produced the honest 0/2 empty state without changing the two-card Start action.
+Reset restored both cards; level 1 survived reload, and browser Back restored
+the unfiltered URL. There was one Start button and no horizontal document
+overflow. No review was started, answered, corrected or finished; no settings,
+account, corpus or progress data was changed.
+
+The available live profile had only two meaning prompts, so larger pagination,
+listening, active-session recovery, private-answer writes and phone/theme
+acceptance remain controlled local production-browser coverage, not live-write
+claims. The real-server screenshot is outside Git at
+`cycle-355-369/live-reviews.png` in the task visualization directory.
+
+The temporary IAB tab is closed. Owned Next/Playwright processes exited. Local
+`.next`, TypeScript build info and cycle-specific test output were removed after
+preserving final screenshots. Cloud quality and both Study integrity runs have
+passed. Initial broad web smoke ran 454 cases: 451 passed, one skipped, and the
+desktop/phone MVP integration path failed because its assertion still used the
+old queue-counter label. Its expectation is updated to the actual new caption;
+no application behavior or other test expectation is weakened. The follow-up
+verification and final runtime revision are recorded below after completion.
+
+The scoped integration repeat passed **6/6 on the production build**, covering
+desktop and phone registration/lesson/review/private-answer/item flow. A prior
+dev-server repeat passed 5/6 and aborted one dashboard navigation before the
+changed assertion; it is not counted as a clean run. Production build/types,
+the changed integration file's ESLint and Prettier passed. The test-only repair
+is released under `cycle-355-369-reviews.1`; the original tag is not moved.
+
 ## Release Candidate
 
 Code acceptance commit: `19d58c0e1229fd39ceda44cc667d72406576b0fe`.

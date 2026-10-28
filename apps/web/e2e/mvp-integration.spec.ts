@@ -173,7 +173,7 @@ test.describe("final MVP integration path", () => {
         .getByRole("navigation", { name: "Основная навигация" })
         .getByRole("link", { name: "Повторения", exact: true })
         .click();
-      await expect(page.getByText("Готово карточек: 1")).toBeVisible();
+      await expect(page.getByText("Карточек по расписанию: 1", { exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Начать повторение" }).click();
 
       await expect(page.getByRole("heading", { name: "Повторение" })).toBeVisible();
