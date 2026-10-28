@@ -102,8 +102,9 @@ one skip. Live acceptance repaired the published-demo catalogue boundary and
 a real rapid-filter race without publishing new content or changing progress.
 This closes the reserved 340-399 cycles, not the full product vision: V4 remains
 101 kanji/120 word pairs, draft07 still needs source evidence and independent
-approval, and stable full-size performance remains unproven. No 400+ work has
-been authorized or started.
+approval, and stable full-size performance remains unproven. At that checkpoint,
+no 400+ work had been authorized or started. The subsequent user request reserves
+400-499 and authorizes 400-414; see `ROADMAP_400_499.md` for the new active scope.
 
 | ID  | Planned Outcome                                                                   |
 | --- | --------------------------------------------------------------------------------- |

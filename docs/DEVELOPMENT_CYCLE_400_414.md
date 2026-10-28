@@ -21,23 +21,23 @@ ambiguous or stale evidence. Matching a source is not pedagogical approval.
 
 ## Tasks
 
-| ID  | Acceptance                                                                           | State    |
-| --- | ------------------------------------------------------------------------------------ | -------- |
-| 400 | Compare objective/current app, reserve 400-499 and define this batch                 | Complete |
-| 401 | Required-reading gaps follow actual card types; tests cover cloze and ordinary cards | Complete |
-| 402 | Report absent required kanji/word teaching aspects independently                     | Complete |
-| 403 | Count modern-label coverage/unknowns without implying syllabus coverage              | Complete |
-| 404 | Extend on-demand course coverage UI with compact honest scope counters               | Complete |
-| 405 | External persistent source cache defaults and explicit offline reuse                 | Complete |
-| 406 | Validate local manifest paths/checksums/source identity and attribution contract     | Complete |
-| 407 | Stream exact candidate KANJIDIC2 reading evidence                                    | Complete |
-| 408 | Stream exact JMdict pairs, restrictions and ambiguity                                | Complete |
-| 409 | Stream exact primary KanjiVG stroke evidence                                         | Complete |
-| 410 | Aggregate observations and explicit blockers, no automatic ready flag                | Complete |
-| 411 | Safe local evidence CLI, no network/DB writes and no detailed Git report             | Complete |
-| 412 | Fingerprinted review worksheet, rejecting stale/missing approval bindings            | Complete |
-| 413 | Scoped units/browser matrix, types/build/lint and actual source run where available  | Complete |
-| 414 | Version/push/deploy/exact runtime and live coverage inspection                       | Planned  |
+| ID  | Acceptance                                                                           | State     |
+| --- | ------------------------------------------------------------------------------------ | --------- |
+| 400 | Compare objective/current app, reserve 400-499 and define this batch                 | Complete  |
+| 401 | Required-reading gaps follow actual card types; tests cover cloze and ordinary cards | Complete  |
+| 402 | Report absent required kanji/word teaching aspects independently                     | Complete  |
+| 403 | Count modern-label coverage/unknowns without implying syllabus coverage              | Complete  |
+| 404 | Extend on-demand course coverage UI with compact honest scope counters               | Complete  |
+| 405 | External persistent source cache defaults and explicit offline reuse                 | Complete  |
+| 406 | Validate local manifest paths/checksums/source identity and attribution contract     | Complete  |
+| 407 | Stream exact candidate KANJIDIC2 reading evidence                                    | Complete  |
+| 408 | Stream exact JMdict pairs, restrictions and ambiguity                                | Complete  |
+| 409 | Stream exact primary KanjiVG stroke evidence                                         | Complete  |
+| 410 | Aggregate observations and explicit blockers, no automatic ready flag                | Complete  |
+| 411 | Safe local evidence CLI, no network/DB writes and no detailed Git report             | Complete  |
+| 412 | Fingerprinted review worksheet, rejecting stale/missing approval bindings            | Complete  |
+| 413 | Scoped units/browser matrix, types/build/lint and actual source run where available  | Complete  |
+| 414 | Version/push/deploy/exact runtime and live coverage inspection                       | Releasing |
 
 ## Boundaries
 
@@ -74,3 +74,12 @@ Close owned browser tabs/processes and remove generated test/build files.
 - `npm audit` reports six high advisories in existing Nest/Prisma dependency
   chains, none in `saxes`/`xmlchars`. No unrelated dependency upgrades performed.
   Parser use remains local/dev-only and its archived upstream is documented.
+
+## Release Checkpoint
+
+Tag: `cycle-400-414-source-evidence`. Push the 15 numbered commits together.
+Broad cloud CI, exact web/API runtime and real read-only coverage acceptance
+remain pending until observed. Do not infer deployment from a successful push.
+The live check must verify both V4's aggregate teaching aspects/unknown JLPT
+metadata and the starter DEMO's corrected sentence-reading applicability,
+without enrollment, learning writes, importing or publishing new content.

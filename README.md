@@ -6,6 +6,11 @@ This repository is an npm TypeScript monorepo with a tiny project-authored start
 
 ## Current Roadmap
 
+The current numbered backlog is [400-499](docs/ROADMAP_400_499.md), with the
+active [400-414 specification](docs/DEVELOPMENT_CYCLE_400_414.md). It prioritizes
+reviewed content and truthful scope reporting over further visual-only cycles.
+Later reserved tasks are not completed work or a promise of full JLPT coverage.
+
 See [the revalidated roadmap](docs/REVALIDATION_2026_10_21.md) for current execution
 order, shipped functionality and remaining acceptance gates. Task numbers are
 stable identifiers, not execution order. [Publication status](docs/TASK_118_PUBLICATION_STATUS.md)

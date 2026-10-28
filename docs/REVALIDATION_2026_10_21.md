@@ -1,5 +1,9 @@
 # Product Revalidation: 2026-10-21
 
+Current numbered continuation: `ROADMAP_400_499.md`, assessed 2026-10-28.
+The earlier execution-order notes below remain historical evidence, not a
+replacement for the latest batch specification and published-content counts.
+
 ## Target
 
 Independent WaniKani-comparable daily learning: components unlock kanji, kanji
