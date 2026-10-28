@@ -906,8 +906,8 @@ function LessonsScreen({ requestedDeckId, returnHref }: { readonly requestedDeck
             </div>
           </dl>
           <div className="action-row">
-            <Link className="primary-action" href="/dashboard">
-              На панель
+            <Link className="primary-action" href={returnHref ?? "/dashboard"}>
+              {returnHref ? "К материалам уровня" : "На панель"}
             </Link>
             <button className="secondary-action" onClick={() => void loadQueue()} type="button">
               Ещё урок
@@ -941,8 +941,8 @@ function LessonsScreen({ requestedDeckId, returnHref }: { readonly requestedDeck
             Проверить снова
           </button>
           <div className="action-row">
-            <Link className="inline-link" href={isDeckQueue ? "/decks" : "/courses"}>
-              {isDeckQueue ? "К колодам" : "К курсам"}
+            <Link className="inline-link" href={returnHref ?? (isDeckQueue ? "/decks" : "/courses")}>
+              {returnHref ? "К материалам уровня" : isDeckQueue ? "К колодам" : "К курсам"}
             </Link>
             <Link className="inline-link" href="/reviews">
               К повторениям
@@ -969,8 +969,8 @@ function LessonsScreen({ requestedDeckId, returnHref }: { readonly requestedDeck
             </p>
           </div>
         </div>
-        <Link className="inline-link lesson-source-link" href={isDeckQueue ? "/decks" : "/courses"}>
-          {isDeckQueue ? "К колодам" : "К курсам"}
+        <Link className="inline-link lesson-source-link" href={returnHref ?? (isDeckQueue ? "/decks" : "/courses")}>
+          {returnHref ? "К материалам уровня" : isDeckQueue ? "К колодам" : "К курсам"}
         </Link>
         {sessionError === null ? null : (
           <p className="form-error" role="alert">
