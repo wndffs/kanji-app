@@ -1,7 +1,7 @@
 # Product Roadmap 340-399
 
 Baseline: `f57802f`. The next 60 task numbers are reserved below. The current
-request authorizes implementation of **370-384 only**, with one task commit,
+request authorizes implementation of **385-399 only**, with one task commit,
 batched checks, checkpoint push, deployment and server acceptance. Future
 batches are plans, not claims of completed work. Revalidate each against the
 then-current application before implementation; replace already-solved gaps
@@ -94,6 +94,9 @@ expression-reading pairs with reviewed RU/EN content. Finishing UI tasks does
 not satisfy that target, and imported rows are not published course items.
 
 ## 385-399: Cohesion And Performance
+
+Active specification: `DEVELOPMENT_CYCLE_385_399.md`. Task 385 revalidated
+existing behavior and narrowed acceptance; 386-399 are not yet completed claims.
 
 | ID  | Planned Outcome                                                                   |
 | --- | --------------------------------------------------------------------------------- |
