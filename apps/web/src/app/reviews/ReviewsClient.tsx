@@ -119,6 +119,12 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
+  const [unconfirmedAnswer, setUnconfirmedAnswer] = useState(false);
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+  const [isReconciling, setIsReconciling] = useState(false);
+  const reconcilePending = useRef(false);
+  const reconcileRequest = useRef<AbortController | null>(null);
+  const [awaitingFinish, setAwaitingFinish] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const readBusy = useRef(false);
   const [listeningEvidence, setListeningEvidence] = useState<ListeningPlaybackEvidenceDto>({
@@ -170,6 +176,9 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
     setScheduledOffset(0);
     setFormError(null);
     setSessionError(null);
+    setUnconfirmedAnswer(false);
+    setRecoveryMessage(null);
+    setAwaitingFinish(false);
     }
 
     try {
@@ -240,6 +249,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       requestRevision.current += 1;
       mounted.current = false;
       readRequest.current?.abort();
+      reconcileRequest.current?.abort();
     };
   }, [loadQueue]);
 
@@ -377,7 +387,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       session === null ||
       currentItem === null ||
       feedback !== null ||
-      submitPending.current
+      submitPending.current || reconcilePending.current
     ) {
       return;
     }
@@ -397,6 +407,8 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
 
     setFormError(null);
     setSessionError(null);
+    setUnconfirmedAnswer(false);
+    setRecoveryMessage(null);
     submitPending.current = true;
     setIsSubmitting(true);
 
@@ -429,10 +441,43 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
     } catch (error: unknown) {
       if (!ownsWorkspace(queueState.token)) return;
       setSessionError(error instanceof Error ? error.message : "Не удалось отправить ответ.");
+      setUnconfirmedAnswer(true);
       answerInputRef.current?.focus();
     } finally {
       submitPending.current = false;
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleReconcileAnswer(): Promise<void> {
+    if (queueState.status !== "ready" || session === null || submitPending.current || reconcilePending.current) return;
+    reconcilePending.current = true;
+    const controller = new AbortController();
+    reconcileRequest.current?.abort(); reconcileRequest.current = controller;
+    setIsReconciling(true); setRecoveryMessage(null);
+    try {
+      const active = await getActiveReviewSession(queueState.token, { signal: controller.signal });
+      if (controller.signal.aborted || !ownsWorkspace(queueState.token)) return;
+      if (active.session?.id !== session.id || active.progress === null) throw new Error("Сохранённая сессия изменилась. Ответ не отправлен повторно.");
+      const correcting = active.currentIndex >= active.items.length && active.corrections.length > 0;
+      const target = correcting ? active.corrections[0] : active.items[active.currentIndex];
+      const sameCard = target?.card.id === currentItem?.card.id && correcting === isCorrecting;
+      setQueueState({ ...queueState, queue: active.items });
+      setSession(active.session); setResumable(true);
+      setCorrections(active.corrections); setCorrectedCardIds(active.progress.correctedCardIds);
+      setIsCorrecting(correcting); setCurrentIndex(correcting ? 0 : active.currentIndex);
+      setProgress(toReviewProgress(active.progress));
+      setScheduledTotal(active.progress.scheduledTotal); setScheduledOffset(active.progress.scheduledAnswered - active.currentIndex);
+      setAwaitingFinish(target === undefined && active.corrections.length === 0);
+      setFeedback(null); setSessionError(null); setFormError(null); setUnconfirmedAnswer(false);
+      if (!sameCard) setAnswer("");
+      setRecoveryMessage(sameCard ? "Текущая карточка ожидает ответа." : "Сохранённая позиция восстановлена.");
+    } catch (error: unknown) {
+      if (controller.signal.aborted || !ownsWorkspace(queueState.token)) return;
+      if (error instanceof ApiError && error.status === 401) { clearStoredSession(); return; }
+      setSessionError(error instanceof Error ? error.message : "Не удалось сверить прогресс.");
+    } finally {
+      if (reconcileRequest.current === controller) { reconcilePending.current = false; setIsReconciling(false); }
     }
   }
 
@@ -774,6 +819,8 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           {sessionError}
         </p>
       )}
+      {recoveryMessage === null ? null : <p className="muted" role="status">{recoveryMessage}</p>}
+      {unconfirmedAnswer && resumable ? <button className="secondary-action review-reconcile" type="button" disabled={isReconciling || isSubmitting} onClick={() => void handleReconcileAnswer()}>{isReconciling ? "Сверяю…" : "Сверить прогресс"}</button> : null}
 
       {feedback !== null ? null : (
         <form className="review-answer-bar" onSubmit={(event) => void handleSubmit(event)}>
@@ -785,7 +832,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
               autoComplete="off"
               autoCapitalize="none"
               disabled={
-                isSubmitting ||
+                isSubmitting || isReconciling ||
                 (currentItem.card.promptType === "listening" && !listeningEvidence.completed)
               }
               id="review-answer"
@@ -802,12 +849,12 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           <button
             className="primary-action"
             disabled={
-              isSubmitting ||
+              isSubmitting || isReconciling ||
               (currentItem.card.promptType === "listening" && !listeningEvidence.completed)
             }
             type="submit"
           >
-            {isSubmitting ? "Проверяю..." : "Ответить"}
+            {isSubmitting ? "Проверяю..." : unconfirmedAnswer ? "Повторить отправку" : "Ответить"}
           </button>
           {formError === null ? null : (
             <p className="form-error" id="review-answer-error" role="alert">
