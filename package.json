@@ -24,6 +24,7 @@
     "content:drafts:evidence": "npm run prisma:report-editorial-draft-evidence --workspace @kanji-srs/db --",
     "content:drafts:preview": "npm run prisma:preview-editorial-drafts --workspace @kanji-srs/db --",
     "content:coverage": "npm run prisma:report-editorial-coverage --workspace @kanji-srs/db --",
+    "content:wave": "npm run prisma:report-editorial-wave --workspace @kanji-srs/db --",
     "db:migrate": "npm run prisma:migrate:dev --workspace @kanji-srs/db",
     "db:migrate:deploy": "npm run prisma:migrate:deploy --workspace @kanji-srs/db",
     "db:seed": "npm run prisma:seed --workspace @kanji-srs/db",

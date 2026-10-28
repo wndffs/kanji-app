@@ -83,3 +83,22 @@ identity. KanjiVG assets retain their own attribution/share-alike requirements.
 The twenty word source IDs intentionally remain null. Registry isolation and
 nonpublication are tested; this wave never becomes a curator input merely by
 passing a structural check.
+
+## Aggregate Report
+
+Run `npm run content:wave` for deterministic aggregate preparation counts.
+It does not read DATABASE_URL or connect to Neon, download files, mutate data,
+emit source records or publish anything. `npm run content:wave -- --require-ready`
+fails deliberately while independent review/source evidence/publication approval
+are absent. A successful default command means only structural validation passed.
+Actual published counts are obtained separately from the authenticated course
+coverage endpoint, never inferred from these source files.
+
+2026-10-28 local result: structurallyValid=true; RU and EN each have zero
+missing fields, invalid accepted sets, age-contrast failures or swapped-script
+primary meanings. All 30 primary readings passed with zero additional accepted
+readings. Placement issues: zero. All 20 JMdict IDs remain unresolved; source
+evidence, independent review and publication authorization remain blockers.
+ReadyToPublish=false. Reviewed registry totals remain 79 components, 101 kanji,
+120 word pairs and 300 items; the long-term reviewed backlog remains 2199 kanji
+and 7880 word pairs. None of these numbers is claimed as a fresh Neon audit.

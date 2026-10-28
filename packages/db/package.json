@@ -21,6 +21,7 @@
     "prisma:report-editorial-draft-evidence": "tsx prisma/report-editorial-draft-evidence.ts",
     "prisma:preview-editorial-drafts": "tsx prisma/preview-editorial-drafts.ts",
     "prisma:report-editorial-coverage": "tsx prisma/report-editorial-coverage.ts",
+    "prisma:report-editorial-wave": "tsx prisma/report-editorial-wave.ts",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
