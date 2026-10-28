@@ -39,6 +39,7 @@ import {
   CircleX,
   RotateCcw,
   SpellCheck,
+  RefreshCw,
 } from "lucide-react";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
@@ -511,7 +512,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           <p>Нужен вход в аккаунт.</p>
         </div>
         <div className="notice-panel">
-          <p>Войдите в demo-аккаунт, чтобы открыть очередь повторений и отправлять ответы.</p>
+          <p>Войдите, чтобы открыть свои повторения.</p>
           <Link className="primary-action" href="/login">
             Войти
           </Link>
@@ -603,6 +604,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
             <Link className="secondary-action" href="/settings">
               Настроить нагрузку
             </Link>
+            {vacationActive ? null : <Link className="inline-link" href="/lessons">К урокам</Link>}
           </div>
         </div>
       </section>
@@ -639,26 +641,19 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
 
   if (session === null) {
     return (
-      <section className="page-stack">
+      <section className="page-stack review-lobby">
         <div className="page-heading review-heading">
           <div>
             <h1>Повторения</h1>
-            <p>Готово карточек: {queueState.queue.length}</p>
+            <p>По расписанию: {queueState.queue.length} карточек</p>
           </div>
           <div className="review-heading-actions">
-            <button
-              className="primary-action"
-              disabled={isStarting || isSavingOrderMode || isRefreshing}
-              onClick={() => void handleStartSession()}
-              type="button"
-            >
-              {isStarting ? "Начинаю..." : "Начать повторение"}
-            </button>
+            <button className="icon-button" type="button" aria-label="Обновить очередь" title="Обновить очередь" disabled={isRefreshing || isStarting || isSavingOrderMode} onClick={() => void loadQueue(true)}><RefreshCw size={18} aria-hidden="true" /></button>
           </div>
         </div>
         {sessionError === null ? null : <p className="form-error">{sessionError}</p>}
         {readError === null ? null : <p className="form-error" role="alert">{readError}</p>}
-        <button className="link-button review-refresh" type="button" disabled={isRefreshing || isStarting || isSavingOrderMode} onClick={() => void loadQueue(true)}>{isRefreshing ? "Обновляю…" : "Обновить очередь"}</button>
+        {isRefreshing ? <p className="muted" role="status">Обновляю очередь…</p> : null}
         <ReviewQueueOverview queue={queueState.queue} />
         <SectionDisclosure title="Параметры повторения">
           <label className="review-order-picker">
@@ -681,6 +676,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
         <SectionDisclosure title="Состав очереди">
           <ReviewQueuePreview queue={queueState.queue} />
         </SectionDisclosure>
+        <div className="review-lobby-actions"><span>К сессии: {queueState.queue.length} карточек</span><button className="primary-action" type="button" disabled={isStarting || isSavingOrderMode || isRefreshing} onClick={() => void handleStartSession()}>{isStarting ? "Начинаю..." : "Начать повторение"}</button></div>
       </section>
     );
   }
