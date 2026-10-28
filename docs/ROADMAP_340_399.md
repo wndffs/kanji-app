@@ -1,7 +1,7 @@
 # Product Roadmap 340-399
 
 Baseline: `f57802f`. The next 60 task numbers are reserved below. The current
-request authorizes implementation of **355-369 only**, with one task commit,
+request authorizes implementation of **370-384 only**, with one task commit,
 batched checks, checkpoint push, deployment and server acceptance. Future
 batches are plans, not claims of completed work. Revalidate each against the
 then-current application before implementation; replace already-solved gaps
@@ -61,6 +61,9 @@ with one skip. The remaining 30 tasks start at **370-384**; none has started.
 | 369 | Release and verify real queue/review entry without altering user progress  |
 
 ## 370-384: Course Path And Content
+
+Active specification: `DEVELOPMENT_CYCLE_370_384.md`. Task 370 validated the
+existing course/content boundaries; 371-384 are planned, not completed claims.
 
 | ID  | Planned Outcome                                                                  |
 | --- | -------------------------------------------------------------------------------- |
