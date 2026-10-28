@@ -193,12 +193,8 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       if (!isCurrent()) return;
       const active = queue.vacationStartedAt == null ? savedActive : null;
       if (active?.session !== undefined && active.session !== null && active.progress !== null) {
-        if (active.currentIndex >= active.items.length && active.corrections.length === 0) {
-          const finished = await finishReviewSession(storedSession.token, active.session.id);
-          if (!isCurrent()) return;
-          setFinishedSummary(finished.summary);
-        } else {
           const correcting = active.currentIndex >= active.items.length;
+          setAwaitingFinish(correcting && active.corrections.length === 0);
           setSession(active.session);
           setResumable(true);
           setCorrections(active.corrections);
@@ -208,7 +204,6 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           setProgress(toReviewProgress(active.progress));
           setScheduledTotal(active.progress.scheduledTotal);
           setScheduledOffset(active.progress.scheduledAnswered - active.currentIndex);
-        }
       } else {
         setScheduledTotal(queue.items.length);
       }
@@ -295,6 +290,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
   }, [feedback, isContinuing]);
 
   useEffect(() => { continuePending.current = false; }, [feedback, currentIndex, isCorrecting]);
+  useEffect(() => { if (awaitingFinish && !isContinuing) continueButtonRef.current?.focus(); }, [awaitingFinish, isContinuing]);
 
   async function handleStartSession(): Promise<void> {
     if (queueState.status !== "ready" || queueState.queue.length === 0 || startPending.current || orderPending.current || readBusy.current || queueState.vacationStartedAt !== null) {
@@ -546,6 +542,18 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
     }
   }
 
+  async function handleFinishRestored(): Promise<void> {
+    if (queueState.status !== "ready" || session === null || !awaitingFinish || continuePending.current) return;
+    continuePending.current = true; setIsContinuing(true); setSessionError(null);
+    try {
+      const result = await finishReviewSession(queueState.token, session.id);
+      if (!ownsWorkspace(queueState.token)) return;
+      setFinishedSummary(result.summary); setAwaitingFinish(false); setSession(null); setAnswer(""); setFeedback(null);
+    } catch (error: unknown) {
+      if (ownsWorkspace(queueState.token)) setSessionError(error instanceof Error ? error.message : "Не удалось завершить сессию.");
+    } finally { continuePending.current = false; setIsContinuing(false); }
+  }
+
   if (queueState.status === "checking" || queueState.status === "loading") {
     return (
       <section className="page-stack" aria-busy="true">
@@ -661,12 +669,15 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
             <Link className="secondary-action" href="/settings">
               Настроить нагрузку
             </Link>
+            <Link className="inline-link" href="/lessons">К урокам</Link>
             {vacationActive ? null : <Link className="inline-link" href="/lessons">К урокам</Link>}
           </div>
         </div>
       </section>
     );
   }
+
+  if (awaitingFinish && session !== null) return <section className="page-stack review-completion-checkpoint"><h1>Повторения</h1><div className="notice-panel"><h2>Ответы сохранены</h2><p>Сессия ожидает завершения.</p><p>Плановых ответов: {progress.answered} · Исправлений осталось: 0</p>{sessionError === null ? null : <p className="form-error" role="alert">{sessionError}</p>}<div className="action-row"><button className="primary-action" type="button" ref={continueButtonRef} disabled={isContinuing} onClick={() => void handleFinishRestored()}>{isContinuing ? "Завершаю..." : "Завершить повторение"}</button><Link className="secondary-action" href="/dashboard">На панель</Link></div></div></section>;
 
   if (queueState.queue.length === 0 && !isCorrecting) {
     const vacationActive = queueState.vacationStartedAt !== null;
