@@ -4,6 +4,7 @@ import {
   type CourseCoverageDto,
 } from "@kanji-srs/shared";
 import { invalidateDashboardSnapshot } from "./dashboard-snapshot";
+import { courseOutlineGeneration, invalidateCourseOutline, readCourseOutline, storeCourseOutline } from "./course-outline-snapshot";
 import {
   type AvailableCoursesResponse,
   type ContentQualityPageDto,
@@ -249,6 +250,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     ...(options.signal === undefined ? {} : { signal: options.signal }),
   };
   let response: Response;
+  if (request.method !== "GET") invalidateCourseOutline();
   try {
     response = await fetchImpl(`${API_BASE_URL}${path}`, request);
   } catch (error) {
@@ -266,6 +268,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   }
 
   const body = (await response.json()) as T;
+  if (request.method !== "GET") invalidateCourseOutline();
   if (request.method !== "GET" && options.affectsDashboard !== false) invalidateDashboardSnapshot();
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(API_RESPONSE_CONFIRMED_EVENT));
@@ -306,8 +309,14 @@ export function getCourses(token: string, signal?: AbortSignal): Promise<CourseL
   return apiRequest<CourseListResponse>("/courses", { token, signal });
 }
 
-export function getCourseOutline(token: string, courseId: string, signal?: AbortSignal): Promise<CourseOutlineDto> {
-  return apiRequest(`/courses/${encodeURIComponent(courseId)}/outline`, { token, signal });
+export async function getCourseOutline(token: string, courseId: string, signal?: AbortSignal, force = false): Promise<CourseOutlineDto> {
+  signal?.throwIfAborted();
+  const cached = force ? null : readCourseOutline(token, courseId);
+  if (cached !== null) return cached;
+  const generation = courseOutlineGeneration();
+  const outline = await apiRequest<CourseOutlineDto>(`/courses/${encodeURIComponent(courseId)}/outline`, { token, signal });
+  if (!signal?.aborted) storeCourseOutline(token, courseId, outline, generation);
+  return outline;
 }
 
 export function getCourseCoverage(

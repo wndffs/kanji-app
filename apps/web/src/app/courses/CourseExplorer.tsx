@@ -70,7 +70,7 @@ function OwnedCourseExplorer({
   useEffect(() => {
     const request = new AbortController();
     setError(null);
-    void getCourseOutline(token, courseId, request.signal)
+    void getCourseOutline(token, courseId, request.signal, retry > 0)
       .then((response) => {
         if (!request.signal.aborted && ownsSession(token)) setOutline(response);
       })
