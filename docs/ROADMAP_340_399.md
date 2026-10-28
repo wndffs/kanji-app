@@ -95,9 +95,15 @@ not satisfy that target, and imported rows are not published course items.
 
 ## 385-399: Cohesion And Performance
 
-Specification and acceptance: `DEVELOPMENT_CYCLE_385_399.md`. Tasks 385-398
-are implemented and locally verified. Task 399 is in release acceptance;
-deployment, CI and live measurements are not presumed complete.
+Checkpoint: **385-399 complete and released**. Specification and evidence:
+`DEVELOPMENT_CYCLE_385_399.md`. Final tag `cycle-385-399-journeys.2`, runtime
+`1fdd9b0` verified on web/API. CI 40734207974 passed 479 browser cases with
+one skip. Live acceptance repaired the published-demo catalogue boundary and
+a real rapid-filter race without publishing new content or changing progress.
+This closes the reserved 340-399 cycles, not the full product vision: V4 remains
+101 kanji/120 word pairs, draft07 still needs source evidence and independent
+approval, and stable full-size performance remains unproven. No 400+ work has
+been authorized or started.
 
 | ID  | Planned Outcome                                                                   |
 | --- | --------------------------------------------------------------------------------- |

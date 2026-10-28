@@ -18,23 +18,23 @@ data, and available/journey materials are hydrated twice with overlapping IDs.
 Measure total HTTP and handler timing before/after; structural request-count
 reductions are not automatically a latency or full-N2 scalability claim.
 
-| Task | Deliverable                                                                                   | State      |
-| ---- | --------------------------------------------------------------------------------------------- | ---------- |
-| 385  | Audit, measurable scope and boundaries                                                        | Complete   |
-| 386  | Validated course/level return through lesson filtering and study focus                        | Complete   |
-| 387  | One coherent completion/empty-state return action for the originating course                  | Complete   |
-| 388  | Abort obsolete outline/material reads; retain confirmed catalogue content on same-query retry | Complete   |
-| 389  | Single-flight, owner-guarded RU/EN selector and cross-tab preference synchronization          | Complete   |
-| 390  | Course kana/furigana/romaji and translation modes obey stored settings with long-text fit     | Complete   |
-| 391  | Bounded baseline measurement and numeric queue-handler timing without data leakage            | Complete   |
-| 392  | Overlap evidenced independent dashboard activity reads with primary reads                     | Complete   |
-| 393  | Coalesce overlapping dashboard target hydration, preserving IDs/order/limits                  | Complete   |
-| 394  | Bounded owner-scoped confirmed-outline cache, explicit invalidation, no due/progress caching  | Complete   |
-| 395  | Explicit GET reconciliation of unconfirmed translation-setting writes, never automatic replay | Complete   |
-| 396  | Keyboard/focus recovery and reduced-motion behavior for affected controls                     | Complete   |
-| 397  | Original visual-cohesion pass for return links, mode status, narrow tables and long settings  | Complete   |
-| 398  | Scoped unit/browser matrix, account/race/failure checks, themes/viewports, types/build/lint   | Complete   |
-| 399  | Release, CI, exact runtime, finite remote measurements and real learner-route inspection      | In release |
+| Task | Deliverable                                                                                   | State    |
+| ---- | --------------------------------------------------------------------------------------------- | -------- |
+| 385  | Audit, measurable scope and boundaries                                                        | Complete |
+| 386  | Validated course/level return through lesson filtering and study focus                        | Complete |
+| 387  | One coherent completion/empty-state return action for the originating course                  | Complete |
+| 388  | Abort obsolete outline/material reads; retain confirmed catalogue content on same-query retry | Complete |
+| 389  | Single-flight, owner-guarded RU/EN selector and cross-tab preference synchronization          | Complete |
+| 390  | Course kana/furigana/romaji and translation modes obey stored settings with long-text fit     | Complete |
+| 391  | Bounded baseline measurement and numeric queue-handler timing without data leakage            | Complete |
+| 392  | Overlap evidenced independent dashboard activity reads with primary reads                     | Complete |
+| 393  | Coalesce overlapping dashboard target hydration, preserving IDs/order/limits                  | Complete |
+| 394  | Bounded owner-scoped confirmed-outline cache, explicit invalidation, no due/progress caching  | Complete |
+| 395  | Explicit GET reconciliation of unconfirmed translation-setting writes, never automatic replay | Complete |
+| 396  | Keyboard/focus recovery and reduced-motion behavior for affected controls                     | Complete |
+| 397  | Original visual-cohesion pass for return links, mode status, narrow tables and long settings  | Complete |
+| 398  | Scoped unit/browser matrix, account/race/failure checks, themes/viewports, types/build/lint   | Complete |
+| 399  | Release, CI, exact runtime, finite remote measurements and real learner-route inspection      | Complete |
 
 ## Acceptance
 
@@ -194,3 +194,35 @@ now repeats twelve sequences of four immediate changes and checks every merged
 URL; all eight focused desktop/phone navigation/completion cases passed, along
 with 13 relevant units, lint and production build/types. Patch tag:
 `cycle-385-399-journeys.2`; earlier tags remain unchanged. Final CI is required.
+
+The final web/API runtime was confirmed as
+`1fdd9b06633668a49bfaf185613a715b24349dec`. A fresh three-GET dashboard sample
+on this revision produced HTTP `[1211,845,715]`ms and handler
+`[736.0,342.1,208.0]`ms (6305 bytes each). The handler median is **342.1ms**, not
+the earlier 197.1ms. Therefore this small sample does **not** demonstrate a
+stable latency improvement over the 298.9ms baseline. The verified result is
+fewer duplicate target reads and more independent reads overlapped, with no
+eligibility changes. Free-host/connection/database variance remains; do not
+advertise a percentage speedup from the earlier sample.
+
+## Completed Release
+
+All 385-399 are complete, individually committed and pushed, followed by the
+two release-acceptance repairs. Final version: `cycle-385-399-journeys.2`.
+Verified runtime and CI commit: `1fdd9b06633668a49bfaf185613a715b24349dec`.
+Both original and first patch tags are retained unchanged.
+
+[CI 40734207974](https://github.com/wndffs/kanji-app/actions/runs/40734207974)
+succeeded: Quality 122978259028; Web smoke 122980006884 ran 480 cases,
+**479 passed, one skipped, zero failed** in 4.4 minutes. Both Study integrity
+runs 40734208017 and 40734208227 succeeded. This passing run supersedes both
+failures of the earlier patch; no retries/skips or relaxed product assertions
+were added to hide them.
+
+A renewed real IAB visit on the final deployed revision confirmed the existing
+lesson's same reading stage and the working course/level return link. Final
+screenshots, including green CI, are outside Git in `cycle-385-399/` in the
+task visualization directory. All owned tabs and local servers are closed and
+temporary build/test/measurement files are removed. The report-only commit
+does not replace the verified runtime or move tags. No 400+ tasks were started;
+the remaining content/performance limits above still apply.
