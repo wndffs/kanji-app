@@ -31,6 +31,7 @@ import {
 import { JapaneseText } from "../../components/JapaneseText";
 import { useStudyFocus } from "../../components/StudyFocus";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
+import { ReviewQueueBrowser } from "../../components/ReviewQueueBrowser";
 import {
   Volume2,
   Languages,
@@ -681,7 +682,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           </label>
         </SectionDisclosure>
         <SectionDisclosure title="Состав очереди">
-          <ReviewQueuePreview queue={queueState.queue} />
+          <ReviewQueueBrowser queue={queueState.queue} disabled={isStarting || isSavingOrderMode || isRefreshing} />
         </SectionDisclosure>
         <div className="review-lobby-actions"><span>К сессии: {queueState.queue.length} карточек</span><button className="primary-action" type="button" disabled={isStarting || isSavingOrderMode || isRefreshing} onClick={() => void handleStartSession()}>{isStarting ? "Начинаю..." : "Начать повторение"}</button></div>
       </section>
@@ -836,33 +837,6 @@ function ReviewQueueOverview({ queue }: { readonly queue: readonly ReviewQueueIt
           </div>
         ))}
     </dl>
-  );
-}
-
-function ReviewQueuePreview({ queue }: { readonly queue: readonly ReviewQueueItem[] }) {
-  return (
-    <div className="review-queue-grid">
-      {queue.slice(0, 6).map((item) => (
-        <article
-          className="review-queue-card"
-          key={item.card.id}
-          data-item-type={item.item.itemType}
-        >
-          <div>
-            <span className="eyebrow">{formatItemType(item.item.itemType)}</span>
-            {item.card.promptType === "listening" ? (
-              <strong className="audio-queue-label">
-                <Volume2 aria-hidden="true" size={20} />
-                Аудио
-              </strong>
-            ) : (
-              <JapaneseText as="strong">{item.item.japanese}</JapaneseText>
-            )}
-          </div>
-          <span>{formatAnswerType(item.card.answerType)}</span>
-        </article>
-      ))}
-    </div>
   );
 }
 

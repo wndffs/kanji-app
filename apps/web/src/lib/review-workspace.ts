@@ -1,4 +1,27 @@
-import { type ReviewQueueItem } from "@kanji-srs/shared";
+import { ITEM_KINDS, type ItemKind, type ReviewQueueItem } from "@kanji-srs/shared";
+
+export type ReviewBrowserRoute = { readonly kind: ItemKind | "all"; readonly prompt: "all" | "meaning" | "reading" | "listening"; readonly level: number | null; readonly page: number };
+export const DEFAULT_REVIEW_BROWSER: ReviewBrowserRoute = { kind: "all", prompt: "all", level: null, page: 1 };
+export const REVIEW_PREVIEW_PAGE_SIZE = 12;
+export function parseReviewBrowser(params: URLSearchParams): ReviewBrowserRoute {
+  const positive = (value: string | null, max: number) => value !== null && /^[1-9]\d*$/u.test(value) && Number(value) <= max ? Number(value) : null;
+  const kind = params.get("kind"); const prompt = params.get("prompt");
+  return { kind: ITEM_KINDS.includes(kind as ItemKind) ? kind as ItemKind : "all", prompt: ["meaning", "reading", "listening"].includes(prompt ?? "") ? prompt as ReviewBrowserRoute["prompt"] : "all", level: positive(params.get("level"), 60), page: positive(params.get("page"), 10_000) ?? 1 };
+}
+export function mergeReviewBrowser(current: ReviewBrowserRoute, patch: Partial<ReviewBrowserRoute>): ReviewBrowserRoute {
+  return { ...current, ...(Object.keys(patch).some((key) => key !== "page") ? { page: 1 } : {}), ...patch };
+}
+export function reviewBrowserHref(route: ReviewBrowserRoute): string {
+  const params = new URLSearchParams();
+  if (route.kind !== "all") params.set("kind", route.kind);
+  if (route.prompt !== "all") params.set("prompt", route.prompt);
+  if (route.level !== null) params.set("level", String(route.level));
+  if (route.page > 1) params.set("page", String(route.page));
+  return `/reviews${params.size ? `?${params}` : ""}`;
+}
+export function filterReviewPreview(queue: readonly ReviewQueueItem[], route: ReviewBrowserRoute) {
+  return queue.filter((row) => (route.kind === "all" || row.item.itemType === route.kind) && (route.prompt === "all" || reviewPromptKind(row) === route.prompt) && (route.level === null || row.item.level === route.level));
+}
 
 export function reviewPromptKind(item: ReviewQueueItem): "meaning" | "reading" | "listening" {
   return item.card.promptType === "listening" ? "listening" : item.card.answerType;
