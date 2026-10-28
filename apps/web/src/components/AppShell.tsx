@@ -61,6 +61,9 @@ export function AppShell({ children }: AppShellProps) {
   const [modeError, setModeError] = useState<string | null>(null);
   const modeRequest = useRef<object | null>(null);
   const modeRead = useRef<AbortController | null>(null);
+  const modeSelect = useRef<HTMLSelectElement>(null);
+  const modeRetry = useRef<HTMLButtonElement>(null);
+  const restoreModeFocus = useRef(false);
   const shellOwner = useRef<string | null>(null);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -123,6 +126,7 @@ export function AppShell({ children }: AppShellProps) {
       const session = readStoredSession();
       const owner = session === null ? null : `${session.user.id}:${session.token}`;
       if (owner !== shellOwner.current) {
+        restoreModeFocus.current = false;
         modeRead.current?.abort();
         shellOwner.current = owner;
         modeRequest.current = null;
@@ -146,8 +150,17 @@ export function AppShell({ children }: AppShellProps) {
     };
   }, []);
 
+  useEffect(() => {
+    if (isSavingMode || !restoreModeFocus.current) return;
+    restoreModeFocus.current = false;
+    if (document.activeElement === document.body || document.activeElement === modeSelect.current || document.activeElement === modeRetry.current) {
+      (modeError ? modeRetry.current : modeSelect.current)?.focus();
+    }
+  }, [isSavingMode, modeError]);
+
   async function handleModeChange(nextMode: TranslationDisplayMode): Promise<void> {
     if (modeRequest.current !== null || modeError !== null) return;
+    restoreModeFocus.current = document.activeElement === modeSelect.current;
     setModeError(null);
     setMode(nextMode);
     storeTranslationDisplayMode(nextMode);
@@ -182,6 +195,7 @@ export function AppShell({ children }: AppShellProps) {
 
   async function reconcileMode(): Promise<void> {
     if (modeRequest.current !== null) return;
+    restoreModeFocus.current = document.activeElement === modeRetry.current;
     const session = readStoredSession();
     if (session === null) return;
     const request = {};
@@ -357,6 +371,7 @@ export function AppShell({ children }: AppShellProps) {
               ) : null}
               <label className="mode-control">
                 <select
+                  ref={modeSelect}
                   disabled={isSavingMode || modeError !== null}
                   aria-label="Режим перевода карточек"
                   title={formatTranslationDisplayMode(mode)}
@@ -400,7 +415,7 @@ export function AppShell({ children }: AppShellProps) {
           {modeError ? (
             <div className="shell-mode-status">
               <p className="form-error" role="alert">{modeError}</p>
-              <button className="secondary-action" disabled={isSavingMode} onClick={() => void reconcileMode()}>
+              <button ref={modeRetry} type="button" className="secondary-action" disabled={isSavingMode} onClick={() => void reconcileMode()}>
                 Сверить режим
               </button>
             </div>
