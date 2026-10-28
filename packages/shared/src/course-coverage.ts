@@ -18,6 +18,11 @@ export type CourseCoverageDto = {
     readonly missingReadingCards: number;
     readonly withBothCardTypes: number;
   };
+  readonly jlptMetadata?: {
+    readonly kanji: { readonly labeled: number; readonly unknown: number };
+    readonly words: { readonly labeled: number; readonly unknown: number };
+    readonly officialSyllabus: false;
+  };
   readonly total: CourseCoverageCounts;
   readonly levels: readonly { readonly level: number; readonly counts: CourseCoverageCounts }[];
   readonly bands: readonly { readonly band: string; readonly counts: CourseCoverageCounts }[];
@@ -60,12 +65,19 @@ export function buildCourseCoverage(
   const bands = [
     ...new Set([...rows.map((row) => row.band), ...declaredLevels.map((row) => row.band)]),
   ].sort();
-  const jlpt = [...new Set(rows.map((row) => row.jlpt ?? "unassigned"))].sort();
+  const label = (row: CourseCoverageRow) => row.jlpt && /^N[1-5]$/u.test(row.jlpt) ? row.jlpt : "unassigned";
+  const jlpt = [...new Set(rows.map(label))].sort();
+  const metadata = (kind: ItemKind) => {
+    const selected = [...new Map(rows.filter((row) => row.kind === kind).map((row) => [row.id, row])).values()];
+    const labeled = selected.filter((row) => label(row) !== "unassigned").length;
+    return { labeled, unknown: selected.length - labeled };
+  };
   return {
     courseId,
     observedAt,
     scope: "published-course-core-cards",
     teachingAspects: countTeachingAspects(rows),
+    jlptMetadata: { kanji: metadata("kanji"), words: metadata("word"), officialSyllabus: false },
     total: countCourseCoverage(rows),
     levels: [
       ...new Set([...rows.map((row) => row.level), ...declaredLevels.map((row) => row.level)]),
@@ -81,7 +93,7 @@ export function buildCourseCoverage(
     })),
     jlpt: jlpt.map((band) => ({
       band,
-      counts: countCourseCoverage(rows.filter((row) => (row.jlpt ?? "unassigned") === band)),
+      counts: countCourseCoverage(rows.filter((row) => label(row) === band)),
     })),
   };
 }
