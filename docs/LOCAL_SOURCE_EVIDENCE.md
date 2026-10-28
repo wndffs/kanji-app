@@ -17,3 +17,11 @@ Manifest hashes establish local integrity, not a cryptographic publisher signatu
 No database connection, source import or publication is performed. Candidate
 matches, source provenance, independent educational approval and explicit
 publication authorization remain separate gates. Only aggregates go to Git.
+
+Streaming XML uses `saxes@6.0.0` (ISC) as a root **development-only** dependency.
+It avoids a new handwritten XML parser and full-corpus object allocation. Its
+upstream repository is archived; use is limited to bounded, local source tools,
+not the web/API runtime. No external DTD/entity is fetched. Only bounded literal
+internal entities are expanded; malformed XML, excessive depth/records/text,
+unexpected roots, cancellation and changed-file hashes fail closed. Existing
+dictionary parsers handle selected candidate records, not a second import path.
