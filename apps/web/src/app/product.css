@@ -1102,6 +1102,10 @@ textarea::placeholder {
   border-bottom: 1px solid var(--surface-border);
 }
 .course-coverage-table :is(th, td):first-child {
+  position: sticky;
+  left: 0;
+  background: var(--surface);
+  z-index: 1;
   text-align: left;
 }
 .course-prerequisite {

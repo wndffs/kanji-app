@@ -6776,6 +6776,43 @@ html
 .course-material-grid .course-material-reading {
   font-size: 1rem;
   color: var(--muted);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.course-material-romaji {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.course-material-grid[data-view="list"] .course-material-romaji {
+  grid-area: romaji;
+}
+.course-material-grid[data-view="list"] li a {
+  grid-template-areas: "japanese meanings state" "reading meanings review" "romaji meanings review" "kind meanings review";
+}
+.shell-mode-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--surface-border);
+  margin-bottom: 16px;
+}
+.shell-mode-status p {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.shell-mode-status button {
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .course-material-grid[data-view="list"] li a {
+    grid-template-areas: "japanese meanings" "reading meanings" "romaji meanings" "kind review" "state review";
+  }
 }
 .course-page-navigation {
   display: flex;
