@@ -59,6 +59,7 @@ import { formatReviewOrderMode, formatSrsStageName } from "../../lib/dashboard-f
 import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
+import { pendingReviewCorrections, summarizeReviewQueue } from "../../lib/review-workspace";
 
 type QueueState =
   | { readonly status: "checking" }
@@ -104,6 +105,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
   );
   const [corrections, setCorrections] = useState<readonly ReviewQueueItem[]>([]);
   const [isCorrecting, setIsCorrecting] = useState(false);
+  const [correctedCardIds, setCorrectedCardIds] = useState<readonly string[]>([]);
   const [resumable, setResumable] = useState(false);
   const [scheduledOffset, setScheduledOffset] = useState(0);
   const [scheduledTotal, setScheduledTotal] = useState(0);
@@ -161,6 +163,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
     setFinishedSummary(null);
     setCorrections([]);
     setIsCorrecting(false);
+    setCorrectedCardIds([]);
     setResumable(false);
     setScheduledOffset(0);
     setFormError(null);
@@ -188,6 +191,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           setSession(active.session);
           setResumable(true);
           setCorrections(active.corrections);
+          setCorrectedCardIds(active.progress.correctedCardIds);
           setIsCorrecting(correcting);
           setCurrentIndex(correcting ? 0 : active.currentIndex);
           setProgress(toReviewProgress(active.progress));
@@ -300,6 +304,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       setScheduledTotal(response.progress?.scheduledTotal ?? items.length);
       setScheduledOffset((response.progress?.scheduledAnswered ?? 0) - index);
       setCorrections(response.corrections ?? []);
+      setCorrectedCardIds(response.progress?.correctedCardIds ?? []);
       setIsCorrecting(correcting);
       setCurrentIndex(correcting ? 0 : index);
       setAnswer("");
@@ -406,6 +411,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
         : await submitReviewAnswer(queueState.token, session.id, request);
       if (!ownsWorkspace(queueState.token)) return;
 
+      if ("progress" in response) setCorrectedCardIds(response.progress.correctedCardIds);
       if (!response.retry) {
         playAnswerSound(response.accepted);
       }
@@ -464,6 +470,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
         }
         if (active.corrections.length > 0) {
           setCorrections(active.corrections);
+          setCorrectedCardIds(active.progress?.correctedCardIds ?? []);
           setIsCorrecting(true);
           setCurrentIndex(0);
           setAnswer("");
@@ -710,6 +717,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
         <div className="review-progress">
           <span>Принято: {progress.accepted}</span>
           <span>Ошибок: {progress.missed}</span>
+          {isCorrecting ? <span>Исправлений осталось: {pendingReviewCorrections(corrections, correctedCardIds)}</span> : <span>Плановых осталось: {Math.max(0, scheduledTotal - progress.answered)}</span>}
         </div>
       </header>
 
@@ -805,11 +813,11 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
 }
 
 function ReviewQueueOverview({ queue }: { readonly queue: readonly ReviewQueueItem[] }) {
-  const counts = { meaning: 0, reading: 0, listening: 0 };
-  for (const { card } of queue)
-    counts[card.promptType === "listening" ? "listening" : card.answerType]++;
+  const counts = summarizeReviewQueue(queue);
   return (
     <dl className="review-queue-overview" aria-label="Вопросы в очереди">
+      <div><dt>Карточек</dt><dd>{counts.cards}</dd></div>
+      <div><dt>Материалов</dt><dd>{counts.materials}</dd></div>
       {(
         [
           { kind: "meaning", label: "Значение", icon: Type },
