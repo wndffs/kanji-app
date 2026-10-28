@@ -3,6 +3,7 @@ import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { inspectLocalDraft } from "./local-draft-evidence.mts";
 import { isWithin } from "./local-source-manifest.mts";
+import { createReviewWorksheet } from "./local-review-worksheet.mts";
 
 export async function writeExternalEvidence(path: string, value: unknown): Promise<void> {
   if (!isAbsolute(path)) throw new Error("An absolute external report path is required.");
@@ -18,20 +19,23 @@ export function parseLocalEvidenceArguments(args: readonly string[]) {
     const flag = args[index]!;
     if (values.has(flag)) throw new Error("Duplicate option.");
     if (flag === "--require-complete" || flag === "--help") { values.set(flag, true); continue; }
-    if (!["--snapshot-dir", "--report"].includes(flag) || !args[index + 1] || args[index + 1]!.startsWith("--")) throw new Error("Invalid local evidence option.");
+    if (!["--snapshot-dir", "--report", "--worksheet"].includes(flag) || !args[index + 1] || args[index + 1]!.startsWith("--")) throw new Error("Invalid local evidence option.");
     values.set(flag, args[++index]!);
   }
   if (values.has("--help")) return { help: true as const };
   const directory = values.get("--snapshot-dir");
   const report = values.get("--report");
+  const worksheet = values.get("--worksheet");
+  if (worksheet !== undefined && (typeof worksheet !== "string" || !isAbsolute(worksheet))) throw new Error("An absolute worksheet path is required.");
   if (typeof directory !== "string" || !isAbsolute(directory) || (report !== undefined && (typeof report !== "string" || !isAbsolute(report)))) throw new Error("Absolute snapshot/report paths are required.");
-  return { help: false as const, directory, report, requireComplete: values.has("--require-complete") };
+  return { help: false as const, directory, report, worksheet, requireComplete: values.has("--require-complete") };
 }
 export async function runLocalEvidenceCli(args: readonly string[], output: (value: string) => void = console.log): Promise<number> {
   const options = parseLocalEvidenceArguments(args);
-  if (options.help) { output("content:drafts:local --snapshot-dir ABSOLUTE_DIRECTORY [--report ABSOLUTE_EXTERNAL_FILE] [--require-complete]"); return 0; }
+  if (options.help) { output("content:drafts:local --snapshot-dir ABSOLUTE_DIRECTORY [--report ABSOLUTE_EXTERNAL_FILE] [--worksheet ABSOLUTE_EXTERNAL_FILE] [--require-complete]"); return 0; }
   const result = await inspectLocalDraft(options.directory);
   if (options.report) await writeExternalEvidence(options.report, result);
+  if (options.worksheet) await writeExternalEvidence(options.worksheet, createReviewWorksheet(result));
   output(JSON.stringify(result.summary));
   return options.requireComplete && !result.summary.sourceMatchesComplete ? 2 : 0;
 }

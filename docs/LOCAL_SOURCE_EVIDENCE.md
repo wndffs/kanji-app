@@ -33,3 +33,10 @@ must already exist and resolve outside the repository. `--require-complete`
 exits 2 for missing/ambiguous/nonbilingual evidence, but even exit 0 is not
 publication readiness. `--help` does no I/O. No environment credentials are
 read. Tool modules use explicit `.mts` ESM, not a package-wide module change.
+
+`--worksheet ABSOLUTE_EXTERNAL_FILE` creates an original-content review worksheet
+bound to candidate prose, the source snapshot and exact observations. Editing
+prose/identities or changing either fingerprint makes the binding stale. A bound
+worksheet is only ready for independent review (or still source-blocked), never
+approval. A reviewer name or edited JSON flag cannot turn it into a publishing
+credential. Existing curator/review/publication gates are not wired to this file.
