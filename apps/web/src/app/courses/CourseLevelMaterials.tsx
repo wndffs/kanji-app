@@ -62,6 +62,7 @@ export function CourseLevelMaterials({
   const data = loaded?.key === requestKey ? loaded.data : null;
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
+  const [pending, setPending] = useState(true);
   const [view, setView] = useState<CourseMaterialView>("grid");
   useEffect(() => {
     setView(readCourseMaterialView(userId));
@@ -72,7 +73,8 @@ export function CourseLevelMaterials({
     storeCourseMaterialView(userId, next);
   };
   useEffect(() => {
-    let active = true;
+    const request = new AbortController();
+    setPending(true);
     setError(null);
     void getCourseMaterials(
       token,
@@ -81,21 +83,21 @@ export function CourseLevelMaterials({
       page,
       itemType === "all" ? undefined : itemType,
       studyState === "all" ? undefined : studyState,
-      { reviewState: reviewState === "all" ? undefined : reviewState, q, sort },
+      { reviewState: reviewState === "all" ? undefined : reviewState, q, sort, signal: request.signal },
     )
       .then((response) => {
-        if (active && ownsSession(token)) setLoaded({ key: requestKey, data: response });
+        if (!request.signal.aborted && ownsSession(token)) setLoaded({ key: requestKey, data: response });
       })
       .catch((reason: unknown) => {
-        if (!active || !ownsSession(token)) return;
+        if (request.signal.aborted || !ownsSession(token)) return;
         if (reason instanceof ApiError && reason.status === 401) clearStoredSession();
         else
           setError(
             reason instanceof Error ? reason.message : "Не удалось загрузить материалы уровня.",
           );
-      });
+      }).finally(() => { if (!request.signal.aborted && ownsSession(token)) setPending(false); });
     return () => {
-      active = false;
+      request.abort();
     };
   }, [
     token,
@@ -111,7 +113,7 @@ export function CourseLevelMaterials({
     requestKey,
   ]);
   return (
-    <section className="course-level-materials" aria-label="Материалы уровня">
+    <section className="course-level-materials" aria-label="Материалы уровня" aria-busy={pending}>
       <h2>Материалы уровня {levelNumber}</h2>
       {data?.summary ? (
         <CourseLevelProgress summary={data.summary} route={route} onNavigate={onNavigate} />
@@ -207,10 +209,11 @@ export function CourseLevelMaterials({
           Сбросить фильтры
         </button>
       ) : null}
+      {pending && data !== null ? <p className="muted" role="status">Обновляю материалы.</p> : null}
       {error === null ? null : (
         <div>
           <p role="alert">{error}</p>
-          <button className="secondary-action" onClick={() => setRetry((value) => value + 1)}>
+          <button className="secondary-action" disabled={pending} onClick={() => setRetry((value) => value + 1)}>
             Повторить загрузку материалов
           </button>
         </div>

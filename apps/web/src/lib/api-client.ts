@@ -306,8 +306,8 @@ export function getCourses(token: string, signal?: AbortSignal): Promise<CourseL
   return apiRequest<CourseListResponse>("/courses", { token, signal });
 }
 
-export function getCourseOutline(token: string, courseId: string): Promise<CourseOutlineDto> {
-  return apiRequest(`/courses/${encodeURIComponent(courseId)}/outline`, { token });
+export function getCourseOutline(token: string, courseId: string, signal?: AbortSignal): Promise<CourseOutlineDto> {
+  return apiRequest(`/courses/${encodeURIComponent(courseId)}/outline`, { token, signal });
 }
 
 export function getCourseCoverage(
@@ -325,7 +325,7 @@ export function getCourseMaterials(
   page: number,
   itemType?: string,
   studyState?: string,
-  options: { readonly reviewState?: string; readonly q?: string; readonly sort?: string } = {},
+  options: { readonly reviewState?: string; readonly q?: string; readonly sort?: string; readonly signal?: AbortSignal } = {},
 ): Promise<CourseMaterialPageDto> {
   const params = new URLSearchParams({ page: String(page) });
   if (itemType !== undefined) params.set("itemType", itemType);
@@ -335,6 +335,7 @@ export function getCourseMaterials(
   if (options.sort) params.set("sort", options.sort);
   return apiRequest(`/courses/${encodeURIComponent(courseId)}/levels/${level}/items?${params}`, {
     token,
+    signal: options.signal,
   });
 }
 

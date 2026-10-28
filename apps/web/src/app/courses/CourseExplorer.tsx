@@ -68,14 +68,14 @@ function OwnedCourseExplorer({
     currentLevel,
   );
   useEffect(() => {
-    let active = true;
+    const request = new AbortController();
     setError(null);
-    void getCourseOutline(token, courseId)
+    void getCourseOutline(token, courseId, request.signal)
       .then((response) => {
-        if (active && ownsSession(token)) setOutline(response);
+        if (!request.signal.aborted && ownsSession(token)) setOutline(response);
       })
       .catch((reason: unknown) => {
-        if (!active || !ownsSession(token)) return;
+        if (request.signal.aborted || !ownsSession(token)) return;
         if (reason instanceof ApiError && reason.status === 401) clearStoredSession();
         else
           setError(
@@ -87,7 +87,7 @@ function OwnedCourseExplorer({
           );
       });
     return () => {
-      active = false;
+      request.abort();
     };
   }, [courseId, token, retry]);
 
