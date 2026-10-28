@@ -74,6 +74,9 @@ export async function prepareContentSnapshot(options, dependencies = {}) {
 
   await mkdir(snapshotDir, { recursive: true });
   const existingManifest = await readManifest(manifestPath, snapshotVersion);
+  if (options.offline && (existingManifest === null || sources.some((source) => !existingManifest.sources.some((cached) => cached.id === source.id && cached.url === source.url && cached.archiveFile === source.archiveFile && cached.contentFile === source.contentFile)))) {
+    throw new Error("Offline mode requires a matching existing source manifest.");
+  }
   const preparedSources = [];
   const cacheHits = [];
 
