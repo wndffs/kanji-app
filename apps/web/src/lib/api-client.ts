@@ -1267,8 +1267,8 @@ export function deletePrivateMnemonic(
   });
 }
 
-export function getCurrentUser(token: string): Promise<CurrentUserDto> {
-  return apiRequest<CurrentUserDto>("/auth/me", { token });
+export function getCurrentUser(token: string, signal?: AbortSignal): Promise<CurrentUserDto> {
+  return apiRequest<CurrentUserDto>("/auth/me", { token, signal });
 }
 
 export async function claimReviewReminder(

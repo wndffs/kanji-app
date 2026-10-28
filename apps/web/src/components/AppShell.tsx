@@ -34,7 +34,7 @@ import {
   type TranslationDisplayMode,
 } from "@kanji-srs/shared";
 
-import { updateUserSettings, type UserRole } from "../lib/api-client";
+import { getCurrentUser, updateUserSettings, type UserRole } from "../lib/api-client";
 import {
   AUTH_CHANGED_EVENT,
   clearStoredSession,
@@ -60,6 +60,7 @@ export function AppShell({ children }: AppShellProps) {
   const [isSavingMode, setIsSavingMode] = useState(false);
   const [modeError, setModeError] = useState<string | null>(null);
   const modeRequest = useRef<object | null>(null);
+  const modeRead = useRef<AbortController | null>(null);
   const shellOwner = useRef<string | null>(null);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -122,6 +123,7 @@ export function AppShell({ children }: AppShellProps) {
       const session = readStoredSession();
       const owner = session === null ? null : `${session.user.id}:${session.token}`;
       if (owner !== shellOwner.current) {
+        modeRead.current?.abort();
         shellOwner.current = owner;
         modeRequest.current = null;
         setIsSavingMode(false);
@@ -137,13 +139,15 @@ export function AppShell({ children }: AppShellProps) {
     window.addEventListener(AUTH_CHANGED_EVENT, syncSessionState);
     window.addEventListener("storage", syncSessionState);
     return () => {
+      modeRead.current?.abort();
+      modeRequest.current = null;
       window.removeEventListener(AUTH_CHANGED_EVENT, syncSessionState);
       window.removeEventListener("storage", syncSessionState);
     };
   }, []);
 
   async function handleModeChange(nextMode: TranslationDisplayMode): Promise<void> {
-    if (modeRequest.current !== null) return;
+    if (modeRequest.current !== null || modeError !== null) return;
     setModeError(null);
     setMode(nextMode);
     storeTranslationDisplayMode(nextMode);
@@ -171,6 +175,34 @@ export function AppShell({ children }: AppShellProps) {
     } finally {
       if (modeRequest.current === request) {
         modeRequest.current = null;
+        setIsSavingMode(false);
+      }
+    }
+  }
+
+  async function reconcileMode(): Promise<void> {
+    if (modeRequest.current !== null) return;
+    const session = readStoredSession();
+    if (session === null) return;
+    const request = {};
+    const controller = new AbortController();
+    modeRequest.current = request;
+    modeRead.current = controller;
+    setIsSavingMode(true);
+    try {
+      const user = await getCurrentUser(session.token, controller.signal);
+      if (controller.signal.aborted || modeRequest.current !== request || !ownsSession(session.token)) return;
+      if (user.id !== session.user.id) throw new Error("Неверный владелец настроек.");
+      updateStoredUser(user);
+      setModeError(null);
+    } catch {
+      if (!controller.signal.aborted && modeRequest.current === request && ownsSession(session.token)) {
+        setModeError("Не удалось сверить режим с сервером.");
+      }
+    } finally {
+      if (modeRequest.current === request) {
+        modeRequest.current = null;
+        modeRead.current = null;
         setIsSavingMode(false);
       }
     }
@@ -325,7 +357,7 @@ export function AppShell({ children }: AppShellProps) {
               ) : null}
               <label className="mode-control">
                 <select
-                  disabled={isSavingMode}
+                  disabled={isSavingMode || modeError !== null}
                   aria-label="Режим перевода карточек"
                   title={formatTranslationDisplayMode(mode)}
                   onChange={(event) =>
@@ -358,7 +390,6 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           </div>
         </header>
-        {modeError ? <p className="shell-mode-status form-error" role="alert">{modeError}</p> : null}
         <main
           className="main"
           id="main-content"
@@ -366,6 +397,14 @@ export function AppShell({ children }: AppShellProps) {
           data-page={pathname.split("/")[1] || "home"}
         >
           <ConnectionStatus />
+          {modeError ? (
+            <div className="shell-mode-status">
+              <p className="form-error" role="alert">{modeError}</p>
+              <button className="secondary-action" disabled={isSavingMode} onClick={() => void reconcileMode()}>
+                Сверить режим
+              </button>
+            </div>
+          ) : null}
           {children}
         </main>
       </div>
