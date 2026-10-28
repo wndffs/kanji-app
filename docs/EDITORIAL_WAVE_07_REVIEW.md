@@ -49,3 +49,20 @@ Both locale gates run independently. Neither locale can compensate for missing
 fields in the other. A complete English row must not hide absent Russian text,
 or vice versa. Script checks catch obvious swapped primary meanings, not every
 language or translation error. Passing is preparation only, not approval.
+
+## Reading Decisions
+
+The ten kanji select on readings from their proposals; the twenty words test
+whole-word readings. Do not transfer a kanji reading directly to a word card.
+Examples needing explicit attention include 学校/がっこう (sokuon), 兄弟/きょうだい
+(different on readings), 今日/きょう and 今年/ことし (whole-word reading), and
+何人/なんにん (counting people, not なにじん). 父/母 words use ちち/はは while
+their kanji cards select ふ/ぼ. No new accepted alternative is inferred from a
+dictionary list or mechanical character concatenation.
+
+The reading gate requires canonical hiragana (allowing the long-vowel mark),
+unique alternatives and inclusion of each kanji primary in its accepted set.
+Proposed KANJIDIC2 source spellings must normalize to the chosen kana. This is
+internal consistency only: exact source attestation and source priority still
+need the real licensed snapshot. Example readings also require editorial
+checking for particles, counters and natural pronunciation.
