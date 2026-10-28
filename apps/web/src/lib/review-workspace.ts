@@ -48,3 +48,7 @@ export function formatReviewDueAt(value: string | null, timezone: string): strin
   const zone = reviewTimezone(timezone);
   return `${new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short", timeZone: zone }).format(new Date(value))} (${zone})`;
 }
+
+export function reviewFeedbackTone(feedback: { readonly retry?: boolean; readonly result: string; readonly accepted: boolean }): "neutral" | "success" | "wrong" {
+  return feedback.retry || feedback.result === "reveal" || feedback.result === "manual-ignore" ? "neutral" : feedback.accepted ? "success" : "wrong";
+}

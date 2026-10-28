@@ -60,7 +60,7 @@ import { formatReviewOrderMode, formatSrsStageName } from "../../lib/dashboard-f
 import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
-import { formatReviewDueAt, pendingReviewCorrections, reviewPromptKind, reviewTimezone, summarizeReviewQueue } from "../../lib/review-workspace";
+import { formatReviewDueAt, pendingReviewCorrections, reviewFeedbackTone, reviewPromptKind, reviewTimezone, summarizeReviewQueue } from "../../lib/review-workspace";
 
 type QueueState =
   | { readonly status: "checking" }
@@ -755,6 +755,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
 
       {feedback === null ? null : (
         <FeedbackPanel
+          key={`${session.id}:${currentItem.card.id}:${isCorrecting ? "correction" : "scheduled"}`}
           answer={answer}
           feedback={feedback}
           correction={isCorrecting}
@@ -874,6 +875,7 @@ function FeedbackPanel({
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const savePending = useRef(false);
   const isAccepted = feedback.accepted;
   const ResultIcon = feedback.retry
     ? RotateCcw
@@ -885,6 +887,7 @@ function FeedbackPanel({
 
   async function handleSavePrivateAnswer(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    if (savePending.current || !ownsSession(token)) return;
 
     const text = privateAnswer.trim();
 
@@ -893,6 +896,7 @@ function FeedbackPanel({
       return;
     }
 
+    savePending.current = true;
     setIsSaving(true);
     setSaveError(null);
     setSaveMessage(null);
@@ -904,10 +908,13 @@ function FeedbackPanel({
         locale: privateLocale,
         note: "Добавлено из сессии повторения.",
       });
+      if (!ownsSession(token)) return;
       setSaveMessage("Приватный вариант сохранён.");
     } catch (error: unknown) {
+      if (!ownsSession(token)) return;
       setSaveError(error instanceof Error ? error.message : "Не удалось сохранить вариант.");
     } finally {
+      savePending.current = false;
       setIsSaving(false);
     }
   }
@@ -915,13 +922,7 @@ function FeedbackPanel({
   return (
     <section
       aria-label="Результат ответа"
-      className={
-        feedback.retry
-          ? "feedback-panel feedback-panel-neutral"
-          : isAccepted
-            ? "feedback-panel feedback-panel-success"
-            : "feedback-panel"
-      }
+      className={`feedback-panel feedback-panel-${reviewFeedbackTone(feedback)}`}
     >
       <div className="feedback-header">
         <div role="status" aria-atomic="true">
@@ -930,7 +931,7 @@ function FeedbackPanel({
             {feedback.retry ? "Другое чтение" : formatResult(feedback.result)}
           </h2>
           <p>{feedback.feedback.message}</p>
-          {"nextSrs" in feedback ? (
+          {!feedback.retry && "nextSrs" in feedback ? (
             <span className="feedback-stage">{formatSrsStageName(feedback.nextSrs.stageName)}</span>
           ) : null}
         </div>
@@ -999,6 +1000,7 @@ function FeedbackPanel({
             <span>Приватный правильный вариант</span>
             <input
               autoComplete="off"
+              disabled={isSaving}
               onChange={(event) => setPrivateAnswer(event.currentTarget.value)}
               value={privateAnswer}
             />
@@ -1009,6 +1011,7 @@ function FeedbackPanel({
             <label>
               <span>Язык</span>
               <select
+                disabled={isSaving}
                 onChange={(event) => setPrivateLocale(event.currentTarget.value as ContentLocale)}
                 value={privateLocale}
               >
@@ -1102,10 +1105,6 @@ function formatItemType(itemType: ReviewQueueItem["item"]["itemType"]): string {
     case "sentence":
       return "Предложение";
   }
-}
-
-function formatAnswerType(answerType: CardAnswerType): string {
-  return answerType === "reading" ? "Чтение" : "Значение";
 }
 
 function formatInputLabel(answerType: CardAnswerType): string {
