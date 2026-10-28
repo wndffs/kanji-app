@@ -27,6 +27,7 @@ export type CourseCoverageRow = {
   readonly hasRu: boolean;
   readonly hasEn: boolean;
   readonly hasReading: boolean;
+  readonly readingRequired?: boolean;
 };
 export function countCourseCoverage(rows: readonly CourseCoverageRow[]): CourseCoverageCounts {
   const unique = [...new Map(rows.map((row) => [row.id, row])).values()];
@@ -38,7 +39,9 @@ export function countCourseCoverage(rows: readonly CourseCoverageRow[]): CourseC
     byKind,
     missingRu: unique.filter((row) => !row.hasRu).length,
     missingEn: unique.filter((row) => !row.hasEn).length,
-    missingReading: unique.filter((row) => row.kind !== "component" && !row.hasReading).length,
+    missingReading: unique.filter((row) =>
+      (row.readingRequired ?? (row.kind === "kanji" || row.kind === "word")) && !row.hasReading,
+    ).length,
   };
 }
 export function buildCourseCoverage(

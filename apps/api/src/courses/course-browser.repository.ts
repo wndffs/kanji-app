@@ -108,6 +108,7 @@ export class CourseBrowserRepository {
               (answer) => answer.answerKind === "MEANING" && answer.locale === "en-US",
             ),
             hasReading: answers.some((answer) => answer.answerKind === "READING"),
+            readingRequired: item.kind === "KANJI" || item.kind === "WORD" || item.cards.some((card) => card.answerType === "READING"),
           };
         }),
       ),
