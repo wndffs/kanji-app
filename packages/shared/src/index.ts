@@ -2030,6 +2030,7 @@ export const workspacePackages: readonly WorkspacePackageInfo[] = [
 ];
 
 export * from "./course-browser";
+export * from "./course-coverage";
 
 export function isContentLocale(value: string): value is ContentLocale {
   return (SUPPORTED_CONTENT_LOCALES as readonly string[]).includes(value);

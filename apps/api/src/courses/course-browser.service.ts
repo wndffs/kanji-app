@@ -38,6 +38,12 @@ export class CourseBrowserService {
     return outline;
   }
 
+  async coverage(courseId: string) {
+    const report = await this.repository.coverage(courseId);
+    if (report === null) throw new NotFoundException("Опубликованный курс не найден.");
+    return report;
+  }
+
   async materials(
     userId: string,
     courseId: string,

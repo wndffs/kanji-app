@@ -28,6 +28,11 @@ export class CourseBrowserController {
     return this.service.outline(requireCourseBrowserId(courseId));
   }
 
+  @Get(":courseId/coverage")
+  coverage(@Param("courseId") courseId: string) {
+    return this.service.coverage(requireCourseBrowserId(courseId));
+  }
+
   @Get(":courseId/levels/:level/items")
   materials(
     @CurrentUser() user: CurrentUserDto,

@@ -3,6 +3,7 @@ import {
   courseMaterialStudyState,
   courseReviewTimeline,
   summarizeCourseLevel,
+  buildCourseCoverage,
   type CourseOutlineDto,
   type ItemKind,
   type CourseMaterialStudyState,
@@ -17,6 +18,48 @@ import { normalizeJapaneseReading, normalizeRussianMeaning } from "@kanji-srs/ja
 @Injectable()
 export class CourseBrowserRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+
+  async coverage(courseId: string) {
+    const course = await this.prisma.db.course.findFirst({
+      where: { id: courseId, status: "PUBLISHED", courseType: "STRUCTURED" },
+      select: { levels: { orderBy: { levelNumber: "asc" }, select: {
+        levelNumber: true, band: true, items: {
+          where: { learningItem: { status: "PUBLISHED" } },
+          select: { learningItem: { select: {
+            id: true, kind: true, targetId: true,
+            cards: { where: { promptType: { not: "LISTENING" } }, select: {
+              id: true, answerType: true,
+              answers: { where: { sourceKind: { in: ["CURATED", "PROJECT_AUTHORED"] } },
+                select: { locale: true, answerKind: true, text: true } },
+            } },
+          } } },
+        },
+      } } },
+    });
+    if (course === null) return null;
+    const items = course.levels.flatMap((level) => level.items.map(({ learningItem }) => learningItem));
+    const jlpt = new Map<string, string | null>();
+    for (const kind of ["KANJI", "WORD"] as const) {
+      const ids = [...new Set(items.filter((item) => item.kind === kind).map((item) => item.targetId))];
+      if (ids.length === 0) continue;
+      const rows = kind === "KANJI"
+        ? await this.prisma.db.kanji.findMany({ where: { id: { in: ids } }, select: { id: true, jlptLevel: true } })
+        : await this.prisma.db.word.findMany({ where: { id: { in: ids } }, select: { id: true, jlptLevel: true } });
+      for (const row of rows) jlpt.set(`${kind}:${row.id}`, row.jlptLevel === null ? null : `N${row.jlptLevel}`);
+    }
+    return buildCourseCoverage(courseId, course.levels.flatMap((level) => level.items.map(({ learningItem: item }) => {
+      const answers = item.cards.flatMap((card) => card.answers.filter((answer) => answer.answerKind === card.answerType && answer.text.trim() !== ""));
+      return {
+        id: item.id, kind: item.kind.toLowerCase() as ItemKind,
+        level: level.levelNumber, band: level.band.toLowerCase(),
+        jlpt: jlpt.get(`${item.kind}:${item.targetId}`) ?? null,
+        cardIds: item.cards.map((card) => card.id),
+        hasRu: answers.some((answer) => answer.answerKind === "MEANING" && answer.locale === "ru-RU"),
+        hasEn: answers.some((answer) => answer.answerKind === "MEANING" && answer.locale === "en-US"),
+        hasReading: answers.some((answer) => answer.answerKind === "READING"),
+      };
+    })), new Date().toISOString());
+  }
 
   async outline(courseId: string): Promise<CourseOutlineDto | null> {
     const course = await this.prisma.db.course.findFirst({
