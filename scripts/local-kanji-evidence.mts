@@ -1,7 +1,7 @@
 import { parseKanjiDic2Xml } from "../packages/content-importers/src/kanjidic2";
 import { normalizeJapaneseReading } from "@kanji-srs/japanese";
-import { type LocalSource } from "./local-source-manifest";
-import { scanSourceXml, serializeNode, textOf } from "./local-source-xml";
+import { type LocalSource } from "./local-source-manifest.mts";
+import { scanSourceXml, serializeNode, textOf } from "./local-source-xml.mts";
 
 export type KanjiCandidate = { readonly character: string; readonly reading: { readonly primary: string; readonly source: string; readonly sourceType: string } };
 export async function inspectLocalKanji(source: LocalSource, candidates: readonly KanjiCandidate[]) {

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { SaxesParser } from "saxes";
-import { type LocalSource } from "./local-source-manifest";
+import { type LocalSource } from "./local-source-manifest.mts";
 
 export type SourceNode = { name: string; attributes: Record<string, string>; text: string; children: SourceNode[] };
 export const children = (node: SourceNode, name: string) => node.children.filter((child) => child.name === name);

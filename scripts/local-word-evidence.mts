@@ -1,6 +1,6 @@
 import { parseJmDictXml } from "../packages/content-importers/src/jmdict";
-import { type LocalSource } from "./local-source-manifest";
-import { children, scanSourceXml, serializeNode, textOf, type SourceNode } from "./local-source-xml";
+import { type LocalSource } from "./local-source-manifest.mts";
+import { children, scanSourceXml, serializeNode, textOf, type SourceNode } from "./local-source-xml.mts";
 
 export type WordCandidate = { readonly expression: string; readonly reading: string };
 const key = (candidate: WordCandidate) => JSON.stringify([candidate.expression, candidate.reading]);

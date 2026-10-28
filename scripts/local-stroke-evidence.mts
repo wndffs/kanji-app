@@ -1,6 +1,6 @@
 import { parseKanjiVgXml } from "../packages/content-importers/src/kanjivg";
-import { type LocalSource } from "./local-source-manifest";
-import { scanSourceXml, serializeNode } from "./local-source-xml";
+import { type LocalSource } from "./local-source-manifest.mts";
+import { scanSourceXml, serializeNode } from "./local-source-xml.mts";
 
 export async function inspectLocalStrokes(source: LocalSource, characters: readonly string[]) {
   const targets = new Set(characters.map((character) => character.codePointAt(0)!.toString(16).padStart(5, "0")));
