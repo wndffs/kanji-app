@@ -83,3 +83,11 @@ export function normalizeCourseSearch(value: string) {
   const normalized = value.normalize("NFKC").trim().replace(/\s+/gu, " ");
   return normalized.length <= 80 ? normalized : "";
 }
+
+export function relatedCourseItemHref(itemId: string, params: URLSearchParams) {
+  const context = courseReturnHref(Object.fromEntries(params));
+  if (context === null) return `/items/${encodeURIComponent(itemId)}`;
+  const url = new URL(context, "https://course.invalid");
+  const courseId = params.get("courseId")!;
+  return courseItemHref(itemId, courseId, parseCourseBrowserRoute(url.searchParams));
+}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { relatedCourseItemHref } from "../../lib/course-browser-route";
 import { History, Volume2 } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -812,6 +813,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               groups={item.relationGroups}
               legacyRelations={item.relations}
               hideReadings={hideReadingHints}
+              hrefForItem={(id) => relatedCourseItemHref(id, new URLSearchParams(searchParams))}
             />
 
             <section className="panel">
@@ -1584,11 +1586,13 @@ function RelationGroups({
   groups,
   legacyRelations,
   hideReadings,
+  hrefForItem,
 }: {
   readonly displayMode: TranslationDisplayMode;
   readonly groups: ItemDetails["relationGroups"];
   readonly legacyRelations: ItemDetails["relations"];
   readonly hideReadings: boolean;
+  readonly hrefForItem: (id: string) => string;
 }) {
   return (
     <section className="panel" data-testid="item-relation-groups">
@@ -1598,12 +1602,16 @@ function RelationGroups({
           relations={legacyRelations}
           displayMode={displayMode}
           hideReadings={hideReadings}
+          hrefForItem={hrefForItem}
         />
       ) : (
         <div className="relation-group-list">
           {groups.map((group) => (
-            <div className="content-block" key={group.kind}>
+            <div className="content-block" key={group.kind} id={`item-related-${group.kind}`}>
               <h3>{formatRelationGroup(group.kind)}</h3>
+              {group.kind === "components" || group.kind === "used-in-kanji" ? (
+                <p className="muted">Компонент — зрительная опора. Его условное имя не заменяет значение кандзи и не объясняет происхождение знака.</p>
+              ) : null}
               <ItemPreviewList
                 items={group.items}
                 total={group.total}
@@ -1611,7 +1619,7 @@ function RelationGroups({
                 className="lesson-relation-list"
                 renderItem={(related) => (
                   <li key={related.id}>
-                    <Link className="inline-link" href={`/items/${related.id}`}>
+                    <Link className="inline-link" href={hrefForItem(related.id)}>
                       <JapaneseText>{related.japanese}</JapaneseText>
                     </Link>
                     <small>
@@ -1633,10 +1641,12 @@ function RelationsList({
   relations,
   displayMode,
   hideReadings,
+  hrefForItem,
 }: {
   readonly relations: ItemDetails["relations"];
   readonly displayMode: TranslationDisplayMode;
   readonly hideReadings: boolean;
+  readonly hrefForItem: (id: string) => string;
 }) {
   if (relations.length === 0) {
     return <p className="muted">Связанные материалы пока не добавлены.</p>;
@@ -1649,7 +1659,7 @@ function RelationsList({
       className="lesson-relation-list"
       renderItem={(relation) => (
         <li key={`${relation.relationType}-${relation.item.id}`}>
-          <Link className="inline-link" href={`/items/${relation.item.id}`}>
+          <Link className="inline-link" href={hrefForItem(relation.item.id)}>
             <JapaneseText>{relation.item.japanese}</JapaneseText>
           </Link>
           <small>
