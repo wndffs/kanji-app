@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { captureLearnerThemes } from "./support/capture-learner-themes";
+import { changeAccount } from "./support/change-account";
 
 import {
   type ContentLocale,
@@ -27,6 +28,591 @@ type CapturedReviewAnswerRequest = {
 };
 
 test.describe("review session", () => {
+  test("retries an initial queue failure only after explicit action", async ({ page }) => {
+    await signIn(page);
+    await mockReviewApi(page);
+    let reads = 0;
+    await page.route(`${API_BASE_URL}/reviews/queue`, (route) => {
+      reads++;
+      return route.fulfill(
+        reads === 1
+          ? { status: 503, json: { message: "Initial queue failed" } }
+          : { json: { items: [reviewQueueItem], orderMode: "shuffled", vacationStartedAt: null } },
+      );
+    });
+    await page.goto("/reviews");
+    await expect(page.getByText("Initial queue failed", { exact: true })).toBeVisible();
+    expect(reads).toBe(1);
+    await page.getByRole("button", { name: "Повторить загрузку", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Начать повторение", exact: true }),
+    ).toBeEnabled();
+    expect(reads).toBe(2);
+  });
+
+  test("blocks start during settings save and ignores its stale-owner completion", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockReviewApi(page);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(`${API_BASE_URL}/users/settings`, async (route) => {
+      await gate;
+      await route
+        .fulfill({
+          json: {
+            id: "user-1",
+            email: "old@example.test",
+            displayName: "Old",
+            role: "USER",
+            settings: { timezone: "Europe/Moscow", reviewOrderMode: "oldest-first" },
+          },
+        })
+        .catch(() => undefined);
+    });
+    try {
+      await page.goto("/reviews");
+      await page.getByRole("button", { name: "Параметры повторения", exact: true }).click();
+      await page
+        .getByRole("combobox", { name: "Порядок карточек", exact: true })
+        .selectOption("oldest-first");
+      await expect(
+        page.getByRole("button", { name: "Начать повторение", exact: true }),
+      ).toBeDisabled();
+      await changeAccount(page);
+      await expect(
+        page.getByRole("button", { name: "Начать повторение", exact: true }),
+      ).toBeEnabled();
+      release();
+      expect(
+        await page.evaluate(() => JSON.parse(localStorage.getItem("kanji-srs.user")!).id),
+      ).toBe("new-owner");
+    } finally {
+      release();
+    }
+  });
+
+  test("ignores a late submitted answer after the account changes", async ({ page }) => {
+    await signIn(page);
+    await mockReviewApi(page);
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const pending = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    await page.route(`${API_BASE_URL}/reviews/${SESSION_ID}/answer`, async (route) => {
+      started();
+      await gate;
+      await route
+        .fulfill({
+          json: createAnswerResponse({
+            item: reviewQueueItem,
+            answer: "солнце",
+            accepted: true,
+            result: "correct",
+          }),
+        })
+        .catch(() => undefined);
+    });
+    try {
+      await page.goto("/reviews");
+      await page.getByRole("button", { name: "Начать повторение", exact: true }).click();
+      await page.getByLabel("Ответ значением").fill("солнце");
+      await page.keyboard.press("Enter");
+      await pending;
+      await changeAccount(page);
+      await expect(
+        page.getByRole("button", { name: "Начать повторение", exact: true }),
+      ).toBeVisible();
+      release();
+      await expect(page.getByRole("region", { name: "Результат ответа", exact: true })).toHaveCount(
+        0,
+      );
+      expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe(
+        "new-owner-token",
+      );
+    } finally {
+      release();
+    }
+  });
+
+  test("keeps the loaded lobby recoverable after a failed explicit refresh", async ({ page }) => {
+    await signIn(page);
+    await mockReviewApi(page);
+    let reads = 0;
+    let writes = 0;
+    page.on("request", (request) => {
+      if (request.url().startsWith(API_BASE_URL) && request.method() !== "GET") writes++;
+    });
+    await page.route(`${API_BASE_URL}/reviews/queue`, (route) => {
+      reads++;
+      return route.fulfill(
+        reads === 2
+          ? { status: 503, json: { message: "Queue refresh failed" } }
+          : {
+              json: {
+                items: reads === 3 ? [reviewQueueItem, secondReviewQueueItem] : [reviewQueueItem],
+                orderMode: "shuffled",
+                vacationStartedAt: null,
+              },
+            },
+      );
+    });
+    await page.goto("/reviews");
+    await expect(page.getByText("Карточек по расписанию: 1", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Обновить очередь", exact: true }).click();
+    await expect(page.getByText("Queue refresh failed", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Начать повторение", exact: true }),
+    ).toBeEnabled();
+    await expect(page.getByText("Карточек по расписанию: 1", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Обновить очередь", exact: true }).click();
+    await expect(page.getByText("Карточек по расписанию: 2", { exact: true })).toBeVisible();
+    await expect(page.getByText("Queue refresh failed", { exact: true })).toHaveCount(0);
+    expect(reads).toBe(3);
+    expect(writes).toBe(0);
+  });
+
+  for (const changeOrder of [false, true]) {
+    test(`allows fresh session reads after a failed refresh (settings: ${changeOrder})`, async ({
+      page,
+    }) => {
+      await signIn(page);
+      const audit = await mockReviewApi(page, { resumable: true });
+      let failRefresh = false;
+      await page.route(`${API_BASE_URL}/reviews/queue`, (route) =>
+        failRefresh
+          ? route.fulfill({ status: 503, json: { message: "Refresh failed" } })
+          : route.fallback(),
+      );
+      await page.goto("/reviews");
+      const start = page.getByRole("button", { name: "Начать повторение", exact: true });
+      await expect(start).toBeEnabled();
+      failRefresh = true;
+      await page.getByRole("button", { name: "Обновить очередь", exact: true }).click();
+      await expect(page.getByText("Refresh failed", { exact: true })).toBeVisible();
+      failRefresh = false;
+      if (changeOrder) {
+        await page.getByRole("button", { name: "Параметры повторения", exact: true }).click();
+        const order = page.getByRole("combobox", { name: "Порядок карточек", exact: true });
+        await order.selectOption("oldest-first");
+        await expect(order).toBeEnabled();
+        await expect(order).toHaveValue("oldest-first");
+        expect(audit().queueRequests).toBe(2);
+      }
+      await start.click();
+      await page.getByLabel("Ответ значением").fill("солнце");
+      await page.keyboard.press("Enter");
+      await page.getByRole("button", { name: "Дальше", exact: true }).click();
+      await expect(page.getByText("Сессия завершена.", { exact: true })).toBeVisible();
+    });
+  }
+
+  test("keeps an already answered start snapshot at the explicit finish checkpoint", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockReviewApi(page);
+    await page.route(`${API_BASE_URL}/reviews/start`, (route) =>
+      route.fulfill({
+        json: activeReviewSnapshot(
+          [],
+          [
+            createAnswerResponse({
+              item: reviewQueueItem,
+              answer: "солнце",
+              accepted: true,
+              result: "correct",
+            }),
+          ],
+        ),
+      }),
+    );
+    let finishes = 0;
+    page.on("request", (request) => {
+      if (request.url().endsWith(`/${SESSION_ID}/finish`)) finishes++;
+    });
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Ответы сохранены", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Завершить повторение", exact: true }),
+    ).toBeFocused();
+    expect(finishes).toBe(0);
+  });
+
+  for (const endpoint of ["active", "queue"] as const)
+    for (const status of [200, 401]) {
+      test(`ignores late ${endpoint} results from an old account (${status})`, async ({ page }) => {
+        await signIn(page);
+        await mockReviewApi(page);
+        let release!: () => void;
+        let started!: () => void;
+        const gate = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        const pending = new Promise<void>((resolve) => {
+          started = resolve;
+        });
+        let writes = 0;
+        page.on("request", (request) => {
+          if (request.url().startsWith(API_BASE_URL) && request.method() !== "GET") writes++;
+        });
+        await page.route(`${API_BASE_URL}/reviews/queue`, async (route) => {
+          const old = route.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`;
+          if (old && endpoint === "queue") {
+            started();
+            await gate;
+            await route
+              .fulfill({
+                status,
+                json:
+                  status === 401
+                    ? { message: "Old owner expired" }
+                    : { items: [reviewQueueItem], orderMode: "shuffled", vacationStartedAt: null },
+              })
+              .catch(() => undefined);
+          } else
+            await route.fulfill({
+              json: {
+                items: [secondReviewQueueItem],
+                orderMode: "shuffled",
+                vacationStartedAt: null,
+              },
+            });
+        });
+        await page.route(`${API_BASE_URL}/reviews/active`, async (route) => {
+          const old = route.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`;
+          if (old && endpoint === "active") {
+            started();
+            await gate;
+            await route
+              .fulfill({
+                status,
+                json:
+                  status === 401
+                    ? { message: "Old owner expired" }
+                    : activeReviewSnapshot(
+                        [],
+                        [
+                          createAnswerResponse({
+                            item: reviewQueueItem,
+                            answer: "солнце",
+                            accepted: true,
+                            result: "correct",
+                          }),
+                        ],
+                      ),
+              })
+              .catch(() => undefined);
+          } else await route.fulfill({ json: emptyActiveReview() });
+        });
+        try {
+          await page.goto("/reviews");
+          await pending;
+          await changeAccount(page);
+          await page.getByRole("button", { name: "Состав очереди", exact: true }).click();
+          await expect(page.locator(".review-queue-grid")).toContainText("月");
+          release();
+          await expect(page.getByText("Old owner expired", { exact: true })).toHaveCount(0);
+          expect(await page.evaluate(() => localStorage.getItem("kanji-srs.accessToken"))).toBe(
+            "new-owner-token",
+          );
+          expect(writes).toBe(0);
+        } finally {
+          release();
+        }
+      });
+    }
+
+  test("preserves combined preview filters and pages without shrinking the authoritative session", async ({
+    page,
+  }, info) => {
+    await signIn(page);
+    const queue = largeReviewQueue();
+    const audit = await mockReviewApi(page, { queue, resumable: true });
+    let starts = 0;
+    page.on("request", (request) => {
+      if (request.url() === `${API_BASE_URL}/reviews/start`) {
+        starts++;
+        expect(request.postData()).toBeNull();
+      }
+    });
+    await page.goto("/reviews?page=9999");
+    await expect(page).toHaveURL("/reviews?page=3");
+    await page.getByRole("button", { name: "Состав очереди", exact: true }).click();
+    await expect(page.locator(".review-queue-grid > article")).toHaveCount(2);
+    await page.getByRole("button", { name: "Предыдущая страница очереди", exact: true }).click();
+    await expect(page).toHaveURL("/reviews?page=2");
+    await page.goBack();
+    await expect(page).toHaveURL("/reviews?page=3");
+    await page.reload();
+    await page.getByRole("button", { name: "Состав очереди", exact: true }).click();
+    await page.evaluate(() => {
+      const selectors = document.querySelectorAll<HTMLSelectElement>(
+        ".review-preview-filters select",
+      );
+      selectors[1]!.value = "reading";
+      selectors[1]!.dispatchEvent(new Event("change", { bubbles: true }));
+      selectors[2]!.value = "2";
+      selectors[2]!.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await expect(page).toHaveURL("/reviews?prompt=reading&level=2");
+    await expect(page.getByRole("combobox", { name: "Вопрос", exact: true })).toHaveValue(
+      "reading",
+    );
+    await expect(page.getByRole("combobox", { name: "Уровень", exact: true })).toHaveValue("2");
+    await expect(page.locator(".review-queue-grid")).not.toContainText("にち");
+    await expect(page.locator(".review-queue-grid time").first()).toContainText(
+      "11:00 (Europe/Moscow)",
+    );
+    await expect(page.getByText("Карточек в сессии: 26", { exact: true })).toBeVisible();
+    expect(audit().queueRequests).toBe(2);
+    await page.evaluate(() => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      window.scrollTo(0, 0);
+    });
+    await captureLearnerThemes(page, info, "review-lobby");
+    await page.screenshot({
+      path: info.outputPath("review-lobby-viewport.png"),
+      animations: "disabled",
+    });
+    await page.getByRole("button", { name: "Начать повторение", exact: true }).click();
+    await expect(page.getByText("1 из 26", { exact: true })).toBeVisible();
+    expect(starts).toBe(1);
+  });
+
+  test("keeps opening an answered snapshot read-only and retries only explicit finish", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockReviewApi(page);
+    const answer = createAnswerResponse({
+      item: reviewQueueItem,
+      answer: "солнце",
+      accepted: true,
+      result: "correct",
+    });
+    await page.route(`${API_BASE_URL}/reviews/active`, (route) =>
+      route.fulfill({ json: activeReviewSnapshot([], [answer]) }),
+    );
+    let finishes = 0;
+    await page.route(`${API_BASE_URL}/reviews/${SESSION_ID}/finish`, (route) => {
+      finishes++;
+      return route.fulfill(
+        finishes === 1
+          ? { status: 503, json: { message: "Finish failed" } }
+          : {
+              json: {
+                session: {
+                  id: SESSION_ID,
+                  mode: "review",
+                  startedAt: "2026-06-22T08:00:00Z",
+                  finishedAt: "2026-06-22T08:02:00Z",
+                },
+                summary: createSessionSummary([answer]),
+              },
+            },
+      );
+    });
+    await page.goto("/reviews");
+    await expect(
+      page.getByRole("heading", { name: "Ответы сохранены", exact: true }),
+    ).toBeVisible();
+    expect(finishes).toBe(0);
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "Завершить повторение", exact: true }),
+    ).toBeFocused();
+    expect(finishes).toBe(0);
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Finish failed", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Завершить повторение", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Сессия завершена.", { exact: true })).toBeVisible();
+    expect(finishes).toBe(2);
+  });
+
+  for (const saved of ["none", "next", "done"] as const) {
+    test(`reconciles a lost answer response through GET only (${saved})`, async ({ page }) => {
+      await signIn(page);
+      await mockReviewApi(page, {
+        queue: [reviewQueueItem, secondReviewQueueItem],
+        resumable: true,
+      });
+      let started = false;
+      let attempts = 0;
+      page.on("request", (request) => {
+        if (request.url() === `${API_BASE_URL}/reviews/start`) started = true;
+      });
+      await page.route(`${API_BASE_URL}/reviews/active`, (route) => {
+        const confirmed = attempts > 0 && saved !== "none";
+        const answers = confirmed
+          ? [
+              createAnswerResponse({
+                item: reviewQueueItem,
+                answer: "солнце",
+                accepted: true,
+                result: "correct",
+              }),
+            ]
+          : [];
+        return route.fulfill({
+          json: !started
+            ? emptyActiveReview()
+            : activeReviewSnapshot(
+                confirmed
+                  ? saved === "done"
+                    ? []
+                    : [secondReviewQueueItem]
+                  : [reviewQueueItem, secondReviewQueueItem],
+                answers,
+              ),
+        });
+      });
+      await page.route(`${API_BASE_URL}/reviews/${SESSION_ID}/answer`, (route) => {
+        attempts++;
+        return route.abort("failed");
+      });
+      let finishes = 0;
+      await page.route(`${API_BASE_URL}/reviews/${SESSION_ID}/finish`, (route) => {
+        finishes++;
+        return route.abort("failed");
+      });
+      await page.goto("/reviews");
+      await page.getByRole("button", { name: "Начать повторение", exact: true }).click();
+      const input = page.getByLabel("Ответ значением");
+      await input.fill("солнце");
+      await page.keyboard.press("Enter");
+      await expect(input).toHaveValue("солнце");
+      await page.getByRole("button", { name: "Сверить прогресс", exact: true }).click();
+      if (saved === "done")
+        await expect(
+          page.getByRole("heading", { name: "Ответы сохранены", exact: true }),
+        ).toBeVisible();
+      else {
+        await expect(input).toHaveValue(saved === "none" ? "солнце" : "");
+        await expect(input).toBeFocused();
+        await expect(page.locator(".review-prompt")).toContainText(saved === "none" ? "日" : "月");
+      }
+      expect(attempts).toBe(1);
+      expect(finishes).toBe(0);
+    });
+  }
+
+  test("guards same-turn start, IME submit and feedback continuation", async ({ page }) => {
+    await signIn(page);
+    const requests: CapturedReviewAnswerRequest[] = [];
+    await mockReviewApi(page, {
+      queue: [reviewQueueItem, secondReviewQueueItem],
+      answerRequests: requests,
+    });
+    let starts = 0;
+    let finishes = 0;
+    page.on("request", (request) => {
+      if (request.url().endsWith("/reviews/start")) starts++;
+      if (request.url().endsWith(`/${SESSION_ID}/finish`)) finishes++;
+    });
+    await page.goto("/reviews");
+    await page
+      .getByRole("button", { name: "Начать повторение", exact: true })
+      .evaluate((button: HTMLButtonElement) => {
+        button.click();
+        button.click();
+      });
+    const input = page.getByLabel("Ответ значением");
+    await expect(input).toBeFocused();
+    await input.fill("солнце");
+    await input.dispatchEvent("compositionstart");
+    await input.press("Enter");
+    expect(requests).toHaveLength(0);
+    await input.dispatchEvent("compositionend");
+    await page.locator(".review-answer-bar").evaluate((form: HTMLFormElement) => {
+      form.requestSubmit();
+      form.requestSubmit();
+    });
+    await expect(page.getByRole("region", { name: "Результат ответа", exact: true })).toBeVisible();
+    await page
+      .getByRole("button", { name: "Дальше", exact: true })
+      .evaluate((button: HTMLButtonElement) => {
+        button.click();
+        button.click();
+      });
+    await expect(page.locator(".review-prompt")).toContainText("月");
+    expect(starts).toBe(1);
+    expect(requests).toHaveLength(1);
+    expect(finishes).toBe(0);
+  });
+
+  test("does not carry a private-answer draft into the next card's feedback", async ({ page }) => {
+    await signIn(page);
+    await mockReviewApi(page, { queue: [reviewQueueItem, secondReviewQueueItem] });
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение", exact: true }).click();
+    await page.getByLabel("Ответ значением").fill("солнце");
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: "Добавить свой ответ", exact: true }).click();
+    await page.getByLabel("Приватный правильный вариант").fill("first draft");
+    await page.getByRole("button", { name: "Дальше", exact: true }).click();
+    await page.getByLabel("Ответ значением").fill("луна");
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: "Добавить свой ответ", exact: true }).click();
+    await expect(page.getByLabel("Приватный правильный вариант")).toHaveValue("луна");
+  });
+
+  test("fits answer and long feedback on a short-height viewport", async ({ page }, info) => {
+    await page.setViewportSize({ width: info.project.name === "mobile" ? 393 : 1280, height: 480 });
+    await signIn(page);
+    await mockReviewApi(page);
+    await page.route(`${API_BASE_URL}/reviews/${SESSION_ID}/answer`, (route) =>
+      route.fulfill({
+        json: {
+          ...createAnswerResponse({
+            item: reviewQueueItem,
+            answer: "wrong",
+            accepted: false,
+            result: "wrong",
+          }),
+          feedback: {
+            message: "Длиннаяобратнаясвязь".repeat(12),
+            expected: [{ locale: "ru-RU", text: "длинноезначение".repeat(12) }],
+          },
+        },
+      }),
+    );
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение", exact: true }).click();
+    const input = page.getByLabel("Ответ значением");
+    await expect(input).toBeFocused();
+    const inputBox = await input.boundingBox();
+    const submitBox = await page
+      .getByRole("button", { name: "Ответить", exact: true })
+      .boundingBox();
+    expect(inputBox!.y).toBeGreaterThanOrEqual(0);
+    expect(submitBox!.y + submitBox!.height).toBeLessThanOrEqual(480);
+    await input.fill("wrong");
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("button", { name: "Дальше", exact: true })).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await captureLearnerThemes(page, info, "review-short-feedback");
+    await page.screenshot({
+      path: info.outputPath("review-short-feedback-viewport.png"),
+      animations: "disabled",
+    });
+  });
+
   test("reports browser offline hints before receiving an API response", async ({ page }) => {
     await page.addInitScript(() => {
       Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
@@ -216,6 +802,7 @@ test.describe("review session", () => {
     await page.keyboard.press("Enter");
     await expect(page.getByRole("region", { name: "Результат ответа" })).toBeVisible();
     await page.reload();
+    await page.getByRole("button", { name: "Завершить повторение", exact: true }).click();
     await expect(page.getByText("Сессия завершена.")).toBeVisible();
     await expect(page.getByText("0%", { exact: true })).toBeVisible();
     expect(answerRequests).toHaveLength(1);
@@ -252,9 +839,11 @@ test.describe("review session", () => {
     await page.goto("/reviews");
 
     await expect(page.getByRole("heading", { name: "Повторения" })).toBeVisible();
-    await expect(page.getByText("Готово карточек: 1")).toBeVisible();
+    await expect(page.getByText("Карточек по расписанию: 1")).toBeVisible();
     await expect(page.getByRole("definition").filter({ hasText: "1" }).first()).toBeVisible();
-    await expect(page.locator(".review-queue-overview")).toHaveText("Значение1");
+    await expect(page.locator(".review-queue-overview")).toHaveText(
+      "Карточек1Материалов1Значение1",
+    );
     await page.getByRole("button", { name: "Начать повторение" }).click();
 
     await expect(page.getByRole("heading", { name: "Повторение" })).toBeVisible();
@@ -627,7 +1216,7 @@ test.describe("review session", () => {
     await expect(page.getByText("Нет карточек к повторению.")).toBeVisible();
     queueAvailable = true;
     await page.getByRole("button", { name: "Проверить снова" }).click();
-    await expect(page.getByText("Готово карточек: 1")).toBeVisible();
+    await expect(page.getByText("Карточек по расписанию: 1")).toBeVisible();
   });
 
   test("shows vacation mode instead of an ordinary empty queue", async ({ page }) => {
@@ -719,6 +1308,52 @@ test.describe("review session", () => {
     await expect(page.getByText("Ответ принят.")).toBeVisible();
   });
 });
+
+function emptyActiveReview(): ActiveReviewSessionResponse {
+  return { session: null, items: [], currentIndex: 0, corrections: [], progress: null };
+}
+function activeReviewSnapshot(
+  items: readonly ReviewQueueItem[],
+  answers: readonly ReviewAnswerResponse[] = [],
+): ActiveReviewSessionResponse {
+  return {
+    session: { id: SESSION_ID, startedAt: "2026-06-22T08:00:00Z", mode: "review" },
+    items,
+    currentIndex: 0,
+    corrections: [],
+    progress: {
+      scheduledTotal: items.length + answers.length,
+      scheduledAnswered: answers.length,
+      correctionsRequired: 0,
+      correctedCardIds: [],
+      original: createSessionSummary(answers),
+    },
+  };
+}
+function largeReviewQueue(): readonly ReviewQueueItem[] {
+  return Array.from({ length: 26 }, (_, index) => {
+    const original = index % 3 === 2 ? listeningReviewQueueItem : reviewQueueItem;
+    const kind = index % 2 === 0 ? "kanji" : "word";
+    return {
+      ...original,
+      card: {
+        ...original.card,
+        id: `preview-card-${index}`,
+        learningItemId: index < 2 ? "shared" : `preview-item-${index}`,
+        itemType: kind,
+        ...(index % 3 === 1
+          ? { answerType: "reading" as const, promptType: "reading" as const }
+          : {}),
+      },
+      item: {
+        ...original.item,
+        id: index < 2 ? "shared" : `preview-item-${index}`,
+        itemType: kind,
+        level: (index % 2) + 1,
+      },
+    };
+  });
+}
 
 async function signIn(
   page: Page,

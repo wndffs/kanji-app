@@ -60,7 +60,14 @@ import { formatReviewOrderMode, formatSrsStageName } from "../../lib/dashboard-f
 import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
-import { formatReviewDueAt, pendingReviewCorrections, reviewFeedbackTone, reviewPromptKind, reviewTimezone, summarizeReviewQueue } from "../../lib/review-workspace";
+import {
+  formatReviewDueAt,
+  pendingReviewCorrections,
+  reviewFeedbackTone,
+  reviewPromptKind,
+  reviewTimezone,
+  summarizeReviewQueue,
+} from "../../lib/review-workspace";
 
 type QueueState =
   | { readonly status: "checking" }
@@ -89,8 +96,18 @@ const INITIAL_PROGRESS: ReviewProgress = {
 
 export function ReviewsClient() {
   const account = useStoredSession();
-  if (account === undefined) return <section className="page-stack" aria-busy="true"><h1>Повторения</h1></section>;
-  return <ReviewsScreen key={account === null ? "guest" : `${account.user.id}:${account.token}`} timezone={reviewTimezone(account?.user.settings.timezone ?? "UTC")} />;
+  if (account === undefined)
+    return (
+      <section className="page-stack" aria-busy="true">
+        <h1>Повторения</h1>
+      </section>
+    );
+  return (
+    <ReviewsScreen
+      key={account === null ? "guest" : `${account.user.id}:${account.token}`}
+      timezone={reviewTimezone(account?.user.settings.timezone ?? "UTC")}
+    />
+  );
 }
 
 function ReviewsScreen({ timezone }: { readonly timezone: string }) {
@@ -157,53 +174,58 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       setQueueState({ status: "unauthenticated" });
       return;
     }
-    const isCurrent = () => !controller.signal.aborted && revision === requestRevision.current && ownsSession(storedSession.token);
+    const isCurrent = () =>
+      !controller.signal.aborted &&
+      revision === requestRevision.current &&
+      ownsSession(storedSession.token);
     setIsRefreshing(true);
     setReadError(null);
 
     if (!preserve) {
-    setQueueState({ status: "loading" });
-    setSession(null);
-    setCurrentIndex(0);
-    setAnswer("");
-    setFeedback(null);
-    setProgress(INITIAL_PROGRESS);
-    setFinishedSummary(null);
-    setCorrections([]);
-    setIsCorrecting(false);
-    setCorrectedCardIds([]);
-    setResumable(false);
-    setScheduledOffset(0);
-    setFormError(null);
-    setSessionError(null);
-    setUnconfirmedAnswer(false);
-    setRecoveryMessage(null);
-    setAwaitingFinish(false);
+      setQueueState({ status: "loading" });
+      setSession(null);
+      setCurrentIndex(0);
+      setAnswer("");
+      setFeedback(null);
+      setProgress(INITIAL_PROGRESS);
+      setFinishedSummary(null);
+      setCorrections([]);
+      setIsCorrecting(false);
+      setCorrectedCardIds([]);
+      setResumable(false);
+      setScheduledOffset(0);
+      setFormError(null);
+      setSessionError(null);
+      setUnconfirmedAnswer(false);
+      setRecoveryMessage(null);
+      setAwaitingFinish(false);
     }
 
     try {
       const [queue, savedActive] = await Promise.all([
         getReviewQueue(storedSession.token, { signal: controller.signal }),
-        getActiveReviewSession(storedSession.token, { signal: controller.signal }).catch((error: unknown) => {
-          // Older API deployments have no resumable-session endpoint.
-          if (error instanceof ApiError && error.status === 404) return null;
-          throw error;
-        }),
+        getActiveReviewSession(storedSession.token, { signal: controller.signal }).catch(
+          (error: unknown) => {
+            // Older API deployments have no resumable-session endpoint.
+            if (error instanceof ApiError && error.status === 404) return null;
+            throw error;
+          },
+        ),
       ]);
       if (!isCurrent()) return;
       const active = queue.vacationStartedAt == null ? savedActive : null;
       if (active?.session !== undefined && active.session !== null && active.progress !== null) {
-          const correcting = active.currentIndex >= active.items.length;
-          setAwaitingFinish(correcting && active.corrections.length === 0);
-          setSession(active.session);
-          setResumable(true);
-          setCorrections(active.corrections);
-          setCorrectedCardIds(active.progress.correctedCardIds);
-          setIsCorrecting(correcting);
-          setCurrentIndex(correcting ? 0 : active.currentIndex);
-          setProgress(toReviewProgress(active.progress));
-          setScheduledTotal(active.progress.scheduledTotal);
-          setScheduledOffset(active.progress.scheduledAnswered - active.currentIndex);
+        const correcting = active.currentIndex >= active.items.length;
+        setAwaitingFinish(correcting && active.corrections.length === 0);
+        setSession(active.session);
+        setResumable(true);
+        setCorrections(active.corrections);
+        setCorrectedCardIds(active.progress.correctedCardIds);
+        setIsCorrecting(correcting);
+        setCurrentIndex(correcting ? 0 : active.currentIndex);
+        setProgress(toReviewProgress(active.progress));
+        setScheduledTotal(active.progress.scheduledTotal);
+        setScheduledOffset(active.progress.scheduledAnswered - active.currentIndex);
       } else {
         setScheduledTotal(queue.items.length);
       }
@@ -216,6 +238,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       });
     } catch (error: unknown) {
       if (!isCurrent()) return;
+      controller.abort();
       if (error instanceof ApiError && error.status === 401) {
         clearStoredSession();
         setQueueState({ status: "unauthenticated" });
@@ -233,7 +256,14 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           error instanceof Error ? error.message : "Не удалось загрузить очередь повторений.",
       });
     } finally {
-      if (isCurrent()) { readBusy.current = false; setIsRefreshing(false); }
+      if (
+        readRequest.current === controller &&
+        revision === requestRevision.current &&
+        ownsSession(storedSession.token)
+      ) {
+        readBusy.current = false;
+        setIsRefreshing(false);
+      }
     }
   }, []);
 
@@ -289,11 +319,22 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
     }
   }, [feedback, isContinuing]);
 
-  useEffect(() => { continuePending.current = false; }, [feedback, currentIndex, isCorrecting]);
-  useEffect(() => { if (awaitingFinish && !isContinuing) continueButtonRef.current?.focus(); }, [awaitingFinish, isContinuing]);
+  useEffect(() => {
+    continuePending.current = false;
+  }, [feedback, currentIndex, isCorrecting]);
+  useEffect(() => {
+    if (awaitingFinish && !isContinuing) continueButtonRef.current?.focus();
+  }, [awaitingFinish, isContinuing]);
 
   async function handleStartSession(): Promise<void> {
-    if (queueState.status !== "ready" || queueState.queue.length === 0 || startPending.current || orderPending.current || readBusy.current || queueState.vacationStartedAt !== null) {
+    if (
+      queueState.status !== "ready" ||
+      queueState.queue.length === 0 ||
+      startPending.current ||
+      orderPending.current ||
+      readBusy.current ||
+      queueState.vacationStartedAt !== null
+    ) {
       return;
     }
 
@@ -308,6 +349,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       const items = response.items ?? queueState.queue;
       const index = response.currentIndex ?? 0;
       const correcting = index >= items.length && (response.corrections?.length ?? 0) > 0;
+      setAwaitingFinish(index >= items.length && (response.corrections?.length ?? 0) === 0);
       setQueueState({ ...queueState, queue: items });
       setSession(response.session);
       setResumable(response.progress !== undefined);
@@ -332,7 +374,13 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
   }
 
   async function handleOrderModeChange(nextMode: ReviewOrderMode): Promise<void> {
-    if (queueState.status !== "ready" || orderPending.current || startPending.current || readBusy.current || nextMode === queueState.orderMode) {
+    if (
+      queueState.status !== "ready" ||
+      orderPending.current ||
+      startPending.current ||
+      readBusy.current ||
+      nextMode === queueState.orderMode
+    ) {
       return;
     }
 
@@ -350,8 +398,11 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
         current.status === "ready" ? { ...current, orderMode: nextMode } : current,
       );
 
-      const queue = await getReviewQueue(queueState.token, { signal: readRequest.current?.signal });
-      if (!ownsWorkspace(queueState.token)) return;
+      readRequest.current?.abort();
+      const controller = new AbortController();
+      readRequest.current = controller;
+      const queue = await getReviewQueue(queueState.token, { signal: controller.signal });
+      if (controller.signal.aborted || !ownsWorkspace(queueState.token)) return;
       setQueueState({
         status: "ready",
         token: queueState.token,
@@ -385,7 +436,8 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       session === null ||
       currentItem === null ||
       feedback !== null ||
-      submitPending.current || reconcilePending.current
+      submitPending.current ||
+      reconcilePending.current
     ) {
       return;
     }
@@ -448,39 +500,69 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
   }
 
   async function handleReconcileAnswer(): Promise<void> {
-    if (queueState.status !== "ready" || session === null || submitPending.current || reconcilePending.current) return;
+    if (
+      queueState.status !== "ready" ||
+      session === null ||
+      submitPending.current ||
+      reconcilePending.current
+    )
+      return;
     reconcilePending.current = true;
     const controller = new AbortController();
-    reconcileRequest.current?.abort(); reconcileRequest.current = controller;
-    setIsReconciling(true); setRecoveryMessage(null);
+    reconcileRequest.current?.abort();
+    reconcileRequest.current = controller;
+    setIsReconciling(true);
+    setRecoveryMessage(null);
     try {
       const active = await getActiveReviewSession(queueState.token, { signal: controller.signal });
       if (controller.signal.aborted || !ownsWorkspace(queueState.token)) return;
-      if (active.session?.id !== session.id || active.progress === null) throw new Error("Сохранённая сессия изменилась. Ответ не отправлен повторно.");
-      const correcting = active.currentIndex >= active.items.length && active.corrections.length > 0;
+      if (active.session?.id !== session.id || active.progress === null)
+        throw new Error("Сохранённая сессия изменилась. Ответ не отправлен повторно.");
+      const correcting =
+        active.currentIndex >= active.items.length && active.corrections.length > 0;
       const target = correcting ? active.corrections[0] : active.items[active.currentIndex];
       const sameCard = target?.card.id === currentItem?.card.id && correcting === isCorrecting;
       setQueueState({ ...queueState, queue: active.items });
-      setSession(active.session); setResumable(true);
-      setCorrections(active.corrections); setCorrectedCardIds(active.progress.correctedCardIds);
-      setIsCorrecting(correcting); setCurrentIndex(correcting ? 0 : active.currentIndex);
+      setSession(active.session);
+      setResumable(true);
+      setCorrections(active.corrections);
+      setCorrectedCardIds(active.progress.correctedCardIds);
+      setIsCorrecting(correcting);
+      setCurrentIndex(correcting ? 0 : active.currentIndex);
       setProgress(toReviewProgress(active.progress));
-      setScheduledTotal(active.progress.scheduledTotal); setScheduledOffset(active.progress.scheduledAnswered - active.currentIndex);
+      setScheduledTotal(active.progress.scheduledTotal);
+      setScheduledOffset(active.progress.scheduledAnswered - active.currentIndex);
       setAwaitingFinish(target === undefined && active.corrections.length === 0);
-      setFeedback(null); setSessionError(null); setFormError(null); setUnconfirmedAnswer(false);
+      setFeedback(null);
+      setSessionError(null);
+      setFormError(null);
+      setUnconfirmedAnswer(false);
       if (!sameCard) setAnswer("");
-      setRecoveryMessage(sameCard ? "Текущая карточка ожидает ответа." : "Сохранённая позиция восстановлена.");
+      setRecoveryMessage(
+        sameCard ? "Текущая карточка ожидает ответа." : "Сохранённая позиция восстановлена.",
+      );
     } catch (error: unknown) {
       if (controller.signal.aborted || !ownsWorkspace(queueState.token)) return;
-      if (error instanceof ApiError && error.status === 401) { clearStoredSession(); return; }
+      if (error instanceof ApiError && error.status === 401) {
+        clearStoredSession();
+        return;
+      }
       setSessionError(error instanceof Error ? error.message : "Не удалось сверить прогресс.");
     } finally {
-      if (reconcileRequest.current === controller) { reconcilePending.current = false; setIsReconciling(false); }
+      if (reconcileRequest.current === controller) {
+        reconcilePending.current = false;
+        setIsReconciling(false);
+      }
     }
   }
 
   async function handleContinue(): Promise<void> {
-    if (queueState.status !== "ready" || session === null || feedback === null || continuePending.current) {
+    if (
+      queueState.status !== "ready" ||
+      session === null ||
+      feedback === null ||
+      continuePending.current
+    ) {
       return;
     }
     continuePending.current = true;
@@ -507,8 +589,13 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
 
     try {
       if (resumable && !isCorrecting) {
-        const active = await getActiveReviewSession(queueState.token, { signal: readRequest.current?.signal });
-        if (!ownsWorkspace(queueState.token)) return;
+        readRequest.current?.abort();
+        const controller = new AbortController();
+        readRequest.current = controller;
+        const active = await getActiveReviewSession(queueState.token, {
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted || !ownsWorkspace(queueState.token)) return;
         if (active.session?.id !== session.id) {
           throw new Error(
             "Сессия изменилась. Перезагрузите страницу, чтобы восстановить прогресс.",
@@ -543,15 +630,31 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
   }
 
   async function handleFinishRestored(): Promise<void> {
-    if (queueState.status !== "ready" || session === null || !awaitingFinish || continuePending.current) return;
-    continuePending.current = true; setIsContinuing(true); setSessionError(null);
+    if (
+      queueState.status !== "ready" ||
+      session === null ||
+      !awaitingFinish ||
+      continuePending.current
+    )
+      return;
+    continuePending.current = true;
+    setIsContinuing(true);
+    setSessionError(null);
     try {
       const result = await finishReviewSession(queueState.token, session.id);
       if (!ownsWorkspace(queueState.token)) return;
-      setFinishedSummary(result.summary); setAwaitingFinish(false); setSession(null); setAnswer(""); setFeedback(null);
+      setFinishedSummary(result.summary);
+      setAwaitingFinish(false);
+      setSession(null);
+      setAnswer("");
+      setFeedback(null);
     } catch (error: unknown) {
-      if (ownsWorkspace(queueState.token)) setSessionError(error instanceof Error ? error.message : "Не удалось завершить сессию.");
-    } finally { continuePending.current = false; setIsContinuing(false); }
+      if (ownsWorkspace(queueState.token))
+        setSessionError(error instanceof Error ? error.message : "Не удалось завершить сессию.");
+    } finally {
+      continuePending.current = false;
+      setIsContinuing(false);
+    }
   }
 
   if (queueState.status === "checking" || queueState.status === "loading") {
@@ -669,15 +772,45 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
             <Link className="secondary-action" href="/settings">
               Настроить нагрузку
             </Link>
-            <Link className="inline-link" href="/lessons">К урокам</Link>
-            {vacationActive ? null : <Link className="inline-link" href="/lessons">К урокам</Link>}
+            <Link className="inline-link" href="/lessons">
+              К урокам
+            </Link>
           </div>
         </div>
       </section>
     );
   }
 
-  if (awaitingFinish && session !== null) return <section className="page-stack review-completion-checkpoint"><h1>Повторения</h1><div className="notice-panel"><h2>Ответы сохранены</h2><p>Сессия ожидает завершения.</p><p>Плановых ответов: {progress.answered} · Исправлений осталось: 0</p>{sessionError === null ? null : <p className="form-error" role="alert">{sessionError}</p>}<div className="action-row"><button className="primary-action" type="button" ref={continueButtonRef} disabled={isContinuing} onClick={() => void handleFinishRestored()}>{isContinuing ? "Завершаю..." : "Завершить повторение"}</button><Link className="secondary-action" href="/dashboard">На панель</Link></div></div></section>;
+  if (awaitingFinish && session !== null)
+    return (
+      <section className="page-stack review-completion-checkpoint">
+        <h1>Повторения</h1>
+        <div className="notice-panel">
+          <h2>Ответы сохранены</h2>
+          <p>Сессия ожидает завершения.</p>
+          <p>Плановых ответов: {progress.answered} · Исправлений осталось: 0</p>
+          {sessionError === null ? null : (
+            <p className="form-error" role="alert">
+              {sessionError}
+            </p>
+          )}
+          <div className="action-row">
+            <button
+              className="primary-action"
+              type="button"
+              ref={continueButtonRef}
+              disabled={isContinuing}
+              onClick={() => void handleFinishRestored()}
+            >
+              {isContinuing ? "Завершаю..." : "Завершить повторение"}
+            </button>
+            <Link className="secondary-action" href="/dashboard">
+              На панель
+            </Link>
+          </div>
+        </div>
+      </section>
+    );
 
   if (queueState.queue.length === 0 && !isCorrecting) {
     const vacationActive = queueState.vacationStartedAt !== null;
@@ -701,6 +834,11 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
             <Link className="secondary-action" href="/settings">
               {vacationActive ? "Настроить режим отпуска" : "Настроить нагрузку"}
             </Link>
+            {vacationActive ? null : (
+              <Link className="inline-link" href="/lessons">
+                К урокам
+              </Link>
+            )}
           </div>
         </div>
       </section>
@@ -713,15 +851,32 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
         <div className="page-heading review-heading">
           <div>
             <h1>Повторения</h1>
-            <p>По расписанию: {queueState.queue.length} карточек</p>
+            <p>Карточек по расписанию: {queueState.queue.length}</p>
           </div>
           <div className="review-heading-actions">
-            <button className="icon-button" type="button" aria-label="Обновить очередь" title="Обновить очередь" disabled={isRefreshing || isStarting || isSavingOrderMode} onClick={() => void loadQueue(true)}><RefreshCw size={18} aria-hidden="true" /></button>
+            <button
+              className="icon-button"
+              type="button"
+              aria-label="Обновить очередь"
+              title="Обновить очередь"
+              disabled={isRefreshing || isStarting || isSavingOrderMode}
+              onClick={() => void loadQueue(true)}
+            >
+              <RefreshCw size={18} aria-hidden="true" />
+            </button>
           </div>
         </div>
         {sessionError === null ? null : <p className="form-error">{sessionError}</p>}
-        {readError === null ? null : <p className="form-error" role="alert">{readError}</p>}
-        {isRefreshing ? <p className="muted" role="status">Обновляю очередь…</p> : null}
+        {readError === null ? null : (
+          <p className="form-error" role="alert">
+            {readError}
+          </p>
+        )}
+        {isRefreshing ? (
+          <p className="muted" role="status">
+            Обновляю очередь…
+          </p>
+        ) : null}
         <ReviewQueueOverview queue={queueState.queue} />
         <SectionDisclosure title="Параметры повторения">
           <label className="review-order-picker">
@@ -742,9 +897,23 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           </label>
         </SectionDisclosure>
         <SectionDisclosure title="Состав очереди">
-          <ReviewQueueBrowser queue={queueState.queue} disabled={isStarting || isSavingOrderMode || isRefreshing} timezone={timezone} />
+          <ReviewQueueBrowser
+            queue={queueState.queue}
+            disabled={isStarting || isSavingOrderMode || isRefreshing}
+            timezone={timezone}
+          />
         </SectionDisclosure>
-        <div className="review-lobby-actions"><span>К сессии: {queueState.queue.length} карточек</span><button className="primary-action" type="button" disabled={isStarting || isSavingOrderMode || isRefreshing} onClick={() => void handleStartSession()}>{isStarting ? "Начинаю..." : "Начать повторение"}</button></div>
+        <div className="review-lobby-actions">
+          <span>Карточек в сессии: {queueState.queue.length}</span>
+          <button
+            className="primary-action"
+            type="button"
+            disabled={isStarting || isSavingOrderMode || isRefreshing}
+            onClick={() => void handleStartSession()}
+          >
+            {isStarting ? "Начинаю..." : "Начать повторение"}
+          </button>
+        </div>
       </section>
     );
   }
@@ -778,7 +947,13 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
         <div className="review-progress">
           <span>Принято: {progress.accepted}</span>
           <span>Ошибок: {progress.missed}</span>
-          {isCorrecting ? <span>Исправлений осталось: {pendingReviewCorrections(corrections, correctedCardIds)}</span> : <span>Плановых осталось: {Math.max(0, scheduledTotal - progress.answered)}</span>}
+          {isCorrecting ? (
+            <span>
+              Исправлений осталось: {pendingReviewCorrections(corrections, correctedCardIds)}
+            </span>
+          ) : (
+            <span>Плановых осталось: {Math.max(0, scheduledTotal - progress.answered)}</span>
+          )}
         </div>
       </header>
 
@@ -792,7 +967,24 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
         <div className="review-card-meta">
           <span>{formatItemType(currentItem.item.itemType)}</span>
         </div>
-        <h2 className="review-question">{reviewPromptKind(currentItem) === "listening" ? <><Volume2 size={20} aria-hidden="true" />Аудирование</> : currentItem.card.answerType === "reading" ? <><Languages size={20} aria-hidden="true" />Чтение</> : <><Type size={20} aria-hidden="true" />Значение</>}</h2>
+        <h2 className="review-question">
+          {reviewPromptKind(currentItem) === "listening" ? (
+            <>
+              <Volume2 size={20} aria-hidden="true" />
+              Аудирование
+            </>
+          ) : currentItem.card.answerType === "reading" ? (
+            <>
+              <Languages size={20} aria-hidden="true" />
+              Чтение
+            </>
+          ) : (
+            <>
+              <Type size={20} aria-hidden="true" />
+              Значение
+            </>
+          )}
+        </h2>
         <div className="review-prompt">
           {currentItem.card.promptType === "listening" ? (
             <ListeningPrompt
@@ -832,8 +1024,21 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           {sessionError}
         </p>
       )}
-      {recoveryMessage === null ? null : <p className="muted" role="status">{recoveryMessage}</p>}
-      {unconfirmedAnswer && resumable ? <button className="secondary-action review-reconcile" type="button" disabled={isReconciling || isSubmitting} onClick={() => void handleReconcileAnswer()}>{isReconciling ? "Сверяю…" : "Сверить прогресс"}</button> : null}
+      {recoveryMessage === null ? null : (
+        <p className="muted" role="status">
+          {recoveryMessage}
+        </p>
+      )}
+      {unconfirmedAnswer && resumable ? (
+        <button
+          className="secondary-action review-reconcile"
+          type="button"
+          disabled={isReconciling || isSubmitting}
+          onClick={() => void handleReconcileAnswer()}
+        >
+          {isReconciling ? "Сверяю…" : "Сверить прогресс"}
+        </button>
+      ) : null}
 
       {feedback !== null ? null : (
         <form className="review-answer-bar" onSubmit={(event) => void handleSubmit(event)}>
@@ -845,14 +1050,27 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
               autoComplete="off"
               autoCapitalize="none"
               disabled={
-                isSubmitting || isReconciling ||
+                isSubmitting ||
+                isReconciling ||
                 (currentItem.card.promptType === "listening" && !listeningEvidence.completed)
               }
               id="review-answer"
               onChange={(event) => setAnswer(event.currentTarget.value)}
-              onCompositionStart={() => { composingAnswer.current = true; }}
-              onCompositionEnd={() => { composingAnswer.current = false; }}
-              onKeyDown={(event) => { if (event.key === "Enter" && (composingAnswer.current || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229)) event.preventDefault(); }}
+              onCompositionStart={() => {
+                composingAnswer.current = true;
+              }}
+              onCompositionEnd={() => {
+                composingAnswer.current = false;
+              }}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  (composingAnswer.current ||
+                    event.nativeEvent.isComposing ||
+                    event.nativeEvent.keyCode === 229)
+                )
+                  event.preventDefault();
+              }}
               placeholder={formatInputPlaceholder(currentItem.card.answerType)}
               ref={answerInputRef}
               spellCheck={currentItem.card.answerType === "meaning"}
@@ -862,7 +1080,8 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           <button
             className="primary-action"
             disabled={
-              isSubmitting || isReconciling ||
+              isSubmitting ||
+              isReconciling ||
               (currentItem.card.promptType === "listening" && !listeningEvidence.completed)
             }
             type="submit"
@@ -884,8 +1103,14 @@ function ReviewQueueOverview({ queue }: { readonly queue: readonly ReviewQueueIt
   const counts = summarizeReviewQueue(queue);
   return (
     <dl className="review-queue-overview" aria-label="Вопросы в очереди">
-      <div><dt>Карточек</dt><dd>{counts.cards}</dd></div>
-      <div><dt>Материалов</dt><dd>{counts.materials}</dd></div>
+      <div>
+        <dt>Карточек</dt>
+        <dd>{counts.cards}</dd>
+      </div>
+      <div>
+        <dt>Материалов</dt>
+        <dd>{counts.materials}</dd>
+      </div>
       {(
         [
           { kind: "meaning", label: "Значение", icon: Type },

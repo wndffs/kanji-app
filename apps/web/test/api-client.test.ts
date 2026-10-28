@@ -18,6 +18,8 @@ import {
   getAdminReviewQueueWithFilters,
   getCharacterHub,
   getActiveLessonSession,
+  getActiveReviewSession,
+  getReviewQueue,
   getLessonQueue,
   getItemDetails,
   getKanjiDetails,
@@ -33,6 +35,36 @@ import {
 } from "../src/lib/api-client";
 
 describe("apiRequest", () => {
+  it("cancels both review reads without retries or changing bearer scope", async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.signal).toBe(controller.signal);
+      expect(init?.method).toBe("GET");
+      expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer review-token");
+      return new Promise<Response>((_resolve, reject) =>
+        init?.signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("Cancelled", "AbortError")),
+          { once: true },
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const active = getActiveReviewSession("review-token", { signal: controller.signal });
+      const queue = getReviewQueue("review-token", { signal: controller.signal });
+      controller.abort();
+      await expect(active).rejects.toHaveProperty("name", "AbortError");
+      await expect(queue).rejects.toHaveProperty("name", "AbortError");
+      expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+        expect.stringContaining("/reviews/active"),
+        expect.stringContaining("/reviews/queue"),
+      ]);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it("aborts active and queue lesson GETs without retrying and keeps encoded source/auth", async () => {
     const controller = new AbortController();
     const fetchMock = vi.fn((url: RequestInfo | URL, init?: RequestInit) => {

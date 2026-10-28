@@ -1264,6 +1264,10 @@ textarea::placeholder {
   }
 }
 @media (max-width: 600px) {
+  .review-session .review-session-header {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
   .review-preview-filters {
     grid-template-columns: minmax(0, 1fr);
   }
