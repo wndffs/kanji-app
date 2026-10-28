@@ -1174,6 +1174,123 @@ textarea::placeholder {
   font-size: 24px;
   font-weight: 700;
 }
+.review-lobby {
+  gap: 18px;
+}
+.review-lobby-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  padding-block: 14px;
+  border-top: 1px solid var(--surface-border);
+  background: var(--background);
+  font-size: 13px;
+}
+.review-preview-controls {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.review-preview-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.review-preview-filters label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+}
+.review-preview-filters select {
+  min-width: 0;
+  width: 100%;
+}
+.review-preview-counts,
+.review-preview-pages {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 36px;
+  font-size: 12px;
+}
+.review-preview-pages {
+  justify-content: center;
+}
+.review-queue-browser .review-queue-card {
+  min-width: 0;
+  padding: 14px;
+  gap: 8px;
+}
+.review-queue-browser time {
+  font-size: 11px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.review-question {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 17px;
+  margin: 12px 0 0;
+}
+.review-progress {
+  flex-wrap: wrap;
+}
+.review-reconcile {
+  justify-self: start;
+}
+.review-session .feedback-panel :is(p, li),
+.review-session .private-answer-form :is(input, select) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.review-session .review-answer-bar input {
+  scroll-margin-block: 96px;
+}
+@media (max-width: 900px) {
+  .review-lobby-actions {
+    bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+}
+@media (max-width: 600px) {
+  .review-preview-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .review-lobby-actions > span {
+    font-size: 12px;
+  }
+  .review-lobby-actions .primary-action {
+    padding-inline: 12px;
+  }
+  .review-session .feedback-panel {
+    padding: 16px;
+  }
+  .review-question {
+    font-size: 16px;
+  }
+}
+@media (max-height: 600px) {
+  .review-session {
+    gap: 12px;
+  }
+  .review-session .review-prompt {
+    min-height: 100px;
+  }
+  .review-session .review-answer-bar {
+    bottom: 8px;
+  }
+}
 .feedback-panel {
   --feedback-surface: var(--danger-surface);
   border-radius: 4px;
