@@ -24,6 +24,7 @@ import {
   type TranslationDisplayMode,
   getContentLocalesForDisplayMode,
   isLessonOrderMode,
+  satisfiesCardPrerequisite,
 } from "@kanji-srs/shared";
 
 import { type CurrentUserDto } from "../auth/auth.types";
@@ -754,9 +755,7 @@ function getSatisfiedPrerequisites(
       prerequisite?.cards.map((card) => card.id) ??
       prerequisiteCardIds.get(dependency.prerequisiteItemId) ??
       [];
-    const satisfied =
-      cardIds.length > 0 &&
-      cardIds.every((cardId) => (progress?.get(cardId) ?? -1) >= dependency.requiredStage);
+    const satisfied = satisfiesCardPrerequisite(cardIds, progress, dependency.requiredStage);
 
     if (!satisfied) {
       return null;

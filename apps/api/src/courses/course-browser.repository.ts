@@ -4,6 +4,8 @@ import {
   courseReviewTimeline,
   summarizeCourseLevel,
   buildCourseCoverage,
+  satisfiesCardPrerequisite,
+  type CoursePrerequisiteStatus,
   type CourseOutlineDto,
   type ItemKind,
   type CourseMaterialStudyState,
@@ -207,12 +209,45 @@ export class CourseBrowserRepository {
             .map(({ entry }) => entry)
         : indexed;
     const selected = ordered.slice((page - 1) * 30, page * 30);
+    const prerequisites = await this.prerequisiteStatus(userId, selected.map((entry) => entry.id));
     return {
       ids: selected.map((entry) => entry.id),
       total: indexed.length,
       summary,
-      progress: new Map(selected.map((entry) => [entry.id, entry])),
+      progress: new Map(selected.map((entry) => [entry.id, { ...entry, prerequisites: prerequisites.get(entry.id)! }])),
     };
+  }
+
+  private async prerequisiteStatus(userId: string, ids: readonly string[]) {
+    const result = new Map<string, CoursePrerequisiteStatus>();
+    if (ids.length === 0) return result;
+    const rows = await this.prisma.db.dependency.findMany({
+      where: { learningItemId: { in: [...ids] }, dependencyType: "PREREQUISITE" },
+      orderBy: [{ learningItemId: "asc" }, { prerequisiteItemId: "asc" }],
+      select: { learningItemId: true, requiredStage: true, prerequisiteItem: { select: {
+        id: true, title: true, status: true, kind: true,
+        cards: { where: listeningCardEligibilityWhere, select: {
+          id: true, promptType: true, audioAsset: { include: { dataSource: true, license: true } },
+          srsStates: { where: { userId }, select: { stageIndex: true } },
+        } },
+      } } },
+    });
+    for (const id of ids) {
+      const dependencies = rows.filter((row) => row.learningItemId === id);
+      const unmet = dependencies.flatMap((row) => {
+        const item = row.prerequisiteItem;
+        const cards = item.status !== "PUBLISHED" ? [] : item.cards.filter((card) =>
+          card.promptType !== "LISTENING" || isEligibleListeningAudio(card.audioAsset, item.id, item.kind.toLowerCase() as ItemKind));
+        const requiredStage = row.requiredStage ?? 1;
+        const stages = new Map(cards.flatMap((card) => card.srsStates[0] ? [[card.id, card.srsStates[0].stageIndex] as const] : []));
+        if (satisfiesCardPrerequisite(cards.map((card) => card.id), stages, requiredStage)) return [];
+        return [{ itemId: item.status === "PUBLISHED" ? item.id : null,
+          title: item.status === "PUBLISHED" ? item.title : "Материал пока недоступен",
+          requiredStage, minimumStage: cards.length > 0 && cards.every((card) => stages.has(card.id)) ? Math.min(...stages.values()) : null }];
+      });
+      result.set(id, { total: dependencies.length, unmet: unmet.length, firstUnmet: unmet[0] ?? null });
+    }
+    return result;
   }
 
   private async searchIds(

@@ -315,6 +315,17 @@ export function CourseLevelMaterials({
                     ) : null}
                   </Link>
                   <CourseCardProgress cards={item.progressCards ?? []} japanese={item.japanese} />
+                  {item.studyState === "not-started" && item.prerequisites?.firstUnmet ? (
+                    <div className="course-prerequisite">
+                      <span>Опор осталось: {item.prerequisites.unmet}</span>
+                      {item.prerequisites.firstUnmet.itemId === null ? <span>{item.prerequisites.firstUnmet.title}</span> : (
+                        <Link href={courseItemHref(item.prerequisites.firstUnmet.itemId, courseId, { ...route, level: levelNumber })}>
+                          Сначала: {item.prerequisites.firstUnmet.title}
+                        </Link>
+                      )}
+                      <small>Требуемая ступень SRS: {item.prerequisites.firstUnmet.requiredStage}</small>
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>

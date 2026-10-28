@@ -26,7 +26,26 @@ export type CourseMaterialDto = CourseReviewTimeline & {
   readonly startedCardCount: number;
   readonly burnedCardCount: number;
   readonly progressCards: readonly CourseProgressCardDto[];
+  readonly prerequisites?: CoursePrerequisiteStatus;
 };
+export type CoursePrerequisiteStatus = {
+  readonly total: number;
+  readonly unmet: number;
+  readonly firstUnmet: {
+    readonly itemId: string | null;
+    readonly title: string;
+    readonly requiredStage: number;
+    readonly minimumStage: number | null;
+  } | null;
+};
+
+export function satisfiesCardPrerequisite(
+  cardIds: readonly string[],
+  stages: ReadonlyMap<string, number> | undefined,
+  requiredStage: number,
+): boolean {
+  return cardIds.length > 0 && cardIds.every((id) => (stages?.get(id) ?? -1) >= requiredStage);
+}
 export type CourseProgressCardDto = {
   readonly id: string;
   readonly promptType: string;
