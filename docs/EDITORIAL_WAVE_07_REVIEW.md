@@ -35,3 +35,17 @@ duplicate-free accepted sets. Family-age contrasts are explicitly tested.
 Passing these mechanical checks does not establish translation quality or
 independent review. An independent editor still needs to review all 39 items
 and 20 examples before promotion.
+
+## English Editorial Decisions
+
+The English side preserves the same sense boundaries: school principal, not
+generic director; elementary school versus junior high school; older/younger
+brother and older/younger sister; siblings versus sisters. Now, today and this
+year stay separate. How many people is not what nationality. English examples
+are original companion translations, not copied dictionary example sentences.
+No additional languages are included.
+
+Both locale gates run independently. Neither locale can compensate for missing
+fields in the other. A complete English row must not hide absent Russian text,
+or vice versa. Script checks catch obvious swapped primary meanings, not every
+language or translation error. Passing is preparation only, not approval.
