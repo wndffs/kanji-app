@@ -17,13 +17,18 @@ import { listeningCardEligibilityWhere } from "../lessons/lessons.repository";
 import { isEligibleListeningAudio } from "../audio/audio-asset";
 import { normalizeJapaneseReading, normalizeRussianMeaning } from "@kanji-srs/japanese";
 
+const publishedBrowsableCourse = {
+  status: "PUBLISHED" as const,
+  courseType: { in: ["STRUCTURED" as const, "DEMO" as const] },
+};
+
 @Injectable()
 export class CourseBrowserRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async coverage(courseId: string) {
     const course = await this.prisma.db.course.findFirst({
-      where: { id: courseId, status: "PUBLISHED", courseType: "STRUCTURED" },
+      where: { id: courseId, ...publishedBrowsableCourse },
       select: {
         levels: {
           orderBy: { levelNumber: "asc" },
@@ -113,7 +118,7 @@ export class CourseBrowserRepository {
 
   async outline(courseId: string): Promise<CourseOutlineDto | null> {
     const course = await this.prisma.db.course.findFirst({
-      where: { id: courseId, status: "PUBLISHED", courseType: "STRUCTURED" },
+      where: { id: courseId, ...publishedBrowsableCourse },
       select: {
         id: true,
         titleRu: true,
@@ -158,7 +163,7 @@ export class CourseBrowserRepository {
     } = {},
   ) {
     const level = await this.prisma.db.courseLevel.findFirst({
-      where: { courseId, levelNumber, course: { status: "PUBLISHED", courseType: "STRUCTURED" } },
+      where: { courseId, levelNumber, course: publishedBrowsableCourse },
       select: { id: true },
     });
     if (level === null) return null;

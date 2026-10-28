@@ -109,3 +109,13 @@ independent approval/source evidence for draft07, separately authorized content
 publication, expansion beyond 101 published kanji/120 word pairs, sparse JLPT
 metadata and representative full-size course measurement. No 400+ tasks are
 authorized or started by this batch.
+
+## Live-Journey Repair
+
+The real dashboard's published starter DEMO course led to a catalogue 404:
+the read repository allowed STRUCTURED only. Outline, level materials and
+coverage now also accept PUBLISHED DEMO courses, using one shared predicate.
+The PUBLISHED course/item gates, authentication and private GOAL exclusion
+remain intact. No course type/status or enrollment is written to Neon.
+Tag `cycle-385-399-journeys.1` contains this release repair; the original tag
+is retained. Verify its exact runtime before claiming live acceptance.

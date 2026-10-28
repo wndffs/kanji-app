@@ -86,12 +86,12 @@ describe("read-only published syllabus", () => {
       where: {
         courseId: ID,
         levelNumber: 1,
-        course: { status: "PUBLISHED", courseType: "STRUCTURED" },
+        course: { status: "PUBLISHED", courseType: { in: ["STRUCTURED", "DEMO"] } },
       },
       select: { id: true },
     });
   });
-  it("returns only published structured course metadata with published placement counts", async () => {
+  it("allows published structured/demo metadata but excludes private goal courses and drafts", async () => {
     const findFirst = vi.fn().mockResolvedValue({
       id: ID,
       titleRu: "Курс",
@@ -108,9 +108,22 @@ describe("read-only published syllabus", () => {
     expect(findFirst.mock.calls[0]![0].where).toEqual({
       id: ID,
       status: "PUBLISHED",
-      courseType: "STRUCTURED",
+      courseType: { in: ["STRUCTURED", "DEMO"] },
     });
     expect(findFirst.mock.calls[0]![0].select.levels.select._count.select.items.where).toEqual({
+      learningItem: { status: "PUBLISHED" },
+    });
+  });
+  it("uses the same published structured/demo boundary for aggregate coverage", async () => {
+    const findFirst = vi.fn().mockResolvedValue(null);
+    const repository = new CourseBrowserRepository({ db: { course: { findFirst } } } as never);
+    expect(await repository.coverage(ID)).toBeNull();
+    expect(findFirst.mock.calls[0]![0].where).toEqual({
+      id: ID,
+      status: "PUBLISHED",
+      courseType: { in: ["STRUCTURED", "DEMO"] },
+    });
+    expect(findFirst.mock.calls[0]![0].select.levels.select.items.where).toEqual({
       learningItem: { status: "PUBLISHED" },
     });
   });

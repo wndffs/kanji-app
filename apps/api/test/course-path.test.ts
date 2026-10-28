@@ -56,7 +56,11 @@ describe("published course preparation context", () => {
       jlpt: [{ band: "N5" }],
     });
     const query = findFirst.mock.calls[0]![0];
-    expect(query.where).toEqual({ id: ID, status: "PUBLISHED", courseType: "STRUCTURED" });
+    expect(query.where).toEqual({
+      id: ID,
+      status: "PUBLISHED",
+      courseType: { in: ["STRUCTURED", "DEMO"] },
+    });
     expect(query.select.levels.select.items.where).toEqual({
       learningItem: { status: "PUBLISHED" },
     });
