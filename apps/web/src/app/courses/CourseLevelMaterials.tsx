@@ -271,10 +271,11 @@ export function CourseLevelMaterials({
                       {item.japanese}
                     </JapaneseText>
                     {item.reading ? (
-                      <JapaneseText className="course-material-reading">
-                        {item.reading}
-                      </JapaneseText>
-                    ) : null}
+                      <span className="course-material-reading">
+                        {item.readingSource ? <small>{item.readingSource === "card" ? "Учебное чтение" : "Чтение из метаданных"}</small> : null}
+                        <JapaneseText>{item.reading}</JapaneseText>
+                      </span>
+                    ) : item.itemType !== "component" && item.readingSource === "missing" ? <small>Учебное чтение не выбрано</small> : null}
                     <span className="course-material-meanings">
                       {displayMode !== "en" && item.meaningRu ? (
                         <span lang="ru">{item.meaningRu}</span>
@@ -282,6 +283,9 @@ export function CourseLevelMaterials({
                       {displayMode !== "ru" && item.meaningEn ? (
                         <span lang="en">{item.meaningEn}</span>
                       ) : null}
+                      {displayMode !== "en" && !item.meaningRu ? <small>Нет значения RU</small> : null}
+                      {displayMode !== "ru" && !item.meaningEn ? <small>Нет значения EN</small> : null}
+                      {((displayMode !== "en" && item.meaningSources?.ru === "target") || (displayMode !== "ru" && item.meaningSources?.en === "target")) ? <small>Значение из метаданных</small> : null}
                     </span>
                     <span className="muted course-material-kind">
                       {item.itemType === "component"

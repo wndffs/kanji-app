@@ -100,25 +100,28 @@ export class CourseBrowserService {
           throw new NotFoundException("Материалы изменились. Обновите страницу.");
         const progress = result.progress.get(id)!;
         const meaningCard = item.cards.find((card) => card.answerType === "meaning");
+        const taughtReading = item.cards.filter((card) => card.answerType === "reading" && card.promptType !== "listening")
+          .flatMap((card) => card.answers).find((answer) => answer.isPrimary && answer.text.trim() !== "");
         const meaning = (locale: "ru-RU" | "en-US") => {
-          const answers = meaningCard?.answers.filter((answer) => answer.locale === locale) ?? [];
+          const answers = meaningCard?.answers.filter((answer) => answer.locale === locale && answer.text.trim() !== "") ?? [];
           const texts =
             locale === "ru-RU" ? item.target.translations.ru : item.target.translations.en;
-          return (
-            (answers.find((answer) => answer.isPrimary) ?? answers[0])?.text ??
-            (texts.find((text) => text.sourceKind === "curated") ?? texts[0])?.text ??
-            null
-          );
+          const chosen = (answers.find((answer) => answer.isPrimary) ?? answers[0])?.text;
+          const fallback = (texts.find((text) => text.sourceKind === "curated" && text.text.trim() !== "") ?? texts.find((text) => text.text.trim() !== ""))?.text;
+          return { text: chosen ?? fallback ?? null, source: chosen ? "card" as const : fallback ? "target" as const : "missing" as const };
         };
+        const ru = meaning("ru-RU"); const en = meaning("en-US");
         return {
           ...progress,
           id,
           itemType: item.itemType,
           japanese: item.target.japanese,
           title: item.title,
-          reading: item.target.reading,
-          meaningRu: meaning("ru-RU"),
-          meaningEn: meaning("en-US"),
+          reading: taughtReading?.text ?? item.target.reading,
+          readingSource: taughtReading ? "card" : item.target.reading ? "target" : "missing",
+          meaningRu: ru.text,
+          meaningEn: en.text,
+          meaningSources: { ru: ru.source, en: en.source },
         };
       }),
     };

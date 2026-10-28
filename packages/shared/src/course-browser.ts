@@ -19,8 +19,10 @@ export type CourseMaterialDto = CourseReviewTimeline & {
   readonly japanese: string;
   readonly title: string;
   readonly reading: string | null;
+  readonly readingSource?: "card" | "target" | "missing";
   readonly meaningRu: string | null;
   readonly meaningEn: string | null;
+  readonly meaningSources?: { readonly ru: "card" | "target" | "missing"; readonly en: "card" | "target" | "missing" };
   readonly studyState: CourseMaterialStudyState;
   readonly cardCount: number;
   readonly startedCardCount: number;
