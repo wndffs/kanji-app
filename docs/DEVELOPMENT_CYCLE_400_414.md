@@ -21,23 +21,23 @@ ambiguous or stale evidence. Matching a source is not pedagogical approval.
 
 ## Tasks
 
-| ID  | Acceptance                                                                           | State     |
-| --- | ------------------------------------------------------------------------------------ | --------- |
-| 400 | Compare objective/current app, reserve 400-499 and define this batch                 | Complete  |
-| 401 | Required-reading gaps follow actual card types; tests cover cloze and ordinary cards | Complete  |
-| 402 | Report absent required kanji/word teaching aspects independently                     | Complete  |
-| 403 | Count modern-label coverage/unknowns without implying syllabus coverage              | Complete  |
-| 404 | Extend on-demand course coverage UI with compact honest scope counters               | Complete  |
-| 405 | External persistent source cache defaults and explicit offline reuse                 | Complete  |
-| 406 | Validate local manifest paths/checksums/source identity and attribution contract     | Complete  |
-| 407 | Stream exact candidate KANJIDIC2 reading evidence                                    | Complete  |
-| 408 | Stream exact JMdict pairs, restrictions and ambiguity                                | Complete  |
-| 409 | Stream exact primary KanjiVG stroke evidence                                         | Complete  |
-| 410 | Aggregate observations and explicit blockers, no automatic ready flag                | Complete  |
-| 411 | Safe local evidence CLI, no network/DB writes and no detailed Git report             | Complete  |
-| 412 | Fingerprinted review worksheet, rejecting stale/missing approval bindings            | Complete  |
-| 413 | Scoped units/browser matrix, types/build/lint and actual source run where available  | Complete  |
-| 414 | Version/push/deploy/exact runtime and live coverage inspection                       | Releasing |
+| ID  | Acceptance                                                                           | State    |
+| --- | ------------------------------------------------------------------------------------ | -------- |
+| 400 | Compare objective/current app, reserve 400-499 and define this batch                 | Complete |
+| 401 | Required-reading gaps follow actual card types; tests cover cloze and ordinary cards | Complete |
+| 402 | Report absent required kanji/word teaching aspects independently                     | Complete |
+| 403 | Count modern-label coverage/unknowns without implying syllabus coverage              | Complete |
+| 404 | Extend on-demand course coverage UI with compact honest scope counters               | Complete |
+| 405 | External persistent source cache defaults and explicit offline reuse                 | Complete |
+| 406 | Validate local manifest paths/checksums/source identity and attribution contract     | Complete |
+| 407 | Stream exact candidate KANJIDIC2 reading evidence                                    | Complete |
+| 408 | Stream exact JMdict pairs, restrictions and ambiguity                                | Complete |
+| 409 | Stream exact primary KanjiVG stroke evidence                                         | Complete |
+| 410 | Aggregate observations and explicit blockers, no automatic ready flag                | Complete |
+| 411 | Safe local evidence CLI, no network/DB writes and no detailed Git report             | Complete |
+| 412 | Fingerprinted review worksheet, rejecting stale/missing approval bindings            | Complete |
+| 413 | Scoped units/browser matrix, types/build/lint and actual source run where available  | Complete |
+| 414 | Version/push/deploy/exact runtime and live coverage inspection                       | Complete |
 
 ## Boundaries
 
@@ -79,7 +79,48 @@ Close owned browser tabs/processes and remove generated test/build files.
 
 Tag: `cycle-400-414-source-evidence`. Push the 15 numbered commits together.
 Broad cloud CI, exact web/API runtime and real read-only coverage acceptance
-remain pending until observed. Do not infer deployment from a successful push.
+are required, not inferred from a successful push; observed results follow.
 The live check must verify both V4's aggregate teaching aspects/unknown JLPT
 metadata and the starter DEMO's corrected sentence-reading applicability,
 without enrollment, learning writes, importing or publishing new content.
+
+## Observed Live Acceptance
+
+Both public health endpoints returned release revision
+`7726d859ffccdf2d57cc104e9498cf2df95d4248`. The existing test profile opened
+published V4 and the starter DEMO in the in-app browser; no new login, course
+switch, lesson, review or account/preference write was made.
+
+- V4: 300 materials, 79 components, 101 kanji, 120 word pairs and 521 core cards.
+  Both teaching card types: 221/221; missing meaning/reading cards: 0/0.
+  Missing RU/EN/required-reading answers: 0/0/0. Modern JLPT unknowns: 99 kanji,
+  119 words. Exam coverage explicitly remains unconfirmed.
+- DEMO: 7 materials, 11 cards, both teaching aspects 4/4 and no missing required
+  reading. The meaning-answer-only cloze sentence is no longer a false gap;
+  actual reading-card applicability remains covered by units.
+- Both reports rendered correctly in the live dark desktop viewport. Local
+  production Playwright supplied mobile/light/dark and horizontal-overflow
+  acceptance; a real mobile device is not claimed.
+- Live screenshots are outside Git in the agent visualization directory under
+  `cycle-400-414/`. The owned IAB tab was closed; local Next/Playwright/source
+  processes are absent and generated build/test outputs were removed.
+
+## Final Result
+
+All 15 numbered task commits (400-414) were pushed. Immutable release tag
+`cycle-400-414-source-evidence` points at `7726d85`, the exact web/API revision
+verified above. The subsequent documentation-only receipt does not replace
+that runtime/tag or require another code deployment.
+
+[CI run 40743297499](https://github.com/wndffs/kanji-app/actions/runs/40743297499)
+completed successfully for that full SHA. Quality passed lint, types, workspace
+units, source-tool guardrails and builds. Its workspace units retain 32 existing
+conditional skips; no new skip was added. Full browser smoke: **479 passed,
+one skipped**, without retries or weakened assertions.
+
+This closes code/coverage/tooling delivery, not source attestation or course
+expansion. New published content: zero; no Neon changes. Full-source download,
+actual wave07 evidence, independent educational review and publication remain
+separate next-batch gates. The next reserved batch is 415-429. Six dependency
+audit advisories and representative full-size/device/performance acceptance
+remain recorded risks, not hidden by a green functional suite.

@@ -83,6 +83,12 @@ separate from code deployment and requires authorization plus existing source,
 editorial, license and curator gates. Pending user preferences may refine later
 batches; no unanswered question is treated as approval.
 
+Checkpoint: **400-414 complete and released**. Tag
+`cycle-400-414-source-evidence`, exact web/API revision `7726d85`, green CI
+`40743297499` (479 browser cases passed, one skipped), live V4/DEMO coverage
+verified. Published content remains 101 kanji/120 word pairs; full local source
+attestation is download-blocked. No 415+ implementation has started.
+
 ## 415-429: First Verified Expansion And Editorial Production
 
 | ID  | Deliverable and acceptance                                                                        |
@@ -185,18 +191,18 @@ batches; no unanswered question is treated as approval.
 
 ## 490-499: Sustainable Replacement Acceptance
 
-| ID  | Deliverable and acceptance                                                            |
-| --- | ------------------------------------------------------------------------------------- |
-| 490 | Re-score the comparison rubric using delivered code and live content                  |
-| 491 | Measure complete published kanji/word placement versus 2,300/8,000                    |
-| 492 | Measure editorial review, examples and source/reading gaps separately                 |
-| 493 | Test representative beginner, returning and continuing-learner journeys               |
-| 494 | Measure large-course query/storage/media budgets without perpetual keepalive          |
-| 495 | Fix evidenced cold/warm latency bottlenecks with comparable measurements              |
-| 496 | Verify export/restore and additive content recovery without real-account resets       |
-| 497 | Targeted UX repair from daily-use findings, not another blanket redesign              |
-| 498 | Batch full release, integrity, licensing and responsive acceptance                    |
-| 499 | Deploy and publish an honest replacement/N4/N3 readiness report and remaining backlog |
+| ID  | Deliverable and acceptance                                                              |
+| --- | --------------------------------------------------------------------------------------- |
+| 490 | Re-score the comparison rubric using delivered code and live content                    |
+| 491 | Measure complete published kanji/word placement versus 2,300/8,000                      |
+| 492 | Measure editorial review, examples and source/reading gaps separately                   |
+| 493 | Test representative beginner, returning and continuing-learner journeys                 |
+| 494 | Measure large-course query/storage/media budgets without perpetual keepalive            |
+| 495 | Fix evidenced cold/warm latency bottlenecks with comparable measurements                |
+| 496 | Verify export/restore and additive content recovery without real-account resets         |
+| 497 | Targeted UX repair from daily-use findings, not another blanket redesign                |
+| 498 | Batch release/security dependency audit, integrity, licensing and responsive acceptance |
+| 499 | Deploy and publish an honest replacement/N4/N3 readiness report and remaining backlog   |
 
 ## Delivery Rules
 
@@ -210,3 +216,8 @@ content. Grammar/full exam preparation is not silently added to this scope.
 Only aggregates from Neon go to Git; detailed evidence and source caches stay
 outside it. No paid service, reset, schema change, publication bypass or new
 production dependency without a demonstrated need and applicable authorization.
+
+Known dependency follow-up from 400-414: npm audit reports six high advisories
+in the current Nest/Prisma chains, none in the new local XML reader. Assess
+reachability and compatible patches before full release sign-off; do not hide
+unresolved advisories behind unrelated green functional tests or blind upgrades.
