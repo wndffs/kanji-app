@@ -1010,12 +1010,12 @@ export function abandonLessonSession(
   );
 }
 
-export function getReviewQueue(token: string): Promise<ReviewQueueResponse> {
-  return apiRequest<ReviewQueueResponse>("/reviews/queue", { token });
+export function getReviewQueue(token: string, options: { readonly signal?: AbortSignal } = {}): Promise<ReviewQueueResponse> {
+  return apiRequest<ReviewQueueResponse>("/reviews/queue", { token, signal: options.signal });
 }
 
-export function getActiveReviewSession(token: string): Promise<ActiveReviewSessionResponse> {
-  return apiRequest<ActiveReviewSessionResponse>("/reviews/active", { token });
+export function getActiveReviewSession(token: string, options: { readonly signal?: AbortSignal } = {}): Promise<ActiveReviewSessionResponse> {
+  return apiRequest<ActiveReviewSessionResponse>("/reviews/active", { token, signal: options.signal });
 }
 
 export function submitReviewCorrection(

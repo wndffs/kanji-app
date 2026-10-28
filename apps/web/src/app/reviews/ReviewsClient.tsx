@@ -57,6 +57,7 @@ import { clearStoredSession, readStoredSession, updateStoredUser } from "../../l
 import { formatReviewOrderMode, formatSrsStageName } from "../../lib/dashboard-format";
 import { useAnswerSound } from "../../lib/use-answer-sound";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
+import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
 
 type QueueState =
   | { readonly status: "checking" }
@@ -84,6 +85,12 @@ const INITIAL_PROGRESS: ReviewProgress = {
 };
 
 export function ReviewsClient() {
+  const account = useStoredSession();
+  if (account === undefined) return <section className="page-stack" aria-busy="true"><h1>Повторения</h1></section>;
+  return <ReviewsScreen key={account === null ? "guest" : `${account.user.id}:${account.token}`} timezone={account?.user.settings.timezone ?? "UTC"} />;
+}
+
+function ReviewsScreen({ timezone }: { readonly timezone: string }) {
   const displayMode = useTranslationDisplayMode();
   const { play: playAnswerSound } = useAnswerSound();
   const [queueState, setQueueState] = useState<QueueState>({ status: "checking" });
@@ -114,15 +121,26 @@ export function ReviewsClient() {
   const answerInputRef = useRef<HTMLInputElement>(null);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
   const requestRevision = useRef(0);
+  const readRequest = useRef<AbortController | null>(null);
+  const mounted = useRef(true);
+  const startPending = useRef(false);
+  const orderPending = useRef(false);
+  const submitPending = useRef(false);
+  const continuePending = useRef(false);
+  const ownsWorkspace = (token: string) => mounted.current && ownsSession(token);
 
   const loadQueue = useCallback(async () => {
     const revision = ++requestRevision.current;
+    readRequest.current?.abort();
+    const controller = new AbortController();
+    readRequest.current = controller;
     const storedSession = readStoredSession();
 
     if (storedSession === null) {
       setQueueState({ status: "unauthenticated" });
       return;
     }
+    const isCurrent = () => !controller.signal.aborted && revision === requestRevision.current && ownsSession(storedSession.token);
 
     setQueueState({ status: "loading" });
     setSession(null);
@@ -140,19 +158,19 @@ export function ReviewsClient() {
 
     try {
       const [queue, savedActive] = await Promise.all([
-        getReviewQueue(storedSession.token),
-        getActiveReviewSession(storedSession.token).catch((error: unknown) => {
+        getReviewQueue(storedSession.token, { signal: controller.signal }),
+        getActiveReviewSession(storedSession.token, { signal: controller.signal }).catch((error: unknown) => {
           // Older API deployments have no resumable-session endpoint.
           if (error instanceof ApiError && error.status === 404) return null;
           throw error;
         }),
       ]);
-      if (revision !== requestRevision.current) return;
+      if (!isCurrent()) return;
       const active = queue.vacationStartedAt == null ? savedActive : null;
       if (active?.session !== undefined && active.session !== null && active.progress !== null) {
         if (active.currentIndex >= active.items.length && active.corrections.length === 0) {
           const finished = await finishReviewSession(storedSession.token, active.session.id);
-          if (revision !== requestRevision.current) return;
+          if (!isCurrent()) return;
           setFinishedSummary(finished.summary);
         } else {
           const correcting = active.currentIndex >= active.items.length;
@@ -176,7 +194,7 @@ export function ReviewsClient() {
         vacationStartedAt: queue.vacationStartedAt ?? null,
       });
     } catch (error: unknown) {
-      if (revision !== requestRevision.current) return;
+      if (!isCurrent()) return;
       if (error instanceof ApiError && error.status === 401) {
         clearStoredSession();
         setQueueState({ status: "unauthenticated" });
@@ -192,9 +210,12 @@ export function ReviewsClient() {
   }, []);
 
   useEffect(() => {
+    mounted.current = true;
     void loadQueue();
     return () => {
       requestRevision.current += 1;
+      mounted.current = false;
+      readRequest.current?.abort();
     };
   }, [loadQueue]);
 
@@ -237,17 +258,21 @@ export function ReviewsClient() {
     }
   }, [feedback]);
 
+  useEffect(() => { continuePending.current = false; }, [feedback, currentIndex, isCorrecting]);
+
   async function handleStartSession(): Promise<void> {
-    if (queueState.status !== "ready" || queueState.queue.length === 0) {
+    if (queueState.status !== "ready" || queueState.queue.length === 0 || startPending.current || orderPending.current || queueState.vacationStartedAt !== null) {
       return;
     }
 
+    startPending.current = true;
     setIsStarting(true);
     setSessionError(null);
     setFinishedSummary(null);
 
     try {
       const response = await startReviewSession(queueState.token);
+      if (!ownsWorkspace(queueState.token)) return;
       const items = response.items ?? queueState.queue;
       const index = response.currentIndex ?? 0;
       const correcting = index >= items.length && (response.corrections?.length ?? 0) > 0;
@@ -265,17 +290,20 @@ export function ReviewsClient() {
         response.progress === undefined ? INITIAL_PROGRESS : toReviewProgress(response.progress),
       );
     } catch (error: unknown) {
+      if (!ownsWorkspace(queueState.token)) return;
       setSessionError(error instanceof Error ? error.message : "Не удалось начать повторение.");
     } finally {
+      startPending.current = false;
       setIsStarting(false);
     }
   }
 
   async function handleOrderModeChange(nextMode: ReviewOrderMode): Promise<void> {
-    if (queueState.status !== "ready" || isSavingOrderMode || nextMode === queueState.orderMode) {
+    if (queueState.status !== "ready" || orderPending.current || startPending.current || nextMode === queueState.orderMode) {
       return;
     }
 
+    orderPending.current = true;
     setIsSavingOrderMode(true);
     setSessionError(null);
 
@@ -283,12 +311,14 @@ export function ReviewsClient() {
       const updatedUser = await updateUserSettings(queueState.token, {
         reviewOrderMode: nextMode,
       });
+      if (!ownsWorkspace(queueState.token)) return;
       updateStoredUser(updatedUser);
       setQueueState((current) =>
         current.status === "ready" ? { ...current, orderMode: nextMode } : current,
       );
 
-      const queue = await getReviewQueue(queueState.token);
+      const queue = await getReviewQueue(queueState.token, { signal: readRequest.current?.signal });
+      if (!ownsWorkspace(queueState.token)) return;
       setQueueState({
         status: "ready",
         token: queueState.token,
@@ -297,6 +327,7 @@ export function ReviewsClient() {
         vacationStartedAt: queue.vacationStartedAt ?? null,
       });
     } catch (error: unknown) {
+      if (!ownsWorkspace(queueState.token)) return;
       if (error instanceof ApiError && error.status === 401) {
         clearStoredSession();
         setQueueState({ status: "unauthenticated" });
@@ -307,6 +338,7 @@ export function ReviewsClient() {
         error instanceof Error ? error.message : "Не удалось изменить порядок повторений.",
       );
     } finally {
+      orderPending.current = false;
       setIsSavingOrderMode(false);
     }
   }
@@ -319,7 +351,7 @@ export function ReviewsClient() {
       session === null ||
       currentItem === null ||
       feedback !== null ||
-      isSubmitting
+      submitPending.current
     ) {
       return;
     }
@@ -339,6 +371,7 @@ export function ReviewsClient() {
 
     setFormError(null);
     setSessionError(null);
+    submitPending.current = true;
     setIsSubmitting(true);
 
     try {
@@ -353,6 +386,7 @@ export function ReviewsClient() {
       const response = isCorrecting
         ? await submitReviewCorrection(queueState.token, session.id, request)
         : await submitReviewAnswer(queueState.token, session.id, request);
+      if (!ownsWorkspace(queueState.token)) return;
 
       if (!response.retry) {
         playAnswerSound(response.accepted);
@@ -366,17 +400,20 @@ export function ReviewsClient() {
         }));
       }
     } catch (error: unknown) {
+      if (!ownsWorkspace(queueState.token)) return;
       setSessionError(error instanceof Error ? error.message : "Не удалось отправить ответ.");
       answerInputRef.current?.focus();
     } finally {
+      submitPending.current = false;
       setIsSubmitting(false);
     }
   }
 
   async function handleContinue(): Promise<void> {
-    if (queueState.status !== "ready" || session === null || feedback === null || isContinuing) {
+    if (queueState.status !== "ready" || session === null || feedback === null || continuePending.current) {
       return;
     }
+    continuePending.current = true;
 
     const nextIndex = currentIndex + 1;
     setSessionError(null);
@@ -400,7 +437,8 @@ export function ReviewsClient() {
 
     try {
       if (resumable && !isCorrecting) {
-        const active = await getActiveReviewSession(queueState.token);
+        const active = await getActiveReviewSession(queueState.token, { signal: readRequest.current?.signal });
+        if (!ownsWorkspace(queueState.token)) return;
         if (active.session?.id !== session.id) {
           throw new Error(
             "Сессия изменилась. Перезагрузите страницу, чтобы восстановить прогресс.",
@@ -417,6 +455,7 @@ export function ReviewsClient() {
         }
       }
       const response = await finishReviewSession(queueState.token, session.id);
+      if (!ownsWorkspace(queueState.token)) return;
       setFinishedSummary(response.summary);
       setSession(null);
       setCurrentIndex(0);
@@ -424,8 +463,10 @@ export function ReviewsClient() {
       setFeedback(null);
       setFormError(null);
     } catch (error: unknown) {
+      if (!ownsWorkspace(queueState.token)) return;
       setSessionError(error instanceof Error ? error.message : "Не удалось завершить сессию.");
     } finally {
+      continuePending.current = false;
       setIsContinuing(false);
     }
   }
