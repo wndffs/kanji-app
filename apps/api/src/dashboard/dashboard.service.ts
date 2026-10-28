@@ -81,6 +81,8 @@ export class DashboardService {
       srsStageSpread,
       recentReviewCounts,
       studyActivity,
+      recentMistakes,
+      recentBurned,
     ] = await Promise.all([
       this.dashboardRepository.loadCourseData(user.id),
       this.dashboardRepository.listLessonProgress(user.id),
@@ -97,6 +99,12 @@ export class DashboardService {
         addDays(now, -(STUDY_ACTIVITY_DAYS + STUDY_ACTIVITY_QUERY_BUFFER_DAYS)),
         activityTimezone,
       ),
+      this.dashboardRepository.listRecentMistakeItems(
+        user.id,
+        addDays(now, -RECENT_MISTAKE_DAYS),
+        MAX_RECENT_ACTIVITY_ITEMS,
+      ),
+      this.dashboardRepository.listRecentBurnedItems(user.id, MAX_RECENT_ACTIVITY_ITEMS),
     ]);
     recordTiming?.("primary", performance.now() - primaryStartedAt);
     const hydrateStartedAt = performance.now();
@@ -107,17 +115,11 @@ export class DashboardService {
     const availableItemIds = new Set(availableLessonItems.map((item) => item.id));
     const journeyPlan = findNextLockedPath(lessonItems, lessonProgress);
     const journeyItemIds = collectJourneyItemIds(unlockEvents, journeyPlan);
-    const [recentMistakes, recentAvailableLessons, recentBurned, journeyItems] = await Promise.all([
-      this.dashboardRepository.listRecentMistakeItems(
-        user.id,
-        addDays(now, -RECENT_MISTAKE_DAYS),
-        MAX_RECENT_ACTIVITY_ITEMS,
-      ),
+    const [recentAvailableLessons, journeyItems] = await Promise.all([
       this.dashboardRepository.listAvailableLessonItems(
         availableLessonItems.map((item) => item.id),
         MAX_RECENT_ACTIVITY_ITEMS,
       ),
-      this.dashboardRepository.listRecentBurnedItems(user.id, MAX_RECENT_ACTIVITY_ITEMS),
       this.dashboardRepository.listAvailableLessonItems(journeyItemIds, journeyItemIds.length),
     ]);
     recordTiming?.("hydrate", performance.now() - hydrateStartedAt);
