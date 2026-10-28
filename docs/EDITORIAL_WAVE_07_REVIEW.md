@@ -66,3 +66,20 @@ Proposed KANJIDIC2 source spellings must normalize to the chosen kana. This is
 internal consistency only: exact source attestation and source priority still
 need the real licensed snapshot. Example readings also require editorial
 checking for particles, counters and natural pronunciation.
+
+## Placement And Provenance
+
+Components precede their dependent kanji, and all kanji used in words or their
+example sentences must be in earlier levels. Slots are checked against the
+existing local registry as well as within this wave; duplicate expression-reading
+pairs and component keys are not silently merged. This validates project order,
+not a competitor's curriculum. No old sealed batch is edited.
+
+Publication remains blocked until exact source identities, successful import
+runs, licenses, URLs, versions, checksums and attributions are verified through
+the existing source-evidence/curator preflight. JMdict multilingual terms must
+be retained; project-authored meanings are not a substitute for dictionary
+identity. KanjiVG assets retain their own attribution/share-alike requirements.
+The twenty word source IDs intentionally remain null. Registry isolation and
+nonpublication are tested; this wave never becomes a curator input merely by
+passing a structural check.
