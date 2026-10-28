@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
 
 import { AuthGuard } from "../auth/auth.guard";
-import { type CurrentUserDto } from "../auth/auth.types";
+import { type CurrentUserDto, type RequestWithCurrentUser } from "../auth/auth.types";
 import { CurrentUser } from "../auth/current-user.decorator";
+import { timedQueueRead, type TimingResponse } from "../http/queue-timing";
 import { RateLimitService } from "../security/rate-limit.service";
 import { ReviewsService } from "./reviews.service";
 
@@ -15,8 +16,12 @@ export class ReviewsController {
   ) {}
 
   @Get("queue")
-  getQueue(@CurrentUser() currentUser: CurrentUserDto) {
-    return this.reviewsService.getQueue(currentUser);
+  getQueue(
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Req() request?: RequestWithCurrentUser,
+    @Res({ passthrough: true }) response?: TimingResponse,
+  ) {
+    return timedQueueRead("reviews", () => this.reviewsService.getQueue(currentUser), response, request?.authDurationMs);
   }
 
   @Post("start")

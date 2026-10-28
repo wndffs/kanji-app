@@ -167,7 +167,7 @@ function configuration(env) {
 export function parseServerTiming(header) {
   const phases = {};
   for (const entry of (header ?? "").split(",")) {
-    const match = /^(auth|primary|hydrate|dashboard);dur=([0-9]+(?:\.[0-9]+)?)$/u.exec(
+    const match = /^(auth|primary|hydrate|dashboard|lessons|reviews);dur=([0-9]+(?:\.[0-9]+)?)$/u.exec(
       entry.trim(),
     );
     if (!match || Object.hasOwn(phases, match[1])) continue;
@@ -183,7 +183,7 @@ export function summarize(samples) {
     const sorted = entries.map(({ elapsedMs }) => elapsedMs).sort((a, b) => a - b);
     const middle = Math.floor(sorted.length / 2);
     const serverTimingMedians = {};
-    for (const phase of ["auth", "primary", "hydrate", "dashboard"]) {
+    for (const phase of ["auth", "primary", "hydrate", "dashboard", "lessons", "reviews"]) {
       const values = entries
         .map((entry) => entry.serverTiming?.[phase])
         .filter((value) => Number.isFinite(value))

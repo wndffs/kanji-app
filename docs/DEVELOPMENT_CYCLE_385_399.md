@@ -63,3 +63,14 @@ Kana remains outside SRS. V4 remains 101 kanji/120 word pairs; draft07 and the
 larger 2300/8000 target are not completed by UI work. Close owned tabs/processes
 and remove task-generated build/test output after preserving screenshots outside
 Git. This closes the reserved 340-399 roadmap, not every product/content gap.
+
+## Finite Baseline (2026-10-28)
+
+Exact web/API revision: `d9614dd0c8ddb2ee7386cc598a23b01ccf804438`.
+Three samples per route, existing test account, no course switch or learning writes.
+HTTP milliseconds: dashboard `[991,412,387]`, lessons `[310,193,196]`,
+reviews `[133,137,122]`, characters `[156,195,173]`, item `[557,461,388]`.
+Dashboard handler `[892.8,298.9,290.7]`; phase medians: auth 9,
+primary 206.1, hydrate 105.9 ms. Phase medians are not additive.
+All warm samples met the existing 2000ms budget. This small starter-account
+sample is not a full-N2 load benchmark; HTTP minus handler is not pure network.
