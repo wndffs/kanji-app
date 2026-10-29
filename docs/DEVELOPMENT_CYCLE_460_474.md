@@ -14,14 +14,14 @@ Publish an additive, separately sealed V7 only after review, live source preflig
 | --- | --- | --- |
 | 460 | Re-audit actual coverage and bound this wave | Done |
 | 461 | Explicit topic selection and deferred follow-up | Done |
-| 462 | Five kanji and visual prerequisites | Pending |
-| 463 | Exact verb/adjective identities and selected senses | Pending |
-| 464 | Time/topic vocabulary with common-use evidence | Pending |
-| 465 | Original RU teaching and blocked-answer distinctions | Pending |
-| 466 | Corresponding EN teaching | Pending |
-| 467 | Exact local source, pronunciation and special-reading evidence | Pending |
-| 468 | Original context and full kana transcription review | Pending |
-| 469 | Two independent AI reviews and corrections | Pending |
+| 462 | Five kanji and visual prerequisites | Done |
+| 463 | Exact verb/adjective identities and selected senses | Done |
+| 464 | Time/topic vocabulary with common-use evidence | Done |
+| 465 | Original RU teaching and blocked-answer distinctions | Done |
+| 466 | Corresponding EN teaching | Done |
+| 467 | Exact local source, pronunciation and special-reading evidence | Done |
+| 468 | Original context and full kana transcription review | Done |
+| 469 | Two independent AI reviews and corrections | Done |
 | 470 | Manifest, graph and bounded-query acceptance | Pending |
 | 471 | Read-only additive preview and immutable identity checks | Pending |
 | 472 | Publish only this approved teaching wave and V7 | Pending |
@@ -40,3 +40,9 @@ Publish an additive, separately sealed V7 only after review, live source preflig
 ## Release Receipt
 
 Not released. Proposed additions must not be presented as published counts.
+
+## Editorial Evidence
+
+Verified the existing full official local snapshot, without redownload/import. Selected exact bilingual pairs 20/20; kanji readings 5/5; primary stroke graphics 5/5. Detailed observations are external; Git retains only aggregate counts and fingerprints in `lexical-wave09-review.ts`.
+
+Independent AI reviewers Kierkegaard (readings/components) and Lovelace (meanings/context) reviewed and rechecked corrections. Fixed fuzzy collisions «сознавать», «возвращать», «возвращать домой», «в том месяце»; added promised RU/EN equivalents and natural kanji synonyms; narrowed English 知る to acquiring facts rather than studying; replaced an unnecessary generic book counter; clarified okurigana and real alternate readings. No outstanding findings in their bounded reviews. This is not human or licensing certification.
