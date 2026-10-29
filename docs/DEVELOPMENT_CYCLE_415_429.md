@@ -31,12 +31,12 @@ Missing live evidence blocks publication rather than weakening a guard.
 | ID | Acceptance | State |
 | --- | --- | --- |
 | 415 | Audit prior evidence and acquire real source snapshot; select bounded wave07 | Complete |
-| 416 | Review/correct RU meanings and semantic near-answer boundaries | Planned |
-| 417 | Review/correct corresponding EN scope and accepted meanings | Planned |
-| 418 | Verify kanji/whole-word readings, ambiguity and special-reading explanations | Planned |
-| 419 | Review/correct original JP/kana examples and both translations | Planned |
-| 420 | Correct component shape/name and mnemonic factual claims | Planned |
-| 421 | Bind exact source identities through existing source preflight, no guessed IDs | Planned |
+| 416 | Review/correct RU meanings and semantic near-answer boundaries | Complete |
+| 417 | Review/correct corresponding EN scope and accepted meanings | Complete |
+| 418 | Verify kanji/whole-word readings, ambiguity and special-reading explanations | Complete |
+| 419 | Review/correct original JP/kana examples and both translations | Complete |
+| 420 | Correct component shape/name and mnemonic factual claims | Complete |
+| 421 | Bind exact source identities through existing source preflight, no guessed IDs | Complete |
 | 422 | Validate prerequisite closure, placement and level progression policies | Planned |
 | 423 | Record a versioned independent review decision bound to source/content | Planned |
 | 424 | Prepare finite V5 without changing any V1-V4 object/hash/identity | Planned |
@@ -56,6 +56,24 @@ committed reports contain aggregates and intentional curated provenance only.
 Authorization does not substitute for source, license, review or curator gates.
 New finite versions do not silently enlarge existing published courses.
 
-Independent reviewer assistance was requested asynchronously; an unanswered
-request is not permission to spawn agents or claim that review has happened.
-Source matching alone must never set reviewedAt or readyToPublish.
+The user approved two independent reviewers. Reviewer A inspected all twenty
+word identities, meanings/accepted sets and all example fields. Reviewer B
+inspected all nineteen component/kanji identities and reading explanations.
+Corrections clarify real alternative readings, morae/sokuon, family/address
+usage, friend gender/register, school stage and fictional mnemonics. Example
+subjects use kana because 私 is not yet in the registered prerequisite closure.
+Review is AI editorial review, not human certification or an originality proof.
+Source matching alone must never set reviewedAt or readyToPublish. The discovered
+semantic typo false positives still require explicit blocks before promotion.
+
+## Source Receipt
+
+The local snapshot also passes a real `--offline` rerun: all three cache hits,
+no downloads. Only exact curated identities and aggregate observation metadata
+are committed; full source/review reports remain in the external cache.
+
+A bounded live Neon SELECT (620 ms) confirmed 20/20 exact word IDs, successful
+licensed attributed JMdict provenance and both imported locales; 10/10 exact
+raw kanji readings, successful KANJIDIC2 provenance and successful graphics with
+matching stroke counts. No raw import or database mutation was needed. These
+observations do not replace transactional curator preflight or quality checks.
