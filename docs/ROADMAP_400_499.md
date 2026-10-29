@@ -1,9 +1,10 @@
 # Product Roadmap 400-499
 
 Baseline: `2b29567`, verified runtime `1fdd9b0`, 2026-10-28.
-This request authorizes **400-414 only** for implementation, separate commits,
-batched checks, push, code deployment and live acceptance. Later tasks are a
-reserved backlog, not completed work. Revalidate each batch before editing.
+The original request authorized 400-414. The next request authorized **415-429**,
+separate commits, batched checks, push, deployment and verified publication.
+Both batches are released. Tasks 430-499 remain a reserved backlog, not completed
+work; 430-444 is next. Revalidate each batch before editing.
 
 ## User Decisions: 2026-10-29
 
@@ -15,9 +16,10 @@ reserved backlog, not completed work. Revalidate each batch before editing.
   existing learning progress. Source/license evidence, independent educational
   review, manifest/graph checks and the existing curator preflight remain
   mandatory. Authorization is not itself a content approval or a gate bypass.
-- These answers remove the pending priority/publication questions. They do not
-  attest draft07 or resolve the source-download blocker from 400-414. They also
-  do not start the next implementation batch; 415-429 remains the next scope.
+- These answers removed the pending priority/publication questions, not the
+  source/editorial gates. The subsequent request authorized 415-429; its
+  independently reviewed copies, real source evidence and live receipts below
+  resolve draft07's publication blockers without blessing the archived proposal.
 
 ## Goal And Current Gap
 
@@ -27,8 +29,9 @@ plus separate Duolingo-inspired kana practice and selected Renshuu-inspired
 personal study tools. Original UI, pedagogy, order and wording throughout.
 No competitor scraper, educational data, assets or exact visual reproduction.
 
-Current V4: 79 components, 101 kanji, 120 expression-reading pairs, 300 materials,
-521 core cards. SRS, lessons, review corrections, custom answers, pronunciation,
+Current V5: 88 components, 111 kanji, 140 expression-reading pairs, 339 materials,
+590 core cards. V4 remains unchanged at 101/120/521. SRS, lessons, review
+corrections, custom answers, pronunciation,
 themes, practice, kana tracing/matching/listening and text-derived decks exist.
 The published course is still a small foundation, not a full N4/N3 syllabus.
 Most modern JLPT source labels are unknown. Imported dictionaries, drafts and
@@ -36,7 +39,7 @@ passing tests do not increase published, reviewed teaching content.
 
 Long-term target remains **2,300 distinct placed kanji and 8,000 distinct
 expression-reading pairs**, with independently reviewed RU/EN teaching content.
-Current volume is 4.4% and 1.5% of those targets respectively. These are content
+Current volume is 4.8% and 1.75% of those targets respectively. These are content
 volume ratios, not learner proficiency, JLPT coverage or chances of passing.
 
 ## Comparison Rubric
@@ -100,8 +103,9 @@ conditional publication authorization, not approval of any unverified wave.
 Checkpoint: **400-414 complete and released**. Tag
 `cycle-400-414-source-evidence`, exact web/API revision `7726d85`, green CI
 `40743297499` (479 browser cases passed, one skipped), live V4/DEMO coverage
-verified. Published content remains 101 kanji/120 word pairs; full local source
-attestation is download-blocked. No 415+ implementation has started.
+verified. At that checkpoint, published content remained 101 kanji/120 word
+pairs and full local source attestation was download-blocked. The next batch's
+separate evidence and resolution are recorded below.
 
 ## 415-429: First Verified Expansion And Editorial Production
 
@@ -122,6 +126,16 @@ attestation is download-blocked. No 415+ implementation has started.
 | 427 | With explicit authorization, publish the new manifest; otherwise retain a clearly blocked preview |
 | 428 | Batch content/answer/integrity checks and unchanged-progress acceptance                           |
 | 429 | Deploy and report real new published counts, not proposed counts                                  |
+
+Checkpoint: **415-429 complete and released**, specification and receipts in
+`DEVELOPMENT_CYCLE_415_429.md`, tag `cycle-415-429-verified-content`, exact web/API
+revision `3f9d62d`. All three full source archives are cached and verified outside
+Git; two independent AI reviewers approved corrected teaching content. Selected
+application/rerun passed; V5 publication `40855074022`, post-publication plan
+`40855686356`, remote smoke `40855779425`, CI `40854655871` and study-integrity
+`40854655910` passed. Actual published V5 is 111 kanji/140 word pairs/590 cards;
+original users/progress and old versions are unchanged. No human certification,
+modern JLPT checklist or complete N4/N3 preparation is claimed.
 
 ## 430-444: N4-Oriented Vocabulary And Kanji Backbone
 
