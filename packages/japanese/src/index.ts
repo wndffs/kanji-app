@@ -2,6 +2,7 @@ export const JAPANESE_PACKAGE_NAME = "@kanji-srs/japanese";
 
 export * from "./adaptive-kana";
 export * from "./kana";
+export * from "./reading-diagnostic";
 
 export type AnswerKind = "meaning" | "reading";
 export type MeaningLocale = "ru-RU" | "en-US";

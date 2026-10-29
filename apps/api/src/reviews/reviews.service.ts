@@ -42,7 +42,7 @@ import { OverridesService } from "../overrides/overrides.service";
 import { ReviewsRepository } from "./reviews.repository";
 import {
   getPracticeBlockedReason,
-  getPracticeFeedbackMessage,
+  getCardFeedbackMessage,
   toExpectedPracticeAnswers,
   toPracticeAnswerDiagnostic,
 } from "./practice-answer-feedback";
@@ -219,7 +219,7 @@ export class ReviewsService {
       corrected,
       alreadyCorrected,
       feedback: {
-        message: getPracticeFeedbackMessage(validation.result, validation.relatedAnswer),
+        message: getCardFeedbackMessage(target.card, validation.result, request.answer, validation.relatedAnswer),
         expected: toExpectedPracticeAnswers(
           target.card,
           user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE,
@@ -339,7 +339,7 @@ export class ReviewsService {
       matchedAnswer: validation.matchedAnswer,
       retry: validation.relatedAnswer !== undefined && validation.relatedAnswer !== null,
       feedback: {
-        message: getPracticeFeedbackMessage(validation.result, validation.relatedAnswer),
+        message: getCardFeedbackMessage(target.card, validation.result, request.answer, validation.relatedAnswer),
         expected: toExpectedPracticeAnswers(target.card, displayMode),
         blockedReason: getPracticeBlockedReason(target.card, validation.matchedAnswer),
         diagnostic: toPracticeAnswerDiagnostic(validation.relatedAnswer),
@@ -483,7 +483,7 @@ export class ReviewsService {
         matchedAnswer: null,
         retry: true,
         feedback: {
-          message: getPracticeFeedbackMessage("wrong", validation.relatedAnswer),
+          message: getCardFeedbackMessage(target.card, "wrong", request.answer, validation.relatedAnswer),
           expected: toExpectedAnswers(target),
           blockedReason: null,
           diagnostic: toPracticeAnswerDiagnostic(validation.relatedAnswer),
@@ -570,7 +570,7 @@ export class ReviewsService {
       matchedAnswer: validation?.matchedAnswer ?? null,
       retry: false,
       feedback: {
-        message: getPracticeFeedbackMessage(responseResult, validation?.relatedAnswer),
+        message: getCardFeedbackMessage(target.card, responseResult, request.answer, validation?.relatedAnswer),
         expected: toExpectedAnswers(target),
         blockedReason: getPracticeBlockedReason(target.card, validation?.matchedAnswer ?? null),
         diagnostic: toPracticeAnswerDiagnostic(validation?.relatedAnswer),
