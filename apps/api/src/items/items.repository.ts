@@ -8,12 +8,14 @@ import {
 import { calculateLeechScore, type LeechScoreResult } from "@kanji-srs/srs";
 import {
   formatKanjiJlptLevel,
+  findPronunciationRecording,
   type ItemKind,
   type SourceAttributionDto,
   type SrsStateSummaryDto,
 } from "@kanji-srs/shared";
 
 import { PrismaService } from "../database/prisma.service";
+import { toVerifiedWordPronunciation } from "../audio/word-pronunciation";
 import {
   isEligibleListeningAudio,
   toAudioAssetDto,
@@ -453,6 +455,11 @@ export class PrismaItemsRepository extends ItemsRepository {
       ? []
       : [...target.attributions, ...(await this.findAttributions(target.sourceRecordIds))];
     const itemType = toItemKind(item.kind);
+    const recording = itemType === "word" && !options.summaryOnly ? findPronunciationRecording(target.japanese, target.reading) : null;
+    const pronunciationAudio = recording === null ? null : toVerifiedWordPronunciation(
+      await this.prisma.db.audioAsset.findFirst({ where: { id: recording.id, learningItemId: item.id, status: "PUBLISHED" }, include: { dataSource: true, license: true, importRun: true } }),
+      item.id, target.japanese, target.reading,
+    );
     const cards = (item.cards ?? []).map((card) => toCardRecord(card, item.id, itemType));
     const userOverrides = cards.flatMap((card) => card.userOverrides);
     const srsDetails = await this.findItemSrsDetails(item.id, options.userId);
@@ -464,6 +471,7 @@ export class PrismaItemsRepository extends ItemsRepository {
     return {
       id: item.id,
       itemType,
+      pronunciationAudio,
       title: item.title,
       level: item.levelHint,
       status: item.status,

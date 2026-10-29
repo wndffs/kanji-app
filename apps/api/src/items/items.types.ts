@@ -112,6 +112,7 @@ export type ItemReviewHistoryRecordPage = {
 };
 
 export type ItemRecord = {
+  readonly pronunciationAudio?: AudioAssetDto | null;
   readonly id: string;
   readonly itemType: ItemKind;
   readonly title: string;

@@ -228,6 +228,7 @@ function toItemDetails(
 
   return {
     ...toItemSummary(item, displayMode),
+    pronunciationAudio: item.pronunciationAudio ?? null,
     componentDetails:
       item.target.componentDetails === null
         ? null

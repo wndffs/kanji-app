@@ -409,6 +409,7 @@ export type ReviewQueueItemSummary = {
 };
 
 export type ItemDetails = ItemSummary & {
+  readonly pronunciationAudio?: AudioAssetDto | null;
   readonly componentDetails: ComponentDetailsDto | null;
   readonly kanjiDetails: KanjiStudyDetailsDto | null;
   readonly wordDetails: WordStudyDetailsDto | null;
