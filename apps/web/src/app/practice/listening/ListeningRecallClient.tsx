@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { RotateCcw } from "lucide-react";
 import {
   PRONUNCIATION_RECORDINGS,
@@ -29,6 +29,12 @@ function ListeningRecall({ token }: { readonly token: string | null }) {
   const [attempt, setAttempt] = useState(0);
   const [answer, setAnswer] = useState("");
   const [result, setResult] = useState<ReturnType<typeof gradeListeningRecall> | null>(null);
+  const feedbackRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (!result) return;
+    feedbackRef.current?.focus();
+    feedbackRef.current?.scrollIntoView({ block: "start" });
+  }, [result]);
   const [evidence, setEvidence] = useState<ListeningPlaybackEvidenceDto>({
     completed: false,
     playCount: 0,
@@ -69,7 +75,7 @@ function ListeningRecall({ token }: { readonly token: string | null }) {
       setResult(gradeListeningRecall(item, answer));
   }
   return (
-    <section className="page-stack">
+    <section className="page-stack listening-recall">
       <header className="page-heading">
         <div>
           <h1>Практика на слух</h1>
@@ -104,7 +110,7 @@ function ListeningRecall({ token }: { readonly token: string | null }) {
             audio={item.pronunciationAudio}
             onEvidenceChange={setEvidence}
           />
-          <form className="answer-form" onSubmit={check}>
+          <form className="listening-recall-form" onSubmit={check}>
             <label htmlFor="listening-recall-answer">Чтение каной</label>
             <input
               id="listening-recall-answer"
@@ -123,7 +129,9 @@ function ListeningRecall({ token }: { readonly token: string | null }) {
           </form>
           {result ? (
             <section className="review-feedback">
-              <h2>{result.accepted ? "Верно" : "Не совпало"}</h2>
+              <h2 ref={feedbackRef} tabIndex={-1}>
+                {result.accepted ? "Верно" : "Не совпало"}
+              </h2>
               <JapaneseText as="p" variant="display">
                 {item.japanese}
               </JapaneseText>

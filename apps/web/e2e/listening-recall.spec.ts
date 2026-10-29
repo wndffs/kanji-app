@@ -106,6 +106,7 @@ test("recorded recall conceals answers and credits until playback and grading, w
   await input.fill("タベル");
   await page.getByRole("button", { name: "Проверить", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Верно", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Верно", exact: true })).toBeFocused();
   await expect(page.getByText("食べる", { exact: true })).toBeVisible();
   await expect(page.getByText(entry.attribution, { exact: true })).toBeVisible();
   expect(writes).toEqual([]);

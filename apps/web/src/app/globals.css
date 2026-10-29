@@ -5726,6 +5726,33 @@ textarea:focus-visible {
   text-align: center;
 }
 
+.listening-recall {
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  align-content: start;
+}
+
+.listening-recall-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.listening-recall-form label {
+  grid-column: 1 / -1;
+}
+
+.listening-recall-form input {
+  min-width: 0;
+  width: 100%;
+}
+
+.listening-recall .review-feedback h2 {
+  scroll-margin-top: 88px;
+}
+
 .listening-prompt audio {
   display: none;
 }
