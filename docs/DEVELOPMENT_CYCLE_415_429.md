@@ -40,10 +40,10 @@ Missing live evidence blocks publication rather than weakening a guard.
 | 422 | Validate prerequisite closure, placement and level progression policies        | Complete  |
 | 423 | Record a versioned independent review decision bound to source/content         | Complete  |
 | 424 | Prepare finite V5 without changing any V1-V4 object/hash/identity              | Complete  |
-| 425 | Preview additive writes, query/storage costs and idempotent rerun              | Preflight |
-| 426 | Apply approved selected teaching batches without resetting SRS                 | Planned   |
+| 425 | Preview additive writes, query/storage costs and idempotent rerun              | Complete  |
+| 426 | Apply approved selected teaching batches without resetting SRS                 | Complete  |
 | 427 | Publish only the verified finite manifest, or report exact blockers            | Planned   |
-| 428 | Batched relevant content/answer/integrity and unchanged-progress acceptance    | Planned   |
+| 428 | Batched relevant content/answer/integrity and unchanged-progress acceptance    | Local/CI  |
 | 429 | Version/push/deploy/live verify and report actual published counts             | Planned   |
 
 ## Boundaries
@@ -110,3 +110,52 @@ IDs/counts and unchanged private state. Only after zero quality blockers/warning
 and a successful V5 read-only plan, publish V5 without enrollment. No bulk raw
 import, source mutation, old-seal replacement, paid service or account reset.
 These operator results are pending until actually observed.
+
+## Read-Only Plan And Batched Checks
+
+Selected kanji07-only workflow plan `40847490721` passed at `9552585`, without
+migrations or teaching writes. The candidate is bounded to nine components,
+ten kanji, twenty word pairs and twenty original examples: no full raw corpus
+is loaded or imported. The real selected kanji preflight took about 18 seconds.
+The following combined application is a separate explicit operator action;
+its completion, quality results and idempotence are not implied by this plan.
+
+Scoped local checks passed for source matching, sealed content, semantic
+answer blocks, both curators, prerequisite placement and V1-V5 publication.
+Database typecheck and changed-file ESLint passed. Runtime preflight tests
+exercise all 339 V5 targets and fourteen source seals, reject missing actual
+meaning blocks, and prohibit account/SRS/enrollment writes. Earlier finite
+manifests retain their exact canonical hashes. Historical first-six-batch
+tests now explicitly select their historical scope; global registry tests
+expect seven reviewed waves.
+
+CI `40847830081` and study-integrity `40847830071` passed at `14f082a`.
+The earlier CI run found four stale test expectations after registering V5;
+they were corrected without weakening source, quality or publication guards.
+Live private-state fingerprints and final publication/deployment acceptance
+remain separate checks below, not consequences of green mocked/unit tests.
+
+## Selected Application: Task 426
+
+[Run 40848704377, attempt 1](https://github.com/wndffs/kanji-app/actions/runs/40848704377/attempts/1)
+passed at `14f082a` with explicit `apply`, selected
+`task-118-course-kanji-07` and `task-127-course-words-07`, and `skip_words=false`.
+Only these two teaching batches were written; the word planner also verifies
+the earlier registered batches, without reapplying them. Kanji application
+completed in about one minute; complete word preflight/application took about
+3m44s/5m52s. These are operator timings, not UI request performance estimates.
+
+Actual additive totals: nine components, ten kanji, twenty word pairs, twenty
+original bilingual examples and 69 cards. A bounded live SELECT found 39 new
+items, 69 stable card identities and 46 explicit meaning-block rows. The
+339-item quality scan returned **zero blockers and zero warnings**; quality
+content version `f5c10aa5777a7f5ab12ae9e751c3b948ac790d00f136344297484386e622965f`.
+This is not the V5 publication manifest hash or its eventual live content hash.
+
+Server-side fingerprints of all eleven private-state tables, V1-V4 course
+rows and their 521 cards/answers/blocks matched the pre-application snapshot
+exactly. Counts include 23 users, 162 SRS states, eight review sessions, five
+review answers and 47 enrollments; no individual account fields or fingerprints
+are committed. A second identical explicit attempt is running to verify
+idempotence. V5 read-only planning is queued behind that database operation.
+No schema migration, raw dictionary import, enrollment or paid change occurred.
