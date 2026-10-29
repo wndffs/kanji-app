@@ -24,7 +24,7 @@ import { JapaneseText } from "../../components/JapaneseText";
 import { ViewTabs } from "../../components/ViewTabs";
 import { CopyReadingButton } from "../../components/CopyReadingButton";
 import { KanjiWordReinforcement } from "../../components/KanjiWordReinforcement";
-import { READING_GUIDANCE } from "@kanji-srs/shared";
+import { READING_GUIDANCE, visualContrastFor } from "@kanji-srs/shared";
 import { ItemPreviewList } from "../../components/ItemPreviewList";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import {
@@ -1461,6 +1461,7 @@ function ItemReadingDetails({
           </div>
         </SectionDisclosure>
         <KanjiWordReinforcement item={item} contextHref={studyHref} />
+        <VisualContrast character={item.japanese} displayMode={displayMode} />
       </section>
     );
   }
@@ -1800,6 +1801,15 @@ function StrokePlaceholder({ character }: { readonly character: string }) {
       </p>
     </>
   );
+}
+
+function VisualContrast({ character, displayMode }: { readonly character: string; readonly displayMode: TranslationDisplayMode }) {
+  const contrast = visualContrastFor(character);
+  if (!contrast) return null;
+  return <SectionDisclosure title={`Различайте ${contrast.characters.join(" / ")}`}>
+    {displayMode !== "en" ? <p lang="ru">{contrast.ru}</p> : null}
+    {displayMode !== "ru" ? <p lang="en">{contrast.en}</p> : null}
+  </SectionDisclosure>;
 }
 
 function ReadingGuidanceText({ kind, displayMode }: { readonly kind: keyof typeof READING_GUIDANCE; readonly displayMode: TranslationDisplayMode }) {

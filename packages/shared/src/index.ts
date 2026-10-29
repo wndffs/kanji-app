@@ -2057,3 +2057,4 @@ export function getContentLocalesForDisplayMode(
   }
 }
 export * from "./reading-guidance";
+export * from "./visual-contrasts";
