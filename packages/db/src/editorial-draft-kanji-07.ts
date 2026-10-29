@@ -203,8 +203,8 @@ const kanjiContent = [
     ["younger-brother"],
     "Извилистую форму представьте лестницей, по которой младший брат спускается за старшим.",
     "Picture the winding shape as a ladder a younger brother climbs down after his older brother.",
-    "Здесь учим てい. В 兄弟 чтение меняется на だい; отдельное слово 弟 — おとうと.",
-    "Here learn てい. In 兄弟 the reading changes to だい; the separate word 弟 is おとうと.",
+    "Здесь учим онное てい. В 兄弟 (きょうだい) у 弟 другое онное чтение: だい. Отдельное слово 弟 читается おとうと.",
+    "This card teaches the on reading てい. In 兄弟 (きょうだい), 弟 uses another on reading, だい. The standalone word 弟 is おとうと.",
   ),
   kanji(
     "妹",

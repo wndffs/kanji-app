@@ -2,11 +2,24 @@ import { describe, expect, it } from "vitest";
 import { normalizeMeaning } from "@kanji-srs/japanese";
 import { buildWordDraft07 } from "../src/editorial-draft-words-07";
 import { auditWaveLocale } from "../src/editorial-wave-language";
+import { buildKanjiDraft07 } from "../src/editorial-draft-kanji-07";
+import { auditWaveReadings } from "../src/editorial-wave-readings";
 
 const word = (expression: string) =>
   buildWordDraft07().words.find((item) => item.expression === expression)!;
 
 describe("wave07 reviewed teaching scope", () => {
+  it("scopes real reading alternatives to this card instead of teaching them as nonexistent", () => {
+    for (const [expression, alternative] of [["父母", "ちちはは"], ["兄弟", "けいてい"], ["今日", "こんじつ"], ["今年", "こんねん"]]) {
+      const item = word(expression!);
+      expect(item.readingMnemonic.ru).toContain(alternative);
+      expect(item.readingMnemonic.en).toContain("also exists");
+      expect(item.acceptedReadings ?? []).toEqual([]);
+    }
+    expect(word("学校").readingMnemonic.ru).toContain("четыре моры");
+    expect(buildKanjiDraft07().kanji.find((item) => item.character === "弟")!.readingMnemonic.ru).toContain("другое онное чтение");
+    expect(auditWaveReadings().valid).toBe(true);
+  });
   it("accepts ordinary Russian equivalents without erasing the selected sense", () => {
     for (const [expression, answer] of [
       ["父", "папа"], ["母", "мама"], ["父母", "родители"],
