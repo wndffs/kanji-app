@@ -77,6 +77,7 @@ export type LessonPronunciationMode = (typeof SUPPORTED_LESSON_PRONUNCIATION_MOD
 export type KanaScript = "hiragana" | "katakana";
 export type KanaVariant = "basic" | "dakuten" | "handakuten" | "yoon" | "sokuon" | "long-vowel";
 export type KanaPracticeScript = KanaScript | "mixed";
+export const KANA_PRACTICE_SESSION_LENGTHS = [6,12,20] as const;
 export type KanaPracticeExerciseKind =
   | "typing"
   | "recognition-choice"

@@ -20,6 +20,22 @@ import {
 } from "../src/kana/kana.types";
 
 describe("KanaService", () => {
+  it("keeps casual practice evidence separate from lesson mastery and preserves active size",async()=>{
+    const repo=new InMemoryKanaRepository(), service=new KanaService(repo);
+    let session=await service.getPracticeSession("user-1","hiragana",6);
+    expect(session.totalCount).toBe(6);
+    expect((await service.getPracticeSession("user-1","hiragana",20)).id).toBe(session.id);
+    for(let i=0;i<6;i++) {
+      const exercise=session.exercise!;
+      const response=await service.answerPractice("user-1",{sessionId:session.id,exerciseId:exercise.id,...(["typing","recognition-choice"].includes(exercise.exerciseKind)?{answer:exercise.romaji}:{selectedCharacter:exercise.character})});
+      session=response.session;
+    }
+    const progress=await service.getProgress("user-1","hiragana");
+    expect(progress.masteredCount).toBe(0); expect(progress.attemptedCount).toBe(0);
+    expect((await service.getLessonPath("user-1","hiragana")).units[1]!.unlocked).toBe(false);
+    expect(await repo.listAttempts("user-1",["hiragana"])).toHaveLength(6);
+    await expect(service.getPracticeSession("user-1","hiragana",999)).rejects.toThrow();
+  });
   it("returns the complete hiragana track without exposing romaji before an answer", async () => {
     const service = new KanaService(new InMemoryKanaRepository());
 
@@ -353,7 +369,6 @@ class InMemoryKanaRepository extends KanaRepository {
       throw new Error("Kana practice session has already advanced.");
     }
 
-    const progress = this.updateProgress(input);
     this.addAttempt(input);
     const nextIndex = session.currentIndex + 1;
     const updatedSession: KanaPracticeSessionRecord = {
@@ -363,7 +378,7 @@ class InMemoryKanaRepository extends KanaRepository {
     };
     this.sessions.set(session.id, updatedSession);
 
-    return { progress, session: updatedSession };
+    return { session: updatedSession };
   }
 
   getSession(id: string): KanaPracticeSessionRecord | null {

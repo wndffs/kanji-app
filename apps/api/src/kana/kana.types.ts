@@ -57,7 +57,6 @@ export type RecordKanaPracticeAttemptInput = RecordKanaAttemptInput & {
 };
 
 export type RecordKanaPracticeAttemptResult = {
-  readonly progress: KanaProgressRecord;
   readonly session: KanaPracticeSessionRecord;
 };
 

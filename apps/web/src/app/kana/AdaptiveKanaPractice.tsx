@@ -13,6 +13,7 @@ import {
 } from "react";
 
 import {
+  KANA_PRACTICE_SESSION_LENGTHS,
   type KanaPracticeAnswerResponse,
   type KanaPracticeExerciseDto,
   type KanaPracticeExerciseKind,
@@ -50,6 +51,8 @@ export function AdaptiveKanaPractice({
   const [pendingSession, setPendingSession] = useState<KanaPracticeSessionDto | null>(null);
   const [fallbackKind, setFallbackKind] = useState<KanaPracticeExerciseKind | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [nextSize,setNextSize]=useState(12);
+  const nextSizeRef=useRef(12);
   const inputRef = useRef<HTMLInputElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
   const firstChoiceRef = useRef<HTMLButtonElement>(null);
@@ -70,7 +73,7 @@ export function AdaptiveKanaPractice({
     setFallbackKind(null);
 
     try {
-      const session = await getKanaPracticeSession(token, script);
+      const session = await getKanaPracticeSession(token, script,nextSizeRef.current);
       if (revision !== requestRevision.current || !ownsSession(token)) return;
       setState({ status: "ready", session });
     } catch (error: unknown) {
@@ -232,6 +235,10 @@ export function AdaptiveKanaPractice({
           <strong className="kana-adaptive-complete">
             {state.session.completedCount} из {state.session.totalCount}
           </strong>
+          <label htmlFor="kana-next-session-size">Следующая сессия</label>
+          <select id="kana-next-session-size" value={nextSize} onChange={event=>{const size=Number(event.currentTarget.value);nextSizeRef.current=size;setNextSize(size);}}>
+            {KANA_PRACTICE_SESSION_LENGTHS.map(size=><option key={size} value={size}>{size} заданий</option>)}
+          </select>
           <button className="primary-action" onClick={() => void loadSession()} type="button">
             Начать новую
           </button>

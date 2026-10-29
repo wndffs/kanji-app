@@ -181,13 +181,14 @@ function scoreCandidate(
       : candidate.attemptCount > 0
         ? candidate.correctCount / candidate.attemptCount
         : null;
+  const lastAnsweredAt=recent[0]?.answeredAt ?? candidate.lastAnsweredAt;
   const age =
-    candidate.lastAnsweredAt === null
+    lastAnsweredAt === null
       ? OVERDUE_AFTER_MS
-      : Math.max(0, now.getTime() - candidate.lastAnsweredAt.getTime());
+      : Math.max(0, now.getTime() - lastAnsweredAt.getTime());
   const overdueScore = Math.min(40, Math.floor(age / OVERDUE_AFTER_MS) * 12);
 
-  if (candidate.attemptCount === 0) {
+  if (candidate.attemptCount === 0 && recent.length === 0) {
     return 75 + overdueScore;
   }
 
@@ -204,7 +205,7 @@ function determineFocusReason(
   attempts: readonly KanaAttemptEvidence[],
   now: Date,
 ): AdaptiveKanaFocusReason {
-  if (candidate.attemptCount === 0) {
+  if (candidate.attemptCount === 0 && attempts.length === 0) {
     return "new";
   }
 
@@ -218,8 +219,8 @@ function determineFocusReason(
   }
 
   if (
-    candidate.lastAnsweredAt === null ||
-    now.getTime() - candidate.lastAnsweredAt.getTime() >= OVERDUE_AFTER_MS
+    (recent[0]?.answeredAt ?? candidate.lastAnsweredAt) === null ||
+    now.getTime() - (recent[0]?.answeredAt ?? candidate.lastAnsweredAt)!.getTime() >= OVERDUE_AFTER_MS
   ) {
     return "overdue";
   }

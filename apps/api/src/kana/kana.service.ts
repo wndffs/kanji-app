@@ -12,6 +12,7 @@ import {
   type KanaCharacter,
 } from "@kanji-srs/japanese";
 import {
+  KANA_PRACTICE_SESSION_LENGTHS,
   type KanaAssessmentAnswerRequest,
   type KanaAssessmentAnswerResponse,
   type KanaAssessmentItemDto,
@@ -102,8 +103,11 @@ export class KanaService {
   async getPracticeSession(
     userId: string,
     scriptValue: unknown,
+    sizeValue?: unknown,
   ): Promise<KanaPracticeSessionDto> {
     const script = parsePracticeScript(scriptValue);
+    const size=sizeValue === undefined ? KANA_PRACTICE_SESSION_SIZE : (typeof sizeValue === "string" || typeof sizeValue === "number") ? Number(sizeValue) : NaN;
+    if(!KANA_PRACTICE_SESSION_LENGTHS.some(value=>value===size)) throw new BadRequestException("Размер практики должен быть 6, 12 или 20.");
     const active = await this.kanaRepository.findActivePracticeSession(userId, script);
 
     if (active !== null) {
@@ -129,7 +133,7 @@ export class KanaService {
       script,
       now,
       seed: `${userId}:${script}:${now.toISOString()}`,
-      size: KANA_PRACTICE_SESSION_SIZE,
+      size,
     });
     const session = await this.kanaRepository.createPracticeSession({
       userId,
@@ -154,14 +158,14 @@ export class KanaService {
     const candidates = buildAdaptiveCandidates(script, progress);
     const now = new Date();
     const weakSymbols = candidates
-      .filter((candidate) => candidate.unlocked && candidate.attemptCount > 0)
+      .filter((candidate) => candidate.unlocked && (candidate.attemptCount > 0 || attempts.some(attempt=>attempt.expectedCharacter===candidate.character)))
       .map((candidate) => {
         const recent = attempts
           .filter((attempt) => attempt.expectedCharacter === candidate.character)
           .slice(0, 10);
         const recentAccuracy =
           recent.length === 0
-            ? candidate.correctCount / candidate.attemptCount
+            ? candidate.attemptCount === 0 ? 0 : candidate.correctCount / candidate.attemptCount
             : recent.filter((attempt) => attempt.correct).length / recent.length;
 
         return {
@@ -170,7 +174,7 @@ export class KanaService {
           romaji: candidate.romaji,
           currentStreak: candidate.currentStreak,
           recentAccuracy,
-          lastPracticedAt: candidate.lastAnsweredAt?.toISOString() ?? null,
+          lastPracticedAt: recent[0]?.answeredAt.toISOString() ?? candidate.lastAnsweredAt?.toISOString() ?? null,
           weaknessScore: scoreAdaptiveKanaCandidate(candidate, recent, now),
         };
       })

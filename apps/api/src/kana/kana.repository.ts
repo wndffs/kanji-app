@@ -183,7 +183,6 @@ export class PrismaKanaRepository extends KanaRepository {
         throw new KanaPracticeSessionConflictError();
       }
 
-      const progress = await upsertKanaProgress(db, input);
       await db.kanaAttempt.create({
         data: {
           ...toAttemptCreateData(input),
@@ -196,7 +195,6 @@ export class PrismaKanaRepository extends KanaRepository {
       });
 
       return {
-        progress: toProgressRecord(progress),
         session: toPracticeSessionRecord(session),
       };
     });

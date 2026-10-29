@@ -437,8 +437,9 @@ export function submitKanaLessonAnswer(
 export function getKanaPracticeSession(
   token: string,
   script: KanaPracticeScript,
+  size=12,
 ): Promise<KanaPracticeSessionDto> {
-  return apiRequest<KanaPracticeSessionDto>(`/kana/practice?script=${encodeURIComponent(script)}`, {
+  return apiRequest<KanaPracticeSessionDto>(`/kana/practice?script=${encodeURIComponent(script)}${size === 12 ? "" : `&size=${size}`}`, {
     token,
   });
 }
