@@ -17,12 +17,16 @@ function word(
   readingRu: string,
   readingEn: string,
   example: readonly [string, string, string, string],
+  alternatives: { readonly ru?: readonly string[] } = {},
 ): Omit<EditorialWordDraft, "sortOrder"> {
   return {
     expression,
     reading,
     jmdictEntryId: null,
-    meanings: { ru: { primary: ru, accepted: [ru] }, en: { primary: en, accepted: [en] } },
+    meanings: {
+      ru: { primary: ru, accepted: [ru, ...(alternatives.ru ?? [])] },
+      en: { primary: en, accepted: [en] },
+    },
     meaningMnemonic: { ru: meaningRu, en: meaningEn },
     readingMnemonic: { ru: readingRu, en: readingEn },
     meaningHint: { ru: `Здесь изучаем значение «${ru}».`, en: `Here learn the meaning '${en}'.` },
@@ -71,6 +75,7 @@ const words = [
       "Директор школы разговаривает с учителем.",
       "The principal talks with a teacher.",
     ],
+    { ru: ["школьный директор"] },
   ),
   word(
     "小学校",
@@ -103,6 +108,7 @@ const words = [
       "Средняя школа находится справа от реки.",
       "The junior high school is to the right of the river.",
     ],
+    { ru: ["младшая средняя школа"] },
   ),
   word(
     "友人",
@@ -141,7 +147,7 @@ const words = [
     "ちち",
     "отец",
     "father",
-    "Представьте своего отца: это нейтральное обозначение при рассказе о нём другим.",
+    "Представьте своего отца: так обычно называют его в разговоре с людьми вне семьи, а не при обращении к нему.",
     "Picture your own father: this is a plain term when talking about him to others.",
     "ち・ち: две одинаковые моры. Не ふ и не おとうさん.",
     "ち・ち: two identical morae. Not ふ or おとうさん.",
@@ -151,6 +157,7 @@ const words = [
       "Мой отец едет в школу на машине.",
       "My father goes to school by car.",
     ],
+    { ru: ["папа"] },
   ),
   word(
     "母",
@@ -167,6 +174,7 @@ const words = [
       "Моя мать читает книгу.",
       "My mother reads a book.",
     ],
+    { ru: ["мама"] },
   ),
   word(
     "父母",
@@ -183,6 +191,7 @@ const words = [
       "Отец и мать не дома, а в школе.",
       "My father and mother are at school, not at home.",
     ],
+    { ru: ["родители"] },
   ),
   word(
     "兄",
@@ -263,6 +272,7 @@ const words = [
       "В семье трое детей.",
       "There are three siblings in the family.",
     ],
+    { ru: ["братья"] },
   ),
   word(
     "姉妹",
@@ -295,6 +305,7 @@ const words = [
       "Сейчас идёт дождь.",
       "It is raining now.",
     ],
+    { ru: ["теперь", "в данный момент"] },
   ),
   word(
     "今日",
@@ -311,6 +322,7 @@ const words = [
       "Сегодня в школе нет занятий.",
       "There is no school today.",
     ],
+    { ru: ["сегодняшний день"] },
   ),
   word(
     "今年",
@@ -327,6 +339,7 @@ const words = [
       "В этом году я поступаю в университет.",
       "I am entering university this year.",
     ],
+    { ru: ["текущий год", "в этом году"] },
   ),
   word(
     "何",
