@@ -12,7 +12,7 @@ import {
   validateMainCourseContentBatches,
 } from "../src/main-course-content";
 import {
-  AUTHORED_WORD_PART_OF_SPEECH,
+  authoredWordPartOfSpeech,
   buildMainCourseWordBatch,
   buildMainCourseWordBatches,
   mainCourseWordAcceptedReadings,
@@ -374,7 +374,7 @@ async function requireWordSource(db: Pick<Reader, "word">, content: MainCourseWo
       word.senses.some(
         (sense) =>
           sense.locale === locale &&
-          sense.partOfSpeech === AUTHORED_WORD_PART_OF_SPEECH &&
+          sense.partOfSpeech === authoredWordPartOfSpeech(content) &&
           meanings.accepted.includes(sense.meaning) &&
           sense.sourceKind !== "PROJECT_AUTHORED",
       )
@@ -692,7 +692,7 @@ async function applyWord(
         wordId: word.id,
         locale,
         sourceKind: "PROJECT_AUTHORED",
-        partOfSpeech: AUTHORED_WORD_PART_OF_SPEECH,
+        partOfSpeech: authoredWordPartOfSpeech(content),
         meaning: { notIn: [...meanings.accepted] },
       },
     });
@@ -703,7 +703,7 @@ async function applyWord(
             wordId: word.id,
             locale,
             meaning,
-            partOfSpeech: AUTHORED_WORD_PART_OF_SPEECH,
+            partOfSpeech: authoredWordPartOfSpeech(content),
           },
         },
         update: { sourceKind: "PROJECT_AUTHORED" },
@@ -711,7 +711,7 @@ async function applyWord(
           wordId: word.id,
           locale,
           meaning,
-          partOfSpeech: AUTHORED_WORD_PART_OF_SPEECH,
+          partOfSpeech: authoredWordPartOfSpeech(content),
           sourceKind: "PROJECT_AUTHORED",
         },
       });

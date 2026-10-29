@@ -20,6 +20,18 @@ import {
 } from "../src/main-course-word-content";
 
 describe("bounded vocabulary curation", () => {
+  it.each(["verb", "i-adjective"] as const)("persists explicit %s metadata instead of noun", async (partOfSpeech) => {
+    const batch = structuredClone(buildMainCourseWordBatch());
+    Object.assign(batch.words[0]!, {partOfSpeech});
+    const fixture = harness([batch]);
+    await applyMainCourseWordBatch(fixture.db,batch);
+    expect(fixture.db.wordSense.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({partOfSpeech:`${partOfSpeech} (course-authored)`}),
+    }));
+    expect(fixture.db.wordSense.deleteMany).toHaveBeenCalledWith(expect.objectContaining({
+      where:expect.objectContaining({partOfSpeech:`${partOfSpeech} (course-authored)`}),
+    }));
+  });
   it("persists reviewed semantic blocks on meaning cards without changing the answer validator", async () => {
     const batch = structuredClone(buildMainCourseWordBatch());
     Object.assign(batch.words[0]!.meanings.en, {

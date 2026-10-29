@@ -14,9 +14,17 @@ import {
   validateMainCourseWordBatch,
   validateMainCourseWordBatches,
   wordHanCharacters,
+  authoredWordPartOfSpeech,
 } from "../src/main-course-word-content";
 
 describe("first bounded main-course vocabulary manifest", () => {
+  it("keeps legacy noun metadata and rejects unsupported explicit authoring classes", () => {
+    expect(authoredWordPartOfSpeech({})).toBe("noun (course-authored)");
+    expect(authoredWordPartOfSpeech({partOfSpeech:"verb"})).toBe("verb (course-authored)");
+    const batch = structuredClone(buildMainCourseWordBatch());
+    Object.assign(batch.words[0]!,{partOfSpeech:"invented"});
+    expect(validateMainCourseWordBatch(batch)).toContain("Invalid authored part of speech for 山.");
+  });
   it("pins the independently reviewed manifest and exact twenty verified identities", () => {
     const batch = buildMainCourseWordBatch();
     expect(validateMainCourseWordBatch(batch)).toEqual([]);

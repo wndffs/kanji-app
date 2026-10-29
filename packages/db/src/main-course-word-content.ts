@@ -8,6 +8,7 @@ import { buildMainCourseWordBatch04 } from "./main-course-word-content-04";
 import { buildMainCourseWordBatch05 } from "./main-course-word-content-05";
 import { buildMainCourseWordBatch06 } from "./main-course-word-content-06";
 import { buildMainCourseWordBatch07 } from "./main-course-word-content-07";
+import { type LexicalKind } from "./lexical-selection";
 
 import {
   type MainCourseAcceptedMeanings,
@@ -19,6 +20,7 @@ export type MainCourseWordContent = {
   readonly reading: string;
   readonly acceptedReadings?: readonly string[];
   readonly jmdictEntryId: string;
+  readonly partOfSpeech?: LexicalKind;
   readonly sortOrder: number;
   readonly meanings: {
     readonly ru: MainCourseAcceptedMeanings;
@@ -50,6 +52,9 @@ export type MainCourseWordBatch = {
 };
 
 export const AUTHORED_WORD_PART_OF_SPEECH = "noun (course-authored)";
+export function authoredWordPartOfSpeech(content: Pick<MainCourseWordContent, "partOfSpeech">) {
+  return `${content.partOfSpeech ?? "noun"} (course-authored)`;
+}
 
 const FOUNDATION_WORDS = [
   word(
@@ -1171,6 +1176,8 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
   const identities = new Set<string>();
   const placements = new Set<number>();
   for (const content of batch.words) {
+    if (content.partOfSpeech !== undefined && !["verb", "i-adjective", "noun"].includes(content.partOfSpeech))
+      issues.push(`Invalid authored part of speech for ${content.expression}.`);
     const identity = `${content.expression}:${content.reading}`;
     if (identities.has(identity)) issues.push(`Duplicate word ${identity}.`);
     identities.add(identity);
