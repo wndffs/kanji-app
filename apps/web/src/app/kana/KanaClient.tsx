@@ -1032,6 +1032,8 @@ function KanaMatchingExercise({
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
   const [matchedCharacters, setMatchedCharacters] = useState<readonly string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  const [pairPending, setPairPending] = useState(false);
+  const pairLock = useRef(false);
   const completeRef = useRef<HTMLButtonElement>(null);
   const readings = items.length < 2 ? [...items] : [...items.slice(1), items[0]!];
   const complete = items.length > 0 && matchedCharacters.length === items.length;
@@ -1048,25 +1050,27 @@ function KanaMatchingExercise({
   }, [choiceRef, complete, matchedCharacters]);
 
   async function handleReading(romaji: string): Promise<void> {
-    if (selectedCharacter === null || submitting || complete) {
+    if (selectedCharacter === null || submitting || pairLock.current || complete) {
       return;
     }
-
-    const result = await onAnswer(selectedCharacter, romaji);
-
-    if (result === null) {
-      return;
+    const submittedCharacter = selectedCharacter;
+    pairLock.current = true;
+    setPairPending(true);
+    try {
+      const result = await onAnswer(submittedCharacter, romaji);
+      if (result === null) return;
+      if (!result.correct) {
+        setMessage(`Не совпало: ${submittedCharacter} — ${result.expectedRomaji}.`);
+        return;
+      }
+      const nextMatched = [...matchedCharacters, submittedCharacter];
+      setMatchedCharacters(nextMatched);
+      setSelectedCharacter(null);
+      setMessage(nextMatched.length === items.length ? "Все пары собраны" : "Пара верна");
+    } finally {
+      pairLock.current = false;
+      setPairPending(false);
     }
-
-    if (!result.correct) {
-      setMessage("Пара не совпадает");
-      return;
-    }
-
-    const nextMatched = [...matchedCharacters, selectedCharacter];
-    setMatchedCharacters(nextMatched);
-    setSelectedCharacter(null);
-    setMessage(nextMatched.length === items.length ? "Все пары собраны" : "Пара верна");
   }
 
   return (
@@ -1081,7 +1085,7 @@ function KanaMatchingExercise({
               <button
                 aria-pressed={selectedCharacter === choice.character}
                 className={matched ? "is-matched" : ""}
-                disabled={matched || submitting || complete}
+                disabled={matched || submitting || pairPending || complete}
                 key={choice.character}
                 lang="ja"
                 onClick={() => {
@@ -1103,7 +1107,7 @@ function KanaMatchingExercise({
             return (
               <button
                 className={matched ? "is-matched" : ""}
-                disabled={selectedCharacter === null || matched || submitting || complete}
+                disabled={selectedCharacter === null || matched || submitting || pairPending || complete}
                 key={choice.romaji}
                 onClick={() => void handleReading(choice.romaji)}
                 type="button"
@@ -1139,6 +1143,7 @@ function KanaFeedback({
   readonly onNext: () => void;
   readonly reverse: boolean;
 }) {
+  const mode = useTranslationDisplayMode();
   return (
     <div className={`kana-feedback ${feedback.correct ? "is-correct" : "is-wrong"}`} role="status">
       <div>
@@ -1146,7 +1151,8 @@ function KanaFeedback({
         <span>
           {reverse ? `${item.character} · ${feedback.expectedRomaji}` : feedback.expectedRomaji}
         </span>
-        {feedback.confusionExplanation ? <p>{feedback.confusionExplanation.ru}</p> : null}
+        {feedback.confusionExplanation && mode !== "en" ? <p>{feedback.confusionExplanation.ru}</p> : null}
+        {feedback.confusionExplanation && mode !== "ru" ? <p lang="en">{feedback.confusionExplanation.en}</p> : null}
       </div>
       <button className="secondary-action" onClick={onNext} ref={continueRef} type="button">
         Следующий

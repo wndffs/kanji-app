@@ -27,6 +27,7 @@ import { useJapaneseSpeech } from "../../lib/use-japanese-speech";
 import { KanaTracingExercise } from "./KanaTracingExercise";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { ownsSession } from "../../lib/use-stored-session";
+import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
 type PracticeState =
   | { readonly status: "loading" }
@@ -50,6 +51,7 @@ export function AdaptiveKanaPractice({
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
+  const firstChoiceRef = useRef<HTMLButtonElement>(null);
   const requestRevision = useRef(0);
   const submitPending = useRef(false);
   const speech = useJapaneseSpeech();
@@ -100,6 +102,8 @@ export function AdaptiveKanaPractice({
       continueRef.current?.focus();
     } else if (effectiveKind === "typing") {
       inputRef.current?.focus();
+    } else {
+      firstChoiceRef.current?.focus();
     }
   }, [effectiveKind, exercise?.id, feedback]);
 
@@ -294,6 +298,7 @@ export function AdaptiveKanaPractice({
                 </form>
               ) : (
                 <PracticeChoices
+                  firstChoiceRef={firstChoiceRef}
                   disabled={submitting}
                   exercise={exercise}
                   kind={effectiveKind!}
@@ -356,11 +361,13 @@ function PracticePrompt({
 }
 
 function PracticeChoices({
+  firstChoiceRef,
   disabled,
   exercise,
   kind,
   onSelect,
 }: {
+  readonly firstChoiceRef: RefObject<HTMLButtonElement | null>;
   readonly disabled: boolean;
   readonly exercise: KanaPracticeExerciseDto;
   readonly kind: KanaPracticeExerciseKind;
@@ -374,10 +381,11 @@ function PracticeChoices({
 
   return (
     <div className={`kana-choice-grid ${characterChoices ? "is-kana" : ""}`}>
-      {exercise.choices.map((choice) => (
+      {exercise.choices.map((choice,index) => (
         <button
           disabled={disabled}
           key={`${choice.script}:${choice.character}`}
+          ref={index === 0 ? firstChoiceRef : undefined}
           lang={characterChoices ? "ja" : undefined}
           onClick={() => onSelect(characterChoices ? choice.character : choice.romaji)}
           type="button"
@@ -398,6 +406,7 @@ function PracticeFeedback({
   readonly feedback: KanaPracticeAnswerResponse;
   readonly onContinue: () => void;
 }) {
+  const mode=useTranslationDisplayMode();
   return (
     <div
       className={`kana-feedback kana-adaptive-feedback ${
@@ -410,7 +419,10 @@ function PracticeFeedback({
         <span>
           {feedback.expectedCharacter} · {feedback.expectedRomaji}
         </span>
-        {(feedback.confusion?.ru ?? feedback.confusionExplanation) ? <p>{feedback.confusion?.ru ?? feedback.confusionExplanation}</p> : null}
+        {feedback.confusion ? <>
+          {mode !== "en" ? <p>{feedback.confusion.ru}</p> : null}
+          {mode !== "ru" ? <p lang="en">{feedback.confusion.en}</p> : null}
+        </> : feedback.confusionExplanation ? <p>{feedback.confusionExplanation}</p> : null}
       </div>
       <button className="secondary-action" onClick={onContinue} ref={continueRef} type="button">
         Следующий

@@ -9,6 +9,7 @@ import {
   scoreAdaptiveKanaCandidate,
   explainKanaContrast,
   type AdaptiveKanaCandidate,
+  type KanaCharacter,
 } from "@kanji-srs/japanese";
 import {
   type KanaAssessmentAnswerRequest,
