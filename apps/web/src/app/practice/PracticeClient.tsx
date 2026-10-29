@@ -27,6 +27,7 @@ import {
   finishPracticeSession,
   getActivePracticeSession,
   getPracticeQueue,
+  getPracticeHistory,
   startPracticeSession,
   submitPracticeAnswer,
 } from "../../lib/api-client";
@@ -82,6 +83,7 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isContinuing, setIsContinuing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [history,setHistory]=useState<import("@kanji-srs/shared").PracticeHistoryDto|null>(null);
   const [listeningEvidence, setListeningEvidence] = useState<ListeningPlaybackEvidenceDto>({
     completed: false,
     playCount: 0,
@@ -384,6 +386,10 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
         </div>
 
         <PracticeSourceControl source={source} onChange={handleSourceChange} />
+        <SectionDisclosure title="История практики" onOpen={()=>{void getPracticeHistory(queueState.token,source).then(result=>{if(ownsSession(queueState.token)) setHistory(result);}).catch(()=>{if(ownsSession(queueState.token))setHistory(null);});}}>
+          <p className="muted">Тренировочные попытки · без изменения SRS</p>
+          {history === null ? <p>История пока не загружена.</p> : history.sessions.length === 0 ? <p>Завершённых сессий пока нет.</p> : <ul>{history.sessions.map(entry=><li key={entry.id}><time dateTime={entry.finishedAt}>{new Date(entry.finishedAt).toLocaleString("ru-RU")}</time> · Верно: {entry.progress.accepted} · Ошибок: {entry.progress.missed}{entry.outcomes?.length ? <ol>{entry.outcomes.map((outcome,index)=><li key={`${outcome.cardId}-${index}`}>Попытка {index+1}: {outcome.accepted ? "верно" : "ошибка"}</li>)}</ol> : null}</li>)}</ul>}
+        </SectionDisclosure>
         <div>
           <Link className="secondary-action" href="/practice/confusables">
             Похожие кандзи
@@ -400,6 +406,7 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
         {finishedSummary === null ? null : (
           <section className="practice-summary panel" aria-label="Результат практики">
             <h2>Практика завершена</h2>
+            <p className="muted">Расписание SRS не изменено.</p>
             <Link className="primary-action" href="/dashboard">
               На панель
             </Link>

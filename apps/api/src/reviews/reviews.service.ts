@@ -244,6 +244,12 @@ export class ReviewsService {
     };
   }
 
+  async getPracticeHistory(user:CurrentUserDto, sourceValue:string|undefined) {
+    const source=parsePracticeSource(sourceValue);
+    const sessions=await this.reviewsRepository.listPracticeHistory(user.id,source);
+    return {sessions:sessions.flatMap(session=>session.finishedAt && session.source !== "confusable-kanji" ? [{...toPracticeSessionDto(session),finishedAt:session.finishedAt.toISOString()}] : [])};
+  }
+
   async getActivePracticeSession(
     user: CurrentUserDto,
     sourceValue: unknown,
@@ -350,6 +356,7 @@ export class ReviewsService {
     }
 
     const updated = await this.reviewsRepository.updatePracticeSessionProgress({
+      outcome:{cardId:target.card.id,accepted:answer.accepted,answeredAt:new Date().toISOString()},
       userId: user.id,
       sessionId,
       currentIndex: session.currentIndex + 1,
@@ -942,6 +949,7 @@ function toPracticeSessionDto(session: PracticeSessionRecord): PracticeSessionDt
     currentIndex: session.currentIndex,
     totalItems: session.cardIds.length,
     progress: session.progress,
+    ...(session.outcomes === undefined ? {} : {outcomes:session.outcomes}),
   };
 }
 

@@ -1092,6 +1092,10 @@ export function getPracticeQueue(
   });
 }
 
+export function getPracticeHistory(token:string,source:import("@kanji-srs/shared").PracticeSource):Promise<import("@kanji-srs/shared").PracticeHistoryDto> {
+  return apiRequest(`/reviews/practice/history?${new URLSearchParams({source})}`,{token});
+}
+
 export function getActivePracticeSession(
   token: string,
   source: PracticeSource,

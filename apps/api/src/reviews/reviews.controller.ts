@@ -76,6 +76,11 @@ export class ReviewsController {
     return this.reviewsService.getActivePracticeSession(currentUser, source);
   }
 
+  @Get("practice/history")
+  getPracticeHistory(@CurrentUser() currentUser:CurrentUserDto,@Query("source") source:string|undefined) {
+    return this.reviewsService.getPracticeHistory(currentUser,source);
+  }
+
   @Post("practice/start")
   startPracticeSession(@CurrentUser() currentUser: CurrentUserDto, @Body() body: unknown) {
     return this.reviewsService.startPracticeSession(currentUser, body);

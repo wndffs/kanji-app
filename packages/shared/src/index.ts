@@ -526,6 +526,7 @@ export type PracticeProgressDto = {
 };
 
 export type PracticeSessionDto = {
+  readonly outcomes?: readonly PracticeCardOutcomeDto[];
   readonly id: string;
   readonly startedAt: string;
   readonly source: PracticeSource;
@@ -538,6 +539,9 @@ export type PracticeSessionResponse = {
   readonly session: PracticeSessionDto;
   readonly items: readonly ReviewQueueItem[];
 };
+
+export type PracticeCardOutcomeDto = { readonly cardId: string; readonly accepted: boolean; readonly answeredAt: string };
+export type PracticeHistoryDto = { readonly sessions: readonly (PracticeSessionDto & {readonly finishedAt: string})[] };
 
 export type ActivePracticeSessionResponse = {
   readonly session: PracticeSessionDto | null;

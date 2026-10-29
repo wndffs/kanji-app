@@ -1019,6 +1019,7 @@ describe("PrismaReviewsRepository course progress events", () => {
 });
 
 class InMemoryReviewsRepository extends ReviewsRepository {
+  async listPracticeHistory(userId:string, source:import("@kanji-srs/shared").PracticeSource) { return [...this.practiceSessions.values()].filter(session=>session.userId === userId && session.source === source && session.finishedAt !== null).slice(-20).reverse(); }
   readonly recordedAnswers: RecordReviewAnswerInput[] = [];
   private readonly cards = createCards();
   private readonly states = new Map<string, ReviewQueueRecord>(

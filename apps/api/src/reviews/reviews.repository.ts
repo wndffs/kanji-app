@@ -57,6 +57,7 @@ import {
 } from "./review-session-state";
 
 export abstract class ReviewsRepository {
+  abstract listPracticeHistory(userId:string, source:PracticeSource):Promise<readonly PracticeSessionRecord[]>;
   abstract listDueReviewCards(
     userId: string,
     now: Date,
@@ -251,6 +252,10 @@ type ReviewTargetRows = {
 
 @Injectable()
 export class PrismaReviewsRepository extends ReviewsRepository {
+  async listPracticeHistory(userId:string, source:PracticeSource):Promise<readonly PracticeSessionRecord[]> {
+    const rows=await this.prisma.db.reviewSession.findMany({where:{userId,mode:"EXTRA_PRACTICE",finishedAt:{not:null},statsJson:{path:["source"],equals:source}},orderBy:[{finishedAt:"desc"},{id:"desc"}],take:20});
+    return rows.flatMap(row=>{const session=toPracticeSessionRecord(row);return session && session.source === source ? [session] : [];});
+  }
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
     super();
   }
@@ -520,15 +525,18 @@ export class PrismaReviewsRepository extends ReviewsRepository {
         (input.progress.accepted === active.progress.accepted &&
           input.progress.missed === active.progress.missed + 1)
       )
+      || (input.outcome !== undefined && (input.outcome.cardId !== active.cardIds[active.currentIndex] || input.outcome.accepted !== (input.progress.accepted > active.progress.accepted) || !Number.isFinite(Date.parse(input.outcome.answeredAt))))
     ) {
       return null;
     }
 
     const previousStats = toPracticeSessionStats(active);
+    const outcomes=input.outcome ? [...(active.outcomes ?? []),input.outcome].slice(-200) : active.outcomes;
     const nextStats = toPracticeSessionStats({
       ...active,
       currentIndex: input.currentIndex,
       progress: input.progress,
+      ...(outcomes === undefined ? {} : {outcomes}),
     });
     const updated = await this.prisma.db.reviewSession.updateMany({
       where: {
@@ -549,6 +557,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       ...active,
       currentIndex: input.currentIndex,
       progress: input.progress,
+      ...(outcomes === undefined ? {} : {outcomes}),
     };
   }
 
@@ -1678,18 +1687,20 @@ function toPracticeSessionRecord(row: ReviewSessionRow): PracticeSessionRecord |
       accepted: readNonNegativeInteger(progress?.accepted),
       missed: readNonNegativeInteger(progress?.missed),
     },
+    ...(Array.isArray(stats?.outcomes) ? {outcomes:stats.outcomes.slice(-200).flatMap(outcome=>isRecord(outcome) && typeof outcome.cardId === "string" && cardIds.includes(outcome.cardId) && typeof outcome.accepted === "boolean" && typeof outcome.answeredAt === "string" && Number.isFinite(Date.parse(outcome.answeredAt)) ? [{cardId:outcome.cardId,accepted:outcome.accepted,answeredAt:outcome.answeredAt}] : [])} : {}),
   };
 }
 
 function toPracticeSessionStats(
   input: Pick<
     PracticeSessionRecord,
-    "source" | "contextId" | "cardIds" | "currentIndex" | "progress"
+    "source" | "contextId" | "cardIds" | "currentIndex" | "progress" | "outcomes"
   >,
   outcome: "active" | "completed" | "abandoned" = "active",
 ): Prisma.InputJsonObject {
   return {
     source: input.source,
+    ...(input.outcomes === undefined ? {} : {outcomes:input.outcomes.map(outcome=>({...outcome}))}),
     contextId: input.contextId,
     cardIds: [...input.cardIds],
     currentIndex: input.currentIndex,
