@@ -28,4 +28,20 @@ describe("wave07 reviewed teaching scope", () => {
       expect(answers).toContain(normalizeMeaning(item.meanings.ru.primary, "ru-RU"));
     }
   });
+  it("accepts corresponding English senses but not generic or opposite family terms", () => {
+    for (const [expression, answer] of [
+      ["校長", "principal"], ["小学校", "primary school"],
+      ["中学校", "lower secondary school"], ["父母", "parents"],
+      ["兄", "elder brother"], ["姉", "elder sister"], ["兄弟", "brothers"],
+    ]) expect(word(expression!).meanings.en.accepted).toContain(answer);
+    for (const [expression, rejected] of [
+      ["校長", "director"], ["兄", "brother"], ["弟", "older brother"],
+      ["何人", "what nationality"], ["中学校", "high school"],
+    ]) expect(word(expression!).meanings.en.accepted).not.toContain(rejected);
+    expect(auditWaveLocale("en").valid).toBe(true);
+    for (const item of buildWordDraft07().words) {
+      const answers = item.meanings.en.accepted.map((answer) => normalizeMeaning(answer, "en-US"));
+      expect(new Set(answers).size).toBe(answers.length);
+    }
+  });
 });
