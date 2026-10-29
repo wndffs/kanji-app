@@ -26,3 +26,30 @@ export const WAVE08_RU:Readonly<Record<string,MainCourseAcceptedMeanings>> = {
   日本語:ru(["японский язык","японский"],["японец"]),
   外国語:ru(["иностранный язык"]),
 };
+
+const en = (accepted:readonly string[], blocked:readonly string[] = []):MainCourseAcceptedMeanings => ({
+  primary:accepted[0]!,accepted,
+  ...(blocked.length ? {blocked:blocked.map(text=>({text,reason:"This card selects another sense or action direction; other dictionary senses are not being declared invalid Japanese."}))} : {}),
+});
+export const WAVE08_EN:Readonly<Record<string,MainCourseAcceptedMeanings>> = {
+  食べる:en(["to eat","eat"],["to drink","drink"]),
+  飲む:en(["to drink","drink"],["to eat","eat"]),
+  行く:en(["to go","go"],["to come","come"]),
+  会う:en(["to meet","meet"]),
+  入る:en(["to enter","enter","to go in","go in"],["to go out","go out","to put in","put in"]),
+  出る:en(["to go out","go out","to leave","leave"],["to enter","enter","to take out","take out"]),
+  見る:en(["to see","see","to look","look","to watch","watch"],["to hear","hear"]),
+  聞く:en(["to listen","listen","to hear","hear"],["to ask","ask","to wear","wear"]),
+  読む:en(["to read","read"],["to write","write"]),
+  書く:en(["to write","write"],["to read","read"]),
+  大きい:en(["big","large"],["small"]),
+  小さい:en(["small","little"],["big"]),
+  早い:en(["early"],["fast","late","nearly"]),
+  長い:en(["long","lengthy"],["tall","short"]),
+  正しい:en(["correct","right","accurate"],["right side","rightward"]),
+  午前:en(["before noon","a.m."],["after noon","p.m."]),
+  午後:en(["afternoon","after noon","p.m."],["before noon","a.m."]),
+  名前:en(["name"]),
+  日本語:en(["Japanese language","Japanese"],["Japanese person"]),
+  外国語:en(["foreign language"]),
+};
