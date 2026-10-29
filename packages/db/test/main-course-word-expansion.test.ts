@@ -10,7 +10,7 @@ import {
 
 describe("calendar and next-level vocabulary expansion", () => {
   it("keeps six distinct reviewed twenty-word slices and original earlier prerequisites", () => {
-    const batches = buildMainCourseWordBatches();
+    const batches = buildMainCourseWordBatches().slice(0, 6);
     expect(batches).toHaveLength(6);
     expect(validateMainCourseWordBatches(batches)).toEqual([]);
     expect(

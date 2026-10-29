@@ -148,7 +148,7 @@ describe("finite pilot v3 preparation", () => {
       pilot: "v3",
     });
     for (const args of [
-      ["--pilot", "v5"],
+      ["--pilot", "v6"],
       ["--pilot", "v3", "--pilot", "v3"],
     ])
       expect(() => parseFoundationPilotArgs(args)).toThrow("--pilot once");

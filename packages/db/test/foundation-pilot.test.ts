@@ -223,7 +223,7 @@ describe("finite Foundation pilot manifest", () => {
     { args: ["--plan", "--validate-only"], error: "one publication mode" },
     { args: ["--publish", "--enroll-user-id", "all-users"], error: "one explicit UUID" },
     { args: ["--pilot"], error: "--pilot once" },
-    { args: ["--pilot", "v5"], error: "--pilot once" },
+    { args: ["--pilot", "v6"], error: "--pilot once" },
     { args: ["--pilot", "v2", "--pilot", "v1"], error: "--pilot once" },
   ])("rejects invalid CLI arguments before database setup: $args", ({ args, error }) => {
     const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");

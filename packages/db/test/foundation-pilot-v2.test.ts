@@ -11,6 +11,7 @@ import {
   buildFoundationPilotManifestV2,
   buildFoundationPilotManifestV3,
   buildFoundationPilotManifestV4,
+  buildFoundationPilotManifestV5,
   foundationPilotRecordId,
   FOUNDATION_PILOT_RECORD_ID,
   FOUNDATION_PILOT_V2_RECORD_ID,
@@ -186,7 +187,7 @@ describe("sealed finite pilot v2", () => {
     });
     for (const args of [
       ["--pilot"],
-      ["--pilot", "v5"],
+      ["--pilot", "v6"],
       ["--pilot", "--publish"],
       ["--pilot", "v2", "--pilot", "v1"],
       ["--pilot", "v2", "--pilot", "v2"],
@@ -448,6 +449,35 @@ describe("sealed finite pilot v2", () => {
   });
 });
 
+describe("finite V5 live-content preflight contract", () => {
+  it("covers all339 items in bounded scopes without account, SRS or enrollment access", async () => {
+    const h = readFixture(buildFoundationPilotManifestV5());
+    const result = await planFoundationPilot(h.db, { manifest: h.manifest });
+    expect(result.items).toHaveLength(339);
+    expect(result.sourceChecksums).toHaveLength(14);
+    const calls = vi.mocked(loadContentQualityItems).mock.calls;
+    expect(calls.every(([, options]) => options!.itemIds!.length <= 100)).toBe(true);
+    expect(new Set(calls.flatMap(([, options]) => options!.itemIds!)).size).toBe(339);
+    expect(h.forbidden).not.toHaveBeenCalled();
+    expect(h.recordWrite).not.toHaveBeenCalled();
+  });
+  it("rejects missing actual meaning blocks even when the sealed manifest is valid", async () => {
+    const h = readFixture(buildFoundationPilotManifestV5());
+    const load = vi.mocked(loadContentQualityItems).getMockImplementation()!;
+    vi.mocked(loadContentQualityItems).mockImplementation(async (db, options) =>
+      (await load(db, options)).map((item) => ({
+        ...item,
+        cards: item.cards.map((card) => ({ ...card, blockedAnswers: [] })),
+      })),
+    );
+    await expect(planFoundationPilot(h.db, { manifest: h.manifest })).rejects.toThrow(
+      "meaning blocks differ",
+    );
+    expect(h.forbidden).not.toHaveBeenCalled();
+    expect(h.recordWrite).not.toHaveBeenCalled();
+  });
+});
+
 // A narrow read-only projection plus write spies: no simulated Prisma persistence/transactions.
 function readFixture(manifest = buildFoundationPilotManifestV2()) {
   const band = (levelNumber: number) =>
@@ -543,7 +573,7 @@ function readFixture(manifest = buildFoundationPilotManifestV2()) {
           promptType,
           answerType: promptType,
           locale: "ru-RU",
-          blockedAnswers: [],
+          blockedAnswers: promptType === "MEANING" ? [...(target.blockedAnswers ?? [])] : [],
           answers: target.answers
             .filter((answer) => answer.promptType === promptType)
             .map((answer) => ({
