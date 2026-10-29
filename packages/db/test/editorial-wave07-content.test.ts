@@ -4,11 +4,25 @@ import { buildWordDraft07 } from "../src/editorial-draft-words-07";
 import { auditWaveLocale } from "../src/editorial-wave-language";
 import { buildKanjiDraft07 } from "../src/editorial-draft-kanji-07";
 import { auditWaveReadings } from "../src/editorial-wave-readings";
+import { auditWavePlacement } from "../src/editorial-wave-placement";
 
 const word = (expression: string) =>
   buildWordDraft07().words.find((item) => item.expression === expression)!;
 
 describe("wave07 reviewed teaching scope", () => {
+  it("keeps example subjects, school stage and kana aligned across both translations", () => {
+    expect(word("小学校").example).toEqual({
+      japaneseText: "私は小学校で本を読みます。", readingText: "わたしはしょうがっこうでほんをよみます。",
+      translationRu: "Я читаю книгу в начальной школе.", translationEn: "I read a book at elementary school.",
+    });
+    expect(word("兄弟").example.japaneseText).toBe("私たちは三人兄弟です。");
+    expect(word("中学校").example.translationRu).toContain("Младшая средняя школа");
+    expect(word("母").example.readingText).toBe("はははほんをよみます。");
+    expect(word("何人").example.translationRu).not.toContain("здесь");
+    expect(word("友人").meanings.ru.accepted).toContain("подруга");
+    expect(word("友").meanings.ru.accepted).toContain("подруга");
+    expect(auditWavePlacement().valid).toBe(true);
+  });
   it("scopes real reading alternatives to this card instead of teaching them as nonexistent", () => {
     for (const [expression, alternative] of [["父母", "ちちはは"], ["兄弟", "けいてい"], ["今日", "こんじつ"], ["今年", "こんねん"]]) {
       const item = word(expression!);
