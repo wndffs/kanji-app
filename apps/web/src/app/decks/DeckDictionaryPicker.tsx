@@ -8,6 +8,7 @@ import { JapaneseText } from "../../components/JapaneseText";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { addDeckItems, removeDeckItem, searchItems } from "../../lib/api-client";
 import { ownsSession } from "../../lib/use-stored-session";
+import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
 
 export function DeckDictionaryPicker({
   token,
@@ -23,6 +24,8 @@ export function DeckDictionaryPicker({
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searched, setSearched] = useState(false);
+  const displayMode = useTranslationDisplayMode();
   const request = useRef<AbortController | null>(null);
   const mounted = useRef(true);
   useEffect(() => {
@@ -48,6 +51,7 @@ export function DeckDictionaryPicker({
       });
       if (!mounted.current || controller.signal.aborted || !ownsSession(token)) return;
       setItems(result.items);
+      setSearched(true);
     } catch (cause) {
       if (mounted.current && !controller.signal.aborted && ownsSession(token))
         setError(cause instanceof Error ? cause.message : "Поиск недоступен.");
@@ -149,7 +153,15 @@ export function DeckDictionaryPicker({
                   />
                   <JapaneseText>{item.japanese}</JapaneseText>
                   <span>
-                    {item.reading} · {item.translations?.primaryRu ?? item.translations?.primaryEn}
+                    {item.reading} ·{" "}
+                    {[
+                      ...(displayMode !== "en" && item.translations?.primaryRu
+                        ? [item.translations.primaryRu]
+                        : []),
+                      ...(displayMode !== "ru" && item.translations?.primaryEn
+                        ? [item.translations.primaryEn]
+                        : []),
+                    ].join(" / ")}
                     {existing ? " · уже в колоде" : ""}
                   </span>
                 </label>
@@ -157,6 +169,11 @@ export function DeckDictionaryPicker({
             );
           })}
         </ul>
+        {busy ? (
+          <p role="status">Обрабатываю...</p>
+        ) : searched && items.length === 0 && error === null ? (
+          <p role="status">Опубликованные материалы не найдены.</p>
+        ) : null}
         <SectionDisclosure title={`В колоде: ${deck.items.length}`}>
           <ul className="saved-deck-list">
             {deck.items.map(({ item }) => (

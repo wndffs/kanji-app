@@ -11,6 +11,56 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("dynamic text decks", () => {
+  test("adds and removes dictionary membership without changing the lesson route", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockSavedDecksApi(page, savedDeckListResponse, savedDeckDetails);
+    const original = savedDeckDetails.items[0]!;
+    const added = {
+      ...original,
+      item: { ...original.item, id: "water", japanese: "水", reading: "みず" },
+    };
+    await page.route(`${API_BASE_URL}/search?*`, (route) =>
+      route.fulfill({
+        json: {
+          query: "water",
+          items: [added.item],
+          pagination: { page: 1, limit: 20, total: 1, hasNextPage: false },
+        },
+      }),
+    );
+    await page.route(`${API_BASE_URL}/decks/${savedDeckDetails.id}/items`, (route) => {
+      expect(route.request().postDataJSON()).toEqual({ itemIds: ["water"] });
+      return route.fulfill({
+        json: {
+          ...savedDeckDetails,
+          items: [...savedDeckDetails.items, added],
+          itemCount: 3,
+          newItemCount: 2,
+        },
+      });
+    });
+    await page.route(`${API_BASE_URL}/decks/${savedDeckDetails.id}/items/water`, (route) => {
+      expect(route.request().method()).toBe("DELETE");
+      return route.fulfill({ json: savedDeckDetails });
+    });
+    await page.goto("/decks");
+    await page.getByRole("button", { name: "Открыть", exact: true }).click();
+    await page.getByRole("button", { name: "Изменить состав колоды", exact: true }).click();
+    await page.getByLabel("Поиск материалов", { exact: true }).fill("water");
+    await page.getByRole("button", { name: "Найти", exact: true }).click();
+    await page.getByRole("checkbox", { name: /水 みず/ }).check();
+    await page.getByRole("button", { name: "Добавить: 1", exact: true }).click();
+    await expect(page.getByRole("checkbox", { name: /水 みず/ })).toBeDisabled();
+    await page.getByRole("button", { name: "В колоде: 2", exact: true }).click();
+    await page.getByRole("button", { name: "Убрать 水 из колоды", exact: true }).click();
+    await expect(page.getByRole("checkbox", { name: /水 みず/ })).toBeEnabled();
+    await expect(page.getByRole("link", { name: "Выбрать урок", exact: true })).toHaveAttribute(
+      "href",
+      "/lessons?deckId=deck-saved",
+    );
+  });
   test("replans a privately corrected match before any deck write", async ({ page }) => {
     await signIn(page);
     await mockSavedDecksApi(page, { decks: [] });

@@ -407,7 +407,7 @@ function DecksScreen() {
 
       {selectedDeck.status === "ready" ? (
         <DeckDetailsResult
-          key={selectedDeck.deck.id}
+          key={`details:${selectedDeck.deck.id}`}
           deck={selectedDeck.deck}
           displayMode={displayMode}
           isStatusUpdating={
@@ -591,7 +591,7 @@ function DecksScreen() {
 
       {(selectedDeck.status === "ready" ? selectedDeck.deck : result?.deck)?.status === "active" ? (
         <DeckDictionaryPicker
-          key={(selectedDeck.status === "ready" ? selectedDeck.deck : result!.deck).id}
+          key={`dictionary:${(selectedDeck.status === "ready" ? selectedDeck.deck : result!.deck).id}`}
           token={state.token}
           deck={selectedDeck.status === "ready" ? selectedDeck.deck : result!.deck}
           onUpdated={acceptUpdatedDeck}

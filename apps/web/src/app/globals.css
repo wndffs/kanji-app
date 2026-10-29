@@ -3127,6 +3127,23 @@ textarea:focus-visible {
   padding: 10px 12px;
 }
 
+.deck-builder-panel label.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.deck-path-filters label.action-row {
+  display: flex;
+  align-items: center;
+  align-self: center;
+}
+.deck-builder-panel input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  flex: 0 0 18px;
+}
+
 .deck-builder-panel textarea {
   min-height: 220px;
   resize: vertical;
