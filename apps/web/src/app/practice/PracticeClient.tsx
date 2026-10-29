@@ -388,6 +388,7 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
           <Link className="secondary-action" href="/practice/confusables">
             Похожие кандзи
           </Link>
+          <Link className="secondary-action" href="/practice/listening">Практика на слух</Link>
         </div>
 
         {error === null ? null : (

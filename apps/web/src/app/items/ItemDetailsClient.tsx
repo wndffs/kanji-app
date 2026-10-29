@@ -24,6 +24,7 @@ import { JapaneseText } from "../../components/JapaneseText";
 import { ViewTabs } from "../../components/ViewTabs";
 import { CopyReadingButton } from "../../components/CopyReadingButton";
 import { KanjiWordReinforcement } from "../../components/KanjiWordReinforcement";
+import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import { READING_GUIDANCE, visualContrastFor } from "@kanji-srs/shared";
 import { ItemPreviewList } from "../../components/ItemPreviewList";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
@@ -786,6 +787,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
                 )}
               />
             </section>
+            {item.pronunciationAudio && !hideReadingAnswers ? <SectionDisclosure title="Записанное произношение"><ListeningPrompt audio={item.pronunciationAudio} onEvidenceChange={()=>undefined} /><ListeningAttribution audio={item.pronunciationAudio} /><Link className="inline-link" href="/practice/listening">Практика на слух</Link></SectionDisclosure> : null}
 
             <SectionDisclosure title="Все допустимые ответы">
               <section>
