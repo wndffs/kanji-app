@@ -21,7 +21,7 @@ const pairs: readonly (readonly [string, string, LexicalKind, string])[] = [
   ["毎月", "まいつき", "noun", "calendar"],
   ["毎年", "まいとし", "noun", "calendar"],
   ["時間", "じかん", "noun", "time"],
-  ["午前中", "ごぜんちゅう", "noun", "time"],
+  ["語学", "ごがく", "noun", "study"],
 ];
 export const WAVE09_CANDIDATES = pairs.map(([expression, reading, kind, topic]) => ({
   expression, reading, kind, topic, usefulness: 3,
@@ -29,6 +29,7 @@ export const WAVE09_CANDIDATES = pairs.map(([expression, reading, kind, topic]) 
 
 // Reserved topics, not reviewed teaching and not a promised modern-JLPT list.
 export const WAVE09_DEFERRED_TOPICS = [
+  "午前中: exact local pair lacks RU source; not publication eligible",
   "shopping: 買う・売る・店・買い物",
   "work: 仕事・働く・会社員",
   "health: 病院・薬・体調",

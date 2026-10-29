@@ -1,0 +1,59 @@
+import { type MainCourseContentBatch, type MainCourseComponentContent, type MainCourseKanjiContent } from "./main-course-content";
+
+const cue = (key: string, symbol: string, ru: string, en: string, shapeRu: string, shapeEn: string): MainCourseComponentContent => ({
+  key, symbol, displayName: { ru, en }, meaning: { ru, en },
+  shapeDescription: { ru: shapeRu, en: shapeEn },
+  mnemonic: {
+    ru: `Зрительная опора «${ru}»: ${symbol}. Это условное имя формы, а не утверждение о происхождении кандзи.`,
+    en: `Visual cue '${en}': ${symbol}. This is a project shape label, not a claim about kanji origins.`,
+  },
+});
+const kanji = (
+  character: string, sortOrder: number, ru: string, en: string, source: string, primary: string,
+  componentKeys: readonly string[], storyRu: string, storyEn: string, readingRu: string, readingEn: string,
+): MainCourseKanjiContent => ({
+  character, levelNumber: 14, sortOrder,
+  meanings: { ru: { primary: ru, accepted: [ru] }, en: { primary: en, accepted: [en] } },
+  reading: { source, sourceType: "ja_on", primary, accepted: [primary] }, componentKeys,
+  meaningMnemonic: { ru: storyRu, en: storyEn }, readingMnemonic: { ru: readingRu, en: readingEn }, requireStrokeData: true,
+});
+const BATCH: MainCourseContentBatch = {
+  id: "task-118-course-kanji-09", version: "1", authoredAt: "2026-10-29", reviewedAt: null,
+  reviewNotes: "Draft original RU/EN teaching; independent review and exact source/graphic evidence required before approval.",
+  sourceFile: "packages/db/src/main-course-content-09.ts", courseSlug: "japanese-ru-n2",
+  componentLevelNumber: 13, componentSortOrderStart: 1,
+  components: [
+    cue("component-arrow", "矢", "стрела", "arrow", "короткий верхний штрих над перекладинами и расходящимся низом", "a short upper stroke above crossbars and a spreading base"),
+    cue("component-official-shape", "吏", "чиновник", "official", "верхняя перекладина, рамка и пересекающиеся нижние штрихи", "an upper bar, a box and crossing lower strokes"),
+    cue("component-za-shape", "乍", "ступени", "steps", "короткий наклонный верх и вертикаль с правыми перекладинами", "a short sloping top and a vertical with right-hand bars"),
+    cue("component-broom-shape", "帚", "метла", "broom", "ступенчатая верхушка над крышкой и свисающими штрихами", "a stepped top above a cover and hanging strokes"),
+  ],
+  kanji: [
+    kanji("知", 1, "знать", "know", "チ", "ち", ["component-arrow", "component-mouth-frame"],
+      "Стрела 矢 указывает на рот 口: вообразите, что вы знаете ответ и готовы его произнести. Это вымышленная сцена для памяти.",
+      "An arrow 矢 points at a mouth 口: imagine knowing the answer and being ready to say it. This is an invented memory scene.",
+      "Выбранное онное чтение — ち. В глаголе 知る используется кунное し: слово читается しる целиком.",
+      "The selected on reading is ち. The verb 知る uses kun reading し: read the whole word as しる."),
+    kanji("使", 2, "использовать", "use", "シ", "し", ["component-person", "component-official-shape"],
+      "Человек 亻 и форма 吏: представьте чиновника, который использует инструмент. Это зрительная история, не этимология.",
+      "A person 亻 and the 吏 shape: imagine an official using a tool. This visual story is not etymology.",
+      "Онное し — ответ отдельной карточки. В 使う нужно другое, кунное чтение: つかう; не пишите しう.",
+      "On reading し is the separate kanji-card answer. 使う uses a different kun reading: つかう, not しう."),
+    kanji("作", 3, "создавать", "make", "サク", "さく", ["component-person", "component-za-shape"],
+      "Человек 亻 делает ступени из формы 乍. Имя «ступени» придумано для запоминания формы; оно не объясняет происхождение 作.",
+      "A person 亻 makes steps from the 乍 shape. 'Steps' is an invented shape label, not the origin of 作.",
+      "Здесь выбранное онное — さく; さ — другое настоящее онное чтение. В 作る ответ つくる, с кунным つく.",
+      "The selected on reading is さく; さ is another real on reading. 作る is つくる, using kun つく."),
+    kanji("帰", 4, "возвращаться", "return", "キ", "き", ["component-broom-shape"],
+      "Справа найдите форму 帚, похожую на метлу: представьте, что возвращаетесь к оставленной дома метле. Это лишь зрительная история, не полный разбор происхождения знака.",
+      "Find the broom-like 帚 shape on the right: imagine returning to a broom left at home. This is a visual story, not a complete account of the character's origin.",
+      "В карточке кандзи ответ き. В глаголе 帰る используется かえ: всё слово かえる. Не путайте с омонимом 変える — менять.",
+      "The kanji card expects き. 帰る uses かえ: the whole verb is かえる. Do not confuse it with homophone 変える, to change."),
+    kanji("毎", 5, "каждый", "every", "マイ", "まい", ["component-mother", "component-slant-stroke"],
+      "Под верхними штрихами найдите форму, похожую на 母, но не тождественную ей. Вообразите календарь с отметкой на каждый день. Это зрительная подсказка, не этимология.",
+      "Below the upper strokes find a shape similar, but not identical, to 母. Imagine a calendar marked every day. This is a visual cue, not etymology.",
+      "Онное まい повторяется в 毎日・毎月・毎年. Чтение следующих кандзи меняется; учите каждое слово целиком.",
+      "On reading まい recurs in 毎日, 毎月 and 毎年. The following kanji readings vary; learn each whole word."),
+  ],
+};
+export function buildMainCourseContentBatch09(): MainCourseContentBatch { return BATCH; }
