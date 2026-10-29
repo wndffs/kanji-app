@@ -1,4 +1,5 @@
 import { type KanaCharacter, type KanaScript } from "./kana";
+import { kanaDistractorPriority } from "./kana-contrasts";
 
 export const ADAPTIVE_KANA_EXERCISE_KINDS = [
   "typing",
@@ -288,6 +289,7 @@ function buildChoices(
     .sort(
       (left, right) =>
         (confusionCounts.get(right.character) ?? 0) - (confusionCounts.get(left.character) ?? 0) ||
+        kanaDistractorPriority(target.character,left.character) - kanaDistractorPriority(target.character,right.character) ||
         Number(left.script !== target.script) - Number(right.script !== target.script) ||
         Math.abs(left.order - target.order) - Math.abs(right.order - target.order) ||
         seededRank(seed, target.character, left.character) -

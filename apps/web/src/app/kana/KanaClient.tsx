@@ -250,9 +250,7 @@ function OwnedKanaClient({
       return [];
     }
 
-    return mode === "lessons"
-      ? (activeUnit?.items ?? [])
-      : state.path.units.flatMap((unit) => unit.items);
+    return state.path.units.filter(unit => mode !== "lessons" || unit.unlocked).flatMap(unit => unit.items);
   }, [activeUnit, mode, state]);
 
   const exerciseChoices = useMemo(() => {
