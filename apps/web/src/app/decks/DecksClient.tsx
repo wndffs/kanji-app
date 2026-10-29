@@ -19,6 +19,7 @@ import { JapaneseText } from "../../components/JapaneseText";
 import { ViewTabs } from "../../components/ViewTabs";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { DeckDictionaryPicker } from "./DeckDictionaryPicker";
+import { deckLessonHref, filterDeckContents } from "../../lib/deck-browser";
 import {
   ApiError,
   createTextDeck,
@@ -704,13 +705,12 @@ function DeckDetailsResult({
   readonly isStatusUpdating?: boolean;
   readonly statusError?: string | null;
 }) {
-  const [kind, setKind] = useState("");
+  const [kind, setKind] = useState<DeckItemDto["item"]["itemType"]|"">("");
   const [learningState, setLearningState] = useState("all");
-  const visibleItems = deck.items.filter(
-    (entry) =>
-      (kind === "" || entry.item.itemType === kind) &&
-      (learningState === "all" || entry.isNewForUser === (learningState === "new")),
-  );
+  const [query,setQuery] = useState("");
+  const [grouped,setGrouped] = useState(true);
+  const visibleItems = filterDeckContents(deck.items,{kind,state:learningState,query});
+  const groups = grouped ? (["component","kanji","word","sentence"] as const).map((type)=>({id:type,title:formatItemType(type),items:visibleItems.filter((entry)=>entry.item.itemType===type)})).filter((group)=>group.items.length>0) : [{id:"all",title:"Материалы",items:visibleItems}];
   return (
     <section className="deck-result" aria-label={`Колода ${deck.title}`}>
       <div className="panel">
@@ -749,9 +749,9 @@ function DeckDetailsResult({
           {deck.status === "active" ? (
             <Link
               className="primary-action"
-              href={`/lessons?deckId=${encodeURIComponent(deck.id)}`}
+              href={deckLessonHref(deck.id,kind,query)}
             >
-              Учить колоду
+              Выбрать урок
             </Link>
           ) : null}
           {onStatusChange === undefined ? null : (
@@ -788,14 +788,15 @@ function DeckDetailsResult({
 
       {deck.items.length === 0 ? (
         <div className="notice-panel">
-          <p>В тексте не нашлось опубликованных Word/Kanji элементов из базы.</p>
+          <p>В колоде пока нет материалов.</p>
         </div>
       ) : (
         <>
           <div className="deck-path-filters">
+            <label><span>Поиск в колоде</span><input value={query} onChange={(event)=>setQuery(event.currentTarget.value)} maxLength={100}/></label>
             <label>
               <span>Тип в колоде</span>
-              <select value={kind} onChange={(event) => setKind(event.currentTarget.value)}>
+              <select value={kind} onChange={(event) => setKind(event.currentTarget.value as typeof kind)}>
                 <option value="">Все типы</option>
                 {(["component", "kanji", "word", "sentence"] as const).map((id) => (
                   <option key={id} value={id}>
@@ -804,6 +805,7 @@ function DeckDetailsResult({
                 ))}
               </select>
             </label>
+            <label className="action-row"><input type="checkbox" checked={grouped} onChange={(event)=>setGrouped(event.currentTarget.checked)}/>Группировать по типу</label>
             <label>
               <span>Изучение в колоде</span>
               <select
@@ -820,11 +822,7 @@ function DeckDetailsResult({
             </span>
           </div>
           {visibleItems.length === 0 ? <p className="muted">Материалы не найдены.</p> : null}
-          <div className="deck-item-list">
-            {visibleItems.map((deckItem) => (
-              <DeckItemCard deckItem={deckItem} displayMode={displayMode} key={deckItem.item.id} />
-            ))}
-          </div>
+          {groups.map((group)=><section className="page-stack" key={group.id} aria-label={group.title}><h3>{group.title} · {group.items.length}</h3><div className="deck-item-list">{group.items.map((deckItem)=><DeckItemCard deckItem={deckItem} displayMode={displayMode} key={deckItem.item.id}/>)}</div></section>)}
         </>
       )}
     </section>
