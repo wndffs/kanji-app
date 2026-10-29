@@ -13,7 +13,7 @@ Publish an additive, separately sealed V7 only after review, live source preflig
 | Task | Deliverable | State |
 | --- | --- | --- |
 | 460 | Re-audit actual coverage and bound this wave | Done |
-| 461 | Explicit topic selection and deferred follow-up | Pending |
+| 461 | Explicit topic selection and deferred follow-up | Done |
 | 462 | Five kanji and visual prerequisites | Pending |
 | 463 | Exact verb/adjective identities and selected senses | Pending |
 | 464 | Time/topic vocabulary with common-use evidence | Pending |
