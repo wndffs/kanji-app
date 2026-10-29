@@ -29,6 +29,18 @@ export class DecksController {
     return this.decksService.listDecks(currentUser);
   }
 
+  @Post()
+  createCustom(@CurrentUser() currentUser: CurrentUserDto, @Body() body: unknown) {
+    this.rateLimitService.assertAllowed("text-mining-user",currentUser.id);
+    return this.decksService.createCustom(currentUser,body);
+  }
+
+  @Post(":deckId/items")
+  addItems(@CurrentUser() currentUser: CurrentUserDto, @Param("deckId") deckId:string, @Body() body:unknown) {
+    this.rateLimitService.assertAllowed("text-mining-user",currentUser.id);
+    return this.decksService.addItems(currentUser,deckId,body);
+  }
+
   @Get(":deckId")
   getDeck(@CurrentUser() currentUser: CurrentUserDto, @Param("deckId") deckId: string) {
     return this.decksService.getDeck(currentUser, deckId);

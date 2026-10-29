@@ -1174,6 +1174,14 @@ export function listDecks(token: string): Promise<DeckListResponse> {
   return apiRequest<DeckListResponse>("/decks", { token });
 }
 
+export function createCustomDeck(token: string, title: string) {
+  return apiRequest<DeckDetailsDto>("/decks", {method:"POST",token,body:{title}});
+}
+
+export function addDeckItems(token: string, deckId: string, itemIds: readonly string[]) {
+  return apiRequest<DeckDetailsDto>(`/decks/${encodeURIComponent(deckId)}/items`, {method:"POST",token,body:{itemIds}});
+}
+
 export function getDeck(token: string, deckId: string): Promise<DeckDetailsDto> {
   return apiRequest<DeckDetailsDto>(`/decks/${encodeURIComponent(deckId)}`, { token });
 }

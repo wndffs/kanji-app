@@ -18,9 +18,11 @@ import {
 import { JapaneseText } from "../../components/JapaneseText";
 import { ViewTabs } from "../../components/ViewTabs";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
+import { DeckDictionaryPicker } from "./DeckDictionaryPicker";
 import {
   ApiError,
   createTextDeck,
+  createCustomDeck,
   previewTextDeck,
   getDeck,
   listDecks,
@@ -89,6 +91,25 @@ function DecksScreen() {
   const [preview, setPreview] = useState<TextDeckPreviewResponse | null>(null);
   const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
   const selectedDeckRequest = useRef(0);
+
+  function acceptUpdatedDeck(deck: DeckDetailsDto) {
+    selectedDeckRequest.current += 1;
+    setResult(null);
+    setSelectedDeck({status:"ready",deck});
+    setSavedDecks((current)=>({status:"ready",decks:sortDeckSummaries([toDeckSummary(deck),...(current.status === "ready" ? current.decks.filter((entry)=>entry.id!==deck.id) : [])])}));
+  }
+
+  async function createEmptyDeck() {
+    if (state.status !== "ready" || isSubmitting) return;
+    setIsSubmitting(true);setFormError(null);
+    try {
+      const deck = await createCustomDeck(state.token,title.trim() || "Личная колода");
+      if (!ownsSession(state.token)) return;
+      acceptUpdatedDeck(deck);setBuilderOpen(false);setPreview(null);
+    } catch (cause) {
+      if (ownsSession(state.token)) setFormError(cause instanceof Error ? cause.message : "Не удалось создать колоду.");
+    } finally { setIsSubmitting(false); }
+  }
 
   useEffect(() => {
     const session = readStoredSession();
@@ -428,6 +449,7 @@ function DecksScreen() {
           <button className="primary-action" disabled={isSubmitting || (preview !== null && (selectedIds.length === 0 || selectedIds.length > maxItems))} type="submit">
             {isSubmitting ? "Обрабатываю..." : preview === null ? "Проверить текст" : "Сохранить колоду"}
           </button>
+          <button className="secondary-action" type="button" disabled={isSubmitting} onClick={()=>void createEmptyDeck()}><Plus size={18}/>Пустая колода</button>
           <button
             className="secondary-action"
             disabled={isSubmitting}
@@ -466,8 +488,8 @@ function DecksScreen() {
               {preview.candidates.map(({item}) => (
                 <li key={item.id}>
                   <label className="action-row">
-                    <input type="checkbox" disabled={isSubmitting} checked={selectedIds.includes(item.id)} onChange={(event) => setSelectedIds((ids) => event.currentTarget.checked ? [...ids, item.id] : ids.filter((id) => id !== item.id))} />
-                    <JapaneseText text={item.japanese} />
+                    <input type="checkbox" disabled={isSubmitting} checked={selectedIds.includes(item.id)} onChange={(event) => {const checked=event.currentTarget.checked;setSelectedIds((ids) => checked ? [...ids, item.id] : ids.filter((id) => id !== item.id));}} />
+                    <JapaneseText>{item.japanese}</JapaneseText>
                     <span>{item.reading} · {item.title}</span>
                   </label>
                 </li>
@@ -482,6 +504,9 @@ function DecksScreen() {
         )}
       </form>
 
+      {(selectedDeck.status === "ready" ? selectedDeck.deck : result?.deck)?.status === "active" ? (
+        <DeckDictionaryPicker key={(selectedDeck.status === "ready" ? selectedDeck.deck : result!.deck).id} token={state.token} deck={selectedDeck.status === "ready" ? selectedDeck.deck : result!.deck} onUpdated={acceptUpdatedDeck}/>
+      ) : null}
       {result === null ? null : (
         <TextDeckResult
           displayMode={displayMode}

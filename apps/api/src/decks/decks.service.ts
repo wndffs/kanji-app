@@ -36,6 +36,19 @@ const HIGH_FREQUENCY_KANJI_RANK = 1_000;
 export class DecksService {
   constructor(@Inject(DecksRepository) private readonly decksRepository: DecksRepository) {}
 
+  async createCustom(user: CurrentUserDto, body: unknown): Promise<DeckDetailsDto> {
+    if (typeof body !== "object" || body === null || Array.isArray(body)) throw new BadRequestException("Expected a JSON object.");
+    const deck = await this.decksRepository.createTextDeck({ownerUserId:user.id,title:parseTitle((body as Record<string,unknown>).title),sourceText:null,items:[]});
+    return toDeckDetailsDto(deck,getDisplayMode(user));
+  }
+
+  async addItems(user: CurrentUserDto, deckId: string, body: unknown): Promise<DeckDetailsDto> {
+    if (typeof body !== "object" || body === null || Array.isArray(body)) throw new BadRequestException("Expected a JSON object.");
+    const deck = await this.decksRepository.addItems(user.id,deckId,parseItemIds((body as Record<string,unknown>).itemIds));
+    if (deck === null) throw new NotFoundException("Deck not found.");
+    return toDeckDetailsDto(deck,getDisplayMode(user));
+  }
+
   async createFromText(user: CurrentUserDto, body: unknown): Promise<CreateTextDeckResponse> {
     const request = parseCreateTextDeckRequest(body);
     const prepared = await this.prepareText(request);

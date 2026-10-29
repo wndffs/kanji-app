@@ -1,10 +1,10 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, Inject, Injectable } from "@nestjs/common";
 
 import {
   primaryTaughtReadingCards,
   resolvePrimaryTaughtReading,
   type PrimaryTaughtReadingCard,
-  type Prisma,
+  Prisma,
 } from "@kanji-srs/db";
 import {
   formatKanjiJlptLevel,
@@ -34,6 +34,7 @@ export abstract class DecksRepository {
     learningItemIds: readonly string[],
   ): Promise<readonly TextDeckPrerequisiteRecord[]>;
   abstract createTextDeck(input: CreateTextDeckInput): Promise<TextDeckRecord>;
+  abstract addItems(ownerUserId: string, deckId: string, itemIds: readonly string[]): Promise<TextDeckRecord | null>;
   abstract listDecks(ownerUserId: string): Promise<readonly TextDeckListRecord[]>;
   abstract findDeckForOwner(ownerUserId: string, deckId: string): Promise<TextDeckRecord | null>;
   abstract updateDeckStatus(
@@ -193,7 +194,7 @@ export class PrismaDecksRepository extends DecksRepository {
         data: {
           ownerUserId: input.ownerUserId,
           title: input.title,
-          deckType: "TEXT_MINING",
+          deckType: input.sourceText === null ? "CUSTOM" : "TEXT_MINING",
           sourceText: input.sourceText,
           status: "ACTIVE",
         },
@@ -221,6 +222,28 @@ export class PrismaDecksRepository extends DecksRepository {
     }
 
     return createdDeck;
+  }
+
+  async addItems(ownerUserId: string, deckId: string, itemIds: readonly string[]): Promise<TextDeckRecord | null> {
+    const found = await this.prisma.db.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<{id:string;status:string}[]>(Prisma.sql`SELECT id, status FROM "Deck" WHERE id = ${deckId}::uuid AND "ownerUserId" = ${ownerUserId}::uuid FOR UPDATE`);
+      const deck = rows[0];
+      if (deck === undefined) return false;
+      if (deck.status !== "ACTIVE") throw new ConflictException("Only active decks can be edited.");
+      const published = await tx.learningItem.findMany({where:{id:{in:[...itemIds]},status:"PUBLISHED"},select:{id:true}});
+      if (published.length !== itemIds.length) throw new BadRequestException("Only published materials can be added.");
+      const current = await tx.deckItem.findMany({where:{deckId},select:{learningItemId:true,sortOrder:true}});
+      const existing = new Set(current.map((item) => item.learningItemId));
+      const additions = itemIds.filter((id) => !existing.has(id));
+      if (existing.size + additions.length > 160) throw new BadRequestException("Decks are limited to 160 materials.");
+      const last = Math.max(0,...current.map((item) => item.sortOrder));
+      if (additions.length > 0) {
+        await tx.deckItem.createMany({data:additions.map((id,index)=>({deckId,learningItemId:id,sortOrder:last+index+1,reasonJson:[]})),skipDuplicates:true});
+        await tx.deck.update({where:{id:deckId},data:{updatedAt:new Date()}});
+      }
+      return true;
+    });
+    return found ? this.findDeckForOwner(ownerUserId,deckId) : null;
   }
 
   async listDecks(ownerUserId: string): Promise<readonly TextDeckListRecord[]> {

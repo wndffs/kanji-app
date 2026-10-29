@@ -48,7 +48,7 @@ export type CreateTextDeckItemInput = {
 export type CreateTextDeckInput = {
   readonly ownerUserId: string;
   readonly title: string;
-  readonly sourceText: string;
+  readonly sourceText: string | null;
   readonly items: readonly CreateTextDeckItemInput[];
 };
 
