@@ -3,9 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pause, RotateCcw, Volume2 } from "lucide-react";
 
-import { recordingOrigin, type AudioAssetDto, type ListeningPlaybackEvidenceDto } from "@kanji-srs/shared";
+import {
+  recordingOrigin,
+  type AudioAssetDto,
+  type ListeningPlaybackEvidenceDto,
+} from "@kanji-srs/shared";
 
 import { useStudyAudioPreferences } from "../lib/use-study-audio-preferences";
+import { PlaybackStallWatch } from "../lib/playback-stall";
 
 type PlaybackStatus = "loading" | "ready" | "playing" | "completed" | "error";
 
@@ -21,7 +26,11 @@ export function ListeningPrompt(props: ListeningPromptProps) {
   );
 }
 
-function ListeningPlayback({ audio, onEvidenceChange, allowAutoplay = true }: ListeningPromptProps) {
+function ListeningPlayback({
+  audio,
+  onEvidenceChange,
+  allowAutoplay = true,
+}: ListeningPromptProps) {
   const preferences = useStudyAudioPreferences();
   const audioRef = useRef<HTMLAudioElement>(null);
   const onEvidenceChangeRef = useRef(onEvidenceChange);
@@ -79,17 +88,25 @@ function ListeningPlayback({ audio, onEvidenceChange, allowAutoplay = true }: Li
 
   useEffect(() => {
     if (status !== "loading" && status !== "playing") return;
-    const timer = window.setTimeout(() => {
+    const watch = new PlaybackStallWatch(Date.now(), audioRef.current?.currentTime ?? 0);
+    const timer = window.setInterval(() => {
       if (!activeRef.current) return;
+      if (
+        !watch.stalled(Date.now(), status === "playing" ? (audioRef.current?.currentTime ?? 0) : 0)
+      )
+        return;
       generationRef.current += 1;
       playRequestedRef.current = false;
       playingRef.current = false;
       audioRef.current?.pause();
       setStatus("error");
-      onEvidenceChangeRef.current({completed:completedRef.current,playCount:playCountRef.current});
-    }, status === "loading" ? 12_000 : Math.min(30_000, Math.max(12_000,(audio?.durationMs ?? 0)+8_000)));
-    return () => window.clearTimeout(timer);
-  },[status,audio?.durationMs]);
+      onEvidenceChangeRef.current({
+        completed: completedRef.current,
+        playCount: playCountRef.current,
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [status]);
 
   const play = useCallback(
     async (autoplay = false): Promise<void> => {
@@ -236,8 +253,30 @@ function ListeningPlayback({ audio, onEvidenceChange, allowAutoplay = true }: Li
         <Volume2 aria-hidden="true" size={20} />
         {status === "playing" ? "Слушайте" : status === "completed" ? "Повторить" : "Воспроизвести"}
       </button>
-      {status === "playing" ? <button className="icon-button" type="button" aria-label="Приостановить аудио" title="Приостановить аудио" onClick={()=>audioRef.current?.pause()}><Pause size={20} aria-hidden="true" /></button> : null}
-      {status === "error" && audio?.mediaUrl ? <button className="secondary-action" type="button" onClick={()=>{setStatus("loading");audioRef.current?.load();}}><RotateCcw size={16} aria-hidden="true" />Повторить загрузку</button> : null}
+      {status === "playing" ? (
+        <button
+          className="icon-button"
+          type="button"
+          aria-label="Приостановить аудио"
+          title="Приостановить аудио"
+          onClick={() => audioRef.current?.pause()}
+        >
+          <Pause size={20} aria-hidden="true" />
+        </button>
+      ) : null}
+      {status === "error" && audio?.mediaUrl ? (
+        <button
+          className="secondary-action"
+          type="button"
+          onClick={() => {
+            setStatus("loading");
+            audioRef.current?.load();
+          }}
+        >
+          <RotateCcw size={16} aria-hidden="true" />
+          Повторить загрузку
+        </button>
+      ) : null}
       <p aria-live="polite">
         {status === "loading"
           ? "Загружаем запись."
@@ -258,7 +297,16 @@ function ListeningPlayback({ audio, onEvidenceChange, allowAutoplay = true }: Li
 export function ListeningAttribution({ audio }: { readonly audio: AudioAssetDto }) {
   return (
     <dl className="listening-attribution">
-      <div><dt>Тип аудио</dt><dd>{recordingOrigin(audio.voiceMetadata) === "human-recording" ? "Запись человека" : recordingOrigin(audio.voiceMetadata) === "synthetic" ? "Синтез речи" : "Происхождение голоса не подтверждено"}</dd></div>
+      <div>
+        <dt>Тип аудио</dt>
+        <dd>
+          {recordingOrigin(audio.voiceMetadata) === "human-recording"
+            ? "Запись человека"
+            : recordingOrigin(audio.voiceMetadata) === "synthetic"
+              ? "Синтез речи"
+              : "Происхождение голоса не подтверждено"}
+        </dd>
+      </div>
       <div>
         <dt>Запись</dt>
         <dd>{audio.speakerName ?? "Автор записи не указан"}</dd>

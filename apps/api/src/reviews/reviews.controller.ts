@@ -77,8 +77,11 @@ export class ReviewsController {
   }
 
   @Get("practice/history")
-  getPracticeHistory(@CurrentUser() currentUser:CurrentUserDto,@Query("source") source:string|undefined) {
-    return this.reviewsService.getPracticeHistory(currentUser,source);
+  getPracticeHistory(
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Query("source") source: string | undefined,
+  ) {
+    return this.reviewsService.getPracticeHistory(currentUser, source);
   }
 
   @Post("practice/start")

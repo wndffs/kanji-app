@@ -8,12 +8,23 @@ import {
 import { type ReviewCardRecord } from "./reviews.types";
 import { diagnoseReadingDifference } from "@kanji-srs/japanese";
 
-export function getCardFeedbackMessage(card: ReviewCardRecord, result: ReviewAnswerResultType, answer: string, relatedAnswer?: string | null): string {
+export function getCardFeedbackMessage(
+  card: Pick<ReviewCardRecord, "answerType" | "acceptedAnswers">,
+  result: ReviewAnswerResultType,
+  answer: string,
+  relatedAnswer?: string | null,
+): string {
   if (result === "wrong" && !relatedAnswer && card.answerType === "reading") {
-    const difference = diagnoseReadingDifference(answer, card.acceptedAnswers.map(expected=>expected.text));
-    if (difference === "small-tsu") return "Ответ не принят. Проверьте маленькую っ: это не обычный слог つ и не пропущенный знак.";
-    if (difference === "small-kana") return "Ответ не принят. Проверьте размер каны: ゃ・ゅ・ょ отличаются от や・ゆ・よ.";
-    if (difference === "vowel-spelling") return "Ответ не принят. Проверьте долготу гласных и запись каны; おう, おお и ー не заменяют друг друга автоматически.";
+    const difference = diagnoseReadingDifference(
+      answer,
+      card.acceptedAnswers.map((expected) => expected.text),
+    );
+    if (difference === "small-tsu")
+      return "Ответ не принят. Проверьте наличие и положение маленькой っ; не путайте её с обычной つ.";
+    if (difference === "small-kana")
+      return "Ответ не принят. Проверьте размер каны: ゃ・ゅ・ょ отличаются от や・ゆ・よ.";
+    if (difference === "vowel-spelling")
+      return "Ответ не принят. Проверьте долготу гласных и запись каны; おう, おお и ー не заменяют друг друга автоматически.";
   }
   return getPracticeFeedbackMessage(result, relatedAnswer);
 }

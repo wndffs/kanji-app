@@ -219,7 +219,12 @@ export class ReviewsService {
       corrected,
       alreadyCorrected,
       feedback: {
-        message: getCardFeedbackMessage(target.card, validation.result, request.answer, validation.relatedAnswer),
+        message: getCardFeedbackMessage(
+          target.card,
+          validation.result,
+          request.answer,
+          validation.relatedAnswer,
+        ),
         expected: toExpectedPracticeAnswers(
           target.card,
           user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE,
@@ -244,10 +249,16 @@ export class ReviewsService {
     };
   }
 
-  async getPracticeHistory(user:CurrentUserDto, sourceValue:string|undefined) {
-    const source=parsePracticeSource(sourceValue);
-    const sessions=await this.reviewsRepository.listPracticeHistory(user.id,source);
-    return {sessions:sessions.flatMap(session=>session.finishedAt && session.source !== "confusable-kanji" ? [{...toPracticeSessionDto(session),finishedAt:session.finishedAt.toISOString()}] : [])};
+  async getPracticeHistory(user: CurrentUserDto, sourceValue: string | undefined) {
+    const source = parsePracticeSource(sourceValue);
+    const sessions = await this.reviewsRepository.listPracticeHistory(user.id, source);
+    return {
+      sessions: sessions.flatMap((session) =>
+        session.finishedAt && session.source !== "confusable-kanji"
+          ? [{ ...toPracticeSessionDto(session), finishedAt: session.finishedAt.toISOString() }]
+          : [],
+      ),
+    };
   }
 
   async getActivePracticeSession(
@@ -344,7 +355,12 @@ export class ReviewsService {
       matchedAnswer: validation.matchedAnswer,
       retry: validation.relatedAnswer !== undefined && validation.relatedAnswer !== null,
       feedback: {
-        message: getCardFeedbackMessage(target.card, validation.result, request.answer, validation.relatedAnswer),
+        message: getCardFeedbackMessage(
+          target.card,
+          validation.result,
+          request.answer,
+          validation.relatedAnswer,
+        ),
         expected: toExpectedPracticeAnswers(target.card, displayMode),
         blockedReason: getPracticeBlockedReason(target.card, validation.matchedAnswer),
         diagnostic: toPracticeAnswerDiagnostic(validation.relatedAnswer),
@@ -356,7 +372,11 @@ export class ReviewsService {
     }
 
     const updated = await this.reviewsRepository.updatePracticeSessionProgress({
-      outcome:{cardId:target.card.id,accepted:answer.accepted,answeredAt:new Date().toISOString()},
+      outcome: {
+        cardId: target.card.id,
+        accepted: answer.accepted,
+        answeredAt: new Date().toISOString(),
+      },
       userId: user.id,
       sessionId,
       currentIndex: session.currentIndex + 1,
@@ -489,7 +509,12 @@ export class ReviewsService {
         matchedAnswer: null,
         retry: true,
         feedback: {
-          message: getCardFeedbackMessage(target.card, "wrong", request.answer, validation.relatedAnswer),
+          message: getCardFeedbackMessage(
+            target.card,
+            "wrong",
+            request.answer,
+            validation.relatedAnswer,
+          ),
           expected: toExpectedAnswers(target),
           blockedReason: null,
           diagnostic: toPracticeAnswerDiagnostic(validation.relatedAnswer),
@@ -576,7 +601,12 @@ export class ReviewsService {
       matchedAnswer: validation?.matchedAnswer ?? null,
       retry: false,
       feedback: {
-        message: getCardFeedbackMessage(target.card, responseResult, request.answer, validation?.relatedAnswer),
+        message: getCardFeedbackMessage(
+          target.card,
+          responseResult,
+          request.answer,
+          validation?.relatedAnswer,
+        ),
         expected: toExpectedAnswers(target),
         blockedReason: getPracticeBlockedReason(target.card, validation?.matchedAnswer ?? null),
         diagnostic: toPracticeAnswerDiagnostic(validation?.relatedAnswer),
@@ -949,7 +979,7 @@ function toPracticeSessionDto(session: PracticeSessionRecord): PracticeSessionDt
     currentIndex: session.currentIndex,
     totalItems: session.cardIds.length,
     progress: session.progress,
-    ...(session.outcomes === undefined ? {} : {outcomes:session.outcomes}),
+    ...(session.outcomes === undefined ? {} : { outcomes: session.outcomes }),
   };
 }
 

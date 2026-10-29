@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { validateAnswer, type AnswerKind } from "@kanji-srs/japanese";
 import { DEFAULT_SRS_STAGES, type SrsStage } from "@kanji-srs/srs";
+import { type PracticeSource } from "@kanji-srs/shared";
 
 import { type CurrentUserDto } from "../src/auth/auth.types";
 import { type OverridesService } from "../src/overrides/overrides.service";
@@ -1019,7 +1020,15 @@ describe("PrismaReviewsRepository course progress events", () => {
 });
 
 class InMemoryReviewsRepository extends ReviewsRepository {
-  async listPracticeHistory(userId:string, source:import("@kanji-srs/shared").PracticeSource) { return [...this.practiceSessions.values()].filter(session=>session.userId === userId && session.source === source && session.finishedAt !== null).slice(-20).reverse(); }
+  async listPracticeHistory(userId: string, source: PracticeSource) {
+    return [...this.practiceSessions.values()]
+      .filter(
+        (session) =>
+          session.userId === userId && session.source === source && session.finishedAt !== null,
+      )
+      .slice(-20)
+      .reverse();
+  }
   readonly recordedAnswers: RecordReviewAnswerInput[] = [];
   private readonly cards = createCards();
   private readonly states = new Map<string, ReviewQueueRecord>(

@@ -772,22 +772,36 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               studyHref={itemViewHref(pathname, new URLSearchParams(searchParams), "study")}
             />
 
-            <section className="panel item-study-memory" hidden={hideReadingAnswers}>
-              <h2>Мнемоники и подсказки</h2>
-              <ContentBlock
-                title="Мнемоники"
-                texts={getLocalizedTexts(item.mnemonics, displayMode).filter(
-                  (text) => text.sourceKind !== "user",
-                )}
-              />
-              <ContentBlock
-                title="Подсказки"
-                texts={getLocalizedTexts(item.hints, displayMode).filter(
-                  (text) => text.sourceKind !== "user",
-                )}
-              />
-            </section>
-            {item.pronunciationAudio && !hideReadingAnswers ? <SectionDisclosure title="Записанное произношение"><ListeningPrompt allowAutoplay={false} audio={item.pronunciationAudio} onEvidenceChange={()=>undefined} /><ListeningAttribution audio={item.pronunciationAudio} /><Link className="inline-link" href="/practice/listening">Практика на слух</Link></SectionDisclosure> : null}
+            {hideReadingAnswers ? null : (
+              <section className="panel item-study-memory">
+                <h2>Мнемоники и подсказки</h2>
+                <ContentBlock
+                  title="Мнемоники"
+                  texts={getLocalizedTexts(item.mnemonics, displayMode).filter(
+                    (text) => text.sourceKind !== "user",
+                  )}
+                />
+                <ContentBlock
+                  title="Подсказки"
+                  texts={getLocalizedTexts(item.hints, displayMode).filter(
+                    (text) => text.sourceKind !== "user",
+                  )}
+                />
+              </section>
+            )}
+            {item.pronunciationAudio && !hideReadingAnswers ? (
+              <SectionDisclosure title="Записанное произношение">
+                <ListeningPrompt
+                  allowAutoplay={false}
+                  audio={item.pronunciationAudio}
+                  onEvidenceChange={() => undefined}
+                />
+                <ListeningAttribution audio={item.pronunciationAudio} />
+                <Link className="inline-link" href="/practice/listening">
+                  Практика на слух
+                </Link>
+              </SectionDisclosure>
+            ) : null}
 
             <SectionDisclosure title="Все допустимые ответы">
               <section>
@@ -1447,7 +1461,9 @@ function ItemReadingDetails({
                 return readings === undefined || readings.length === 0 ? null : (
                   <div className="content-block" key={kind}>
                     <h3>{title}</h3>
-                    {kind === "on" || kind === "kun" ? <ReadingGuidanceText kind={kind} displayMode={displayMode} /> : null}
+                    {kind === "on" || kind === "kun" ? (
+                      <ReadingGuidanceText kind={kind} displayMode={displayMode} />
+                    ) : null}
                     <ul className="reading-chip-list">
                       {readings.map((reading) => (
                         <li key={`${kind}-${reading.reading}`}>
@@ -1480,16 +1496,32 @@ function ItemReadingDetails({
           Чтение слова изучается целиком: его нельзя всегда получить сложением чтений отдельных
           кандзи.
         </p>
-        <SectionDisclosure title="Чтение целого слова">
-          <ReadingGuidanceText kind="word" displayMode={displayMode} />
-        </SectionDisclosure>
+        {hideReadings ? null : (
+          <SectionDisclosure title="Чтение целого слова">
+            <ReadingGuidanceText kind="word" displayMode={displayMode} />
+          </SectionDisclosure>
+        )}
         {item.relationGroups.some((group) => group.kind === "kanji" && group.total > 0) ? (
           <Link className="inline-link" href={`${studyHref}#item-related-kanji`}>
             Кандзи этого слова
           </Link>
         ) : null}
         <dl className="lesson-facts">
-          {teachingSenses.length > 0 ? <div><dt>Учебный смысл</dt><dd>{teachingSenses.slice(0, 4).map(sense => <p key={`${sense.locale}-${sense.meaning}`} lang={sense.locale === "ru-RU" ? "ru" : "en"}>{sense.meaning} <small>{formatPartOfSpeech(sense.partOfSpeech)}</small></p>)}</dd></div> : null}
+          {teachingSenses.length > 0 ? (
+            <div>
+              <dt>Учебный смысл</dt>
+              <dd>
+                {teachingSenses.slice(0, 4).map((sense) => (
+                  <p
+                    key={`${sense.locale}-${sense.meaning}`}
+                    lang={sense.locale === "ru-RU" ? "ru" : "en"}
+                  >
+                    {sense.meaning} <small>{formatPartOfSpeech(sense.partOfSpeech)}</small>
+                  </p>
+                ))}
+              </dd>
+            </div>
+          ) : null}
           {kanaReading === null ? null : (
             <div>
               <dt>Чтение</dt>
@@ -1807,18 +1839,37 @@ function StrokePlaceholder({ character }: { readonly character: string }) {
   );
 }
 
-function VisualContrast({ character, displayMode }: { readonly character: string; readonly displayMode: TranslationDisplayMode }) {
+function VisualContrast({
+  character,
+  displayMode,
+}: {
+  readonly character: string;
+  readonly displayMode: TranslationDisplayMode;
+}) {
   const contrast = visualContrastFor(character);
   if (!contrast) return null;
-  return <SectionDisclosure title={`Различайте ${contrast.characters.join(" / ")}`}>
-    {displayMode !== "en" ? <p lang="ru">{contrast.ru}</p> : null}
-    {displayMode !== "ru" ? <p lang="en">{contrast.en}</p> : null}
-  </SectionDisclosure>;
+  return (
+    <SectionDisclosure title={`Различайте ${contrast.characters.join(" / ")}`}>
+      {displayMode !== "en" ? <p lang="ru">{contrast.ru}</p> : null}
+      {displayMode !== "ru" ? <p lang="en">{contrast.en}</p> : null}
+    </SectionDisclosure>
+  );
 }
 
-function ReadingGuidanceText({ kind, displayMode }: { readonly kind: keyof typeof READING_GUIDANCE; readonly displayMode: TranslationDisplayMode }) {
+function ReadingGuidanceText({
+  kind,
+  displayMode,
+}: {
+  readonly kind: keyof typeof READING_GUIDANCE;
+  readonly displayMode: TranslationDisplayMode;
+}) {
   const text = READING_GUIDANCE[kind];
-  return <>{displayMode !== "en" ? <p lang="ru">{text.ru}</p> : null}{displayMode !== "ru" ? <p lang="en">{text.en}</p> : null}</>;
+  return (
+    <>
+      {displayMode !== "en" ? <p lang="ru">{text.ru}</p> : null}
+      {displayMode !== "ru" ? <p lang="en">{text.en}</p> : null}
+    </>
+  );
 }
 
 function ItemReadingAudio({

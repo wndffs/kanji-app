@@ -207,6 +207,7 @@ test.describe("item details", () => {
     await details.getByRole("button", { name: "Словарные чтения", exact: true }).click();
     await expect(details.getByText("ひと", { exact: true })).toBeVisible();
     await page.getByLabel("Скрыть подсказки чтения", { exact: true }).check();
+    await expect(page.locator(".item-study-memory")).toBeHidden();
     await expect(details).toContainText("Чтение скрыто.");
     await expect(details.getByText("いち", { exact: true })).toHaveCount(0);
     await expect(page.getByTestId("item-relation-groups")).not.toContainText("ひとり");
@@ -214,6 +215,7 @@ test.describe("item details", () => {
       0,
     );
     await page.getByRole("button", { name: "Показать чтение", exact: true }).click();
+    await expect(page.locator(".item-study-memory")).toBeVisible();
     await expect(
       details.locator(".reading-evidence-grid").first().getByText("いち", { exact: true }),
     ).toBeVisible();

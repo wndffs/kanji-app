@@ -97,6 +97,7 @@ import {
   type LessonPronunciationMode,
   type PracticeAnswerRequest,
   type PracticeQueueResponse,
+  type PracticeHistoryDto,
   type PracticeSessionAnswerResponse,
   type PracticeSessionResponse,
   type PracticeSource,
@@ -1092,8 +1093,11 @@ export function getPracticeQueue(
   });
 }
 
-export function getPracticeHistory(token:string,source:import("@kanji-srs/shared").PracticeSource):Promise<import("@kanji-srs/shared").PracticeHistoryDto> {
-  return apiRequest(`/reviews/practice/history?${new URLSearchParams({source})}`,{token});
+export function getPracticeHistory(
+  token: string,
+  source: PracticeSource,
+): Promise<PracticeHistoryDto> {
+  return apiRequest(`/reviews/practice/history?${new URLSearchParams({ source })}`, { token });
 }
 
 export function getActivePracticeSession(

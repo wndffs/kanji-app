@@ -15,6 +15,11 @@ No WaniKani/Tofugu-origin recordings are eligible, even when separately licensed
 
 The versioned source registry pins source revision/date, exact target identity,
 SHA-256, byte size, PCM duration and publication path. Source and media evidence
+pin the original's four-byte RIFF-size undercount explicitly; its data chunk
+and 1,032 ms PCM duration are intact. No header or sound bytes are modified.
+Browser decoding/playback must still pass live acceptance before availability
+is reported. This exception is exact-manifest metadata, not a wildcard parser bypass.
+Source and media evidence
 do not claim native-speaker/acoustic certification. Listening at word scale is
 not JLPT listening comprehension. The production media is intentionally checked
 in; temporary downloads and analysis stay outside the repository. No runtime

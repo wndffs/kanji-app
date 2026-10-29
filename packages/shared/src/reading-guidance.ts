@@ -1,6 +1,6 @@
 export const READING_GUIDANCE = {
   on: {
-    ru: "Онъёми — чтения китайского происхождения. Составное слово не обязано читать каждый знак по его отдельной учебной карточке.",
+    ru: "Онъёми — чтения китайского происхождения. В составном слове чтение каждого кандзи может отличаться от чтения на его отдельной учебной карточке.",
     en: "On readings are of Chinese origin. A compound does not necessarily use each character's separately taught reading.",
   },
   kun: {

@@ -540,8 +540,14 @@ export type PracticeSessionResponse = {
   readonly items: readonly ReviewQueueItem[];
 };
 
-export type PracticeCardOutcomeDto = { readonly cardId: string; readonly accepted: boolean; readonly answeredAt: string };
-export type PracticeHistoryDto = { readonly sessions: readonly (PracticeSessionDto & {readonly finishedAt: string})[] };
+export type PracticeCardOutcomeDto = {
+  readonly cardId: string;
+  readonly accepted: boolean;
+  readonly answeredAt: string;
+};
+export type PracticeHistoryDto = {
+  readonly sessions: readonly (PracticeSessionDto & { readonly finishedAt: string })[];
+};
 
 export type ActivePracticeSessionResponse = {
   readonly session: PracticeSessionDto | null;

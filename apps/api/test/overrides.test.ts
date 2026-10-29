@@ -18,13 +18,39 @@ import {
 } from "../src/overrides/overrides.types";
 
 describe("OverridesService", () => {
-  it("retains a private note when the same shared card is added from a later course",async()=>{
-    const {service}=createHarness(); const user=createUser("owner");
-    const original=await service.addAcceptedAnswer("card-meaning",{...user,settings:{...user.settings,currentCourseId:"v5"}},{answerKind:"meaning",text:"моё число",note:"Private note from V5"});
-    const repeated=await service.addAcceptedAnswer("card-meaning",{...user,settings:{...user.settings,currentCourseId:"v6"}},{answerKind:"meaning",text:" МОЕ ЧИСЛО! "});
+  it("retains private notes on repeated additions for stable shared cards", async () => {
+    const { service } = createHarness();
+    const user = createUser("owner");
+    const original = await service.addAcceptedAnswer("card-meaning", user, {
+      answerKind: "meaning",
+      text: "моё число",
+      note: "Private note from V5",
+    });
+    const repeated = await service.addAcceptedAnswer("card-meaning", user, {
+      answerKind: "meaning",
+      text: " МОЕ ЧИСЛО! ",
+    });
     expect(repeated).toEqual(original);
-    expect((await service.validateAnswerForUser({userId:"owner",cardId:"card-meaning",answerKind:"meaning",answer:"моё число"})).accepted).toBe(true);
-    expect((await service.validateAnswerForUser({userId:"other",cardId:"card-meaning",answerKind:"meaning",answer:"моё число"})).accepted).toBe(false);
+    expect(
+      (
+        await service.validateAnswerForUser({
+          userId: "owner",
+          cardId: "card-meaning",
+          answerKind: "meaning",
+          answer: "моё число",
+        })
+      ).accepted,
+    ).toBe(true);
+    expect(
+      (
+        await service.validateAnswerForUser({
+          userId: "other",
+          cardId: "card-meaning",
+          answerKind: "meaning",
+          answer: "моё число",
+        })
+      ).accepted,
+    ).toBe(false);
   });
   it("replaces a private answer in place, preserving its identity and creation time", async () => {
     const { service } = createHarness();
@@ -435,10 +461,10 @@ class InMemoryOverridesRepository extends OverridesRepository {
       input.normalizedText,
     ].join(":");
     const now = new Date("2026-06-18T09:00:00.000Z");
-      const existing = this.acceptedAnswers.get(key);
-      if(existing) return existing;
+    const existing = this.acceptedAnswers.get(key);
+    if (existing) return existing;
     const override: UserAcceptedAnswerRecord = {
-      id: existing?.id ?? `override-${this.nextId++}`,
+      id: `override-${this.nextId++}`,
       userId: input.userId,
       learningCardId: input.cardId,
       overrideType: input.answerKind === "reading" ? "accepted-reading" : "accepted-meaning",
@@ -446,7 +472,7 @@ class InMemoryOverridesRepository extends OverridesRepository {
       text: input.text,
       normalizedText: input.normalizedText,
       note: input.note,
-      createdAt: existing?.createdAt ?? now,
+      createdAt: now,
       updatedAt: now,
     };
 
@@ -554,12 +580,44 @@ class InMemoryOverridesRepository extends OverridesRepository {
 }
 
 describe("PrismaOverridesRepository replacement", () => {
-  it("does not overwrite the stored answer or note on duplicate Add",async()=>{
-    const saved={id:"saved",userId:"owner",learningCardId:"card-meaning",overrideType:"ACCEPTED_MEANING",locale:"en-US",text:"original",normalizedText:"original",note:"Keep me",createdAt:new Date(0),updatedAt:new Date(0)};
-    const upsert=vi.fn().mockResolvedValue(saved);
-    const repo=new PrismaOverridesRepository({db:{userItemOverride:{upsert}}} as never);
-    expect(await repo.upsertAcceptedAnswer({userId:"owner",cardId:"card-meaning",answerKind:"meaning",locale:"en-US",text:"ORIGINAL!",normalizedText:"original",note:null})).toMatchObject({id:"saved",text:"original",note:"Keep me"});
-    expect(upsert.mock.calls[0]?.[0]).toMatchObject({update:{},where:{userId_learningCardId_overrideType_locale_normalizedText:{userId:"owner",learningCardId:"card-meaning",overrideType:"ACCEPTED_MEANING",locale:"en-US",normalizedText:"original"}}});
+  it("does not overwrite the stored answer or note on duplicate Add", async () => {
+    const saved = {
+      id: "saved",
+      userId: "owner",
+      learningCardId: "card-meaning",
+      overrideType: "ACCEPTED_MEANING",
+      locale: "en-US",
+      text: "original",
+      normalizedText: "original",
+      note: "Keep me",
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+    };
+    const upsert = vi.fn().mockResolvedValue(saved);
+    const repo = new PrismaOverridesRepository({ db: { userItemOverride: { upsert } } } as never);
+    expect(
+      await repo.upsertAcceptedAnswer({
+        userId: "owner",
+        cardId: "card-meaning",
+        answerKind: "meaning",
+        locale: "en-US",
+        text: "ORIGINAL!",
+        normalizedText: "original",
+        note: null,
+      }),
+    ).toMatchObject({ id: "saved", text: "original", note: "Keep me" });
+    expect(upsert.mock.calls[0]?.[0]).toMatchObject({
+      update: {},
+      where: {
+        userId_learningCardId_overrideType_locale_normalizedText: {
+          userId: "owner",
+          learningCardId: "card-meaning",
+          overrideType: "ACCEPTED_MEANING",
+          locale: "en-US",
+          normalizedText: "original",
+        },
+      },
+    });
   });
   const input: ReplaceAcceptedAnswerInput = {
     userId: "owner",

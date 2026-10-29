@@ -6,6 +6,7 @@ import {
   type BilingualTextDto,
   type LocalizedTextDto,
   type PracticeProgressDto,
+  type PracticeCardOutcomeDto,
   type PracticeSource,
   type ReviewAnswerResponse,
   type ReviewAnswerResultType,
@@ -108,7 +109,7 @@ export type ReviewQueueRecord = {
 export type ResumablePracticeSource = PracticeSource | "confusable-kanji";
 
 export type PracticeSessionRecord = {
-  readonly outcomes?: readonly import("@kanji-srs/shared").PracticeCardOutcomeDto[];
+  readonly outcomes?: readonly PracticeCardOutcomeDto[];
   readonly id: string;
   readonly userId: string;
   readonly startedAt: Date;
@@ -129,7 +130,7 @@ export type CreatePracticeSessionInput = {
 };
 
 export type UpdatePracticeSessionProgressInput = {
-  readonly outcome?: import("@kanji-srs/shared").PracticeCardOutcomeDto;
+  readonly outcome?: PracticeCardOutcomeDto;
   readonly userId: string;
   readonly sessionId: string;
   readonly currentIndex: number;

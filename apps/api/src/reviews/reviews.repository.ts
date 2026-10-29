@@ -57,7 +57,10 @@ import {
 } from "./review-session-state";
 
 export abstract class ReviewsRepository {
-  abstract listPracticeHistory(userId:string, source:PracticeSource):Promise<readonly PracticeSessionRecord[]>;
+  abstract listPracticeHistory(
+    userId: string,
+    source: PracticeSource,
+  ): Promise<readonly PracticeSessionRecord[]>;
   abstract listDueReviewCards(
     userId: string,
     now: Date,
@@ -252,9 +255,25 @@ type ReviewTargetRows = {
 
 @Injectable()
 export class PrismaReviewsRepository extends ReviewsRepository {
-  async listPracticeHistory(userId:string, source:PracticeSource):Promise<readonly PracticeSessionRecord[]> {
-    const rows=await this.prisma.db.reviewSession.findMany({where:{userId,mode:"EXTRA_PRACTICE",finishedAt:{not:null},statsJson:{path:["source"],equals:source}},orderBy:[{finishedAt:"desc"},{id:"desc"}],take:20});
-    return rows.flatMap(row=>{const session=toPracticeSessionRecord(row);return session && session.source === source ? [session] : [];});
+  async listPracticeHistory(
+    userId: string,
+    source: PracticeSource,
+  ): Promise<readonly PracticeSessionRecord[]> {
+    const rows = await this.prisma.db.reviewSession.findMany({
+      where: {
+        userId,
+        mode: "EXTRA_PRACTICE",
+        finishedAt: { not: null },
+        statsJson: { path: ["source"], equals: source },
+        AND: [{ statsJson: { path: ["outcome"], equals: "completed" } }],
+      },
+      orderBy: [{ finishedAt: "desc" }, { id: "desc" }],
+      take: 20,
+    });
+    return rows.flatMap((row) => {
+      const session = toPracticeSessionRecord(row);
+      return session && session.source === source ? [session] : [];
+    });
   }
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
     super();
@@ -297,7 +316,17 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     }
 
     if (source === "recent-mistakes") {
-      const previous=await this.prisma.db.reviewSession.findFirst({where:{userId,mode:"EXTRA_PRACTICE",finishedAt:{not:null},statsJson:{path:["source"],equals:"recent-mistakes"}},orderBy:[{finishedAt:"desc"},{id:"desc"}],select:{statsJson:true}});
+      const previous = await this.prisma.db.reviewSession.findFirst({
+        where: {
+          userId,
+          mode: "EXTRA_PRACTICE",
+          finishedAt: { not: null },
+          statsJson: { path: ["source"], equals: "recent-mistakes" },
+          AND: [{ statsJson: { path: ["outcome"], equals: "completed" } }],
+        },
+        orderBy: [{ finishedAt: "desc" }, { id: "desc" }],
+        select: { statsJson: true },
+      });
       const attempts = (await this.prisma.db.reviewAnswer.findMany({
         where: {
           userSrsState: { userId, learningCard: listeningReviewCardEligibilityWhere },
@@ -309,11 +338,19 @@ export class PrismaReviewsRepository extends ReviewsRepository {
         },
         distinct: ["learningCardId"],
         orderBy: [{ answeredAt: "desc" }, { id: "asc" }],
-        take: Math.min(200,limit*10),
+        take: Math.min(200, limit * 10),
       })) as readonly ReviewAnswerWithStateRow[];
 
-      const previousIds=isRecord(previous?.statsJson) && Array.isArray(previous.statsJson.cardIds) ? previous.statsJson.cardIds.filter((id):id is string=>typeof id === "string") : [];
-      const selected=rotatePracticeCandidates(attempts,attempt=>attempt.userSrsState.learningCardId,previousIds,limit);
+      const previousIds =
+        isRecord(previous?.statsJson) && Array.isArray(previous.statsJson.cardIds)
+          ? previous.statsJson.cardIds.filter((id): id is string => typeof id === "string")
+          : [];
+      const selected = rotatePracticeCandidates(
+        attempts,
+        (attempt) => attempt.userSrsState.learningCardId,
+        previousIds,
+        limit,
+      );
 
       return filterEligibleQueueRecords(
         await this.toQueueRecords(selected.map((attempt) => attempt.userSrsState)),
@@ -472,33 +509,43 @@ export class PrismaReviewsRepository extends ReviewsRepository {
   }
 
   async createPracticeSession(input: CreatePracticeSessionInput): Promise<PracticeSessionRecord> {
-    return this.runReviewTransaction(async tx=>{
-    const owners=await tx.$queryRaw<{id:string}[]>`SELECT id FROM "User" WHERE id = ${input.userId}::uuid FOR UPDATE`;
-    if(owners.length === 0) throw new NotFoundException("Пользователь не найден.");
-    const active=await tx.reviewSession.findMany({where:{userId:input.userId,mode:"EXTRA_PRACTICE",finishedAt:null},orderBy:[{startedAt:"desc"},{id:"asc"}],take:100});
-    for(const row of active) {const current=toPracticeSessionRecord(row);if(current?.source === input.source && current.contextId === (input.contextId ?? null)) return current;}
-    const session = (await tx.reviewSession.create({
-      data: {
-        userId: input.userId,
-        startedAt: input.now,
-        mode: "EXTRA_PRACTICE",
-        statsJson: toPracticeSessionStats({
-          source: input.source,
-          contextId: input.contextId ?? null,
-          cardIds: input.cardIds,
-          currentIndex: 0,
-          progress: { answered: 0, accepted: 0, missed: 0 },
-        }),
-      },
-    })) as ReviewSessionRow;
-    const record = toPracticeSessionRecord(session);
+    return this.runReviewTransaction(async (tx) => {
+      const owners = await tx.$queryRaw<
+        { id: string }[]
+      >`SELECT id FROM "User" WHERE id = ${input.userId}::uuid FOR UPDATE`;
+      if (owners.length === 0) throw new NotFoundException("Пользователь не найден.");
+      const active = await tx.reviewSession.findMany({
+        where: { userId: input.userId, mode: "EXTRA_PRACTICE", finishedAt: null },
+        orderBy: [{ startedAt: "desc" }, { id: "asc" }],
+        take: 100,
+      });
+      for (const row of active) {
+        const current = toPracticeSessionRecord(row);
+        if (current?.source === input.source && current.contextId === (input.contextId ?? null))
+          return current;
+      }
+      const session = (await tx.reviewSession.create({
+        data: {
+          userId: input.userId,
+          startedAt: input.now,
+          mode: "EXTRA_PRACTICE",
+          statsJson: toPracticeSessionStats({
+            source: input.source,
+            contextId: input.contextId ?? null,
+            cardIds: input.cardIds,
+            currentIndex: 0,
+            progress: { answered: 0, accepted: 0, missed: 0 },
+          }),
+        },
+      })) as ReviewSessionRow;
+      const record = toPracticeSessionRecord(session);
 
-    if (record === null) {
-      throw new Error("Created practice session has invalid stats.");
-    }
+      if (record === null) {
+        throw new Error("Created practice session has invalid stats.");
+      }
 
-    return record;
-    },"ReadCommitted");
+      return record;
+    }, "ReadCommitted");
   }
 
   async updatePracticeSessionProgress(
@@ -524,19 +571,24 @@ export class PrismaReviewsRepository extends ReviewsRepository {
           input.progress.missed === active.progress.missed) ||
         (input.progress.accepted === active.progress.accepted &&
           input.progress.missed === active.progress.missed + 1)
-      )
-      || (input.outcome !== undefined && (input.outcome.cardId !== active.cardIds[active.currentIndex] || input.outcome.accepted !== (input.progress.accepted > active.progress.accepted) || !Number.isFinite(Date.parse(input.outcome.answeredAt))))
+      ) ||
+      (input.outcome !== undefined &&
+        (input.outcome.cardId !== active.cardIds[active.currentIndex] ||
+          input.outcome.accepted !== input.progress.accepted > active.progress.accepted ||
+          !Number.isFinite(Date.parse(input.outcome.answeredAt))))
     ) {
       return null;
     }
 
     const previousStats = toPracticeSessionStats(active);
-    const outcomes=input.outcome ? [...(active.outcomes ?? []),input.outcome].slice(-200) : active.outcomes;
+    const outcomes = input.outcome
+      ? [...(active.outcomes ?? []), input.outcome].slice(-200)
+      : active.outcomes;
     const nextStats = toPracticeSessionStats({
       ...active,
       currentIndex: input.currentIndex,
       progress: input.progress,
-      ...(outcomes === undefined ? {} : {outcomes}),
+      ...(outcomes === undefined ? {} : { outcomes }),
     });
     const updated = await this.prisma.db.reviewSession.updateMany({
       where: {
@@ -557,7 +609,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
       ...active,
       currentIndex: input.currentIndex,
       progress: input.progress,
-      ...(outcomes === undefined ? {} : {outcomes}),
+      ...(outcomes === undefined ? {} : { outcomes }),
     };
   }
 
@@ -1687,7 +1739,26 @@ function toPracticeSessionRecord(row: ReviewSessionRow): PracticeSessionRecord |
       accepted: readNonNegativeInteger(progress?.accepted),
       missed: readNonNegativeInteger(progress?.missed),
     },
-    ...(Array.isArray(stats?.outcomes) ? {outcomes:stats.outcomes.slice(-200).flatMap(outcome=>isRecord(outcome) && typeof outcome.cardId === "string" && cardIds.includes(outcome.cardId) && typeof outcome.accepted === "boolean" && typeof outcome.answeredAt === "string" && Number.isFinite(Date.parse(outcome.answeredAt)) ? [{cardId:outcome.cardId,accepted:outcome.accepted,answeredAt:outcome.answeredAt}] : [])} : {}),
+    ...(Array.isArray(stats?.outcomes)
+      ? {
+          outcomes: stats.outcomes.slice(-200).flatMap((outcome) =>
+            isRecord(outcome) &&
+            typeof outcome.cardId === "string" &&
+            cardIds.includes(outcome.cardId) &&
+            typeof outcome.accepted === "boolean" &&
+            typeof outcome.answeredAt === "string" &&
+            Number.isFinite(Date.parse(outcome.answeredAt))
+              ? [
+                  {
+                    cardId: outcome.cardId,
+                    accepted: outcome.accepted,
+                    answeredAt: outcome.answeredAt,
+                  },
+                ]
+              : [],
+          ),
+        }
+      : {}),
   };
 }
 
@@ -1700,7 +1771,9 @@ function toPracticeSessionStats(
 ): Prisma.InputJsonObject {
   return {
     source: input.source,
-    ...(input.outcomes === undefined ? {} : {outcomes:input.outcomes.map(outcome=>({...outcome}))}),
+    ...(input.outcomes === undefined
+      ? {}
+      : { outcomes: input.outcomes.map((outcome) => ({ ...outcome })) }),
     contextId: input.contextId,
     cardIds: [...input.cardIds],
     currentIndex: input.currentIndex,

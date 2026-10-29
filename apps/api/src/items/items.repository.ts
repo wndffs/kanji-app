@@ -455,11 +455,22 @@ export class PrismaItemsRepository extends ItemsRepository {
       ? []
       : [...target.attributions, ...(await this.findAttributions(target.sourceRecordIds))];
     const itemType = toItemKind(item.kind);
-    const recording = itemType === "word" && !options.summaryOnly ? findPronunciationRecording(target.japanese, target.reading) : null;
-    const pronunciationAudio = recording === null ? null : toVerifiedWordPronunciation(
-      await this.prisma.db.audioAsset.findFirst({ where: { id: recording.id, learningItemId: item.id, status: "PUBLISHED" }, include: { dataSource: true, license: true, importRun: true } }),
-      item.id, target.japanese, target.reading,
-    );
+    const recording =
+      itemType === "word" && !options.summaryOnly
+        ? findPronunciationRecording(target.japanese, target.reading)
+        : null;
+    const pronunciationAudio =
+      recording === null
+        ? null
+        : toVerifiedWordPronunciation(
+            await this.prisma.db.audioAsset.findFirst({
+              where: { id: recording.id, learningItemId: item.id, status: "PUBLISHED" },
+              include: { dataSource: true, license: true, importRun: true },
+            }),
+            item.id,
+            target.japanese,
+            target.reading,
+          );
     const cards = (item.cards ?? []).map((card) => toCardRecord(card, item.id, itemType));
     const userOverrides = cards.flatMap((card) => card.userOverrides);
     const srsDetails = await this.findItemSrsDetails(item.id, options.userId);

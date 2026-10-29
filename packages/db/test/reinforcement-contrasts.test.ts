@@ -4,7 +4,9 @@ import { buildMainCourseContentBatches } from "../src/main-course-content";
 
 describe("original bounded visual contrasts", () => {
   it("only teaches already reviewed placed kanji, with both languages", () => {
-    const characters = new Set(buildMainCourseContentBatches().flatMap(b=>b.kanji.map(k=>k.character)));
+    const characters = new Set(
+      buildMainCourseContentBatches().flatMap((b) => b.kanji.map((k) => k.character)),
+    );
     for (const contrast of VISUAL_KANJI_CONTRASTS) {
       for (const character of contrast.characters) expect(characters.has(character)).toBe(true);
       expect(contrast.ru.length).toBeGreaterThan(60);

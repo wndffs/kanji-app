@@ -13,6 +13,27 @@ const CORRECT_STEP: UpdatePracticeSessionProgressInput = {
 };
 
 describe("PrismaReviewsRepository practice snapshot updates", () => {
+  it("persists bounded per-card rehearsal outcomes without scheduled answer writes", async () => {
+    const { repository, row } = createHarness();
+    const outcome = { cardId: "card-0", accepted: true, answeredAt: "2026-10-29T12:00:00.000Z" };
+    expect(
+      await repository.updatePracticeSessionProgress({ ...CORRECT_STEP, outcome }),
+    ).toMatchObject({ outcomes: [outcome] });
+    expect(row.statsJson).toMatchObject({
+      outcomes: [outcome],
+      progress: { answered: 1, accepted: 1, missed: 0 },
+    });
+    const snapshot = structuredClone(row);
+    expect(
+      await repository.updatePracticeSessionProgress({
+        ...CORRECT_STEP,
+        currentIndex: 2,
+        progress: { answered: 2, accepted: 2, missed: 0 },
+        outcome: { ...outcome, cardId: "foreign" },
+      }),
+    ).toBeNull();
+    expect(row).toEqual(snapshot);
+  });
   it.each(["recent-lessons", "recent-mistakes", "burned", "confusable-kanji"])(
     "rejects a delayed %s answer after newer answers have committed",
     async (source) => {
