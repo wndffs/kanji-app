@@ -36,17 +36,17 @@ bulk raw import, destructive migration or paid-service change.
 | ID | Acceptance | State |
 | --- | --- | --- |
 | 430 | Independent selection policy and honest scope/labels | Complete |
-| 431 | Deterministic usefulness/source-priority/readiness ranking | Planned |
-| 432 | Exact pair identity, ambiguity and evidence metadata | Planned |
-| 433 | Non-noun authoring metadata and bounded verbs/adjectives | Planned |
-| 434 | Bounded useful nouns and time/language vocabulary | Planned |
-| 435 | Verified 前 and earlier component/kanji closure | Planned |
-| 436 | Curated RU meanings and conservative near-answer boundaries | Planned |
-| 437 | Matching EN meanings, synonyms and exclusions | Planned |
-| 438 | Source-bound reading choices and explicit scope notes | Planned |
-| 439 | Original JP/kana/RU/EN examples with prerequisite checks | Planned |
-| 440 | Independent content review, corrections and versioned seal | Planned |
-| 441 | Registry, placement/policy, finite-version and scoped preflight checks | Planned |
+| 431 | Deterministic usefulness/source-priority/readiness ranking | Complete |
+| 432 | Exact pair identity, ambiguity and evidence metadata | Complete |
+| 433 | Non-noun authoring metadata and bounded verbs/adjectives | Complete |
+| 434 | Bounded useful nouns and time/language vocabulary | Complete |
+| 435 | Verified 前 and earlier component/kanji closure | Complete |
+| 436 | Curated RU meanings and conservative near-answer boundaries | Complete |
+| 437 | Matching EN meanings, synonyms and exclusions | Complete |
+| 438 | Source-bound reading choices and explicit scope notes | Complete |
+| 439 | Original JP/kana/RU/EN examples with prerequisite checks | Complete |
+| 440 | Independent content review, corrections and versioned seal | Reviewing |
+| 441 | Registry, placement/policy, finite-version and scoped preflight checks | In progress |
 | 442 | Verified additive application/publication or exact blockers | Planned |
 | 443 | Batched learner/content acceptance and database impact | Planned |
 | 444 | Release, exact runtime and real coverage/gap report | Planned |
@@ -62,3 +62,20 @@ Apply only new selected batches. The existing word preflight reads the full
 registry and is slow; do not remove that guard merely to improve job timing.
 Test locally only touched contracts, then use batched CI and one bounded remote
 audit with an isolated account. Close browser tabs and finished helpers.
+
+## Development Checkpoint
+
+Full local scan matched all thirty exact bilingual candidates, all twenty
+selected source IDs, 前's KANJIDIC2 on-reading and its KanjiVG primary graphic.
+Candidate fingerprint `66ddf8b66fa6195afc370f9e4572620dba0d58fb92615052df76b005d1a3f56c`;
+source fingerprint `007e2a5593b48b3bd77742c13f761dd1d6ca332843307346f6d2752003065240`.
+Detailed observations stay in the external cache. No raw import or live write.
+
+Scoped first-pass checks passed: 139 tests for selection, proposal content,
+curator/POS and source tools. The word planner now checks at most four words
+concurrently, preserves every source/ownership/placement check and drains all
+in-flight reads before propagating a failure. Registry-wide preflight still
+completes before any mutation. Its 71-test contract passed; actual operator
+timings and publication are not inferred from mocks. Two independent content
+reviewers are inspecting the proposal; reviewedAt remains null and it is not
+in the publishing registry pending their results and corrections.

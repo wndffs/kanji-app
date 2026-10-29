@@ -204,7 +204,9 @@ async function planWordBatch(db: Reader, batch: MainCourseWordBatch, cache?: Pla
   }
 
   const words = [];
-  for (const content of batch.words) {
+  // Keep every guard, but bound independent read-only checks to four in flight.
+  for (let offset = 0; offset < batch.words.length; offset += 4) {
+    const group = await Promise.allSettled(batch.words.slice(offset, offset + 4).map(async (content) => {
     const word = await requireWordSource(db, content);
     const sourceEvidence = wordEvidence(word);
     const acceptedReadingEvidence = await requireAlternativeReadingSources(
@@ -220,7 +222,7 @@ async function planWordBatch(db: Reader, batch: MainCourseWordBatch, cache?: Pla
         dataSourceId: source.id,
         licenseId: source.licenseId,
       });
-    words.push({
+    return {
       content,
       wordId: word.id,
       sourceEvidence,
@@ -228,7 +230,12 @@ async function planWordBatch(db: Reader, batch: MainCourseWordBatch, cache?: Pla
       prerequisiteItemIds: wordHanCharacters(content.expression).map(
         (character) => kanjiItems.get(character)!,
       ),
-    });
+    };
+    }));
+    for (const result of group) {
+      if (result.status === "rejected") throw result.reason;
+      words.push(result.value);
+    }
   }
   return {
     courseId: course.id,
