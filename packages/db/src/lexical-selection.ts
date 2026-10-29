@@ -33,21 +33,35 @@ export function rankLexicalCandidates(
   for (const candidate of candidates) {
     const key = lexicalPairKey(candidate);
     const missing = [...new Set(candidate.expression.match(/\p{Script=Han}/gu) ?? [])].some(
-      (character) => (options.prerequisiteLevels.get(character) ?? Infinity) >= options.wordLevel,
+      (character) => {
+        const level = options.prerequisiteLevels.get(character);
+        return (
+          level === undefined || !Number.isInteger(level) || level < 1 || level >= options.wordLevel
+        );
+      },
     );
     const reason =
-      !candidate.expression || candidate.expression.trim() !== candidate.expression ||
+      !candidate.expression ||
+      candidate.expression.trim() !== candidate.expression ||
       !/^[\u3041-\u3096\u30fc]+$/u.test(candidate.reading) ||
       !["verb", "i-adjective", "noun"].includes(candidate.kind) ||
-      !Number.isInteger(candidate.usefulness) || candidate.usefulness < 1 || candidate.usefulness > 3 ||
-      (candidate.sourceRank !== null && (!Number.isInteger(candidate.sourceRank) || candidate.sourceRank < 1))
+      !Number.isInteger(candidate.usefulness) ||
+      candidate.usefulness < 1 ||
+      candidate.usefulness > 3 ||
+      (candidate.sourceRank !== null &&
+        (!Number.isInteger(candidate.sourceRank) || candidate.sourceRank < 1))
         ? "invalid-metadata"
-        : options.existingPairs.has(key) ? "already-registered"
-        : counts.get(key)! > 1 ? "duplicate-proposal"
-        : candidate.matches !== 1 || !/^jmdict:\d+$/u.test(candidate.sourceRecordId ?? "")
-          ? "missing-or-ambiguous-source"
-        : !candidate.bilingual ? "missing-bilingual-source"
-        : missing ? "missing-earlier-kanji" : null;
+        : options.existingPairs.has(key)
+          ? "already-registered"
+          : counts.get(key)! > 1
+            ? "duplicate-proposal"
+            : candidate.matches !== 1 || !/^jmdict:\d+$/u.test(candidate.sourceRecordId ?? "")
+              ? "missing-or-ambiguous-source"
+              : !candidate.bilingual
+                ? "missing-bilingual-source"
+                : missing
+                  ? "missing-earlier-kanji"
+                  : null;
     if (reason) rejected.push({ key, reason });
     else selected.push(candidate);
   }
@@ -73,5 +87,9 @@ export function selectLexicalBackbone(ranked: readonly LexicalCandidate[]) {
   });
   const keys = new Set(selected.map(lexicalPairKey));
   if (keys.size !== 20) throw new Error("Backbone requires twenty distinct exact pairs.");
-  return { selected, deferred: ranked.filter((entry) => !keys.has(lexicalPairKey(entry))), publicationApproved: false as const };
+  return {
+    selected,
+    deferred: ranked.filter((entry) => !keys.has(lexicalPairKey(entry))),
+    publicationApproved: false as const,
+  };
 }

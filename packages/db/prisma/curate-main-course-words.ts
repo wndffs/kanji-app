@@ -206,32 +206,34 @@ async function planWordBatch(db: Reader, batch: MainCourseWordBatch, cache?: Pla
   const words = [];
   // Keep every guard, but bound independent read-only checks to four in flight.
   for (let offset = 0; offset < batch.words.length; offset += 4) {
-    const group = await Promise.allSettled(batch.words.slice(offset, offset + 4).map(async (content) => {
-    const word = await requireWordSource(db, content);
-    const sourceEvidence = wordEvidence(word);
-    const acceptedReadingEvidence = await requireAlternativeReadingSources(
-      db,
-      content,
-      sourceEvidence,
+    const group = await Promise.allSettled(
+      batch.words.slice(offset, offset + 4).map(async (content) => {
+        const word = await requireWordSource(db, content);
+        const sourceEvidence = wordEvidence(word);
+        const acceptedReadingEvidence = await requireAlternativeReadingSources(
+          db,
+          content,
+          sourceEvidence,
+        );
+        const item = await findItem(db, "WORD", word.id, course.id);
+        await checkPlacement(db, level.id, content.sortOrder, item);
+        assertWritableItem(item, content);
+        if (source !== null)
+          await checkExampleOwnership(db, batch, content, {
+            dataSourceId: source.id,
+            licenseId: source.licenseId,
+          });
+        return {
+          content,
+          wordId: word.id,
+          sourceEvidence,
+          acceptedReadingEvidence,
+          prerequisiteItemIds: wordHanCharacters(content.expression).map(
+            (character) => kanjiItems.get(character)!,
+          ),
+        };
+      }),
     );
-    const item = await findItem(db, "WORD", word.id, course.id);
-    await checkPlacement(db, level.id, content.sortOrder, item);
-    assertWritableItem(item, content);
-    if (source !== null)
-      await checkExampleOwnership(db, batch, content, {
-        dataSourceId: source.id,
-        licenseId: source.licenseId,
-      });
-    return {
-      content,
-      wordId: word.id,
-      sourceEvidence,
-      acceptedReadingEvidence,
-      prerequisiteItemIds: wordHanCharacters(content.expression).map(
-        (character) => kanjiItems.get(character)!,
-      ),
-    };
-    }));
     for (const result of group) {
       if (result.status === "rejected") throw result.reason;
       words.push(result.value);

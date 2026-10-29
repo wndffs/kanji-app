@@ -20,9 +20,9 @@ import {
 describe("first bounded main-course vocabulary manifest", () => {
   it("keeps legacy noun metadata and rejects unsupported explicit authoring classes", () => {
     expect(authoredWordPartOfSpeech({})).toBe("noun (course-authored)");
-    expect(authoredWordPartOfSpeech({partOfSpeech:"verb"})).toBe("verb (course-authored)");
+    expect(authoredWordPartOfSpeech({ partOfSpeech: "verb" })).toBe("verb (course-authored)");
     const batch = structuredClone(buildMainCourseWordBatch());
-    Object.assign(batch.words[0]!,{partOfSpeech:"invented"});
+    Object.assign(batch.words[0]!, { partOfSpeech: "invented" });
     expect(validateMainCourseWordBatch(batch)).toContain("Invalid authored part of speech for 山.");
   });
   it("pins the independently reviewed manifest and exact twenty verified identities", () => {
@@ -213,6 +213,14 @@ describe("first bounded main-course vocabulary manifest", () => {
           examples: 20,
           checksumSha256: "8a7c53c07b87b31ecfa27173731c8213f755a3349332f40ef5372c46e521ebf4",
         },
+        {
+          batchId: "task-127-course-words-08",
+          reviewedAt: "2026-10-29",
+          words: 20,
+          cards: 40,
+          examples: 20,
+          checksumSha256: "60833d0bc8ba76f4b734f0a46307cb3de4977ed637c510b01da1a75353e27a67",
+        },
       ],
     });
   });
@@ -288,6 +296,7 @@ describe("first bounded main-course vocabulary manifest", () => {
         { batchId: "task-127-course-words-05", reviewedAt: "2026-10-22" },
         { batchId: "task-127-course-words-06", reviewedAt: "2026-10-22" },
         { batchId: "task-127-course-words-07", reviewedAt: "2026-10-29" },
+        { batchId: "task-127-course-words-08", reviewedAt: "2026-10-29" },
       ],
     });
   });
@@ -453,7 +462,7 @@ describe("second bounded vocabulary batch and registry", () => {
 describe("reviewed third vocabulary batch", () => {
   it("adds twenty distinct beginner words at free slots with verified source identities", () => {
     const batches = buildMainCourseWordBatches();
-    expect(batches).toHaveLength(7);
+    expect(batches).toHaveLength(8);
     const third = batches[2]!;
     expect(third).toMatchObject({
       id: "task-127-foundation-words-03",

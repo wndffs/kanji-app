@@ -284,6 +284,7 @@ describe("source-only editorial registry inventory", () => {
       "mismatch",
       "mismatch",
       "mismatch",
+      "mismatch",
     ]);
   });
 
@@ -298,6 +299,7 @@ describe("source-only editorial registry inventory", () => {
       ["v3", "complete", 10],
       ["v4", "complete", 12],
       ["v5", "complete", 14],
+      ["v6", "complete", 16],
     ]);
     for (const seal of report.sourceSeals) {
       expect(seal.includedPreparedDistinctTotals).toEqual(seal.sealedDistinctTotals);
@@ -318,7 +320,7 @@ describe("source-only editorial registry inventory", () => {
     expect(
       report.batches
         .find((batch) => batch.id === "task-118-course-kanji-06")!
-        .sourceSeals.filter((seal) => seal.id !== "v4" && seal.id !== "v5")
+        .sourceSeals.filter((seal) => seal.id !== "v4" && seal.id !== "v5" && seal.id !== "v6")
         .every((seal) => seal.status === "not-in-seal"),
     ).toBe(true);
   });

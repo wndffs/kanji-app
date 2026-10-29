@@ -50,7 +50,12 @@ export async function inspectLocalWords(
   const expressions = new Set(candidates.map((candidate) => candidate.expression));
   const matches = new Map<
     string,
-    { sourceRecordId: string; sequence: string; locales: string[]; lexical?: Pick<JmDictWordDto, "commonnessRank" | "senses"> }[]
+    {
+      sourceRecordId: string;
+      sequence: string;
+      locales: string[];
+      lexical?: Pick<JmDictWordDto, "commonnessRank" | "senses">;
+    }[]
   >();
   const scanned = await scanSourceXml(source, "JMdict", "entry", (node) => {
     const spellings = children(node, "k_ele").flatMap((element) => textOf(element, "keb"));
@@ -64,12 +69,17 @@ export async function inspectLocalWords(
         sourceRecordId: parsed.sourceRecordId,
         sequence: parsed.sequence,
         locales: pairLocales(node, candidate),
-        ...(options.includeLexicalMetadata ? {
-          lexical: (() => {
-            const pair = parsed.words.find((word) => word.expression === candidate.expression && word.reading === candidate.reading);
-            return { commonnessRank: pair?.commonnessRank ?? null, senses: pair?.senses ?? [] };
-          })(),
-        } : {}),
+        ...(options.includeLexicalMetadata
+          ? {
+              lexical: (() => {
+                const pair = parsed.words.find(
+                  (word) =>
+                    word.expression === candidate.expression && word.reading === candidate.reading,
+                );
+                return { commonnessRank: pair?.commonnessRank ?? null, senses: pair?.senses ?? [] };
+              })(),
+            }
+          : {}),
       });
       if (existing.length > 64) throw new Error("Too many ambiguous dictionary matches.");
       matches.set(key(candidate), existing);
@@ -89,7 +99,9 @@ export async function inspectLocalWords(
           records[0]!.locales.includes("ru-RU") &&
           records[0]!.locales.includes("en-US"),
         status: records.length === 0 ? "missing" : records.length > 1 ? "ambiguous" : "matched",
-        ...(options.includeLexicalMetadata && records.length === 1 ? { lexical: records[0]!.lexical } : {}),
+        ...(options.includeLexicalMetadata && records.length === 1
+          ? { lexical: records[0]!.lexical }
+          : {}),
       };
     }),
   };

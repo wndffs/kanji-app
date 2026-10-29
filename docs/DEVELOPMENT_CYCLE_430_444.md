@@ -33,23 +33,23 @@ bulk raw import, destructive migration or paid-service change.
 
 ## Tasks
 
-| ID | Acceptance | State |
-| --- | --- | --- |
-| 430 | Independent selection policy and honest scope/labels | Complete |
-| 431 | Deterministic usefulness/source-priority/readiness ranking | Complete |
-| 432 | Exact pair identity, ambiguity and evidence metadata | Complete |
-| 433 | Non-noun authoring metadata and bounded verbs/adjectives | Complete |
-| 434 | Bounded useful nouns and time/language vocabulary | Complete |
-| 435 | Verified 前 and earlier component/kanji closure | Complete |
-| 436 | Curated RU meanings and conservative near-answer boundaries | Complete |
-| 437 | Matching EN meanings, synonyms and exclusions | Complete |
-| 438 | Source-bound reading choices and explicit scope notes | Complete |
-| 439 | Original JP/kana/RU/EN examples with prerequisite checks | Complete |
-| 440 | Independent content review, corrections and versioned seal | Reviewing |
-| 441 | Registry, placement/policy, finite-version and scoped preflight checks | In progress |
-| 442 | Verified additive application/publication or exact blockers | Planned |
-| 443 | Batched learner/content acceptance and database impact | Planned |
-| 444 | Release, exact runtime and real coverage/gap report | Planned |
+| ID  | Acceptance                                                             | State    |
+| --- | ---------------------------------------------------------------------- | -------- |
+| 430 | Independent selection policy and honest scope/labels                   | Complete |
+| 431 | Deterministic usefulness/source-priority/readiness ranking             | Complete |
+| 432 | Exact pair identity, ambiguity and evidence metadata                   | Complete |
+| 433 | Non-noun authoring metadata and bounded verbs/adjectives               | Complete |
+| 434 | Bounded useful nouns and time/language vocabulary                      | Complete |
+| 435 | Verified 前 and earlier component/kanji closure                        | Complete |
+| 436 | Curated RU meanings and conservative near-answer boundaries            | Complete |
+| 437 | Matching EN meanings, synonyms and exclusions                          | Complete |
+| 438 | Source-bound reading choices and explicit scope notes                  | Complete |
+| 439 | Original JP/kana/RU/EN examples with prerequisite checks               | Complete |
+| 440 | Independent content review, corrections and versioned seal             | Complete |
+| 441 | Registry, placement/policy, finite-version and scoped preflight checks | Complete |
+| 442 | Verified additive application/publication or exact blockers            | Planned  |
+| 443 | Batched learner/content acceptance and database impact                 | Planned  |
+| 444 | Release, exact runtime and real coverage/gap report                    | Planned  |
 
 ## Operator Boundaries
 
@@ -79,3 +79,30 @@ completes before any mutation. Its 71-test contract passed; actual operator
 timings and publication are not inferred from mocks. Two independent content
 reviewers are inspecting the proposal; reviewedAt remains null and it is not
 in the publishing registry pending their results and corrections.
+
+The user confirmed standing permission to use the two independent reviewers
+for each subsequent batch without repeating the authorization question.
+
+Both reviewers completed correction passes and approved the teaching content as
+AI-only review, not human certification or live safety. They are closed.
+`LEXICAL_WAVE08_REVIEW.md` records findings/corrections; the versioned decision
+binds the final source payloads. Kanji SHA-256
+`48ab03fce1511887a7c99aa5f290fa51b0dc86a45c624b99228c42940fa7428a`;
+words `60833d0bc8ba76f4b734f0a46307cb3de4977ed637c510b01da1a75353e27a67`.
+
+V6's canonical SHA-256 is
+`544528b1d3d0d191e2d3285e76092b9a7cc795b0645e7ce5f9b4cc7ff4bf7156`;
+publication-record UUID `1e43f4d1-9ed6-4f55-9bdc-08430d07cbe6`, not a live course
+UUID. All sixteen source batches are pinned. V1-V5 source hashes/targets remain
+unchanged, and V6 preserves V5's ten complete level/policy objects before adding
+KANJI at 11 and WORD at 12. The publication operator retains the V4/V5 bounded
+120-second Serializable transaction and all three quality scans for V6 too.
+Its validate-only command passes without a database. No implicit enrollment.
+
+Realistic preflight fixtures now cover all 360 V6 items in bounded scopes and
+verify reviewed block reasons/provenance, with no account/SRS write access.
+The historical draft07 preview is frozen to its original six-batch context;
+later registries cannot rewrite that archive's prerequisites. Global registry
+tests now count eight batches, while previous finite seals stay independently
+asserted. Future unknown CLI version tests use v7, not the newly supported v6.
+Live database source/quality/publication checks are still pending below.

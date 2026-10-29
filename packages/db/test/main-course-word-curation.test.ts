@@ -20,39 +20,53 @@ import {
 } from "../src/main-course-word-content";
 
 describe("bounded vocabulary curation", () => {
-  it.each([false,true])("bounds independent source reads to four and drains them on failure: %s", async (fail) => {
-    const batch=buildMainCourseWordBatch();
-    const fixture=harness([batch]);
-    const original=fixture.readWord.getMockImplementation()!;
-    let active=0;
-    let peak=0;
-    fixture.readWord.mockImplementation(async (...args) => {
-      active++;
-      peak=Math.max(peak,active);
-      try {
-        await Promise.resolve();
-        if(fail && args[0].where.expression_reading.expression===batch.words[1]!.expression) throw new Error("source failed");
-        return await original(...args);
-      } finally { active--; }
-    });
-    if(fail) await expect(planMainCourseWordBatch(fixture.db,batch)).rejects.toThrow("source failed");
-    else await planMainCourseWordBatch(fixture.db,batch);
-    expect(peak).toBe(4);
-    expect(active).toBe(0);
-    expect(fixture.mutations).toEqual([]);
-  });
-  it.each(["verb", "i-adjective"] as const)("persists explicit %s metadata instead of noun", async (partOfSpeech) => {
-    const batch = structuredClone(buildMainCourseWordBatch());
-    Object.assign(batch.words[0]!, {partOfSpeech});
-    const fixture = harness([batch]);
-    await applyMainCourseWordBatch(fixture.db,batch);
-    expect(fixture.db.wordSense.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      create: expect.objectContaining({partOfSpeech:`${partOfSpeech} (course-authored)`}),
-    }));
-    expect(fixture.db.wordSense.deleteMany).toHaveBeenCalledWith(expect.objectContaining({
-      where:expect.objectContaining({partOfSpeech:`${partOfSpeech} (course-authored)`}),
-    }));
-  });
+  it.each([false, true])(
+    "bounds independent source reads to four and drains them on failure: %s",
+    async (fail) => {
+      const batch = buildMainCourseWordBatch();
+      const fixture = harness([batch]);
+      const original = fixture.readWord.getMockImplementation()!;
+      let active = 0;
+      let peak = 0;
+      fixture.readWord.mockImplementation(async (...args) => {
+        active++;
+        peak = Math.max(peak, active);
+        try {
+          await Promise.resolve();
+          if (fail && args[0].where.expression_reading.expression === batch.words[1]!.expression)
+            throw new Error("source failed");
+          return await original(...args);
+        } finally {
+          active--;
+        }
+      });
+      if (fail)
+        await expect(planMainCourseWordBatch(fixture.db, batch)).rejects.toThrow("source failed");
+      else await planMainCourseWordBatch(fixture.db, batch);
+      expect(peak).toBe(4);
+      expect(active).toBe(0);
+      expect(fixture.mutations).toEqual([]);
+    },
+  );
+  it.each(["verb", "i-adjective"] as const)(
+    "persists explicit %s metadata instead of noun",
+    async (partOfSpeech) => {
+      const batch = structuredClone(buildMainCourseWordBatch());
+      Object.assign(batch.words[0]!, { partOfSpeech });
+      const fixture = harness([batch]);
+      await applyMainCourseWordBatch(fixture.db, batch);
+      expect(fixture.db.wordSense.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ partOfSpeech: `${partOfSpeech} (course-authored)` }),
+        }),
+      );
+      expect(fixture.db.wordSense.deleteMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ partOfSpeech: `${partOfSpeech} (course-authored)` }),
+        }),
+      );
+    },
+  );
   it("persists reviewed semantic blocks on meaning cards without changing the answer validator", async () => {
     const batch = structuredClone(buildMainCourseWordBatch());
     Object.assign(batch.words[0]!.meanings.en, {

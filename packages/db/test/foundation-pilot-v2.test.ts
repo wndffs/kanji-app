@@ -7,12 +7,14 @@ import { parseFoundationPilotArgs } from "../prisma/publish-foundation-pilot";
 import { loadContentQualityItems } from "../src/content-quality-report";
 import { type QualityItem } from "../src/content-quality";
 import { WAVE07_MEANING_BLOCKS } from "../src/editorial-wave07-blocks";
+import { WAVE08_RU, WAVE08_EN } from "../src/lexical-wave08-answers";
 import {
   buildFoundationPilotManifest,
   buildFoundationPilotManifestV2,
   buildFoundationPilotManifestV3,
   buildFoundationPilotManifestV4,
   buildFoundationPilotManifestV5,
+  buildFoundationPilotManifestV6,
   foundationPilotRecordId,
   FOUNDATION_PILOT_RECORD_ID,
   FOUNDATION_PILOT_V2_RECORD_ID,
@@ -188,7 +190,7 @@ describe("sealed finite pilot v2", () => {
     });
     for (const args of [
       ["--pilot"],
-      ["--pilot", "v6"],
+      ["--pilot", "v7"],
       ["--pilot", "--publish"],
       ["--pilot", "v2", "--pilot", "v1"],
       ["--pilot", "v2", "--pilot", "v2"],
@@ -450,45 +452,30 @@ describe("sealed finite pilot v2", () => {
   });
 });
 
-describe("finite V5 live-content preflight contract", () => {
-  it("covers all339 items in bounded scopes without account, SRS or enrollment access", async () => {
-    const h = readFixture(buildFoundationPilotManifestV5());
-    const result = await planFoundationPilot(h.db, { manifest: h.manifest });
-    expect(result.items).toHaveLength(339);
-    expect(result.sourceChecksums).toHaveLength(14);
-    const calls = vi.mocked(loadContentQualityItems).mock.calls;
-    expect(calls.every(([, options]) => options!.itemIds!.length <= 100)).toBe(true);
-    expect(new Set(calls.flatMap(([, options]) => options!.itemIds!)).size).toBe(339);
-    expect(h.forbidden).not.toHaveBeenCalled();
-    expect(h.recordWrite).not.toHaveBeenCalled();
-  });
-  it("rejects missing actual meaning blocks even when the sealed manifest is valid", async () => {
-    const h = readFixture(buildFoundationPilotManifestV5());
-    const load = vi.mocked(loadContentQualityItems).getMockImplementation()!;
-    vi.mocked(loadContentQualityItems).mockImplementation(async (db, options) =>
-      (await load(db, options)).map((item) => ({
-        ...item,
-        cards: item.cards.map((card) => ({ ...card, blockedAnswers: [] })),
-      })),
-    );
-    await expect(planFoundationPilot(h.db, { manifest: h.manifest })).rejects.toThrow(
-      "meaning blocks differ",
-    );
-    expect(h.forbidden).not.toHaveBeenCalled();
-    expect(h.recordWrite).not.toHaveBeenCalled();
-  });
-  it.each([{ reason: null }, { sourceKind: "OPEN_DATA" }])(
-    "rejects changed actual block metadata: %j",
-    async (change) => {
-      const h = readFixture(buildFoundationPilotManifestV5());
+describe.each([
+  ["V5", buildFoundationPilotManifestV5, 339, 14],
+  ["V6", buildFoundationPilotManifestV6, 360, 16],
+] as const)(
+  "finite %s live-content preflight contract",
+  (_label, build, itemCount, sourceCount) => {
+    it("covers all items in bounded scopes without account, SRS or enrollment access", async () => {
+      const h = readFixture(build());
+      const result = await planFoundationPilot(h.db, { manifest: h.manifest });
+      expect(result.items).toHaveLength(itemCount);
+      expect(result.sourceChecksums).toHaveLength(sourceCount);
+      const calls = vi.mocked(loadContentQualityItems).mock.calls;
+      expect(calls.every(([, options]) => options!.itemIds!.length <= 100)).toBe(true);
+      expect(new Set(calls.flatMap(([, options]) => options!.itemIds!)).size).toBe(itemCount);
+      expect(h.forbidden).not.toHaveBeenCalled();
+      expect(h.recordWrite).not.toHaveBeenCalled();
+    });
+    it("rejects missing actual meaning blocks even when the sealed manifest is valid", async () => {
+      const h = readFixture(build());
       const load = vi.mocked(loadContentQualityItems).getMockImplementation()!;
       vi.mocked(loadContentQualityItems).mockImplementation(async (db, options) =>
         (await load(db, options)).map((item) => ({
           ...item,
-          cards: item.cards.map((card) => ({
-            ...card,
-            blockedAnswers: card.blockedAnswers.map((block) => ({ ...block, ...change })),
-          })),
+          cards: item.cards.map((card) => ({ ...card, blockedAnswers: [] })),
         })),
       );
       await expect(planFoundationPilot(h.db, { manifest: h.manifest })).rejects.toThrow(
@@ -496,9 +483,30 @@ describe("finite V5 live-content preflight contract", () => {
       );
       expect(h.forbidden).not.toHaveBeenCalled();
       expect(h.recordWrite).not.toHaveBeenCalled();
-    },
-  );
-});
+    });
+    it.each([{ reason: null }, { sourceKind: "OPEN_DATA" }])(
+      "rejects changed actual block metadata: %j",
+      async (change) => {
+        const h = readFixture(build());
+        const load = vi.mocked(loadContentQualityItems).getMockImplementation()!;
+        vi.mocked(loadContentQualityItems).mockImplementation(async (db, options) =>
+          (await load(db, options)).map((item) => ({
+            ...item,
+            cards: item.cards.map((card) => ({
+              ...card,
+              blockedAnswers: card.blockedAnswers.map((block) => ({ ...block, ...change })),
+            })),
+          })),
+        );
+        await expect(planFoundationPilot(h.db, { manifest: h.manifest })).rejects.toThrow(
+          "meaning blocks differ",
+        );
+        expect(h.forbidden).not.toHaveBeenCalled();
+        expect(h.recordWrite).not.toHaveBeenCalled();
+      },
+    );
+  },
+);
 
 // A narrow read-only projection plus write spies: no simulated Prisma persistence/transactions.
 function readFixture(manifest = buildFoundationPilotManifestV2()) {
@@ -602,6 +610,8 @@ function readFixture(manifest = buildFoundationPilotManifestV2()) {
                   reason: [
                     ...(WAVE07_MEANING_BLOCKS[target.expression]?.ru ?? []),
                     ...(WAVE07_MEANING_BLOCKS[target.expression]?.en ?? []),
+                    ...(WAVE08_RU[target.expression]?.blocked ?? []),
+                    ...(WAVE08_EN[target.expression]?.blocked ?? []),
                   ].find((entry) => entry.text === block.text)!.reason,
                   id: `block-${itemId(target.key)}-${index}`,
                   learningCardId: `card-${itemId(target.key)}-${promptType}`,

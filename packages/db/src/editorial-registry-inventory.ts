@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { WAVE07_REVIEW_DECISION } from "./editorial-wave07-review";
+import { WAVE08_REVIEW_DECISION } from "./lexical-wave08-review";
 
 import { buildMainCourseBlueprint } from "./main-course";
 import {
@@ -31,7 +32,7 @@ type Target = {
   prerequisiteKeys: readonly string[];
 };
 
-// Read-only V1-V4 references from foundation-pilot.ts. Do not import its DB runtime
+// Read-only finite-version references. Do not import the DB runtime
 // or derive membership from the growing registry; later sources cannot enlarge these seals.
 const SEALED_KANJI = [
   [
@@ -146,6 +147,51 @@ const SOURCE_SEALS = [
       },
     ],
     sealedDistinctTotals: { components: 88, kanji: 111, words: 140, items: 339 },
+  },
+  {
+    id: "v6",
+    version: "6",
+    sources: [
+      ...SEALED_KANJI,
+      {
+        kind: "kanji",
+        id: "task-118-course-kanji-06",
+        version: "1",
+        checksumSha256: "74482be25706778fafe6e18b5ffc144718a3bf7a4181a5aacc8323516b223833",
+      },
+      {
+        kind: "kanji",
+        id: "task-118-course-kanji-07",
+        version: "1",
+        checksumSha256: WAVE07_REVIEW_DECISION.kanjiSha256,
+      },
+      {
+        kind: "kanji",
+        id: "task-118-course-kanji-08",
+        version: "1",
+        checksumSha256: WAVE08_REVIEW_DECISION.kanjiSha256,
+      },
+      ...SEALED_WORDS,
+      {
+        kind: "word",
+        id: "task-127-course-words-06",
+        version: "1",
+        checksumSha256: "8a9e0cef7dc10ec355125ffb7bb989d96cd531d0f85767280b735b6ad9790858",
+      },
+      {
+        kind: "word",
+        id: "task-127-course-words-07",
+        version: "1",
+        checksumSha256: WAVE07_REVIEW_DECISION.wordsSha256,
+      },
+      {
+        kind: "word",
+        id: "task-127-course-words-08",
+        version: "1",
+        checksumSha256: WAVE08_REVIEW_DECISION.wordsSha256,
+      },
+    ],
+    sealedDistinctTotals: { components: 88, kanji: 112, words: 160, items: 360 },
   },
 ] as const;
 
@@ -285,7 +331,7 @@ export function buildEditorialRegistryInventory(options: EditorialRegistryInvent
     });
     if (sourceSeals.some((seal) => seal.status === "mismatch"))
       issues.push(
-        `${batch.id}: immutable ${sourceSeals.some((seal) => seal.id !== "v5" && seal.status === "mismatch") ? "V1-V4" : "V5"} source seal mismatch.`,
+        `${batch.id}: immutable ${sourceSeals.some((seal) => !["v5", "v6"].includes(seal.id) && seal.status === "mismatch") ? "V1-V4" : sourceSeals.some((seal) => seal.id === "v5" && seal.status === "mismatch") ? "V5" : "V6"} source seal mismatch.`,
       );
     return {
       kind: entry.kind,

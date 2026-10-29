@@ -961,6 +961,7 @@ describe("remote smoke safety", () => {
     expect(workflow).toContain("v3) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v3");
     expect(workflow).toContain("v4) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v4");
     expect(workflow).toContain("v5) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v5");
+    expect(workflow).toContain("v6) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v6");
     expect(workflow).toContain("default: v1");
     expect(workflow).toContain("Unsupported pilot version.");
     expect(workflow).toContain("steps.audit.outputs.report_ready == 'true'");
