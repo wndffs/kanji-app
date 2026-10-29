@@ -197,6 +197,14 @@ describe("first bounded main-course vocabulary manifest", () => {
           cards: 40,
           examples: 20,
         },
+        {
+          batchId: "task-127-course-words-07",
+          reviewedAt: "2026-10-29",
+          words: 20,
+          cards: 40,
+          examples: 20,
+          checksumSha256: "8a7c53c07b87b31ecfa27173731c8213f755a3349332f40ef5372c46e521ebf4",
+        },
       ],
     });
   });
@@ -271,6 +279,7 @@ describe("first bounded main-course vocabulary manifest", () => {
         { batchId: "task-127-foundation-words-04", reviewedAt: "2026-10-22" },
         { batchId: "task-127-course-words-05", reviewedAt: "2026-10-22" },
         { batchId: "task-127-course-words-06", reviewedAt: "2026-10-22" },
+        { batchId: "task-127-course-words-07", reviewedAt: "2026-10-29" },
       ],
     });
   });
@@ -436,7 +445,7 @@ describe("second bounded vocabulary batch and registry", () => {
 describe("reviewed third vocabulary batch", () => {
   it("adds twenty distinct beginner words at free slots with verified source identities", () => {
     const batches = buildMainCourseWordBatches();
-    expect(batches).toHaveLength(6);
+    expect(batches).toHaveLength(7);
     const third = batches[2]!;
     expect(third).toMatchObject({
       id: "task-127-foundation-words-03",

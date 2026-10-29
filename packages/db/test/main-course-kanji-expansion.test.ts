@@ -100,7 +100,7 @@ describe("fifth source-checked kanji slice", () => {
 
 describe("first N5-band kanji slice", () => {
   it("uses sixteen free component slots and twenty later kanji slots without moving Foundation", () => {
-    const registry = buildMainCourseContentBatches();
+    const registry = buildMainCourseContentBatches().slice(0, 6);
     expect(registry).toHaveLength(6);
     const batch = registry[5]!;
     expect(batch).toMatchObject({

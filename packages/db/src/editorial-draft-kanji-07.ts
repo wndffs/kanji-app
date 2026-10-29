@@ -3,6 +3,7 @@ import {
   type MainCourseContentBatch,
   type MainCourseKanjiContent,
 } from "./main-course-content";
+import { WAVE07_MEANING_BLOCKS } from "./editorial-wave07-blocks";
 
 const component = (
   key: string,
@@ -112,7 +113,22 @@ function kanji(
 ): Omit<MainCourseKanjiContent, "levelNumber" | "sortOrder"> {
   return {
     character,
-    meanings: { ru: { primary: ru, accepted: [ru] }, en: { primary: en, accepted: [en] } },
+    meanings: {
+      ru: {
+        primary: ru,
+        accepted: [ru],
+        ...(WAVE07_MEANING_BLOCKS[character]
+          ? { blocked: WAVE07_MEANING_BLOCKS[character].ru }
+          : {}),
+      },
+      en: {
+        primary: en,
+        accepted: [en],
+        ...(WAVE07_MEANING_BLOCKS[character]
+          ? { blocked: WAVE07_MEANING_BLOCKS[character].en }
+          : {}),
+      },
+    },
     reading: { source, sourceType: "ja_on", primary, accepted: [primary] },
     componentKeys: keys.map((key) => `component-${key}`),
     meaningMnemonic: { ru: meaningRu, en: meaningEn },

@@ -1,6 +1,7 @@
 import { buildKanjiDraft07 } from "./editorial-draft-kanji-07";
 import { buildWordDraft07, type EditorialWordDraftBatch } from "./editorial-draft-words-07";
 import { type MainCourseContentBatch } from "./main-course-content";
+import { wave07IsPromoted } from "./editorial-wave07-context";
 
 export const NEXT_EDITORIAL_WAVE = "foundation-wave-07";
 export type EditorialWaveInput = {
@@ -11,9 +12,12 @@ export function nextEditorialWave(): EditorialWaveInput {
   return { kanji: buildKanjiDraft07(), words: buildWordDraft07() };
 }
 export function planEditorialWave(input = nextEditorialWave()) {
+  const archived = wave07IsPromoted();
   return {
     id: NEXT_EDITORIAL_WAVE,
-    scope: "local-draft-preparation" as const,
+    scope: archived
+      ? ("archived-draft-preparation" as const)
+      : ("local-draft-preparation" as const),
     publicationApproved: false as const,
     counts: {
       components: input.kanji.components.length,
@@ -29,10 +33,12 @@ export function planEditorialWave(input = nextEditorialWave()) {
       words: input.words.levelNumber,
     },
     sourceFamiliesRequired: ["KANJIDIC2", "KanjiVG", "JMdict"],
-    blockers: [
-      "exact-source-evidence-not-verified",
-      "independent-review-required",
-      "publication-not-authorized",
-    ],
+    blockers: archived
+      ? ["archived-proposal-not-a-curator-input"]
+      : [
+          "exact-source-evidence-not-verified",
+          "independent-review-required",
+          "publication-not-authorized",
+        ],
   };
 }

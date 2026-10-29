@@ -2,12 +2,12 @@ import { type TranslationDisplayMode } from "@kanji-srs/shared";
 import { buildKanjiDraft07 } from "./editorial-draft-kanji-07";
 import { buildWordDraft07, type EditorialWordDraftBatch } from "./editorial-draft-words-07";
 import {
-  buildMainCourseContentBatches,
   validateMainCourseContentBatches,
   type MainCourseContentBatch,
   type MainCourseLocalizedText,
 } from "./main-course-content";
-import { buildMainCourseWordBatches, wordHanCharacters } from "./main-course-word-content";
+import { wordHanCharacters } from "./main-course-word-content";
+import { preWave07KanjiBatches, preWave07WordBatches } from "./editorial-wave07-context";
 
 export function buildEditorialDraftPreview(
   mode: TranslationDisplayMode,
@@ -15,13 +15,13 @@ export function buildEditorialDraftPreview(
   wordDraft: EditorialWordDraftBatch = buildWordDraft07(),
 ) {
   if (!["ru", "en", "ru-en"].includes(mode)) throw new Error("Unsupported draft translation mode.");
-  const kanjiBatches = [...buildMainCourseContentBatches(), kanjiDraft];
+  const kanjiBatches = [...preWave07KanjiBatches(), kanjiDraft];
   const issues = [...validateMainCourseContentBatches(kanjiBatches)];
   const kanjiByCharacter = new Map(
     kanjiBatches.flatMap((batch) => batch.kanji.map((item) => [item.character, item] as const)),
   );
   const approvedPairs = new Set(
-    buildMainCourseWordBatches().flatMap((batch) =>
+    preWave07WordBatches().flatMap((batch) =>
       batch.words.map((word) => `${word.expression}:${word.reading}`),
     ),
   );

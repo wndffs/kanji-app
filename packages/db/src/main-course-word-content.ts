@@ -2,10 +2,12 @@ import { createHash } from "node:crypto";
 
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
 import { buildMainCourseBlueprint } from "./main-course";
+import { validateCuratedMeaningBlocks } from "./curated-meaning-blocks";
 import { buildMainCourseWordBatch02 } from "./main-course-word-content-02";
 import { buildMainCourseWordBatch04 } from "./main-course-word-content-04";
 import { buildMainCourseWordBatch05 } from "./main-course-word-content-05";
 import { buildMainCourseWordBatch06 } from "./main-course-word-content-06";
+import { buildMainCourseWordBatch07 } from "./main-course-word-content-07";
 
 import {
   type MainCourseAcceptedMeanings,
@@ -1126,6 +1128,7 @@ export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
     buildMainCourseWordBatch04(),
     buildMainCourseWordBatch05(),
     buildMainCourseWordBatch06(),
+    buildMainCourseWordBatch07(),
   ];
 }
 
@@ -1191,6 +1194,7 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
       new Set(acceptedReadings.map(normalizeJapaneseReading)).size !== acceptedReadings.length
     )
       issues.push(`Invalid or duplicate accepted readings for ${identity}.`);
+    issues.push(...validateCuratedMeaningBlocks(content.meanings));
     for (const [locale, meanings] of [
       ["ru-RU", content.meanings.ru],
       ["en-US", content.meanings.en],

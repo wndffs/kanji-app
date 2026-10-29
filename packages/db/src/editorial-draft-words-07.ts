@@ -1,4 +1,5 @@
 import { type MainCourseWordBatch, type MainCourseWordContent } from "./main-course-word-content";
+import { WAVE07_MEANING_BLOCKS } from "./editorial-wave07-blocks";
 
 export type EditorialWordDraft = Omit<MainCourseWordContent, "jmdictEntryId"> & {
   readonly jmdictEntryId: null;
@@ -24,12 +25,27 @@ function word(
     reading,
     jmdictEntryId: null,
     meanings: {
-      ru: { primary: ru, accepted: [ru, ...(alternatives.ru ?? [])] },
-      en: { primary: en, accepted: [en, ...(alternatives.en ?? [])] },
+      ru: {
+        primary: ru,
+        accepted: [ru, ...(alternatives.ru ?? [])],
+        ...(WAVE07_MEANING_BLOCKS[expression]
+          ? { blocked: WAVE07_MEANING_BLOCKS[expression].ru }
+          : {}),
+      },
+      en: {
+        primary: en,
+        accepted: [en, ...(alternatives.en ?? [])],
+        ...(WAVE07_MEANING_BLOCKS[expression]
+          ? { blocked: WAVE07_MEANING_BLOCKS[expression].en }
+          : {}),
+      },
     },
     meaningMnemonic: { ru: meaningRu, en: meaningEn },
     readingMnemonic: { ru: readingRu, en: readingEn },
-    meaningHint: { ru: `Здесь изучаем значение «${ru}».`, en: `This card teaches the meaning '${en}'.` },
+    meaningHint: {
+      ru: `Здесь изучаем значение «${ru}».`,
+      en: `This card teaches the meaning '${en}'.`,
+    },
     readingHint: {
       ru: `Напишите всё слово каной: ${reading}.`,
       en: `Write the entire word in kana: ${reading}.`,

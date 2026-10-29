@@ -1,12 +1,21 @@
 import { buildEditorialRegistryInventory } from "./editorial-registry-inventory";
 import { buildEditorialDraftPreview } from "./editorial-draft-preview";
 import { MAIN_COURSE_LEVEL_COUNT } from "./main-course";
+import { wave07IsPromoted } from "./editorial-wave07-context";
 
 export function buildEditorialCoverage() {
   const registry = buildEditorialRegistryInventory();
   const draft = buildEditorialDraftPreview("ru-en");
   const target = { levels: MAIN_COURSE_LEVEL_COUNT, kanji: 2_300, words: 8_000 };
   const reviewed = registry.prepared.reviewedDistinctTotals;
+  const archived = wave07IsPromoted();
+  const draftCounts = {
+    components: draft.components.length,
+    kanji: draft.kanji.length,
+    words: draft.words.length,
+    exampleSentences: draft.words.length,
+    proposedCards: draft.components.length + 2 * (draft.kanji.length + draft.words.length),
+  };
   return {
     scope: "source-only-curriculum-coverage",
     publicationApproved: false,
@@ -18,13 +27,10 @@ export function buildEditorialCoverage() {
       kanji: Math.max(0, target.kanji - reviewed.kanji),
       words: Math.max(0, target.words - reviewed.words),
     },
-    pendingDrafts: {
-      components: draft.components.length,
-      kanji: draft.kanji.length,
-      words: draft.words.length,
-      exampleSentences: draft.words.length,
-      proposedCards: draft.components.length + 2 * (draft.kanji.length + draft.words.length),
-    },
+    pendingDrafts: archived
+      ? { components: 0, kanji: 0, words: 0, exampleSentences: 0, proposedCards: 0 }
+      : draftCounts,
+    archivedDrafts: archived ? draftCounts : null,
     sourceSeals: registry.sourceSeals.map(({ id, status, sealedDistinctTotals }) => ({
       id,
       status,

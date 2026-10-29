@@ -1,5 +1,14 @@
 # Editorial Drafts
 
+2026-10-29 update: wave07 is retained as a nonpublishing proposal archive.
+Independently AI-reviewed immutable copies are registered as
+`task-118-course-kanji-07` and `task-127-course-words-07`. See
+`editorial-wave07-review.ts` and `DEVELOPMENT_CYCLE_415_429.md` for bound review
+and source evidence. The source-only registry now has 111 kanji/140 word pairs;
+that is not a claim that Neon application or finite V5 publication has happened.
+The archived draft's null review/source fields are not publishing credentials,
+and its 69 proposed cards are no longer counted as a new pending backlog.
+
 Cycle 175-189 adds isolated school/family proposals: nine components, ten kanji,
 twenty exact expression/reading pairs and twenty original JP/kana/RU/EN examples.
 These are AI-authored candidates, not independently approved teaching content.

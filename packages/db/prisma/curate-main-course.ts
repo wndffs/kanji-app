@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { PrismaClient, type CourseBand, type Prisma } from "@prisma/client";
 import { withNeonConnectionDefaults } from "../src/connection-defaults";
 import { buildMainCourseBlueprint } from "../src/main-course";
+import { buildCuratedMeaningBlocks } from "../src/curated-meaning-blocks";
 
 import {
   buildMainCourseContentBatches,
@@ -657,14 +658,22 @@ async function applyKanji(
     },
   });
 
-  await syncCard(db, learningItem.id, "MEANING", "MEANING", 1, [
-    ...content.meanings.ru.accepted.map((text, index) =>
-      answer("ru-RU", text, "MEANING", index === 0),
-    ),
-    ...content.meanings.en.accepted.map((text, index) =>
-      answer("en-US", text, "MEANING", index === 0),
-    ),
-  ]);
+  await syncCard(
+    db,
+    learningItem.id,
+    "MEANING",
+    "MEANING",
+    1,
+    [
+      ...content.meanings.ru.accepted.map((text, index) =>
+        answer("ru-RU", text, "MEANING", index === 0),
+      ),
+      ...content.meanings.en.accepted.map((text, index) =>
+        answer("en-US", text, "MEANING", index === 0),
+      ),
+    ],
+    buildCuratedMeaningBlocks(content.meanings),
+  );
   await syncCard(
     db,
     learningItem.id,
@@ -742,6 +751,7 @@ async function syncCard(
   answerType: "MEANING" | "READING",
   sortOrder: number,
   answers: readonly AnswerInput[],
+  blocks: ReturnType<typeof buildCuratedMeaningBlocks> = [],
 ): Promise<void> {
   const card = await db.learningCard.upsert({
     where: {
@@ -776,6 +786,14 @@ async function syncCard(
       sourceKind: "PROJECT_AUTHORED" as const,
     })),
   });
+  if (blocks.length)
+    await db.blockedAnswer.createMany({
+      data: blocks.map((block) => ({
+        ...block,
+        learningCardId: card.id,
+        sourceKind: "PROJECT_AUTHORED" as const,
+      })),
+    });
 }
 
 async function upsertMnemonic(

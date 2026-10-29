@@ -1,5 +1,12 @@
 # Foundation Wave 07 Review Proposal
 
+Historical proposal below. On 2026-10-29 two independent AI reviewers approved
+the corrected educational content, with full local source matching and bounded
+live Neon evidence. The promoted immutable batches and review/content hashes
+are separate from this proposal: see `editorial-wave07-review.ts` and
+`DEVELOPMENT_CYCLE_415_429.md`. This does not itself attest publication; the
+curator/finite-version gates and unchanged-progress acceptance remain mandatory.
+
 Tasks 377-382 prepare the existing draft07, not a new imported or published
 course. Proposed volume: 9 components at level 8, 10 kanji at level 9, 20
 expression-reading pairs at level 10, 20 bilingual original examples and 69

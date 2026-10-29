@@ -20,6 +20,25 @@ import {
 } from "../src/main-course-word-content";
 
 describe("bounded vocabulary curation", () => {
+  it("persists reviewed semantic blocks on meaning cards without changing the answer validator", async () => {
+    const batch = structuredClone(buildMainCourseWordBatch());
+    Object.assign(batch.words[0]!.meanings.en, {
+      blocked: [{ text: "wrong semantic answer", reason: "Another meaning." }],
+    });
+    const fixture = harness([batch]);
+    await applyMainCourseWordBatch(fixture.db, batch);
+    expect(fixture.db.blockedAnswer.createMany).toHaveBeenCalledOnce();
+    expect(fixture.db.blockedAnswer.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          text: "wrong semantic answer",
+          normalizedText: "wrong semantic answer",
+          reason: "Another meaning.",
+          sourceKind: "PROJECT_AUTHORED",
+        }),
+      ],
+    });
+  });
   it("reads one course and each distinct kanji once per registry plan, but never caches standalone plans", async () => {
     const batches = registryFixtureBatches();
     const fixture = harness(batches);
@@ -1232,6 +1251,10 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
     blockedAnswer: {
       deleteMany: vi.fn(() => {
         mutations.push("blocked.deleteMany");
+      }),
+      createMany: vi.fn(() => {
+        mutations.push("blocked.createMany");
+        return { count: 1 };
       }),
     },
     wordSense: {

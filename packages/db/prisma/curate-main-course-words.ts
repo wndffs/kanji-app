@@ -6,6 +6,7 @@ import { PrismaClient, type Prisma } from "@prisma/client";
 
 import { withNeonConnectionDefaults } from "../src/connection-defaults";
 import { buildMainCourseBlueprint } from "../src/main-course";
+import { buildCuratedMeaningBlocks } from "../src/curated-meaning-blocks";
 import {
   buildMainCourseContentBatches,
   validateMainCourseContentBatches,
@@ -791,6 +792,15 @@ async function applyWord(
         sourceKind: "PROJECT_AUTHORED" as const,
       })),
     });
+    const blocks = promptType === "MEANING" ? buildCuratedMeaningBlocks(content.meanings) : [];
+    if (blocks.length)
+      await db.blockedAnswer.createMany({
+        data: blocks.map((block) => ({
+          ...block,
+          learningCardId: card.id,
+          sourceKind: "PROJECT_AUTHORED" as const,
+        })),
+      });
     for (const [key, locale] of [
       ["ru", "ru-RU"],
       ["en", "en-US"],

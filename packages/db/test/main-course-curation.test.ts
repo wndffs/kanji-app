@@ -11,6 +11,33 @@ import { buildMainCourseContentBatches } from "../src/main-course-content";
 import { resolvePrimaryTaughtReading } from "../src/taught-reading";
 
 describe("main-course curation preflight and application", () => {
+  it("persists reviewed meaning blocks only on the meaning card and preserves private rows", async () => {
+    const fixture = curationFixture();
+    const batch = structuredClone(fixture.batch);
+    Object.assign(batch.kanji[0]!.meanings.ru, {
+      blocked: [{ text: "смысловая ошибка", reason: "Другое значение." }],
+    });
+    const before = structuredClone(fixture.privateRows);
+    await applyMainCourseContentBatch(fixture.db, batch, [fixture.registry[0]!, batch]);
+    expect(fixture.db.blockedAnswer.createMany).toHaveBeenCalledOnce();
+    expect(fixture.db.blockedAnswer.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          text: "смысловая ошибка",
+          normalizedText: "смысловая ошибка",
+          reason: "Другое значение.",
+          sourceKind: "PROJECT_AUTHORED",
+        }),
+      ],
+    });
+    const call = vi.mocked(fixture.db.blockedAnswer.createMany).mock.calls[0]![0]!;
+    const data = call.data as { learningCardId: string }[];
+    expect(
+      [...fixture.state.cards.values()].find((card) => card.id === data[0]!.learningCardId)
+        ?.promptType,
+    ).toBe("MEANING");
+    expect(fixture.privateRows).toEqual(before);
+  });
   it.each([
     [6, 7, "N5"],
     [16, 17, "N4"],
@@ -955,7 +982,10 @@ function curationFixture(includeBridge = false) {
         state.answers.push(...data);
       }),
     },
-    blockedAnswer: { deleteMany: write("blockedAnswer.deleteMany", () => undefined) },
+    blockedAnswer: {
+      deleteMany: write("blockedAnswer.deleteMany", () => undefined),
+      createMany: write("blockedAnswer.createMany", () => ({ count: 1 })),
+    },
     kanjiMeaning: {
       deleteMany: write(
         "meaning.deleteMany",

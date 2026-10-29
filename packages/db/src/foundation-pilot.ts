@@ -7,6 +7,7 @@ import { type QualityItem, validateQualityItem } from "./content-quality";
 import { loadContentQualityItems, type ContentQualityDatabase } from "./content-quality-report";
 import { createCourseLevelPassPolicy } from "./course-level-policy";
 import { buildMainCourseBlueprint } from "./main-course";
+import { buildCuratedMeaningBlocks } from "./curated-meaning-blocks";
 import {
   buildMainCourseContentBatches,
   validateMainCourseContentBatches,
@@ -125,6 +126,7 @@ type PilotTarget = {
   sortOrder: number;
   prerequisiteKeys: readonly string[];
   requiredStage: number;
+  blockedAnswers?: readonly { text: string; normalizedText: string }[];
   answers: readonly {
     promptType: "MEANING" | "READING";
     locale: string;
@@ -230,10 +232,14 @@ function buildPilotManifest(
       records.push({ sourceRecordId: `${batch.id}:component:${content.key}`, content });
     }
     for (const content of batch.kanji) {
+      const blocks = buildCuratedMeaningBlocks(content.meanings).map(
+        ({ text, normalizedText }) => ({ text, normalizedText }),
+      );
       targets.push({
         key: `kanji:${content.character}`,
         kind: "KANJI",
         expression: content.character,
+        ...(blocks.length ? { blockedAnswers: blocks } : {}),
         levelNumber: content.levelNumber,
         sortOrder: content.sortOrder,
         prerequisiteKeys: content.componentKeys,
@@ -259,11 +265,15 @@ function buildPilotManifest(
   for (const words of wordBatches) {
     const wordRecords: SourceBatch["records"][number][] = [];
     for (const content of words.words) {
+      const blocks = buildCuratedMeaningBlocks(content.meanings).map(
+        ({ text, normalizedText }) => ({ text, normalizedText }),
+      );
       const key = `word:${content.expression}:${content.reading}`;
       targets.push({
         key,
         kind: "WORD",
         expression: content.expression,
+        ...(blocks.length ? { blockedAnswers: blocks } : {}),
         reading: content.reading,
         jmdictEntryId: content.jmdictEntryId,
         levelNumber: words.levelNumber,
@@ -864,7 +874,12 @@ async function verifySources(
 async function scanQuality(
   db: ContentQualityDatabase,
   courseSlug: string,
-  expected: readonly { learningItemId: string; kind: string; answers: PilotTarget["answers"] }[],
+  expected: readonly {
+    learningItemId: string;
+    kind: string;
+    answers: PilotTarget["answers"];
+    blockedAnswers?: PilotTarget["blockedAnswers"];
+  }[],
 ) {
   const byId = new Map(expected.map((item) => [item.learningItemId, item]));
   const itemIds = [...byId.keys()];
@@ -925,6 +940,18 @@ async function scanQuality(
           canonical(expectedAnswers.map(canonical).sort())
         )
           throw new Error(`Pilot answers differ from the approved manifest for ${item.id}.`);
+        if (target.blockedAnswers !== undefined) {
+          const actual = item.cards
+            .filter((card) => card.answerType === "MEANING")
+            .flatMap((card) => card.blockedAnswers);
+          if (
+            canonical(canonicalCollection(actual)) !==
+            canonical(canonicalCollection(target.blockedAnswers))
+          )
+            throw new Error(
+              `Pilot meaning blocks differ from the approved manifest for ${item.id}.`,
+            );
+        }
         found.add(item.id);
         items.push(qualitySnapshot(item));
       }

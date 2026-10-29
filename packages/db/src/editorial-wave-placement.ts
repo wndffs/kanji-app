@@ -1,13 +1,11 @@
-import {
-  buildMainCourseContentBatches,
-  validateMainCourseContentBatches,
-} from "./main-course-content";
-import { buildMainCourseWordBatches, wordHanCharacters } from "./main-course-word-content";
+import { validateMainCourseContentBatches } from "./main-course-content";
+import { wordHanCharacters } from "./main-course-word-content";
+import { preWave07KanjiBatches, preWave07WordBatches } from "./editorial-wave07-context";
 import { buildEditorialDraftPreview } from "./editorial-draft-preview";
 import { nextEditorialWave, type EditorialWaveInput } from "./editorial-wave";
 
 export function auditWavePlacement(input: EditorialWaveInput = nextEditorialWave()) {
-  const base = buildMainCourseContentBatches();
+  const base = preWave07KanjiBatches();
   const batches = [...base, input.kanji];
   const preview = buildEditorialDraftPreview("ru-en", input.kanji, input.words);
   const issues = [...validateMainCourseContentBatches(batches), ...preview.validation.issues];
@@ -41,7 +39,7 @@ export function auditWavePlacement(input: EditorialWaveInput = nextEditorialWave
     );
     batch.kanji.forEach((item) => addSlot(item.levelNumber, item.sortOrder));
   }
-  for (const batch of buildMainCourseWordBatches())
+  for (const batch of preWave07WordBatches())
     batch.words.forEach((item) => addSlot(batch.levelNumber, item.sortOrder));
   input.kanji.components.forEach((_, index) =>
     addSlot(input.kanji.componentLevelNumber, (input.kanji.componentSortOrderStart ?? 1) + index),
@@ -64,7 +62,7 @@ export function auditWavePlacement(input: EditorialWaveInput = nextEditorialWave
   }
   const outsideCuratorRegistry =
     !base.some((batch) => batch.id === input.kanji.id) &&
-    !buildMainCourseWordBatches().some((batch) => batch.id === input.words.id);
+    !preWave07WordBatches().some((batch) => batch.id === input.words.id);
   return {
     valid: issues.length === 0 && outsideCuratorRegistry,
     placementIssueCount: issues.length,

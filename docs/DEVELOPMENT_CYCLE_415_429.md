@@ -28,23 +28,23 @@ Missing live evidence blocks publication rather than weakening a guard.
 
 ## Tasks
 
-| ID | Acceptance | State |
-| --- | --- | --- |
-| 415 | Audit prior evidence and acquire real source snapshot; select bounded wave07 | Complete |
-| 416 | Review/correct RU meanings and semantic near-answer boundaries | Complete |
-| 417 | Review/correct corresponding EN scope and accepted meanings | Complete |
-| 418 | Verify kanji/whole-word readings, ambiguity and special-reading explanations | Complete |
-| 419 | Review/correct original JP/kana examples and both translations | Complete |
-| 420 | Correct component shape/name and mnemonic factual claims | Complete |
+| ID  | Acceptance                                                                     | State    |
+| --- | ------------------------------------------------------------------------------ | -------- |
+| 415 | Audit prior evidence and acquire real source snapshot; select bounded wave07   | Complete |
+| 416 | Review/correct RU meanings and semantic near-answer boundaries                 | Complete |
+| 417 | Review/correct corresponding EN scope and accepted meanings                    | Complete |
+| 418 | Verify kanji/whole-word readings, ambiguity and special-reading explanations   | Complete |
+| 419 | Review/correct original JP/kana examples and both translations                 | Complete |
+| 420 | Correct component shape/name and mnemonic factual claims                       | Complete |
 | 421 | Bind exact source identities through existing source preflight, no guessed IDs | Complete |
-| 422 | Validate prerequisite closure, placement and level progression policies | Planned |
-| 423 | Record a versioned independent review decision bound to source/content | Planned |
-| 424 | Prepare finite V5 without changing any V1-V4 object/hash/identity | Planned |
-| 425 | Preview additive writes, query/storage costs and idempotent rerun | Planned |
-| 426 | Apply approved selected teaching batches without resetting SRS | Planned |
-| 427 | Publish only the verified finite manifest, or report exact blockers | Planned |
-| 428 | Batched relevant content/answer/integrity and unchanged-progress acceptance | Planned |
-| 429 | Version/push/deploy/live verify and report actual published counts | Planned |
+| 422 | Validate prerequisite closure, placement and level progression policies        | Complete |
+| 423 | Record a versioned independent review decision bound to source/content         | Complete |
+| 424 | Prepare finite V5 without changing any V1-V4 object/hash/identity              | Planned  |
+| 425 | Preview additive writes, query/storage costs and idempotent rerun              | Planned  |
+| 426 | Apply approved selected teaching batches without resetting SRS                 | Planned  |
+| 427 | Publish only the verified finite manifest, or report exact blockers            | Planned  |
+| 428 | Batched relevant content/answer/integrity and unchanged-progress acceptance    | Planned  |
+| 429 | Version/push/deploy/live verify and report actual published counts             | Planned  |
 
 ## Boundaries
 
@@ -64,7 +64,15 @@ usage, friend gender/register, school stage and fictional mnemonics. Example
 subjects use kana because 私 is not yet in the registered prerequisite closure.
 Review is AI editorial review, not human certification or an originality proof.
 Source matching alone must never set reviewedAt or readyToPublish. The discovered
-semantic typo false positives still require explicit blocks before promotion.
+semantic typo false positives are now explicitly blocked on new meaning cards.
+Both reviewers completed a second read-only review of the corrected data and
+reported no remaining editorial blockers. They did not independently rerun the
+parent's tests or attest database/publication safety.
+
+The immutable promoted content is bound by `editorial-wave07-review.ts` to
+proposal/source fingerprints and separate full batch SHA-256 values. The old
+proposal stays inspectable against its pre-wave context, but is not counted
+again as pending content. Runtime published counts remain a separate DB read.
 
 ## Source Receipt
 

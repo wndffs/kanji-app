@@ -1,6 +1,8 @@
 import { buildMainCourseContentBatch05 } from "./main-course-content-05";
 import { buildMainCourseContentBatch06 } from "./main-course-content-06";
+import { buildMainCourseContentBatch07 } from "./main-course-content-07";
 import { buildMainCourseBlueprint } from "./main-course";
+import { validateCuratedMeaningBlocks, type CuratedMeaningBlock } from "./curated-meaning-blocks";
 
 export type MainCourseContentLocale = "ru-RU" | "en-US";
 
@@ -12,6 +14,7 @@ export type MainCourseLocalizedText = {
 export type MainCourseAcceptedMeanings = {
   readonly primary: string;
   readonly accepted: readonly string[];
+  readonly blocked?: readonly CuratedMeaningBlock[];
 };
 
 export type MainCourseComponentContent = {
@@ -1515,6 +1518,7 @@ const MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
   TASK_118_FOUNDATION_BATCH_04,
   buildMainCourseContentBatch05(),
   buildMainCourseContentBatch06(),
+  buildMainCourseContentBatch07(),
 ];
 
 export function buildMainCourseContentBatches(): readonly MainCourseContentBatch[] {
@@ -1646,6 +1650,7 @@ export function validateMainCourseContentBatches(
         issues.push(`${batch.id} kanji ${item.character} has no components`);
       }
 
+      issues.push(...validateCuratedMeaningBlocks(item.meanings));
       for (const [locale, meanings] of Object.entries(item.meanings)) {
         if (
           meanings.primary.trim() === "" ||

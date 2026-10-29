@@ -10,18 +10,19 @@ import { inspectEditorialDraftEvidence } from "../src/editorial-draft-evidence";
 import { buildEditorialDraftPreview } from "../src/editorial-draft-preview";
 import { runEditorialDraftPreview } from "../prisma/preview-editorial-drafts";
 import { buildEditorialCoverage } from "../src/editorial-coverage";
+import { preWave07KanjiBatches } from "../src/editorial-wave07-context";
 
 describe("isolated editorial drafts", () => {
   it("separates the reviewed backlog, V4 seal and unapproved proposals", () => {
     const report = buildEditorialCoverage();
     expect(report.validation).toEqual({ valid: true, issues: [] });
-    expect(report.remainingReviewedContent).toEqual({ kanji: 2199, words: 7880 });
+    expect(report.remainingReviewedContent).toEqual({ kanji: 2189, words: 7860 });
     expect(report.pendingDrafts).toEqual({
-      components: 9,
-      kanji: 10,
-      words: 20,
-      exampleSentences: 20,
-      proposedCards: 69,
+      components: 0,
+      kanji: 0,
+      words: 0,
+      exampleSentences: 0,
+      proposedCards: 0,
     });
     expect(report.sourceSeals.find((seal) => seal.id === "v4")).toMatchObject({
       status: "complete",
@@ -99,9 +100,7 @@ describe("isolated editorial drafts", () => {
     expect(draft.kanji).toHaveLength(10);
     expect(draft.components).toHaveLength(9);
     expect(buildMainCourseContentBatches().some((batch) => batch.id === draft.id)).toBe(false);
-    expect(validateMainCourseContentBatches([...buildMainCourseContentBatches(), draft])).toEqual(
-      [],
-    );
+    expect(validateMainCourseContentBatches([...preWave07KanjiBatches(), draft])).toEqual([]);
     expect(draft.kanji.find((item) => item.character === "今")?.reading).toMatchObject({
       primary: "こん",
       accepted: ["こん"],
