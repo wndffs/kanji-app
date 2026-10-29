@@ -8,6 +8,8 @@ import { loadContentQualityItems, type ContentQualityDatabase } from "./content-
 import { createCourseLevelPassPolicy } from "./course-level-policy";
 import { buildMainCourseBlueprint } from "./main-course";
 import { buildCuratedMeaningBlocks } from "./curated-meaning-blocks";
+import { FOUNDATION_WAVE07_LEVELS } from "./foundation-wave07-policy";
+import { WAVE07_REVIEW_DECISION } from "./editorial-wave07-review";
 import {
   buildMainCourseContentBatches,
   validateMainCourseContentBatches,
@@ -31,6 +33,8 @@ export const FOUNDATION_PILOT_V3_SLUG = "japanese-foundation-pilot-v3";
 export const FOUNDATION_PILOT_V3_RECORD_ID = "41a64921-eb2c-433e-9761-250e3b31015e";
 export const FOUNDATION_PILOT_V4_SLUG = "japanese-foundation-pilot-v4";
 export const FOUNDATION_PILOT_V4_RECORD_ID = "a88880b1-27a3-474d-af1f-0e9ef261d6f7";
+export const FOUNDATION_PILOT_V5_SLUG = "japanese-foundation-pilot-v5";
+export const FOUNDATION_PILOT_V5_RECORD_ID = "44b901f4-0262-46a9-a094-e4dac255874a";
 const KANJI_SOURCE_IDS = ["01", "02", "03", "04"].map(
   (suffix) => `task-118-foundation-kanji-${suffix}`,
 );
@@ -67,6 +71,14 @@ const V4_SOURCE_HASHES: Readonly<Record<string, string>> = {
 };
 // L6's WORD core does not waive the mixed level's component prerequisites for L7.
 const V4_LEVEL_KINDS = ["COMPONENT", "KANJI", "KANJI", "KANJI", "WORD", "WORD", "KANJI"] as const;
+const V5_KANJI_SOURCE_IDS = [...V4_KANJI_SOURCE_IDS, "task-118-course-kanji-07"];
+const V5_WORD_SOURCE_IDS = [...V4_WORD_SOURCE_IDS, "task-127-course-words-07"];
+const V5_SOURCE_HASHES: Readonly<Record<string, string>> = {
+  ...V4_SOURCE_HASHES,
+  "task-118-course-kanji-07": WAVE07_REVIEW_DECISION.kanjiSha256,
+  "task-127-course-words-07": WAVE07_REVIEW_DECISION.wordsSha256,
+};
+const V5_LEVEL_KINDS = [...V4_LEVEL_KINDS, "COMPONENT", "KANJI", "WORD"] as const;
 const PILOTS = {
   v1: {
     slug: FOUNDATION_PILOT_SLUG,
@@ -103,6 +115,15 @@ const PILOTS = {
     kanjiIds: V4_KANJI_SOURCE_IDS,
     wordIds: V4_WORD_SOURCE_IDS,
     canonicalChecksum: "7353baf893c3bde9fb7279529bcf69d66d7e0b9ef81396a8fb96169c686e70fc",
+  },
+  v5: {
+    slug: FOUNDATION_PILOT_V5_SLUG,
+    recordId: FOUNDATION_PILOT_V5_RECORD_ID,
+    version: "5",
+    counts: { components: 88, kanji: 111, words: 140, items: 339, cards: 590 },
+    kanjiIds: V5_KANJI_SOURCE_IDS,
+    wordIds: V5_WORD_SOURCE_IDS,
+    canonicalChecksum: "2943f058d3590f190274bdcabf81e1270c1fa1274f5b6e2c02b0e9737eeca03a",
   },
 } as const;
 const SOURCE_COURSE_SLUG = "japanese-ru-n2";
@@ -187,6 +208,17 @@ export function buildFoundationPilotManifestV4(
   return buildPilotManifest(kanjiBatches, wordBatches, "v4");
 }
 
+export function buildFoundationPilotManifestV5(
+  kanjiBatches: readonly MainCourseContentBatch[] = buildMainCourseContentBatches().filter(
+    (batch) => V5_KANJI_SOURCE_IDS.includes(batch.id),
+  ),
+  wordBatches: readonly MainCourseWordBatch[] = buildMainCourseWordBatches().filter((batch) =>
+    V5_WORD_SOURCE_IDS.includes(batch.id),
+  ),
+) {
+  return buildPilotManifest(kanjiBatches, wordBatches, "v5");
+}
+
 function buildPilotManifest(
   kanjiBatches: readonly MainCourseContentBatch[],
   wordBatches: readonly MainCourseWordBatch[],
@@ -212,7 +244,9 @@ function buildPilotManifest(
           ? "Pilot v2 requires exactly the seven registered version-1 main-course batches."
           : pilot === "v3"
             ? "Pilot v3 requires exactly the ten registered version-1 main-course batches."
-            : "Pilot v4 requires exactly the twelve registered version-1 main-course batches.",
+            : pilot === "v4"
+              ? "Pilot v4 requires exactly the twelve registered version-1 main-course batches."
+              : "Pilot v5 requires exactly the fourteen registered version-1 main-course batches.",
     );
   const targets: PilotTarget[] = [];
   const sources: SourceBatch[] = [];
@@ -319,12 +353,20 @@ function buildPilotManifest(
     targets.some(
       (target) =>
         target.levelNumber < 1 ||
-        target.levelNumber > (pilot === "v4" ? 7 : pilot === "v3" ? 6 : 5) ||
+        target.levelNumber > (pilot === "v5" ? 10 : pilot === "v4" ? 7 : pilot === "v3" ? 6 : 5) ||
         (pilot === "v3" &&
           (target.kind === "WORD" ? target.levelNumber < 5 : target.levelNumber > 4)) ||
         (pilot === "v4" &&
           !(
             target.kind === "COMPONENT" ? [1, 6] : target.kind === "KANJI" ? [2, 3, 4, 7] : [5, 6]
+          ).includes(target.levelNumber)) ||
+        (pilot === "v5" &&
+          !(
+            target.kind === "COMPONENT"
+              ? [1, 6, 8]
+              : target.kind === "KANJI"
+                ? [2, 3, 4, 7, 9]
+                : [5, 6, 10]
           ).includes(target.levelNumber)) ||
         target.prerequisiteKeys.some(
           (key) => !keys.has(key) || keys.get(key)!.levelNumber >= target.levelNumber,
@@ -349,8 +391,10 @@ function buildPilotManifest(
         ? "53 компонента, 61 кандзи и 60 слов"
         : pilot === "v3"
           ? "63 компонента, 81 кандзи и 100 слов"
-          : "79 компонентов, 101 кандзи и 120 слов";
-  const levelCount = pilot === "v4" ? 7 : pilot === "v3" ? 6 : 5;
+          : pilot === "v4"
+            ? "79 компонентов, 101 кандзи и 120 слов"
+            : "88 компонентов, 111 кандзи и 140 слов";
+  const levelCount = pilot === "v5" ? 10 : pilot === "v4" ? 7 : pilot === "v3" ? 6 : 5;
   return {
     version: definition.version,
     slug: definition.slug,
@@ -361,25 +405,32 @@ function buildPilotManifest(
     counts: { ...definition.counts },
     levels: Array.from({ length: levelCount }, (_, index) => {
       const kind =
-        pilot === "v4"
-          ? V4_LEVEL_KINDS[index]!
-          : index === 0
-            ? "COMPONENT"
-            : index >= 4
-              ? "WORD"
-              : "KANJI";
+        pilot === "v5"
+          ? V5_LEVEL_KINDS[index]!
+          : pilot === "v4"
+            ? V4_LEVEL_KINDS[index]!
+            : index === 0
+              ? "COMPONENT"
+              : index >= 4
+                ? "WORD"
+                : "KANJI";
       return {
         levelNumber: index + 1,
         titleRu: `Основа: этап ${index + 1}`,
         descriptionRu:
           index === 0
             ? "Компоненты пилотного курса."
-            : pilot === "v4" && index === 5
-              ? "40 слов и 16 компонентов. Переход по словам не означает освоения всех элементов: компоненты остаются обязательными предпосылками кандзи этапа 7."
-              : kind === "WORD"
-                ? `Первые ${definition.counts.words} слов пилотного курса.`
-                : "Кандзи пилотного курса.",
-        passPolicyJson: createCourseLevelPassPolicy(kind),
+            : pilot === "v5" && index >= 7
+              ? FOUNDATION_WAVE07_LEVELS[index - 7]!.descriptionRu
+              : (pilot === "v4" || pilot === "v5") && index === 5
+                ? "40 слов и 16 компонентов. Переход по словам не означает освоения всех элементов: компоненты остаются обязательными предпосылками кандзи этапа 7."
+                : kind === "WORD"
+                  ? `Первые ${definition.counts.words} слов пилотного курса.`
+                  : "Кандзи пилотного курса.",
+        passPolicyJson:
+          pilot === "v5" && index >= 7
+            ? FOUNDATION_WAVE07_LEVELS[index - 7]!.passPolicyJson
+            : createCourseLevelPassPolicy(kind),
       };
     }),
     targets,
@@ -1170,8 +1221,9 @@ export async function publishFoundationPilot(
     {
       ...TRANSACTION_OPTIONS,
       // V4 repeats three bounded 300-item quality scans inside one atomic publication.
-      timeout:
-        before.manifest.slug === FOUNDATION_PILOT_V4_SLUG ? 120_000 : TRANSACTION_OPTIONS.timeout,
+      timeout: [FOUNDATION_PILOT_V4_SLUG, FOUNDATION_PILOT_V5_SLUG].includes(before.manifest.slug)
+        ? 120_000
+        : TRANSACTION_OPTIONS.timeout,
     },
   );
 }
@@ -1202,7 +1254,11 @@ export function foundationPilotRecordId(manifest: FoundationPilotManifest): stri
 }
 
 function pilotLevelBand(slug: string, levelNumber: number) {
-  if (slug !== FOUNDATION_PILOT_V3_SLUG && slug !== FOUNDATION_PILOT_V4_SLUG)
+  if (
+    slug !== FOUNDATION_PILOT_V3_SLUG &&
+    slug !== FOUNDATION_PILOT_V4_SLUG &&
+    slug !== FOUNDATION_PILOT_V5_SLUG
+  )
     return "FOUNDATION" as const;
   const level = buildMainCourseBlueprint().levels.find(
     (candidate) => candidate.levelNumber === levelNumber,
@@ -1222,7 +1278,9 @@ function requireApproved(manifest: FoundationPilotManifest) {
           ? buildFoundationPilotManifestV3()
           : context?.slug === FOUNDATION_PILOT_V4_SLUG
             ? buildFoundationPilotManifestV4()
-            : null;
+            : context?.slug === FOUNDATION_PILOT_V5_SLUG
+              ? buildFoundationPilotManifestV5()
+              : null;
   if (
     context === undefined ||
     expected === null ||
@@ -1234,11 +1292,13 @@ function requireApproved(manifest: FoundationPilotManifest) {
     expected.sources.some(
       (source) =>
         source.checksumSha256 !==
-        (context.slug === FOUNDATION_PILOT_V4_SLUG
-          ? V4_SOURCE_HASHES
-          : context.slug === FOUNDATION_PILOT_V3_SLUG
-            ? V3_SOURCE_HASHES
-            : SOURCE_HASHES)[source.id],
+        (context.slug === FOUNDATION_PILOT_V5_SLUG
+          ? V5_SOURCE_HASHES
+          : context.slug === FOUNDATION_PILOT_V4_SLUG
+            ? V4_SOURCE_HASHES
+            : context.slug === FOUNDATION_PILOT_V3_SLUG
+              ? V3_SOURCE_HASHES
+              : SOURCE_HASHES)[source.id],
     )
   )
     throw new Error(

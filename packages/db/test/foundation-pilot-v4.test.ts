@@ -302,7 +302,7 @@ describe("sealed finite pilot v4 preparation", () => {
     });
     for (const args of [
       ["--pilot"],
-      ["--pilot", "v5"],
+      ["--pilot", "v6"],
       ["--pilot", "v4", "--pilot", "v4"],
       ["--pilot", "v4", "--pilot", "v1"],
     ])
