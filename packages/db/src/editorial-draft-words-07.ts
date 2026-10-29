@@ -49,8 +49,8 @@ const words = [
     "がっこう",
     "школа",
     "school",
-    "Учёба 学 встречает школьный двор 校: вместе это школа.",
-    "Study 学 meets the schoolyard 校: together they make a school.",
+    "Учёба 学 и школа 校 помогают запомнить слово «школа».",
+    "Study 学 and school 校 help you remember the word 'school'.",
     "が・っ・こ・う — четыре моры. Маленькая っ обозначает удвоение согласного к: задержите смычку на одну мору. Не произносите отдельное «цу».",
     "が・っ・こ・う: four morae. Small っ marks a doubled /k/: hold its closure for one mora. Do not pronounce a separate tsu.",
     [
@@ -87,7 +87,7 @@ const words = [
     "しょう + がっこう: маленькая ょ в начале и っ в середине.",
     "しょう + がっこう: small ょ at the start and っ in the middle.",
     [
-      "私は小学校で本を読みます。",
+      "わたしは小学校で本を読みます。",
       "わたしはしょうがっこうでほんをよみます。",
       "Я читаю книгу в начальной школе.",
       "I read a book at elementary school.",
@@ -272,7 +272,7 @@ const words = [
     "きょう (兄) + だい (弟): здесь используются другие онные чтения. Чтение けいてい тоже существует, но эта карточка учит きょうだい.",
     "きょう (兄) + だい (弟): this word uses different on readings. けいてい also exists, but this card teaches きょうだい.",
     [
-      "私たちは三人兄弟です。",
+      "わたしたちは三人兄弟です。",
       "わたしたちはさんにんきょうだいです。",
       "Нас в семье трое детей.",
       "I am one of three siblings.",
