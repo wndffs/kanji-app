@@ -13,6 +13,7 @@ on:
           - v2
           - v3
           - v4
+          - v5
       expected_web_revision:
         description: Expected full web commit SHA (blank skips matching)
         required: false
@@ -51,6 +52,7 @@ jobs:
             v2) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v2 ;;
             v3) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v3 ;;
             v4) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v4 ;;
+            v5) export STAGING_SMOKE_COURSE_SLUG=japanese-foundation-pilot-v5 ;;
             *) echo "Unsupported pilot version."; exit 1 ;;
           esac
           if [ -n "$EXPECTED_WEB_REVISION_INPUT" ]; then
