@@ -121,6 +121,17 @@ describe("local snapshot integrity", () => {
   });
 });
 describe("bounded streaming source evidence", () => {
+  it("opts in to lexical source metadata without changing the old evidence projection", async () => {
+    const source = await localSource(`<JMdict>${entry("1", "<re_restr>学校</re_restr>")}</JMdict>`);
+    const pairs = [{expression:"学校",reading:"がっこう"}];
+    const plain = await inspectLocalWords(source,pairs);
+    expect(plain.items[0]).not.toHaveProperty("lexical");
+    const observed = await inspectLocalWords(source,pairs,{includeLexicalMetadata:true});
+    expect(observed.items[0]!.lexical).toMatchObject({commonnessRank:null});
+    expect(observed.items[0]!.lexical!.senses.length).toBeGreaterThan(0);
+    const ambiguous = await localSource(`<JMdict>${entry("1")}${entry("2")}</JMdict>`);
+    expect((await inspectLocalWords(ambiguous,pairs,{includeLexicalMetadata:true})).items[0]).not.toHaveProperty("lexical");
+  });
   it("attests an exact kanji reading but rejects inferred source type or reading", async () => {
     const source = await localSource(kd, "kanjidic2");
     const reading = { primary: "こう", source: "コウ", sourceType: "ja_on" };

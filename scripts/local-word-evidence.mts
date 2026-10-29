@@ -1,4 +1,4 @@
-import { parseJmDictXml } from "../packages/content-importers/src/jmdict";
+import { parseJmDictXml, type JmDictWordDto } from "../packages/content-importers/src/jmdict";
 import { type LocalSource } from "./local-source-manifest.mts";
 import {
   children,
@@ -42,11 +42,15 @@ function pairLocales(node: SourceNode, candidate: WordCandidate) {
   }
   return [...locales].sort();
 }
-export async function inspectLocalWords(source: LocalSource, candidates: readonly WordCandidate[]) {
+export async function inspectLocalWords(
+  source: LocalSource,
+  candidates: readonly WordCandidate[],
+  options: { readonly includeLexicalMetadata?: boolean } = {},
+) {
   const expressions = new Set(candidates.map((candidate) => candidate.expression));
   const matches = new Map<
     string,
-    { sourceRecordId: string; sequence: string; locales: string[] }[]
+    { sourceRecordId: string; sequence: string; locales: string[]; lexical?: Pick<JmDictWordDto, "commonnessRank" | "senses"> }[]
   >();
   const scanned = await scanSourceXml(source, "JMdict", "entry", (node) => {
     const spellings = children(node, "k_ele").flatMap((element) => textOf(element, "keb"));
@@ -60,6 +64,12 @@ export async function inspectLocalWords(source: LocalSource, candidates: readonl
         sourceRecordId: parsed.sourceRecordId,
         sequence: parsed.sequence,
         locales: pairLocales(node, candidate),
+        ...(options.includeLexicalMetadata ? {
+          lexical: (() => {
+            const pair = parsed.words.find((word) => word.expression === candidate.expression && word.reading === candidate.reading);
+            return { commonnessRank: pair?.commonnessRank ?? null, senses: pair?.senses ?? [] };
+          })(),
+        } : {}),
       });
       if (existing.length > 64) throw new Error("Too many ambiguous dictionary matches.");
       matches.set(key(candidate), existing);
@@ -79,6 +89,7 @@ export async function inspectLocalWords(source: LocalSource, candidates: readonl
           records[0]!.locales.includes("ru-RU") &&
           records[0]!.locales.includes("en-US"),
         status: records.length === 0 ? "missing" : records.length > 1 ? "ambiguous" : "matched",
+        ...(options.includeLexicalMetadata && records.length === 1 ? { lexical: records[0]!.lexical } : {}),
       };
     }),
   };

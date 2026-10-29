@@ -52,11 +52,26 @@ export function rankLexicalCandidates(
     else selected.push(candidate);
   }
   selected.sort((a, b) => {
-    const priority = b.usefulness - a.usefulness || (a.sourceRank ?? Infinity) - (b.sourceRank ?? Infinity);
-    if (priority && Number.isFinite(priority)) return priority;
+    const priority = b.usefulness - a.usefulness;
+    if (priority) return priority;
+    const leftRank = a.sourceRank ?? Infinity;
+    const rightRank = b.sourceRank ?? Infinity;
+    if (leftRank !== rightRank) return leftRank < rightRank ? -1 : 1;
     const left = lexicalPairKey(a);
     const right = lexicalPairKey(b);
     return left < right ? -1 : left > right ? 1 : 0;
   });
   return { selected, rejected, publicationApproved: false as const };
+}
+
+export function selectLexicalBackbone(ranked: readonly LexicalCandidate[]) {
+  const quotas = { verb: 10, "i-adjective": 5, noun: 5 } as const;
+  const selected = Object.entries(quotas).flatMap(([kind, count]) => {
+    const group = ranked.filter((entry) => entry.kind === kind);
+    if (group.length < count) throw new Error(`Insufficient verified ${kind} candidates.`);
+    return group.slice(0, count);
+  });
+  const keys = new Set(selected.map(lexicalPairKey));
+  if (keys.size !== 20) throw new Error("Backbone requires twenty distinct exact pairs.");
+  return { selected, deferred: ranked.filter((entry) => !keys.has(lexicalPairKey(entry))), publicationApproved: false as const };
 }

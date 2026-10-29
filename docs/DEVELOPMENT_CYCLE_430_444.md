@@ -8,16 +8,19 @@ Preserve every account, learning-card identity, schedule and V1-V5 seal.
 
 The published V5 has 111 kanji/140 word pairs, but its vocabulary is almost
 entirely nouns. Its authoring pipeline hardcodes noun metadata. Close this
-prerequisite gap before claiming an N4-oriented vocabulary backbone: one
-bounded wave of 30 everyday words (13 verbs, eight i-adjectives, nine nouns),
+prerequisite gap before claiming an N4-oriented vocabulary backbone: select one
+bounded twenty-word wave (ten verbs, five i-adjectives, five nouns) from thirty
+source-verified candidates (13 verbs, eight i-adjectives, nine nouns),
 with original RU/EN pedagogy and examples. Add only the missing prerequisite
 kanji 前; reuse the existing component-moon/knife visual cues, explicitly
 distinguishing visual resemblance from etymology and 月 from the lower-left
 shape. No extra component is needed. Place 前 at 11 and words at 12.
 
-Expected additive scope is one kanji, 30 pairs, 30 examples and 62 cards.
+The existing twenty-word batch contract is preserved, not relaxed to fit drafts.
+Ten remaining candidates are deferred, not published or counted twice.
+Expected additive scope is one kanji, 20 pairs, 20 examples and 42 cards.
 Only if evidence, independent review and live curator gates pass, prepare a
-separate finite V6: 88 components/112 kanji/170 pairs, 370 items, 652 cards,
+separate finite V6: 88 components/112 kanji/160 pairs, 360 items, 632 cards,
 twelve levels. Neither a dictionary match nor this specification approves
 publication. Never enlarge V5 or silently switch/enroll an existing user.
 
