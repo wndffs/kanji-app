@@ -1167,6 +1167,7 @@ export type KanaAssessmentAnswerResponse = {
   readonly item: KanaAssessmentItemDto;
   readonly attemptedCount: number;
   readonly masteredCount: number;
+  readonly confusionExplanation?: {readonly category: string; readonly ru: string; readonly en: string} | null;
 };
 
 export type KanaLessonItemDto = KanaAssessmentItemDto & {
@@ -1233,6 +1234,7 @@ export type KanaPracticeAnswerResponse = {
   readonly expectedRomaji: string;
   readonly selectedCharacter: string | null;
   readonly confusionExplanation: string | null;
+  readonly confusion?: {readonly category: string; readonly ru: string; readonly en: string} | null;
   readonly session: KanaPracticeSessionDto;
 };
 

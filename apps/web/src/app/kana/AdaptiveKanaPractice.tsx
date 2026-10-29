@@ -410,7 +410,7 @@ function PracticeFeedback({
         <span>
           {feedback.expectedCharacter} · {feedback.expectedRomaji}
         </span>
-        {feedback.confusionExplanation === null ? null : <p>{feedback.confusionExplanation}</p>}
+        {(feedback.confusion?.ru ?? feedback.confusionExplanation) ? <p>{feedback.confusion?.ru ?? feedback.confusionExplanation}</p> : null}
       </div>
       <button className="secondary-action" onClick={onContinue} ref={continueRef} type="button">
         Следующий

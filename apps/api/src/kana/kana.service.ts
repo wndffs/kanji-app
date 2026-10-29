@@ -7,8 +7,8 @@ import {
   listKana,
   normalizeRomaji,
   scoreAdaptiveKanaCandidate,
+  explainKanaContrast,
   type AdaptiveKanaCandidate,
-  type KanaCharacter,
 } from "@kanji-srs/japanese";
 import {
   type KanaAssessmentAnswerRequest,
@@ -94,6 +94,7 @@ export class KanaService {
       item: toItemDto(kana, updated),
       attemptedCount: summary.attemptedCount,
       masteredCount: summary.masteredCount,
+      confusionExplanation: correct || request.selectedCharacter === undefined ? null : explainKanaContrast(kana.character,request.selectedCharacter),
     };
   }
 
@@ -294,7 +295,8 @@ export class KanaService {
       confusionExplanation:
         correct || selectedCharacter === null
           ? null
-          : explainKanaConfusion(kana, selectedCharacter, previouslyConfused),
+          : `${explainKanaContrast(kana.character,selectedCharacter)?.ru ?? "Сравните форму и чтение."}${previouslyConfused ? " Эта пара уже встречалась в ваших ошибках." : ""}`,
+      confusion: correct || selectedCharacter === null ? null : explainKanaContrast(kana.character,selectedCharacter),
       session: toPracticeSessionDto(updatedSession),
     };
   }
@@ -601,35 +603,3 @@ function usesCharacterChoice(kind: KanaPracticeExerciseKind): boolean {
   );
 }
 
-function explainKanaConfusion(
-  expected: KanaCharacter,
-  selectedCharacter: string,
-  previouslyConfused: boolean,
-): string {
-  const selected = findKana(selectedCharacter);
-
-  if (selected === null) {
-    return `Нужно выбрать ${expected.character} (${expected.romaji}), а не ${selectedCharacter}.`;
-  }
-
-  if (selected.romaji === expected.romaji && selected.script !== expected.script) {
-    return `${selected.character} и ${expected.character} передают звук ${expected.romaji}, но относятся к разным азбукам.`;
-  }
-
-  if (
-    selected.baseCharacter === expected.baseCharacter &&
-    selected.character !== expected.character
-  ) {
-    return `${selected.character} и ${expected.character} образованы от одного базового знака, но диакритика меняет чтение: ${selected.romaji} и ${expected.romaji}.`;
-  }
-
-  if (selected.row === expected.row) {
-    return `Оба знака находятся в ряду ${expected.row.toUpperCase()}, поэтому сравните их гласную: ${selected.character} — ${selected.romaji}, ${expected.character} — ${expected.romaji}.`;
-  }
-
-  if (previouslyConfused) {
-    return `${selected.character} снова появился как отвлекающий вариант из вашей истории ошибок. Сравните ${selected.romaji} с ${expected.romaji}.`;
-  }
-
-  return `Сравните форму и чтение: ${selected.character} — ${selected.romaji}, ${expected.character} — ${expected.romaji}.`;
-}

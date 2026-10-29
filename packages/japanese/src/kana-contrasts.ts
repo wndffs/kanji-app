@@ -18,6 +18,31 @@ export function kanaReadingAliases(character: string, romaji: string): readonly 
   return [...new Set([romaji, ...(findKana(character)?.acceptedRomaji ?? [])].map(normalizeRomaji))];
 }
 
+export type KanaConfusion = { readonly category: "script" | "marks" | "small-kana" | "shape" | "reading"; readonly ru: string; readonly en: string };
+export function explainKanaContrast(expected: string, selected: string): KanaConfusion | null {
+  if (expected === selected) return null;
+  const left=findKana(expected), right=findKana(selected);
+  if (!left || !right) return null;
+  const pairRu=`${selected} — ${right.romaji}; ${expected} — ${left.romaji}.`;
+  const pairEn=`${selected}: ${right.romaji}; ${expected}: ${left.romaji}.`;
+  if(left.script !== right.script && kanaReadingAliases(expected,left.romaji).some(x=>kanaReadingAliases(selected,right.romaji).includes(x)))
+    return {category:"script",ru:`Звук совпадает, но азбуки разные. ${pairRu}`,en:`The sound overlaps, but the scripts differ. ${pairEn}`};
+  if (left.variant === "yoon" && right.variant === "yoon" && left.baseCharacter === right.baseCharacter)
+    return {category:"small-kana",ru:`Сравните маленькие ゃ・ゅ・ょ (ャ・ュ・ョ), а не дакутэн. ${pairRu}`,en:`Compare the small ゃ/ゅ/ょ (ャ/ュ/ョ), not dakuten marks. ${pairEn}`};
+  if (left.baseCharacter===right.baseCharacter && [left.variant,right.variant].some(v=>v==="dakuten" || v==="handakuten"))
+    return {category:"marks",ru:`Сравните отсутствие метки, две черты ゛ и кружок ゜. ${pairRu}`,en:`Compare no mark, the two dakuten marks ゛, and the handakuten circle ゜. ${pairEn}`};
+  const shapes: readonly {chars: readonly string[];ru:string;en:string}[]=[
+    {chars:["シ","ツ"],ru:"У シ короткие штрихи расположены более вертикально слева, у ツ — более горизонтально сверху.",en:"シ has a more vertical arrangement of short strokes on the left; ツ has a more horizontal arrangement at the top."},
+    {chars:["ソ","ン"],ru:"Сравните наклон короткого штриха и положение начала длинной линии у ソ и ン.",en:"Compare the short-stroke angle and the start of the long stroke in ソ and ン."},
+    {chars:["ぬ","め"],ru:"У ぬ есть маленькая петля справа внизу; у め её нет.",en:"ぬ has a small loop at the lower right; め does not."},
+    {chars:["る","ろ"],ru:"У る есть нижняя петля; у ろ её нет.",en:"る has a lower loop; ろ does not."},
+    {chars:["は","ほ"],ru:"Сравните число верхних перекладин справа: одна у は, две у ほ.",en:"Compare the upper crossbars on the right: one in は, two in ほ."},
+    {chars:["ね","れ","わ"],ru:"Сравните правую часть: маленькую петлю ね, вытянутый хвост れ и округлую дугу わ.",en:"Compare the right side: the small loop in ね, the extended tail in れ, and the rounded curve in わ."},
+  ];
+  const shape=shapes.find(x=>x.chars.includes(expected)&&x.chars.includes(selected));
+  return shape ? {category:"shape",ru:`${shape.ru} ${pairRu}`,en:`${shape.en} ${pairEn}`} : {category:"reading",ru:`Сравните форму и чтение. ${pairRu}`,en:`Compare shape and reading. ${pairEn}`};
+}
+
 export function buildDistinctKanaChoices<T extends {readonly character: string; readonly romaji: string; readonly order: number}>(
   items: readonly T[], current: T, limit: number,
 ): readonly T[] {

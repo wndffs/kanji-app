@@ -1146,6 +1146,7 @@ function KanaFeedback({
         <span>
           {reverse ? `${item.character} · ${feedback.expectedRomaji}` : feedback.expectedRomaji}
         </span>
+        {feedback.confusionExplanation ? <p>{feedback.confusionExplanation.ru}</p> : null}
       </div>
       <button className="secondary-action" onClick={onNext} ref={continueRef} type="button">
         Следующий

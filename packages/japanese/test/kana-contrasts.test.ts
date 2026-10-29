@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildDistinctKanaChoices, findKana, listKana, kanaReadingAliases } from "../src";
+import { buildDistinctKanaChoices, findKana, listKana, kanaReadingAliases, explainKanaContrast } from "../src";
 
 describe("alias-safe kana contrasts", () => {
+  it.each([["きゃ","きょ","small-kana"],["キャ","キュ","small-kana"],["ぱ","ば","marks"],["ガ","カ","marks"],["シ","ツ","shape"],["ぬ","め","shape"],["あ","ア","script"]])("classifies %s vs %s without inventing the wrong distinction",(expected,selected,category)=>{
+    const feedback=explainKanaContrast(expected,selected)!;
+    expect(feedback.category).toBe(category); expect(feedback.ru).not.toBe(""); expect(feedback.en).not.toBe("");
+  });
   it.each(["が","ぱ","ガ","パ","きゃ","シ","ン"])("retains %s and never offers overlapping accepted sounds", character => {
     const current=findKana(character)!;
     const choices=buildDistinctKanaChoices(listKana(current.script),current,4);
