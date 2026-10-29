@@ -1,10 +1,10 @@
 # Product Roadmap 400-499
 
 Baseline: `2b29567`, verified runtime `1fdd9b0`, 2026-10-28.
-The original request authorized 400-414. The next request authorized **415-429**,
-separate commits, batched checks, push, deployment and verified publication.
-Both batches are released. Tasks 430-499 remain a reserved backlog, not completed
-work; 430-444 is next. Revalidate each batch before editing.
+The requests authorized 400-414, 415-429 and **430-444**, with separate commits,
+batched checks, push, deployment and verified publication. All three batches
+are released. Tasks 445-499 remain a reserved backlog, not completed work;
+445-459 is next. Revalidate each batch before editing.
 
 ## User Decisions: 2026-10-29
 
@@ -29,8 +29,9 @@ plus separate Duolingo-inspired kana practice and selected Renshuu-inspired
 personal study tools. Original UI, pedagogy, order and wording throughout.
 No competitor scraper, educational data, assets or exact visual reproduction.
 
-Current V5: 88 components, 111 kanji, 140 expression-reading pairs, 339 materials,
-590 core cards. V4 remains unchanged at 101/120/521. SRS, lessons, review
+Current V6: 88 components, 112 kanji, 160 expression-reading pairs, 360 materials,
+632 core cards across twelve levels. V5 remains 111/140/590 and V4 remains
+unchanged at 101/120/521. SRS, lessons, review
 corrections, custom answers, pronunciation,
 themes, practice, kana tracing/matching/listening and text-derived decks exist.
 The published course is still a small foundation, not a full N4/N3 syllabus.
@@ -39,7 +40,7 @@ passing tests do not increase published, reviewed teaching content.
 
 Long-term target remains **2,300 distinct placed kanji and 8,000 distinct
 expression-reading pairs**, with independently reviewed RU/EN teaching content.
-Current volume is 4.8% and 1.75% of those targets respectively. These are content
+Current volume is 4.9% and 2% of those targets respectively. These are content
 volume ratios, not learner proficiency, JLPT coverage or chances of passing.
 
 ## Comparison Rubric
@@ -156,6 +157,24 @@ modern JLPT checklist or complete N4/N3 preparation is claimed.
 | 442 | Authorized additive publication with rollback preview and preserved progress        |
 | 443 | Batch learner/content quality acceptance and measured database impact               |
 | 444 | Release with actual N4-oriented coverage gaps; no claim of complete N4 preparation  |
+
+Checkpoint: **430-444 complete and released**, with the revalidated twenty-word
+slice and receipts in `DEVELOPMENT_CYCLE_430_444.md`, tag
+`cycle-430-444-lexical-backbone`. Application `40905867645` passed with zero
+quality blockers/warnings across 360 items. V6 publication `40908104197`,
+post-publication read-only plan `40908802623` and exact-revision remote V6 smoke
+`40909088233` passed. CI `40904285471` passed on retry after an infrastructure
+Chromium crash; Study integrity `40904285419` passed. Verified runtime is
+`37898b1`; the later CI checkpoint `36f2b9c` changes a test expectation,
+not runtime code. Further receipts are documentation-only.
+
+New published teaching content is one kanji and twenty exact pairs (ten verbs,
+five i-adjectives, five nouns), twenty original bilingual examples and 42 cards
+relative to V5. All 272 kanji/word materials have meaning/reading, with zero
+missing RU/EN/required readings. Modern JLPT metadata is unknown for 110 kanji
+and 159 words. Original user state and V1-V5 remain unchanged; no account was
+silently switched. Remaining full targets: 2,188 kanji/7,840 word pairs. This
+closes basic lexical gaps, not a complete N4 syllabus or N3 exam preparation.
 
 ## 445-459: Retention, Context And Pronunciation
 

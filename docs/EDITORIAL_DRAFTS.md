@@ -1,12 +1,22 @@
 # Editorial Drafts
 
+2026-10-29 wave08 checkpoint: the bounded lexical proposal was independently
+AI-reviewed and corrected, then registered/applied as kanji08/words08. The
+reviewed corpus is now 112 kanji/160 exact word pairs; V6 publication
+`40908104197`, post-publication plan `40908802623` and remote audit `40909088233`
+passed. See `LEXICAL_WAVE08_REVIEW.md` and `DEVELOPMENT_CYCLE_430_444.md`.
+Thirty observed candidates yielded twenty selected pairs; ten deferred pairs
+are neither published nor counted as reviewed pending content. Source matching,
+AI review and actual publication remain distinct evidence layers.
+
 2026-10-29 update: wave07 is retained as a nonpublishing proposal archive.
 Independently AI-reviewed immutable copies are registered as
 `task-118-course-kanji-07` and `task-127-course-words-07`. See
 `editorial-wave07-review.ts` and `DEVELOPMENT_CYCLE_415_429.md` for bound review
-and source evidence. The registry and applied teaching content now contain
-111 kanji/140 word pairs. V5 publication `40855074022` and its post-publication
-plan passed; those are separate live receipts, not consequences of registration.
+and source evidence. At that checkpoint the registry/applied teaching content
+contained 111 kanji/140 word pairs. V5 publication `40855074022` and its
+post-publication plan passed; those are separate live receipts, not consequences
+of registration.
 The archived draft's null review/source fields are not publishing credentials,
 and its 69 proposed cards are no longer counted as a new pending backlog.
 

@@ -6,7 +6,7 @@
 - Updated: 2026-10-29
 - State: **IN PROGRESS**
 - Entire 60-level main-course publication approved: **no**
-- Individual verified additive waves: **authorized; seventh wave applied**
+- Individual verified additive waves: **authorized; eighth wave applied**
 
 The 2,300-kanji and 8,000-vocabulary publication target has not been reached or
 claimed. This record captures the successful staging corpus, the exact
@@ -15,7 +15,33 @@ continue.
 
 ## Verified staging evidence
 
-### Current Editorial Corpus: Seventh Batches (2026-10-29)
+### Current Editorial Corpus: Eighth Batches (2026-10-29)
+
+Cycle 430-444 applied only reviewed kanji08/words08 in
+[run 40905867645](https://github.com/wndffs/kanji-app/actions/runs/40905867645).
+Complete quality scanning found zero blockers/warnings across 360 materials.
+The main course remains **DRAFT**: **88 components, 112 kanji, 160 exact word
+pairs, 360 items, 632 cards and 160 original bilingual examples**, twelve
+populated levels out of sixty. Remaining targets: **2,188 kanji and 7,840 word
+pairs**. The wave adds ten verbs, five i-adjectives, five nouns and the missing
+prerequisite 前. Raw source imports were reused, not downloaded or expanded.
+
+The exact finite set is separately **published as V6** by
+[run 40908104197](https://github.com/wndffs/kanji-app/actions/runs/40908104197),
+without enrolling or switching existing learners. Course UUID
+`ae9dac23-36f5-4017-95d3-cf93b344b924`; content version
+`9c599c7ab7e1dc539bd7b433e8357dda082506d05a1ef3720a1337e97ee63829`.
+Read-only post-publication plan `40908802623` and exact-revision remote V6 audit
+`40909088233` passed. Original private state and earlier finite-course seals,
+identities and teaching answers were preserved. Detailed observations and
+private fingerprints stay outside Git; only aggregate evidence is recorded.
+
+All 272 kanji/word items have meaning/reading, with zero missing RU/EN/required
+readings. Modern JLPT metadata is unknown for 110 kanji and 159 words. Neither
+this basic lexical expansion nor AI review proves complete N4/N3 coverage.
+Full receipts and review limitations: `DEVELOPMENT_CYCLE_430_444.md`.
+
+### Previous Editorial Corpus: Seventh Batches (2026-10-29)
 
 Cycle 415-429 applied only reviewed kanji07/word07 through curation run
 `40848704377`; both initial application and identical rerun passed with zero

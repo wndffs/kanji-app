@@ -7,11 +7,12 @@ This repository is an npm TypeScript monorepo with a tiny project-authored start
 ## Current Roadmap
 
 The current numbered backlog is [400-499](docs/ROADMAP_400_499.md), with the
-latest released [415-429 batch](docs/DEVELOPMENT_CYCLE_415_429.md). It prioritizes
+latest released [430-444 batch](docs/DEVELOPMENT_CYCLE_430_444.md). It prioritizes
 reviewed content and truthful scope reporting over further visual-only cycles.
 Later reserved tasks are not completed work or a promise of full JLPT coverage.
-Next reserved batch: 430-444. Published V5 contains 111 kanji, 140 word pairs
-and 590 core cards; older finite courses and existing learning progress remain.
+Next reserved batch: 445-459. Published V6 contains 112 kanji, 160 word pairs
+and 632 core cards across twelve levels, including the first bounded verb and
+adjective wave. Older finite courses and existing learning progress remain.
 
 See [the revalidated roadmap](docs/REVALIDATION_2026_10_21.md) for current execution
 order, shipped functionality and remaining acceptance gates. Task numbers are

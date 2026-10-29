@@ -49,7 +49,7 @@ bulk raw import, destructive migration or paid-service change.
 | 441 | Registry, placement/policy, finite-version and scoped preflight checks | Complete |
 | 442 | Verified additive application/publication or exact blockers            | Complete |
 | 443 | Batched learner/content acceptance and database impact                 | Complete |
-| 444 | Release, exact runtime and real coverage/gap report                    | Planned  |
+| 444 | Release, exact runtime and real coverage/gap report                    | Complete |
 
 ## Operator Boundaries
 
@@ -217,3 +217,28 @@ materials have both meaning and reading cards; missing RU/EN/required-reading
 counts are zero. Modern JLPT metadata remains unknown for 110 kanji/159 words,
 and exam coverage is explicitly unconfirmed. Existing shared progress remains
 visible while the inspected account keeps its original selected demo course.
+
+The live 午後 item shows ごご, the corrected post-noon/p.m. scope including
+evening, links to 午/後 and the original JP/kana/RU example with project
+attribution. This is a read-only inspection, not a graded learner session.
+
+## Release And Remaining Gap: Task 444
+
+Tag `cycle-430-444-lexical-backbone` identifies this complete release checkpoint.
+Actual web/API health and the remote audit both confirm runtime
+`37898b1317bf39b2f37e9fc251e096df55e49b8c`. The later CI checkpoint `36f2b9c`
+differs only in `packages/db/test/editorial-wave.test.ts`; subsequent release
+receipts change documentation only. No unrelated runtime edit or empty rebuild
+was introduced merely to force all SHAs to look identical.
+
+Published content grew by one kanji, twenty exact word pairs, twenty original
+bilingual examples and 42 cards relative to V5. The long-term 2,300-kanji/
+8,000-pair target still lacks 2,188 kanji and 7,840 pairs. Volume ratios are
+4.9%/2%, not JLPT coverage, proficiency or chances of passing. Grammar, full
+reading/listening exam preparation and licensed recorded word audio were not
+added in this batch. No new dependency, migration, competitor content or
+inferred modern JLPT labels. Independent AI review is not human certification.
+
+Screenshots and source observations stay outside Git. Both content reviewers
+are closed; no local test/server session is left running. Agent-created browser
+tabs are closed at handoff. **430-444 are complete; 445-459 is next, not started.**
