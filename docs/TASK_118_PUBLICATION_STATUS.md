@@ -17,6 +17,12 @@ continue.
 
 ### Current Editorial Corpus: Eighth Batches (2026-10-29)
 
+Cycle 445-459 subsequently added retention features and one recorded-word
+pronunciation sidecar, without changing this course's teaching rows/card set.
+V6 verification `40920054697` confirms the same UUID, content version and counts.
+Audio provenance application `40918648970` writes no learning card or user
+state. See `DEVELOPMENT_CYCLE_445_459.md`; this is not a ninth editorial wave.
+
 Cycle 430-444 applied only reviewed kanji08/words08 in
 [run 40905867645](https://github.com/wndffs/kanji-app/actions/runs/40905867645).
 Complete quality scanning found zero blockers/warnings across 360 materials.

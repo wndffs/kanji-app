@@ -1,10 +1,10 @@
 # Product Roadmap 400-499
 
 Baseline: `2b29567`, verified runtime `1fdd9b0`, 2026-10-28.
-The requests authorized 400-414, 415-429 and **430-444**, with separate commits,
-batched checks, push, deployment and verified publication. All three batches
-are released. Tasks 445-499 remain a reserved backlog, not completed work;
-445-459 is next. Revalidate each batch before editing.
+The requests authorized 400-414, 415-429, 430-444 and **445-459**, with separate
+commits, batched checks, push, deployment and verified publication. All four
+batches are released. Tasks 460-499 remain a reserved backlog, not completed
+work; 460-474 is next. Revalidate each batch before editing.
 
 ## User Decisions: 2026-10-29
 
@@ -195,6 +195,23 @@ closes basic lexical gaps, not a complete N4 syllabus or N3 exam preparation.
 | 457 | Preserve personal answers/notes through additive content versions                       |
 | 458 | Batch pronunciation/context/concealment and owner-isolation tests                       |
 | 459 | Deploy and validate a real reinforcement path without claiming exam listening readiness |
+
+Checkpoint: **445-459 complete and released**, specification and full receipts
+in `DEVELOPMENT_CYCLE_445_459.md`, tag
+`cycle-445-459-retention-pronunciation`, exact web/API runtime `5443537`.
+Final CI `40919772373` passed 483 browser cases (one existing skip); Study
+integrity `40919772544` passed. Remote V6 audit `40920469450` and live IAB
+acceptance passed, including original WAV decoding and mobile result focus.
+
+Delivered: original RU/EN on/kun/whole-word guidance and three visual contrasts;
+post-answer kana-spelling explanations without looser grading; bounded rotating
+weak-card practice, owner-locked starts, distinct rehearsal history and
+idempotent private-answer additions. One exact recorded pair (食べる/たべる)
+has pinned CC BY 4.0 source/bytes/attribution and separate database provenance.
+Audio application `40918648970` created no SRS card or user-state changes;
+post-attachment plan `40919928399` passed. V6 plan `40920054697` proves its
+UUID, counts and content version unchanged. All original protected rows match.
+This is not broad audio coverage, new vocabulary or exam listening preparation.
 
 ## 460-474: N3-Oriented Expansion
 

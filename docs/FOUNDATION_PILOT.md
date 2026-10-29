@@ -13,6 +13,13 @@ never automatically upgrades/enrolls v1 learners or changes their current course
 
 ## Published V6: 2026-10-29
 
+Retention cycle 445-459 changes study/practice presentation and adds one
+independently licensed word-pronunciation sidecar, not the finite manifest,
+placements, card set or enrollment. Read-only plan `40920054697` confirms V6's
+same UUID/content version below after attachment; original learning state is
+preserved. No V7 or listening SRS expansion is implied. Full runtime receipts
+are in `DEVELOPMENT_CYCLE_445_459.md`.
+
 Cycle 430-444 adds the independently sealed `japanese-foundation-pilot-v6`:
 **88 components, 112 kanji, 160 word pairs, 360 items, 632 cards and 160 original
 bilingual examples**, across twelve populated levels. New content is one kanji
