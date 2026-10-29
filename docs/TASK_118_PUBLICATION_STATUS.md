@@ -3,9 +3,10 @@
 ## Status
 
 - Task: 118
-- Updated: 2026-10-23
+- Updated: 2026-10-29
 - State: **IN PROGRESS**
-- Main course publication approved: **no**
+- Entire 60-level main-course publication approved: **no**
+- Individual verified additive waves: **authorized; seventh wave applied**
 
 The 2,300-kanji and 8,000-vocabulary publication target has not been reached or
 claimed. This record captures the successful staging corpus, the exact
@@ -14,7 +15,33 @@ continue.
 
 ## Verified staging evidence
 
-### Current Editorial Corpus: Sixth Batches (2026-10-23)
+### Current Editorial Corpus: Seventh Batches (2026-10-29)
+
+Cycle 415-429 applied only reviewed kanji07/word07 through curation run
+`40848704377`; both initial application and identical rerun passed with zero
+quality blockers/warnings across 339 items. Raw dictionary imports did not
+change. Original private-state, old-course and card identities were preserved.
+
+The main course remains **DRAFT** with **88 components, 111 kanji, 140 word
+pairs, 339 items, 590 cards and 140 original bilingual examples**, ten populated
+levels of sixty. Remaining full-course targets: **2,189 kanji and 7,860 word
+pairs**. The archived draft is not counted again as pending reviewed content.
+
+That finite set is separately **published as V5** by
+[run 40855074022](https://github.com/wndffs/kanji-app/actions/runs/40855074022),
+without enrolling or switching existing learners. Course UUID
+`29080946-ac34-4db5-aeb4-9955cfbc70e1`; content version
+`fe7a3c9def95073fc11ef754cc6b79a9196da6537c55d2a9617ee87a0ed4aaca`.
+Post-publication plan `40855686356` and exact-revision remote smoke
+`40855779425` passed. V1-V4 retain their original seals and counts.
+
+All 251 kanji/word items have both teaching aspects; missing RU/EN/required
+reading counts are zero. Modern JLPT metadata remains unknown for 109 kanji
+and 139 words. This is a verified foundation expansion, not complete N4/N3
+coverage or a human editorial certification. Source, AI review and live proof
+are separate evidence layers in `DEVELOPMENT_CYCLE_415_429.md`.
+
+### Previous Editorial Corpus: Sixth Batches (2026-10-23)
 
 After cycle 130-144 passed acceptance,
 [selected curation 39855468624](https://github.com/wndffs/kanji-app/actions/runs/39855468624)

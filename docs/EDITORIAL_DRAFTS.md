@@ -4,8 +4,9 @@
 Independently AI-reviewed immutable copies are registered as
 `task-118-course-kanji-07` and `task-127-course-words-07`. See
 `editorial-wave07-review.ts` and `DEVELOPMENT_CYCLE_415_429.md` for bound review
-and source evidence. The source-only registry now has 111 kanji/140 word pairs;
-that is not a claim that Neon application or finite V5 publication has happened.
+and source evidence. The registry and applied teaching content now contain
+111 kanji/140 word pairs. V5 publication `40855074022` and its post-publication
+plan passed; those are separate live receipts, not consequences of registration.
 The archived draft's null review/source fields are not publishing credentials,
 and its 69 proposed cards are no longer counted as a new pending backlog.
 

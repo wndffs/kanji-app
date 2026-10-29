@@ -11,6 +11,52 @@ published after independent parent planning/review. It contains **53 components,
 five levels. Live plan and publication evidence is recorded below. Publication
 never automatically upgrades/enrolls v1 learners or changes their current course.
 
+## Published V5: 2026-10-29
+
+Cycle 415-429 adds a separately sealed `japanese-foundation-pilot-v5` through
+`buildFoundationPilotManifestV5()`: **88 components, 111 kanji, 140 word pairs,
+339 existing items, 590 existing cards and 140 original bilingual examples**
+in ten populated levels. This is still a foundation, not full N4/N3 coverage.
+Its fourteen reviewed sources contain the twelve V4 sources unchanged plus
+`task-118-course-kanji-07@1` and `task-127-course-words-07@1`.
+
+[Read-only plan 40854725090](https://github.com/wndffs/kanji-app/actions/runs/40854725090)
+and [explicit publication 40855074022](https://github.com/wndffs/kanji-app/actions/runs/40855074022)
+passed. Course UUID: `29080946-ac34-4db5-aeb4-9955cfbc70e1`; live content version:
+`fe7a3c9def95073fc11ef754cc6b79a9196da6537c55d2a9617ee87a0ed4aaca`.
+Post-publication plan `40855686356` confirms the same UUID/version and exact
+placements. No existing user was enrolled or switched. Exact-revision V5 remote
+smoke `40855779425` passed on web/API `3f9d62d`, using a separate audit account.
+
+V5's stable publication-record UUID is
+`44b901f4-0262-46a9-a094-e4dac255874a`; its canonical manifest SHA-256 is
+`2943f058d3590f190274bdcabf81e1270c1fa1274f5b6e2c02b0e9737eeca03a`.
+The added source seals are respectively
+`c29f311e3f05cd03e1b12a232bc660bfcd7a548a689ff76c798ab7d56313ae06` and
+`8a7c53c07b87b31ecfa27173731c8213f755a3349332f40ef5372c46e521ebf4`.
+These hashes are not live course IDs or publication content-version hashes.
+
+Existing placements, V1-V4 canonical manifests and defaults remain unchanged.
+New levels 8/9/10 contain 9 components, 10 kanji and 20 words respectively;
+their core types are COMPONENT/KANJI/WORD, retaining stage 5 and 90%.
+Dependency requirements still apply independently. The N5 course bands are
+project curriculum metadata, not invented modern JLPT labels for entries.
+
+V5 requires the sealed expected meaning blocks to match actual meaning-card
+blocks, successful licensed source provenance and zero quality blockers.
+Quality reads stay bounded to 100-item scopes with completeness checks; the
+339 placements must match exactly. Like V4, V5 uses a bounded 120-second
+Serializable publication transaction. No timeout, source, quality or rollback
+guard is disabled. `--pilot v5 --validate-only` passed without database access.
+
+The existing manual publication workflow now offers V5, still defaulting to
+`v1` and read-only `plan`. Only explicit `publish` writes the finite course;
+it offers no enrollment input and cannot switch or reset existing learners.
+The remote smoke workflow also accepts explicit V5 selection and exact web/API
+revisions, with the same bounded temporary-account audit and sanitized report.
+Actual operator/publication receipts belong in `DEVELOPMENT_CYCLE_415_429.md`;
+preparing this manifest does not itself publish V5 or certify human review.
+
 ## Published V4: 2026-10-23
 
 Task144 prepares a separately sealed `japanese-foundation-pilot-v4` via
@@ -151,7 +197,7 @@ V2 canonical manifest SHA-256 is
 `4d2f3aab0b2b160774ab5a2ca19a675f28423c48561218abca4c8737c47d53e1`.
 These manifest seals are not live course content-version hashes.
 
-The common publisher accepts only canonical equality with one of the four known
+The common publisher accepts only canonical equality with one of the five known
 sealed manifests and exact approved registry/source hashes. Altered counts,
 targets, answers, source records/IDs/order, approval dates or level policies
 fail before any database read. Caller-provided counts or slugs do not define

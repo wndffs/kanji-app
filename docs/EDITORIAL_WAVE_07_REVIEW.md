@@ -6,6 +6,8 @@ live Neon evidence. The promoted immutable batches and review/content hashes
 are separate from this proposal: see `editorial-wave07-review.ts` and
 `DEVELOPMENT_CYCLE_415_429.md`. This does not itself attest publication; the
 curator/finite-version gates and unchanged-progress acceptance remain mandatory.
+Those separate gates subsequently passed: selected curation `40848704377`,
+finite V5 publication `40855074022` and unchanged original-account acceptance.
 
 Tasks 377-382 prepare the existing draft07, not a new imported or published
 course. Proposed volume: 9 components at level 8, 10 kanji at level 9, 20
