@@ -24,7 +24,7 @@ Publish an additive, separately sealed V7 only after review, live source preflig
 | 469  | Two independent AI reviews and corrections                     | Done    |
 | 470  | Manifest, graph and bounded-query acceptance                   | Done    |
 | 471  | Read-only additive preview and immutable identity checks       | Done    |
-| 472  | Publish only this approved teaching wave and V7                | Pending |
+| 472  | Publish only this approved teaching wave and V7                | Done    |
 | 473  | Batch checks and actual course/source acceptance               | Pending |
 | 474  | Deploy, server verification and measured release receipt       | Pending |
 
@@ -39,7 +39,7 @@ Publish an additive, separately sealed V7 only after review, live source preflig
 
 ## Release Receipt
 
-Not released. Proposed additions must not be presented as published counts.
+V7 is published; final runtime/UX acceptance for tasks 473–474 is in progress.
 
 ## Editorial Evidence
 
@@ -58,3 +58,11 @@ All V1–V6 source seals still match. V7 preserves every V6 source/target and it
 Before any writes, Neon confirmed 20/20 selected exact JMdict identities, 20/20 bilingual imported senses and 20/20 successful licensed sources. Selected-kanji read-only preflight [40927610690](https://github.com/wndffs/kanji-app/actions/runs/40927610690) passed on `620c120`: four new components and five kanji; vocabulary writes were explicitly skipped. Full vocabulary live preflight remains mandatory after its earlier kanji placements exist, before any word writes.
 
 V7 adds 29 materials and 54 core cards without editing any of the 360 V6 materials or 632 V6 cards. An in-memory pre-write safety snapshot covers all eleven private-state tables and old finite courses/levels/placements/items/cards/answers/blocks. Baseline: 26 accounts, 162 SRS states, eight review sessions, five review answers, six kana-progress rows and five published finite courses. Physical database size: 161,021,952 bytes, not a measurement of Neon billable quota. No private rows or digests are stored in Git.
+
+## Verified Publication
+
+Selected application [40928757701](https://github.com/wndffs/kanji-app/actions/runs/40928757701) applied only kanji09/words09, reusing raw imports. Complete quality scan: 389 items, zero blockers, zero warnings. No old batch was reapplied. The all-registry word preflight passed before any word write.
+
+Read-only V7 plan [40928899632](https://github.com/wndffs/kanji-app/actions/runs/40928899632) passed before explicit publication [40930432283](https://github.com/wndffs/kanji-app/actions/runs/40930432283). Live course UUID: `5755286f-fd0b-4d39-8353-08f4dbc44837`; content version: `c08f45572335859349f1f0840aed0238bf90af037fe053b7d0d1e64845725d72`. The publisher returned `enrolledUserId: null`. Main 60-level course remains DRAFT; the finite V7 is separately PUBLISHED.
+
+After application, all eighteen protected table-set count/digest pairs matched the baseline exactly, including all eleven private-state tables and old finite courses/items/cards/answers/blocks. Physical database size then: 161,382,400 bytes. Final original-cohort comparison follows the isolated remote audit.

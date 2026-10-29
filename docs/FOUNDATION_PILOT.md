@@ -11,13 +11,42 @@ published after independent parent planning/review. It contains **53 components,
 five levels. Live plan and publication evidence is recorded below. Publication
 never automatically upgrades/enrolls v1 learners or changes their current course.
 
+## Published V7: 2026-10-29
+
+Cycle 460–474 adds five kanji, four visual prerequisites and twenty exact word
+pairs: eight verbs, three i-adjectives and nine calendar/time/study nouns.
+`japanese-foundation-pilot-v7` contains **92 components, 117 kanji, 180 word
+pairs, 389 items, 686 cards and 180 original bilingual examples**, across fifteen
+levels. It preserves every V6 target/card identity and its twelve level/policy
+objects, adding only component -> kanji -> word stages 13–15. Existing users are
+not enrolled or switched automatically; select the new course explicitly.
+
+Read-only plan [40928899632](https://github.com/wndffs/kanji-app/actions/runs/40928899632)
+and explicit publication [40930432283](https://github.com/wndffs/kanji-app/actions/runs/40930432283)
+passed. Course UUID: `5755286f-fd0b-4d39-8353-08f4dbc44837`; live content version:
+`c08f45572335859349f1f0840aed0238bf90af037fe053b7d0d1e64845725d72`.
+Canonical manifest SHA-256:
+`9bb436abf5afce6373f1ed60c71fe8a06992ed6f5560cbdd1394e8813ad3c9f2`.
+Publication-record UUID: `fa6b2ef5-d7c1-4fc7-a197-55be39dd194b`, not the course
+UUID. Eighteen sources are pinned; new kanji09 hash
+`f7ce02eab5d3ef69793f2d077e62ea6f83c23484bdd6deaff2fd8447b1ec9cee`
+and words09 hash
+`83837d6f793a30a8e3101ce7c5797e312d48be8031b8f3febb22f56513c636fa`.
+
+Both independent AI reviewers rechecked corrections. Exact local and live
+licensed sources matched, and the full 389-item quality scan had zero blockers
+or warnings. This remains a basic foundation, not complete N4/N3 coverage or
+human editorial certification. Manual defaults remain V1/read-only plan and
+the 120-second bounded Serializable publisher is unchanged. Runtime acceptance
+and preservation receipts: `DEVELOPMENT_CYCLE_460_474.md`.
+
 ## Published V6: 2026-10-29
 
 Retention cycle 445-459 changes study/practice presentation and adds one
 independently licensed word-pronunciation sidecar, not the finite manifest,
 placements, card set or enrollment. Read-only plan `40920054697` confirms V6's
 same UUID/content version below after attachment; original learning state is
-preserved. No V7 or listening SRS expansion is implied. Full runtime receipts
+preserved. That cycle did not add V7 or listening SRS cards. Full runtime receipts
 are in `DEVELOPMENT_CYCLE_445_459.md`.
 
 Cycle 430-444 adds the independently sealed `japanese-foundation-pilot-v6`:
