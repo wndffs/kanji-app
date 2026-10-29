@@ -24,6 +24,7 @@ import { JapaneseText } from "../../components/JapaneseText";
 import { ViewTabs } from "../../components/ViewTabs";
 import { CopyReadingButton } from "../../components/CopyReadingButton";
 import { KanjiWordReinforcement } from "../../components/KanjiWordReinforcement";
+import { READING_GUIDANCE } from "@kanji-srs/shared";
 import { ItemPreviewList } from "../../components/ItemPreviewList";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import {
@@ -1444,6 +1445,7 @@ function ItemReadingDetails({
                 return readings === undefined || readings.length === 0 ? null : (
                   <div className="content-block" key={kind}>
                     <h3>{title}</h3>
+                    {kind === "on" || kind === "kun" ? <ReadingGuidanceText kind={kind} displayMode={displayMode} /> : null}
                     <ul className="reading-chip-list">
                       {readings.map((reading) => (
                         <li key={`${kind}-${reading.reading}`}>
@@ -1474,6 +1476,9 @@ function ItemReadingDetails({
           Чтение слова изучается целиком: его нельзя всегда получить сложением чтений отдельных
           кандзи.
         </p>
+        <SectionDisclosure title="Чтение целого слова">
+          <ReadingGuidanceText kind="word" displayMode={displayMode} />
+        </SectionDisclosure>
         {item.relationGroups.some((group) => group.kind === "kanji" && group.total > 0) ? (
           <Link className="inline-link" href={`${studyHref}#item-related-kanji`}>
             Кандзи этого слова
@@ -1795,6 +1800,11 @@ function StrokePlaceholder({ character }: { readonly character: string }) {
       </p>
     </>
   );
+}
+
+function ReadingGuidanceText({ kind, displayMode }: { readonly kind: keyof typeof READING_GUIDANCE; readonly displayMode: TranslationDisplayMode }) {
+  const text = READING_GUIDANCE[kind];
+  return <>{displayMode !== "en" ? <p lang="ru">{text.ru}</p> : null}{displayMode !== "ru" ? <p lang="en">{text.en}</p> : null}</>;
 }
 
 function ItemReadingAudio({

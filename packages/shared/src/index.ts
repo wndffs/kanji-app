@@ -2056,3 +2056,4 @@ export function getContentLocalesForDisplayMode(
       return SUPPORTED_CONTENT_LOCALES;
   }
 }
+export * from "./reading-guidance";
