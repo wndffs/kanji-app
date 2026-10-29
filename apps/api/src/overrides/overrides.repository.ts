@@ -144,10 +144,8 @@ export class PrismaOverridesRepository extends OverridesRepository {
           normalizedText: input.normalizedText,
         },
       },
-      update: {
-        text: input.text,
-        note: input.note,
-      },
+      // Adding an existing normalized answer is idempotent; edits use replacement.
+      update: {},
       create: {
         userId: input.userId,
         learningCardId: input.cardId,
