@@ -4,9 +4,19 @@ import { buildMainCourseContentBatch08 } from "../src/main-course-content-08";
 import { buildMainCourseWordBatches, wordHanCharacters } from "../src/main-course-word-content";
 import { lexicalPairKey } from "../src/lexical-selection";
 import { WAVE08_TEACHING } from "../src/lexical-wave08-teaching";
+import { WAVE08_RU } from "../src/lexical-wave08-answers";
+import { validateAnswer } from "@kanji-srs/japanese";
 
 const oldKanji = () => buildMainCourseContentBatches().filter(x=>x.id!=="task-118-course-kanji-08");
 describe("bounded everyday wave08", () => {
+  it("accepts selected Russian aspect equivalents but rejects semantic contrasts even with a private synonym", () => {
+    for(const row of WAVE08_TEACHING) {
+      const meaning=WAVE08_RU[row.expression]!;
+      expect(meaning.primary).toBe(row.ru);
+      for(const answer of meaning.accepted) expect(validateAnswer({answerKind:"meaning",answer,acceptedAnswers:meaning.accepted}).accepted).toBe(true);
+      for(const block of meaning.blocked??[]) expect(validateAnswer({answerKind:"meaning",answer:block.text,acceptedAnswers:[...meaning.accepted,block.text],blockedAnswers:[block.text]}).accepted).toBe(false);
+    }
+  });
   it("reuses existing components for the single missing prerequisite without moving old slots", () => {
     const batch=buildMainCourseContentBatch08();
     expect(batch.components).toEqual([]);
