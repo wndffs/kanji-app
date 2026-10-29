@@ -6,8 +6,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { parseFoundationPilotArgs } from "../prisma/publish-foundation-pilot";
 import { loadContentQualityItems } from "../src/content-quality-report";
 import { type QualityItem } from "../src/content-quality";
-import { WAVE07_MEANING_BLOCKS } from "../src/editorial-wave07-blocks";
-import { WAVE08_RU, WAVE08_EN } from "../src/lexical-wave08-answers";
 import {
   buildFoundationPilotManifest,
   buildFoundationPilotManifestV2,
@@ -15,6 +13,7 @@ import {
   buildFoundationPilotManifestV4,
   buildFoundationPilotManifestV5,
   buildFoundationPilotManifestV6,
+  buildFoundationPilotManifestV7,
   foundationPilotRecordId,
   FOUNDATION_PILOT_RECORD_ID,
   FOUNDATION_PILOT_V2_RECORD_ID,
@@ -23,7 +22,10 @@ import {
   planFoundationPilot,
   publishFoundationPilot,
 } from "../src/foundation-pilot";
-import { buildMainCourseContentBatches } from "../src/main-course-content";
+import {
+  buildMainCourseContentBatches,
+  type MainCourseAcceptedMeanings,
+} from "../src/main-course-content";
 import { buildMainCourseBlueprint } from "../src/main-course";
 import { buildMainCourseWordBatches, wordHanCharacters } from "../src/main-course-word-content";
 
@@ -190,7 +192,7 @@ describe("sealed finite pilot v2", () => {
     });
     for (const args of [
       ["--pilot"],
-      ["--pilot", "v7"],
+      ["--pilot", "v8"],
       ["--pilot", "--publish"],
       ["--pilot", "v2", "--pilot", "v1"],
       ["--pilot", "v2", "--pilot", "v2"],
@@ -455,6 +457,7 @@ describe("sealed finite pilot v2", () => {
 describe.each([
   ["V5", buildFoundationPilotManifestV5, 339, 14],
   ["V6", buildFoundationPilotManifestV6, 360, 16],
+  ["V7", buildFoundationPilotManifestV7, 389, 18],
 ] as const)(
   "finite %s live-content preflight contract",
   (_label, build, itemCount, sourceCount) => {
@@ -510,6 +513,25 @@ describe.each([
 
 // A narrow read-only projection plus write spies: no simulated Prisma persistence/transactions.
 function readFixture(manifest = buildFoundationPilotManifestV2()) {
+  const authoredBlocksByTarget = new Map(
+    manifest.sources
+      .flatMap((s) => s.records)
+      .flatMap(({ content }) => {
+        const row = content as {
+          character?: string;
+          expression?: string;
+          reading?: string;
+          meanings?: { ru: MainCourseAcceptedMeanings; en: MainCourseAcceptedMeanings };
+        };
+        if (!row.meanings) return [];
+        const key = row.character
+          ? `kanji:${row.character}`
+          : `word:${row.expression}:${row.reading}`;
+        return [
+          [key, [...(row.meanings.ru.blocked ?? []), ...(row.meanings.en.blocked ?? [])]] as const,
+        ];
+      }),
+  );
   const band = (levelNumber: number) =>
     buildMainCourseBlueprint().levels.find((level) => level.levelNumber === levelNumber)!.band;
   const itemId = (key: string) =>
@@ -607,12 +629,9 @@ function readFixture(manifest = buildFoundationPilotManifestV2()) {
             promptType === "MEANING"
               ? (target.blockedAnswers ?? []).map((block, index) => ({
                   ...block,
-                  reason: [
-                    ...(WAVE07_MEANING_BLOCKS[target.expression]?.ru ?? []),
-                    ...(WAVE07_MEANING_BLOCKS[target.expression]?.en ?? []),
-                    ...(WAVE08_RU[target.expression]?.blocked ?? []),
-                    ...(WAVE08_EN[target.expression]?.blocked ?? []),
-                  ].find((entry) => entry.text === block.text)!.reason,
+                  reason: authoredBlocksByTarget
+                    .get(target.key)!
+                    .find((entry) => entry.text === block.text)!.reason,
                   id: `block-${itemId(target.key)}-${index}`,
                   learningCardId: `card-${itemId(target.key)}-${promptType}`,
                   sourceKind: "PROJECT_AUTHORED",

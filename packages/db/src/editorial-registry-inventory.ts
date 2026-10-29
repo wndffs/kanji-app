@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { WAVE07_REVIEW_DECISION } from "./editorial-wave07-review";
 import { WAVE08_REVIEW_DECISION } from "./lexical-wave08-review";
+import { WAVE09_REVIEW_DECISION } from "./lexical-wave09-review";
 
 import { buildMainCourseBlueprint } from "./main-course";
 import {
@@ -75,7 +76,7 @@ const SEALED_WORDS = [
   ],
   ["task-127-course-words-05", "e1fd34111d46183f4376934d9d55429c191524e7d319ec367b8bdb2c4d972f36"],
 ].map(([id, checksumSha256]) => ({ kind: "word" as const, id, checksumSha256, version: "1" }));
-const SOURCE_SEALS = [
+const SOURCE_SEALS_V1_V6 = [
   {
     id: "v1",
     version: "1",
@@ -192,6 +193,30 @@ const SOURCE_SEALS = [
       },
     ],
     sealedDistinctTotals: { components: 88, kanji: 112, words: 160, items: 360 },
+  },
+] as const;
+
+const SOURCE_SEALS = [
+  ...SOURCE_SEALS_V1_V6,
+  {
+    id: "v7",
+    version: "7",
+    sources: [
+      ...SOURCE_SEALS_V1_V6[5].sources,
+      {
+        kind: "kanji",
+        id: "task-118-course-kanji-09",
+        version: "1",
+        checksumSha256: WAVE09_REVIEW_DECISION.kanjiSha256,
+      },
+      {
+        kind: "word",
+        id: "task-127-course-words-09",
+        version: "1",
+        checksumSha256: WAVE09_REVIEW_DECISION.wordsSha256,
+      },
+    ],
+    sealedDistinctTotals: { components: 92, kanji: 117, words: 180, items: 389 },
   },
 ] as const;
 
@@ -331,7 +356,7 @@ export function buildEditorialRegistryInventory(options: EditorialRegistryInvent
     });
     if (sourceSeals.some((seal) => seal.status === "mismatch"))
       issues.push(
-        `${batch.id}: immutable ${sourceSeals.some((seal) => !["v5", "v6"].includes(seal.id) && seal.status === "mismatch") ? "V1-V4" : sourceSeals.some((seal) => seal.id === "v5" && seal.status === "mismatch") ? "V5" : "V6"} source seal mismatch.`,
+        `${batch.id}: immutable ${sourceSeals.some((seal) => !["v5", "v6", "v7"].includes(seal.id) && seal.status === "mismatch") ? "V1-V4" : sourceSeals.some((seal) => seal.id === "v5" && seal.status === "mismatch") ? "V5" : sourceSeals.some((seal) => seal.id === "v6" && seal.status === "mismatch") ? "V6" : "V7"} source seal mismatch.`,
       );
     return {
       kind: entry.kind,

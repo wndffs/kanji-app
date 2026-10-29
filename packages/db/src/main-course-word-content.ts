@@ -9,6 +9,7 @@ import { buildMainCourseWordBatch05 } from "./main-course-word-content-05";
 import { buildMainCourseWordBatch06 } from "./main-course-word-content-06";
 import { buildMainCourseWordBatch07 } from "./main-course-word-content-07";
 import { buildMainCourseWordBatch08 } from "./main-course-word-content-08";
+import { buildMainCourseWordBatch09 } from "./main-course-word-content-09";
 import { type LexicalKind } from "./lexical-selection";
 
 import {
@@ -1136,6 +1137,7 @@ export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
     buildMainCourseWordBatch06(),
     buildMainCourseWordBatch07(),
     buildMainCourseWordBatch08(),
+    buildMainCourseWordBatch09(),
   ];
 }
 

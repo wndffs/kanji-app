@@ -2,6 +2,7 @@ import { buildMainCourseContentBatch05 } from "./main-course-content-05";
 import { buildMainCourseContentBatch06 } from "./main-course-content-06";
 import { buildMainCourseContentBatch07 } from "./main-course-content-07";
 import { buildMainCourseContentBatch08 } from "./main-course-content-08";
+import { buildMainCourseContentBatch09 } from "./main-course-content-09";
 import { buildMainCourseBlueprint } from "./main-course";
 import { validateCuratedMeaningBlocks, type CuratedMeaningBlock } from "./curated-meaning-blocks";
 
@@ -1521,6 +1522,7 @@ const MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
   buildMainCourseContentBatch06(),
   buildMainCourseContentBatch07(),
   buildMainCourseContentBatch08(),
+  buildMainCourseContentBatch09(),
 ];
 
 export function buildMainCourseContentBatches(): readonly MainCourseContentBatch[] {

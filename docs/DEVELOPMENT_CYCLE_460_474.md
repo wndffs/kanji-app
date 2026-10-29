@@ -10,23 +10,23 @@ Publish an additive, separately sealed V7 only after review, live source preflig
 
 ## Tasks
 
-| Task | Deliverable | State |
-| --- | --- | --- |
-| 460 | Re-audit actual coverage and bound this wave | Done |
-| 461 | Explicit topic selection and deferred follow-up | Done |
-| 462 | Five kanji and visual prerequisites | Done |
-| 463 | Exact verb/adjective identities and selected senses | Done |
-| 464 | Time/topic vocabulary with common-use evidence | Done |
-| 465 | Original RU teaching and blocked-answer distinctions | Done |
-| 466 | Corresponding EN teaching | Done |
-| 467 | Exact local source, pronunciation and special-reading evidence | Done |
-| 468 | Original context and full kana transcription review | Done |
-| 469 | Two independent AI reviews and corrections | Done |
-| 470 | Manifest, graph and bounded-query acceptance | Pending |
-| 471 | Read-only additive preview and immutable identity checks | Pending |
-| 472 | Publish only this approved teaching wave and V7 | Pending |
-| 473 | Batch checks and actual course/source acceptance | Pending |
-| 474 | Deploy, server verification and measured release receipt | Pending |
+| Task | Deliverable                                                    | State   |
+| ---- | -------------------------------------------------------------- | ------- |
+| 460  | Re-audit actual coverage and bound this wave                   | Done    |
+| 461  | Explicit topic selection and deferred follow-up                | Done    |
+| 462  | Five kanji and visual prerequisites                            | Done    |
+| 463  | Exact verb/adjective identities and selected senses            | Done    |
+| 464  | Time/topic vocabulary with common-use evidence                 | Done    |
+| 465  | Original RU teaching and blocked-answer distinctions           | Done    |
+| 466  | Corresponding EN teaching                                      | Done    |
+| 467  | Exact local source, pronunciation and special-reading evidence | Done    |
+| 468  | Original context and full kana transcription review            | Done    |
+| 469  | Two independent AI reviews and corrections                     | Done    |
+| 470  | Manifest, graph and bounded-query acceptance                   | Done    |
+| 471  | Read-only additive preview and immutable identity checks       | Pending |
+| 472  | Publish only this approved teaching wave and V7                | Pending |
+| 473  | Batch checks and actual course/source acceptance               | Pending |
+| 474  | Deploy, server verification and measured release receipt       | Pending |
 
 ## Acceptance
 
@@ -46,3 +46,9 @@ Not released. Proposed additions must not be presented as published counts.
 Verified the existing full official local snapshot, without redownload/import. Selected exact bilingual pairs 20/20; kanji readings 5/5; primary stroke graphics 5/5. Detailed observations are external; Git retains only aggregate counts and fingerprints in `lexical-wave09-review.ts`.
 
 Independent AI reviewers Kierkegaard (readings/components) and Lovelace (meanings/context) reviewed and rechecked corrections. Fixed fuzzy collisions «сознавать», «возвращать», «возвращать домой», «в том месяце»; added promised RU/EN equivalents and natural kanji synonyms; narrowed English 知る to acquiring facts rather than studying; replaced an unnecessary generic book counter; clarified okurigana and real alternate readings. No outstanding findings in their bounded reviews. This is not human or licensing certification.
+
+## Source-Only Acceptance
+
+V7 validates without a database: 92 components, 117 kanji, 180 pairs, 389 items, 686 cards, 15 levels, 18 pinned sources. Canonical manifest SHA-256: `9bb436abf5afce6373f1ed60c71fe8a06992ed6f5560cbdd1394e8813ad3c9f2`. Publication-record UUID: `fa6b2ef5-d7c1-4fc7-a197-55be39dd194b` (not a course UUID).
+
+All V1–V6 source seals still match. V7 preserves every V6 source/target and its first twelve level/policy objects, adding only levels 13–15. Source-only graph closure has zero issues and no pending-review material. New tests reject answer/block/reason/source/policy/slot/review tampering before database access and cover all 389 quality items in scopes of at most 100. Existing 4-wide all-registry preflight and 120-second publication bounds are unchanged; no additional full-corpus import, schema change or production dependency.

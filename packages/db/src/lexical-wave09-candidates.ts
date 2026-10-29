@@ -24,7 +24,11 @@ const pairs: readonly (readonly [string, string, LexicalKind, string])[] = [
   ["語学", "ごがく", "noun", "study"],
 ];
 export const WAVE09_CANDIDATES = pairs.map(([expression, reading, kind, topic]) => ({
-  expression, reading, kind, topic, usefulness: 3,
+  expression,
+  reading,
+  kind,
+  topic,
+  usefulness: 3,
 }));
 
 // Reserved topics, not reviewed teaching and not a promised modern-JLPT list.

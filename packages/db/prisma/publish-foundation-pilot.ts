@@ -11,6 +11,7 @@ import {
   buildFoundationPilotManifestV4,
   buildFoundationPilotManifestV5,
   buildFoundationPilotManifestV6,
+  buildFoundationPilotManifestV7,
   foundationPilotRecordId,
   planFoundationPilot,
   publishFoundationPilot,
@@ -19,11 +20,11 @@ import {
 export function parseFoundationPilotArgs(args: readonly string[]): {
   mode: "validate-only" | "plan" | "publish";
   enrollUserId?: string;
-  pilot?: "v1" | "v2" | "v3" | "v4" | "v5" | "v6";
+  pilot?: "v1" | "v2" | "v3" | "v4" | "v5" | "v6" | "v7";
 } {
   let mode: "validate-only" | "plan" | "publish" | undefined;
   let enrollUserId: string | undefined;
-  let pilot: "v1" | "v2" | "v3" | "v4" | "v5" | "v6" | undefined;
+  let pilot: "v1" | "v2" | "v3" | "v4" | "v5" | "v6" | "v7" | undefined;
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
     if (arg === "--pilot") {
@@ -35,9 +36,10 @@ export function parseFoundationPilotArgs(args: readonly string[]): {
           value !== "v3" &&
           value !== "v4" &&
           value !== "v5" &&
-          value !== "v6")
+          value !== "v6" &&
+          value !== "v7")
       )
-        throw new Error("Provide --pilot once with v1, v2, v3, v4, v5 or v6.");
+        throw new Error("Provide --pilot once with v1, v2, v3, v4, v5, v6 or v7.");
       pilot = value;
       index++;
     } else if (arg === "--enroll-user-id") {
@@ -56,7 +58,7 @@ export function parseFoundationPilotArgs(args: readonly string[]): {
       mode = arg === "--validate-only" ? "validate-only" : arg === "--plan" ? "plan" : "publish";
     } else {
       throw new Error(
-        "Supported flags: --validate-only, --plan, --publish, --enroll-user-id UUID, --pilot v1|v2|v3|v4|v5|v6.",
+        "Supported flags: --validate-only, --plan, --publish, --enroll-user-id UUID, --pilot v1|v2|v3|v4|v5|v6|v7.",
       );
     }
   }
@@ -74,17 +76,19 @@ export function parseFoundationPilotArgs(args: readonly string[]): {
 async function main(): Promise<void> {
   const { mode, enrollUserId, pilot } = parseFoundationPilotArgs(process.argv.slice(2));
   const manifest =
-    pilot === "v6"
-      ? buildFoundationPilotManifestV6()
-      : pilot === "v5"
-        ? buildFoundationPilotManifestV5()
-        : pilot === "v4"
-          ? buildFoundationPilotManifestV4()
-          : pilot === "v3"
-            ? buildFoundationPilotManifestV3()
-            : pilot === "v2"
-              ? buildFoundationPilotManifestV2()
-              : buildFoundationPilotManifest();
+    pilot === "v7"
+      ? buildFoundationPilotManifestV7()
+      : pilot === "v6"
+        ? buildFoundationPilotManifestV6()
+        : pilot === "v5"
+          ? buildFoundationPilotManifestV5()
+          : pilot === "v4"
+            ? buildFoundationPilotManifestV4()
+            : pilot === "v3"
+              ? buildFoundationPilotManifestV3()
+              : pilot === "v2"
+                ? buildFoundationPilotManifestV2()
+                : buildFoundationPilotManifest();
   const manifestRecordId = foundationPilotRecordId(manifest);
   if (mode === "validate-only") {
     console.log(

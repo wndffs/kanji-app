@@ -6,8 +6,16 @@ export type Wave09Identity = {
   readonly jmdictEntryId: string;
   readonly partOfSpeech: LexicalKind;
 };
-const row = (expression: string, reading: string, id: string, partOfSpeech: LexicalKind): Wave09Identity => ({
-  expression, reading, jmdictEntryId: `jmdict:${id}`, partOfSpeech,
+const row = (
+  expression: string,
+  reading: string,
+  id: string,
+  partOfSpeech: LexicalKind,
+): Wave09Identity => ({
+  expression,
+  reading,
+  jmdictEntryId: `jmdict:${id}`,
+  partOfSpeech,
 });
 
 // Exact source identities, not an automatic list of accepted dictionary senses.

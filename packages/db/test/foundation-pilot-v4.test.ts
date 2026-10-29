@@ -302,7 +302,7 @@ describe("sealed finite pilot v4 preparation", () => {
     });
     for (const args of [
       ["--pilot"],
-      ["--pilot", "v7"],
+      ["--pilot", "v8"],
       ["--pilot", "v4", "--pilot", "v4"],
       ["--pilot", "v4", "--pilot", "v1"],
     ])
@@ -335,7 +335,7 @@ describe("sealed finite pilot v4 preparation", () => {
     );
     expect(workflow).toContain("default: v1");
     expect(workflow).toContain("          - v4");
-    expect(workflow.match(/v1\|v2\|v3\|v4\|v5\|v6\) ;;/gu)).toHaveLength(2);
+    expect(workflow.match(/v1\|v2\|v3\|v4\|v5\|v6\|v7\) ;;/gu)).toHaveLength(2);
     expect(workflow).not.toContain("--enroll-user-id");
   });
 });

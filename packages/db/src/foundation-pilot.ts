@@ -11,6 +11,7 @@ import { buildCuratedMeaningBlocks } from "./curated-meaning-blocks";
 import { FOUNDATION_WAVE07_LEVELS } from "./foundation-wave07-policy";
 import { WAVE07_REVIEW_DECISION } from "./editorial-wave07-review";
 import { WAVE08_REVIEW_DECISION } from "./lexical-wave08-review";
+import { WAVE09_REVIEW_DECISION } from "./lexical-wave09-review";
 import {
   buildMainCourseContentBatches,
   validateMainCourseContentBatches,
@@ -38,6 +39,8 @@ export const FOUNDATION_PILOT_V5_SLUG = "japanese-foundation-pilot-v5";
 export const FOUNDATION_PILOT_V5_RECORD_ID = "44b901f4-0262-46a9-a094-e4dac255874a";
 export const FOUNDATION_PILOT_V6_SLUG = "japanese-foundation-pilot-v6";
 export const FOUNDATION_PILOT_V6_RECORD_ID = "1e43f4d1-9ed6-4f55-9bdc-08430d07cbe6";
+export const FOUNDATION_PILOT_V7_SLUG = "japanese-foundation-pilot-v7";
+export const FOUNDATION_PILOT_V7_RECORD_ID = "fa6b2ef5-d7c1-4fc7-a197-55be39dd194b";
 const KANJI_SOURCE_IDS = ["01", "02", "03", "04"].map(
   (suffix) => `task-118-foundation-kanji-${suffix}`,
 );
@@ -90,6 +93,14 @@ const V6_SOURCE_HASHES: Readonly<Record<string, string>> = {
   "task-127-course-words-08": WAVE08_REVIEW_DECISION.wordsSha256,
 };
 const V6_LEVEL_KINDS = [...V5_LEVEL_KINDS, "KANJI", "WORD"] as const;
+const V7_KANJI_SOURCE_IDS = [...V6_KANJI_SOURCE_IDS, "task-118-course-kanji-09"];
+const V7_WORD_SOURCE_IDS = [...V6_WORD_SOURCE_IDS, "task-127-course-words-09"];
+const V7_SOURCE_HASHES: Readonly<Record<string, string>> = {
+  ...V6_SOURCE_HASHES,
+  "task-118-course-kanji-09": WAVE09_REVIEW_DECISION.kanjiSha256,
+  "task-127-course-words-09": WAVE09_REVIEW_DECISION.wordsSha256,
+};
+const V7_LEVEL_KINDS = [...V6_LEVEL_KINDS, "COMPONENT", "KANJI", "WORD"] as const;
 const PILOTS = {
   v1: {
     slug: FOUNDATION_PILOT_SLUG,
@@ -144,6 +155,15 @@ const PILOTS = {
     kanjiIds: V6_KANJI_SOURCE_IDS,
     wordIds: V6_WORD_SOURCE_IDS,
     canonicalChecksum: "544528b1d3d0d191e2d3285e76092b9a7cc795b0645e7ce5f9b4cc7ff4bf7156",
+  },
+  v7: {
+    slug: FOUNDATION_PILOT_V7_SLUG,
+    recordId: FOUNDATION_PILOT_V7_RECORD_ID,
+    version: "7",
+    counts: { components: 92, kanji: 117, words: 180, items: 389, cards: 686 },
+    kanjiIds: V7_KANJI_SOURCE_IDS,
+    wordIds: V7_WORD_SOURCE_IDS,
+    canonicalChecksum: "9bb436abf5afce6373f1ed60c71fe8a06992ed6f5560cbdd1394e8813ad3c9f2",
   },
 } as const;
 const SOURCE_COURSE_SLUG = "japanese-ru-n2";
@@ -250,6 +270,17 @@ export function buildFoundationPilotManifestV6(
   return buildPilotManifest(kanjiBatches, wordBatches, "v6");
 }
 
+export function buildFoundationPilotManifestV7(
+  kanjiBatches: readonly MainCourseContentBatch[] = buildMainCourseContentBatches().filter(
+    (batch) => V7_KANJI_SOURCE_IDS.includes(batch.id),
+  ),
+  wordBatches: readonly MainCourseWordBatch[] = buildMainCourseWordBatches().filter((batch) =>
+    V7_WORD_SOURCE_IDS.includes(batch.id),
+  ),
+) {
+  return buildPilotManifest(kanjiBatches, wordBatches, "v7");
+}
+
 function buildPilotManifest(
   kanjiBatches: readonly MainCourseContentBatch[],
   wordBatches: readonly MainCourseWordBatch[],
@@ -279,7 +310,9 @@ function buildPilotManifest(
               ? "Pilot v4 requires exactly the twelve registered version-1 main-course batches."
               : pilot === "v5"
                 ? "Pilot v5 requires exactly the fourteen registered version-1 main-course batches."
-                : "Pilot v6 requires exactly the sixteen registered version-1 main-course batches.",
+                : pilot === "v6"
+                  ? "Pilot v6 requires exactly the sixteen registered version-1 main-course batches."
+                  : "Pilot v7 requires exactly the eighteen registered version-1 main-course batches.",
     );
   const targets: PilotTarget[] = [];
   const sources: SourceBatch[] = [];
@@ -387,15 +420,17 @@ function buildPilotManifest(
       (target) =>
         target.levelNumber < 1 ||
         target.levelNumber >
-          (pilot === "v6"
-            ? 12
-            : pilot === "v5"
-              ? 10
-              : pilot === "v4"
-                ? 7
-                : pilot === "v3"
-                  ? 6
-                  : 5) ||
+          (pilot === "v7"
+            ? 15
+            : pilot === "v6"
+              ? 12
+              : pilot === "v5"
+                ? 10
+                : pilot === "v4"
+                  ? 7
+                  : pilot === "v3"
+                    ? 6
+                    : 5) ||
         (pilot === "v3" &&
           (target.kind === "WORD" ? target.levelNumber < 5 : target.levelNumber > 4)) ||
         (pilot === "v4" &&
@@ -417,6 +452,14 @@ function buildPilotManifest(
               : target.kind === "KANJI"
                 ? [2, 3, 4, 7, 9, 11]
                 : [5, 6, 10, 12]
+          ).includes(target.levelNumber)) ||
+        (pilot === "v7" &&
+          !(
+            target.kind === "COMPONENT"
+              ? [1, 6, 8, 13]
+              : target.kind === "KANJI"
+                ? [2, 3, 4, 7, 9, 11, 14]
+                : [5, 6, 10, 12, 15]
           ).includes(target.levelNumber)) ||
         target.prerequisiteKeys.some(
           (key) => !keys.has(key) || keys.get(key)!.levelNumber >= target.levelNumber,
@@ -445,15 +488,32 @@ function buildPilotManifest(
             ? "79 компонентов, 101 кандзи и 120 слов"
             : pilot === "v5"
               ? "88 компонентов, 111 кандзи и 140 слов"
-              : "88 компонентов, 112 кандзи и 160 слов";
+              : pilot === "v6"
+                ? "88 компонентов, 112 кандзи и 160 слов"
+                : "92 компонента, 117 кандзи и 180 слов";
   const levelCount =
-    pilot === "v6" ? 12 : pilot === "v5" ? 10 : pilot === "v4" ? 7 : pilot === "v3" ? 6 : 5;
+    pilot === "v7"
+      ? 15
+      : pilot === "v6"
+        ? 12
+        : pilot === "v5"
+          ? 10
+          : pilot === "v4"
+            ? 7
+            : pilot === "v3"
+              ? 6
+              : 5;
   const inheritedLevels: {
     levelNumber: number;
     titleRu: string;
     descriptionRu: string;
     passPolicyJson: ReturnType<typeof createCourseLevelPassPolicy>;
-  }[] = pilot === "v6" ? buildFoundationPilotManifestV5().levels : [];
+  }[] =
+    pilot === "v7"
+      ? buildFoundationPilotManifestV6().levels
+      : pilot === "v6"
+        ? buildFoundationPilotManifestV5().levels
+        : [];
   return {
     version: definition.version,
     slug: definition.slug,
@@ -463,34 +523,42 @@ function buildPilotManifest(
     targetLevel: "FOUNDATION",
     counts: { ...definition.counts },
     levels: Array.from({ length: levelCount }, (_, index) => {
-      if (pilot === "v6" && index < inheritedLevels.length) return inheritedLevels[index]!;
+      if (index < inheritedLevels.length) return inheritedLevels[index]!;
       const kind =
-        pilot === "v6"
-          ? V6_LEVEL_KINDS[index]!
-          : pilot === "v5"
-            ? V5_LEVEL_KINDS[index]!
-            : pilot === "v4"
-              ? V4_LEVEL_KINDS[index]!
-              : index === 0
-                ? "COMPONENT"
-                : index >= 4
-                  ? "WORD"
-                  : "KANJI";
+        pilot === "v7"
+          ? V7_LEVEL_KINDS[index]!
+          : pilot === "v6"
+            ? V6_LEVEL_KINDS[index]!
+            : pilot === "v5"
+              ? V5_LEVEL_KINDS[index]!
+              : pilot === "v4"
+                ? V4_LEVEL_KINDS[index]!
+                : index === 0
+                  ? "COMPONENT"
+                  : index >= 4
+                    ? "WORD"
+                    : "KANJI";
       return {
         levelNumber: index + 1,
         titleRu: `Основа: этап ${index + 1}`,
         descriptionRu:
-          pilot === "v6" && index === 11
-            ? "20 повседневных слов: глаголы, прилагательные, время и язык. Это ограниченная лексическая основа, не полный экзаменационный словарь."
-            : index === 0
-              ? "Компоненты пилотного курса."
-              : pilot === "v5" && index >= 7
-                ? FOUNDATION_WAVE07_LEVELS[index - 7]!.descriptionRu
-                : (pilot === "v4" || pilot === "v5") && index === 5
-                  ? "40 слов и 16 компонентов. Переход по словам не означает освоения всех элементов: компоненты остаются обязательными предпосылками кандзи этапа 7."
-                  : kind === "WORD"
-                    ? `Первые ${definition.counts.words} слов пилотного курса.`
-                    : "Кандзи пилотного курса.",
+          pilot === "v7" && index >= 12
+            ? [
+                "Зрительные формы для повседневных действий.",
+                "Пять кандзи с отдельными значениями и выбранными чтениями.",
+                "20 слов о действиях, описаниях, времени и изучении языков. Это не полный экзаменационный словарь.",
+              ][index - 12]!
+            : pilot === "v6" && index === 11
+              ? "20 повседневных слов: глаголы, прилагательные, время и язык. Это ограниченная лексическая основа, не полный экзаменационный словарь."
+              : index === 0
+                ? "Компоненты пилотного курса."
+                : pilot === "v5" && index >= 7
+                  ? FOUNDATION_WAVE07_LEVELS[index - 7]!.descriptionRu
+                  : (pilot === "v4" || pilot === "v5") && index === 5
+                    ? "40 слов и 16 компонентов. Переход по словам не означает освоения всех элементов: компоненты остаются обязательными предпосылками кандзи этапа 7."
+                    : kind === "WORD"
+                      ? `Первые ${definition.counts.words} слов пилотного курса.`
+                      : "Кандзи пилотного курса.",
         passPolicyJson:
           pilot === "v5" && index >= 7
             ? FOUNDATION_WAVE07_LEVELS[index - 7]!.passPolicyJson
@@ -1314,6 +1382,7 @@ export async function publishFoundationPilot(
         FOUNDATION_PILOT_V4_SLUG,
         FOUNDATION_PILOT_V5_SLUG,
         FOUNDATION_PILOT_V6_SLUG,
+        FOUNDATION_PILOT_V7_SLUG,
       ].includes(before.manifest.slug)
         ? 120_000
         : TRANSACTION_OPTIONS.timeout,
@@ -1351,7 +1420,8 @@ function pilotLevelBand(slug: string, levelNumber: number) {
     slug !== FOUNDATION_PILOT_V3_SLUG &&
     slug !== FOUNDATION_PILOT_V4_SLUG &&
     slug !== FOUNDATION_PILOT_V5_SLUG &&
-    slug !== FOUNDATION_PILOT_V6_SLUG
+    slug !== FOUNDATION_PILOT_V6_SLUG &&
+    slug !== FOUNDATION_PILOT_V7_SLUG
   )
     return "FOUNDATION" as const;
   const level = buildMainCourseBlueprint().levels.find(
@@ -1362,6 +1432,11 @@ function pilotLevelBand(slug: string, levelNumber: number) {
 }
 
 function requireApproved(manifest: FoundationPilotManifest) {
+  if (
+    manifest.slug === FOUNDATION_PILOT_V7_SLUG &&
+    WAVE09_REVIEW_DECISION.decision !== "approved-ai-editorial"
+  )
+    throw new Error("Pilot requires independent wave09 editorial approval.");
   if (
     manifest.slug === FOUNDATION_PILOT_V6_SLUG &&
     WAVE08_REVIEW_DECISION.decision !== "approved-ai-editorial"
@@ -1381,7 +1456,9 @@ function requireApproved(manifest: FoundationPilotManifest) {
               ? buildFoundationPilotManifestV5()
               : context?.slug === FOUNDATION_PILOT_V6_SLUG
                 ? buildFoundationPilotManifestV6()
-                : null;
+                : context?.slug === FOUNDATION_PILOT_V7_SLUG
+                  ? buildFoundationPilotManifestV7()
+                  : null;
   if (
     context === undefined ||
     expected === null ||
@@ -1393,15 +1470,17 @@ function requireApproved(manifest: FoundationPilotManifest) {
     expected.sources.some(
       (source) =>
         source.checksumSha256 !==
-        (context.slug === FOUNDATION_PILOT_V6_SLUG
-          ? V6_SOURCE_HASHES
-          : context.slug === FOUNDATION_PILOT_V5_SLUG
-            ? V5_SOURCE_HASHES
-            : context.slug === FOUNDATION_PILOT_V4_SLUG
-              ? V4_SOURCE_HASHES
-              : context.slug === FOUNDATION_PILOT_V3_SLUG
-                ? V3_SOURCE_HASHES
-                : SOURCE_HASHES)[source.id],
+        (context.slug === FOUNDATION_PILOT_V7_SLUG
+          ? V7_SOURCE_HASHES
+          : context.slug === FOUNDATION_PILOT_V6_SLUG
+            ? V6_SOURCE_HASHES
+            : context.slug === FOUNDATION_PILOT_V5_SLUG
+              ? V5_SOURCE_HASHES
+              : context.slug === FOUNDATION_PILOT_V4_SLUG
+                ? V4_SOURCE_HASHES
+                : context.slug === FOUNDATION_PILOT_V3_SLUG
+                  ? V3_SOURCE_HASHES
+                  : SOURCE_HASHES)[source.id],
     )
   )
     throw new Error(

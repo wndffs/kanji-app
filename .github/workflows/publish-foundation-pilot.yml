@@ -23,6 +23,7 @@ on:
           - v4
           - v5
           - v6
+          - v7
 
 permissions:
   contents: read
@@ -61,7 +62,7 @@ jobs:
         shell: bash
         run: |
           case "$PILOT_VERSION" in
-            v1|v2|v3|v4|v5|v6) ;;
+            v1|v2|v3|v4|v5|v6|v7) ;;
             *) echo "Unsupported pilot version."; exit 1 ;;
           esac
           case "$PILOT_MODE" in
@@ -84,7 +85,7 @@ jobs:
             *) echo "Unsupported pilot mode."; exit 1 ;;
           esac
           case "$PILOT_VERSION" in
-            v1|v2|v3|v4|v5|v6) ;;
+            v1|v2|v3|v4|v5|v6|v7) ;;
             *) echo "Unsupported pilot version."; exit 1 ;;
           esac
           npm run db:publish:pilot -- --pilot "$PILOT_VERSION" "--$PILOT_MODE" | tee "$RUNNER_TEMP/foundation-pilot-$PILOT_VERSION-report.txt"

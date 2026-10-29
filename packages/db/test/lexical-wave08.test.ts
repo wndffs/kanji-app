@@ -21,7 +21,9 @@ import { buildMainCourseWordBatch08 } from "../src/main-course-word-content-08";
 import { validateMainCourseWordBatch } from "../src/main-course-word-content";
 
 const oldKanji = () =>
-  buildMainCourseContentBatches().filter((x) => x.id !== "task-118-course-kanji-08");
+  buildMainCourseContentBatches().filter(
+    (x) => x.componentLevelNumber < 11 && x.kanji.every((k) => k.levelNumber < 11),
+  );
 describe("bounded everyday wave08", () => {
   it("binds AI review to the full original teaching payload, not dictionary matching alone", () => {
     const hash = (value: unknown) =>
@@ -127,7 +129,7 @@ describe("bounded everyday wave08", () => {
   it("keeps twenty exact pairs distinct from all earlier teaching words", () => {
     const previous = new Set(
       buildMainCourseWordBatches()
-        .filter((x) => x.id !== "task-127-course-words-08")
+        .filter((x) => x.levelNumber < 12)
         .flatMap((x) => x.words.map(lexicalPairKey)),
     );
     expect(WAVE08_TEACHING).toHaveLength(20);

@@ -9,25 +9,44 @@ import { inspectLocalStrokes } from "./local-stroke-evidence.mts";
 
 export async function inspectLexicalWave09(directory: string) {
   const snapshot = await verifyLocalSnapshot(directory);
-  const source = (id: string) => snapshot.sources.find(entry => entry.id === id)!;
+  const source = (id: string) => snapshot.sources.find((entry) => entry.id === id)!;
   const batch = buildMainCourseContentBatch09();
-  const words = await inspectLocalWords(source("jmdict"), WAVE09_CANDIDATES, { includeLexicalMetadata: true });
+  const words = await inspectLocalWords(source("jmdict"), WAVE09_CANDIDATES, {
+    includeLexicalMetadata: true,
+  });
   const kanji = await inspectLocalKanji(source("kanjidic2"), batch.kanji);
-  const strokes = await inspectLocalStrokes(source("kanjivg"), batch.kanji.map(x => x.character));
+  const strokes = await inspectLocalStrokes(
+    source("kanjivg"),
+    batch.kanji.map((x) => x.character),
+  );
   return {
-    scope: "local-lexical-wave09-evidence", snapshot,
-    sourceFingerprint: localSourceFingerprint(snapshot), candidateFingerprint: fingerprint(WAVE09_CANDIDATES),
-    words, kanji, strokes,
+    scope: "local-lexical-wave09-evidence",
+    snapshot,
+    sourceFingerprint: localSourceFingerprint(snapshot),
+    candidateFingerprint: fingerprint(WAVE09_CANDIDATES),
+    words,
+    kanji,
+    strokes,
     summary: {
-      words: words.items.length, matched: words.items.filter(x => x.status === "matched").length,
-      bilingual: words.items.filter(x => x.bilingual).length,
-      kanjiMatched: kanji.items.filter(x => x.status === "matched").length,
-      strokesMatched: strokes.items.filter(x => x.status === "matched").length,
+      words: words.items.length,
+      matched: words.items.filter((x) => x.status === "matched").length,
+      bilingual: words.items.filter((x) => x.bilingual).length,
+      kanjiMatched: kanji.items.filter((x) => x.status === "matched").length,
+      strokesMatched: strokes.items.filter((x) => x.status === "matched").length,
       selectedPairs: WAVE09_TEACHING.length,
-      selectedExactIdentities: WAVE09_TEACHING.filter(candidate => words.items.some(item =>
-        item.expression === candidate.expression && item.reading === candidate.reading &&
-        item.status === "matched" && item.sourceRecordId === candidate.jmdictEntryId && item.bilingual)).length,
+      selectedExactIdentities: WAVE09_TEACHING.filter((candidate) =>
+        words.items.some(
+          (item) =>
+            item.expression === candidate.expression &&
+            item.reading === candidate.reading &&
+            item.status === "matched" &&
+            item.sourceRecordId === candidate.jmdictEntryId &&
+            item.bilingual,
+        ),
+      ).length,
     },
-    independentReview: false, publicationApproved: false, readyToPublish: false,
+    independentReview: false,
+    publicationApproved: false,
+    readyToPublish: false,
   };
 }
