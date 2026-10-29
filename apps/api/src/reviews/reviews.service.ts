@@ -283,8 +283,7 @@ export class ReviewsService {
     });
 
     return {
-      session: toPracticeSessionDto(session),
-      items: records.map(toReviewQueueItem),
+      ...(await this.toPracticeSessionResponse(session)),
     };
   }
 

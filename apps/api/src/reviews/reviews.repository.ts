@@ -292,6 +292,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     }
 
     if (source === "recent-mistakes") {
+      const previous=await this.prisma.db.reviewSession.findFirst({where:{userId,mode:"EXTRA_PRACTICE",finishedAt:{not:null},statsJson:{path:["source"],equals:"recent-mistakes"}},orderBy:[{finishedAt:"desc"},{id:"desc"}],select:{statsJson:true}});
       const attempts = (await this.prisma.db.reviewAnswer.findMany({
         where: {
           userSrsState: { userId, learningCard: listeningReviewCardEligibilityWhere },
@@ -303,11 +304,14 @@ export class PrismaReviewsRepository extends ReviewsRepository {
         },
         distinct: ["learningCardId"],
         orderBy: [{ answeredAt: "desc" }, { id: "asc" }],
-        take: limit,
+        take: Math.min(200,limit*10),
       })) as readonly ReviewAnswerWithStateRow[];
 
+      const previousIds=isRecord(previous?.statsJson) && Array.isArray(previous.statsJson.cardIds) ? previous.statsJson.cardIds.filter((id):id is string=>typeof id === "string") : [];
+      const selected=rotatePracticeCandidates(attempts,attempt=>attempt.userSrsState.learningCardId,previousIds,limit);
+
       return filterEligibleQueueRecords(
-        await this.toQueueRecords(attempts.map((attempt) => attempt.userSrsState)),
+        await this.toQueueRecords(selected.map((attempt) => attempt.userSrsState)),
       );
     }
 
@@ -463,7 +467,12 @@ export class PrismaReviewsRepository extends ReviewsRepository {
   }
 
   async createPracticeSession(input: CreatePracticeSessionInput): Promise<PracticeSessionRecord> {
-    const session = (await this.prisma.db.reviewSession.create({
+    return this.runReviewTransaction(async tx=>{
+    const owners=await tx.$queryRaw<{id:string}[]>`SELECT id FROM "User" WHERE id = ${input.userId}::uuid FOR UPDATE`;
+    if(owners.length === 0) throw new NotFoundException("Пользователь не найден.");
+    const active=await tx.reviewSession.findMany({where:{userId:input.userId,mode:"EXTRA_PRACTICE",finishedAt:null},orderBy:[{startedAt:"desc"},{id:"asc"}],take:100});
+    for(const row of active) {const current=toPracticeSessionRecord(row);if(current?.source === input.source && current.contextId === (input.contextId ?? null)) return current;}
+    const session = (await tx.reviewSession.create({
       data: {
         userId: input.userId,
         startedAt: input.now,
@@ -484,6 +493,7 @@ export class PrismaReviewsRepository extends ReviewsRepository {
     }
 
     return record;
+    },"ReadCommitted");
   }
 
   async updatePracticeSessionProgress(
@@ -1862,3 +1872,4 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function formatJlptLevel(value: number | null): string | null {
   return value === null ? null : `N${value}`;
 }
+import { rotatePracticeCandidates } from "./practice-rotation";
