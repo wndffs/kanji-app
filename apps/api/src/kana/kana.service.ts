@@ -96,7 +96,10 @@ export class KanaService {
       item: toItemDto(kana, updated),
       attemptedCount: summary.attemptedCount,
       masteredCount: summary.masteredCount,
-      confusionExplanation: correct || request.selectedCharacter === undefined ? null : explainKanaContrast(kana.character,request.selectedCharacter),
+      confusionExplanation:
+        correct || request.selectedCharacter === undefined
+          ? null
+          : explainKanaContrast(kana.character, request.selectedCharacter),
     };
   }
 
@@ -106,8 +109,14 @@ export class KanaService {
     sizeValue?: unknown,
   ): Promise<KanaPracticeSessionDto> {
     const script = parsePracticeScript(scriptValue);
-    const size=sizeValue === undefined ? KANA_PRACTICE_SESSION_SIZE : (typeof sizeValue === "string" || typeof sizeValue === "number") ? Number(sizeValue) : NaN;
-    if(!KANA_PRACTICE_SESSION_LENGTHS.some(value=>value===size)) throw new BadRequestException("Размер практики должен быть 6, 12 или 20.");
+    const size =
+      sizeValue === undefined
+        ? KANA_PRACTICE_SESSION_SIZE
+        : typeof sizeValue === "string" || typeof sizeValue === "number"
+          ? Number(sizeValue)
+          : NaN;
+    if (!KANA_PRACTICE_SESSION_LENGTHS.some((value) => value === size))
+      throw new BadRequestException("Размер практики должен быть 6, 12 или 20.");
     const active = await this.kanaRepository.findActivePracticeSession(userId, script);
 
     if (active !== null) {
@@ -115,8 +124,7 @@ export class KanaService {
     }
 
     const now = new Date();
-    const scripts: readonly KanaScript[] =
-      script === "mixed" ? ["hiragana", "katakana"] : [script];
+    const scripts: readonly KanaScript[] = script === "mixed" ? ["hiragana", "katakana"] : [script];
     const progressByScript = await Promise.all(
       scripts.map(async (candidateScript) => ({
         script: candidateScript,
@@ -158,14 +166,21 @@ export class KanaService {
     const candidates = buildAdaptiveCandidates(script, progress);
     const now = new Date();
     const weakSymbols = candidates
-      .filter((candidate) => candidate.unlocked && (candidate.attemptCount > 0 || attempts.some(attempt=>attempt.expectedCharacter===candidate.character)))
+      .filter(
+        (candidate) =>
+          candidate.unlocked &&
+          (candidate.attemptCount > 0 ||
+            attempts.some((attempt) => attempt.expectedCharacter === candidate.character)),
+      )
       .map((candidate) => {
         const recent = attempts
           .filter((attempt) => attempt.expectedCharacter === candidate.character)
           .slice(0, 10);
         const recentAccuracy =
           recent.length === 0
-            ? candidate.attemptCount === 0 ? 0 : candidate.correctCount / candidate.attemptCount
+            ? candidate.attemptCount === 0
+              ? 0
+              : candidate.correctCount / candidate.attemptCount
             : recent.filter((attempt) => attempt.correct).length / recent.length;
 
         return {
@@ -174,7 +189,8 @@ export class KanaService {
           romaji: candidate.romaji,
           currentStreak: candidate.currentStreak,
           recentAccuracy,
-          lastPracticedAt: recent[0]?.answeredAt.toISOString() ?? candidate.lastAnsweredAt?.toISOString() ?? null,
+          lastPracticedAt:
+            recent[0]?.answeredAt.toISOString() ?? candidate.lastAnsweredAt?.toISOString() ?? null,
           weaknessScore: scoreAdaptiveKanaCandidate(candidate, recent, now),
         };
       })
@@ -184,8 +200,7 @@ export class KanaService {
       )
       .sort(
         (left, right) =>
-          right.weaknessScore - left.weaknessScore ||
-          left.character.localeCompare(right.character),
+          right.weaknessScore - left.weaknessScore || left.character.localeCompare(right.character),
       )
       .slice(0, 8);
 
@@ -205,10 +220,7 @@ export class KanaService {
     };
   }
 
-  async answerPractice(
-    userId: string,
-    body: unknown,
-  ): Promise<KanaPracticeAnswerResponse> {
+  async answerPractice(userId: string, body: unknown): Promise<KanaPracticeAnswerResponse> {
     const request = parsePracticeAnswerRequest(body);
     const session = await this.kanaRepository.findPracticeSession(userId, request.sessionId);
 
@@ -221,8 +233,13 @@ export class KanaService {
     if (exercise === undefined || exercise.id !== request.exerciseId) {
       throw new ConflictException("Очередь практики уже перешла к следующему заданию.");
     }
-    if(request.exerciseKind !== undefined && !["listening-choice","tracing"].includes(exercise.exerciseKind))
-      throw new BadRequestException("Смена формата допустима только для недоступного аудио или обводки.");
+    if (
+      request.exerciseKind !== undefined &&
+      !["listening-choice", "tracing"].includes(exercise.exerciseKind)
+    )
+      throw new BadRequestException(
+        "Смена формата допустима только для недоступного аудио или обводки.",
+      );
 
     const kana = findKana(exercise.character);
 
@@ -231,8 +248,8 @@ export class KanaService {
     }
 
     const characterChoice = usesCharacterChoice(exercise.exerciseKind);
-    const submittedAnswer = characterChoice ? null : request.answer?.trim() ?? null;
-    const selectedCharacter = characterChoice ? request.selectedCharacter?.trim() ?? null : null;
+    const submittedAnswer = characterChoice ? null : (request.answer?.trim() ?? null);
+    const selectedCharacter = characterChoice ? (request.selectedCharacter?.trim() ?? null) : null;
 
     if (characterChoice && selectedCharacter === null) {
       throw new BadRequestException("selectedCharacter обязателен для этого упражнения.");
@@ -253,10 +270,7 @@ export class KanaService {
       selectedCharacter === null
         ? isKanaRomajiAccepted(kana, submittedAnswer!)
         : selectedCharacter === exercise.character;
-    const attempts = await this.kanaRepository.listAttempts(userId, [
-      "hiragana",
-      "katakana",
-    ]);
+    const attempts = await this.kanaRepository.listAttempts(userId, ["hiragana", "katakana"]);
     const previouslyConfused =
       selectedCharacter !== null &&
       attempts.some(
@@ -302,8 +316,11 @@ export class KanaService {
       confusionExplanation:
         correct || selectedCharacter === null
           ? null
-          : `${explainKanaContrast(kana.character,selectedCharacter)?.ru ?? "Сравните форму и чтение."}${previouslyConfused ? " Эта пара уже встречалась в ваших ошибках." : ""}`,
-      confusion: correct || selectedCharacter === null ? null : explainKanaContrast(kana.character,selectedCharacter),
+          : `${explainKanaContrast(kana.character, selectedCharacter)?.ru ?? "Сравните форму и чтение."}${previouslyConfused ? " Эта пара уже встречалась в ваших ошибках." : ""}`,
+      confusion:
+        correct || selectedCharacter === null
+          ? null
+          : explainKanaContrast(kana.character, selectedCharacter),
       session: toPracticeSessionDto(updatedSession),
     };
   }
@@ -392,7 +409,7 @@ function parsePracticeAnswerRequest(value: unknown): KanaPracticeAnswerRequest {
   if (typeof record.answer === "string" && record.answer.trim().length > MAX_ANSWER_LENGTH) {
     throw new BadRequestException("Ответ слишком длинный.");
   }
-  if(record.exerciseKind !== undefined && record.exerciseKind !== "reverse-choice")
+  if (record.exerciseKind !== undefined && record.exerciseKind !== "reverse-choice")
     throw new BadRequestException("Недопустимый запасной формат.");
 
   return {
@@ -612,4 +629,3 @@ function usesCharacterChoice(kind: KanaPracticeExerciseKind): boolean {
     kind === "tracing"
   );
 }
-

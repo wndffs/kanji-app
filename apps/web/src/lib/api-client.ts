@@ -75,6 +75,7 @@ import {
   type ConfusablePracticeSessionResponse,
   type CreateTextDeckRequest,
   type CreateTextDeckResponse,
+  type TextDeckPreviewResponse,
   type FinishLessonSessionResponse,
   type FinishConfusablePracticeSessionResponse,
   type FinishPracticeSessionResponse,
@@ -437,11 +438,14 @@ export function submitKanaLessonAnswer(
 export function getKanaPracticeSession(
   token: string,
   script: KanaPracticeScript,
-  size=12,
+  size = 12,
 ): Promise<KanaPracticeSessionDto> {
-  return apiRequest<KanaPracticeSessionDto>(`/kana/practice?script=${encodeURIComponent(script)}${size === 12 ? "" : `&size=${size}`}`, {
-    token,
-  });
+  return apiRequest<KanaPracticeSessionDto>(
+    `/kana/practice?script=${encodeURIComponent(script)}${size === 12 ? "" : `&size=${size}`}`,
+    {
+      token,
+    },
+  );
 }
 
 export function submitKanaPracticeAnswer(
@@ -1165,8 +1169,10 @@ export function createTextDeck(
 }
 
 export function previewTextDeck(token: string, input: CreateTextDeckRequest) {
-  return apiRequest<import("@kanji-srs/shared").TextDeckPreviewResponse>("/decks/from-text/preview", {
-    method: "POST", token, body: input,
+  return apiRequest<TextDeckPreviewResponse>("/decks/from-text/preview", {
+    method: "POST",
+    token,
+    body: input,
   });
 }
 
@@ -1175,15 +1181,22 @@ export function listDecks(token: string): Promise<DeckListResponse> {
 }
 
 export function createCustomDeck(token: string, title: string) {
-  return apiRequest<DeckDetailsDto>("/decks", {method:"POST",token,body:{title}});
+  return apiRequest<DeckDetailsDto>("/decks", { method: "POST", token, body: { title } });
 }
 
 export function addDeckItems(token: string, deckId: string, itemIds: readonly string[]) {
-  return apiRequest<DeckDetailsDto>(`/decks/${encodeURIComponent(deckId)}/items`, {method:"POST",token,body:{itemIds}});
+  return apiRequest<DeckDetailsDto>(`/decks/${encodeURIComponent(deckId)}/items`, {
+    method: "POST",
+    token,
+    body: { itemIds },
+  });
 }
 
-export function removeDeckItem(token:string,deckId:string,itemId:string) {
-  return apiRequest<DeckDetailsDto>(`/decks/${encodeURIComponent(deckId)}/items/${encodeURIComponent(itemId)}`,{method:"DELETE",token});
+export function removeDeckItem(token: string, deckId: string, itemId: string) {
+  return apiRequest<DeckDetailsDto>(
+    `/decks/${encodeURIComponent(deckId)}/items/${encodeURIComponent(itemId)}`,
+    { method: "DELETE", token },
+  );
 }
 
 export function getDeck(token: string, deckId: string): Promise<DeckDetailsDto> {

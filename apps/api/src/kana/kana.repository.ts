@@ -225,10 +225,7 @@ function toProgressRecord(row: {
   };
 }
 
-async function upsertKanaProgress(
-  db: Prisma.TransactionClient,
-  input: RecordKanaAttemptInput,
-) {
+async function upsertKanaProgress(db: Prisma.TransactionClient, input: RecordKanaAttemptInput) {
   const existing = await db.userKanaProgress.findUnique({
     where: {
       userId_character: {
@@ -382,9 +379,7 @@ function isPrismaUniqueConstraintError(value: unknown): value is { readonly code
   return isRecord(value) && value.code === "P2002";
 }
 
-function toPrismaPracticeMode(
-  script: AdaptiveKanaScriptMode,
-): "HIRAGANA" | "KATAKANA" | "MIXED" {
+function toPrismaPracticeMode(script: AdaptiveKanaScriptMode): "HIRAGANA" | "KATAKANA" | "MIXED" {
   return script === "hiragana" ? "HIRAGANA" : script === "katakana" ? "KATAKANA" : "MIXED";
 }
 
@@ -392,9 +387,7 @@ function fromPrismaPracticeMode(mode: string): AdaptiveKanaScriptMode {
   return mode === "HIRAGANA" ? "hiragana" : mode === "KATAKANA" ? "katakana" : "mixed";
 }
 
-function toPrismaExerciseKind(
-  kind: AdaptiveKanaExerciseKind,
-): PrismaKanaExerciseKind {
+function toPrismaExerciseKind(kind: AdaptiveKanaExerciseKind): PrismaKanaExerciseKind {
   return kind.replaceAll("-", "_").toUpperCase() as PrismaKanaExerciseKind;
 }
 

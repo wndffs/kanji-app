@@ -250,7 +250,9 @@ function OwnedKanaClient({
       return [];
     }
 
-    return state.path.units.filter(unit => mode !== "lessons" || unit.unlocked).flatMap(unit => unit.items);
+    return state.path.units
+      .filter((unit) => mode !== "lessons" || unit.unlocked)
+      .flatMap((unit) => unit.items);
   }, [activeUnit, mode, state]);
 
   const exerciseChoices = useMemo(() => {
@@ -265,9 +267,15 @@ function OwnedKanaClient({
     );
   }, [currentLessonItem, exerciseItems, exerciseKind]);
 
-  useEffect(()=>{
-    if(exerciseKind === "listening-choice" && feedback === null && kanaSpeech.ready && (!kanaSpeech.available || kanaSpeech.status === "error")) setExerciseKind("reverse-choice");
-  },[exerciseKind,feedback,kanaSpeech.ready,kanaSpeech.available,kanaSpeech.status]);
+  useEffect(() => {
+    if (
+      exerciseKind === "listening-choice" &&
+      feedback === null &&
+      kanaSpeech.ready &&
+      (!kanaSpeech.available || kanaSpeech.status === "error")
+    )
+      setExerciseKind("reverse-choice");
+  }, [exerciseKind, feedback, kanaSpeech.ready, kanaSpeech.available, kanaSpeech.status]);
 
   useEffect(() => {
     if (
@@ -1021,7 +1029,7 @@ function KanaQuiz({
 
 function KanaMatchingExercise({
   choiceRef,
-  items,
+  items: initialItems,
   onAnswer,
   onNext,
   submitting,
@@ -1035,6 +1043,7 @@ function KanaMatchingExercise({
   readonly onNext: () => void;
   readonly submitting: boolean;
 }) {
+  const [items] = useState(() => initialItems);
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
   const [matchedCharacters, setMatchedCharacters] = useState<readonly string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
@@ -1073,6 +1082,8 @@ function KanaMatchingExercise({
       setMatchedCharacters(nextMatched);
       setSelectedCharacter(null);
       setMessage(nextMatched.length === items.length ? "Все пары собраны" : "Пара верна");
+    } catch {
+      setMessage("Ответ не подтверждён. Повторите попытку.");
     } finally {
       pairLock.current = false;
       setPairPending(false);
@@ -1113,7 +1124,9 @@ function KanaMatchingExercise({
             return (
               <button
                 className={matched ? "is-matched" : ""}
-                disabled={selectedCharacter === null || matched || submitting || pairPending || complete}
+                disabled={
+                  selectedCharacter === null || matched || submitting || pairPending || complete
+                }
                 key={choice.romaji}
                 onClick={() => void handleReading(choice.romaji)}
                 type="button"
@@ -1157,8 +1170,12 @@ function KanaFeedback({
         <span>
           {reverse ? `${item.character} · ${feedback.expectedRomaji}` : feedback.expectedRomaji}
         </span>
-        {feedback.confusionExplanation && mode !== "en" ? <p>{feedback.confusionExplanation.ru}</p> : null}
-        {feedback.confusionExplanation && mode !== "ru" ? <p lang="en">{feedback.confusionExplanation.en}</p> : null}
+        {feedback.confusionExplanation && mode !== "en" ? (
+          <p>{feedback.confusionExplanation.ru}</p>
+        ) : null}
+        {feedback.confusionExplanation && mode !== "ru" ? (
+          <p lang="en">{feedback.confusionExplanation.en}</p>
+        ) : null}
       </div>
       <button className="secondary-action" onClick={onNext} ref={continueRef} type="button">
         Следующий

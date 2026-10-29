@@ -1,5 +1,5 @@
 import { NotFoundException } from "@nestjs/common";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { type CurrentUserDto } from "../src/auth/auth.types";
 import { DecksRepository } from "../src/decks/decks.repository";
@@ -17,6 +17,63 @@ import {
 const NOW = new Date("2026-06-24T09:00:00.000Z");
 
 describe("DecksService", () => {
+  it("previews all exact alternatives without writing and revalidates private selection", async () => {
+    const repository = new InMemoryDecksRepository({
+      items: [
+        createItem("first", "word", "生", "せい", { frequencyRank: null, ru: "жизнь", en: "life" }),
+        createItem("second", "word", "生", "なま", { frequencyRank: null, ru: "сырой", en: "raw" }),
+      ],
+      dependencies: new Map(),
+    });
+    const create = vi.spyOn(repository, "createTextDeck");
+    const service = new DecksService(repository);
+    const preview = await service.previewFromText(createUser("owner"), { text: "生" });
+    expect(preview.candidates.map(({ item }) => item.reading)).toEqual(["せい", "なま"]);
+    expect(preview.candidates[0]?.span).toEqual({ start: 0, end: 1 });
+    expect(create).not.toHaveBeenCalled();
+    const saved = await service.createFromText(createUser("owner"), {
+      text: "生",
+      selectedItemIds: ["second"],
+    });
+    expect(saved.deck.items.map(({ item }) => item.id)).toEqual(["second"]);
+    await expect(
+      service.createFromText(createUser("owner"), { text: "生", selectedItemIds: ["foreign"] }),
+    ).rejects.toThrow("published matches");
+    await expect(
+      service.createFromText(createUser("owner"), {
+        text: "生",
+        selectedItemIds: ["first", "first"],
+      }),
+    ).rejects.toThrow("unique");
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+  it("reports prerequisites outside a small deck limit without relaxing gates", async () => {
+    const service = createService();
+    const response = await service.previewFromText(createUser("owner"), {
+      text: "学校",
+      maxItems: 1,
+    });
+    expect(response.plannedItemCount).toBe(1);
+    expect(response.externalPrerequisiteCount).toBe(2);
+  });
+  it("keeps manual membership private and canonical across repeat additions/removal", async () => {
+    const service = createService();
+    const owner = createUser("owner"),
+      other = createUser("other");
+    const deck = await service.createCustom(owner, { title: "Private" });
+    await expect(
+      service.addItems(other, deck.id, { itemIds: ["item-word-cat"] }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    const first = await service.addItems(owner, deck.id, { itemIds: ["item-word-cat"] });
+    const second = await service.addItems(owner, deck.id, { itemIds: ["item-word-cat"] });
+    expect(first.itemCount).toBe(1);
+    expect(second.itemCount).toBe(1);
+    await expect(service.removeItem(other, deck.id, "item-word-cat")).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect((await service.removeItem(owner, deck.id, "item-word-cat")).itemCount).toBe(0);
+    expect((await service.listDecks(other)).decks).toHaveLength(0);
+  });
   it("creates a dynamic deck from pasted Japanese text", async () => {
     const service = createService();
 
@@ -288,6 +345,45 @@ class InMemoryDecksRepository extends DecksRepository {
 
         return listRecord;
       });
+  }
+
+  async addItems(ownerUserId: string, deckId: string, itemIds: readonly string[]) {
+    const deck = await this.findDeckForOwner(ownerUserId, deckId);
+    if (deck === null) return null;
+    const items = [...deck.items];
+    for (const id of itemIds) {
+      if (items.some((entry) => entry.item.id === id)) continue;
+      const item = this.items.find((entry) => entry.id === id);
+      if (item === undefined) throw new Error("Unknown item");
+      items.push({
+        item,
+        sortOrder: items.length + 1,
+        reasons: [],
+        isNewForUser: !(this.startedItemIds.get(ownerUserId)?.has(id) ?? false),
+      });
+    }
+    const updated = {
+      ...deck,
+      items,
+      itemCount: items.length,
+      newItemCount: items.filter((entry) => entry.isNewForUser).length,
+    };
+    this.decks.set(deckId, updated);
+    return updated;
+  }
+
+  async removeItem(ownerUserId: string, deckId: string, itemId: string) {
+    const deck = await this.findDeckForOwner(ownerUserId, deckId);
+    if (deck === null) return null;
+    const items = deck.items.filter((entry) => entry.item.id !== itemId);
+    const updated = {
+      ...deck,
+      items,
+      itemCount: items.length,
+      newItemCount: items.filter((entry) => entry.isNewForUser).length,
+    };
+    this.decks.set(deckId, updated);
+    return updated;
   }
 
   async findDeckForOwner(ownerUserId: string, deckId: string): Promise<TextDeckRecord | null> {

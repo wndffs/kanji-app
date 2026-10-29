@@ -3116,7 +3116,7 @@ textarea:focus-visible {
   font-weight: 800;
 }
 
-.deck-builder-panel input,
+.deck-builder-panel input:not([type="checkbox"]),
 .deck-builder-panel textarea {
   width: 100%;
   min-height: 42px;
@@ -6563,7 +6563,7 @@ html
 }
 .deck-path-filters {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   align-items: end;
   gap: 16px;
 }

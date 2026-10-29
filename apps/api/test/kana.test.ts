@@ -20,21 +20,29 @@ import {
 } from "../src/kana/kana.types";
 
 describe("KanaService", () => {
-  it("keeps casual practice evidence separate from lesson mastery and preserves active size",async()=>{
-    const repo=new InMemoryKanaRepository(), service=new KanaService(repo);
-    let session=await service.getPracticeSession("user-1","hiragana",6);
+  it("keeps casual practice evidence separate from lesson mastery and preserves active size", async () => {
+    const repo = new InMemoryKanaRepository(),
+      service = new KanaService(repo);
+    let session = await service.getPracticeSession("user-1", "hiragana", 6);
     expect(session.totalCount).toBe(6);
-    expect((await service.getPracticeSession("user-1","hiragana",20)).id).toBe(session.id);
-    for(let i=0;i<6;i++) {
-      const exercise=session.exercise!;
-      const response=await service.answerPractice("user-1",{sessionId:session.id,exerciseId:exercise.id,...(["typing","recognition-choice"].includes(exercise.exerciseKind)?{answer:exercise.romaji}:{selectedCharacter:exercise.character})});
-      session=response.session;
+    expect((await service.getPracticeSession("user-1", "hiragana", 20)).id).toBe(session.id);
+    for (let i = 0; i < 6; i++) {
+      const exercise = session.exercise!;
+      const response = await service.answerPractice("user-1", {
+        sessionId: session.id,
+        exerciseId: exercise.id,
+        ...(["typing", "recognition-choice"].includes(exercise.exerciseKind)
+          ? { answer: exercise.romaji }
+          : { selectedCharacter: exercise.character }),
+      });
+      session = response.session;
     }
-    const progress=await service.getProgress("user-1","hiragana");
-    expect(progress.masteredCount).toBe(0); expect(progress.attemptedCount).toBe(0);
-    expect((await service.getLessonPath("user-1","hiragana")).units[1]!.unlocked).toBe(false);
-    expect(await repo.listAttempts("user-1",["hiragana"])).toHaveLength(6);
-    await expect(service.getPracticeSession("user-1","hiragana",999)).rejects.toThrow();
+    const progress = await service.getProgress("user-1", "hiragana");
+    expect(progress.masteredCount).toBe(0);
+    expect(progress.attemptedCount).toBe(0);
+    expect((await service.getLessonPath("user-1", "hiragana")).units[1]!.unlocked).toBe(false);
+    expect(await repo.listAttempts("user-1", ["hiragana"])).toHaveLength(6);
+    await expect(service.getPracticeSession("user-1", "hiragana", 999)).rejects.toThrow();
   });
   it("returns the complete hiragana track without exposing romaji before an answer", async () => {
     const service = new KanaService(new InMemoryKanaRepository());
@@ -182,13 +190,9 @@ describe("KanaService", () => {
     expect(new Set(session?.items.map((item) => item.script))).toEqual(
       new Set(["hiragana", "katakana"]),
     );
+    expect(session?.items.every((item) => findKana(item.character)?.row === "vowels")).toBe(true);
     expect(
-      session?.items.every((item) => findKana(item.character)?.row === "vowels"),
-    ).toBe(true);
-    expect(
-      session?.items.every(
-        (item, index) => item.character !== session.items[index - 1]?.character,
-      ),
+      session?.items.every((item, index) => item.character !== session.items[index - 1]?.character),
     ).toBe(true);
   });
 
@@ -225,10 +229,7 @@ describe("KanaService", () => {
     const service = new KanaService(repository);
     let session = await service.getPracticeSession("user-1", "hiragana");
 
-    while (
-      session.exercise !== null &&
-      !usesCharacterChoice(session.exercise.exerciseKind)
-    ) {
+    while (session.exercise !== null && !usesCharacterChoice(session.exercise.exerciseKind)) {
       const response = await service.answerPractice(
         "user-1",
         correctPracticeAnswer(session.id, session.exercise),
@@ -237,9 +238,7 @@ describe("KanaService", () => {
     }
 
     const exercise = session.exercise!;
-    const wrongChoice = exercise.choices.find(
-      (choice) => choice.character !== exercise.character,
-    )!;
+    const wrongChoice = exercise.choices.find((choice) => choice.character !== exercise.character)!;
     const response = await service.answerPractice("user-1", {
       sessionId: session.id,
       exerciseId: exercise.id,

@@ -8,23 +8,23 @@ The existing app already has typing, recognition, reverse choice, matching, synt
 
 ## Revalidated Tasks
 
-| ID | Concrete Delivery | State |
-| --- | --- | --- |
-| 475 | Audit current kana/deck paths and freeze this contract | Done |
-| 476 | Shared alias-safe kana distractors with variant/visual contrasts | Pending |
-| 477 | Specific RU/EN confusion feedback for common shape/mark/small-kana errors | Pending |
-| 478 | Lock matching answers during submission, expose corrections and honest session pacing | Pending |
-| 479 | Density-independent ordered tracing geometry; one-pointer/cancel/retry recovery | Pending |
-| 480 | Explicit synthetic kana audio, safe playback/fallback and sokuon context | Pending |
-| 481 | Bounded short-session length choice, preserving active sessions and separate kana progress | Pending |
-| 482 | Document actual text segmentation, ambiguity and query-budget limitations | Pending |
+| ID  | Concrete Delivery                                                                                           | State   |
+| --- | ----------------------------------------------------------------------------------------------------------- | ------- |
+| 475 | Audit current kana/deck paths and freeze this contract                                                      | Done    |
+| 476 | Shared alias-safe kana distractors with variant/visual contrasts                                            | Pending |
+| 477 | Specific RU/EN confusion feedback for common shape/mark/small-kana errors                                   | Pending |
+| 478 | Lock matching answers during submission, expose corrections and honest session pacing                       | Pending |
+| 479 | Density-independent ordered tracing geometry; one-pointer/cancel/retry recovery                             | Pending |
+| 480 | Explicit synthetic kana audio, safe playback/fallback and sokuon context                                    | Pending |
+| 481 | Bounded short-session length choice, preserving active sessions and separate kana progress                  | Pending |
+| 482 | Document actual text segmentation, ambiguity and query-budget limitations                                   | Pending |
 | 483 | Local proven ICU word segmentation with explicit bounded dictionary fallback, no external text transmission | Pending |
-| 484 | Read-only text preview and private corrections before deck creation | Pending |
-| 485 | Add published dictionary materials to owned decks without duplicate cards/state | Pending |
-| 486 | Scan/filter private library and deck contents; clear lesson entry and pacing | Pending |
-| 487 | Owner/status/concurrency guards for new mutations and cross-account recovery | Pending |
-| 488 | Two independent patch reviews, focused batched checks and responsive acceptance | Pending |
-| 489 | Commit/push, deploy exact runtime, verify server and record release | Pending |
+| 484 | Read-only text preview and private corrections before deck creation                                         | Pending |
+| 485 | Add published dictionary materials to owned decks without duplicate cards/state                             | Pending |
+| 486 | Scan/filter private library and deck contents; clear lesson entry and pacing                                | Pending |
+| 487 | Owner/status/concurrency guards for new mutations and cross-account recovery                                | Pending |
+| 488 | Two independent patch reviews, focused batched checks and responsive acceptance                             | Pending |
+| 489 | Commit/push, deploy exact runtime, verify server and record release                                         | Pending |
 
 ## Acceptance and Boundaries
 

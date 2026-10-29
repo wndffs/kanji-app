@@ -34,8 +34,8 @@ let activeSpeech: {
 
 export function useJapaneseSpeech(options: JapaneseSpeechOptions = {}): JapaneseSpeech {
   const [available, setAvailable] = useState(false);
-  const [ready,setReady]=useState(false);
-  const [status,setStatus]=useState<JapaneseSpeech["status"]>("idle");
+  const [ready, setReady] = useState(false);
+  const [status, setStatus] = useState<JapaneseSpeech["status"]>("idle");
   const [voices, setVoices] = useState<readonly SpeechSynthesisVoice[]>([]);
   const preferences = useStudyAudioPreferences();
   const voiceUri = options.voiceUri === undefined ? preferences.speechVoiceUri : options.voiceUri;
@@ -47,9 +47,9 @@ export function useJapaneseSpeech(options: JapaneseSpeechOptions = {}): Japanese
   const mountedRef = useRef(false);
 
   const cancel = useCallback((): void => {
-    if(mountedRef.current) setStatus("idle");
+    if (mountedRef.current) setStatus("idle");
     if (activeSpeech?.owner !== ownerRef.current) return;
-    if(activeSpeech.timer !== null) clearTimeout(activeSpeech.timer);
+    if (activeSpeech.timer !== null) clearTimeout(activeSpeech.timer);
     activeSpeech = null;
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   }, []);
@@ -116,26 +116,32 @@ export function useJapaneseSpeech(options: JapaneseSpeechOptions = {}): Japanese
 
         const release = (next: JapaneseSpeech["status"]) => {
           if (activeSpeech?.utterance !== utterance) return;
-          if(activeSpeech.timer !== null) clearTimeout(activeSpeech.timer);
+          if (activeSpeech.timer !== null) clearTimeout(activeSpeech.timer);
           activeSpeech = null;
-          if(mountedRef.current) setStatus(next);
+          if (mountedRef.current) setStatus(next);
         };
         utterance.onend = () => release("idle");
         utterance.onerror = () => release("error");
         utterance.onstart = () => {
-          if(activeSpeech?.utterance === utterance && activeSpeech.timer !== null) {
-            clearTimeout(activeSpeech.timer); activeSpeech.timer=null;
+          if (activeSpeech?.utterance === utterance && activeSpeech.timer !== null) {
+            clearTimeout(activeSpeech.timer);
+            activeSpeech.timer = null;
           }
         };
 
         // Clear ownership before cancel dispatches events for the previous utterance.
-        if(activeSpeech?.timer != null) clearTimeout(activeSpeech.timer);
+        if (activeSpeech?.timer != null) clearTimeout(activeSpeech.timer);
         activeSpeech = null;
         window.speechSynthesis.cancel();
-        activeSpeech = { owner: ownerRef.current, utterance, timer:setTimeout(()=>{
-          if(activeSpeech?.utterance !== utterance) return;
-          release("error"); window.speechSynthesis.cancel();
-        },12_000) };
+        activeSpeech = {
+          owner: ownerRef.current,
+          utterance,
+          timer: setTimeout(() => {
+            if (activeSpeech?.utterance !== utterance) return;
+            release("error");
+            window.speechSynthesis.cancel();
+          }, 12_000),
+        };
         setStatus("speaking");
         window.speechSynthesis.speak(utterance);
         return true;

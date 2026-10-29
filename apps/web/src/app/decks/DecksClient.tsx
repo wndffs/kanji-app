@@ -96,20 +96,34 @@ function DecksScreen() {
   function acceptUpdatedDeck(deck: DeckDetailsDto) {
     selectedDeckRequest.current += 1;
     setResult(null);
-    setSelectedDeck({status:"ready",deck});
-    setSavedDecks((current)=>({status:"ready",decks:sortDeckSummaries([toDeckSummary(deck),...(current.status === "ready" ? current.decks.filter((entry)=>entry.id!==deck.id) : [])])}));
+    setSelectedDeck({ status: "ready", deck });
+    setSavedDecks((current) => ({
+      status: "ready",
+      decks: sortDeckSummaries([
+        toDeckSummary(deck),
+        ...(current.status === "ready"
+          ? current.decks.filter((entry) => entry.id !== deck.id)
+          : []),
+      ]),
+    }));
   }
 
   async function createEmptyDeck() {
-    if (state.status !== "ready" || isSubmitting) return;
-    setIsSubmitting(true);setFormError(null);
+    if (state.status !== "ready" || isSubmitting || !ownsSession(state.token)) return;
+    setIsSubmitting(true);
+    setFormError(null);
     try {
-      const deck = await createCustomDeck(state.token,title.trim() || "Личная колода");
+      const deck = await createCustomDeck(state.token, title.trim() || "Личная колода");
       if (!ownsSession(state.token)) return;
-      acceptUpdatedDeck(deck);setBuilderOpen(false);setPreview(null);
+      acceptUpdatedDeck(deck);
+      setBuilderOpen(false);
+      setPreview(null);
     } catch (cause) {
-      if (ownsSession(state.token)) setFormError(cause instanceof Error ? cause.message : "Не удалось создать колоду.");
-    } finally { setIsSubmitting(false); }
+      if (ownsSession(state.token))
+        setFormError(cause instanceof Error ? cause.message : "Не удалось создать колоду.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   useEffect(() => {
@@ -286,14 +300,24 @@ function DecksScreen() {
         title: title.trim() === "" ? null : title.trim(),
         maxItems,
       };
-      if (preview === null) {
-        const response = await previewTextDeck(state.token, input);
+      if (
+        preview === null ||
+        preview.selectedItemIds.length !== selectedIds.length ||
+        preview.selectedItemIds.some((id) => !selectedIds.includes(id))
+      ) {
+        const response = await previewTextDeck(state.token, {
+          ...input,
+          ...(preview === null ? {} : { selectedItemIds: selectedIds }),
+        });
         if (!ownsSession(state.token)) return;
         setPreview(response);
         setSelectedIds(response.selectedItemIds);
         return;
       }
-      const response = await createTextDeck(state.token, { ...input, selectedItemIds: selectedIds });
+      const response = await createTextDeck(state.token, {
+        ...input,
+        selectedItemIds: selectedIds,
+      });
       if (!ownsSession(state.token)) return;
       setResult(response);
       setBuilderOpen(false);
@@ -418,7 +442,10 @@ function DecksScreen() {
               ref={titleInput}
               disabled={isSubmitting}
               maxLength={120}
-              onChange={(event) => { setTitle(event.currentTarget.value); setPreview(null); }}
+              onChange={(event) => {
+                setTitle(event.currentTarget.value);
+                setPreview(null);
+              }}
               placeholder="Например: статья NHK Easy"
               value={title}
             />
@@ -429,7 +456,10 @@ function DecksScreen() {
               disabled={isSubmitting}
               max={160}
               min={1}
-              onChange={(event) => { setMaxItems(Number(event.currentTarget.value)); setPreview(null); }}
+              onChange={(event) => {
+                setMaxItems(Number(event.currentTarget.value));
+                setPreview(null);
+              }}
               type="number"
               value={maxItems}
             />
@@ -440,17 +470,42 @@ function DecksScreen() {
           <span>Японский текст</span>
           <textarea
             disabled={isSubmitting}
-            onChange={(event) => { setSourceText(event.currentTarget.value); setPreview(null); }}
+            onChange={(event) => {
+              setSourceText(event.currentTarget.value);
+              setPreview(null);
+            }}
             placeholder="日本語の文章をここに貼り付けます。"
             value={sourceText}
           />
         </label>
 
         <div className="action-row">
-          <button className="primary-action" disabled={isSubmitting || (preview !== null && (selectedIds.length === 0 || selectedIds.length > maxItems))} type="submit">
-            {isSubmitting ? "Обрабатываю..." : preview === null ? "Проверить текст" : "Сохранить колоду"}
+          <button
+            className="primary-action"
+            disabled={
+              isSubmitting ||
+              (preview !== null && (selectedIds.length === 0 || selectedIds.length > maxItems))
+            }
+            type="submit"
+          >
+            {isSubmitting
+              ? "Обрабатываю..."
+              : preview === null
+                ? "Проверить текст"
+                : preview.selectedItemIds.length !== selectedIds.length ||
+                    preview.selectedItemIds.some((id) => !selectedIds.includes(id))
+                  ? "Обновить разбор"
+                  : "Сохранить колоду"}
           </button>
-          <button className="secondary-action" type="button" disabled={isSubmitting} onClick={()=>void createEmptyDeck()}><Plus size={18}/>Пустая колода</button>
+          <button
+            className="secondary-action"
+            type="button"
+            disabled={isSubmitting}
+            onClick={() => void createEmptyDeck()}
+          >
+            <Plus size={18} />
+            Пустая колода
+          </button>
           <button
             className="secondary-action"
             disabled={isSubmitting}
@@ -482,16 +537,45 @@ function DecksScreen() {
 
         {preview === null ? null : (
           <section className="page-stack" aria-label="Предварительный разбор">
-            <h2>Выбрано: {selectedIds.length} / {maxItems}</h2>
-            <p className="muted">{preview.tokenization.analyzer === "icu-word-boundaries" ? "Границы слов ICU · точные словарные совпадения" : "Точные словарные совпадения · резервный разбор"}</p>
-            {preview.externalPrerequisiteCount > 0 ? <p role="status">За пределами лимита: {preview.externalPrerequisiteCount} предпосылок. Они могут потребоваться в основном курсе до начала уроков.</p> : null}
+            <h2>
+              Выбрано: {selectedIds.length} / {maxItems}
+            </h2>
+            <p className="muted">
+              {preview.tokenization.analyzer === "icu-word-boundaries"
+                ? "Границы слов ICU · точные словарные совпадения"
+                : "Точные словарные совпадения · резервный разбор"}
+            </p>
+            {preview.selectedItemIds.length !== selectedIds.length ||
+            preview.selectedItemIds.some((id) => !selectedIds.includes(id)) ? (
+              <p role="status">Выбор изменён. Требуется обновить разбор.</p>
+            ) : preview.externalPrerequisiteCount > 0 ? (
+              <p role="status">
+                За пределами лимита: {preview.externalPrerequisiteCount} предпосылок. Они могут
+                потребоваться в основном курсе до начала уроков.
+              </p>
+            ) : null}
             <ul className="saved-deck-list">
-              {preview.candidates.map(({item}) => (
+              {preview.candidates.map(({ item }) => (
                 <li key={item.id}>
                   <label className="action-row">
-                    <input type="checkbox" disabled={isSubmitting} checked={selectedIds.includes(item.id)} onChange={(event) => {const checked=event.currentTarget.checked;setSelectedIds((ids) => checked ? [...ids, item.id] : ids.filter((id) => id !== item.id));}} />
+                    <input
+                      type="checkbox"
+                      disabled={isSubmitting}
+                      checked={selectedIds.includes(item.id)}
+                      onChange={(event) => {
+                        const checked = event.currentTarget.checked;
+                        setSelectedIds((ids) =>
+                          checked ? [...ids, item.id] : ids.filter((id) => id !== item.id),
+                        );
+                      }}
+                    />
                     <JapaneseText>{item.japanese}</JapaneseText>
-                    <span>{item.reading} · {item.title}</span>
+                    <span>
+                      {item.reading} ·{" "}
+                      {item.translations === undefined
+                        ? ""
+                        : formatTranslationBundle(item.translations, displayMode)}
+                    </span>
                   </label>
                 </li>
               ))}
@@ -506,7 +590,12 @@ function DecksScreen() {
       </form>
 
       {(selectedDeck.status === "ready" ? selectedDeck.deck : result?.deck)?.status === "active" ? (
-        <DeckDictionaryPicker key={(selectedDeck.status === "ready" ? selectedDeck.deck : result!.deck).id} token={state.token} deck={selectedDeck.status === "ready" ? selectedDeck.deck : result!.deck} onUpdated={acceptUpdatedDeck}/>
+        <DeckDictionaryPicker
+          key={(selectedDeck.status === "ready" ? selectedDeck.deck : result!.deck).id}
+          token={state.token}
+          deck={selectedDeck.status === "ready" ? selectedDeck.deck : result!.deck}
+          onUpdated={acceptUpdatedDeck}
+        />
       ) : null}
       {result === null ? null : (
         <TextDeckResult
@@ -705,12 +794,20 @@ function DeckDetailsResult({
   readonly isStatusUpdating?: boolean;
   readonly statusError?: string | null;
 }) {
-  const [kind, setKind] = useState<DeckItemDto["item"]["itemType"]|"">("");
+  const [kind, setKind] = useState<DeckItemDto["item"]["itemType"] | "">("");
   const [learningState, setLearningState] = useState("all");
-  const [query,setQuery] = useState("");
-  const [grouped,setGrouped] = useState(true);
-  const visibleItems = filterDeckContents(deck.items,{kind,state:learningState,query});
-  const groups = grouped ? (["component","kanji","word","sentence"] as const).map((type)=>({id:type,title:formatItemType(type),items:visibleItems.filter((entry)=>entry.item.itemType===type)})).filter((group)=>group.items.length>0) : [{id:"all",title:"Материалы",items:visibleItems}];
+  const [query, setQuery] = useState("");
+  const [grouped, setGrouped] = useState(true);
+  const visibleItems = filterDeckContents(deck.items, { kind, state: learningState, query });
+  const groups = grouped
+    ? (["component", "kanji", "word", "sentence"] as const)
+        .map((type) => ({
+          id: type,
+          title: formatItemType(type),
+          items: visibleItems.filter((entry) => entry.item.itemType === type),
+        }))
+        .filter((group) => group.items.length > 0)
+    : [{ id: "all", title: "Материалы", items: visibleItems }];
   return (
     <section className="deck-result" aria-label={`Колода ${deck.title}`}>
       <div className="panel">
@@ -747,10 +844,7 @@ function DeckDetailsResult({
         ) : null}
         <div className="action-row deck-result-actions">
           {deck.status === "active" ? (
-            <Link
-              className="primary-action"
-              href={deckLessonHref(deck.id,kind,query)}
-            >
+            <Link className="primary-action" href={deckLessonHref(deck.id, kind, query)}>
               Выбрать урок
             </Link>
           ) : null}
@@ -793,10 +887,20 @@ function DeckDetailsResult({
       ) : (
         <>
           <div className="deck-path-filters">
-            <label><span>Поиск в колоде</span><input value={query} onChange={(event)=>setQuery(event.currentTarget.value)} maxLength={100}/></label>
+            <label>
+              <span>Поиск в колоде</span>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.currentTarget.value)}
+                maxLength={100}
+              />
+            </label>
             <label>
               <span>Тип в колоде</span>
-              <select value={kind} onChange={(event) => setKind(event.currentTarget.value as typeof kind)}>
+              <select
+                value={kind}
+                onChange={(event) => setKind(event.currentTarget.value as typeof kind)}
+              >
                 <option value="">Все типы</option>
                 {(["component", "kanji", "word", "sentence"] as const).map((id) => (
                   <option key={id} value={id}>
@@ -805,7 +909,14 @@ function DeckDetailsResult({
                 ))}
               </select>
             </label>
-            <label className="action-row"><input type="checkbox" checked={grouped} onChange={(event)=>setGrouped(event.currentTarget.checked)}/>Группировать по типу</label>
+            <label className="action-row">
+              <input
+                type="checkbox"
+                checked={grouped}
+                onChange={(event) => setGrouped(event.currentTarget.checked)}
+              />
+              Группировать по типу
+            </label>
             <label>
               <span>Изучение в колоде</span>
               <select
@@ -822,7 +933,22 @@ function DeckDetailsResult({
             </span>
           </div>
           {visibleItems.length === 0 ? <p className="muted">Материалы не найдены.</p> : null}
-          {groups.map((group)=><section className="page-stack" key={group.id} aria-label={group.title}><h3>{group.title} · {group.items.length}</h3><div className="deck-item-list">{group.items.map((deckItem)=><DeckItemCard deckItem={deckItem} displayMode={displayMode} key={deckItem.item.id}/>)}</div></section>)}
+          {groups.map((group) => (
+            <section className="page-stack" key={group.id} aria-label={group.title}>
+              <h3>
+                {group.title} · {group.items.length}
+              </h3>
+              <div className="deck-item-list">
+                {group.items.map((deckItem) => (
+                  <DeckItemCard
+                    deckItem={deckItem}
+                    displayMode={displayMode}
+                    key={deckItem.item.id}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
         </>
       )}
     </section>

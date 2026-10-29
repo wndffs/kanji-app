@@ -181,7 +181,14 @@ function scoreCandidate(
       : candidate.attemptCount > 0
         ? candidate.correctCount / candidate.attemptCount
         : null;
-  const lastAnsweredAt=recent[0]?.answeredAt ?? candidate.lastAnsweredAt;
+  const lastAnsweredAt = latestAttemptDate(recent, candidate.lastAnsweredAt);
+  const practiceStreak = recent.findIndex((attempt) => !attempt.correct);
+  const streak =
+    recent.length > 0
+      ? practiceStreak === -1
+        ? recent.length
+        : practiceStreak
+      : candidate.currentStreak;
   const age =
     lastAnsweredAt === null
       ? OVERDUE_AFTER_MS
@@ -195,7 +202,7 @@ function scoreCandidate(
   return (
     (candidate.mastered ? 12 : 70) +
     (1 - (recentAccuracy ?? 0)) * 120 +
-    Math.max(0, 3 - candidate.currentStreak) * 10 +
+    Math.max(0, 3 - streak) * 10 +
     overdueScore
   );
 }
@@ -219,13 +226,26 @@ function determineFocusReason(
   }
 
   if (
-    (recent[0]?.answeredAt ?? candidate.lastAnsweredAt) === null ||
-    now.getTime() - (recent[0]?.answeredAt ?? candidate.lastAnsweredAt)!.getTime() >= OVERDUE_AFTER_MS
+    latestAttemptDate(recent, candidate.lastAnsweredAt) === null ||
+    now.getTime() - latestAttemptDate(recent, candidate.lastAnsweredAt)!.getTime() >=
+      OVERDUE_AFTER_MS
   ) {
     return "overdue";
   }
 
   return "review";
+}
+
+function latestAttemptDate(
+  recent: readonly KanaAttemptEvidence[],
+  lessonDate: Date | null,
+): Date | null {
+  const practiceDate = recent[0]?.answeredAt;
+  return practiceDate === undefined
+    ? lessonDate
+    : lessonDate === null || practiceDate > lessonDate
+      ? practiceDate
+      : lessonDate;
 }
 
 function selectExerciseKind(
@@ -290,7 +310,8 @@ function buildChoices(
     .sort(
       (left, right) =>
         (confusionCounts.get(right.character) ?? 0) - (confusionCounts.get(left.character) ?? 0) ||
-        kanaDistractorPriority(target.character,left.character) - kanaDistractorPriority(target.character,right.character) ||
+        kanaDistractorPriority(target.character, left.character) -
+          kanaDistractorPriority(target.character, right.character) ||
         Number(left.script !== target.script) - Number(right.script !== target.script) ||
         Math.abs(left.order - target.order) - Math.abs(right.order - target.order) ||
         seededRank(seed, target.character, left.character) -

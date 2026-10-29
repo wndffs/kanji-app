@@ -11,6 +11,50 @@ const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
 
 test.describe("dynamic text decks", () => {
+  test("replans a privately corrected match before any deck write", async ({ page }) => {
+    await signIn(page);
+    await mockSavedDecksApi(page, { decks: [] });
+    const original = createTextDeckResponse.deck.items[0]!.item;
+    const alternative = { ...original, id: "alternative", reading: "べつ" };
+    let writes = 0;
+    let saved: unknown;
+    await page.route(`${API_BASE_URL}/decks/from-text/preview`, (route) => {
+      const body = route.request().postDataJSON() as { selectedItemIds?: string[] };
+      return route.fulfill({
+        json: {
+          candidates: [original, alternative].map((item) => ({
+            item,
+            matchedText: item.japanese,
+            span: { start: 0, end: 2 },
+          })),
+          selectedItemIds: body.selectedItemIds ?? [original.id],
+          plannedItemCount: 1,
+          externalPrerequisiteCount: body.selectedItemIds ? 2 : 0,
+          tokenization: createTextDeckResponse.tokenization,
+        },
+      });
+    });
+    await page.route(`${API_BASE_URL}/decks/from-text`, (route) => {
+      writes++;
+      saved = route.request().postDataJSON();
+      return route.fulfill({ json: createTextDeckResponse });
+    });
+    await page.goto("/decks");
+    await page.getByRole("button", { name: "Новая колода", exact: true }).click();
+    await page.getByLabel("Японский текст").fill("学校");
+    await page.getByRole("button", { name: "Проверить текст", exact: true }).click();
+    const preview = page.getByRole("region", { name: "Предварительный разбор" });
+    await preview.getByRole("checkbox").nth(1).check();
+    await preview.getByRole("checkbox").nth(0).uncheck();
+    await expect(preview.getByRole("status")).toContainText("Выбор изменён");
+    await page.getByRole("button", { name: "Обновить разбор", exact: true }).click();
+    await expect(preview.getByRole("status")).toContainText("2 предпосылок");
+    expect(writes).toBe(0);
+    await page.getByRole("button", { name: "Сохранить колоду", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Текст про школу", exact: true })).toBeVisible();
+    expect(writes).toBe(1);
+    expect(saved).toMatchObject({ selectedItemIds: ["alternative"] });
+  });
   test("retries the library without clearing a builder draft and resets an empty filter", async ({
     page,
   }) => {
@@ -64,7 +108,8 @@ test.describe("dynamic text decks", () => {
         await page.goto("/decks");
         await page.getByRole("button", { name: "Новая колода", exact: true }).click();
         await page.getByLabel("Японский текст").fill("学校");
-        await page.getByRole("button", { name: "Создать колоду", exact: true }).click();
+        await page.getByRole("button", { name: "Проверить текст", exact: true }).click();
+        await page.getByRole("button", { name: "Сохранить колоду", exact: true }).click();
         await pending;
         await changeAccount(page);
         await expect(page.getByRole("button", { name: "Новая колода", exact: true })).toBeEnabled();
@@ -158,7 +203,7 @@ test.describe("dynamic text decks", () => {
     await page.getByRole("button", { name: "Новая колода", exact: true }).click();
     await expect(page.getByLabel("Название", { exact: true })).toHaveValue("Черновик");
     await page.getByLabel("Максимум элементов").fill("0");
-    await page.getByRole("button", { name: "Создать колоду", exact: true }).click();
+    await page.getByRole("button", { name: "Проверить текст", exact: true }).click();
     await expect(page.locator("#deck-builder").getByRole("alert")).toContainText("от 1 до 160");
     expect(writes).toBe(0);
     await page.getByRole("button", { name: "Скрыть форму", exact: true }).click();
@@ -190,7 +235,10 @@ test.describe("dynamic text decks", () => {
     await page.getByRole("button", { name: "Новая колода", exact: true }).click();
     await page.getByLabel("Название").fill("Текст про школу");
     await page.getByLabel("Японский текст").fill("学校で学ぶ。");
-    await page.getByRole("button", { name: "Создать колоду" }).click();
+    await page.getByRole("button", { name: "Проверить текст" }).click();
+    await expect(page.getByRole("region", { name: "Предварительный разбор" })).toBeVisible();
+    expect(requestBody()).toBeNull();
+    await page.getByRole("button", { name: "Сохранить колоду" }).click();
 
     await expect(page.getByRole("heading", { name: "Текст про школу" })).toBeVisible();
     await page.getByRole("button", { name: "Разбор текста", exact: true }).click();
@@ -200,7 +248,7 @@ test.describe("dynamic text decks", () => {
     await expect(page.getByText("школа / school")).toBeVisible();
     await page.getByRole("button", { name: "Почему в колоде", exact: true }).click();
     await expect(page.getByText("Есть в тексте: 学校")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Учить колоду" })).toHaveAttribute(
+    await expect(page.getByRole("link", { name: "Выбрать урок" })).toHaveAttribute(
       "href",
       "/lessons?deckId=deck-1",
     );
@@ -227,21 +275,21 @@ test.describe("dynamic text decks", () => {
     await expect(details.getByRole("heading", { name: "Новости на японском" })).toBeVisible();
     await expect(details.getByText("Сохранённая колода")).toBeVisible();
     await expect(details.getByText("школа / school")).toBeVisible();
-    await expect(details.getByRole("link", { name: "Учить колоду" })).toHaveAttribute(
+    await expect(details.getByRole("link", { name: "Выбрать урок" })).toHaveAttribute(
       "href",
       "/lessons?deckId=deck-saved",
     );
 
     await details.getByRole("button", { name: "Архивировать" }).click();
     await expect(details.getByText(/Колода в архиве/)).toBeVisible();
-    await expect(details.getByRole("link", { name: "Учить колоду" })).toHaveCount(0);
+    await expect(details.getByRole("link", { name: "Выбрать урок" })).toHaveCount(0);
     await page.getByRole("tab", { name: "Архив", exact: true }).click();
     await expect(page.getByText("2 элемента · новых: 1 · архив")).toBeVisible();
 
     await details.getByRole("button", { name: "Восстановить" }).click();
     await page.getByRole("tab", { name: "Активные", exact: true }).click();
     await expect(details.getByText(/Колода в архиве/)).toHaveCount(0);
-    await expect(details.getByRole("link", { name: "Учить колоду" })).toBeVisible();
+    await expect(details.getByRole("link", { name: "Выбрать урок" })).toBeVisible();
 
     await details.getByRole("button", { name: "Закрыть" }).click();
     await expect(details).toBeHidden();
@@ -249,6 +297,21 @@ test.describe("dynamic text decks", () => {
 });
 
 async function signIn(page: Page): Promise<void> {
+  await page.route(`${API_BASE_URL}/decks/from-text/preview`, (route) =>
+    route.fulfill({
+      json: {
+        candidates: createTextDeckResponse.deck.items.map(({ item }) => ({
+          item,
+          matchedText: item.japanese,
+          span: { start: 0, end: 2 },
+        })),
+        selectedItemIds: createTextDeckResponse.deck.items.map(({ item }) => item.id),
+        plannedItemCount: 1,
+        externalPrerequisiteCount: 0,
+        tokenization: createTextDeckResponse.tokenization,
+      },
+    }),
+  );
   await page.addInitScript(
     ({ accessToken }) => {
       window.localStorage.setItem("kanji-srs.accessToken", accessToken);

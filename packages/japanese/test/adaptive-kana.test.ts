@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAdaptiveKanaSession,
   findKana,
+  scoreAdaptiveKanaCandidate,
   type AdaptiveKanaCandidate,
   type KanaAttemptEvidence,
 } from "../src";
@@ -10,6 +11,14 @@ import {
 const NOW = new Date("2026-07-27T12:00:00.000Z");
 
 describe("adaptive kana practice", () => {
+  it("does not let perfect practice-only evidence indefinitely crowd out unseen kana", () => {
+    const practiced = candidate("あ", { attemptCount: 0, currentStreak: 0, lastAnsweredAt: null });
+    const recent = [evidence("あ", true), evidence("あ", true), evidence("あ", true)];
+    expect(scoreAdaptiveKanaCandidate(practiced, recent, NOW)).toBeLessThan(
+      scoreAdaptiveKanaCandidate(candidate("い", { attemptCount: 0 }), [], NOW),
+    );
+    expect(practiced.currentStreak).toBe(0);
+  });
   it("never offers homophones or overlapping romaji aliases as competing choices", () => {
     const characters = ["じ", "ぢ", "ず", "づ", "お", "を", "シ", "し", "あ", "い", "う", "え"];
     const candidates = characters.map((character) => candidate(character));

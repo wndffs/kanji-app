@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from "@nestjs/common";
 
 import { AuthGuard } from "../auth/auth.guard";
 import { type CurrentUserDto } from "../auth/auth.types";
@@ -9,18 +19,20 @@ import { RateLimitService } from "../security/rate-limit.service";
 @UseGuards(AuthGuard)
 @Controller("decks")
 export class DecksController {
-  constructor(@Inject(DecksService) private readonly decksService: DecksService,
-    @Inject(RateLimitService) private readonly rateLimitService: RateLimitService) {}
+  constructor(
+    @Inject(DecksService) private readonly decksService: DecksService,
+    @Inject(RateLimitService) private readonly rateLimitService: RateLimitService,
+  ) {}
 
   @Post("from-text")
   createFromText(@CurrentUser() currentUser: CurrentUserDto, @Body() body: unknown) {
-    this.rateLimitService.assertAllowed("text-mining-user",currentUser.id);
+    this.rateLimitService.assertAllowed("text-mining-user", currentUser.id);
     return this.decksService.createFromText(currentUser, body);
   }
 
   @Post("from-text/preview")
   previewFromText(@CurrentUser() currentUser: CurrentUserDto, @Body() body: unknown) {
-    this.rateLimitService.assertAllowed("text-mining-user",currentUser.id);
+    this.rateLimitService.assertAllowed("text-mining-user", currentUser.id);
     return this.decksService.previewFromText(currentUser, body);
   }
 
@@ -31,20 +43,28 @@ export class DecksController {
 
   @Post()
   createCustom(@CurrentUser() currentUser: CurrentUserDto, @Body() body: unknown) {
-    this.rateLimitService.assertAllowed("text-mining-user",currentUser.id);
-    return this.decksService.createCustom(currentUser,body);
+    this.rateLimitService.assertAllowed("text-mining-user", currentUser.id);
+    return this.decksService.createCustom(currentUser, body);
   }
 
   @Post(":deckId/items")
-  addItems(@CurrentUser() currentUser: CurrentUserDto, @Param("deckId") deckId:string, @Body() body:unknown) {
-    this.rateLimitService.assertAllowed("text-mining-user",currentUser.id);
-    return this.decksService.addItems(currentUser,deckId,body);
+  addItems(
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Param("deckId") deckId: string,
+    @Body() body: unknown,
+  ) {
+    this.rateLimitService.assertAllowed("text-mining-user", currentUser.id);
+    return this.decksService.addItems(currentUser, deckId, body);
   }
 
   @Delete(":deckId/items/:itemId")
-  removeItem(@CurrentUser() currentUser:CurrentUserDto,@Param("deckId") deckId:string,@Param("itemId") itemId:string) {
-    this.rateLimitService.assertAllowed("text-mining-user",currentUser.id);
-    return this.decksService.removeItem(currentUser,deckId,itemId);
+  removeItem(
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Param("deckId") deckId: string,
+    @Param("itemId") itemId: string,
+  ) {
+    this.rateLimitService.assertAllowed("text-mining-user", currentUser.id);
+    return this.decksService.removeItem(currentUser, deckId, itemId);
   }
 
   @Get(":deckId")

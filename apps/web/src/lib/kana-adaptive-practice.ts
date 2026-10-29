@@ -26,7 +26,9 @@ export function buildKanaPracticeAnswer(
         sessionId,
         exerciseId: exercise.id,
         selectedCharacter: value,
-        ...(effectiveKind !== exercise.exerciseKind ? { exerciseKind: "reverse-choice" as const } : {}),
+        ...(effectiveKind !== exercise.exerciseKind
+          ? { exerciseKind: "reverse-choice" as const }
+          : {}),
       }
     : {
         sessionId,

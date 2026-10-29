@@ -31,8 +31,12 @@ export class KanaController {
   }
 
   @Get("practice")
-  getPractice(@CurrentUser() user: CurrentUserDto, @Query("script") script?: string, @Query("size") size?: string) {
-    return this.kanaService.getPracticeSession(user.id, script,size);
+  getPractice(
+    @CurrentUser() user: CurrentUserDto,
+    @Query("script") script?: string,
+    @Query("size") size?: string,
+  ) {
+    return this.kanaService.getPracticeSession(user.id, script, size);
   }
 
   @Post("practice/answer")

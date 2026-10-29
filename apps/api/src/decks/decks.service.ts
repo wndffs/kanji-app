@@ -1,5 +1,9 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { extractJapaneseTextCandidates, JapaneseTextBudgetError, originalTextSpan } from "@kanji-srs/japanese";
+import {
+  extractJapaneseTextCandidates,
+  JapaneseTextBudgetError,
+  originalTextSpan,
+} from "@kanji-srs/japanese";
 
 import {
   DEFAULT_TRANSLATION_DISPLAY_MODE,
@@ -37,22 +41,33 @@ export class DecksService {
   constructor(@Inject(DecksRepository) private readonly decksRepository: DecksRepository) {}
 
   async createCustom(user: CurrentUserDto, body: unknown): Promise<DeckDetailsDto> {
-    if (typeof body !== "object" || body === null || Array.isArray(body)) throw new BadRequestException("Expected a JSON object.");
-    const deck = await this.decksRepository.createTextDeck({ownerUserId:user.id,title:parseTitle((body as Record<string,unknown>).title),sourceText:null,items:[]});
-    return toDeckDetailsDto(deck,getDisplayMode(user));
+    if (typeof body !== "object" || body === null || Array.isArray(body))
+      throw new BadRequestException("Expected a JSON object.");
+    const deck = await this.decksRepository.createTextDeck({
+      ownerUserId: user.id,
+      title: parseTitle((body as Record<string, unknown>).title),
+      sourceText: null,
+      items: [],
+    });
+    return toDeckDetailsDto(deck, getDisplayMode(user));
   }
 
   async addItems(user: CurrentUserDto, deckId: string, body: unknown): Promise<DeckDetailsDto> {
-    if (typeof body !== "object" || body === null || Array.isArray(body)) throw new BadRequestException("Expected a JSON object.");
-    const deck = await this.decksRepository.addItems(user.id,deckId,parseItemIds((body as Record<string,unknown>).itemIds));
+    if (typeof body !== "object" || body === null || Array.isArray(body))
+      throw new BadRequestException("Expected a JSON object.");
+    const deck = await this.decksRepository.addItems(
+      user.id,
+      deckId,
+      parseItemIds((body as Record<string, unknown>).itemIds),
+    );
     if (deck === null) throw new NotFoundException("Deck not found.");
-    return toDeckDetailsDto(deck,getDisplayMode(user));
+    return toDeckDetailsDto(deck, getDisplayMode(user));
   }
 
-  async removeItem(user:CurrentUserDto,deckId:string,itemId:string):Promise<DeckDetailsDto> {
-    const deck = await this.decksRepository.removeItem(user.id,deckId,itemId);
+  async removeItem(user: CurrentUserDto, deckId: string, itemId: string): Promise<DeckDetailsDto> {
+    const deck = await this.decksRepository.removeItem(user.id, deckId, itemId);
     if (deck === null) throw new NotFoundException("Deck not found.");
-    return toDeckDetailsDto(deck,getDisplayMode(user));
+    return toDeckDetailsDto(deck, getDisplayMode(user));
   }
 
   async createFromText(user: CurrentUserDto, body: unknown): Promise<CreateTextDeckResponse> {
@@ -63,17 +78,23 @@ export class DecksService {
       title: request.title,
       sourceText: request.text,
       items: prepared.plans.map((plan, index) => ({
-        learningItemId: plan.item.id, sortOrder: index + 1, reasons: plan.reasons,
+        learningItemId: plan.item.id,
+        sortOrder: index + 1,
+        reasons: plan.reasons,
       })),
     });
-    return { deck: toDeckDetailsDto(deck, getDisplayMode(user)), tokenization: prepared.tokenization };
+    return {
+      deck: toDeckDetailsDto(deck, getDisplayMode(user)),
+      tokenization: prepared.tokenization,
+    };
   }
 
   async previewFromText(user: CurrentUserDto, body: unknown): Promise<TextDeckPreviewResponse> {
     const prepared = await this.prepareText(parseCreateTextDeckRequest(body));
     return {
       candidates: prepared.candidates.map((match) => ({
-        item: toItemSummary(match.item, getDisplayMode(user)), matchedText: match.matchedText,
+        item: toItemSummary(match.item, getDisplayMode(user)),
+        matchedText: match.matchedText,
         span: originalTextSpan(prepared.tokens, match.sourceIndex, match.matchedText.length),
       })),
       selectedItemIds: prepared.selectedIds,
@@ -94,17 +115,28 @@ export class DecksService {
       ...tokens,
       sourceText: tokens.normalizedText,
     });
-    const matchSelection = selectBestTextMatches(textMatches, tokens.normalizedText, request.maxItems);
+    const matchSelection = selectBestTextMatches(
+      textMatches,
+      tokens.normalizedText,
+      request.maxItems,
+    );
     const candidates = [...new Map(textMatches.map((match) => [match.item.id, match])).values()];
-    if (candidates.length > 320) throw new BadRequestException("Too many matching materials; shorten the text.");
+    if (candidates.length > 320)
+      throw new BadRequestException("Too many matching materials; shorten the text.");
     const selectedIds = request.selectedItemIds;
-    if (selectedIds !== undefined && selectedIds.some((id) => !candidates.some((match) => match.item.id === id))) {
+    if (
+      selectedIds !== undefined &&
+      selectedIds.some((id) => !candidates.some((match) => match.item.id === id))
+    ) {
       throw new BadRequestException("Selected materials must be published matches of this text.");
     }
     if (selectedIds !== undefined && selectedIds.length > request.maxItems) {
       throw new BadRequestException("Selected materials exceed maxItems.");
     }
-    const selectedMatches = selectedIds === undefined ? matchSelection.matches : candidates.filter((match) => selectedIds.includes(match.item.id));
+    const selectedMatches =
+      selectedIds === undefined
+        ? matchSelection.matches
+        : candidates.filter((match) => selectedIds.includes(match.item.id));
     const itemPlans = new Map<string, DeckItemPlan>();
 
     for (const match of selectedMatches) {
@@ -115,10 +147,13 @@ export class DecksService {
 
     const sortedPlans = sortItemPlans([...itemPlans.values()]).slice(0, request.maxItems);
     return {
-      plans: sortedPlans, candidates, tokens, selectedIds: selectedMatches.map((match) => match.item.id),
+      plans: sortedPlans,
+      candidates,
+      tokens,
+      selectedIds: selectedMatches.map((match) => match.item.id),
       tokenization: {
         strategy: "dictionary-longest-match" as const,
-        analyzer:tokens.analyzer,
+        analyzer: tokens.analyzer,
         candidateCount: tokens.wordCandidates.length + tokens.kanjiCharacters.length,
         matchedItemCount: selectedMatches.length,
         discardedOverlapCount: matchSelection.discardedOverlapCount,
@@ -170,7 +205,8 @@ export class DecksService {
 
     let depth = 0;
     while (frontier.length > 0) {
-      if (++depth > 16 || itemPlans.size > 512) throw new BadRequestException("Prerequisite budget exceeded.");
+      if (++depth > 16 || itemPlans.size > 512)
+        throw new BadRequestException("Prerequisite budget exceeded.");
       const sourceIds = frontier.filter((id) => !visitedSources.has(id));
 
       if (sourceIds.length === 0) {
@@ -234,12 +270,19 @@ function parseCreateTextDeckRequest(body: unknown): ParsedCreateTextDeckRequest 
     text,
     title: parseTitle(record.title),
     maxItems: parseMaxItems(record.maxItems),
-    ...(record.selectedItemIds === undefined ? {} : { selectedItemIds: parseItemIds(record.selectedItemIds) }),
+    ...(record.selectedItemIds === undefined
+      ? {}
+      : { selectedItemIds: parseItemIds(record.selectedItemIds) }),
   };
 }
 
 export function parseItemIds(value: unknown): readonly string[] {
-  if (!Array.isArray(value) || value.length > 160 || value.some((id) => typeof id !== "string" || id.length === 0 || id.length > 128) || new Set(value).size !== value.length) {
+  if (
+    !Array.isArray(value) ||
+    value.length > 160 ||
+    value.some((id) => typeof id !== "string" || id.length === 0 || id.length > 128) ||
+    new Set(value).size !== value.length
+  ) {
     throw new BadRequestException("itemIds must contain at most 160 unique material IDs.");
   }
   return value as string[];
@@ -295,9 +338,13 @@ function parseMaxItems(value: unknown): number {
   return parsed;
 }
 
-function analyzeText(text:string) {
-  try{return extractJapaneseTextCandidates(text);}
-  catch(error){if(error instanceof JapaneseTextBudgetError)throw new BadRequestException(error.message);throw error;}
+function analyzeText(text: string) {
+  try {
+    return extractJapaneseTextCandidates(text);
+  } catch (error) {
+    if (error instanceof JapaneseTextBudgetError) throw new BadRequestException(error.message);
+    throw error;
+  }
 }
 
 function selectBestTextMatches(
@@ -580,4 +627,3 @@ function itemTypePriority(itemType: TextDeckItemRecord["itemType"]): number {
       return 3;
   }
 }
-

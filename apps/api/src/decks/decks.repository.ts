@@ -34,8 +34,16 @@ export abstract class DecksRepository {
     learningItemIds: readonly string[],
   ): Promise<readonly TextDeckPrerequisiteRecord[]>;
   abstract createTextDeck(input: CreateTextDeckInput): Promise<TextDeckRecord>;
-  abstract addItems(ownerUserId: string, deckId: string, itemIds: readonly string[]): Promise<TextDeckRecord | null>;
-  abstract removeItem(ownerUserId: string, deckId: string, itemId: string): Promise<TextDeckRecord | null>;
+  abstract addItems(
+    ownerUserId: string,
+    deckId: string,
+    itemIds: readonly string[],
+  ): Promise<TextDeckRecord | null>;
+  abstract removeItem(
+    ownerUserId: string,
+    deckId: string,
+    itemId: string,
+  ): Promise<TextDeckRecord | null>;
   abstract listDecks(ownerUserId: string): Promise<readonly TextDeckListRecord[]>;
   abstract findDeckForOwner(ownerUserId: string, deckId: string): Promise<TextDeckRecord | null>;
   abstract updateDeckStatus(
@@ -151,6 +159,7 @@ export class PrismaDecksRepository extends DecksRepository {
     const ids = [...new Set(learningItemIds)];
     for (let offset = 0; offset < ids.length; offset += 100) {
       const rows = (await this.prisma.db.dependency.findMany({
+        take: 4097 - dependencies.length,
         where: {
           learningItemId: { in: ids.slice(offset, offset + 100) },
           dependencyType: "PREREQUISITE",
@@ -164,6 +173,8 @@ export class PrismaDecksRepository extends DecksRepository {
         orderBy: [{ learningItemId: "asc" }, { prerequisiteItemId: "asc" }],
       })) as readonly DependencyRow[];
       dependencies.push(...rows);
+      if (dependencies.length > 4096)
+        throw new BadRequestException("Too many prerequisites; reduce the selection.");
     }
 
     dependencies.sort(
@@ -172,6 +183,8 @@ export class PrismaDecksRepository extends DecksRepository {
         left.prerequisiteItem.id.localeCompare(right.prerequisiteItem.id),
     );
     const records: TextDeckPrerequisiteRecord[] = [];
+    if (new Set(dependencies.map((row) => row.prerequisiteItem.id)).size > 512)
+      throw new BadRequestException("Prerequisite material budget exceeded.");
     const hydrated = new Map<string, TextDeckItemRecord>();
 
     for (const dependency of dependencies) {
@@ -225,41 +238,81 @@ export class PrismaDecksRepository extends DecksRepository {
     return createdDeck;
   }
 
-  async addItems(ownerUserId: string, deckId: string, itemIds: readonly string[]): Promise<TextDeckRecord | null> {
-    return this.editMembership(ownerUserId,deckId,itemIds);
+  async addItems(
+    ownerUserId: string,
+    deckId: string,
+    itemIds: readonly string[],
+  ): Promise<TextDeckRecord | null> {
+    return this.editMembership(ownerUserId, deckId, itemIds);
   }
 
-  async removeItem(ownerUserId:string,deckId:string,itemId:string):Promise<TextDeckRecord|null> {
-    return this.editMembership(ownerUserId,deckId,[],itemId);
+  async removeItem(
+    ownerUserId: string,
+    deckId: string,
+    itemId: string,
+  ): Promise<TextDeckRecord | null> {
+    return this.editMembership(ownerUserId, deckId, [], itemId);
   }
 
-  private async editMembership(ownerUserId:string,deckId:string,itemIds:readonly string[],removeItemId?:string):Promise<TextDeckRecord|null> {
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(deckId)) return null;
+  private async editMembership(
+    ownerUserId: string,
+    deckId: string,
+    itemIds: readonly string[],
+    removeItemId?: string,
+  ): Promise<TextDeckRecord | null> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(deckId))
+      return null;
     const found = await this.prisma.db.$transaction(async (tx) => {
-      const rows = await tx.$queryRaw<{id:string;status:string}[]>(Prisma.sql`SELECT id, status FROM "Deck" WHERE id = ${deckId}::uuid AND "ownerUserId" = ${ownerUserId}::uuid FOR UPDATE`);
+      const rows = await tx.$queryRaw<{ id: string; status: string }[]>(
+        Prisma.sql`SELECT id, status FROM "Deck" WHERE id = ${deckId}::uuid AND "ownerUserId" = ${ownerUserId}::uuid FOR UPDATE`,
+      );
       const deck = rows[0];
       if (deck === undefined) return false;
       if (deck.status !== "ACTIVE") throw new ConflictException("Only active decks can be edited.");
-      if ([...itemIds,...(removeItemId === undefined ? [] : [removeItemId])].some((id)=> !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(id))) throw new BadRequestException("Invalid material ID.");
+      if (
+        [...itemIds, ...(removeItemId === undefined ? [] : [removeItemId])].some(
+          (id) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(id),
+        )
+      )
+        throw new BadRequestException("Invalid material ID.");
       if (removeItemId !== undefined) {
-        const removed = await tx.deckItem.deleteMany({where:{deckId,learningItemId:removeItemId}});
-        if (removed.count > 0) await tx.deck.update({where:{id:deckId},data:{updatedAt:new Date()}});
+        const removed = await tx.deckItem.deleteMany({
+          where: { deckId, learningItemId: removeItemId },
+        });
+        if (removed.count > 0)
+          await tx.deck.update({ where: { id: deckId }, data: { updatedAt: new Date() } });
         return true;
       }
-      const published = await tx.learningItem.findMany({where:{id:{in:[...itemIds]},status:"PUBLISHED"},select:{id:true}});
-      if (published.length !== itemIds.length) throw new BadRequestException("Only published materials can be added.");
-      const current = await tx.deckItem.findMany({where:{deckId},select:{learningItemId:true,sortOrder:true}});
+      const published = await tx.learningItem.findMany({
+        where: { id: { in: [...itemIds] }, status: "PUBLISHED" },
+        select: { id: true },
+      });
+      if (published.length !== itemIds.length)
+        throw new BadRequestException("Only published materials can be added.");
+      const current = await tx.deckItem.findMany({
+        where: { deckId },
+        select: { learningItemId: true, sortOrder: true },
+      });
       const existing = new Set(current.map((item) => item.learningItemId));
       const additions = itemIds.filter((id) => !existing.has(id));
-      if (existing.size + additions.length > 160) throw new BadRequestException("Decks are limited to 160 materials.");
-      const last = Math.max(0,...current.map((item) => item.sortOrder));
+      if (existing.size + additions.length > 160)
+        throw new BadRequestException("Decks are limited to 160 materials.");
+      const last = Math.max(0, ...current.map((item) => item.sortOrder));
       if (additions.length > 0) {
-        await tx.deckItem.createMany({data:additions.map((id,index)=>({deckId,learningItemId:id,sortOrder:last+index+1,reasonJson:[]})),skipDuplicates:true});
-        await tx.deck.update({where:{id:deckId},data:{updatedAt:new Date()}});
+        await tx.deckItem.createMany({
+          data: additions.map((id, index) => ({
+            deckId,
+            learningItemId: id,
+            sortOrder: last + index + 1,
+            reasonJson: [],
+          })),
+          skipDuplicates: true,
+        });
+        await tx.deck.update({ where: { id: deckId }, data: { updatedAt: new Date() } });
       }
       return true;
     });
-    return found ? this.findDeckForOwner(ownerUserId,deckId) : null;
+    return found ? this.findDeckForOwner(ownerUserId, deckId) : null;
   }
 
   async listDecks(ownerUserId: string): Promise<readonly TextDeckListRecord[]> {
@@ -339,6 +392,7 @@ export class PrismaDecksRepository extends DecksRepository {
     const candidates = [...new Set(tokens.wordCandidates)];
     for (let offset = 0; offset < candidates.length; offset += 100) {
       const rows = (await this.prisma.db.word.findMany({
+        take: 513 - words.length,
         where: {
           expression: { in: candidates.slice(offset, offset + 100) },
         },
@@ -348,6 +402,8 @@ export class PrismaDecksRepository extends DecksRepository {
         orderBy: [{ commonnessRank: "asc" }, { expression: "asc" }, { reading: "asc" }],
       })) as readonly WordRow[];
       words.push(...rows);
+      if (words.length > 512)
+        throw new BadRequestException("Too many dictionary matches; shorten the text.");
     }
     const items = await this.findMatchedItems(
       "WORD",
@@ -429,6 +485,7 @@ export class PrismaDecksRepository extends DecksRepository {
     const items: LearningItemRow[] = [];
     for (let offset = 0; offset < ids.length; offset += 100) {
       const rows = await this.prisma.db.learningItem.findMany({
+        take: 321 - items.length,
         where: {
           status: "PUBLISHED",
           targetType,
@@ -438,6 +495,8 @@ export class PrismaDecksRepository extends DecksRepository {
         orderBy: [{ levelHint: "asc" }, { title: "asc" }, { id: "asc" }],
       });
       items.push(...rows);
+      if (items.length > 320)
+        throw new BadRequestException("Too many published matches; shorten the text.");
     }
     return items;
   }

@@ -54,9 +54,15 @@ export function isTraceStrokeAccepted(
   const endpointTolerance = options.endpointTolerance ?? 18;
   const pathTolerance = options.pathTolerance ?? 13;
 
-  if (![endpointTolerance,pathTolerance].every(value=>Number.isFinite(value)&&value>0) ||
-    [...userPoints,...guidePoints].some(point=>!Number.isFinite(point.x)||!Number.isFinite(point.y)) ||
-    userPoints.length>2048 || guidePoints.length>2048) return false;
+  if (
+    ![endpointTolerance, pathTolerance].every((value) => Number.isFinite(value) && value > 0) ||
+    [...userPoints, ...guidePoints].some(
+      (point) => !Number.isFinite(point.x) || !Number.isFinite(point.y),
+    ) ||
+    userPoints.length > 2048 ||
+    guidePoints.length > 2048
+  )
+    return false;
 
   if (
     pointDistance(userPoints[0]!, guidePoints[0]!) > endpointTolerance ||
@@ -65,12 +71,25 @@ export function isTraceStrokeAccepted(
     return false;
   }
 
-  const userLength = traceLength(userPoints), guideLength = traceLength(guidePoints);
-  if (guideLength < 1 || userLength < guideLength * 0.45 || userLength > guideLength * 2) return false;
-  const user = sampleTrace(userPoints,userLength), guide = sampleTrace(guidePoints,guideLength);
-  const distances=user.map((point,index)=>pointDistance(point,guide[index]!));
-  return distances.reduce((sum,d)=>sum+d,0)/distances.length <= pathTolerance &&
-    [...distances].sort((a,b)=>a-b)[Math.floor(distances.length*0.9)]! <= pathTolerance*2;
+  const userLength = traceLength(userPoints),
+    guideLength = traceLength(guidePoints);
+  const guideSpan = pointDistance(guidePoints[0]!, guidePoints.at(-1)!);
+  const forward =
+    pointDistance(userPoints[0]!, guidePoints[0]!) +
+    pointDistance(userPoints.at(-1)!, guidePoints.at(-1)!);
+  const reversed =
+    pointDistance(userPoints[0]!, guidePoints.at(-1)!) +
+    pointDistance(userPoints.at(-1)!, guidePoints[0]!);
+  if (guideSpan > 2 && forward > reversed) return false;
+  if (guideLength < 1 || userLength < guideLength * 0.45 || userLength > guideLength * 2)
+    return false;
+  const user = sampleTrace(userPoints, userLength),
+    guide = sampleTrace(guidePoints, guideLength);
+  const distances = user.map((point, index) => pointDistance(point, guide[index]!));
+  return (
+    distances.reduce((sum, d) => sum + d, 0) / distances.length <= pathTolerance &&
+    [...distances].sort((a, b) => a - b)[Math.floor(distances.length * 0.9)]! <= pathTolerance * 2
+  );
 }
 
 export function isKanaTracingCandidate(
@@ -80,20 +99,29 @@ export function isKanaTracingCandidate(
 }
 
 function traceLength(points: readonly TracePoint[]): number {
-  return points.slice(1).reduce((sum,point,index)=>sum+pointDistance(points[index]!,point),0);
+  return points
+    .slice(1)
+    .reduce((sum, point, index) => sum + pointDistance(points[index]!, point), 0);
 }
 
 // Arc-length sampling keeps touch-event density and drawing speed out of the score.
 function sampleTrace(points: readonly TracePoint[], length: number): readonly TracePoint[] {
-  let segment=1, covered=0;
-  return Array.from({length:33},(_,index)=>{
-    const target=length*index/32;
-    while(segment<points.length-1 && covered+pointDistance(points[segment-1]!,points[segment]!)<target) {
-      covered+=pointDistance(points[segment-1]!,points[segment]!); segment++;
+  let segment = 1,
+    covered = 0;
+  return Array.from({ length: 33 }, (_, index) => {
+    const target = (length * index) / 32;
+    while (
+      segment < points.length - 1 &&
+      covered + pointDistance(points[segment - 1]!, points[segment]!) < target
+    ) {
+      covered += pointDistance(points[segment - 1]!, points[segment]!);
+      segment++;
     }
-    const left=points[segment-1]!,right=points[segment]!;
-    const size=pointDistance(left,right), ratio=size===0?0:Math.min(1,Math.max(0,(target-covered)/size));
-    return {x:left.x+(right.x-left.x)*ratio,y:left.y+(right.y-left.y)*ratio};
+    const left = points[segment - 1]!,
+      right = points[segment]!;
+    const size = pointDistance(left, right),
+      ratio = size === 0 ? 0 : Math.min(1, Math.max(0, (target - covered) / size));
+    return { x: left.x + (right.x - left.x) * ratio, y: left.y + (right.y - left.y) * ratio };
   });
 }
 

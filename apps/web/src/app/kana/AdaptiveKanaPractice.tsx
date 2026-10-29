@@ -50,9 +50,10 @@ export function AdaptiveKanaPractice({
   const [feedback, setFeedback] = useState<KanaPracticeAnswerResponse | null>(null);
   const [pendingSession, setPendingSession] = useState<KanaPracticeSessionDto | null>(null);
   const [fallbackKind, setFallbackKind] = useState<KanaPracticeExerciseKind | null>(null);
+  const handleTracingUnavailable = useCallback(() => setFallbackKind("reverse-choice"), []);
   const [submitting, setSubmitting] = useState(false);
-  const [nextSize,setNextSize]=useState(12);
-  const nextSizeRef=useRef(12);
+  const [nextSize, setNextSize] = useState(12);
+  const nextSizeRef = useRef(12);
   const inputRef = useRef<HTMLInputElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
   const firstChoiceRef = useRef<HTMLButtonElement>(null);
@@ -73,7 +74,7 @@ export function AdaptiveKanaPractice({
     setFallbackKind(null);
 
     try {
-      const session = await getKanaPracticeSession(token, script,nextSizeRef.current);
+      const session = await getKanaPracticeSession(token, script, nextSizeRef.current);
       if (revision !== requestRevision.current || !ownsSession(token)) return;
       setState({ status: "ready", session });
     } catch (error: unknown) {
@@ -101,9 +102,14 @@ export function AdaptiveKanaPractice({
   const exercise = state.status === "ready" ? state.session.exercise : null;
   const effectiveKind = fallbackKind ?? exercise?.exerciseKind ?? null;
 
-  useEffect(()=>{
-    if(exercise?.exerciseKind === "listening-choice" && speech.ready && (!speech.available || speech.status === "error")) setFallbackKind("reverse-choice");
-  },[exercise?.id,exercise?.exerciseKind,speech.ready,speech.available,speech.status]);
+  useEffect(() => {
+    if (
+      exercise?.exerciseKind === "listening-choice" &&
+      speech.ready &&
+      (!speech.available || speech.status === "error")
+    )
+      setFallbackKind("reverse-choice");
+  }, [exercise?.id, exercise?.exerciseKind, speech.ready, speech.available, speech.status]);
 
   useEffect(() => {
     if (feedback !== null) {
@@ -160,7 +166,12 @@ export function AdaptiveKanaPractice({
     try {
       const result = await submitKanaPracticeAnswer(
         token,
-        buildKanaPracticeAnswer(state.session.id, exercise, value,effectiveKind ?? exercise.exerciseKind),
+        buildKanaPracticeAnswer(
+          state.session.id,
+          exercise,
+          value,
+          effectiveKind ?? exercise.exerciseKind,
+        ),
       );
       if (revision !== requestRevision.current || !ownsSession(token)) return;
       setAnswer(value);
@@ -236,8 +247,20 @@ export function AdaptiveKanaPractice({
             {state.session.completedCount} из {state.session.totalCount}
           </strong>
           <label htmlFor="kana-next-session-size">Следующая сессия</label>
-          <select id="kana-next-session-size" value={nextSize} onChange={event=>{const size=Number(event.currentTarget.value);nextSizeRef.current=size;setNextSize(size);}}>
-            {KANA_PRACTICE_SESSION_LENGTHS.map(size=><option key={size} value={size}>{size} заданий</option>)}
+          <select
+            id="kana-next-session-size"
+            value={nextSize}
+            onChange={(event) => {
+              const size = Number(event.currentTarget.value);
+              nextSizeRef.current = size;
+              setNextSize(size);
+            }}
+          >
+            {KANA_PRACTICE_SESSION_LENGTHS.map((size) => (
+              <option key={size} value={size}>
+                {size} заданий
+              </option>
+            ))}
           </select>
           <button className="primary-action" onClick={() => void loadSession()} type="button">
             Начать новую
@@ -267,7 +290,7 @@ export function AdaptiveKanaPractice({
               disabled={feedback !== null || submitting}
               item={tracingItem}
               onComplete={() => submit(exercise.character)}
-              onUnavailable={() => setFallbackKind("reverse-choice")}
+              onUnavailable={handleTracingUnavailable}
             />
             {feedback === null ? null : (
               <PracticeFeedback
@@ -328,7 +351,11 @@ export function AdaptiveKanaPractice({
         )}
       </section>
       <SectionDisclosure title="Прогресс практики">
-        <PracticeSummary exercise={exercise} effectiveKind={effectiveKind ?? undefined} session={state.session} />
+        <PracticeSummary
+          exercise={exercise}
+          effectiveKind={effectiveKind ?? undefined}
+          session={state.session}
+        />
       </SectionDisclosure>
     </>
   );
@@ -394,7 +421,7 @@ function PracticeChoices({
 
   return (
     <div className={`kana-choice-grid ${characterChoices ? "is-kana" : ""}`}>
-      {exercise.choices.map((choice,index) => (
+      {exercise.choices.map((choice, index) => (
         <button
           disabled={disabled}
           key={`${choice.script}:${choice.character}`}
@@ -419,7 +446,7 @@ function PracticeFeedback({
   readonly feedback: KanaPracticeAnswerResponse;
   readonly onContinue: () => void;
 }) {
-  const mode=useTranslationDisplayMode();
+  const mode = useTranslationDisplayMode();
   return (
     <div
       className={`kana-feedback kana-adaptive-feedback ${
@@ -432,10 +459,14 @@ function PracticeFeedback({
         <span>
           {feedback.expectedCharacter} · {feedback.expectedRomaji}
         </span>
-        {feedback.confusion ? <>
-          {mode !== "en" ? <p>{feedback.confusion.ru}</p> : null}
-          {mode !== "ru" ? <p lang="en">{feedback.confusion.en}</p> : null}
-        </> : feedback.confusionExplanation ? <p>{feedback.confusionExplanation}</p> : null}
+        {feedback.confusion ? (
+          <>
+            {mode !== "en" ? <p>{feedback.confusion.ru}</p> : null}
+            {mode !== "ru" ? <p lang="en">{feedback.confusion.en}</p> : null}
+          </>
+        ) : feedback.confusionExplanation ? (
+          <p>{feedback.confusionExplanation}</p>
+        ) : null}
       </div>
       <button className="secondary-action" onClick={onContinue} ref={continueRef} type="button">
         Следующий
