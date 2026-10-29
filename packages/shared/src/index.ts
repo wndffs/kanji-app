@@ -2058,3 +2058,4 @@ export function getContentLocalesForDisplayMode(
 }
 export * from "./reading-guidance";
 export * from "./visual-contrasts";
+export * from "./pronunciation-recordings";
