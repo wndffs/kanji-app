@@ -476,6 +476,27 @@ describe("finite V5 live-content preflight contract", () => {
     expect(h.forbidden).not.toHaveBeenCalled();
     expect(h.recordWrite).not.toHaveBeenCalled();
   });
+  it.each([{ reason: null }, { sourceKind: "OPEN_DATA" }])(
+    "rejects changed actual block metadata: %j",
+    async (change) => {
+      const h = readFixture(buildFoundationPilotManifestV5());
+      const load = vi.mocked(loadContentQualityItems).getMockImplementation()!;
+      vi.mocked(loadContentQualityItems).mockImplementation(async (db, options) =>
+        (await load(db, options)).map((item) => ({
+          ...item,
+          cards: item.cards.map((card) => ({
+            ...card,
+            blockedAnswers: card.blockedAnswers.map((block) => ({ ...block, ...change })),
+          })),
+        })),
+      );
+      await expect(planFoundationPilot(h.db, { manifest: h.manifest })).rejects.toThrow(
+        "meaning blocks differ",
+      );
+      expect(h.forbidden).not.toHaveBeenCalled();
+      expect(h.recordWrite).not.toHaveBeenCalled();
+    },
+  );
 });
 
 // A narrow read-only projection plus write spies: no simulated Prisma persistence/transactions.
@@ -573,7 +594,15 @@ function readFixture(manifest = buildFoundationPilotManifestV2()) {
           promptType,
           answerType: promptType,
           locale: "ru-RU",
-          blockedAnswers: promptType === "MEANING" ? [...(target.blockedAnswers ?? [])] : [],
+          blockedAnswers:
+            promptType === "MEANING"
+              ? (target.blockedAnswers ?? []).map((block, index) => ({
+                  ...block,
+                  id: `block-${itemId(target.key)}-${index}`,
+                  learningCardId: `card-${itemId(target.key)}-${promptType}`,
+                  sourceKind: "PROJECT_AUTHORED",
+                }))
+              : [],
           answers: target.answers
             .filter((answer) => answer.promptType === promptType)
             .map((answer) => ({

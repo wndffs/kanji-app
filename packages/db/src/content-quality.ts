@@ -16,7 +16,12 @@ export type QualityCard = {
   readonly answerType: string;
   readonly locale: string;
   readonly answers: readonly QualityAnswer[];
-  readonly blockedAnswers: readonly { readonly text: string; readonly normalizedText: string }[];
+  readonly blockedAnswers: readonly {
+    readonly text: string;
+    readonly normalizedText: string;
+    readonly reason?: string | null;
+    readonly sourceKind?: string;
+  }[];
   readonly audioValid?: boolean;
 };
 export type QualitySource = {

@@ -994,11 +994,18 @@ async function scanQuality(
         if (target.blockedAnswers !== undefined) {
           const actual = item.cards
             .filter((card) => card.answerType === "MEANING")
-            .flatMap((card) => card.blockedAnswers);
-          if (
-            canonical(canonicalCollection(actual)) !==
-            canonical(canonicalCollection(target.blockedAnswers))
-          )
+            .flatMap((card) => card.blockedAnswers)
+            .map(({ text, normalizedText, reason, sourceKind }) => ({
+              text,
+              normalizedText,
+              reason,
+              sourceKind,
+            }));
+          const expected = target.blockedAnswers.map((block) => ({
+            ...block,
+            sourceKind: "PROJECT_AUTHORED",
+          }));
+          if (canonical(canonicalCollection(actual)) !== canonical(canonicalCollection(expected)))
             throw new Error(
               `Pilot meaning blocks differ from the approved manifest for ${item.id}.`,
             );
