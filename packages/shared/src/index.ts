@@ -1379,6 +1379,7 @@ export type CreateTextDeckResponse = {
   readonly deck: DeckDetailsDto;
   readonly tokenization: {
     readonly strategy: "dictionary-longest-match";
+    readonly analyzer?: "icu-word-boundaries" | "bounded-dictionary-fallback";
     readonly candidateCount: number;
     readonly matchedItemCount: number;
     readonly unmatchedCandidateCount: number;

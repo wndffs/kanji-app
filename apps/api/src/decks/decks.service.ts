@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { extractJapaneseTextCandidates, JapaneseTextBudgetError } from "@kanji-srs/japanese";
 
 import {
   DEFAULT_TRANSLATION_DISPLAY_MODE,
@@ -27,7 +28,6 @@ import {
 const MAX_SOURCE_TEXT_LENGTH = 10_000;
 const DEFAULT_MAX_ITEMS = 80;
 const MAX_ALLOWED_ITEMS = 160;
-const MAX_TOKEN_LENGTH = 8;
 const HIGH_FREQUENCY_WORD_RANK = 5_000;
 const HIGH_FREQUENCY_KANJI_RANK = 1_000;
 
@@ -37,7 +37,7 @@ export class DecksService {
 
   async createFromText(user: CurrentUserDto, body: unknown): Promise<CreateTextDeckResponse> {
     const request = parseCreateTextDeckRequest(body);
-    const tokens = extractTextCandidates(request.text);
+    const tokens = analyzeText(request.text);
 
     if (tokens.wordCandidates.length === 0 && tokens.kanjiCharacters.length === 0) {
       throw new BadRequestException("Text must include Japanese kana or kanji.");
@@ -45,9 +45,9 @@ export class DecksService {
 
     const textMatches = await this.decksRepository.findTextMatches({
       ...tokens,
-      sourceText: request.text,
+      sourceText: tokens.normalizedText,
     });
-    const matchSelection = selectBestTextMatches(textMatches, request.text, request.maxItems);
+    const matchSelection = selectBestTextMatches(textMatches, tokens.normalizedText, request.maxItems);
     const selectedMatches = matchSelection.matches;
     const itemPlans = new Map<string, DeckItemPlan>();
 
@@ -73,6 +73,7 @@ export class DecksService {
       deck: toDeckDetailsDto(deck, getDisplayMode(user)),
       tokenization: {
         strategy: "dictionary-longest-match",
+        analyzer:tokens.analyzer,
         candidateCount: tokens.wordCandidates.length + tokens.kanjiCharacters.length,
         matchedItemCount: selectedMatches.length,
         discardedOverlapCount: matchSelection.discardedOverlapCount,
@@ -148,11 +149,6 @@ export class DecksService {
     }
   }
 }
-
-type ExtractedTextCandidates = {
-  readonly wordCandidates: readonly string[];
-  readonly kanjiCharacters: readonly string[];
-};
 
 type DeckItemPlan = {
   readonly item: TextDeckItemRecord;
@@ -243,50 +239,9 @@ function parseMaxItems(value: unknown): number {
   return parsed;
 }
 
-// MVP tokenizer fallback: split contiguous Japanese runs, emit exact substrings up to
-// MAX_TOKEN_LENGTH, and match those substrings to existing Word.expression rows.
-// It intentionally avoids external APIs and does not attempt morphological parsing.
-function extractTextCandidates(text: string): ExtractedTextCandidates {
-  const wordCandidates = new Set<string>();
-  const kanjiCharacters = new Set<string>();
-  let segment: string[] = [];
-
-  function flushSegment(): void {
-    if (segment.length === 0) {
-      return;
-    }
-
-    for (let start = 0; start < segment.length; start += 1) {
-      for (
-        let length = 1;
-        length <= MAX_TOKEN_LENGTH && start + length <= segment.length;
-        length += 1
-      ) {
-        wordCandidates.add(segment.slice(start, start + length).join(""));
-      }
-    }
-
-    segment = [];
-  }
-
-  for (const char of Array.from(text)) {
-    if (isJapaneseTextChar(char)) {
-      segment.push(char);
-
-      if (isKanjiChar(char)) {
-        kanjiCharacters.add(char);
-      }
-    } else {
-      flushSegment();
-    }
-  }
-
-  flushSegment();
-
-  return {
-    wordCandidates: [...wordCandidates],
-    kanjiCharacters: [...kanjiCharacters],
-  };
+function analyzeText(text:string) {
+  try{return extractJapaneseTextCandidates(text);}
+  catch(error){if(error instanceof JapaneseTextBudgetError)throw new BadRequestException(error.message);throw error;}
 }
 
 function selectBestTextMatches(
@@ -570,17 +525,3 @@ function itemTypePriority(itemType: TextDeckItemRecord["itemType"]): number {
   }
 }
 
-function isJapaneseTextChar(char: string): boolean {
-  return (
-    /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(char) ||
-    char === "々" ||
-    char === "〆" ||
-    char === "ー" ||
-    char === "ヵ" ||
-    char === "ヶ"
-  );
-}
-
-function isKanjiChar(char: string): boolean {
-  return /[\p{Script=Han}]/u.test(char) || char === "々" || char === "〆";
-}

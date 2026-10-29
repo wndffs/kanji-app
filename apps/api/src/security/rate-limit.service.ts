@@ -5,7 +5,8 @@ export type RateLimitPolicyName =
   | "auth-login-email"
   | "auth-register-ip"
   | "auth-register-email"
-  | "review-answer-user";
+  | "review-answer-user"
+  | "text-mining-user";
 
 export type RequestRateLimitSource = {
   readonly headers?: Record<string, string | readonly string[] | undefined>;
@@ -33,6 +34,7 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicyName, RateLimitPolicy> =
   "auth-register-ip": { max: 10, windowMs: 60 * ONE_MINUTE_MS },
   "auth-register-email": { max: 3, windowMs: 60 * ONE_MINUTE_MS },
   "review-answer-user": { max: 120, windowMs: ONE_MINUTE_MS },
+  "text-mining-user": { max: 12, windowMs: ONE_MINUTE_MS },
 };
 
 @Injectable()

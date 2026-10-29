@@ -4,14 +4,17 @@ import { AuthGuard } from "../auth/auth.guard";
 import { type CurrentUserDto } from "../auth/auth.types";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { DecksService } from "./decks.service";
+import { RateLimitService } from "../security/rate-limit.service";
 
 @UseGuards(AuthGuard)
 @Controller("decks")
 export class DecksController {
-  constructor(@Inject(DecksService) private readonly decksService: DecksService) {}
+  constructor(@Inject(DecksService) private readonly decksService: DecksService,
+    @Inject(RateLimitService) private readonly rateLimitService: RateLimitService) {}
 
   @Post("from-text")
   createFromText(@CurrentUser() currentUser: CurrentUserDto, @Body() body: unknown) {
+    this.rateLimitService.assertAllowed("text-mining-user",currentUser.id);
     return this.decksService.createFromText(currentUser, body);
   }
 

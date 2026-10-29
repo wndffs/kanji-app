@@ -4,8 +4,10 @@ import { AuthModule } from "../auth/auth.module";
 import { DecksController } from "./decks.controller";
 import { DecksRepository, PrismaDecksRepository } from "./decks.repository";
 import { DecksService } from "./decks.service";
+import { SecurityModule } from "../security/security.module";
 
 @Module({
+  imports:[SecurityModule],
   imports: [AuthModule],
   controllers: [DecksController],
   providers: [

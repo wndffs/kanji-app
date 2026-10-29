@@ -3,6 +3,7 @@ export const JAPANESE_PACKAGE_NAME = "@kanji-srs/japanese";
 export * from "./adaptive-kana";
 export * from "./kana";
 export * from "./kana-contrasts";
+export * from "./text-candidates";
 export * from "./reading-diagnostic";
 
 export type AnswerKind = "meaning" | "reading";
