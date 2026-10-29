@@ -647,7 +647,7 @@ export async function planFoundationPilot(db: PilotReader, options: FoundationPi
       throw new Error(`Missing, external or non-earlier prerequisite for ${item.key}.`);
   }
   const sourceChecksums = await verifySources(db, manifest, wordEvidence, acceptedReadingEvidence);
-  const quality = await scanQuality(db, SOURCE_COURSE_SLUG, items);
+  const quality = await scanQuality(db, SOURCE_COURSE_SLUG, items, manifest);
   const manifestChecksum = hash(canonical(manifest));
   const contentVersion = hash(
     canonical({
@@ -926,11 +926,13 @@ async function scanQuality(
   db: ContentQualityDatabase,
   courseSlug: string,
   expected: readonly {
+    key: string;
     learningItemId: string;
     kind: string;
     answers: PilotTarget["answers"];
     blockedAnswers?: PilotTarget["blockedAnswers"];
   }[],
+  manifest: FoundationPilotManifest,
 ) {
   const byId = new Map(expected.map((item) => [item.learningItemId, item]));
   const itemIds = [...byId.keys()];
@@ -1001,7 +1003,7 @@ async function scanQuality(
               reason,
               sourceKind,
             }));
-          const expected = target.blockedAnswers.map((block) => ({
+          const expected = approvedMeaningBlocks(manifest, target.key).map((block) => ({
             ...block,
             sourceKind: "PROJECT_AUTHORED",
           }));
@@ -1022,6 +1024,22 @@ async function scanQuality(
   if (found.size !== expected.length)
     throw new Error(`Quality scan did not cover all ${expected.length} pilot items.`);
   return { policyVersion: CONTENT_QUALITY_POLICY_VERSION, items };
+}
+
+function approvedMeaningBlocks(manifest: FoundationPilotManifest, key: string) {
+  for (const source of manifest.sources) {
+    const record = source.records.find(
+      (record) => record.wordKey === key || record.sourceRecordId === `${source.id}:${key}`,
+    );
+    if (record !== undefined) {
+      // Exact canonical-manifest validation already binds these typed source payloads.
+      const content = record.content as
+        | MainCourseContentBatch["kanji"][number]
+        | MainCourseWordBatch["words"][number];
+      return buildCuratedMeaningBlocks(content.meanings);
+    }
+  }
+  throw new Error(`Missing approved meaning-block source for ${key}.`);
 }
 
 function qualitySnapshot(item: QualityItem) {
@@ -1121,8 +1139,8 @@ export async function publishFoundationPilot(
             item.unlockPolicyJson === null ? Prisma.DbNull : toJson(item.unlockPolicyJson),
         })),
       });
-      const pilotQuality = await scanQuality(db, manifest.slug, plan.items);
-      const repeatedMainQuality = await scanQuality(db, SOURCE_COURSE_SLUG, plan.items);
+      const pilotQuality = await scanQuality(db, manifest.slug, plan.items, manifest);
+      const repeatedMainQuality = await scanQuality(db, SOURCE_COURSE_SLUG, plan.items, manifest);
       if (
         canonical(pilotQuality) !== canonical(plan.quality) ||
         canonical(repeatedMainQuality) !== canonical(plan.quality)

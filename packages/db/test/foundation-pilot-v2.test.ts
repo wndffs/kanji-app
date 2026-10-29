@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { parseFoundationPilotArgs } from "../prisma/publish-foundation-pilot";
 import { loadContentQualityItems } from "../src/content-quality-report";
 import { type QualityItem } from "../src/content-quality";
+import { WAVE07_MEANING_BLOCKS } from "../src/editorial-wave07-blocks";
 import {
   buildFoundationPilotManifest,
   buildFoundationPilotManifestV2,
@@ -598,6 +599,10 @@ function readFixture(manifest = buildFoundationPilotManifestV2()) {
             promptType === "MEANING"
               ? (target.blockedAnswers ?? []).map((block, index) => ({
                   ...block,
+                  reason: [
+                    ...(WAVE07_MEANING_BLOCKS[target.expression]?.ru ?? []),
+                    ...(WAVE07_MEANING_BLOCKS[target.expression]?.en ?? []),
+                  ].find((entry) => entry.text === block.text)!.reason,
                   id: `block-${itemId(target.key)}-${index}`,
                   learningCardId: `card-${itemId(target.key)}-${promptType}`,
                   sourceKind: "PROJECT_AUTHORED",
