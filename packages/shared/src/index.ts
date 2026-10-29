@@ -1373,6 +1373,19 @@ export type CreateTextDeckRequest = {
   readonly text: string;
   readonly title?: string | null;
   readonly maxItems?: number | null;
+  readonly selectedItemIds?: readonly string[];
+};
+
+export type TextDeckPreviewResponse = {
+  readonly candidates: readonly {
+    readonly item: ItemSummary;
+    readonly matchedText: string;
+    readonly span: { readonly start: number; readonly end: number } | null;
+  }[];
+  readonly selectedItemIds: readonly string[];
+  readonly plannedItemCount: number;
+  readonly externalPrerequisiteCount: number;
+  readonly tokenization: CreateTextDeckResponse["tokenization"];
 };
 
 export type CreateTextDeckResponse = {
@@ -1384,6 +1397,7 @@ export type CreateTextDeckResponse = {
     readonly matchedItemCount: number;
     readonly unmatchedCandidateCount: number;
     readonly discardedOverlapCount: number;
+    readonly externalPrerequisiteCount?: number;
   };
 };
 

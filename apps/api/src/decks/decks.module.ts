@@ -7,8 +7,7 @@ import { DecksService } from "./decks.service";
 import { SecurityModule } from "../security/security.module";
 
 @Module({
-  imports:[SecurityModule],
-  imports: [AuthModule],
+  imports: [AuthModule, SecurityModule],
   controllers: [DecksController],
   providers: [
     DecksService,

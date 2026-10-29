@@ -1164,6 +1164,12 @@ export function createTextDeck(
   });
 }
 
+export function previewTextDeck(token: string, input: CreateTextDeckRequest) {
+  return apiRequest<import("@kanji-srs/shared").TextDeckPreviewResponse>("/decks/from-text/preview", {
+    method: "POST", token, body: input,
+  });
+}
+
 export function listDecks(token: string): Promise<DeckListResponse> {
   return apiRequest<DeckListResponse>("/decks", { token });
 }

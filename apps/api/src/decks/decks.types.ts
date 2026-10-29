@@ -78,6 +78,7 @@ export type ParsedCreateTextDeckRequest = {
   readonly text: string;
   readonly title: string;
   readonly maxItems: number;
+  readonly selectedItemIds?: readonly string[];
 };
 
 export function localizedText(

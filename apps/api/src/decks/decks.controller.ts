@@ -18,6 +18,12 @@ export class DecksController {
     return this.decksService.createFromText(currentUser, body);
   }
 
+  @Post("from-text/preview")
+  previewFromText(@CurrentUser() currentUser: CurrentUserDto, @Body() body: unknown) {
+    this.rateLimitService.assertAllowed("text-mining-user",currentUser.id);
+    return this.decksService.previewFromText(currentUser, body);
+  }
+
   @Get()
   listDecks(@CurrentUser() currentUser: CurrentUserDto) {
     return this.decksService.listDecks(currentUser);

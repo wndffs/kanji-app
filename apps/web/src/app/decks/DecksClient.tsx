@@ -6,6 +6,7 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import {
   type CreateTextDeckResponse,
+  type TextDeckPreviewResponse,
   type DeckDetailsDto,
   type DeckDto,
   type DeckItemDto,
@@ -20,6 +21,7 @@ import { SectionDisclosure } from "../../components/SectionDisclosure";
 import {
   ApiError,
   createTextDeck,
+  previewTextDeck,
   getDeck,
   listDecks,
   updateDeckStatus,
@@ -84,6 +86,8 @@ function DecksScreen() {
   const [result, setResult] = useState<CreateTextDeckResponse | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [preview, setPreview] = useState<TextDeckPreviewResponse | null>(null);
+  const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
   const selectedDeckRequest = useRef(0);
 
   useEffect(() => {
@@ -255,14 +259,23 @@ function DecksScreen() {
     setResult(null);
 
     try {
-      const response = await createTextDeck(state.token, {
+      const input = {
         text,
         title: title.trim() === "" ? null : title.trim(),
         maxItems,
-      });
+      };
+      if (preview === null) {
+        const response = await previewTextDeck(state.token, input);
+        if (!ownsSession(state.token)) return;
+        setPreview(response);
+        setSelectedIds(response.selectedItemIds);
+        return;
+      }
+      const response = await createTextDeck(state.token, { ...input, selectedItemIds: selectedIds });
       if (!ownsSession(state.token)) return;
       setResult(response);
       setBuilderOpen(false);
+      setPreview(null);
       selectedDeckRequest.current += 1;
       setSelectedDeck({ status: "idle" });
       setSavedDecks((current) => ({
@@ -383,7 +396,7 @@ function DecksScreen() {
               ref={titleInput}
               disabled={isSubmitting}
               maxLength={120}
-              onChange={(event) => setTitle(event.currentTarget.value)}
+              onChange={(event) => { setTitle(event.currentTarget.value); setPreview(null); }}
               placeholder="Например: статья NHK Easy"
               value={title}
             />
@@ -394,7 +407,7 @@ function DecksScreen() {
               disabled={isSubmitting}
               max={160}
               min={1}
-              onChange={(event) => setMaxItems(Number(event.currentTarget.value))}
+              onChange={(event) => { setMaxItems(Number(event.currentTarget.value)); setPreview(null); }}
               type="number"
               value={maxItems}
             />
@@ -405,15 +418,15 @@ function DecksScreen() {
           <span>Японский текст</span>
           <textarea
             disabled={isSubmitting}
-            onChange={(event) => setSourceText(event.currentTarget.value)}
+            onChange={(event) => { setSourceText(event.currentTarget.value); setPreview(null); }}
             placeholder="日本語の文章をここに貼り付けます。"
             value={sourceText}
           />
         </label>
 
         <div className="action-row">
-          <button className="primary-action" disabled={isSubmitting} type="submit">
-            {isSubmitting ? "Создаю..." : "Создать колоду"}
+          <button className="primary-action" disabled={isSubmitting || (preview !== null && (selectedIds.length === 0 || selectedIds.length > maxItems))} type="submit">
+            {isSubmitting ? "Обрабатываю..." : preview === null ? "Проверить текст" : "Сохранить колоду"}
           </button>
           <button
             className="secondary-action"
@@ -422,6 +435,7 @@ function DecksScreen() {
               setTitle("");
               setSourceText("");
               setResult(null);
+              setPreview(null);
               setFormError(null);
             }}
             type="button"
@@ -443,6 +457,24 @@ function DecksScreen() {
           </button>
         </div>
 
+        {preview === null ? null : (
+          <section className="page-stack" aria-label="Предварительный разбор">
+            <h2>Выбрано: {selectedIds.length} / {maxItems}</h2>
+            <p className="muted">{preview.tokenization.analyzer === "icu-word-boundaries" ? "Границы слов ICU · точные словарные совпадения" : "Точные словарные совпадения · резервный разбор"}</p>
+            {preview.externalPrerequisiteCount > 0 ? <p role="status">За пределами лимита: {preview.externalPrerequisiteCount} предпосылок. Они могут потребоваться в основном курсе до начала уроков.</p> : null}
+            <ul className="saved-deck-list">
+              {preview.candidates.map(({item}) => (
+                <li key={item.id}>
+                  <label className="action-row">
+                    <input type="checkbox" disabled={isSubmitting} checked={selectedIds.includes(item.id)} onChange={(event) => setSelectedIds((ids) => event.currentTarget.checked ? [...ids, item.id] : ids.filter((id) => id !== item.id))} />
+                    <JapaneseText text={item.japanese} />
+                    <span>{item.reading} · {item.title}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         {formError === null ? null : (
           <p className="form-error" role="alert">
             {formError}
