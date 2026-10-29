@@ -7,9 +7,20 @@ import { WAVE08_TEACHING } from "../src/lexical-wave08-teaching";
 import { WAVE08_RU, WAVE08_EN } from "../src/lexical-wave08-answers";
 import { validateCuratedMeaningBlocks } from "../src/curated-meaning-blocks";
 import { validateAnswer } from "@kanji-srs/japanese";
+import { buildMainCourseWordBatch08 } from "../src/main-course-word-content-08";
+import { validateMainCourseWordBatch } from "../src/main-course-word-content";
 
 const oldKanji = () => buildMainCourseContentBatches().filter(x=>x.id!=="task-118-course-kanji-08");
 describe("bounded everyday wave08", () => {
+  it("has complete original bilingual examples with only earlier registered kanji", () => {
+    const batch=buildMainCourseWordBatch08();
+    expect(validateMainCourseWordBatch(batch)).toEqual([]);
+    const levels=new Map([...oldKanji(),buildMainCourseContentBatch08()].flatMap(b=>b.kanji.map(k=>[k.character,k.levelNumber] as const)));
+    for(const word of batch.words) for(const character of wordHanCharacters(word.example.japaneseText)) {
+      expect(levels.get(character)).toBeDefined();
+      expect(levels.get(character)!).toBeLessThan(batch.levelNumber);
+    }
+  });
   it("aligns English scope with Russian and seals conservative block collisions", () => {
     for(const row of WAVE08_TEACHING) {
       const meaning=WAVE08_EN[row.expression]!;
