@@ -8,6 +8,18 @@ import {
 } from "../src/lib/kana-tracing";
 
 describe("kana tracing", () => {
+  it("ignores sampling density but rejects a backtracking scribble with matching endpoints",()=>{
+    const guide=[{x:0,y:0},{x:100,y:0}];
+    const dense=Array.from({length:101},(_,i)=>({x:i,y:1}));
+    expect(isTraceStrokeAccepted(dense,guide)).toBe(true);
+    expect(isTraceStrokeAccepted([{x:0,y:0},{x:100,y:0},{x:0,y:0},{x:100,y:0}],guide)).toBe(false);
+    expect(isTraceStrokeAccepted([{x:NaN,y:0},{x:100,y:0}],guide)).toBe(false);
+  });
+  it("follows ordered curves instead of only nearest-point coverage",()=>{
+    const curve=Array.from({length:41},(_,i)=>({x:i*2,y:30*Math.sin(Math.PI*i/40)}));
+    expect(isTraceStrokeAccepted(curve.filter((_,i)=>i%4===0),curve)).toBe(true);
+    expect(isTraceStrokeAccepted([curve[0]!,curve.at(-1)!],curve)).toBe(false);
+  });
   it("builds pinned KanjiVG URLs only for single kana characters", () => {
     expect(canTraceKana("あ")).toBe(true);
     expect(canTraceKana("ア")).toBe(true);

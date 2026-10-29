@@ -1,6 +1,7 @@
 "use client";
 
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import { RotateCcw, Undo2 } from "lucide-react";
 
 import { type KanaLessonItemDto } from "@kanji-srs/shared";
 
@@ -28,21 +29,27 @@ export function KanaTracingExercise({
 }: {
   readonly disabled: boolean;
   readonly item: KanaLessonItemDto;
-  readonly onComplete: () => Promise<void>;
+  readonly onComplete: () => Promise<boolean | void>;
   readonly onUnavailable: () => void;
 }) {
   const [guide, setGuide] = useState<StrokeGuideData | null>(null);
   const [completedStrokes, setCompletedStrokes] = useState<readonly (readonly TracePoint[])[]>([]);
   const [activeStroke, setActiveStroke] = useState<readonly TracePoint[]>([]);
-  const [drawing, setDrawing] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [needsRetry, setNeedsRetry] = useState(false);
+  const pointer = useRef<number | null>(null);
+  const completionLock = useRef(false);
+  const activePoints = useRef<readonly TracePoint[]>([]);
   const [status, setStatus] = useState("Загрузка порядка черт");
   const pathRefs = useRef<Array<SVGPathElement | null>>([]);
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+    setGuide(null); setCompletedStrokes([]); setActiveStroke([]); setNeedsRetry(false);
+    pointer.current=null; activePoints.current=[];
 
-    void loadStrokeGuide(item.character)
+    void loadStrokeGuide(item.character,controller.signal)
       .then((loadedGuide) => {
         if (cancelled) {
           return;
@@ -59,36 +66,41 @@ export function KanaTracingExercise({
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [item.character, onUnavailable]);
 
   function handlePointerDown(event: ReactPointerEvent<SVGSVGElement>): void {
-    if (guide === null || disabled || completing) {
+    if (guide === null || disabled || completing || pointer.current !== null || completedStrokes.length >= guide.strokes.length || event.button !== 0) {
       return;
     }
 
     event.currentTarget.setPointerCapture(event.pointerId);
-    setDrawing(true);
+    pointer.current = event.pointerId;
+    activePoints.current=[toGuidePoint(event,guide)];
     setActiveStroke([toGuidePoint(event, guide)]);
     setStatus(`Черта ${completedStrokes.length + 1} из ${guide.strokes.length}`);
   }
 
   function handlePointerMove(event: ReactPointerEvent<SVGSVGElement>): void {
-    if (!drawing || guide === null) {
+    if (pointer.current !== event.pointerId || guide === null || disabled || completing) {
       return;
     }
 
     const point = toGuidePoint(event, guide);
-    setActiveStroke((points) => appendDistinctPoint(points, point));
+    activePoints.current=appendDistinctPoint(activePoints.current,point).slice(0,2048);
+    setActiveStroke(activePoints.current);
   }
 
   async function handlePointerUp(event: ReactPointerEvent<SVGSVGElement>): Promise<void> {
-    if (!drawing || guide === null) {
+    if (pointer.current !== event.pointerId || guide === null || disabled || completing) {
       return;
     }
 
-    setDrawing(false);
-    const userStroke = appendDistinctPoint(activeStroke, toGuidePoint(event, guide));
+    pointer.current=null;
+    const userStroke = appendDistinctPoint(activePoints.current, toGuidePoint(event, guide));
+    activePoints.current=[];
+    if(event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     const path = pathRefs.current[completedStrokes.length];
 
     if (path === null || path === undefined) {
@@ -114,10 +126,26 @@ export function KanaTracingExercise({
       return;
     }
 
-    setStatus("Знак обведён");
-    setCompleting(true);
-    await onComplete();
-    setCompleting(false);
+    await submitCompletion();
+  }
+
+  async function submitCompletion(): Promise<void> {
+    if (disabled || completionLock.current) return;
+    completionLock.current=true;
+    setCompleting(true); setNeedsRetry(false); setStatus("Проверяю обводку");
+    try {
+      const confirmed=await onComplete();
+      setNeedsRetry(confirmed === false);
+      setStatus(confirmed === false ? "Результат не подтверждён" : "Знак обведён");
+    } catch {
+      setNeedsRetry(true); setStatus("Результат не подтверждён");
+    } finally { completionLock.current=false; setCompleting(false); }
+  }
+
+  function cancelPointer(event: ReactPointerEvent<SVGSVGElement>): void {
+    if(pointer.current !== event.pointerId) return;
+    pointer.current=null; activePoints.current=[]; setActiveStroke([]);
+    setStatus("Касание прервано; повторите текущую черту");
   }
 
   function undoStroke(): void {
@@ -127,6 +155,7 @@ export function KanaTracingExercise({
 
     const nextCompleted = completedStrokes.slice(0, -1);
     setCompletedStrokes(nextCompleted);
+    setNeedsRetry(false);
     setActiveStroke([]);
     setStatus(`Черта ${nextCompleted.length + 1} из ${guide.strokes.length}`);
   }
@@ -137,6 +166,7 @@ export function KanaTracingExercise({
     }
 
     setCompletedStrokes([]);
+    setNeedsRetry(false);
     setActiveStroke([]);
     setStatus(`Черта 1 из ${guide.strokes.length}`);
   }
@@ -158,10 +188,8 @@ export function KanaTracingExercise({
             aria-label={`Обведите ${item.character} по порядку черт`}
             className="kana-trace-surface"
             data-testid="kana-trace-surface"
-            onPointerCancel={() => {
-              setDrawing(false);
-              setActiveStroke([]);
-            }}
+            onPointerCancel={cancelPointer}
+            onLostPointerCapture={cancelPointer}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={(event) => void handlePointerUp(event)}
@@ -224,7 +252,7 @@ export function KanaTracingExercise({
               title="Отменить последнюю черту"
               type="button"
             >
-              ↶
+              <Undo2 size={18} aria-hidden="true" />
             </button>
             <button
               aria-label="Начать обводку заново"
@@ -233,7 +261,7 @@ export function KanaTracingExercise({
               title="Начать заново"
               type="button"
             >
-              ×
+              <RotateCcw size={18} aria-hidden="true" />
             </button>
             <button
               className="kana-trace-skip"
@@ -244,6 +272,7 @@ export function KanaTracingExercise({
               Другой формат
             </button>
           </div>
+          {needsRetry ? <button type="button" className="secondary-action" disabled={disabled || completing} onClick={()=>void submitCompletion()}>Повторить проверку обводки</button> : null}
           <small className="kana-trace-attribution">
             Данные:{" "}
             <a href="https://kanjivg.tagaini.net/" rel="noreferrer" target="_blank">
@@ -257,8 +286,8 @@ export function KanaTracingExercise({
   );
 }
 
-async function loadStrokeGuide(character: string): Promise<StrokeGuideData> {
-  const response = await fetch(`/api/kana-strokes/${encodeURIComponent(character)}`);
+async function loadStrokeGuide(character: string,signal: AbortSignal): Promise<StrokeGuideData> {
+  const response = await fetch(`/api/kana-strokes/${encodeURIComponent(character)}`,{signal});
 
   if (!response.ok) {
     throw new Error("Stroke guide is unavailable.");
@@ -296,6 +325,13 @@ async function loadStrokeGuide(character: string): Promise<StrokeGuideData> {
 }
 
 function toGuidePoint(event: ReactPointerEvent<SVGSVGElement>, guide: StrokeGuideData): TracePoint {
+  const matrix=event.currentTarget.getScreenCTM();
+  if(matrix) {
+    const point=event.currentTarget.createSVGPoint();
+    point.x=event.clientX; point.y=event.clientY;
+    const transformed=point.matrixTransform(matrix.inverse());
+    return {x:transformed.x,y:transformed.y};
+  }
   const bounds = event.currentTarget.getBoundingClientRect();
 
   return {

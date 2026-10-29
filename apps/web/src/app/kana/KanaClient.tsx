@@ -329,9 +329,9 @@ function OwnedKanaClient({
     }
   }
 
-  async function handleTraceComplete(): Promise<void> {
+  async function handleTraceComplete(): Promise<boolean> {
     if (currentItem === null || currentLessonItem === null || feedback !== null || submitting) {
-      return;
+      return false;
     }
 
     const result = await submitAnswer(
@@ -343,6 +343,7 @@ function OwnedKanaClient({
     if (result !== null) {
       setFeedback(result);
     }
+    return result !== null;
   }
 
   async function submitAnswer(
@@ -885,7 +886,7 @@ function KanaQuiz({
   readonly onNext: () => void;
   readonly onSpeak: () => boolean;
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  readonly onTraceComplete: () => Promise<void>;
+  readonly onTraceComplete: () => Promise<boolean>;
   readonly onTracingUnavailable: () => void;
   readonly submitting: boolean;
 }) {
