@@ -1,10 +1,10 @@
 # Product Roadmap 400-499
 
 Baseline: `2b29567`, verified runtime `1fdd9b0`, 2026-10-28.
-The requests authorized 400-414, 415-429, 430-444, 445-459 and **460-474**, with separate
-commits, batched checks, push, deployment and verified publication. All five
-batches are released. Tasks 475-499 remain a reserved backlog, not completed
-work; 475-489 is next. Revalidate each batch before editing.
+The requests authorized 400-414, 415-429, 430-444, 445-459, 460-474 and **475-489**, with separate
+commits, batched checks, push, deployment and verified publication. All six
+batches are released. Tasks 490-499 remain a reserved backlog, not completed
+work. Revalidate the final ten-task acceptance batch before editing.
 
 ## User Decisions: 2026-10-29
 
@@ -274,6 +274,13 @@ not work promised by the remaining 25 roadmap tasks.
 | 489 | Deploy and verify the chosen Renshuu/Duolingo-inspired workflows                              |
 
 ## 490-499: Sustainable Replacement Acceptance
+
+Checkpoint: **475–489 complete and released**, contract and live evidence in
+`DEVELOPMENT_CYCLE_475_489.md`, tag `cycle-475-489-kana-private-study`.
+This tools batch adds alias-safe kana contrasts, ordered tracing/recovery,
+practice/mastery separation, bounded ICU-assisted text preview/correction and
+canonical private-deck editing/grouping. No new teaching wave or automatic
+course migration. V7 remains 117 kanji, 180 pairs and 686 core cards.
 
 | ID  | Deliverable and acceptance                                                              |
 | --- | --------------------------------------------------------------------------------------- |

@@ -7,15 +7,21 @@ This repository is an npm TypeScript monorepo with a tiny project-authored start
 ## Current Roadmap
 
 The current numbered backlog is [400-499](docs/ROADMAP_400_499.md), with the
-latest released [460-474 batch](docs/DEVELOPMENT_CYCLE_460_474.md). It prioritizes
+latest released [475-489 batch](docs/DEVELOPMENT_CYCLE_475_489.md). It prioritizes
 reviewed content and truthful scope reporting over further visual-only cycles.
 Later reserved tasks are not completed work or a promise of full JLPT coverage.
-Next reserved batch: 475-489. Published V7 contains 117 kanji, 180 word pairs
+Next reserved batch: 490-499 (ten readiness/acceptance tasks). Published V7 contains 117 kanji, 180 word pairs
 and 686 core cards across fifteen levels, including everyday actions, time
 and study vocabulary. Retention includes bilingual reading guidance, visual
 contrasts, rotating missed-card practice, private rehearsal history and a
 one-word licensed recorded-pronunciation pilot. Older finite courses and
 existing learning progress remain.
+
+Private study now includes read-only text preview/correction, bounded local
+ICU boundary hints with exact-match fallback, dictionary additions/removals and
+grouped personal decks. Kana has alias-safe contrasts, ordered tracing recovery
+and separate practice evidence that does not unlock lesson mastery or create
+kanji/word SRS state. This tools release adds no new curriculum wave.
 
 [Open published V7](https://kanji-app-rho.vercel.app/courses/5755286f-fd0b-4d39-8353-08f4dbc44837).
 Existing users add/select it explicitly; publication does not switch their course.
