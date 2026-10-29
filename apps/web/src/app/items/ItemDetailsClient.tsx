@@ -23,6 +23,7 @@ import {
 import { JapaneseText } from "../../components/JapaneseText";
 import { ViewTabs } from "../../components/ViewTabs";
 import { CopyReadingButton } from "../../components/CopyReadingButton";
+import { KanjiWordReinforcement } from "../../components/KanjiWordReinforcement";
 import { ItemPreviewList } from "../../components/ItemPreviewList";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import {
@@ -1457,6 +1458,7 @@ function ItemReadingDetails({
             <ImportedSourceLinks sources={item.attributions} />
           </div>
         </SectionDisclosure>
+        <KanjiWordReinforcement item={item} contextHref={studyHref} />
       </section>
     );
   }
