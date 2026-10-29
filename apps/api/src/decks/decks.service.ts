@@ -49,6 +49,12 @@ export class DecksService {
     return toDeckDetailsDto(deck,getDisplayMode(user));
   }
 
+  async removeItem(user:CurrentUserDto,deckId:string,itemId:string):Promise<DeckDetailsDto> {
+    const deck = await this.decksRepository.removeItem(user.id,deckId,itemId);
+    if (deck === null) throw new NotFoundException("Deck not found.");
+    return toDeckDetailsDto(deck,getDisplayMode(user));
+  }
+
   async createFromText(user: CurrentUserDto, body: unknown): Promise<CreateTextDeckResponse> {
     const request = parseCreateTextDeckRequest(body);
     const prepared = await this.prepareText(request);

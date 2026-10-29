@@ -35,6 +35,7 @@ export abstract class DecksRepository {
   ): Promise<readonly TextDeckPrerequisiteRecord[]>;
   abstract createTextDeck(input: CreateTextDeckInput): Promise<TextDeckRecord>;
   abstract addItems(ownerUserId: string, deckId: string, itemIds: readonly string[]): Promise<TextDeckRecord | null>;
+  abstract removeItem(ownerUserId: string, deckId: string, itemId: string): Promise<TextDeckRecord | null>;
   abstract listDecks(ownerUserId: string): Promise<readonly TextDeckListRecord[]>;
   abstract findDeckForOwner(ownerUserId: string, deckId: string): Promise<TextDeckRecord | null>;
   abstract updateDeckStatus(
@@ -225,11 +226,26 @@ export class PrismaDecksRepository extends DecksRepository {
   }
 
   async addItems(ownerUserId: string, deckId: string, itemIds: readonly string[]): Promise<TextDeckRecord | null> {
+    return this.editMembership(ownerUserId,deckId,itemIds);
+  }
+
+  async removeItem(ownerUserId:string,deckId:string,itemId:string):Promise<TextDeckRecord|null> {
+    return this.editMembership(ownerUserId,deckId,[],itemId);
+  }
+
+  private async editMembership(ownerUserId:string,deckId:string,itemIds:readonly string[],removeItemId?:string):Promise<TextDeckRecord|null> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(deckId)) return null;
     const found = await this.prisma.db.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<{id:string;status:string}[]>(Prisma.sql`SELECT id, status FROM "Deck" WHERE id = ${deckId}::uuid AND "ownerUserId" = ${ownerUserId}::uuid FOR UPDATE`);
       const deck = rows[0];
       if (deck === undefined) return false;
       if (deck.status !== "ACTIVE") throw new ConflictException("Only active decks can be edited.");
+      if ([...itemIds,...(removeItemId === undefined ? [] : [removeItemId])].some((id)=> !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(id))) throw new BadRequestException("Invalid material ID.");
+      if (removeItemId !== undefined) {
+        const removed = await tx.deckItem.deleteMany({where:{deckId,learningItemId:removeItemId}});
+        if (removed.count > 0) await tx.deck.update({where:{id:deckId},data:{updatedAt:new Date()}});
+        return true;
+      }
       const published = await tx.learningItem.findMany({where:{id:{in:[...itemIds]},status:"PUBLISHED"},select:{id:true}});
       if (published.length !== itemIds.length) throw new BadRequestException("Only published materials can be added.");
       const current = await tx.deckItem.findMany({where:{deckId},select:{learningItemId:true,sortOrder:true}});

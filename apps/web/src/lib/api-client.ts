@@ -1182,6 +1182,10 @@ export function addDeckItems(token: string, deckId: string, itemIds: readonly st
   return apiRequest<DeckDetailsDto>(`/decks/${encodeURIComponent(deckId)}/items`, {method:"POST",token,body:{itemIds}});
 }
 
+export function removeDeckItem(token:string,deckId:string,itemId:string) {
+  return apiRequest<DeckDetailsDto>(`/decks/${encodeURIComponent(deckId)}/items/${encodeURIComponent(itemId)}`,{method:"DELETE",token});
+}
+
 export function getDeck(token: string, deckId: string): Promise<DeckDetailsDto> {
   return apiRequest<DeckDetailsDto>(`/decks/${encodeURIComponent(deckId)}`, { token });
 }

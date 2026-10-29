@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, UseGuards } from "@nestjs/common";
 
 import { AuthGuard } from "../auth/auth.guard";
 import { type CurrentUserDto } from "../auth/auth.types";
@@ -39,6 +39,12 @@ export class DecksController {
   addItems(@CurrentUser() currentUser: CurrentUserDto, @Param("deckId") deckId:string, @Body() body:unknown) {
     this.rateLimitService.assertAllowed("text-mining-user",currentUser.id);
     return this.decksService.addItems(currentUser,deckId,body);
+  }
+
+  @Delete(":deckId/items/:itemId")
+  removeItem(@CurrentUser() currentUser:CurrentUserDto,@Param("deckId") deckId:string,@Param("itemId") itemId:string) {
+    this.rateLimitService.assertAllowed("text-mining-user",currentUser.id);
+    return this.decksService.removeItem(currentUser,deckId,itemId);
   }
 
   @Get(":deckId")

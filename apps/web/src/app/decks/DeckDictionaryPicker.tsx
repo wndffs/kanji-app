@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import type { DeckDetailsDto, ItemSummary } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../components/JapaneseText";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
-import { addDeckItems, searchItems } from "../../lib/api-client";
+import { addDeckItems, removeDeckItem, searchItems } from "../../lib/api-client";
 import { ownsSession } from "../../lib/use-stored-session";
 
 export function DeckDictionaryPicker({ token, deck, onUpdated }: {
@@ -49,7 +49,18 @@ export function DeckDictionaryPicker({ token, deck, onUpdated }: {
     } finally { if (mounted.current && ownsSession(token)) setBusy(false); }
   }
 
-  return <SectionDisclosure title="Добавить из словаря">
+  async function remove(itemId:string) {
+    if (busy) return;
+    setBusy(true);setError(null);
+    try {
+      const updated = await removeDeckItem(token,deck.id,itemId);
+      if (mounted.current && ownsSession(token)) onUpdated(updated);
+    } catch(cause) {
+      if (mounted.current && ownsSession(token)) setError(cause instanceof Error ? cause.message : "Не удалось удалить материал.");
+    } finally {if(mounted.current && ownsSession(token))setBusy(false);}
+  }
+
+  return <SectionDisclosure title="Изменить состав колоды">
     <form className="page-stack" onSubmit={(event) => {event.preventDefault(); if (!busy) void search();}}>
       <label><span>Поиск материалов</span><input value={query} maxLength={100} disabled={busy} onChange={(event)=>setQuery(event.currentTarget.value)} /></label>
       <div className="action-row"><button className="secondary-action" disabled={busy || query.trim().length === 0} type="submit"><Search size={18}/>Найти</button>
@@ -59,6 +70,9 @@ export function DeckDictionaryPicker({ token, deck, onUpdated }: {
         const existing = deck.items.some((entry)=>entry.item.id === item.id);
         return <li key={item.id}><label className="action-row"><input type="checkbox" disabled={busy || existing} checked={existing || selected.includes(item.id)} onChange={(event)=>{ const checked = event.currentTarget.checked; setSelected((ids)=>checked ? [...ids,item.id] : ids.filter((id)=>id!==item.id)); }}/><JapaneseText>{item.japanese}</JapaneseText><span>{item.reading} · {item.title}{existing ? " · уже в колоде" : ""}</span></label></li>;
       })}</ul>
+      <SectionDisclosure title={`В колоде: ${deck.items.length}`}>
+        <ul className="saved-deck-list">{deck.items.map(({item})=><li key={item.id}><JapaneseText>{item.japanese} · {item.reading}</JapaneseText><button type="button" className="icon-button" disabled={busy} title={`Убрать ${item.japanese} из колоды`} aria-label={`Убрать ${item.japanese} из колоды`} onClick={()=>void remove(item.id)}><Trash2 size={18}/></button></li>)}</ul>
+      </SectionDisclosure>
     </form>
   </SectionDisclosure>;
 }
