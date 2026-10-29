@@ -771,7 +771,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               studyHref={itemViewHref(pathname, new URLSearchParams(searchParams), "study")}
             />
 
-            <section className="panel item-study-memory">
+            <section className="panel item-study-memory" hidden={hideReadingAnswers}>
               <h2>Мнемоники и подсказки</h2>
               <ContentBlock
                 title="Мнемоники"
@@ -1469,6 +1469,7 @@ function ItemReadingDetails({
   if (item.wordDetails !== null) {
     const locales = getContentLocalesForDisplayMode(displayMode);
     const senses = item.wordDetails.senses.filter((sense) => locales.includes(sense.locale));
+    const teachingSenses = senses.filter((sense) => sense.sourceKind === "curated");
 
     return (
       <section className="panel" data-testid="word-study-details">
@@ -1486,6 +1487,7 @@ function ItemReadingDetails({
           </Link>
         ) : null}
         <dl className="lesson-facts">
+          {teachingSenses.length > 0 ? <div><dt>Учебный смысл</dt><dd>{teachingSenses.slice(0, 4).map(sense => <p key={`${sense.locale}-${sense.meaning}`} lang={sense.locale === "ru-RU" ? "ru" : "en"}>{sense.meaning} <small>{formatPartOfSpeech(sense.partOfSpeech)}</small></p>)}</dd></div> : null}
           {kanaReading === null ? null : (
             <div>
               <dt>Чтение</dt>
@@ -1849,6 +1851,7 @@ function ItemReadingAudio({
       >
         <Volume2 size={18} aria-hidden="true" />
       </button>
+      <small>Синтез речи браузера</small>
       {failed ? <small role="status">Не удалось озвучить чтение</small> : null}
     </div>
   );
