@@ -1,15 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Volume2 } from "lucide-react";
+import { Pause, RotateCcw, Volume2 } from "lucide-react";
 
-import { type AudioAssetDto, type ListeningPlaybackEvidenceDto } from "@kanji-srs/shared";
+import { recordingOrigin, type AudioAssetDto, type ListeningPlaybackEvidenceDto } from "@kanji-srs/shared";
 
 import { useStudyAudioPreferences } from "../lib/use-study-audio-preferences";
 
 type PlaybackStatus = "loading" | "ready" | "playing" | "completed" | "error";
 
 type ListeningPromptProps = {
+  readonly allowAutoplay?: boolean;
   readonly audio: AudioAssetDto | null | undefined;
   readonly onEvidenceChange: (evidence: ListeningPlaybackEvidenceDto) => void;
 };
@@ -20,7 +21,7 @@ export function ListeningPrompt(props: ListeningPromptProps) {
   );
 }
 
-function ListeningPlayback({ audio, onEvidenceChange }: ListeningPromptProps) {
+function ListeningPlayback({ audio, onEvidenceChange, allowAutoplay = true }: ListeningPromptProps) {
   const preferences = useStudyAudioPreferences();
   const audioRef = useRef<HTMLAudioElement>(null);
   const onEvidenceChangeRef = useRef(onEvidenceChange);
@@ -41,6 +42,7 @@ function ListeningPlayback({ audio, onEvidenceChange }: ListeningPromptProps) {
 
   useEffect(() => {
     const element = audioRef.current;
+    if (element && audio?.mediaUrl) element.src = audio.mediaUrl;
     activeRef.current = true;
     onEvidenceChangeRef.current({ completed: false, playCount: 0 });
 
@@ -70,8 +72,24 @@ function ListeningPlayback({ audio, onEvidenceChange }: ListeningPromptProps) {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pagehide", pause);
       element?.pause();
+      element?.removeAttribute("src");
+      element?.load();
     };
   }, []);
+
+  useEffect(() => {
+    if (status !== "loading" && status !== "playing") return;
+    const timer = window.setTimeout(() => {
+      if (!activeRef.current) return;
+      generationRef.current += 1;
+      playRequestedRef.current = false;
+      playingRef.current = false;
+      audioRef.current?.pause();
+      setStatus("error");
+      onEvidenceChangeRef.current({completed:completedRef.current,playCount:playCountRef.current});
+    }, status === "loading" ? 12_000 : Math.min(30_000, Math.max(12_000,(audio?.durationMs ?? 0)+8_000)));
+    return () => window.clearTimeout(timer);
+  },[status,audio?.durationMs]);
 
   const play = useCallback(
     async (autoplay = false): Promise<void> => {
@@ -113,13 +131,14 @@ function ListeningPlayback({ audio, onEvidenceChange }: ListeningPromptProps) {
 
     if (
       preferences.speechAutoplay &&
+      allowAutoplay &&
       document.visibilityState !== "hidden" &&
       !autoplayAttemptedRef.current
     ) {
       autoplayAttemptedRef.current = true;
       void play(true);
     }
-  }, [play, preferences.speechAutoplay]);
+  }, [play, preferences.speechAutoplay, allowAutoplay]);
 
   useEffect(() => {
     if (
@@ -217,6 +236,8 @@ function ListeningPlayback({ audio, onEvidenceChange }: ListeningPromptProps) {
         <Volume2 aria-hidden="true" size={20} />
         {status === "playing" ? "Слушайте" : status === "completed" ? "Повторить" : "Воспроизвести"}
       </button>
+      {status === "playing" ? <button className="icon-button" type="button" aria-label="Приостановить аудио" title="Приостановить аудио" onClick={()=>audioRef.current?.pause()}><Pause size={20} aria-hidden="true" /></button> : null}
+      {status === "error" && audio?.mediaUrl ? <button className="secondary-action" type="button" onClick={()=>{setStatus("loading");audioRef.current?.load();}}><RotateCcw size={16} aria-hidden="true" />Повторить загрузку</button> : null}
       <p aria-live="polite">
         {status === "loading"
           ? "Загружаем запись."
@@ -237,6 +258,7 @@ function ListeningPlayback({ audio, onEvidenceChange }: ListeningPromptProps) {
 export function ListeningAttribution({ audio }: { readonly audio: AudioAssetDto }) {
   return (
     <dl className="listening-attribution">
+      <div><dt>Тип аудио</dt><dd>{recordingOrigin(audio.voiceMetadata) === "human-recording" ? "Запись человека" : recordingOrigin(audio.voiceMetadata) === "synthetic" ? "Синтез речи" : "Происхождение голоса не подтверждено"}</dd></div>
       <div>
         <dt>Запись</dt>
         <dd>{audio.speakerName ?? "Автор записи не указан"}</dd>

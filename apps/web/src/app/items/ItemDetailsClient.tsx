@@ -787,7 +787,7 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
                 )}
               />
             </section>
-            {item.pronunciationAudio && !hideReadingAnswers ? <SectionDisclosure title="Записанное произношение"><ListeningPrompt audio={item.pronunciationAudio} onEvidenceChange={()=>undefined} /><ListeningAttribution audio={item.pronunciationAudio} /><Link className="inline-link" href="/practice/listening">Практика на слух</Link></SectionDisclosure> : null}
+            {item.pronunciationAudio && !hideReadingAnswers ? <SectionDisclosure title="Записанное произношение"><ListeningPrompt allowAutoplay={false} audio={item.pronunciationAudio} onEvidenceChange={()=>undefined} /><ListeningAttribution audio={item.pronunciationAudio} /><Link className="inline-link" href="/practice/listening">Практика на слух</Link></SectionDisclosure> : null}
 
             <SectionDisclosure title="Все допустимые ответы">
               <section>
