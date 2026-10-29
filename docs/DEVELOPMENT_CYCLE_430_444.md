@@ -48,7 +48,7 @@ bulk raw import, destructive migration or paid-service change.
 | 440 | Independent content review, corrections and versioned seal             | Complete |
 | 441 | Registry, placement/policy, finite-version and scoped preflight checks | Complete |
 | 442 | Verified additive application/publication or exact blockers            | Complete |
-| 443 | Batched learner/content acceptance and database impact                 | Planned  |
+| 443 | Batched learner/content acceptance and database impact                 | Complete |
 | 444 | Release, exact runtime and real coverage/gap report                    | Planned  |
 
 ## Operator Boundaries
@@ -173,3 +173,47 @@ The result explicitly reports `enrolledUserId: null`. There are 88 components,
 112 kanji, 160 exact word pairs, 360 items and 632 cards in twelve levels.
 No migration, seed, old-source reapplication or account/course selection change
 was needed. V1-V5 remain independently sealed.
+
+[Post-publication plan 40908802623](https://github.com/wndffs/kanji-app/actions/runs/40908802623)
+passed with the same course UUID, content version and exact placements. This
+is existing-publication idempotence verification, not a second publication or
+curator write. All original private-state and old-course fingerprints still
+matched immediately after publication.
+
+## Batched And Live Acceptance: Task 443
+
+[CI 40904285471](https://github.com/wndffs/kanji-app/actions/runs/40904285471)
+passed Quality/build and 479 browser cases (one existing skip), attempt 2.
+Attempt 1 passed Quality and 478 browser cases; Chromium crashed with SIGSEGV
+before the mobile installation scenario could create its context. The rerun
+passed without code or assertion changes. A preceding genuine stale aggregate
+expectation was corrected in `36f2b9c`: the reviewed registry is 112/160, not
+111/140. [Study integrity 40904285419](https://github.com/wndffs/kanji-app/actions/runs/40904285419)
+passed against PostgreSQL 18. Local checks were scoped to modified contracts;
+no local development server or duplicate complete browser run was started.
+
+[Remote V6 audit 40909088233](https://github.com/wndffs/kanji-app/actions/runs/40909088233)
+passed with both exact runtime revisions
+`37898b1317bf39b2f37e9fc251e096df55e49b8c`. It created one isolated audit
+account, enrolled/selected V6 only for that account, and checked settings,
+both kana paths, search, dashboard, lessons, reviews, characters and item reads.
+It did not start a lesson/review or submit learning answers. Three HTTP samples
+each gave dashboard median 708 ms (range 690-2,071), lessons 391 ms, reviews
+133 ms, characters 397 ms and item 546 ms. The first dashboard sample exceeded
+two seconds; the two subsequent samples did not. This is a bounded warm audit,
+not a latency guarantee or proof that free-host cold starts are eliminated.
+
+After audit, all original cohort fingerprints still match the original snapshot.
+Only User/UserSettings/UserEnrollment exclude users created after the explicit
+pre-audit cutoff; all learning-progress tables are compared in full. The final
+physical size is 160,956,416 bytes, 425,984 bytes above the original snapshot,
+including the publication and audit-account metadata, not just teaching content.
+No private fields, digests, detailed dictionary observations or screenshots are
+committed. Aggregate reporting is the user's explicit boundary.
+
+Live IAB acceptance confirms all twenty new word-reading pairs at level 12,
+the twelve-level program and exact 88/112/160/632 totals. All 272 kanji/word
+materials have both meaning and reading cards; missing RU/EN/required-reading
+counts are zero. Modern JLPT metadata remains unknown for 110 kanji/159 words,
+and exam coverage is explicitly unconfirmed. Existing shared progress remains
+visible while the inspected account keeps its original selected demo course.

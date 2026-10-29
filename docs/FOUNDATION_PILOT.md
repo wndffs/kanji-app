@@ -40,6 +40,13 @@ choose/enroll explicitly; publication does not silently switch their course.
 The manual workflows accept explicit V6; defaults remain V1 and read-only plan.
 Full source, preservation and acceptance receipts: `DEVELOPMENT_CYCLE_430_444.md`.
 
+Post-publication read-only plan `40908802623` confirms the same UUID/version and
+all placements. Exact-revision V6 remote smoke `40909088233` passed on web/API
+`37898b1`. Existing learner state and earlier finite courses were preserved;
+all 272 kanji/word materials have both meaning/reading, with zero missing
+RU/EN/required readings. Modern JLPT labels remain unknown for 110 kanji/159
+words. Publication does not certify exam coverage.
+
 ## Published V5: 2026-10-29
 
 Cycle 415-429 adds a separately sealed `japanese-foundation-pilot-v5` through
