@@ -1,4 +1,5 @@
 import { WAVE08_CANDIDATES } from "../packages/db/src/lexical-wave08-candidates";
+import { WAVE08_TEACHING } from "../packages/db/src/lexical-wave08-teaching";
 import { verifyLocalSnapshot } from "./local-source-manifest.mts";
 import { fingerprint, localSourceFingerprint } from "./local-draft-evidence.mts";
 import { inspectLocalWords } from "./local-word-evidence.mts";
@@ -19,6 +20,8 @@ export async function inspectLexicalWave08(directory: string) {
       bilingual:words.items.filter(x=>x.bilingual).length,
       kanjiMatched:kanji.items.filter(x=>x.status==='matched').length,
       strokesMatched:strokes.items.filter(x=>x.status==='matched').length,
+      selectedPairs:WAVE08_TEACHING.length,
+      selectedExactIdentities:WAVE08_TEACHING.filter(candidate=>words.items.some(item=>item.expression===candidate.expression && item.reading===candidate.reading && item.status==='matched' && item.sourceRecordId===candidate.jmdictEntryId && item.bilingual)).length,
     },
     independentReview:false, publicationApproved:false, readyToPublish:false,
   };
