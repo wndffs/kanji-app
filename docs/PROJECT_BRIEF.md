@@ -10,6 +10,10 @@ Build a personal Russian-first Japanese kanji/vocabulary SRS web application wit
 - Learning model: hybrid; structured levels plus dynamic decks/text mining.
 - Target audience: Russian-speaking beginners and continuing learners, aiming to support learning up to about JLPT N2, with English learning translations stored alongside Russian.
 - WaniKani import: not needed initially.
+- Standing user authorization (2026-10-29): each new development batch may use
+  two independent review agents without asking again. Keep review scopes bounded,
+  inherit the configured model, and close agents when finished. Review permission
+  does not authorize unverified content publication or changes to user progress.
 - Community content: no public community mnemonics in MVP.
 - Personal overrides: user can save custom accepted answers/meanings/notes/mnemonics for private use in Russian and/or English.
 - Stack: TypeScript monorepo, Next.js web app, NestJS API, PostgreSQL/Prisma.

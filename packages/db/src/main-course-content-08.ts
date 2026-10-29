@@ -1,8 +1,8 @@
 import { type MainCourseContentBatch } from "./main-course-content";
 
 const BATCH: MainCourseContentBatch = {
-  id:"task-118-course-kanji-08", version:"1", authoredAt:"2026-10-29", reviewedAt:null,
-  reviewNotes:"Unregistered original RU/EN proposal. Local KANJIDIC2 on-reading and KanjiVG primary graphic matched; no independent editorial approval or publication yet.",
+  id:"task-118-course-kanji-08", version:"1", authoredAt:"2026-10-29", reviewedAt:"2026-10-29",
+  reviewNotes:"Original RU/EN teaching, independently reviewed by separate AI reading/component reviewer Pascal and integrated by parent on 2026-10-29. Full local KANJIDIC2 on-reading and KanjiVG primary graphic match. Explicit visual-cue/non-etymology boundaries and selected on/whole-word reading distinction. Not human approval or live publication proof; source/license/placement/quality guards remain mandatory.",
   sourceFile:"packages/db/src/main-course-content-08.ts", courseSlug:"japanese-ru-n2",
   componentLevelNumber:1, components:[],
   kanji:[{

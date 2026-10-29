@@ -5,8 +5,8 @@ import { WAVE08_READINGS } from "./lexical-wave08-readings";
 import { WAVE08_EXAMPLES } from "./lexical-wave08-examples";
 
 const BATCH:MainCourseWordBatch = {
-  id:"task-127-course-words-08",version:"1",authoredAt:"2026-10-29",reviewedAt:null,
-  reviewNotes:"Unregistered original bilingual proposal: ten verbs, five i-adjectives and five nouns. Twenty exact bilingual JMdict identities observed in the verified local snapshot. Independent educational review and live source/placement preflight are still required; no publication approval.",
+  id:"task-127-course-words-08",version:"1",authoredAt:"2026-10-29",reviewedAt:"2026-10-29",
+  reviewNotes:"Original RU/EN proposal with ten verbs, five i-adjectives and five nouns. Independently reviewed and corrected by AI meaning/example reviewer Pasteur, AI reading reviewer Pascal and parent on 2026-10-29. Twenty exact bilingual JMdict identities observed locally. Corrections cover a.m./p.m. scope, natural accepted phrases, personal-name contexts, directional exclusions, genuine reading variants, okurigana and morae. Not human certification or permission to bypass live source/placement/quality preflight.",
   sourceFile:"packages/db/src/main-course-word-content-08.ts",courseSlug:"japanese-ru-n2",
   levelNumber:12,sortOrderStart:1,
   words:WAVE08_TEACHING.map((row,index)=>({
