@@ -10,23 +10,23 @@ Publish an additive, separately sealed V7 only after review, live source preflig
 
 ## Tasks
 
-| Task | Deliverable                                                    | State   |
-| ---- | -------------------------------------------------------------- | ------- |
-| 460  | Re-audit actual coverage and bound this wave                   | Done    |
-| 461  | Explicit topic selection and deferred follow-up                | Done    |
-| 462  | Five kanji and visual prerequisites                            | Done    |
-| 463  | Exact verb/adjective identities and selected senses            | Done    |
-| 464  | Time/topic vocabulary with common-use evidence                 | Done    |
-| 465  | Original RU teaching and blocked-answer distinctions           | Done    |
-| 466  | Corresponding EN teaching                                      | Done    |
-| 467  | Exact local source, pronunciation and special-reading evidence | Done    |
-| 468  | Original context and full kana transcription review            | Done    |
-| 469  | Two independent AI reviews and corrections                     | Done    |
-| 470  | Manifest, graph and bounded-query acceptance                   | Done    |
-| 471  | Read-only additive preview and immutable identity checks       | Done    |
-| 472  | Publish only this approved teaching wave and V7                | Done    |
-| 473  | Batch checks and actual course/source acceptance               | Done    |
-| 474  | Deploy, server verification and measured release receipt       | Pending |
+| Task | Deliverable                                                    | State |
+| ---- | -------------------------------------------------------------- | ----- |
+| 460  | Re-audit actual coverage and bound this wave                   | Done  |
+| 461  | Explicit topic selection and deferred follow-up                | Done  |
+| 462  | Five kanji and visual prerequisites                            | Done  |
+| 463  | Exact verb/adjective identities and selected senses            | Done  |
+| 464  | Time/topic vocabulary with common-use evidence                 | Done  |
+| 465  | Original RU teaching and blocked-answer distinctions           | Done  |
+| 466  | Corresponding EN teaching                                      | Done  |
+| 467  | Exact local source, pronunciation and special-reading evidence | Done  |
+| 468  | Original context and full kana transcription review            | Done  |
+| 469  | Two independent AI reviews and corrections                     | Done  |
+| 470  | Manifest, graph and bounded-query acceptance                   | Done  |
+| 471  | Read-only additive preview and immutable identity checks       | Done  |
+| 472  | Publish only this approved teaching wave and V7                | Done  |
+| 473  | Batch checks and actual course/source acceptance               | Done  |
+| 474  | Deploy, server verification and measured release receipt       | Done  |
 
 ## Acceptance
 
@@ -39,7 +39,11 @@ Publish an additive, separately sealed V7 only after review, live source preflig
 
 ## Release Receipt
 
-V7 is published; final runtime/UX acceptance for tasks 473–474 is in progress.
+Released as `cycle-460-474-everyday-vocabulary`. Web/API runtime is
+`620c120c297d08a4a68db858a49525611b6a59e9`; green CI revision `67f28de` adds
+only corrected test expectations after a documentation-only receipt. The final
+release commits update documentation only; deployment filters intentionally
+keep the identical verified runtime rather than rebuilding for receipts.
 
 ## Editorial Evidence
 
@@ -76,3 +80,29 @@ After application, all eighteen protected table-set count/digest pairs matched t
 - Actual V7 browser/API coverage: 389 materials, 92 components, 117 kanji, 180 pairs and 686 core cards; 297/297 kanji/words have both meaning and reading cards, zero missing RU/EN/required readings. Modern JLPT unknown: 115 kanji, 179 words; N4–N3 exam coverage explicitly unconfirmed.
 - After publication and the isolated audit, all eighteen original protected count/digest pairs matched. The original 26-account cohort, all progress tables and earlier finite course structures/answers/blocks are unchanged. Physical database size: 161,570,816 bytes; not Neon billing usage.
 - Warm remote medians: dashboard 794 ms, lessons 582 ms, reviews 307 ms, characters 598 ms, item 798 ms. Only three samples per endpoint from the GitHub runner; these are not cold-start promises or local VPN latency measurements.
+
+## UI And Remaining Scope
+
+Built-in-browser verification opened V7 from the live catalogue without adding
+or selecting it for the existing test profile. Actual level 15 contains all
+twenty new words with visible teaching readings, meanings and earlier-kanji
+requirements. Coverage totals and missing-answer counts agree with the
+publisher. Desktop and mobile screenshots are stored outside Git; at a
+390-pixel mobile viewport, client/scroll widths both measure 375 CSS pixels
+(scrollbar excluded), with no horizontal page overflow. Screenshots were
+visually inspected. No lesson/review answer or user preference was changed.
+
+This batch proposed twenty pairs and five prerequisite kanji, independently
+reviewed all of them and actually published the same twenty/five plus four
+visual cues. 午前中 was excluded before authorship for missing RU source.
+No advanced N3 wave or complete N4/N3 syllabus is claimed. Remaining long-term
+volume: 2,183 kanji and 7,820 pairs, plus broader human editorial/audio and
+representative learner acceptance. All six prior finite manifests remain
+sealed; V3 remains an unpublished intermediate version.
+
+Next reserved batch is 475–489 (separate kana and personal study tools), with
+490–499 reserved for replacement/readiness acceptance: 25 tasks remain in this
+roadmap. Those tasks are not completed and do not guarantee the long-term
+content target. The catalogue still exposes older published finite courses;
+clear latest-course naming/upgrade ergonomics remains a targeted UX follow-up,
+not a silent migration in this content cycle. No task 475 was started.

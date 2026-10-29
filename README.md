@@ -7,15 +7,18 @@ This repository is an npm TypeScript monorepo with a tiny project-authored start
 ## Current Roadmap
 
 The current numbered backlog is [400-499](docs/ROADMAP_400_499.md), with the
-latest released [445-459 batch](docs/DEVELOPMENT_CYCLE_445_459.md). It prioritizes
+latest released [460-474 batch](docs/DEVELOPMENT_CYCLE_460_474.md). It prioritizes
 reviewed content and truthful scope reporting over further visual-only cycles.
 Later reserved tasks are not completed work or a promise of full JLPT coverage.
-Next reserved batch: 460-474. Published V6 contains 112 kanji, 160 word pairs
-and 632 core cards across twelve levels, including the first bounded verb and
-adjective wave. Retention now includes bilingual reading guidance, visual
+Next reserved batch: 475-489. Published V7 contains 117 kanji, 180 word pairs
+and 686 core cards across fifteen levels, including everyday actions, time
+and study vocabulary. Retention includes bilingual reading guidance, visual
 contrasts, rotating missed-card practice, private rehearsal history and a
 one-word licensed recorded-pronunciation pilot. Older finite courses and
 existing learning progress remain.
+
+[Open published V7](https://kanji-app-rho.vercel.app/courses/5755286f-fd0b-4d39-8353-08f4dbc44837).
+Existing users add/select it explicitly; publication does not switch their course.
 
 See [the revalidated roadmap](docs/REVALIDATION_2026_10_21.md) for current execution
 order, shipped functionality and remaining acceptance gates. Task numbers are

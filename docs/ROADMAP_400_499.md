@@ -1,10 +1,10 @@
 # Product Roadmap 400-499
 
 Baseline: `2b29567`, verified runtime `1fdd9b0`, 2026-10-28.
-The requests authorized 400-414, 415-429, 430-444 and **445-459**, with separate
-commits, batched checks, push, deployment and verified publication. All four
-batches are released. Tasks 460-499 remain a reserved backlog, not completed
-work; 460-474 is next. Revalidate each batch before editing.
+The requests authorized 400-414, 415-429, 430-444, 445-459 and **460-474**, with separate
+commits, batched checks, push, deployment and verified publication. All five
+batches are released. Tasks 475-499 remain a reserved backlog, not completed
+work; 475-489 is next. Revalidate each batch before editing.
 
 ## User Decisions: 2026-10-29
 
@@ -29,8 +29,8 @@ plus separate Duolingo-inspired kana practice and selected Renshuu-inspired
 personal study tools. Original UI, pedagogy, order and wording throughout.
 No competitor scraper, educational data, assets or exact visual reproduction.
 
-Current V6: 88 components, 112 kanji, 160 expression-reading pairs, 360 materials,
-632 core cards across twelve levels. V5 remains 111/140/590 and V4 remains
+Current V7: 92 components, 117 kanji, 180 expression-reading pairs, 389 materials,
+686 core cards across fifteen levels. V6 remains 112/160/632, V5 remains 111/140/590 and V4 remains
 unchanged at 101/120/521. SRS, lessons, review
 corrections, custom answers, pronunciation,
 themes, practice, kana tracing/matching/listening and text-derived decks exist.
@@ -40,7 +40,7 @@ passing tests do not increase published, reviewed teaching content.
 
 Long-term target remains **2,300 distinct placed kanji and 8,000 distinct
 expression-reading pairs**, with independently reviewed RU/EN teaching content.
-Current volume is 4.9% and 2% of those targets respectively. These are content
+Current volume is approximately 5.1% and 2.25% of those targets respectively. These are content
 volume ratios, not learner proficiency, JLPT coverage or chances of passing.
 
 ## Comparison Rubric
@@ -213,7 +213,12 @@ post-attachment plan `40919928399` passed. V6 plan `40920054697` proves its
 UUID, counts and content version unchanged. All original protected rows match.
 This is not broad audio coverage, new vocabulary or exam listening preparation.
 
-## 460-474: N3-Oriented Expansion
+## 460-474: Everyday Expansion Toward N3
+
+Revalidated as a bounded foundation extension, not a claim to deliver an
+advanced N3 course. Missing everyday basics precede wider shopping/work/health/
+travel topics; actual licensed source availability and independent review bound
+the wave. Existing task IDs remain stable.
 
 | ID  | Deliverable and acceptance                                                       |
 | --- | -------------------------------------------------------------------------------- |
@@ -232,6 +237,21 @@ This is not broad audio coverage, new vocabulary or exam listening preparation.
 | 472 | Authorized publication of only the approved waves                                |
 | 473 | Batch course progression and content/source integrity acceptance                 |
 | 474 | Release with measured published counts and unresolved N3 gaps                    |
+
+Checkpoint: **460–474 complete and released**, specification and receipts in
+`DEVELOPMENT_CYCLE_460_474.md`, tag `cycle-460-474-everyday-vocabulary`.
+Five kanji, four visual cues and twenty exact word pairs were independently
+AI-reviewed and actually applied/published as V7: 117 kanji, 180 pairs, 686
+cards across fifteen levels. Old finite sources, target/card identities and
+the original account/progress cohort are preserved. All 297 kanji/word
+materials have both meaning and reading; missing RU/EN/required readings are
+zero. Modern JLPT remains unknown for 115 kanji/179 words; N4–N3 coverage is
+unconfirmed. Selected application `40928757701`, pre-publication plan
+`40928899632`, publication `40930432283`, CI `40928026497`, PostgreSQL 18
+integrity `40928026628` and exact-runtime remote audit `40931316113` passed.
+Runtime web/API: `620c120`; subsequent test/documentation commits do not change
+the deployed application. Remaining content target is 2,183 kanji/7,820 pairs,
+not work promised by the remaining 25 roadmap tasks.
 
 ## 475-489: Kana And Personal Study Tools
 
