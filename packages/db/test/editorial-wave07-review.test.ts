@@ -24,7 +24,7 @@ describe("versioned independent AI wave07 review", () => {
   it("counts the promoted registry once while retaining a nonpublishing proposal archive", () => {
     const coverage = buildEditorialCoverage();
     expect(coverage.validation.valid).toBe(true);
-    expect(coverage.reviewedRegistry).toMatchObject({ kanji: 112, words: 160 });
+    expect(coverage.reviewedRegistry).toMatchObject({ kanji: 117, words: 180 });
     expect(coverage.pendingDrafts.proposedCards).toBe(0);
     expect(coverage.archivedDrafts?.proposedCards).toBe(69);
     expect(coverage.publicationApproved).toBe(false);
