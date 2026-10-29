@@ -47,7 +47,7 @@ bulk raw import, destructive migration or paid-service change.
 | 439 | Original JP/kana/RU/EN examples with prerequisite checks               | Complete |
 | 440 | Independent content review, corrections and versioned seal             | Complete |
 | 441 | Registry, placement/policy, finite-version and scoped preflight checks | Complete |
-| 442 | Verified additive application/publication or exact blockers            | Planned  |
+| 442 | Verified additive application/publication or exact blockers            | Complete |
 | 443 | Batched learner/content acceptance and database impact                 | Planned  |
 | 444 | Release, exact runtime and real coverage/gap report                    | Planned  |
 
@@ -76,9 +76,10 @@ curator/POS and source tools. The word planner now checks at most four words
 concurrently, preserves every source/ownership/placement check and drains all
 in-flight reads before propagating a failure. Registry-wide preflight still
 completes before any mutation. Its 71-test contract passed; actual operator
-timings and publication are not inferred from mocks. Two independent content
-reviewers are inspecting the proposal; reviewedAt remains null and it is not
-in the publishing registry pending their results and corrections.
+timings and publication are not inferred from mocks. At that first checkpoint,
+the two reviewers had not completed review, reviewedAt was null and the proposal
+was excluded from publishing registries. The final reviewed seal below supersedes
+that development-only state, not the historical source records.
 
 The user confirmed standing permission to use the two independent reviewers
 for each subsequent batch without repeating the authorization question.
@@ -105,4 +106,70 @@ The historical draft07 preview is frozen to its original six-batch context;
 later registries cannot rewrite that archive's prerequisites. Global registry
 tests now count eight batches, while previous finite seals stay independently
 asserted. Future unknown CLI version tests use v7, not the newly supported v6.
-Live database source/quality/publication checks are still pending below.
+Live database checks were not yet complete at that development checkpoint.
+Their actual results, rather than the proposal, are recorded next.
+
+## Live Source And Safety Preflight: Task 442
+
+Read-only kanji preflight
+[40904420851](https://github.com/wndffs/kanji-app/actions/runs/40904420851)
+passed on `36f2b9c` in 39 seconds total. Its database check took about six
+seconds. No teaching writes occurred in that run. Separate read-only Neon
+checks found all twenty exact selected JMdict source IDs, successful imports,
+both imported locales (`ru-RU`/`en-US`) and open-data license/attribution rows.
+The existing 前 graphic has nine paths matching its nine strokes, and the
+selected ゼン reading exists. No raw corpus download or reimport was needed.
+
+Before teaching writes, the 15:47:20 UTC snapshot captured all eleven private
+tables and the four actually published V1/V2/V4/V5 courses (V3 is an unpublished
+intermediate seal). It includes 24 users/settings, 162 SRS states, 49
+enrollments, eight review sessions, five answers and six kana-progress rows.
+Existing finite courses share 339 distinct items/590 cards, 1,248 accepted
+answer rows and 46 meaning-block rows. Sorted complete-row digests stay only
+in the operator session, never in Git. Old level/placement rows are included.
+The initial physical PostgreSQL size is 160,530,432 bytes; this is not a Neon
+quota or billable-storage measurement.
+
+The explicit application selects only `task-118-course-kanji-08` and
+`task-127-course-words-08`, never seed or earlier batch application.
+The finite-publication plan is the rollback preview: V5 remains available,
+and no user is automatically switched. If a later issue occurs, keep learners
+on V5 and make a separately versioned repair; do not delete teaching rows or
+rewrite immutable source seals merely to undo a rollout.
+
+[Application 40905867645](https://github.com/wndffs/kanji-app/actions/runs/40905867645)
+passed. Successful authored import runs are kanji
+`d6ea468b-b923-4cf0-a59c-d86b1cef1224` and words
+`64090816-c5c3-4563-a2dc-75971baef2e5`. The unchanged raw layer remains
+30,000 word pairs, 13,108 kanji and 6,702 graphics. The complete 360-item quality
+scan reports zero blockers/warnings, policy v2, content version
+`27b76035232ef812be9e3f932e897e9cfc1b8c6c27077efa0a92202ab0214e4f`.
+This teaching-quality token is distinct from a finite course publication version.
+
+The full-registry word preflight took 154 seconds. Selected word application,
+including its fresh full-registry preflight, took 343 seconds. The optimization
+does not skip either check or promise an equivalent speedup for every Neon run.
+After application, every original private/old-course/level/placement/item/card/
+answer/block fingerprint matched. Physical database size was 160,792,576 bytes,
+an observed 262,144-byte (256 KiB) increase, not a billable storage estimate.
+No write rerun is claimed: existing-publication idempotence is checked separately
+by the post-publication read-only plan, avoiding unnecessary answer-row rewrites.
+
+A live aggregate query confirms exactly ten authored verbs, five i-adjectives,
+five nouns and twenty published bilingual example links at the new vocabulary
+level. The sixty-level main course remains DRAFT with twelve populated levels;
+it is not mistaken for the separately published finite course.
+
+## Finite V6 Publication: Task 442
+
+[Read-only plan 40906635712](https://github.com/wndffs/kanji-app/actions/runs/40906635712)
+passed against the applied content with no existing V6. The explicit
+[publication 40908104197](https://github.com/wndffs/kanji-app/actions/runs/40908104197)
+then passed all three source/quality/manifest checks, including the bounded
+Serializable transaction. Actual course UUID:
+`ae9dac23-36f5-4017-95d3-cf93b344b924`; live content version:
+`9c599c7ab7e1dc539bd7b433e8357dda082506d05a1ef3720a1337e97ee63829`.
+The result explicitly reports `enrolledUserId: null`. There are 88 components,
+112 kanji, 160 exact word pairs, 360 items and 632 cards in twelve levels.
+No migration, seed, old-source reapplication or account/course selection change
+was needed. V1-V5 remain independently sealed.

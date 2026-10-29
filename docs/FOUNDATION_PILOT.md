@@ -11,6 +11,35 @@ published after independent parent planning/review. It contains **53 components,
 five levels. Live plan and publication evidence is recorded below. Publication
 never automatically upgrades/enrolls v1 learners or changes their current course.
 
+## Published V6: 2026-10-29
+
+Cycle 430-444 adds the independently sealed `japanese-foundation-pilot-v6`:
+**88 components, 112 kanji, 160 word pairs, 360 items, 632 cards and 160 original
+bilingual examples**, across twelve populated levels. New content is one kanji
+and twenty word pairs: ten verbs, five i-adjectives and five nouns. The complete
+V5 source set and its first ten level/policy objects remain unchanged.
+
+[Read-only plan 40906635712](https://github.com/wndffs/kanji-app/actions/runs/40906635712)
+and [explicit publication 40908104197](https://github.com/wndffs/kanji-app/actions/runs/40908104197)
+passed, with no implicit enrollment. Live course UUID:
+`ae9dac23-36f5-4017-95d3-cf93b344b924`; content version:
+`9c599c7ab7e1dc539bd7b433e8357dda082506d05a1ef3720a1337e97ee63829`.
+The canonical manifest SHA-256 is
+`544528b1d3d0d191e2d3285e76092b9a7cc795b0645e7ce5f9b4cc7ff4bf7156`;
+its publication-record UUID is `1e43f4d1-9ed6-4f55-9bdc-08430d07cbe6`, not the
+live course UUID. Sixteen sources are pinned; the two added seals are kanji08
+`48ab03fce1511887a7c99aa5f290fa51b0dc86a45c624b99228c42940fa7428a`
+and words08 `60833d0bc8ba76f4b734f0a46307cb3de4977ed637c510b01da1a75353e27a67`.
+
+V6 retains the bounded V4/V5 120-second Serializable publication transaction,
+all source/license/quality guards, and exact semantic meaning-block comparison.
+KANJI at level 11 and WORD at level 12 retain stage 5/90% pass policies and
+prerequisite requirements. This is a small basic vocabulary expansion toward
+N4, not full N4/N3 coverage or human pedagogical certification. Existing users
+choose/enroll explicitly; publication does not silently switch their course.
+The manual workflows accept explicit V6; defaults remain V1 and read-only plan.
+Full source, preservation and acceptance receipts: `DEVELOPMENT_CYCLE_430_444.md`.
+
 ## Published V5: 2026-10-29
 
 Cycle 415-429 adds a separately sealed `japanese-foundation-pilot-v5` through
