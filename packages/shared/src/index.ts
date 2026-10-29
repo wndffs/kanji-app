@@ -1225,6 +1225,7 @@ export type KanaPracticeAnswerRequest = {
   readonly exerciseId: string;
   readonly answer?: string;
   readonly selectedCharacter?: string;
+  readonly exerciseKind?: "reverse-choice";
 };
 
 export type KanaPracticeAnswerResponse = {

@@ -265,6 +265,10 @@ function OwnedKanaClient({
     );
   }, [currentLessonItem, exerciseItems, exerciseKind]);
 
+  useEffect(()=>{
+    if(exerciseKind === "listening-choice" && feedback === null && kanaSpeech.ready && (!kanaSpeech.available || kanaSpeech.status === "error")) setExerciseKind("reverse-choice");
+  },[exerciseKind,feedback,kanaSpeech.ready,kanaSpeech.available,kanaSpeech.status]);
+
   useEffect(() => {
     if (
       !kanaSpeech.available ||
@@ -933,6 +937,7 @@ function KanaQuiz({
       <span className="eyebrow">{formatExerciseKind(exerciseKind)}</span>
       {listening ? (
         <div className="kana-listening-prompt">
+          <small className="muted">Синтез речи браузера · TTS</small>
           <button
             aria-label="Воспроизвести произношение"
             className="kana-audio-button"

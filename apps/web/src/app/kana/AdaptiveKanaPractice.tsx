@@ -28,6 +28,7 @@ import { KanaTracingExercise } from "./KanaTracingExercise";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { ownsSession } from "../../lib/use-stored-session";
 import { useTranslationDisplayMode } from "../../lib/use-translation-display-mode";
+import { buildKanaSpeechText } from "../../lib/kana-speech";
 
 type PracticeState =
   | { readonly status: "loading" }
@@ -97,6 +98,10 @@ export function AdaptiveKanaPractice({
   const exercise = state.status === "ready" ? state.session.exercise : null;
   const effectiveKind = fallbackKind ?? exercise?.exerciseKind ?? null;
 
+  useEffect(()=>{
+    if(exercise?.exerciseKind === "listening-choice" && speech.ready && (!speech.available || speech.status === "error")) setFallbackKind("reverse-choice");
+  },[exercise?.id,exercise?.exerciseKind,speech.ready,speech.available,speech.status]);
+
   useEffect(() => {
     if (feedback !== null) {
       continueRef.current?.focus();
@@ -115,7 +120,7 @@ export function AdaptiveKanaPractice({
       speech.autoplay &&
       feedback === null
     ) {
-      speech.speak(exercise.character);
+      speech.speak(buildKanaSpeechText(toKanaLessonItem(exercise)));
     }
 
     return speech.cancel;
@@ -152,7 +157,7 @@ export function AdaptiveKanaPractice({
     try {
       const result = await submitKanaPracticeAnswer(
         token,
-        buildKanaPracticeAnswer(state.session.id, exercise, value),
+        buildKanaPracticeAnswer(state.session.id, exercise, value,effectiveKind ?? exercise.exerciseKind),
       );
       if (revision !== requestRevision.current || !ownsSession(token)) return;
       setAnswer(value);
@@ -271,7 +276,7 @@ export function AdaptiveKanaPractice({
               available={speech.available}
               exercise={exercise}
               kind={effectiveKind!}
-              onSpeak={() => speech.speak(exercise.character)}
+              onSpeak={() => speech.speak(buildKanaSpeechText(toKanaLessonItem(exercise)))}
             />
             {feedback === null ? (
               effectiveKind === "typing" ? (
@@ -316,7 +321,7 @@ export function AdaptiveKanaPractice({
         )}
       </section>
       <SectionDisclosure title="Прогресс практики">
-        <PracticeSummary exercise={exercise} session={state.session} />
+        <PracticeSummary exercise={exercise} effectiveKind={effectiveKind ?? undefined} session={state.session} />
       </SectionDisclosure>
     </>
   );
@@ -336,6 +341,7 @@ function PracticePrompt({
   if (kind === "listening-choice" && available) {
     return (
       <div className="kana-listening-prompt">
+        <small className="muted">Синтез речи браузера · TTS</small>
         <button
           aria-label="Воспроизвести произношение"
           className="kana-audio-button"
@@ -433,9 +439,11 @@ function PracticeFeedback({
 
 function PracticeSummary({
   exercise,
+  effectiveKind,
   session,
 }: {
   readonly exercise?: KanaPracticeExerciseDto;
+  readonly effectiveKind?: KanaPracticeExerciseKind;
   readonly session: KanaPracticeSessionDto;
 }) {
   const percent =
@@ -473,7 +481,7 @@ function PracticeSummary({
           </div>
           <div>
             <dt>Формат</dt>
-            <dd>{formatExerciseKind(exercise.exerciseKind)}</dd>
+            <dd>{formatExerciseKind(effectiveKind ?? exercise.exerciseKind)}</dd>
           </div>
         </dl>
       )}

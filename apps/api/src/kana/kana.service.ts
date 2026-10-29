@@ -217,6 +217,8 @@ export class KanaService {
     if (exercise === undefined || exercise.id !== request.exerciseId) {
       throw new ConflictException("Очередь практики уже перешла к следующему заданию.");
     }
+    if(request.exerciseKind !== undefined && !["listening-choice","tracing"].includes(exercise.exerciseKind))
+      throw new BadRequestException("Смена формата допустима только для недоступного аудио или обводки.");
 
     const kana = findKana(exercise.character);
 
@@ -274,7 +276,7 @@ export class KanaService {
         correct,
         submittedAnswer,
         selectedCharacter,
-        exerciseKind: exercise.exerciseKind,
+        exerciseKind: request.exerciseKind ?? exercise.exerciseKind,
         masteryThreshold: KANA_MASTERY_STREAK,
         answeredAt,
       });
@@ -386,10 +388,13 @@ function parsePracticeAnswerRequest(value: unknown): KanaPracticeAnswerRequest {
   if (typeof record.answer === "string" && record.answer.trim().length > MAX_ANSWER_LENGTH) {
     throw new BadRequestException("Ответ слишком длинный.");
   }
+  if(record.exerciseKind !== undefined && record.exerciseKind !== "reverse-choice")
+    throw new BadRequestException("Недопустимый запасной формат.");
 
   return {
     sessionId: record.sessionId,
     exerciseId: record.exerciseId,
+    ...(record.exerciseKind === undefined ? {} : { exerciseKind: "reverse-choice" as const }),
     ...(record.answer === undefined ? {} : { answer: record.answer }),
     ...(record.selectedCharacter === undefined
       ? {}
