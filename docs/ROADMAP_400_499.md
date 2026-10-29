@@ -5,6 +5,20 @@ This request authorizes **400-414 only** for implementation, separate commits,
 batched checks, push, code deployment and live acceptance. Later tasks are a
 reserved backlog, not completed work. Revalidate each batch before editing.
 
+## User Decisions: 2026-10-29
+
+- Priority confirmed: kanji, vocabulary and separate kana lessons/practice,
+  with an N4-N3-oriented lexical foundation. Systematic grammar and a complete
+  exam-preparation programme are outside this hundred-task scope.
+- The user authorizes additive publication of new teaching-content waves in
+  the main course **only after verification**, preserving all accounts and
+  existing learning progress. Source/license evidence, independent educational
+  review, manifest/graph checks and the existing curator preflight remain
+  mandatory. Authorization is not itself a content approval or a gate bypass.
+- These answers remove the pending priority/publication questions. They do not
+  attest draft07 or resolve the source-download blocker from 400-414. They also
+  do not start the next implementation batch; 415-429 remains the next scope.
+
 ## Goal And Current Gap
 
 An independent Russian-first WaniKani alternative: components -> kanji -> whole
@@ -80,8 +94,8 @@ Sources checked 2026-10-28 (feature inspiration only, no copied content):
 
 Detailed specification: `DEVELOPMENT_CYCLE_400_414.md`. Actual publication is
 separate from code deployment and requires authorization plus existing source,
-editorial, license and curator gates. Pending user preferences may refine later
-batches; no unanswered question is treated as approval.
+editorial, license and curator gates. The user's 2026-10-29 answers above grant
+conditional publication authorization, not approval of any unverified wave.
 
 Checkpoint: **400-414 complete and released**. Tag
 `cycle-400-414-source-evidence`, exact web/API revision `7726d85`, green CI
