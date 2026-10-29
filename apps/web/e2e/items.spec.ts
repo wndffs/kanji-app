@@ -565,8 +565,8 @@ test.describe("item details", () => {
     await expect(readings.getByText("Основное учебное чтение")).toBeVisible();
     await expect(readings.getByText("いち", { exact: true }).first()).toBeVisible();
     await readings.getByRole("button", { name: "Словарные чтения", exact: true }).click();
-    await expect(readings.getByText("Онъёми")).toBeVisible();
-    await expect(readings.getByText("Кунъёми")).toBeVisible();
+    await expect(readings.getByRole("heading", { name: "Онъёми", exact: true })).toBeVisible();
+    await expect(readings.getByRole("heading", { name: "Кунъёми", exact: true })).toBeVisible();
     await page.getByRole("tab", { name: "История", exact: true }).click();
 
     const history = page.getByTestId("item-srs-history");
