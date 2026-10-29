@@ -3,6 +3,14 @@ name: Deploy staging curation
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: Read-only preflight or explicit application
+        required: true
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
       kanji_batch:
         description: Optional registered kanji batch ID (empty with word_batch skips kanji)
         required: false
@@ -29,8 +37,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
       NODE_ENV: production
+      CURATION_MODE: ${{ inputs.mode }}
       WORD_BATCH: ${{ inputs.word_batch }}
       KANJI_BATCH: ${{ inputs.kanji_batch }}
       SKIP_WORDS: ${{ inputs.skip_words }}
@@ -59,6 +67,8 @@ jobs:
         run: npm run db:generate
 
       - name: Verify staging database secret
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         run: |
           if [ -z "$DATABASE_URL" ]; then
             echo "Repository secret STAGING_DATABASE_URL is required."
@@ -81,11 +91,20 @@ jobs:
           if [ -n "$KANJI_BATCH" ]; then args+=(--batch "$KANJI_BATCH"); fi
           npm run db:curate -- --validate-only "${args[@]}"
 
-      - name: Apply Prisma migrations
-        run: npm run db:migrate:deploy
+      - name: Preflight selected kanji without mutations
+        if: ${{ steps.selection.outputs.apply_kanji == 'true' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        shell: bash
+        run: |
+          args=()
+          if [ -n "$KANJI_BATCH" ]; then args+=(--batch "$KANJI_BATCH"); fi
+          npm run db:curate -- --preflight-only "${args[@]}"
 
       - name: Apply versioned main-course curation
-        if: ${{ steps.selection.outputs.apply_kanji == 'true' }}
+        if: ${{ inputs.mode == 'apply' && steps.selection.outputs.apply_kanji == 'true' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         shell: bash
         run: |
           args=()
@@ -94,6 +113,8 @@ jobs:
 
       - name: Preflight reviewed vocabulary without mutations
         if: ${{ steps.selection.outputs.apply_words == 'true' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         shell: bash
         run: |
           args=()
@@ -101,7 +122,9 @@ jobs:
           npm run db:curate:words -- --preflight-only "${args[@]}"
 
       - name: Apply reviewed vocabulary and original examples
-        if: ${{ steps.selection.outputs.apply_words == 'true' }}
+        if: ${{ inputs.mode == 'apply' && steps.selection.outputs.apply_words == 'true' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         shell: bash
         run: |
           args=()
@@ -109,18 +132,24 @@ jobs:
           npm run db:curate:words -- "${args[@]}"
 
       - name: Write post-curation corpus report
+        if: ${{ inputs.mode == 'apply' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         run: >-
           npm run content:report --
           --require-full
           --output "$RUNNER_TEMP/task-118-corpus-report.json"
 
       - name: Verify published main-course content quality
+        if: ${{ inputs.mode == 'apply' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         run: >-
           npm run content:quality --
           --output "$RUNNER_TEMP/task-119-quality-report.json"
 
       - name: Upload corpus report
-        if: always()
+        if: ${{ always() && inputs.mode == 'apply' }}
         uses: actions/upload-artifact@v4
         with:
           name: task-118-curation-${{ github.run_id }}

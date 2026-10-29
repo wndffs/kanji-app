@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
@@ -27,6 +28,8 @@ describe("explicit staging curation selection", () => {
 
   it.each([
     { SKIP_WORDS: "true" },
+    { CURATION_MODE: "publish" },
+    { CURATION_MODE: "apply\nsecret=value" },
     { KANJI_BATCH: KANJI, WORD_BATCH: WORDS, SKIP_WORDS: "true" },
     { KANJI_BATCH: KANJI, SKIP_WORDS: "yes" },
     { KANJI_BATCH: "invalid\napply_words=true" },
@@ -34,6 +37,24 @@ describe("explicit staging curation selection", () => {
     { KANJI_BATCH: `batch-${"x".repeat(80)}` },
   ])("fails ambiguous or unsafe input before database work: %j", (env) => {
     expect(() => selectStagingCuration(env)).toThrow("Invalid staging curation selection.");
+  });
+  it("defaults the workflow to read-only and scopes secrets away from installation", () => {
+    const workflow = readFileSync(
+      new URL("../.github/workflows/deploy-staging-curation.yml", import.meta.url),
+      "utf8",
+    );
+    expect(workflow).toContain("default: plan");
+    expect(workflow.split("    steps:")[0]).not.toContain("secrets.STAGING_DATABASE_URL");
+    expect(workflow).not.toContain("db:migrate");
+    for (const name of [
+      "Apply versioned main-course curation",
+      "Apply reviewed vocabulary and original examples",
+    ]) {
+      const step = workflow.split(`- name: ${name}`)[1]!.split("\n      - name:")[0]!;
+      expect(step).toContain("inputs.mode == 'apply'");
+      expect(step).toContain("DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}");
+    }
+    expect(workflow).toContain("npm run db:curate -- --preflight-only");
   });
 
   it("emits only fixed boolean outputs, not batch inputs or unrelated credentials", () => {

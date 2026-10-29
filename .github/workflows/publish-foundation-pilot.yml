@@ -36,7 +36,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
       NODE_ENV: production
       PILOT_MODE: ${{ inputs.mode }}
       PILOT_VERSION: ${{ inputs.pilot }}
@@ -71,6 +70,8 @@ jobs:
           npm run db:publish:pilot -- --pilot "$PILOT_VERSION" --validate-only
 
       - name: Plan or explicitly publish the pilot
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         shell: bash
         run: |
           if [ -z "$DATABASE_URL" ]; then

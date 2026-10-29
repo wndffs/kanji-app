@@ -28,23 +28,23 @@ Missing live evidence blocks publication rather than weakening a guard.
 
 ## Tasks
 
-| ID  | Acceptance                                                                     | State    |
-| --- | ------------------------------------------------------------------------------ | -------- |
-| 415 | Audit prior evidence and acquire real source snapshot; select bounded wave07   | Complete |
-| 416 | Review/correct RU meanings and semantic near-answer boundaries                 | Complete |
-| 417 | Review/correct corresponding EN scope and accepted meanings                    | Complete |
-| 418 | Verify kanji/whole-word readings, ambiguity and special-reading explanations   | Complete |
-| 419 | Review/correct original JP/kana examples and both translations                 | Complete |
-| 420 | Correct component shape/name and mnemonic factual claims                       | Complete |
-| 421 | Bind exact source identities through existing source preflight, no guessed IDs | Complete |
-| 422 | Validate prerequisite closure, placement and level progression policies        | Complete |
-| 423 | Record a versioned independent review decision bound to source/content         | Complete |
-| 424 | Prepare finite V5 without changing any V1-V4 object/hash/identity              | Planned  |
-| 425 | Preview additive writes, query/storage costs and idempotent rerun              | Planned  |
-| 426 | Apply approved selected teaching batches without resetting SRS                 | Planned  |
-| 427 | Publish only the verified finite manifest, or report exact blockers            | Planned  |
-| 428 | Batched relevant content/answer/integrity and unchanged-progress acceptance    | Planned  |
-| 429 | Version/push/deploy/live verify and report actual published counts             | Planned  |
+| ID  | Acceptance                                                                     | State     |
+| --- | ------------------------------------------------------------------------------ | --------- |
+| 415 | Audit prior evidence and acquire real source snapshot; select bounded wave07   | Complete  |
+| 416 | Review/correct RU meanings and semantic near-answer boundaries                 | Complete  |
+| 417 | Review/correct corresponding EN scope and accepted meanings                    | Complete  |
+| 418 | Verify kanji/whole-word readings, ambiguity and special-reading explanations   | Complete  |
+| 419 | Review/correct original JP/kana examples and both translations                 | Complete  |
+| 420 | Correct component shape/name and mnemonic factual claims                       | Complete  |
+| 421 | Bind exact source identities through existing source preflight, no guessed IDs | Complete  |
+| 422 | Validate prerequisite closure, placement and level progression policies        | Complete  |
+| 423 | Record a versioned independent review decision bound to source/content         | Complete  |
+| 424 | Prepare finite V5 without changing any V1-V4 object/hash/identity              | Complete  |
+| 425 | Preview additive writes, query/storage costs and idempotent rerun              | Preflight |
+| 426 | Apply approved selected teaching batches without resetting SRS                 | Planned   |
+| 427 | Publish only the verified finite manifest, or report exact blockers            | Planned   |
+| 428 | Batched relevant content/answer/integrity and unchanged-progress acceptance    | Planned   |
+| 429 | Version/push/deploy/live verify and report actual published counts             | Planned   |
 
 ## Boundaries
 
@@ -85,3 +85,28 @@ licensed attributed JMdict provenance and both imported locales; 10/10 exact
 raw kanji readings, successful KANJIDIC2 provenance and successful graphics with
 matching stroke counts. No raw import or database mutation was needed. These
 observations do not replace transactional curator preflight or quality checks.
+
+## Finite V5 And Operator Plan
+
+V5 contains 88 components, 111 kanji, 140 word pairs, 339 items and 590 cards
+across ten levels. Fourteen reviewed source batches include every V4 source
+unchanged. V5 canonical SHA-256:
+`2943f058d3590f190274bdcabf81e1270c1fa1274f5b6e2c02b0e9737eeca03a`.
+Meaning blocks are part of the sealed expected target content and checked
+against actual cards before publication. Old canonical V1-V4 objects/hashes
+and identities are unchanged. No new SQL migration or runtime dependency.
+
+The curation workflow defaults to read-only `plan`; only explicit `apply` can
+write reviewed teaching content. Its database secret is no longer available
+during npm installation. Content application no longer runs unrelated schema
+migrations. The publication workflow likewise exposes the secret only to its
+plan/publication step, not dependency installation or manifest validation.
+
+Run selected kanji07-only plan before any teaching write. Capture aggregate
+private-state/old-course fingerprints locally. Apply only that reviewed batch,
+then preflight and apply selected word07; its kanji must already exist at the
+registered earlier placements. Rerun selected applications to verify stable
+IDs/counts and unchanged private state. Only after zero quality blockers/warnings
+and a successful V5 read-only plan, publish V5 without enrollment. No bulk raw
+import, source mutation, old-seal replacement, paid service or account reset.
+These operator results are pending until actually observed.

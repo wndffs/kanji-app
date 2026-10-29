@@ -5,11 +5,13 @@ export function selectStagingCuration(env = process.env) {
   const kanji = env.KANJI_BATCH ?? "";
   const words = env.WORD_BATCH ?? "";
   const skipWords = env.SKIP_WORDS ?? "false";
+  const mode = env.CURATION_MODE ?? "plan";
   if (
     ![kanji, words].every(
       (id) => typeof id === "string" && (id === "" || /^[a-z][a-z0-9-]{0,79}$/u.test(id)),
     ) ||
     !["true", "false"].includes(skipWords) ||
+    !["plan", "apply"].includes(mode) ||
     (skipWords === "true" && (kanji === "" || words !== ""))
   )
     throw new Error("Invalid staging curation selection.");
