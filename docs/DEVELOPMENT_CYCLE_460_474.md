@@ -25,7 +25,7 @@ Publish an additive, separately sealed V7 only after review, live source preflig
 | 470  | Manifest, graph and bounded-query acceptance                   | Done    |
 | 471  | Read-only additive preview and immutable identity checks       | Done    |
 | 472  | Publish only this approved teaching wave and V7                | Done    |
-| 473  | Batch checks and actual course/source acceptance               | Pending |
+| 473  | Batch checks and actual course/source acceptance               | Done    |
 | 474  | Deploy, server verification and measured release receipt       | Pending |
 
 ## Acceptance
@@ -66,3 +66,13 @@ Selected application [40928757701](https://github.com/wndffs/kanji-app/actions/r
 Read-only V7 plan [40928899632](https://github.com/wndffs/kanji-app/actions/runs/40928899632) passed before explicit publication [40930432283](https://github.com/wndffs/kanji-app/actions/runs/40930432283). Live course UUID: `5755286f-fd0b-4d39-8353-08f4dbc44837`; content version: `c08f45572335859349f1f0840aed0238bf90af037fe053b7d0d1e64845725d72`. The publisher returned `enrolledUserId: null`. Main 60-level course remains DRAFT; the finite V7 is separately PUBLISHED.
 
 After application, all eighteen protected table-set count/digest pairs matched the baseline exactly, including all eleven private-state tables and old finite courses/items/cards/answers/blocks. Physical database size then: 161,382,400 bytes. Final original-cohort comparison follows the isolated remote audit.
+
+## Batch And Live Acceptance
+
+- Relevant local tests, DB/source-tool typechecks, changed-source ESLint and formatting passed. Three outdated growing-registry expectations exposed by CI were corrected without altering frozen sources or proposal archives.
+- [CI 40928026497](https://github.com/wndffs/kanji-app/actions/runs/40928026497): Quality passed (including all 749 DB tests); web smoke 483 passed, one existing skip.
+- [Study integrity 40928026628](https://github.com/wndffs/kanji-app/actions/runs/40928026628): PostgreSQL 18 passed.
+- [Remote V7 smoke 40931316113](https://github.com/wndffs/kanji-app/actions/runs/40931316113): passed against exact web/API revision `620c120c297d08a4a68db858a49525611b6a59e9`. Uses an isolated generated audit account, no lesson/review-answer submission and no original-account switching.
+- Actual V7 browser/API coverage: 389 materials, 92 components, 117 kanji, 180 pairs and 686 core cards; 297/297 kanji/words have both meaning and reading cards, zero missing RU/EN/required readings. Modern JLPT unknown: 115 kanji, 179 words; N4–N3 exam coverage explicitly unconfirmed.
+- After publication and the isolated audit, all eighteen original protected count/digest pairs matched. The original 26-account cohort, all progress tables and earlier finite course structures/answers/blocks are unchanged. Physical database size: 161,570,816 bytes; not Neon billing usage.
+- Warm remote medians: dashboard 794 ms, lessons 582 ms, reviews 307 ms, characters 598 ms, item 798 ms. Only three samples per endpoint from the GitHub runner; these are not cold-start promises or local VPN latency measurements.

@@ -6,7 +6,7 @@
 - Updated: 2026-10-29
 - State: **IN PROGRESS**
 - Entire 60-level main-course publication approved: **no**
-- Individual verified additive waves: **authorized; eighth wave applied**
+- Individual verified additive waves: **authorized; ninth wave applied**
 
 The 2,300-kanji and 8,000-vocabulary publication target has not been reached or
 claimed. This record captures the successful staging corpus, the exact
@@ -15,7 +15,32 @@ continue.
 
 ## Verified staging evidence
 
-### Current Editorial Corpus: Eighth Batches (2026-10-29)
+### Current Editorial Corpus: Ninth Batches (2026-10-29)
+
+Cycle 460–474 applied only reviewed kanji09/words09 in
+[40928757701](https://github.com/wndffs/kanji-app/actions/runs/40928757701).
+The full 389-item quality scan has zero blockers/warnings. The 60-level main
+course remains **DRAFT**, now with **92 components, 117 kanji, 180 exact word
+pairs, 389 materials, 686 cards and 180 original bilingual examples** across
+fifteen populated levels. Remaining targets: **2,183 kanji and 7,820 pairs**.
+Raw dictionary/stroke imports were reused, not expanded.
+
+Separate finite V7 is **PUBLISHED**, after read-only plan `40928899632` and
+explicit publication `40930432283`, with no implicit enrollment or switching.
+Course UUID: `5755286f-fd0b-4d39-8353-08f4dbc44837`; content version:
+`c08f45572335859349f1f0840aed0238bf90af037fe053b7d0d1e64845725d72`.
+Exact-revision remote audit `40931316113` passed. All original private state,
+old finite course structures, target/card identities and answers/blocks matched
+their pre-write snapshots. Detailed observations and private digests stay out
+of Git.
+
+Actual coverage shows 297/297 kanji/word materials with meaning and reading;
+zero missing RU/EN/required readings. Modern JLPT is unknown for 115 kanji and
+179 words. The five-kanji/twenty-word expansion fills useful everyday basics,
+not a complete N4/N3 list. Independent AI reviews do not certify human editorial
+quality or exam coverage. Full receipts: `DEVELOPMENT_CYCLE_460_474.md`.
+
+### Previous Editorial Corpus: Eighth Batches (2026-10-29)
 
 Cycle 445-459 subsequently added retention features and one recorded-word
 pronunciation sidecar, without changing this course's teaching rows/card set.

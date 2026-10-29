@@ -1,12 +1,23 @@
 # Editorial Drafts
 
+2026-10-29 wave09 checkpoint: five kanji/four visual prerequisites and twenty
+exact word pairs independently AI-reviewed, corrected and applied as
+kanji09/words09. All ten wave08-deferred basics are now included in this
+reviewed wave; the twenty-word total also adds actions/understanding and
+calendar/study terms. Reviewed and published finite V7 totals are 117 kanji and
+180 pairs. Application `40928757701`, plan `40928899632`, publication
+`40930432283` and remote audit `40931316113` passed. No old source was resealed
+and no user progress reset. See `LEXICAL_WAVE09_SELECTION.md` and
+`DEVELOPMENT_CYCLE_460_474.md`. Reserved shopping/work/health/travel topics
+remain unreviewed; 午前中 was rejected for missing RU source evidence.
+
 2026-10-29 wave08 checkpoint: the bounded lexical proposal was independently
 AI-reviewed and corrected, then registered/applied as kanji08/words08. The
-reviewed corpus is now 112 kanji/160 exact word pairs; V6 publication
+reviewed corpus at that checkpoint was 112 kanji/160 exact word pairs; V6 publication
 `40908104197`, post-publication plan `40908802623` and remote audit `40909088233`
 passed. See `LEXICAL_WAVE08_REVIEW.md` and `DEVELOPMENT_CYCLE_430_444.md`.
 Thirty observed candidates yielded twenty selected pairs; ten deferred pairs
-are neither published nor counted as reviewed pending content. Source matching,
+were not published or counted as reviewed pending content at that checkpoint. Source matching,
 AI review and actual publication remain distinct evidence layers.
 
 2026-10-29 update: wave07 is retained as a nonpublishing proposal archive.
