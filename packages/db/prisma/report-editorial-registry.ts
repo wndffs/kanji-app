@@ -5,11 +5,24 @@ import {
   buildEditorialRegistryInventory,
   type EditorialRegistryInventory,
 } from "../src/editorial-registry-inventory";
+import { buildMainCourseContentBatches } from "../src/main-course-content";
+import { buildMainCourseCompletionDraft } from "../src/main-course-completion-content";
+import type { EditorialRegistryInventoryOptions } from "../src/editorial-registry-inventory";
 
 export function parseEditorialRegistryArgs(args: readonly string[]) {
-  if (args.length === 0) return { json: false };
-  if (args.length === 1 && args[0] === "--json") return { json: true };
-  throw new Error("Usage: report-editorial-registry [--json]. No database or output file options.");
+  if (
+    new Set(args).size !== args.length ||
+    args.some((arg) => !["--json", "--include-completion-draft"].includes(arg))
+  )
+    throw new Error(
+      "Usage: report-editorial-registry [--json] [--include-completion-draft]. No database or output file options.",
+    );
+  return {
+    json: args.includes("--json"),
+    ...(args.includes("--include-completion-draft")
+      ? { includeCompletionDraft: true as const }
+      : {}),
+  };
 }
 
 export function formatEditorialRegistryInventory(report: EditorialRegistryInventory): string {
@@ -52,10 +65,21 @@ export function formatEditorialRegistryInventory(report: EditorialRegistryInvent
 
 export function runEditorialRegistryInventory(
   args: readonly string[],
-  build: () => EditorialRegistryInventory = buildEditorialRegistryInventory,
+  build: (
+    options?: EditorialRegistryInventoryOptions,
+  ) => EditorialRegistryInventory = buildEditorialRegistryInventory,
 ): { stdout: string; exitCode: number } {
-  const { json } = parseEditorialRegistryArgs(args);
-  const report = build();
+  const { json, includeCompletionDraft } = parseEditorialRegistryArgs(args);
+  const base = includeCompletionDraft ? buildMainCourseContentBatches() : null;
+  const report =
+    base === null
+      ? build()
+      : build({
+          kanjiBatches: [
+            ...base,
+            buildMainCourseCompletionDraft(base.flatMap((batch) => batch.components)),
+          ],
+        });
   return {
     stdout: `${json ? JSON.stringify(report, null, 2) : formatEditorialRegistryInventory(report)}\n`,
     exitCode: report.validation.valid ? 0 : 1,

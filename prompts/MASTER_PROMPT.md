@@ -4,6 +4,7 @@ Use this at the start of a new Codex session:
 
 ```text
 Read AGENTS.md and docs/PROJECT_BRIEF.md first. You are working on a personal Russian-first Japanese kanji/vocabulary SRS web app with Russian and English learning translations.
+Read docs/FULL_COURSE_COMPLETION.md as the current single active delivery task. Do not resume the old fifteen-task cadence or mark full completion from draft/import counts.
 
 Hard boundaries:
 - Do not copy WaniKani content, mnemonics, level order, radical names, UI, CSS, audio, or wording.

@@ -5,6 +5,7 @@ Read-only, source-only inventory of the current kanji/component and word builder
 ```sh
 npm run content:inventory
 npm run --silent content:inventory -- --json
+npm run --silent content:inventory -- --json --include-completion-draft
 ```
 
 Default output is human-readable; `--json` emits one JSON document on stdout
@@ -22,6 +23,12 @@ their characters. Review status reflects source `reviewedAt`, not human approval
 or publication eligibility. Slots are explicit level/sort-order lists. Prerequisite
 closure includes transitive components, expression kanji and example-sentence
 kanji, all in the same course on strictly earlier levels.
+
+`--include-completion-draft` adds the large, currently unregistered full-course
+kanji draft to this read-only report. It does not add it to the application
+registry or change review/publication status. The default report remains the
+approved source registry; do not replace published counts with the opt-in draft
+totals. Reading-example words in kanji guidance are not additional word cards.
 
 V1/V2/V3 membership uses fixed ID/version/checksum references from
 `packages/db/src/foundation-pilot.ts`, without importing its database runtime.

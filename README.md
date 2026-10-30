@@ -6,11 +6,16 @@ This repository is an npm TypeScript monorepo with a tiny project-authored start
 
 ## Current Roadmap
 
-The current numbered backlog is [400-499](docs/ROADMAP_400_499.md), with the
+The current active delivery is **one OPEN [full-course completion task](docs/FULL_COURSE_COMPLETION.md)**:
+2,300 actually taught kanji, 8,000 taught word pairs and a complete independent
+learning workflow. The former fifteen-task cadence is superseded. A substantial
+source-checked draft is not a published course or a completed replacement.
+
+The historical numbered roadmap is [400-499](docs/ROADMAP_400_499.md), with the
 latest released [475-489 batch](docs/DEVELOPMENT_CYCLE_475_489.md). It prioritizes
 reviewed content and truthful scope reporting over further visual-only cycles.
 Later reserved tasks are not completed work or a promise of full JLPT coverage.
-Next reserved batch: 490-499 (ten readiness/acceptance tasks). Published V7 contains 117 kanji, 180 word pairs
+The former 490-499 readiness checks are now acceptance criteria inside that task. Published V7 contains 117 kanji, 180 word pairs
 and 686 core cards across fifteen levels, including everyday actions, time
 and study vocabulary. Retention includes bilingual reading guidance, visual
 contrasts, rotating missed-card practice, private rehearsal history and a

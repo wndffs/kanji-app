@@ -6,6 +6,12 @@ Build a personal Russian-first Japanese kanji/vocabulary SRS web application wit
 
 ## User decisions
 
+- Current delivery request (2026-10-30): use one OPEN full-course completion
+  task, `docs/FULL_COURSE_COMPLETION.md`, instead of automatically splitting
+  work into fifteen tiny numbered tasks. Finish the actual kanji/vocabulary
+  learning product, not the task counter. Do not claim completion from drafts,
+  source matches, imported totals or completed infrastructure.
+
 - Project type: personal project.
 - Learning model: hybrid; structured levels plus dynamic decks/text mining.
 - Target audience: Russian-speaking beginners and continuing learners, aiming to support learning up to about JLPT N2, with English learning translations stored alongside Russian.

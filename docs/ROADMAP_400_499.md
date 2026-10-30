@@ -1,5 +1,11 @@
 # Product Roadmap 400-499
 
+**Superseded delivery cadence, 2026-10-30:** the user requested one substantial
+full-course task instead of another fifteen numbered microtasks. See
+`FULL_COURSE_COMPLETION.md`. Historical completed checkpoints remain evidence;
+490–499 are unresolved acceptance criteria within that OPEN task, not the next
+automatic release batch.
+
 Baseline: `2b29567`, verified runtime `1fdd9b0`, 2026-10-28.
 The requests authorized 400-414, 415-429, 430-444, 445-459, 460-474 and **475-489**, with separate
 commits, batched checks, push, deployment and verified publication. All six
