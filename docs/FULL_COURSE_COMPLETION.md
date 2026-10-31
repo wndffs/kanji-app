@@ -108,6 +108,13 @@ to the content deficit. Keep them within this single task:
   connected to the learner workflow.
 - Leeches are identified, but selecting those exact cards into resumable
   non-SRS practice is not complete.
+- Item/search headings can prefer an accepted synonym over the authored primary
+  meaning (observed for 安心). Align read-side primary selection without removing
+  valid synonyms or rewriting users' accepted answers.
+- The current serial curation path is not yet performance-verified at 2,300/8,000.
+  Batch database I/O while preserving complete source/graph checks, idempotency
+  and private data. Removing a duplicate workflow preflight is not proof that
+  importing the entire teaching corpus will fit one execution window.
 
 These findings are from code inspection, not a fresh exhaustive live UX audit.
 They are not described as fixed by this content-focused change.
@@ -143,17 +150,21 @@ examples has an earlier prepared kanji placement. Immutable V1-V7 source seals
 and the full-main 60-level/2,300/8,000 publication gate are unchanged.
 
 **Publication is a separate step, not implied by registry review metadata.**
-Until a server receipt confirms application, live totals remain the previous
-117 kanji / 180 word pairs. Additive curation can publish verified library items
-while `japanese-ru-n2` remains DRAFT; that does not make the larger curriculum
-available in lessons or enlarge the finite V7 course. Preserve existing accounts,
-SRS, private content, enrollments and old course identities during application.
+The server receipt below confirms the new reviewed library items and main-course
+placements. `japanese-ru-n2` remains DRAFT; this does not make the larger curriculum
+available in lessons or enlarge the finite V7 course. Published library material,
+published learner-course membership and overall course completion remain distinct.
+
+Of the new 145 kanji, **100 now occur in reviewed vocabulary cards; 45 still need
+word-card reinforcement**. Their dictionary reading illustrations are not counted
+as completed vocabulary lessons. Close these gaps before calling this an entirely
+reinforced learning block; editorial acceptance of individual kanji is separate.
 
 The single task stays OPEN: **2,038 further kanji and 7,740 further word pairs**
 still need complete teaching and review, in addition to the functional gaps
 above. Do not equate completing this block with completing the 2,300/8,000 app.
 
-The live 30,000-pair raw selection lacks three of the new dictionary entries.
+The initial live 30,000-pair raw selection lacked three of the new dictionary entries.
 The existing curation workflow now offers an explicit, pinned-source supplement:
 it imports at most 100 absent reviewed pairs through the existing JMdict importer,
 with original-parent and derived-file checksums recorded separately. Any existing
@@ -174,3 +185,44 @@ the old local snapshot and finite course seals remain unchanged.
 Multiple explicitly named vocabulary batches can be applied together after one
 full-registry preflight. Duplicate, pending, unknown, unsafe and excessive
 selections fail before writes; unselected old batches are never reapplied.
+
+## Server Receipt: 2026-10-31
+
+- Application code: `9495aa144dad4ceff19f32a7578d0dafc14306a5`.
+  Web and API health both returned 200 with that revision.
+- [Kanji read-only preflight](https://github.com/wndffs/kanji-app/actions/runs/41219134967)
+  passed. The [kanji application](https://github.com/wndffs/kanji-app/actions/runs/41219565444)
+  committed 145 kanji / 38 components; its post-write audit found one normalization
+  drift in the old curator. The curator now uses the shared meaning normalizer,
+  with a regression test; exactly one new answer's normalized field was repaired.
+  No sealed batch was reapplied to repair that field.
+- [Complete word publication](https://github.com/wndffs/kanji-app/actions/runs/41222796370)
+  succeeded: three absent raw dictionary entries, 80 reviewed word pairs,
+  160 word cards and 80 original examples. Only the four explicitly named new
+  word manifests were written. The complete registry was preflighted first.
+- Final main-set totals: **130 components / 262 kanji / 260 word pairs /
+  652 teaching targets / 1,174 core meaning-reading cards**. All five new content
+  import runs are SUCCESS. There are 24 populated levels out of 60; course status
+  is still DRAFT. V7 remains 389 items, 117 kanji / 180 words / 686 core cards.
+- Post-publication quality: **652 items, zero blockers, zero warnings**;
+  content version `28a77ffc252980b1718298b854faa986ee4f2b7457c01844253aa83e94435971`.
+- All **23 monitored preservation groups** have exactly unchanged row counts
+  and digests, including 30 accounts, settings, SRS, private meanings/mnemonics,
+  reviews, enrollments, kana progress and sealed course content. Only aggregate
+  confirmation is recorded here; no private rows or digests are committed.
+- [CI](https://github.com/wndffs/kanji-app/actions/runs/41222717861) passed,
+  including 487 browser cases and one existing skip. Targeted local checks cover
+  content, source guards, selection, curation and insert-only conflict handling;
+  DB/importer/source-tool typechecks and changed-file lint/format passed.
+- The real site was checked through ordinary search and the new 安 / 安心 pages:
+  kana readings, memory aids, component/kanji links and the original word example
+  render. This is not a claim that all outstanding learner workflows passed.
+
+The subsequent workflow-only optimization removes duplicate vocabulary preflight
+in apply mode: the apply command still checks the entire registry before writes.
+Its targeted guard/curation suite passed 97 cases. The large-run timeout is now
+45 minutes; this does not retroactively change the successful 28-minute run above.
+
+**Task remains OPEN.** Next content work in this same task must close the 45
+reinforcement gaps and continue the remaining 2,038 kanji / 7,740 word pairs,
+not start another numbered microtask cycle or declare WaniKani-equivalent coverage.
