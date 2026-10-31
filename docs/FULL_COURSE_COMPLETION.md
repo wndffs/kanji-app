@@ -277,8 +277,62 @@ pilot course, or claim of WaniKani equivalence.
 
 After this extension, **2,026 kanji and 7,660 word pairs** still need full
 teaching and review to reach 2,300 / 8,000. Closing these 45 gaps does not imply
-that every older foundation kanji has word reinforcement: nine older glyphs
+that every older foundation kanji has word reinforcement: ten older glyphs
 still lack any word expression in the expanded source registry. Taught-reading
 coverage for the entire course remains a larger editorial obligation.
 Keep the 60-level main course DRAFT and V7 membership unchanged; do not silently
 move existing users or advertise unfinished levels as a complete learner course.
+
+## Reinforcement Server Receipt: 2026-11-01
+
+- Release code: `7bae74671efdf6e3f4c340420dd27c4abbd4a687` (content commit
+  `2edeed355f2e916fa0e77672d4bd3a56151f15e3`). Both web and API health returned
+  200 with the release revision. No new local dev server was started.
+- [Explicit reinforcement publication](https://github.com/wndffs/kanji-app/actions/runs/41242220572)
+  succeeded. Only the new support-kanji manifest and four new word manifests
+  were selected. All five authored import runs are SUCCESS. All registered
+  vocabulary passed source/license/prerequisite preflight before word teaching
+  writes; existing manifests were not reapplied.
+- The pinned source supplement added five absent JMdict entries for six
+  requested spelling/reading pairs through the existing insert-only importer.
+  It did not reimport the corpus or repair existing aliases. All three pinned
+  archives were reused from verified cache without downloading again.
+- Final live main-set totals: **137 components / 274 kanji / 340 primary word
+  pairs / 751 teaching targets / 1,365 core meaning-reading cards**. There are
+  27 populated levels out of 60; main-course status remains DRAFT.
+- All **45 requested completion-block expression gaps are closed**. The new
+  code additionally validates 57 exact taught-reading alignments: those 45
+  plus all 12 new support kanji. All 80 new words have published primary-reading
+  answers and original JP/kana/RU/EN examples. Four same-sense alternatives are
+  additional accepted answers, not additional word totals.
+- Final published-content audit: **751 scanned items, zero blockers, zero
+  warnings**, content version
+  `1dbf6c9ec9f8b9750988f8e5c0aed9dec18b1d7b341dc40017b9d62ab480750d`.
+- All **35 monitored preservation groups** retain exactly the same counts and
+  private digests: accounts/settings, SRS, private content, review/enrollment/
+  kana history, sealed courses, and the prior main-set items/cards/answers/
+  placements/dependencies/mnemonics/hints/raw targets/example links. This
+  includes 30 accounts, 162 SRS states and all 652 previous main items. V7
+  remains 389 items. Only this aggregate confirmation enters Git.
+- Final targeted local batch: **312 tests passed across 12 files**, plus DB
+  typecheck and changed-file lint/format checks. [CI](https://github.com/wndffs/kanji-app/actions/runs/41242160024)
+  passed, including 487 browser cases and one existing skip;
+  [study integrity on PostgreSQL 18](https://github.com/wndffs/kanji-app/actions/runs/41242160021)
+  passed. These checks do not constitute human linguistic certification.
+- Live ordinary search and item navigation verified `顔面 / がんめん`, its
+  original example, and `面 / めん` with three linked reinforcement words.
+  Its rendered KanjiVG SVG has nine paths at 320 x 320. No reviews, enrollments
+  or translation preferences were changed for this check. Browser tabs and
+  both review agents were closed; no local job was left running.
+
+**Current task status: OPEN.** The requested 45-gap block is complete; the full
+2,300-kanji / 8,000-word course is not. Continue substantial authored/reviewed
+content inside this same task: **2,026 kanji and 7,660 primary word pairs remain**,
+along with course-wide taught-reading coverage and the previously listed
+functional gaps. Do not publish the unfinished 60-level curriculum or switch
+existing learners from V7 to it.
+
+The item/search UI still sometimes picks an alphabetically earlier accepted
+synonym instead of the authored primary meaning (confirmed on the new face
+word). Both displayed meanings are valid; primary-meaning display priority
+remains an open presentation issue, not a reason to rewrite accepted answers.
