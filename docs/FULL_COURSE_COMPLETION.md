@@ -226,3 +226,49 @@ Its targeted guard/curation suite passed 97 cases. The large-run timeout is now
 **Task remains OPEN.** Next content work in this same task must close the 45
 reinforcement gaps and continue the remaining 2,038 kanji / 7,740 word pairs,
 not start another numbered microtask cycle or declare WaniKani-equivalent coverage.
+
+## Reinforcement Extension: 2026-10-31
+
+This is work inside the same OPEN full-course task, not another numbered cycle,
+pilot course, or claim of WaniKani equivalence.
+
+- Scope: 80 original word lessons, 12 supporting kanji and seven visual cues.
+  The new manifests use free levels 31 (components), 32 (support kanji), and 33
+  (words). All earlier 262-kanji / 260-word manifests and placements are frozen;
+  aggregate SHA-256 regression pins cover the complete earlier registry, not
+  just V1-V7. Four twenty-word manifests are storage units, not four tasks.
+- `reinforcement-reading-evidence.ts` explicitly aligns all 45 outstanding
+  completion-block kanji and all 12 support kanji to exact primary word cards.
+  It records whole-word reading boundaries, the JMdict entry ID and the
+  checked `へん -> ぺん` change in `近辺`. An example-only glyph occurrence,
+  another sense's reading, or an alternate-answer-only reading is not proof.
+- The verified local 2026-10-31 snapshot supplies 80 unique, bilingual primary
+  JMdict pairs plus five same-sense reading alternatives, 12 exact KANJIDIC2
+  on-readings and 12 primary KanjiVG sequences.
+  No download, dictionary-wide reimport, competitor content or new dependency
+  is needed. Dictionaries are source evidence; meanings, scope, memory aids
+  and JP/kana/RU/EN sentences are separately authored and reviewed.
+- Deliberate sense boundaries include atmospheric `寒気 / かんき`, autograph
+  board `色紙 / しきし`, organism `生物 / せいぶつ`, and popularity
+  `人気 / にんき`. Their unrelated readings are not accepted as alternatives.
+  `昭和` ends in 1989; the old Russian source's open-ended era description is
+  not copied into teaching. Rental `礼金` is distinguished from a refundable
+  deposit. Actual source pairs, not mechanically concatenated kanji readings,
+  determine accepted answers.
+- The newly prepared registry contains 274 kanji and 340 primary word pairs.
+  Independent AI reviewers Dalton and Lorentz accepted meaning/context and
+  source/reading/dependency checks after corrections. Local preparation and AI
+  acceptance are not human certification, a live count or a publication receipt.
+  Complete live source, licensing, prerequisite and quality checks remain required.
+- Preserve all accounts, private content, SRS and kana history, all sealed
+  courses and the complete previous main set. The pre-write baseline covers
+  35 aggregate row-count/digest groups, including the 652 prior main items;
+  private rows and digests must not enter Git.
+
+After this extension, **2,026 kanji and 7,660 word pairs** still need full
+teaching and review to reach 2,300 / 8,000. Closing these 45 gaps does not imply
+that every older foundation kanji has word reinforcement: nine older glyphs
+still lack any word expression in the expanded source registry. Taught-reading
+coverage for the entire course remains a larger editorial obligation.
+Keep the 60-level main course DRAFT and V7 membership unchanged; do not silently
+move existing users or advertise unfinished levels as a complete learner course.

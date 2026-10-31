@@ -21,7 +21,7 @@ import { buildCompletionWordBatches } from "../src/completion-word-content";
 import { validateMainCourseWordBatches, wordHanCharacters } from "../src/main-course-word-content";
 
 const base = buildMainCourseContentBatches().filter(
-  (batch) => batch.id !== "full-course-kanji-completion-01",
+  (batch) => batch.id !== "full-course-kanji-completion-01" && !batch.id.includes("reinforcement"),
 );
 const makeContent = () =>
   buildMainCourseCompletionContent(base.flatMap((batch) => batch.components));
@@ -32,11 +32,11 @@ describe("single full-course completion content block", () => {
     const report = JSON.parse(result.stdout);
     expect(result.exitCode).toBe(0);
     expect(report.validation.valid).toBe(true);
-    expect(report.prepared.distinctTotals.kanji).toBe(262);
-    expect(report.prepared.reviewedDistinctTotals.kanji).toBe(262);
+    expect(report.prepared.distinctTotals.kanji).toBe(274);
+    expect(report.prepared.reviewedDistinctTotals.kanji).toBe(274);
     expect(report.prepared.pendingReviewDistinctTotals.kanji).toBe(0);
-    expect(report.prepared.distinctTotals.words).toBe(260);
-    expect(report.prepared.reviewedDistinctTotals.words).toBe(260);
+    expect(report.prepared.distinctTotals.words).toBe(340);
+    expect(report.prepared.reviewedDistinctTotals.words).toBe(340);
     expect(result.stdout).toBe(runEditorialRegistryInventory(["--json"]).stdout);
     expect(report.sourceSeals.every((seal: { status: string }) => seal.status === "complete")).toBe(
       true,
@@ -193,7 +193,9 @@ describe("single full-course completion content block", () => {
     const kanji = [...base, makeContent()];
     const words = buildCompletionWordBatches(kanji);
     const priorWords = buildMainCourseWordBatches().filter(
-      (batch) => !batch.id.startsWith("full-course-vocabulary-completion-"),
+      (batch) =>
+        !batch.id.startsWith("full-course-vocabulary-completion-") &&
+        !batch.id.includes("reinforcement"),
     );
     expect(words).toHaveLength(4);
     expect(

@@ -1,0 +1,243 @@
+import { normalizeJapaneseReading } from "@kanji-srs/japanese";
+import type { MainCourseContentBatch } from "./main-course-content";
+
+const CUES = [
+  [
+    "面",
+    "рамка фасада",
+    "facade frame",
+    "широкая рамка с внутренними перегородками",
+    "a wide frame with inner partitions",
+  ],
+  [
+    "禾",
+    "колос",
+    "grain stalk",
+    "деревообразная форма с наклонным верхним штрихом",
+    "a tree-like shape with a sloping top stroke",
+  ],
+  [
+    "幾",
+    "парный узел",
+    "paired knot",
+    "два верхних узла над пересекающимися нижними штрихами",
+    "two upper knots above crossing lower strokes",
+  ],
+  [
+    "几",
+    "изогнутая рама",
+    "curved frame",
+    "две боковые опоры с загнутой правой ножкой",
+    "two side supports with a hooked right leg",
+  ],
+  [
+    "⺍",
+    "три искры",
+    "three sparks",
+    "три раздельных коротких верхних штриха",
+    "three separate short upper strokes",
+  ],
+  [
+    "凵",
+    "лоток",
+    "tray",
+    "открытая сверху рамка с двумя боковыми стенками",
+    "an open-top frame with two side walls",
+  ],
+  [
+    "𡗗",
+    "связка ветвей",
+    "bundle of branches",
+    "три перекладины над расходящимися нижними штрихами",
+    "three crossbars above spreading lower strokes",
+  ],
+] as const;
+
+// Selected on-readings are reinforced by real word cards, not example-text occurrences.
+const KANJI = [
+  [
+    "面",
+    "メン",
+    ["поверхность", "лицо"],
+    ["surface", "face"],
+    ["面"],
+    "На перегороженной поверхности фасада появилось лицо: сначала узнайте широкую рамку целиком.",
+    "A face appears on the partitioned surface of a facade: recognize the wide frame as a whole first.",
+    "Перед лицом табличка めん: произнесите ме-н, удержав ん отдельной морой. 顔面（がんめん） — лицо.",
+    "A face carries the label めん: say me-n, giving ん its own mora. 顔面 (がんめん) means a face.",
+  ],
+  [
+    "和",
+    "ワ",
+    ["гармония", "мир", "согласие"],
+    ["harmony", "peace"],
+    ["禾", "口"],
+    "Колос 禾 и рот 口: за общим столом люди договариваются жить в гармонии. Это образ, не история знака.",
+    "A grain stalk 禾 and a mouth 口: people at one table agree to live in harmony. This is a memory image, not character history.",
+    "Гармоничный хор начинает с одного わ: ва. В 平和（へいわ） — мир, в 和食（わしょく） 和 означает японский стиль.",
+    "A harmonious choir begins with one わ, wa. 平和 (へいわ) means peace; in 和食 (わしょく), 和 refers to Japanese style.",
+  ],
+  [
+    "成",
+    "セイ",
+    ["становиться", "стать", "достигать"],
+    ["become", "achieve"],
+    ["厂", "弋"],
+    "Под наклонным навесом 厂 крюк 弋 поднимает готовое изделие: работа достигает результата. Это частичные зрительные опоры, не полная разборка.",
+    "Under a sloping shelter 厂, a hook 弋 lifts a finished object: the work achieves its result. These are partial visual cues, not a full decomposition.",
+    "Став чемпионом, скажите: «Сей день настал!» Подсказка «сей» ведёт к せい; сохраняйте две моры せ・い. 成長（せいちょう） — рост.",
+    "On becoming a champion, say 'say!' as a cue for せい; keep two morae, せ・い. 成長 (せいちょう) means growth.",
+  ],
+  [
+    "機",
+    "キ",
+    ["механизм", "возможность", "шанс"],
+    ["mechanism", "opportunity"],
+    ["木", "幾"],
+    "Дерево 木 держит сложный парный узел 幾: механизм готов сработать, когда появится возможность.",
+    "A tree 木 supports a complex paired knot 幾: a mechanism is ready to operate when the opportunity comes.",
+    "Ключ «ки» запускает механизм: き, одна мора. В 待機（たいき） механизм ждёт, а 機会（きかい） — возможность.",
+    "A key starts the mechanism: use 'key' as an approximate cue for き, but shorten its vowel to one mora. 待機 (たいき) is standing by; 機会 (きかい) is an opportunity.",
+  ],
+  [
+    "風",
+    "フウ",
+    ["ветер"],
+    ["wind"],
+    ["几", "虫"],
+    "Изогнутая рама 几 ловит ветер, который закручивает внутри маленького жука 虫.",
+    "A curved frame 几 catches wind that spins a little insect 虫 inside it.",
+    "Ветер выдувает долгое «фуу»: ふ・う, две моры. Для ふ выдыхайте между сближенными губами, не касаясь зубами губы. 台風（たいふう） — тайфун.",
+    "The wind blows a long 'fuu': ふ・う, two morae. For ふ, blow between nearly closed lips without touching lip to teeth. 台風 (たいふう) means typhoon.",
+  ],
+  [
+    "労",
+    "ロウ",
+    ["труд", "тяжёлый труд"],
+    ["labor", "toil"],
+    ["⺍", "冖", "力"],
+    "Три искры ⺍ над укрытием 冖 и сила 力 внизу: мастер трудится в мастерской.",
+    "Three sparks ⺍ above a cover 冖 and strength 力 below: a craftsperson toils in a workshop.",
+    "Уставшему работнику протянули «роу» — долгий выдох ろ・う. Не заменяйте японское р английским l. 労働（ろうどう） — труд.",
+    "A tired worker lets out 'rou': keep the long ろ・う. Use a light Japanese r tap rather than English l. 労働 (ろうどう) means labor.",
+  ],
+  [
+    "鳴",
+    "メイ",
+    ["издавать звук", "звучать"],
+    ["make a sound", "sound"],
+    ["口", "鳥"],
+    "Рот 口 рядом с птицей 鳥: птица подаёт голос, а не молча летит.",
+    "A mouth 口 beside a bird 鳥: the bird makes a sound instead of flying silently.",
+    "Птица кричит «мэй»: め・い, две моры. В 悲鳴（ひめい） это крик человека; в 鳴き声（なきごえ） форма 鳴き читается なき, от кунного глагола 鳴く（なく）.",
+    "A bird calls 'may': め・い, two morae. 悲鳴 (ひめい) is a person's scream; in 鳴き声 (なきごえ), the form 鳴き is read なき, from the kun-based verb 鳴く (なく).",
+  ],
+  [
+    "幸",
+    "コウ",
+    ["счастье", "удача"],
+    ["happiness", "good fortune"],
+    ["土", "十"],
+    "На земле 土 стоит лестница счастья: пересечения 十 напоминают её ступени. Это неполные зрительные подсказки, не этимология.",
+    "On the ground 土 stands a ladder of happiness: crossings 十 suggest its steps. These are partial visual cues, not etymology.",
+    "Счастливому человеку вручили «коу»-бок: こ・う, долгий гласный. 幸福（こうふく） — счастье, не только случайная удача.",
+    "A happy person receives a trophy marked 'kou': こ・う, a long vowel. 幸福 (こうふく) is happiness, not merely a lucky accident.",
+  ],
+  [
+    "方",
+    "ホウ",
+    ["направление", "способ", "метод"],
+    ["direction", "method"],
+    ["方"],
+    "Уже знакомую форму 方 теперь изучаем как кандзи: повёрнутая опора указывает направление и способ пройти дальше.",
+    "Now learn the familiar shape 方 as a kanji: its turned support points out a direction and a way to proceed.",
+    "Указатель шепчет «хоу»: ほ・う, две моры; не сокращайте до ほ. 方言（ほうげん） — местная речь, диалект.",
+    "A sign whispers 'hou': ほ・う, two morae, not short ほ. 方言 (ほうげん) means local speech, a dialect.",
+  ],
+  [
+    "字",
+    "ジ",
+    ["письменный знак", "буква"],
+    ["written character", "letter"],
+    ["宀", "子"],
+    "Под крышей 宀 ребёнок 子 учится выводить письменные знаки.",
+    "Under a roof 宀 a child 子 learns to form written characters.",
+    "Ребёнок пишет «дзи»: じ, одна мора, без отдельного з или и. В 漢字（かんじ） это письменный знак китайского происхождения.",
+    "A child writes the sound 'ji': じ, one mora, not two syllables. 漢字 (かんじ) is a character of Chinese origin.",
+  ],
+  [
+    "画",
+    "ガ",
+    ["картина", "рисунок"],
+    ["picture", "drawing"],
+    ["一", "田", "凵"],
+    "Перекладина 一 над размеченным полем 田 в лотке 凵: получилась рамка для картины.",
+    "A bar 一 above a divided field 田 in a tray 凵: it becomes a frame for a picture.",
+    "На картине гусь говорит «га»: が, со звонким г и двумя точками дакутэна. 映画（えいが） — кинофильм; здесь не か.",
+    "A goose in a picture calls 'ga': が, with voiced g and two dakuten marks. 映画 (えいが) is a movie; do not use か here.",
+  ],
+  [
+    "実",
+    "ジツ",
+    ["действительность", "реальность", "плод"],
+    ["reality", "fruit"],
+    ["宀", "𡗗"],
+    "Крыша 宀 укрывает связку ветвей 𡗗 с настоящими плодами: результат можно проверить, он реален.",
+    "A roof 宀 shelters a bundle of branches 𡗗 with real fruit: the result can be checked, it is real.",
+    "Настоящий плод подписан «дзицу»: じ・つ, две моры. В 実力（じつりょく） сила реальна; つ здесь полное, не маленькое っ.",
+    "A real fruit is labelled 'jitsu': じ・つ, two morae. 実力 (じつりょく) is real ability; つ stays full-sized, not small っ.",
+  ],
+] as const;
+
+export function buildReinforcementKanjiContent(
+  previous: readonly MainCourseContentBatch[],
+): MainCourseContentBatch {
+  const components = CUES.map(([symbol, ru, en, shapeRu, shapeEn]) => ({
+    key: `component-reinforcement-${symbol.codePointAt(0)!.toString(16)}`,
+    symbol,
+    displayName: { ru, en },
+    meaning: { ru, en },
+    shapeDescription: { ru: shapeRu, en: shapeEn },
+    mnemonic: {
+      ru: `Зрительная опора «${ru}»: ${shapeRu}. Условное имя, не этимология.`,
+      en: `Visual cue '${en}': ${shapeEn}. A memory label, not etymology.`,
+    },
+  }));
+  const keys = new Map(
+    [...previous.flatMap((b) => b.components), ...components].map((c) => [c.symbol, c.key]),
+  );
+  return {
+    id: "full-course-kanji-reinforcement",
+    version: "1",
+    authoredAt: "2026-10-31",
+    reviewedAt: "2026-10-31",
+    reviewNotes:
+      "Twelve original RU/EN support kanji and seven visual cues independently read by AI reviewers Dalton (meaning, examples and phonology) and Lorentz (source, reading alignment and dependencies) on 2026-10-31. Parent applied scope, sound and synonym corrections. All twelve exact selected KANJIDIC2 readings and primary KanjiVG sequences independently verified against the pinned local 2026-10-31 snapshot; each selected reading has an aligned primary word card. AI editorial acceptance, not human certification, live license preflight or publication evidence. Earlier manifests and finite course seals unchanged.",
+    sourceFile: "packages/db/src/reinforcement-kanji-content.ts",
+    courseSlug: "japanese-ru-n2",
+    componentLevelNumber: 31,
+    components,
+    kanji: KANJI.map(
+      ([character, source, ru, en, symbols, imageRu, imageEn, soundRu, soundEn], index) => ({
+        character,
+        levelNumber: 32,
+        sortOrder: index + 1,
+        meanings: { ru: { primary: ru[0], accepted: ru }, en: { primary: en[0], accepted: en } },
+        reading: {
+          source,
+          sourceType: "ja_on",
+          primary: normalizeJapaneseReading(source),
+          accepted: [normalizeJapaneseReading(source)],
+        },
+        componentKeys: symbols.map((symbol) => {
+          const key = keys.get(symbol);
+          if (!key) throw new Error(`Missing component ${symbol} for ${character}`);
+          return key;
+        }),
+        meaningMnemonic: { ru: imageRu, en: imageEn },
+        readingMnemonic: { ru: soundRu, en: soundEn },
+        requireStrokeData: true,
+      }),
+    ),
+  };
+}

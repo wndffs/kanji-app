@@ -3,6 +3,7 @@ import { buildMainCourseContentBatch06 } from "./main-course-content-06";
 import { buildMainCourseContentBatch07 } from "./main-course-content-07";
 import { buildMainCourseContentBatch08 } from "./main-course-content-08";
 import { buildMainCourseContentBatch09 } from "./main-course-content-09";
+import { buildReinforcementKanjiContent } from "./reinforcement-kanji-content";
 import { buildMainCourseCompletionContent } from "./main-course-completion-content";
 import { buildMainCourseBlueprint } from "./main-course";
 import { validateCuratedMeaningBlocks, type CuratedMeaningBlock } from "./curated-meaning-blocks";
@@ -1526,11 +1527,16 @@ const BASE_MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
   buildMainCourseContentBatch09(),
 ];
 
-const MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
+const CORE_MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
   ...BASE_MAIN_COURSE_CONTENT_BATCHES,
   buildMainCourseCompletionContent(
     BASE_MAIN_COURSE_CONTENT_BATCHES.flatMap((batch) => batch.components),
   ),
+];
+
+const MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
+  ...CORE_MAIN_COURSE_CONTENT_BATCHES,
+  buildReinforcementKanjiContent(CORE_MAIN_COURSE_CONTENT_BATCHES),
 ];
 
 export function buildMainCourseContentBatches(): readonly MainCourseContentBatch[] {
