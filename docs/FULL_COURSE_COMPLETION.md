@@ -162,3 +162,15 @@ concurrent duplicates and never update existing word provenance. This does not
 publish teaching or replace the curator's complete license/RU/EN/source checks.
 The full corpus is not reimported. A pre-write quality check protects existing
 published content before new teaching application.
+
+The remote 2026-10-29 source cache was unavailable. The resulting checksum
+mismatch correctly stopped the first word run before source or teaching writes.
+The official 2026-10-31 snapshot was then downloaded separately and verified:
+all 80 primary pairs and three alternatives still match, all have RU/EN evidence,
+and primary lexical metadata is byte-for-byte identical to the reviewed local
+observations. The supplement workflow pins and caches this newly checked source;
+the old local snapshot and finite course seals remain unchanged.
+
+Multiple explicitly named vocabulary batches can be applied together after one
+full-registry preflight. Duplicate, pending, unknown, unsafe and excessive
+selections fail before writes; unselected old batches are never reapplied.

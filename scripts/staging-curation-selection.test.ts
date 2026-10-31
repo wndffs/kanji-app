@@ -32,6 +32,13 @@ describe("explicit staging curation selection", () => {
       supplementWordSources: true,
     });
   });
+  it("accepts explicit distinct word selections without also selecting kanji", () => {
+    expect(selectStagingCuration({ WORD_BATCH: `${WORDS},task-127-foundation-words-03` })).toEqual({
+      applyKanji: false,
+      applyWords: true,
+      supplementWordSources: false,
+    });
+  });
 
   it.each([
     { SKIP_WORDS: "true" },
@@ -44,6 +51,10 @@ describe("explicit staging curation selection", () => {
     { KANJI_BATCH: `batch-${"x".repeat(80)}` },
     { KANJI_BATCH: KANJI, SKIP_WORDS: "true", SUPPLEMENT_WORD_SOURCES: "true" },
     { SUPPLEMENT_WORD_SOURCES: "yes" },
+    { WORD_BATCH: `${WORDS},${WORDS}` },
+    { WORD_BATCH: `${WORDS},` },
+    { WORD_BATCH: `${WORDS},../secret` },
+    { WORD_BATCH: Array.from({ length: 21 }, (_, i) => `word-${i}`).join(",") },
   ])("fails ambiguous or unsafe input before database work: %j", (env) => {
     expect(() => selectStagingCuration(env)).toThrow("Invalid staging curation selection.");
   });

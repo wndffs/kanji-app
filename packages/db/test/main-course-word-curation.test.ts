@@ -6,6 +6,7 @@ import {
   applyMainCourseWordBatches,
   planMainCourseWordBatch,
   planMainCourseWordBatches,
+  parseMainCourseWordCurationArgs,
 } from "../prisma/curate-main-course-words";
 import { buildMainCourseBlueprint } from "../src/main-course";
 import { buildMainCourseContentBatches } from "../src/main-course-content";
@@ -20,6 +21,63 @@ import {
 } from "../src/main-course-word-content";
 
 describe("bounded vocabulary curation", () => {
+  it("parses distinct explicit batches while rejecting duplicate, unknown and excessive selections", () => {
+    const batches = registryFixtureBatches();
+    expect(
+      parseMainCourseWordCurationArgs(
+        ["--batch", batches[0]!.id, "--batch", batches[1]!.id, "--validate-only"],
+        batches,
+      ),
+    ).toEqual({ mode: "validate-only", batchIds: batches.map((batch) => batch.id) });
+    expect(() =>
+      parseMainCourseWordCurationArgs(
+        ["--batch", batches[0]!.id, "--batch", batches[0]!.id],
+        batches,
+      ),
+    ).toThrow();
+    expect(() =>
+      parseMainCourseWordCurationArgs(["--batch", batches[0]!.id, "--batch", "unknown"], batches),
+    ).toThrow("Unknown registered");
+  });
+  it("rejects every invalid multi-selection before database reads", async () => {
+    const batches = registryFixtureBatches();
+    for (const options of [
+      { batchIds: [] },
+      { batchIds: [batches[0]!.id, "unknown"] },
+      { batchIds: [batches[0]!.id, batches[0]!.id] },
+      { batchId: batches[0]!.id, batchIds: [batches[1]!.id] },
+      { batchIds: Array.from({ length: 21 }, (_, i) => `fixture-${i}`) },
+    ]) {
+      const fixture = harness(batches);
+      await expect(
+        applyMainCourseWordBatches(fixture.db, { batches, ...options }),
+      ).rejects.toThrow();
+      expect(fixture.readCourse).not.toHaveBeenCalled();
+      expect(fixture.mutations).toEqual([]);
+    }
+  });
+  it("preflights the entire registry once and applies only multiple explicitly selected additions", async () => {
+    const batches = thirdPendingFixtureBatches().map((batch) => ({
+      ...batch,
+      reviewedAt: "2026-10-31",
+    }));
+    const fixture = harness(batches);
+    await applyMainCourseWordBatch(fixture.db, batches[0]!);
+    const before = structuredClone(fixture.state);
+    const privateBefore = structuredClone(fixture.privateRows);
+    const result = await applyMainCourseWordBatches(fixture.db, {
+      batches,
+      batchIds: [batches[2]!.id, batches[1]!.id],
+    });
+    expect(result.preflightedBatchIds).toEqual(batches.map((batch) => batch.id));
+    expect(result.batches.map((batch) => batch.batchId)).toEqual([batches[1]!.id, batches[2]!.id]);
+    for (const name of Object.keys(before) as (keyof typeof before)[]) {
+      for (const [identity, row] of before[name])
+        expect(fixture.state[name].get(identity), `${name}:${identity}`).toEqual(row);
+    }
+    expect(fixture.privateRows).toEqual(privateBefore);
+    expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
+  });
   it.each([false, true])(
     "bounds independent source reads to four and drains them on failure: %s",
     async (fail) => {

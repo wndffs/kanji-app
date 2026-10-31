@@ -268,10 +268,14 @@ export async function planMainCourseWordBatches(
 
 export async function applyMainCourseWordBatches(
   prisma: PrismaClient,
-  options: { readonly batches?: readonly MainCourseWordBatch[]; readonly batchId?: string } = {},
+  options: {
+    readonly batches?: readonly MainCourseWordBatch[];
+    readonly batchId?: string;
+    readonly batchIds?: readonly string[];
+  } = {},
 ) {
   const batches = options.batches ?? buildMainCourseWordBatches();
-  const selected = reviewedSelection(batches, options.batchId);
+  const selected = reviewedSelection(batches, options.batchId, options.batchIds);
   // Complete every registered read-only plan before creating even source/run metadata.
   const plans = await planMainCourseWordBatches(prisma, batches);
   const applied = [];
@@ -959,13 +963,21 @@ function assertRegistry(batches: readonly MainCourseWordBatch[]): void {
 function reviewedSelection(
   batches: readonly MainCourseWordBatch[],
   batchId?: string,
+  batchIds?: readonly string[],
 ): readonly MainCourseWordBatch[] {
   assertRegistry(batches);
-  if (batchId !== undefined) {
-    const selected = batches.find((batch) => batch.id === batchId);
-    if (selected === undefined) throw new Error(`Unknown registered word batch ${batchId}.`);
-    requireReview(selected);
-    return [selected];
+  if (batchId !== undefined && batchIds !== undefined)
+    throw new Error("Conflicting word batch selection.");
+  const ids = batchIds ?? (batchId === undefined ? undefined : [batchId]);
+  if (ids !== undefined) {
+    if (!ids.length || ids.length > 20 || new Set(ids).size !== ids.length)
+      throw new Error("Invalid word batch selection.");
+    for (const id of ids) {
+      const selected = batches.find((batch) => batch.id === id);
+      if (!selected) throw new Error(`Unknown registered word batch ${id}.`);
+      requireReview(selected);
+    }
+    return batches.filter((batch) => ids.includes(batch.id));
   }
   const reviewed = batches.filter((batch) => batch.reviewedAt !== null);
   if (reviewed.length === 0)
@@ -996,13 +1008,17 @@ function stats(batch: MainCourseWordBatch): Prisma.InputJsonObject {
 export function parseMainCourseWordCurationArgs(
   args: readonly string[],
   batches: readonly MainCourseWordBatch[] = buildMainCourseWordBatches(),
-) {
+): {
+  mode: "apply" | "validate-only" | "preflight-only";
+  batchId?: string;
+  batchIds?: readonly string[];
+} {
   const invalid = () =>
     new Error(
-      "Use no arguments to apply reviewed batches, --validate-only, or --preflight-only; optionally select --batch <registered-id> once.",
+      "Use no arguments to apply reviewed batches, --validate-only, or --preflight-only; optionally select --batch <registered-id> once per distinct ID (maximum 20).",
     );
   let mode: "apply" | "validate-only" | "preflight-only" = "apply";
-  let batchId: string | undefined;
+  const batchIds: string[] = [];
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
     if (arg === "--validate-only" || arg === "--preflight-only") {
@@ -1010,13 +1026,26 @@ export function parseMainCourseWordCurationArgs(
       mode = arg.slice(2) as "validate-only" | "preflight-only";
     } else if (arg === "--batch") {
       const value = args[++index];
-      if (batchId !== undefined || value === undefined || value.startsWith("--")) throw invalid();
+      if (
+        value === undefined ||
+        value.startsWith("--") ||
+        batchIds.includes(value) ||
+        batchIds.length === 20
+      )
+        throw invalid();
       if (!batches.some((batch) => batch.id === value))
         throw new Error(`Unknown registered word batch ${value}.`);
-      batchId = value;
+      batchIds.push(value);
     } else throw invalid();
   }
-  return { mode, ...(batchId === undefined ? {} : { batchId }) };
+  return {
+    mode,
+    ...(batchIds.length === 1
+      ? { batchId: batchIds[0]! }
+      : batchIds.length > 1
+        ? { batchIds }
+        : {}),
+  };
 }
 
 async function main(): Promise<void> {
@@ -1029,6 +1058,7 @@ async function main(): Promise<void> {
         {
           status: "valid-manifests",
           selectedBatchId: options.batchId ?? null,
+          ...(options.batchIds ? { selectedBatchIds: options.batchIds } : {}),
           batches: batches.map((batch) => ({
             checksumSha256: mainCourseWordBatchChecksum(batch),
             ...stats(batch),
@@ -1041,7 +1071,7 @@ async function main(): Promise<void> {
     return;
   }
   const preflightOnly = options.mode === "preflight-only";
-  if (!preflightOnly) reviewedSelection(batches, options.batchId);
+  if (!preflightOnly) reviewedSelection(batches, options.batchId, options.batchIds);
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is required for live word curation.");
   const prisma = new PrismaClient({ datasourceUrl: withNeonConnectionDefaults(url) });
@@ -1050,6 +1080,7 @@ async function main(): Promise<void> {
       ? {
           status: "preflight-passed",
           selectedBatchId: options.batchId ?? null,
+          ...(options.batchIds ? { selectedBatchIds: options.batchIds } : {}),
           batches: (await planMainCourseWordBatches(prisma, batches)).map((entry) => ({
             batchId: entry.batchId,
             checksumSha256: entry.checksumSha256,
@@ -1059,6 +1090,7 @@ async function main(): Promise<void> {
       : await applyMainCourseWordBatches(prisma, {
           batches,
           ...(options.batchId === undefined ? {} : { batchId: options.batchId }),
+          ...(options.batchIds === undefined ? {} : { batchIds: options.batchIds }),
         });
     console.log(JSON.stringify(result, null, 2));
   } finally {

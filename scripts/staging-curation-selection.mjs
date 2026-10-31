@@ -4,13 +4,18 @@ import { pathToFileURL } from "node:url";
 export function selectStagingCuration(env = process.env) {
   const kanji = env.KANJI_BATCH ?? "";
   const words = env.WORD_BATCH ?? "";
+  const wordIds = typeof words === "string" && words !== "" ? words.split(",") : [];
   const skipWords = env.SKIP_WORDS ?? "false";
   const mode = env.CURATION_MODE ?? "plan";
   const supplement = env.SUPPLEMENT_WORD_SOURCES ?? "false";
   if (
-    ![kanji, words].every(
+    typeof words !== "string" ||
+    ![kanji, ...wordIds].every(
       (id) => typeof id === "string" && (id === "" || /^[a-z][a-z0-9-]{0,79}$/u.test(id)),
     ) ||
+    wordIds.some((id) => id === "") ||
+    wordIds.length > 20 ||
+    new Set(wordIds).size !== wordIds.length ||
     !["true", "false"].includes(skipWords) ||
     !["plan", "apply"].includes(mode) ||
     !["true", "false"].includes(supplement) ||

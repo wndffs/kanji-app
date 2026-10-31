@@ -16,7 +16,7 @@ on:
         required: false
         type: string
       word_batch:
-        description: Optional registered word batch ID (empty reapplies all curation)
+        description: Optional registered word batch IDs, comma-separated (empty reapplies all curation)
         required: false
         type: string
       skip_words:
@@ -85,7 +85,10 @@ jobs:
         shell: bash
         run: |
           args=()
-          if [ -n "$WORD_BATCH" ]; then args+=(--batch "$WORD_BATCH"); fi
+          if [ -n "$WORD_BATCH" ]; then
+            IFS=',' read -ra ids <<< "$WORD_BATCH"
+            for id in "${ids[@]}"; do args+=(--batch "$id"); done
+          fi
           npm run db:curate:words -- --validate-only "${args[@]}"
 
       - name: Validate selected kanji manifests before any database writes
@@ -104,21 +107,29 @@ jobs:
           --output "$RUNNER_TEMP/pre-curation-quality-report.json"
 
       - name: Restore pinned source snapshot for explicit word supplement
+        id: word-source-cache
         if: ${{ steps.selection.outputs.supplement_word_sources == 'true' }}
         uses: actions/cache/restore@v4
         with:
-          path: ${{ runner.temp }}/kanji-content-snapshots/2026-10-29
-          key: content-sources-v2-${{ runner.os }}-2026-10-29-${{ hashFiles('scripts/prepare-content-snapshot.mjs') }}
+          path: ${{ runner.temp }}/kanji-content-snapshots/2026-10-31
+          key: content-sources-v2-${{ runner.os }}-2026-10-31-${{ hashFiles('scripts/prepare-content-snapshot.mjs') }}
 
       - name: Verify pinned source snapshot for explicit word supplement
         if: ${{ steps.selection.outputs.supplement_word_sources == 'true' }}
         run: >-
           node scripts/prepare-content-snapshot.mjs
-          --snapshot-version 2026-10-29
+          --snapshot-version 2026-10-31
           --cache-root "$RUNNER_TEMP/kanji-content-snapshots"
-          --expected-jmdict-archive-sha256 aab806124356d98bca00b25cde825d1ad55a1a909a1a0f830da9dd332ce941dc
-          --expected-kanjidic2-archive-sha256 30a3cb91b2dfeb3befc11deb173d724f7539901b238acaf4e5a83867a95fa39f
+          --expected-jmdict-archive-sha256 c09c402a69dbe2eb02cb8e9e7510e51bd512e53cb26e162901323cfaf3ed5eff
+          --expected-kanjidic2-archive-sha256 8e70bfa3a7a7df640e3ba254a80438201904d95df0fb23c9323476c2676d3346
           --expected-kanjivg-archive-sha256 b36579789775ea912d5e98356bf243f54fb953fa3b58a16c2d6995f252e2a3e2
+
+      - name: Cache verified source snapshot for later supplements
+        if: ${{ steps.selection.outputs.supplement_word_sources == 'true' && steps.word-source-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/kanji-content-snapshots/2026-10-31
+          key: ${{ steps.word-source-cache.outputs.cache-primary-key }}
 
       - name: Plan missing reviewed word sources without mutations
         if: ${{ steps.selection.outputs.supplement_word_sources == 'true' }}
@@ -126,7 +137,7 @@ jobs:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         run: >-
           npm exec -- tsx scripts/import-missing-reviewed-word-sources.mts
-          --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/2026-10-29"
+          --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/2026-10-31"
 
       - name: Apply missing reviewed word sources
         if: ${{ inputs.mode == 'apply' && steps.selection.outputs.supplement_word_sources == 'true' }}
@@ -134,7 +145,7 @@ jobs:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         run: >-
           npm exec -- tsx scripts/import-missing-reviewed-word-sources.mts
-          --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/2026-10-29" --apply
+          --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/2026-10-31" --apply
 
       - name: Preflight selected kanji without mutations
         if: ${{ steps.selection.outputs.apply_kanji == 'true' }}
@@ -163,7 +174,10 @@ jobs:
         shell: bash
         run: |
           args=()
-          if [ -n "$WORD_BATCH" ]; then args+=(--batch "$WORD_BATCH"); fi
+          if [ -n "$WORD_BATCH" ]; then
+            IFS=',' read -ra ids <<< "$WORD_BATCH"
+            for id in "${ids[@]}"; do args+=(--batch "$id"); done
+          fi
           npm run db:curate:words -- --preflight-only "${args[@]}"
 
       - name: Apply reviewed vocabulary and original examples
@@ -173,7 +187,10 @@ jobs:
         shell: bash
         run: |
           args=()
-          if [ -n "$WORD_BATCH" ]; then args+=(--batch "$WORD_BATCH"); fi
+          if [ -n "$WORD_BATCH" ]; then
+            IFS=',' read -ra ids <<< "$WORD_BATCH"
+            for id in "${ids[@]}"; do args+=(--batch "$id"); done
+          fi
           npm run db:curate:words -- "${args[@]}"
 
       - name: Write post-curation corpus report
