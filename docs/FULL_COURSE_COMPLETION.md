@@ -377,3 +377,58 @@ Prepared totals: **185 components / 380 kanji / 500 primary word pairs**.
 The full target still needs **1,920 kanji and 7,500 primary word pairs**.
 These are preparation counts until a server receipt below confirms publication.
 Keep the unfinished main curriculum DRAFT and existing enrollments unchanged.
+
+## Growth Server Receipt: 2026-11-01
+
+- Content/release commit: `73f420203cd31c76e4922913fa29fef9625eba8c`.
+  Reviewed payload seals: `2da8a978e20ff32fd084fb9e8deae43be4eda24a`.
+  Web and API health both returned 200 with the content revision. The final
+  test/documentation changes do not require another runtime build.
+- [Kanji publication](https://github.com/wndffs/kanji-app/actions/runs/41248474475)
+  and [word publication](https://github.com/wndffs/kanji-app/actions/runs/41249059767)
+  both succeeded. They are two operational phases of this one large block.
+  Only the new kanji manifest and eight new word manifests were selected;
+  all nine authored import runs are SUCCESS and match the sealed checksums.
+  Existing teaching manifests were not reapplied.
+- The source supplement reused all three verified cached archives and inserted
+  seven missing JMdict entries for nine requested pairs. No dictionary-wide
+  reimport, alias repair or rewrite of existing raw provenance was performed.
+  Full registered-word source/license/prerequisite preflight ran before new
+  word teaching writes. The existing safety checks were not weakened.
+- Live main-set totals are **185 components / 380 kanji / 500 primary word
+  pairs / 1,065 published teaching targets / 1,945 core meaning-reading
+  cards**. All 380 kanji have stroke graphics and occur in an actual word
+  expression. All 160 new words have published original examples. There are
+  32 populated levels of 60; the main course remains **DRAFT**.
+- Final quality audit: **1,065 scanned items, zero blockers, zero warnings**,
+  content version
+  `1721831cc03708c2499e2544f08338ee00b4c6e984553925339c4574068e04a9`.
+- All **35 preservation groups** have exactly unchanged row counts and private
+  digests: 30 accounts, 162 SRS states, private content/settings, review/
+  enrollment/kana history, all sealed courses and all 751 previous main items,
+  targets, placements, cards, answers, dependencies and example links. No
+  private rows or digests are stored in this receipt. V1-V7 remain unchanged.
+- Final focused local coverage: **343 tests across 13 relevant files**,
+  including all nine new payload seals, 116 primary reading links, 24 accepted
+  variants, semantic near-miss blocks and the bare-tooth regression. DB
+  typecheck, changed-file lint/format and diff checks passed.
+  [CI](https://github.com/wndffs/kanji-app/actions/runs/41251074247) and
+  [study integrity on PostgreSQL 18](https://github.com/wndffs/kanji-app/actions/runs/41251074173)
+  passed for the sealed revision. No human linguistic certification is claimed.
+- Live search and ordinary item navigation confirmed `鼻血 / はなぢ`, its
+  persisted alternate answer `はなじ`, original JP/kana/RU example and kanji
+  relationships. `鼻 / はな` links back to that reinforcement word and renders
+  14 KanjiVG paths in a 320 x 320 SVG. No graded answers, enrollments or
+  translation settings were changed. The initial search loaded slowly before
+  returning correctly; this content release does not claim a latency fix or
+  fix the previously recorded primary-meaning display priority issue.
+- Both review agents and all temporary browser tabs were closed. No local dev
+  server was needed. Temporary analysis/evidence files were kept outside Git
+  and removed; the verified reusable source cache is retained.
+
+**Current task remains OPEN:** **1,920 kanji and 7,500 primary word pairs**
+still need complete authored teaching, review and publication to reach the
+2,300 / 8,000 target. Continue with substantial content blocks in this same
+task, not microtasks. Do not advertise raw imports, prepared manifests or the
+unfinished main curriculum as a complete learner course, create another tiny
+pilot, or silently move existing learners from V7.
