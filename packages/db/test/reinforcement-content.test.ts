@@ -32,6 +32,13 @@ describe("full-course reading reinforcement", () => {
     expect(oldWords.flatMap((b) => b.words)).toHaveLength(260);
     expect(hash(oldKanji)).toBe("c0d4e37e591858828fb88eee57385d3f3f1b1e35fc22f531c234be53bb2fc405");
     expect(hash(oldWords)).toBe("68a64db55387363a9fafdca87710f6af8e76ba0cbe4974f51603978dd0356292");
+    expect([hash(newKanji), ...newWords.map(hash)]).toEqual([
+      "219729506f4df1fbecf720a1b3756ac9ac3f7f6d7977989a1a8e5bdecd128412",
+      "dd13227f17783f348fd49f803bb8e8aba39d305e3f1093c34587baf3a6180252",
+      "2233c7ebd974e77f718478a6d997240e98b6d3d7987998399af722f1c975e2ca",
+      "799f11889616071c53f17c22ac9f8655329288a140b6f0a3061562c7ff228d29",
+      "d89af925ba816ad82bfe2c364799d1aa5d6cb8cc0981f3901d94537d7a377172",
+    ]);
   });
   it("adds one twelve-kanji and eighty-word block with collision-free earlier prerequisites", () => {
     expect(newKanji.kanji).toHaveLength(12);
