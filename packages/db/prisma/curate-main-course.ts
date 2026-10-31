@@ -20,6 +20,74 @@ import {
 const CURATION_SOURCE_NAME = "Kanji SRS main-course curation";
 const CURATION_LICENSE_NAME = "Project-authored main-course content";
 const TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 30_000 } as const;
+const IMPORTED_SOURCE_SELECT = {
+  id: true,
+  recordType: true,
+  sourceRecordId: true,
+  rawJson: true,
+  importRun: {
+    select: {
+      dataSourceId: true,
+      status: true,
+      sourceVersion: true,
+      checksumSha256: true,
+      dataSource: {
+        select: {
+          id: true,
+          name: true,
+          homepageUrl: true,
+          licenseId: true,
+          attributionText: true,
+          license: {
+            select: {
+              id: true,
+              name: true,
+              scope: true,
+              spdxLikeId: true,
+              url: true,
+              requiresAttribution: true,
+              requiresShareAlike: true,
+            },
+          },
+        },
+      },
+    },
+  },
+} as const satisfies Prisma.ImportedRecordSelect;
+
+function requireImportedSource(
+  record: Prisma.ImportedRecordGetPayload<{ select: typeof IMPORTED_SOURCE_SELECT }> | null,
+  name: "KANJIDIC2" | "KanjiVG",
+): void {
+  const run = record?.importRun;
+  const source = run?.dataSource;
+  const version = name === "KANJIDIC2" ? "4.0" : "3.0";
+  const homepage =
+    name === "KANJIDIC2"
+      ? "https://www.edrdg.org/wiki/index.php/KANJIDIC_Project"
+      : "https://kanjivg.tagaini.net/";
+  if (
+    run?.status !== "SUCCESS" ||
+    !run.sourceVersion?.trim() ||
+    run.sourceVersion.trim().toLowerCase() === "unknown" ||
+    !/^[a-f0-9]{64}$/iu.test(run.checksumSha256) ||
+    source?.name !== name ||
+    source.id !== run.dataSourceId ||
+    source.homepageUrl !== homepage ||
+    source.license.id !== source.licenseId ||
+    source.license.scope !== "OPEN_DATA" ||
+    source.license.spdxLikeId !== `CC-BY-SA-${version}` ||
+    !source.license.name.trim() ||
+    !source.license.requiresAttribution ||
+    !source.license.requiresShareAlike ||
+    (source.license.url !== `https://creativecommons.org/licenses/by-sa/${version}/` &&
+      !(
+        name === "KANJIDIC2" && source.license.url === "https://www.edrdg.org/edrdg/licence.html"
+      )) ||
+    !source.attributionText?.trim()
+  )
+    throw new Error(`Kanji evidence lacks successful licensed ${name} provenance.`);
+}
 
 async function main(): Promise<void> {
   const batches = buildMainCourseContentBatches();
@@ -516,12 +584,19 @@ async function requireKanjiEvidence(
     select: {
       id: true,
       kanjidicImportedRecordId: true,
-      importedRecord: { select: { recordType: true, rawJson: true } },
+      importedRecord: { select: IMPORTED_SOURCE_SELECT },
       readings: {
         orderBy: [{ priority: "asc" }, { reading: "asc" }],
         select: { reading: true, priority: true, readingType: true },
       },
-      strokeGraphic: { select: { id: true, importedRecord: { select: { recordType: true } } } },
+      strokeGraphic: {
+        select: {
+          id: true,
+          sourceRecordId: true,
+          importedRecordId: true,
+          importedRecord: { select: IMPORTED_SOURCE_SELECT },
+        },
+      },
     },
   });
 
@@ -535,11 +610,35 @@ async function requireKanjiEvidence(
     );
   }
 
+  requireImportedSource(kanji.importedRecord, "KANJIDIC2");
+  // Legacy display labels are preserved; the foreign-key-bound raw record is authoritative.
+  const kanjidicSourceId = `kanjidic2:${content.character.codePointAt(0)!.toString(16)}`;
+  if (
+    kanji.importedRecord.id !== kanji.kanjidicImportedRecordId ||
+    kanji.importedRecord.sourceRecordId !== kanjidicSourceId
+  )
+    throw new Error(`Kanji ${content.character} has mismatched KANJIDIC2 record identity.`);
+
   if (
     content.requireStrokeData &&
     kanji.strokeGraphic?.importedRecord?.recordType !== "KANJIVG_CHARACTER"
   ) {
     throw new Error(`Kanji ${content.character} is missing required KanjiVG stroke data.`);
+  }
+
+  if (content.requireStrokeData) {
+    const graphic = kanji.strokeGraphic!;
+    requireImportedSource(graphic.importedRecord, "KanjiVG");
+    const record = graphic.importedRecord!;
+    const sourceId = `kanjivg:${content.character.codePointAt(0)!.toString(16).padStart(5, "0")}`;
+    if (
+      record.id !== graphic.importedRecordId ||
+      record.sourceRecordId !== sourceId ||
+      graphic.sourceRecordId !== sourceId ||
+      !isJsonObject(record.rawJson) ||
+      record.rawJson.character !== content.character
+    )
+      throw new Error(`Kanji ${content.character} has mismatched KanjiVG record identity.`);
   }
 
   const sourceReading = normalizeReading(content.reading.source);

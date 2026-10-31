@@ -550,6 +550,111 @@ describe("main-course curation preflight and application", () => {
     },
   );
 
+  it.each(["KANJIDIC2", "KanjiVG"] as const)(
+    "rejects incomplete or mismatched %s provenance before any writes",
+    async (kind) => {
+      for (const condition of [
+        "record-id",
+        "source-record-id",
+        "status",
+        "version",
+        "unknown-version",
+        "checksum",
+        "source-id",
+        "source-name",
+        "homepage",
+        "license-id",
+        "license-scope",
+        "license-name",
+        "license-reference",
+        "license-url",
+        "attribution",
+        "share-alike",
+        "attribution-required",
+      ]) {
+        const fixture = curationFixture();
+        const last = fixture.state.kanji.get("田")!;
+        const record =
+          kind === "KANJIDIC2" ? last.importedRecord : last.strokeGraphic!.importedRecord;
+        const run = record.importRun;
+        const source = run.dataSource;
+        if (condition === "record-id") record.id = "unrelated-record";
+        if (condition === "source-record-id") record.sourceRecordId = "unrelated-source-record";
+        if (condition === "status") run.status = "FAILED";
+        if (condition === "version") run.sourceVersion = " ";
+        if (condition === "unknown-version") run.sourceVersion = " Unknown ";
+        if (condition === "checksum") run.checksumSha256 = "not-a-checksum";
+        if (condition === "source-id") source.id = "unrelated-source";
+        if (condition === "source-name") Object.assign(source, { name: "Unlicensed copy" });
+        if (condition === "homepage") source.homepageUrl = "https://example.com/copy";
+        if (condition === "license-id") source.license.id = "unrelated-license";
+        if (condition === "license-scope") source.license.scope = "PROJECT_AUTHORED";
+        if (condition === "license-name") source.license.name = " ";
+        if (condition === "license-reference") source.license.spdxLikeId = "LicenseRef-Unknown";
+        if (condition === "license-url") source.license.url = "https://example.com/license";
+        if (condition === "attribution") source.attributionText = " ";
+        if (condition === "share-alike") source.license.requiresShareAlike = false;
+        if (condition === "attribution-required") source.license.requiresAttribution = false;
+        await expect(
+          applyMainCourseContentBatch(fixture.db, fixture.batch, fixture.registry),
+          condition,
+        ).rejects.toThrow();
+        expect(fixture.mutations, condition).toEqual([]);
+        expect(fixture.transaction, condition).not.toHaveBeenCalled();
+      }
+    },
+  );
+  it.each(["kanjidic-target", "graphic-target", "graphic-record", "graphic-glyph"])(
+    "rejects wrong %s identity before writes",
+    async (condition) => {
+      const fixture = curationFixture();
+      const last = fixture.state.kanji.get("田")!;
+      if (condition === "kanjidic-target") last.kanjidicImportedRecordId = "unrelated-record";
+      if (condition === "graphic-target") last.strokeGraphic!.sourceRecordId = "kanjivg:06728";
+      if (condition === "graphic-record") last.strokeGraphic!.importedRecordId = "unrelated-record";
+      if (condition === "graphic-glyph")
+        last.strokeGraphic!.importedRecord.rawJson.character = "木";
+      await expect(
+        applyMainCourseContentBatch(fixture.db, fixture.batch, fixture.registry),
+      ).rejects.toThrow("record identity");
+      expect(fixture.mutations).toEqual([]);
+      expect(fixture.transaction).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    "https://www.edrdg.org/edrdg/licence.html",
+    "https://creativecommons.org/licenses/by-sa/4.0/",
+  ])(
+    "accepts the documented KANJIDIC2 license link %s without changing old sources",
+    async (url) => {
+      const fixture = curationFixture();
+      for (const k of fixture.state.kanji.values())
+        k.importedRecord.importRun.dataSource.license.url = url;
+      const before = structuredClone(fixture.state.kanji);
+      await planMainCourseContentBatch(fixture.db, fixture.batch, fixture.registry);
+      expect(fixture.state.kanji).toEqual(before);
+      expect(fixture.mutations).toEqual([]);
+    },
+  );
+  it("rechecks provenance in the kanji transaction after a successful whole-batch preflight", async () => {
+    const fixture = curationFixture();
+    const first = fixture.batch.kanji[0]!;
+    const transaction = fixture.transaction.getMockImplementation()!;
+    fixture.transaction.mockImplementation(async (callback) => {
+      if (fixture.transaction.mock.calls.length === fixture.batch.components.length + 1)
+        fixture.state.kanji.get(first.character)!.importedRecord.importRun.status = "FAILED";
+      return transaction(callback);
+    });
+    const privateBefore = structuredClone(fixture.privateRows);
+    await expect(
+      applyMainCourseContentBatch(fixture.db, fixture.batch, fixture.registry),
+    ).rejects.toThrow("licensed KANJIDIC2 provenance");
+    expect(fixture.transaction).toHaveBeenCalledTimes(fixture.batch.components.length + 1);
+    expect(fixture.state.items.has(`KANJI:kanji-${first.character}`)).toBe(false);
+    expect(fixture.privateRows).toEqual(privateBefore);
+  });
+
   it("rejects occupied component slots and refuses to move existing course items", async () => {
     const occupied = curationFixture();
     occupied.state.placements.set("level-1:27", {
@@ -698,13 +803,58 @@ type KanjiFixture = {
   jlptLevel: number | null;
   legacyJlptLevel: number | null;
   kanjidicImportedRecordId: string | null;
-  importedRecord: {
-    recordType: string;
-    rawJson: { literal: string; readings: { reading: string; sourceType: string }[] };
-  };
+  importedRecord: ReturnType<typeof importedEvidenceFixture>;
   readings: { reading: string; priority: number; readingType: string }[];
-  strokeGraphic: { id: string; importedRecord: { recordType: string } } | null;
+  strokeGraphic: {
+    id: string;
+    sourceRecordId: string;
+    importedRecordId: string;
+    importedRecord: ReturnType<typeof importedEvidenceFixture>;
+  } | null;
 };
+
+function importedEvidenceFixture(
+  character: string,
+  kind: "KANJIDIC2" | "KanjiVG",
+  reading = "デン",
+) {
+  const dictionary = kind === "KANJIDIC2";
+  const hex = character.codePointAt(0)!.toString(16);
+  const sourceRecordId = dictionary ? `kanjidic2:${hex}` : `kanjivg:${hex.padStart(5, "0")}`;
+  const version = dictionary ? "4.0" : "3.0";
+  return {
+    id: dictionary ? `raw-${character}` : `stroke-raw-${character}`,
+    sourceRecordId,
+    recordType: dictionary ? "KANJIDIC2_CHARACTER" : "KANJIVG_CHARACTER",
+    rawJson: { literal: character, character, readings: [{ reading, sourceType: "ja_on" }] },
+    importRun: {
+      dataSourceId: `source-${kind}`,
+      status: "SUCCESS",
+      sourceVersion: "2026-10-31",
+      checksumSha256: "a".repeat(64),
+      dataSource: {
+        id: `source-${kind}`,
+        name: kind,
+        homepageUrl: dictionary
+          ? "https://www.edrdg.org/wiki/index.php/KANJIDIC_Project"
+          : "https://kanjivg.tagaini.net/",
+        licenseId: `license-${kind}`,
+        attributionText: `Source: ${kind}`,
+        license: {
+          id: `license-${kind}`,
+          name: `${kind} license`,
+          scope: "OPEN_DATA",
+          spdxLikeId: `CC-BY-SA-${version}`,
+          url: dictionary
+            ? "https://www.edrdg.org/edrdg/licence.html"
+            : `https://creativecommons.org/licenses/by-sa/${version}/`,
+          requiresAttribution: true,
+          requiresShareAlike: true,
+        },
+      },
+    },
+  };
+}
 
 function curationFixture(includeBridge = false) {
   const [first, pending] = buildMainCourseContentBatches();
@@ -735,18 +885,18 @@ function curationFixture(includeBridge = false) {
                 jlptLevel: null,
                 legacyJlptLevel: null,
                 kanjidicImportedRecordId: `raw-${content.character}` as string | null,
-                importedRecord: {
-                  recordType: "KANJIDIC2_CHARACTER",
-                  rawJson: {
-                    literal: content.character,
-                    readings: [{ reading: content.reading.source, sourceType: "ja_on" }],
-                  },
-                },
+                importedRecord: importedEvidenceFixture(
+                  content.character,
+                  "KANJIDIC2",
+                  content.reading.source,
+                ),
                 readings: [{ reading: content.reading.source, priority: 1, readingType: "ONYOMI" }],
                 strokeGraphic: {
                   id: `svg-${content.character}`,
-                  importedRecord: { recordType: "KANJIVG_CHARACTER" },
-                } as { id: string; importedRecord: { recordType: string } } | null,
+                  sourceRecordId: `kanjivg:${content.character.codePointAt(0)!.toString(16).padStart(5, "0")}`,
+                  importedRecordId: `stroke-raw-${content.character}`,
+                  importedRecord: importedEvidenceFixture(content.character, "KanjiVG"),
+                },
               },
             ] satisfies [string, KanjiFixture],
         ),

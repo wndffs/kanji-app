@@ -243,7 +243,7 @@ pilot course, or claim of WaniKani equivalence.
   checked `へん -> ぺん` change in `近辺`. An example-only glyph occurrence,
   another sense's reading, or an alternate-answer-only reading is not proof.
 - The verified local 2026-10-31 snapshot supplies 80 unique, bilingual primary
-  JMdict pairs plus five same-sense reading alternatives, 12 exact KANJIDIC2
+  JMdict pairs plus four same-sense reading alternatives, 12 exact KANJIDIC2
   on-readings and 12 primary KanjiVG sequences.
   No download, dictionary-wide reimport, competitor content or new dependency
   is needed. Dictionaries are source evidence; meanings, scope, memory aids
@@ -257,13 +257,23 @@ pilot course, or claim of WaniKani equivalence.
   determine accepted answers.
 - The newly prepared registry contains 274 kanji and 340 primary word pairs.
   Independent AI reviewers Dalton and Lorentz accepted meaning/context and
-  source/reading/dependency checks after corrections. Local preparation and AI
+  source/reading/dependency checks after corrections, finalized on 2026-11-01
+  for words and 2026-10-31 for kanji. Local preparation and AI
   acceptance are not human certification, a live count or a publication receipt.
   Complete live source, licensing, prerequisite and quality checks remain required.
 - Preserve all accounts, private content, SRS and kana history, all sealed
   courses and the complete previous main set. The pre-write baseline covers
   35 aggregate row-count/digest groups, including the 652 prior main items;
   private rows and digests must not enter Git.
+- The kanji curator now checks successful licensed imports, version/checksum,
+  exact foreign-key-bound record identity, source identity, attribution and
+  share-alike metadata in preflight and again inside each kanji transaction.
+  Historical display labels remain unchanged and are not used as provenance.
+  Canonical EDRDG and CC BY-SA license URLs are accepted; arbitrary URLs are not.
+- A proposed extra word required adding a missing reading alongside an existing
+  raw-entry alias. That remains blocked by the existing preservation guard;
+  another independently checked word takes its place. No source alias repair,
+  provenance rewrite or importer-wide exception is introduced for this block.
 
 After this extension, **2,026 kanji and 7,660 word pairs** still need full
 teaching and review to reach 2,300 / 8,000. Closing these 45 gaps does not imply

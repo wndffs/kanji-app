@@ -1130,7 +1130,6 @@ const ALTERNATIVE_READINGS: Readonly<Record<string, readonly string[]>> = {
   平日: ["ひらび"],
   文字: ["もんじ"],
   図画: ["とが"],
-  鳥肉: ["ちょうにく"],
 };
 const BLOCKS: Readonly<Record<string, { ru?: readonly string[]; en?: readonly string[] }>> = {
   人気: { ru: ["полярность"] },
@@ -1163,9 +1162,9 @@ export function buildReinforcementWordBatches(
     id: `full-course-vocabulary-reinforcement-${String(i + 1).padStart(2, "0")}`,
     version: "1",
     authoredAt: "2026-10-31",
-    reviewedAt: "2026-10-31",
+    reviewedAt: "2026-11-01",
     reviewNotes:
-      "Eighty original RU/EN word lessons and JP/kana/RU/EN examples in reinforcement-word-content.ts and reinforcement-word-extras.ts independently read by AI reviewers Dalton (meaning, context and phonology) and Lorentz (source, reading alignment and dependencies) on 2026-10-31. Parent corrected scope, natural examples, sound guidance, semantic false-positive blocks and five same-sense alternate readings. All eighty primary pairs and five alternatives match bilingual entries in the pinned local 2026-10-31 JMdict snapshot. Explicit alignments cover the forty-five completion-block reading gaps and all twelve new support kanji. AI editorial acceptance, not human certification, live license preflight or publication evidence. Four internal storage chunks, no new pilot or old manifest replay.",
+      "Eighty original RU/EN word lessons and JP/kana/RU/EN examples in reinforcement-word-content.ts and reinforcement-word-extras.ts independently read by AI reviewers Dalton (meaning, context and phonology) and Lorentz (source, reading alignment and dependencies), final acceptance 2026-11-01. Parent corrected scope, natural examples, sound guidance, semantic false-positive blocks and four same-sense alternate readings. One nonessential proposed word was replaced by the independently checked 火曜 instead of bypassing the existing source-alias preservation guard. All eighty primary pairs and four alternatives match bilingual entries in the pinned local 2026-10-31 JMdict snapshot. Explicit alignments cover the forty-five completion-block reading gaps and all twelve new support kanji. AI editorial acceptance, not human certification, live license preflight or publication evidence. Four internal storage chunks, no new pilot or old manifest replay.",
     sourceFile: "packages/db/src/reinforcement-word-content.ts",
     courseSlug: "japanese-ru-n2",
     levelNumber: 33,

@@ -238,7 +238,7 @@ describe("first bounded main-course vocabulary manifest", () => {
         })),
         ...["01", "02", "03", "04"].map((suffix) => ({
           batchId: `full-course-vocabulary-reinforcement-${suffix}`,
-          reviewedAt: "2026-10-31",
+          reviewedAt: "2026-11-01",
           words: 20,
           cards: 40,
           examples: 20,
@@ -326,7 +326,7 @@ describe("first bounded main-course vocabulary manifest", () => {
         })),
         ...["01", "02", "03", "04"].map((suffix) => ({
           batchId: `full-course-vocabulary-reinforcement-${suffix}`,
-          reviewedAt: "2026-10-31",
+          reviewedAt: "2026-11-01",
         })),
       ],
     });

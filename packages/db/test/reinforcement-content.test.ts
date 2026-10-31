@@ -172,7 +172,6 @@ describe("full-course reading reinforcement", () => {
     ["平日", "ひらび"],
     ["文字", "もんじ"],
     ["図画", "とが"],
-    ["鳥肉", "ちょうにく"],
   ])(
     "accepts source-checked same-sense %s alternative %s without replacing its primary",
     (expression, answer) => {
