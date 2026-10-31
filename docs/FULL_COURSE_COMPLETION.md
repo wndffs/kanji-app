@@ -114,33 +114,41 @@ They are not described as fixed by this content-focused change.
 
 ## Current Content Work
 
-The first substantial block adds **145 independently authored kanji drafts and
-38 new component cues**, with RU/EN meanings and visual memory images, selected
-on/kun readings and **133 distinct exact reading-example word pairs**. This is
-more than the existing 117-kanji source collection, not a five-kanji installment.
-It reuses `MainCourseContentBatch` and the existing inventory/validator; no new
-curation schema, importer, publication bypass or bespoke pipeline was added.
+On 2026-10-31 the first substantial block completed AI editorial review:
+**145 kanji, 38 component cues, 145 individual bilingual reading-memory scenes,
+80 reinforcement words and 80 original JP/kana/RU/EN examples**. The block adds
+263 teaching targets and 488 core SRS cards, not 133 vocabulary cards inferred
+from reading illustrations. Meaning scopes, visual identities, long vowels,
+nasal morae, sound changes and semantic false-positive answers were corrected.
 
-Use `npm run --silent content:inventory -- --json --include-completion-draft`.
-It reports **262 prepared kanji**, of which 145 remain pending review, and still
-180 prepared word cards. Those 133 examples are not 133 new vocabulary cards.
-Default application registries and all earlier finite versions are unchanged.
+AI reviewer Hegel read all 145 meanings, 38 components and 145 reading scenes,
+then all 80 word entries; Tesla independently read all 80 word readings, examples
+and prerequisite placements. Parent applied and rechecked their corrections.
+This is AI editorial acceptance, not human linguistic certification. The existing
+source, license, imported-evidence and placement preflight remains mandatory.
 
-All 145 exact source reading/type pairs and all 145 primary stroke sequences
-matched the pinned local KANJIDIC2/KanjiVG snapshot. All 133 example pairs matched
-JMdict exactly; 131 have both imported RU/EN senses. The two remaining examples
-are not eligible for automatic bilingual word-card promotion. Detailed source
-observations stay outside Git; no Neon write or extra corpus import occurred.
+All 145 exact KANJIDIC2 reading/type pairs and primary KanjiVG stroke sequences
+matched the pinned local 2026-10-29 snapshot. All 80 primary word pairs/IDs and
+three explicitly accepted, sense-compatible reading alternatives matched JMdict.
+All primary word pairs have imported RU/EN evidence. The 133 dictionary reading
+illustrations are tracked separately; two without imported Russian senses were
+not promoted into word cards. Detailed observations remain outside Git.
 
-Two independent AI reviewers read all 145 initial rows and 31 initial component
-descriptions. Their corrections address false component identities, modified
-forms, semantic false-positive answers, misleading example choices and concrete
-sound changes. Seven further component cues close named missing shapes. Delta
-rechecks are not a second full independent certification. `reviewedAt` remains
-null: most reading aids are still contextual reading notes rather than complete
-individually authored sound-memory mnemonics; vocabulary reinforcement cards,
-full bilingual examples and final pedagogy/source/placement acceptance remain.
+Use `npm run --silent content:inventory -- --json`. Reviewed source totals are
+**130 components, 262 kanji and 260 word pairs**; the former
+`--include-completion-draft` flag is a compatibility alias and never doubles the
+block. Four internal twenty-word storage chunks reuse the existing curator,
+not four new courses, tasks or pilots. Every kanji in word expressions and
+examples has an earlier prepared kanji placement. Immutable V1-V7 source seals
+and the full-main 60-level/2,300/8,000 publication gate are unchanged.
 
-**Learner-visible published totals are still 117 kanji and 180 word pairs.**
-No new course version, enrollment or progress change is claimed. This task is
-OPEN; completing this draft does not complete the 2,300/8,000 product.
+**Publication is a separate step, not implied by registry review metadata.**
+Until a server receipt confirms application, live totals remain the previous
+117 kanji / 180 word pairs. Additive curation can publish verified library items
+while `japanese-ru-n2` remains DRAFT; that does not make the larger curriculum
+available in lessons or enlarge the finite V7 course. Preserve existing accounts,
+SRS, private content, enrollments and old course identities during application.
+
+The single task stays OPEN: **2,038 further kanji and 7,740 further word pairs**
+still need complete teaching and review, in addition to the functional gaps
+above. Do not equate completing this block with completing the 2,300/8,000 app.

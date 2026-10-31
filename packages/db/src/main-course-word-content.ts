@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { buildCompletionWordBatches } from "./completion-word-content";
+import { buildMainCourseContentBatches } from "./main-course-content";
 
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
 import { buildMainCourseBlueprint } from "./main-course";
@@ -1138,6 +1140,7 @@ export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
     buildMainCourseWordBatch07(),
     buildMainCourseWordBatch08(),
     buildMainCourseWordBatch09(),
+    ...buildCompletionWordBatches(buildMainCourseContentBatches()),
   ];
 }
 

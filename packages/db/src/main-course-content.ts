@@ -3,6 +3,7 @@ import { buildMainCourseContentBatch06 } from "./main-course-content-06";
 import { buildMainCourseContentBatch07 } from "./main-course-content-07";
 import { buildMainCourseContentBatch08 } from "./main-course-content-08";
 import { buildMainCourseContentBatch09 } from "./main-course-content-09";
+import { buildMainCourseCompletionContent } from "./main-course-completion-content";
 import { buildMainCourseBlueprint } from "./main-course";
 import { validateCuratedMeaningBlocks, type CuratedMeaningBlock } from "./curated-meaning-blocks";
 
@@ -1513,7 +1514,7 @@ const TASK_118_FOUNDATION_BATCH_04: MainCourseContentBatch = {
   ],
 };
 
-const MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
+const BASE_MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
   TASK_118_FOUNDATION_BATCH,
   TASK_118_FOUNDATION_BATCH_02,
   TASK_118_FOUNDATION_BATCH_03,
@@ -1523,6 +1524,13 @@ const MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
   buildMainCourseContentBatch07(),
   buildMainCourseContentBatch08(),
   buildMainCourseContentBatch09(),
+];
+
+const MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
+  ...BASE_MAIN_COURSE_CONTENT_BATCHES,
+  buildMainCourseCompletionContent(
+    BASE_MAIN_COURSE_CONTENT_BATCHES.flatMap((batch) => batch.components),
+  ),
 ];
 
 export function buildMainCourseContentBatches(): readonly MainCourseContentBatch[] {

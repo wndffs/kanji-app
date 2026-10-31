@@ -1,4 +1,5 @@
 import { normalizeJapaneseReading } from "@kanji-srs/japanese";
+import { completionReadingMemory } from "./completion-reading-memory";
 import type {
   MainCourseComponentContent,
   MainCourseContentBatch,
@@ -16,8 +17,8 @@ const CUES = [
   ],
   [
     "尺",
-    "шаг мерки",
-    "measuring step",
+    "мерная рейка",
+    "measuring rod",
     "угловатая крышка с двумя расходящимися нижними штрихами",
     "an angular cover with two spreading lower strokes",
   ],
@@ -152,8 +153,8 @@ const CUES = [
     "竹",
     "бамбук",
     "bamboo",
-    "две похожие верхние группы коротких штрихов",
-    "two similar upper groups of short strokes",
+    "две верхние группы над длинными нижними штрихами; наверху кандзи сжимается до ⺮",
+    "two upper groups above long lower strokes; at the top of a kanji it contracts to ⺮",
   ],
   [
     "方",
@@ -173,8 +174,8 @@ const CUES = [
     "耂",
     "старший",
     "elder",
-    "крест с наклонной чертой над коротким низом",
-    "a cross and a slant above a short base",
+    "две горизонтали, пересечённые вертикалью, и наклонный штрих",
+    "two horizontals crossed by a vertical, together with a slanting stroke",
   ],
   [
     "頁",
@@ -365,8 +366,8 @@ export const COMPLETION_KANJI_TEACHING: readonly TeachingRow[] = [
     ["станция"],
     ["station"],
     ["馬", "尺"],
-    "На станции лошадь 馬 останавливается у мерки 尺, чтобы отмерить пройденный путь.",
-    "At a station, a horse 馬 stops beside a measuring step 尺 to measure the distance travelled.",
+    "На станции лошадь 馬 останавливается у мерной рейки 尺, чтобы отмерить пройденный путь.",
+    "At a station, a horse 馬 stops beside a measuring rod 尺 to measure the distance travelled.",
     "駅前",
     "えきまえ",
   ],
@@ -901,7 +902,7 @@ export const COMPLETION_KANJI_TEACHING: readonly TeachingRow[] = [
   [
     "写",
     "シャ",
-    ["копировать", "снимать"],
+    ["копировать", "фотографировать"],
     ["copy", "photograph"],
     ["冖", "与"],
     "Под крышкой 冖 на площадке 与 делают точную копию изображения.",
@@ -915,8 +916,8 @@ export const COMPLETION_KANJI_TEACHING: readonly TeachingRow[] = [
     ["человек", "лицо"],
     ["person"],
     ["耂", "日"],
-    "Старший 耂 стоит над солнцем 日: представьте человека, которого нужно опознать.",
-    "An elder 耂 stands above the sun 日: picture the person to be identified.",
+    "Старший 耂 стоит над солнцем 日: представьте человека, которого нужно опознать. Лицо здесь значит человека, не часть головы.",
+    "An elder 耂 stands above the sun 日: picture the person to be identified. This means a person, not a face.",
     "医者",
     "いしゃ",
   ],
@@ -1912,6 +1913,12 @@ const ANSWER_DISTINCTIONS: Readonly<Record<string, { ru?: AnswerBlocks; en?: Ans
     ],
   },
   写: {
+    ru: [
+      {
+        text: "купировать",
+        reason: "Купировать приступ или обрезать — не копировать изображение.",
+      },
+    ],
     en: [
       {
         text: "phonograph",
@@ -1949,6 +1956,17 @@ const ANSWER_DISTINCTIONS: Readonly<Record<string, { ru?: AnswerBlocks; en?: Ans
       { text: "learn", reason: "Teaching someone is distinct from learning something yourself." },
     ],
   },
+  開: { ru: [{ text: "отрывать", reason: "Отрывать что-то — не открывать дверь или ворота." }] },
+  業: { ru: [{ text: "процессия", reason: "Процессия — шествие, не профессия или занятие." }] },
+  住: { ru: [{ text: "прожигать", reason: "Прожигать материал — не проживать в доме." }] },
+  送: { ru: [{ text: "отравлять", reason: "Отравлять — не отправлять письмо или посылку." }] },
+  代: { ru: [{ text: "покорение", reason: "Покорение — не поколение или смена эпох." }] },
+  着: {
+    ru: [{ text: "пребывать", reason: "Пребывать где-то — не прибывать в место назначения." }],
+  },
+  別: {
+    ru: [{ text: "разлучать", reason: "Разлучать людей — не различать предметы или отличия." }],
+  },
 };
 
 const SPECIFIC_READING_NOTES: Readonly<Record<string, { ru: string; en: string }>> = {
@@ -1973,8 +1991,8 @@ const SPECIFIC_READING_NOTES: Readonly<Record<string, { ru: string; en: string }
     en: "皮膚 (ひふ) means skin, a direct meaning example unlike figurative 皮肉 'irony'.",
   },
   味: {
-    ru: "風味（ふうみ）— вкус или аромат. Не переводите всё слово одним значением каждого знака.",
-    en: "風味 (ふうみ) means flavor or aroma. Do not translate the whole word by mechanically joining character meanings.",
+    ru: "風味（ふうみ）— вкус. Не переводите всё слово одним значением каждого знака.",
+    en: "風味 (ふうみ) means flavor. Do not translate the whole word by mechanically joining character meanings.",
   },
   台: {
     ru: "舞台（ぶたい）— сцена, платформа для выступлений. Не путайте со значением слова 台風 «тайфун».",
@@ -1990,7 +2008,7 @@ const SPECIFIC_READING_NOTES: Readonly<Record<string, { ru: string; en: string }
   },
 };
 
-export function buildMainCourseCompletionDraft(
+export function buildMainCourseCompletionContent(
   existingComponents: readonly MainCourseComponentContent[],
 ): MainCourseContentBatch {
   const components = CUES.map(([symbol, ru, en, shapeRu, shapeEn]) => ({
@@ -2011,9 +2029,9 @@ export function buildMainCourseCompletionDraft(
     id: "full-course-kanji-completion-01",
     version: "1",
     authoredAt: "2026-10-30",
-    reviewedAt: null,
+    reviewedAt: "2026-10-31",
     reviewNotes:
-      "Original large-block RU/EN teaching draft. Pending complete source, reading-example, meaning and visual-component review. Not registered for application or publication; never stamp this reviewed from nonempty fields alone.",
+      "Original RU/EN content for 145 kanji, 38 shape cues and 145 individual reading-memory scenes. AI reviewer Hegel independently read all meanings, components and scenes and accepted the corrected block on 2026-10-31; parent applied phonology, visual-component, semantic-answer and example-scope corrections. Exact selected reading/type and primary KanjiVG sequence verified for all 145 against the pinned 2026-10-29 local snapshot; all 133 distinct dictionary example pairs matched JMdict, two without imported Russian senses remain illustrations only. AI editorial acceptance, not human certification, source/license preflight or live publication evidence. Existing finite course seals unchanged.",
     sourceFile: "packages/db/src/main-course-completion-content.ts",
     courseSlug: "japanese-ru-n2",
     componentLevelNumber: 16,
@@ -2055,8 +2073,8 @@ export function buildMainCourseCompletionDraft(
           en: `Memory image, not etymology: ${imageEn}`,
         },
         readingMnemonic: {
-          ru: `Выбранное чтение кандзи — ${normalizeJapaneseReading(source)}. Словарный пример: ${word}（${kana}）. ${SPECIFIC_READING_NOTES[character]?.ru ?? "Чтение целого слова запоминайте отдельно: в нём возможны изменения звуков."}`,
-          en: `The selected kanji reading is ${normalizeJapaneseReading(source)}. Dictionary example: ${word} (${kana}). ${SPECIFIC_READING_NOTES[character]?.en ?? "Learn the whole-word reading separately; sound changes can occur."}`,
+          ru: `${completionReadingMemory(character).ru} Выбранное чтение кандзи — ${normalizeJapaneseReading(source)}. Словарный пример: ${word}（${kana}）. ${SPECIFIC_READING_NOTES[character]?.ru ?? "Чтение целого слова запоминайте отдельно: в нём возможны изменения звуков."}`,
+          en: `${completionReadingMemory(character).en} The selected kanji reading is ${normalizeJapaneseReading(source)}. Dictionary example: ${word} (${kana}). ${SPECIFIC_READING_NOTES[character]?.en ?? "Learn the whole-word reading separately; sound changes can occur."}`,
         },
         requireStrokeData: true,
       }),

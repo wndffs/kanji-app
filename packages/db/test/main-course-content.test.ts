@@ -109,7 +109,7 @@ describe("main-course content batches", () => {
     const batches = buildMainCourseContentBatches();
 
     expect(validateMainCourseContentBatches(batches)).toEqual([]);
-    expect(batches).toHaveLength(9);
+    expect(batches).toHaveLength(10);
     expect(batches[0]).toMatchObject({
       id: "task-118-foundation-kanji-01",
       version: "1",

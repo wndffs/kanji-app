@@ -5,8 +5,6 @@ import {
   buildEditorialRegistryInventory,
   type EditorialRegistryInventory,
 } from "../src/editorial-registry-inventory";
-import { buildMainCourseContentBatches } from "../src/main-course-content";
-import { buildMainCourseCompletionDraft } from "../src/main-course-completion-content";
 import type { EditorialRegistryInventoryOptions } from "../src/editorial-registry-inventory";
 
 export function parseEditorialRegistryArgs(args: readonly string[]) {
@@ -69,17 +67,10 @@ export function runEditorialRegistryInventory(
     options?: EditorialRegistryInventoryOptions,
   ) => EditorialRegistryInventory = buildEditorialRegistryInventory,
 ): { stdout: string; exitCode: number } {
-  const { json, includeCompletionDraft } = parseEditorialRegistryArgs(args);
-  const base = includeCompletionDraft ? buildMainCourseContentBatches() : null;
-  const report =
-    base === null
-      ? build()
-      : build({
-          kanjiBatches: [
-            ...base,
-            buildMainCourseCompletionDraft(base.flatMap((batch) => batch.components)),
-          ],
-        });
+  // The reviewed completion block is now registered. The legacy opt-in is a
+  // read-only alias; appending the same block again would duplicate its counts.
+  const { json } = parseEditorialRegistryArgs(args);
+  const report = build();
   return {
     stdout: `${json ? JSON.stringify(report, null, 2) : formatEditorialRegistryInventory(report)}\n`,
     exitCode: report.validation.valid ? 0 : 1,
