@@ -16,7 +16,7 @@ describe("isolated editorial drafts", () => {
   it("separates the reviewed backlog, V4 seal and unapproved proposals", () => {
     const report = buildEditorialCoverage();
     expect(report.validation).toEqual({ valid: true, issues: [] });
-    expect(report.remainingReviewedContent).toEqual({ kanji: 2026, words: 7660 });
+    expect(report.remainingReviewedContent).toEqual({ kanji: 1920, words: 7500 });
     expect(report.pendingDrafts).toEqual({
       components: 0,
       kanji: 0,

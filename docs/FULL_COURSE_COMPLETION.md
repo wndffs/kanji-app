@@ -336,3 +336,44 @@ The item/search UI still sometimes picks an alphabetically earlier accepted
 synonym instead of the authored primary meaning (confirmed on the new face
 word). Both displayed meanings are valid; primary-meaning display priority
 remains an open presentation issue, not a reason to rewrite accepted answers.
+
+## Large Growth Block: 2026-11-01
+
+This is the next extension of the same OPEN delivery task, not a new task list.
+The block adds 106 kanji, 160 distinct primary word pairs and 48 visual cues.
+One kanji manifest and eight twenty-word manifests are publication/storage
+units, not nine separately counted tasks. Components occupy level 34, kanji
+35-36 and words 37-38; existing manifests and V1-V7 seals are not rewritten.
+
+- All 106 chosen KANJIDIC2 readings and primary KanjiVG graphics, plus 160
+  primary JMdict pairs and 24 same-sense alternatives, match the verified local
+  2026-10-31 snapshot with no mismatched IDs. Sources are reused from cache;
+  original JP/kana/RU/EN examples, scopes, meanings and memory aids remain a
+  separate project-authored layer. No competitor content or new dependency.
+- Two independent AI reviews cover meanings/context and readings/components.
+  Jason and Huygens accepted the corrected content; final review on 2026-11-01.
+  This is not human linguistic certification. Publication additionally requires
+  the existing live source, license, prerequisite and quality checks.
+- Historical variants remain nonprimary; irregular `はなじ` and `ていいん`
+  are exact accepted exceptions, not normalization rules. Standard `はなぢ`
+  and `てんいん` remain taught. Grassland readings share only the selected
+  grassy-ground sense, not every restricted dictionary sense.
+- `昨年 / さくねん` replaces the proposed `昨夜` card rather than teaching a
+  card that would reject the separately indexed ordinary `ゆうべ` reading.
+  All accepted alternatives must keep exact, same-entry source evidence.
+- All 106 new selected kanji readings have explicit, source-ID-bound primary
+  vocabulary reinforcement. Ten earlier expression gaps are also closed:
+  百/千/止/花/草/馬/鳥/魚/米/門. Every one of the 380 prepared kanji now
+  appears in an actual word expression. This does not automatically prove
+  selected-reading alignment for every older foundation entry.
+- Seven missing raw JMdict entries for nine requested pairs have no existing
+  aliases or ID conflicts in the live read-only plan. Only the established
+  insert-only supplement is allowed; no corpus-wide import or alias repair.
+- The pre-write preservation snapshot covers 35 groups, 30 accounts, 162 SRS
+  states, every sealed course and all 751 prior main teaching items. Private
+  values and hashes stay outside Git. Compare it after publication.
+
+Prepared totals: **185 components / 380 kanji / 500 primary word pairs**.
+The full target still needs **1,920 kanji and 7,500 primary word pairs**.
+These are preparation counts until a server receipt below confirms publication.
+Keep the unfinished main curriculum DRAFT and existing enrollments unchanged.

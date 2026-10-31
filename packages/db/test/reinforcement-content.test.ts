@@ -26,8 +26,12 @@ const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(valu
 
 describe("full-course reading reinforcement", () => {
   it("keeps every earlier kanji and word manifest byte-for-byte stable", () => {
-    const oldKanji = kanji.filter((b) => !b.id.includes("reinforcement"));
-    const oldWords = words.filter((b) => !b.id.includes("reinforcement"));
+    const oldKanji = kanji.filter(
+      (b) => !b.id.includes("reinforcement") && !b.id.includes("growth"),
+    );
+    const oldWords = words.filter(
+      (b) => !b.id.includes("reinforcement") && !b.id.includes("growth"),
+    );
     expect(oldKanji.flatMap((b) => b.kanji)).toHaveLength(262);
     expect(oldWords.flatMap((b) => b.words)).toHaveLength(260);
     expect(hash(oldKanji)).toBe("c0d4e37e591858828fb88eee57385d3f3f1b1e35fc22f531c234be53bb2fc405");
@@ -74,7 +78,7 @@ describe("full-course reading reinforcement", () => {
       }
     const report = buildEditorialRegistryInventory();
     expect(report.validation).toEqual({ valid: true, issues: [] });
-    expect(report.prepared.distinctTotals).toMatchObject({ kanji: 274, words: 340 });
+    expect(report.prepared.distinctTotals).toMatchObject({ kanji: 380, words: 500 });
     expect(report.sourceSeals.every((s) => s.status === "complete")).toBe(true);
   });
   it("aligns the taught reading of all forty-five gaps and all twelve support kanji to primary word cards", () => {
