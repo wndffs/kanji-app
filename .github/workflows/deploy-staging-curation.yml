@@ -39,7 +39,7 @@ jobs:
   curate:
     name: Apply versioned curation to Neon
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       NODE_ENV: production
       CURATION_MODE: ${{ inputs.mode }}
@@ -168,7 +168,8 @@ jobs:
           npm run db:curate -- "${args[@]}"
 
       - name: Preflight reviewed vocabulary without mutations
-        if: ${{ steps.selection.outputs.apply_words == 'true' }}
+        # Apply performs this same full-registry preflight internally before any teaching write.
+        if: ${{ inputs.mode == 'plan' && steps.selection.outputs.apply_words == 'true' }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         shell: bash

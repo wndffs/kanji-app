@@ -76,6 +76,11 @@ describe("explicit staging curation selection", () => {
       expect(step).toContain("DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}");
     }
     expect(workflow).toContain("npm run db:curate -- --preflight-only");
+    const readOnlyWords = workflow
+      .split("- name: Preflight reviewed vocabulary without mutations")[1]!
+      .split("\n      - name:")[0]!;
+    expect(readOnlyWords).toContain("inputs.mode == 'plan'");
+    expect(readOnlyWords).toContain("npm run db:curate:words -- --preflight-only");
   });
 
   it("emits only fixed boolean outputs, not batch inputs or unrelated credentials", () => {
