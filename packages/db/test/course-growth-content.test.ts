@@ -24,6 +24,46 @@ const block = words.filter((b) => b.id.startsWith("full-course-vocabulary-growth
 const hash = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).digest("hex");
 
 describe("large course growth content block", () => {
+  it("freezes the independently reviewed payloads selected for publication", () => {
+    expect([batch, ...block].map((b) => [b.id, hash(b)])).toEqual([
+      [
+        "full-course-kanji-growth",
+        "e8f8fc13ac5668b37619c6a6265e16acf1f848708d883c4f6fe40ca906925c3a",
+      ],
+      [
+        "full-course-vocabulary-growth-01",
+        "b63db294c4d092c9cd100adc998c821e602cf10bccf99855961de4fc8aec6d8d",
+      ],
+      [
+        "full-course-vocabulary-growth-02",
+        "f60a017a829c409ed4f8ffd92566921955d42d86cc19977dcd34c82c6fdfa179",
+      ],
+      [
+        "full-course-vocabulary-growth-03",
+        "18115c0c11305be0c47c481a83caadae98e7910fa630997ff8149e2b8da27298",
+      ],
+      [
+        "full-course-vocabulary-growth-04",
+        "177ba7fc69a0ea1bb94388e7f6cf0de1065e15c875b4ba752d6171ffdf89ab94",
+      ],
+      [
+        "full-course-vocabulary-growth-05",
+        "7ea189716d4bd635eb87831e46ebc51d1437d0964c3ef9ea9f32dd7d3b49096e",
+      ],
+      [
+        "full-course-vocabulary-growth-06",
+        "06636d84a5df596b0fce30c6198529bcf216866d91166b794705b7bff8b4aa26",
+      ],
+      [
+        "full-course-vocabulary-growth-07",
+        "b724671bf51ff8d720b6358e05e11ee16f47754d77f24c057f9abdfc3b92c92d",
+      ],
+      [
+        "full-course-vocabulary-growth-08",
+        "aa29f1f5c4c49356d30bf55bca9d2f3c6fec25ec852ceea6b1c771c0eb0745bc",
+      ],
+    ]);
+  });
   it("preserves every previously published main manifest and all finite seals", () => {
     expect(hash(kanji.filter((b) => b !== batch))).toBe(
       "9600256da1c8a55f945006855ee3839d67c121c5da150af9e48b3ef68a537955",
