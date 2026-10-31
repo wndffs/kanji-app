@@ -152,3 +152,13 @@ SRS, private content, enrollments and old course identities during application.
 The single task stays OPEN: **2,038 further kanji and 7,740 further word pairs**
 still need complete teaching and review, in addition to the functional gaps
 above. Do not equate completing this block with completing the 2,300/8,000 app.
+
+The live 30,000-pair raw selection lacks three of the new dictionary entries.
+The existing curation workflow now offers an explicit, pinned-source supplement:
+it imports at most 100 absent reviewed pairs through the existing JMdict importer,
+with original-parent and derived-file checksums recorded separately. Any existing
+word or entry alias blocks automatic repair. Insert-only transactions fail on
+concurrent duplicates and never update existing word provenance. This does not
+publish teaching or replace the curator's complete license/RU/EN/source checks.
+The full corpus is not reimported. A pre-write quality check protects existing
+published content before new teaching application.

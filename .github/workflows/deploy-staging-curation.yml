@@ -23,6 +23,10 @@ on:
         description: Skip all vocabulary writes (requires kanji_batch and empty word_batch)
         type: boolean
         default: false
+      supplement_word_sources:
+        description: Import only missing raw sources for reviewed words from the pinned snapshot (max 100 pairs)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -42,6 +46,7 @@ jobs:
       WORD_BATCH: ${{ inputs.word_batch }}
       KANJI_BATCH: ${{ inputs.kanji_batch }}
       SKIP_WORDS: ${{ inputs.skip_words }}
+      SUPPLEMENT_WORD_SOURCES: ${{ inputs.supplement_word_sources }}
 
     steps:
       - name: Check out repository
@@ -90,6 +95,46 @@ jobs:
           args=()
           if [ -n "$KANJI_BATCH" ]; then args+=(--batch "$KANJI_BATCH"); fi
           npm run db:curate -- --validate-only "${args[@]}"
+
+      - name: Check existing published content before new teaching writes
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: >-
+          npm run content:quality --
+          --output "$RUNNER_TEMP/pre-curation-quality-report.json"
+
+      - name: Restore pinned source snapshot for explicit word supplement
+        if: ${{ steps.selection.outputs.supplement_word_sources == 'true' }}
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/kanji-content-snapshots/2026-10-29
+          key: content-sources-v2-${{ runner.os }}-2026-10-29-${{ hashFiles('scripts/prepare-content-snapshot.mjs') }}
+
+      - name: Verify pinned source snapshot for explicit word supplement
+        if: ${{ steps.selection.outputs.supplement_word_sources == 'true' }}
+        run: >-
+          node scripts/prepare-content-snapshot.mjs
+          --snapshot-version 2026-10-29
+          --cache-root "$RUNNER_TEMP/kanji-content-snapshots"
+          --expected-jmdict-archive-sha256 aab806124356d98bca00b25cde825d1ad55a1a909a1a0f830da9dd332ce941dc
+          --expected-kanjidic2-archive-sha256 30a3cb91b2dfeb3befc11deb173d724f7539901b238acaf4e5a83867a95fa39f
+          --expected-kanjivg-archive-sha256 b36579789775ea912d5e98356bf243f54fb953fa3b58a16c2d6995f252e2a3e2
+
+      - name: Plan missing reviewed word sources without mutations
+        if: ${{ steps.selection.outputs.supplement_word_sources == 'true' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: >-
+          npm exec -- tsx scripts/import-missing-reviewed-word-sources.mts
+          --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/2026-10-29"
+
+      - name: Apply missing reviewed word sources
+        if: ${{ inputs.mode == 'apply' && steps.selection.outputs.supplement_word_sources == 'true' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: >-
+          npm exec -- tsx scripts/import-missing-reviewed-word-sources.mts
+          --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/2026-10-29" --apply
 
       - name: Preflight selected kanji without mutations
         if: ${{ steps.selection.outputs.apply_kanji == 'true' }}

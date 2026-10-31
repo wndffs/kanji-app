@@ -20,7 +20,10 @@ export type JmDictWordBatchCandidate = {
   readonly senses: readonly JmDictWordSenseDto[];
 };
 
-export function createPrismaJmDictBatchWriter(prisma: PrismaClient): JmDictBatchWriter {
+export function createPrismaJmDictBatchWriter(
+  prisma: PrismaClient,
+  options: { readonly insertOnly?: boolean } = {},
+): JmDictBatchWriter {
   return {
     async writeBatch({ importRunId, entries }): Promise<void> {
       await prisma.$transaction(
@@ -60,9 +63,10 @@ export function createPrismaJmDictBatchWriter(prisma: PrismaClient): JmDictBatch
               jmdictEntryId: word.jmdictEntryId,
               jmdictImportedRecordId: word.importedRecordId,
             })),
-            skipDuplicates: true,
+            // A concurrent insert must abort an insert-only supplement, not become an update.
+            skipDuplicates: !options.insertOnly,
           });
-          await transaction.$executeRaw(buildWordProvenanceUpdate(words));
+          if (!options.insertOnly) await transaction.$executeRaw(buildWordProvenanceUpdate(words));
 
           const wordRows = await transaction.word.findMany({
             where: {

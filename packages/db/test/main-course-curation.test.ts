@@ -11,6 +11,15 @@ import { buildMainCourseContentBatches } from "../src/main-course-content";
 import { resolvePrimaryTaughtReading } from "../src/taught-reading";
 
 describe("main-course curation preflight and application", () => {
+  it("uses the shared meaning normalizer for punctuation in authored component answers", async () => {
+    const fixture = curationFixture();
+    const batch = structuredClone(fixture.batch);
+    Object.assign(batch.components[0]!.meaning, { en: "Short-tailed bird" });
+    await applyMainCourseContentBatch(fixture.db, batch, [fixture.registry[0]!, batch]);
+    expect(
+      fixture.state.answers.find((answer) => answer.text === "Short-tailed bird")?.normalizedText,
+    ).toBe("short tailed bird");
+  });
   it("persists reviewed meaning blocks only on the meaning card and preserves private rows", async () => {
     const fixture = curationFixture();
     const batch = structuredClone(fixture.batch);
@@ -677,6 +686,7 @@ type Dependency = {
 type Answer = {
   learningCardId: string;
   text: string;
+  normalizedText: string;
   sourceKind: string;
   locale: string;
   answerKind: string;

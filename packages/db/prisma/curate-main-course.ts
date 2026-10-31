@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { PrismaClient, type CourseBand, type Prisma } from "@prisma/client";
+import { normalizeMeaning } from "@kanji-srs/japanese";
 import { withNeonConnectionDefaults } from "../src/connection-defaults";
 import { buildMainCourseBlueprint } from "../src/main-course";
 import { buildCuratedMeaningBlocks } from "../src/curated-meaning-blocks";
@@ -915,11 +916,6 @@ function answer(
     answerKind,
     isPrimary,
   };
-}
-
-function normalizeMeaning(value: string, locale: AnswerInput["locale"]): string {
-  const normalized = value.normalize("NFKC").trim().toLocaleLowerCase(locale).replace(/\s+/gu, " ");
-  return locale === "ru-RU" ? normalized.replace(/ё/gu, "е") : normalized;
 }
 
 function normalizeReading(value: string): string {

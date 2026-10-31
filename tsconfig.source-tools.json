@@ -1,5 +1,9 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": { "allowImportingTsExtensions": true, "noEmit": true },
-  "include": ["scripts/local-*.mts", "scripts/inspect-local-draft-sources.mts"]
+  "include": [
+    "scripts/local-*.mts",
+    "scripts/inspect-local-draft-sources.mts",
+    "scripts/import-missing-reviewed-word-sources.mts"
+  ]
 }

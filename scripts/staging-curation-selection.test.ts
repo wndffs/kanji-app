@@ -23,7 +23,14 @@ describe("explicit staging curation selection", () => {
       { applyKanji: true, applyWords: false },
     ],
   ])("preserves defaults and supports an explicit kanji-only selection: %j", (env, expected) => {
-    expect(selectStagingCuration(env)).toEqual(expected);
+    expect(selectStagingCuration(env)).toEqual({ ...expected, supplementWordSources: false });
+  });
+  it("requires an explicit source-supplement opt-in with vocabulary enabled", () => {
+    expect(selectStagingCuration({ WORD_BATCH: WORDS, SUPPLEMENT_WORD_SOURCES: "true" })).toEqual({
+      applyKanji: false,
+      applyWords: true,
+      supplementWordSources: true,
+    });
   });
 
   it.each([
@@ -35,6 +42,8 @@ describe("explicit staging curation selection", () => {
     { KANJI_BATCH: "invalid\napply_words=true" },
     { WORD_BATCH: "../secret" },
     { KANJI_BATCH: `batch-${"x".repeat(80)}` },
+    { KANJI_BATCH: KANJI, SKIP_WORDS: "true", SUPPLEMENT_WORD_SOURCES: "true" },
+    { SUPPLEMENT_WORD_SOURCES: "yes" },
   ])("fails ambiguous or unsafe input before database work: %j", (env) => {
     expect(() => selectStagingCuration(env)).toThrow("Invalid staging curation selection.");
   });
@@ -49,6 +58,7 @@ describe("explicit staging curation selection", () => {
     for (const name of [
       "Apply versioned main-course curation",
       "Apply reviewed vocabulary and original examples",
+      "Apply missing reviewed word sources",
     ]) {
       const step = workflow.split(`- name: ${name}`)[1]!.split("\n      - name:")[0]!;
       expect(step).toContain("inputs.mode == 'apply'");
@@ -67,11 +77,14 @@ describe("explicit staging curation selection", () => {
         KANJI_BATCH: KANJI,
         WORD_BATCH: "",
         SKIP_WORDS: "true",
+        SUPPLEMENT_WORD_SOURCES: "false",
         DATABASE_URL: "synthetic-private-value",
       },
     });
     expect(result.status).toBe(0);
-    expect(result.stdout).toBe("apply_kanji=true\napply_words=false\n");
+    expect(result.stdout).toBe(
+      "apply_kanji=true\napply_words=false\nsupplement_word_sources=false\n",
+    );
     expect(result.stderr).toBe("");
     const failure = spawnSync(process.execPath, [script], {
       encoding: "utf8",
