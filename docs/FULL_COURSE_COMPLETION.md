@@ -633,3 +633,9 @@ and 6,700 words** to author, review and publish for the full target.
   another character is not evidence: 示 is じ at offset 1 in 指示 / しじ,
   not し at offset 0. Targeted semantic blocks reject genuinely wrong close
   answers without rejecting reviewed valid number forms or synonyms.
+- Live publication showed that a full-registry preflight plus this 500-word
+  block may exceed the previous ninety-minute workflow ceiling on Neon.
+  Future attempts have a bounded three-hour job deadline. Individual staging
+  and atomic finalization transaction budgets, manifest seals, source gates
+  and quality checks are unchanged. An interrupted attempt must resume only
+  its unfinished explicit manifests, without reapplying completed ones.

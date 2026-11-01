@@ -71,6 +71,7 @@ describe("explicit staging curation selection", () => {
       "utf8",
     );
     expect(workflow).toContain("default: plan");
+    expect(workflow).toContain("timeout-minutes: 180");
     expect(workflow.split("    steps:")[0]).not.toContain("secrets.STAGING_DATABASE_URL");
     expect(workflow).not.toContain("db:migrate");
     for (const name of [

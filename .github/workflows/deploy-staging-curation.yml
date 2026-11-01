@@ -39,8 +39,9 @@ jobs:
   curate:
     name: Apply versioned curation to Neon
     runs-on: ubuntu-latest
-    # Full source preflight plus a large authored content block can exceed 45 minutes.
-    timeout-minutes: 90
+    # Full-registry preflight plus 500 reviewed words can exceed 90 minutes on Neon.
+    # Individual staging/finalization transactions retain their own bounded deadlines.
+    timeout-minutes: 180
     env:
       NODE_ENV: production
       CURATION_MODE: ${{ inputs.mode }}
