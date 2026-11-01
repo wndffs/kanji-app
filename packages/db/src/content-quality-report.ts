@@ -46,6 +46,14 @@ export type ContentQualityPageOptions = {
 const SOURCE_INCLUDE = {
   importRun: { include: { dataSource: { include: { license: true } } } },
 } as const;
+
+export function contentQualityReportTimeoutMs(publishedItemCount: number): number {
+  if (!Number.isSafeInteger(publishedItemCount) || publishedItemCount < 0)
+    throw new Error("Quality report item count must be a non-negative safe integer.");
+  // Full reports retain one RepeatableRead snapshot. Budget ten seconds per
+  // 100-item page without allowing an unbounded interactive transaction.
+  return Math.min(1_800_000, Math.max(120_000, Math.ceil(publishedItemCount / 100) * 10_000));
+}
 type SourceRecord = Prisma.ImportedRecordGetPayload<{ include: typeof SOURCE_INCLUDE }>;
 
 export async function loadContentQualityItems(

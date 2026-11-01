@@ -1,7 +1,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { PrismaClient } from "@prisma/client";
-import { collectContentQualityReport } from "../src/content-quality-report";
+import {
+  collectContentQualityReport,
+  contentQualityReportTimeoutMs,
+} from "../src/content-quality-report";
+import { buildMainCourseBlueprint } from "../src/main-course";
 
 const args = process.argv.slice(2);
 const prisma = new PrismaClient();
@@ -12,11 +16,23 @@ try {
     (args[outputIndex + 1] === undefined || args[outputIndex + 1].startsWith("--"))
   )
     throw new Error("--output requires a file path.");
-  const report = await prisma.$transaction((db) => collectContentQualityReport(db), {
-    isolationLevel: "RepeatableRead",
-    maxWait: 10000,
-    timeout: 120000,
+  const courseSlug = buildMainCourseBlueprint().course.slug;
+  // This count determines only the deadline; report contents are still read
+  // exclusively inside the consistent transaction below.
+  const publishedItemCount = await prisma.learningItem.count({
+    where: {
+      status: "PUBLISHED",
+      courseLevelItems: { some: { courseLevel: { course: { slug: courseSlug } } } },
+    },
   });
+  const report = await prisma.$transaction(
+    (db) => collectContentQualityReport(db, { courseSlug }),
+    {
+      isolationLevel: "RepeatableRead",
+      maxWait: 10000,
+      timeout: contentQualityReportTimeoutMs(publishedItemCount),
+    },
+  );
   const json = `${JSON.stringify(report, null, 2)}\n`;
   if (outputIndex >= 0) {
     const path = resolve(args[outputIndex + 1]);

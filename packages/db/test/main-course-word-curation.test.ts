@@ -26,6 +26,29 @@ import {
 } from "../src/main-course-word-content";
 
 describe("bounded vocabulary curation", () => {
+  it.each([22, 40])(
+    "parses %s distinct registered manifests without broadening their scope",
+    (count) => {
+      const ids = buildMainCourseWordBatches()
+        .slice(0, count)
+        .map((batch) => batch.id);
+      expect(
+        parseMainCourseWordCurationArgs([
+          "--validate-only",
+          ...ids.flatMap((id) => ["--batch", id]),
+        ]),
+      ).toEqual({ mode: "validate-only", batchIds: ids });
+      const tooMany = buildMainCourseWordBatches()
+        .slice(0, 41)
+        .map((batch) => batch.id);
+      expect(() =>
+        parseMainCourseWordCurationArgs([
+          "--validate-only",
+          ...tooMany.flatMap((id) => ["--batch", id]),
+        ]),
+      ).toThrow("maximum 40");
+    },
+  );
   it.each([20, 98])(
     "budgets atomic finalization for %s words without extending item transactions",
     async (count) => {
@@ -88,7 +111,7 @@ describe("bounded vocabulary curation", () => {
       { batchIds: [batches[0]!.id, "unknown"] },
       { batchIds: [batches[0]!.id, batches[0]!.id] },
       { batchId: batches[0]!.id, batchIds: [batches[1]!.id] },
-      { batchIds: Array.from({ length: 21 }, (_, i) => `fixture-${i}`) },
+      { batchIds: Array.from({ length: 41 }, (_, i) => `fixture-${i}`) },
     ]) {
       const fixture = harness(batches);
       await expect(

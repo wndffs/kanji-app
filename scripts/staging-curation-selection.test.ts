@@ -54,9 +54,16 @@ describe("explicit staging curation selection", () => {
     { WORD_BATCH: `${WORDS},${WORDS}` },
     { WORD_BATCH: `${WORDS},` },
     { WORD_BATCH: `${WORDS},../secret` },
-    { WORD_BATCH: Array.from({ length: 21 }, (_, i) => `word-${i}`).join(",") },
+    { WORD_BATCH: Array.from({ length: 41 }, (_, i) => `word-${i}`).join(",") },
   ])("fails ambiguous or unsafe input before database work: %j", (env) => {
     expect(() => selectStagingCuration(env)).toThrow("Invalid staging curation selection.");
+  });
+  it.each([22, 40])("accepts a bounded %s-manifest level-aligned block", (count) => {
+    expect(
+      selectStagingCuration({
+        WORD_BATCH: Array.from({ length: count }, (_, i) => `word-${i}`).join(","),
+      }),
+    ).toEqual({ applyKanji: false, applyWords: true, supplementWordSources: false });
   });
   it("defaults the workflow to read-only and scopes secrets away from installation", () => {
     const workflow = readFileSync(

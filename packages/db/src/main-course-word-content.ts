@@ -3,6 +3,7 @@ import { buildCompletionWordBatches } from "./completion-word-content";
 import { buildReinforcementWordBatches } from "./reinforcement-word-content";
 import { buildCourseGrowthWordBatches } from "./course-growth-word-content";
 import { buildCourseContinuationWordBatches } from "./course-continuation-word-content";
+import { buildCourseExpansionWordBatches } from "./course-expansion-word-content";
 import { buildMainCourseContentBatches } from "./main-course-content";
 
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
@@ -23,7 +24,16 @@ import {
   type MainCourseLocalizedText,
 } from "./main-course-content";
 
-export type AuthoredWordPartOfSpeech = LexicalKind | "na-adjective" | "pronoun" | "adverb";
+export type AuthoredWordPartOfSpeech =
+  | LexicalKind
+  | "na-adjective"
+  | "pronoun"
+  | "adverb"
+  | "prefix"
+  | "suffix"
+  | "counter"
+  | "proper-noun"
+  | "numeral";
 
 export type MainCourseWordContent = {
   readonly expression: string;
@@ -1154,9 +1164,13 @@ export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
     ...buildReinforcementWordBatches(buildMainCourseContentBatches()),
     ...buildCourseGrowthWordBatches(buildMainCourseContentBatches()),
   ];
-  return [
+  const preExpansion = [
     ...previous,
     ...buildCourseContinuationWordBatches(buildMainCourseContentBatches(), previous),
+  ];
+  return [
+    ...preExpansion,
+    ...buildCourseExpansionWordBatches(buildMainCourseContentBatches(), preExpansion),
   ];
 }
 
@@ -1220,9 +1234,19 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
   for (const content of batch.words) {
     if (
       content.partOfSpeech !== undefined &&
-      !["verb", "i-adjective", "noun", "na-adjective", "pronoun", "adverb"].includes(
-        content.partOfSpeech,
-      )
+      ![
+        "verb",
+        "i-adjective",
+        "noun",
+        "na-adjective",
+        "pronoun",
+        "adverb",
+        "prefix",
+        "suffix",
+        "counter",
+        "proper-noun",
+        "numeral",
+      ].includes(content.partOfSpeech)
     )
       issues.push(`Invalid authored part of speech for ${content.expression}.`);
     const identity = `${content.expression}:${content.reading}`;

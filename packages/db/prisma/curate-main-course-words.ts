@@ -35,6 +35,7 @@ const LICENSE_NAME = "Project-authored main-course word content";
 const SOURCE_URL =
   "https://github.com/wndffs/kanji-app/blob/main/packages/db/src/main-course-word-content.ts";
 const TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 30_000 } as const;
+const MAX_SELECTED_WORD_BATCHES = 40;
 type Reader = Pick<
   Prisma.TransactionClient,
   | "course"
@@ -788,7 +789,7 @@ function reviewedSelection(
     throw new Error("Conflicting word batch selection.");
   const ids = batchIds ?? (batchId === undefined ? undefined : [batchId]);
   if (ids !== undefined) {
-    if (!ids.length || ids.length > 20 || new Set(ids).size !== ids.length)
+    if (!ids.length || ids.length > MAX_SELECTED_WORD_BATCHES || new Set(ids).size !== ids.length)
       throw new Error("Invalid word batch selection.");
     for (const id of ids) {
       const selected = batches.find((batch) => batch.id === id);
@@ -833,7 +834,7 @@ export function parseMainCourseWordCurationArgs(
 } {
   const invalid = () =>
     new Error(
-      "Use no arguments to apply reviewed batches, --validate-only, or --preflight-only; optionally select --batch <registered-id> once per distinct ID (maximum 20).",
+      `Use no arguments to apply reviewed batches, --validate-only, or --preflight-only; optionally select --batch <registered-id> once per distinct ID (maximum ${MAX_SELECTED_WORD_BATCHES}).`,
     );
   let mode: "apply" | "validate-only" | "preflight-only" = "apply";
   const batchIds: string[] = [];
@@ -848,7 +849,7 @@ export function parseMainCourseWordCurationArgs(
         value === undefined ||
         value.startsWith("--") ||
         batchIds.includes(value) ||
-        batchIds.length === 20
+        batchIds.length === MAX_SELECTED_WORD_BATCHES
       )
         throw invalid();
       if (!batches.some((batch) => batch.id === value))

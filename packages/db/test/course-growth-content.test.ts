@@ -17,8 +17,8 @@ import {
 } from "../src/course-growth-word-content";
 import { buildEditorialRegistryInventory } from "../src/editorial-registry-inventory";
 
-const kanji = buildMainCourseContentBatches();
-const words = buildMainCourseWordBatches();
+const kanji = buildMainCourseContentBatches().filter((batch) => !batch.id.includes("expansion"));
+const words = buildMainCourseWordBatches().filter((batch) => !batch.id.includes("expansion"));
 const batch = kanji.find((b) => b.id === "full-course-kanji-growth")!;
 const block = words.filter((b) => b.id.startsWith("full-course-vocabulary-growth-"));
 const hash = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).digest("hex");
@@ -118,7 +118,7 @@ describe("large course growth content block", () => {
             expect(text[locale].trim()).not.toBe("");
         }
       }
-    const report = buildEditorialRegistryInventory();
+    const report = buildEditorialRegistryInventory({ kanjiBatches: kanji, wordBatches: words });
     expect(report.prepared.distinctTotals).toMatchObject({ kanji: 514, words: 800 });
     expect(report.validation).toEqual({ valid: true, issues: [] });
   });

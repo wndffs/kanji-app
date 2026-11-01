@@ -93,6 +93,7 @@ type AnswerRow = {
   readonly answerKind: string;
   readonly locale: string;
   readonly isPrimary: boolean;
+  readonly sourceKind?: string;
 };
 
 type BlockedAnswerRow = {
@@ -760,7 +761,7 @@ export class PrismaItemsRepository extends ItemsRepository {
       case "KANJI":
         return this.findKanjiTarget(item.targetId, summaryOnly);
       case "WORD":
-        return this.findWordTarget(item.targetId);
+        return this.findWordTarget(item.targetId, item.cards ?? []);
       case "SENTENCE":
         return this.findSentenceTarget(item.targetId);
       default:
@@ -868,7 +869,10 @@ export class PrismaItemsRepository extends ItemsRepository {
     };
   }
 
-  private async findWordTarget(id: string): Promise<ItemTargetRecord> {
+  private async findWordTarget(
+    id: string,
+    cards: readonly LearningCardRow[],
+  ): Promise<ItemTargetRecord> {
     const word = (await this.prisma.db.word.findUnique({
       where: { id },
       include: {
@@ -884,14 +888,7 @@ export class PrismaItemsRepository extends ItemsRepository {
       japanese: word.expression,
       reading: word.reading,
       jlptLevel: formatJlptLevel(word.jlptLevel),
-      translations: groupLocalizedTexts(
-        word.senses.map((sense, index) =>
-          localizedText(toContentLocale(sense.locale), sense.meaning, {
-            isPrimary: index === 0,
-            sourceKind: toSourceKind(sense.sourceKind),
-          }),
-        ),
-      ),
+      translations: toWordTranslations(word, cards),
       componentDetails: null,
       kanjiReadingEvidence: [],
       wordDetails: {
@@ -992,6 +989,40 @@ export class PrismaItemsRepository extends ItemsRepository {
       ];
     });
   }
+}
+
+function toWordTranslations(
+  word: WordRow,
+  cards: readonly LearningCardRow[],
+): ItemTargetRecord["translations"] {
+  const meaningAnswers = cards
+    .filter((card) => card.answerType === "MEANING")
+    .flatMap((card) => card.answers ?? [])
+    .filter((answer) => answer.answerKind === "MEANING" && answer.sourceKind !== "USER_PRIVATE");
+  const select = (locale: "ru-RU" | "en-US") => {
+    const answers = meaningAnswers.filter((answer) => answer.locale === locale);
+
+    if (answers.length > 0) {
+      // Like card answers, this is already the teaching scope, not source-ranked senses.
+      return answers.map((answer) =>
+        localizedText(locale, answer.text, {
+          isPrimary: answer.isPrimary,
+        }),
+      );
+    }
+
+    // Dictionary order is a fallback within each locale, never the teaching scope.
+    return word.senses
+      .filter((sense) => sense.locale === locale && sense.sourceKind !== "USER_PRIVATE")
+      .map((sense, index) =>
+        localizedText(locale, sense.meaning, {
+          isPrimary: index === 0,
+          sourceKind: toSourceKind(sense.sourceKind),
+        }),
+      );
+  };
+
+  return { ru: select("ru-RU"), en: select("en-US") };
 }
 
 function toCardRecord(

@@ -2,10 +2,32 @@ import { describe, expect, it, vi } from "vitest";
 import type { Prisma } from "@prisma/client";
 import {
   collectContentQualityReport,
+  contentQualityReportTimeoutMs,
   getContentQualityPage,
   loadContentQualityItems,
   type ContentQualityDatabase,
 } from "../src/content-quality-report";
+
+describe("bounded full quality-report snapshot budget", () => {
+  it.each([
+    [0, 120_000],
+    [1200, 120_000],
+    [1201, 130_000],
+    [1533, 160_000],
+    [2246, 230_000],
+    [11000, 1_100_000],
+    [18000, 1_800_000],
+    [Number.MAX_SAFE_INTEGER, 1_800_000],
+  ])("budgets %s items at %s ms", (count, timeout) => {
+    expect(contentQualityReportTimeoutMs(count)).toBe(timeout);
+  });
+  it.each([-1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])(
+    "rejects invalid counts: %s",
+    (count) => {
+      expect(() => contentQualityReportTimeoutMs(count)).toThrow("non-negative safe integer");
+    },
+  );
+});
 
 function databaseFixture(count: number) {
   const rows = Array.from({ length: count }, (_, index) => ({

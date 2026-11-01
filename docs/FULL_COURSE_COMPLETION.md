@@ -576,3 +576,60 @@ pairs** still requires **1,786 kanji / 7,200 words** with complete independent
 teaching, review and publication. Continue substantial blocks in this same
 task, not numbered microtasks. Published additions are not a finished main
 course or grounds to switch existing learners away from V7.
+
+## Practical Expansion In Preparation: 2026-11-01
+
+Continue the same OPEN delivery task with **200 kanji and 500 new primary
+word forms**. This is preparation, not a publication claim. The intended
+post-publication totals are **714 kanji / 1,300 words**, leaving **1,586 kanji
+and 6,700 words** to author, review and publish for the full target.
+
+- Reuse the verified official 2026-10-31 local snapshot; no new download or
+  proprietary content is required. All 200 selected readings have an exact
+  bilingual reinforcement pair and a primary KanjiVG sequence whose stroke
+  count matches KANJIDIC2. Independent editorial/source review is still required.
+- Prefer practical reinforcement (e.g. 指示, 日常, 収入, 呼吸), not accidental
+  kana substrings, historical abbreviations or name-only frequency artifacts.
+  Source-supported plain kun readings remain distinct from on readings.
+- The 500 new written forms are distinct from each other and the previous
+  800 words. No full-width-number variants or compositional multi-number words
+  are used to inflate the delivery count. Include verbs, i/na-adjectives and
+  adverbs as well as nouns. Explicit prefixes, suffixes, counters, numerals
+  and proper names must not be mislabeled as ordinary nouns.
+- Freeze all previous 514/800 payloads and all 800 vocabulary placement slots.
+  Fill free kanji capacity and place each word at its exact earliest readable
+  level, including the kanji in its original example. Retain the 200-word
+  manifest bound, atomic finalization and all source/quality protections.
+- Correct the recorded content-display defect: search/item/related summaries
+  should prioritize the actual global primary meaning per locale, not an
+  alphabetically earlier synonym. Keep raw dictionary senses separate and
+  never promote private overrides or blocked answers into global meanings.
+- Independent AI reviews, focused batched checks, commit/push, guarded server
+  publication, live UI verification and before/after preservation checks are
+  required before a new server receipt can confirm these prepared totals.
+  Main remains DRAFT; V1-V7 and all enrollments/progress remain unchanged.
+- The full quality-report CLI now budgets its existing RepeatableRead
+  transaction from the published course item count: ten seconds per 100-item
+  page, minimum two minutes, maximum thirty minutes. The preliminary count
+  controls only the deadline; all reported rows still come from one consistent
+  snapshot. No quality checks or provenance gates are skipped.
+- Twenty-two level-aligned vocabulary manifests describe this one 500-word
+  block. Explicit deployment/CLI selection is bounded at forty distinct
+  registered IDs, rather than twenty, so the block can use one complete
+  source preflight and publication command. Unknown/duplicate IDs, over-limit
+  lists, unreviewed content and unsafe mode combinations remain rejected.
+- The final read-only source plan finds all **513 exact pairs** (500 primary,
+  thirteen accepted variants) already in Neon, with no missing pair or ID
+  conflict. Two initial candidates were replaced without changing old rows:
+  ambiguous 共同 became 共通, and legacy starter 一つ became 輸入.
+- Raw Russian glosses are not blindly promoted into teaching meanings. Some
+  are cross-references or cover a different sense; project-authored Russian
+  may accurately translate the verified English sense, with independent
+  review. For example, 大手 teaches a major company, not castle gates, and
+  短め teaches shortish length, not the inconsistent raw Russian gloss.
+  Original raw evidence and attribution remain separate and unchanged.
+- All 200 character-to-reading alignments are frozen explicitly with their
+  written-character index and kana offset. A reading substring belonging to
+  another character is not evidence: 示 is じ at offset 1 in 指示 / しじ,
+  not し at offset 0. Targeted semantic blocks reject genuinely wrong close
+  answers without rejecting reviewed valid number forms or synonyms.

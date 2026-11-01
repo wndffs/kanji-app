@@ -18,8 +18,8 @@ import {
 import { buildEditorialRegistryInventory } from "../src/editorial-registry-inventory";
 import { buildReinforcementWordBatches } from "../src/reinforcement-word-content";
 
-const kanji = buildMainCourseContentBatches();
-const words = buildMainCourseWordBatches();
+const kanji = buildMainCourseContentBatches().filter((batch) => !batch.id.includes("expansion"));
+const words = buildMainCourseWordBatches().filter((batch) => !batch.id.includes("expansion"));
 const newKanji = kanji.find((b) => b.id === "full-course-kanji-reinforcement")!;
 const newWords = words.filter((b) => b.id.startsWith("full-course-vocabulary-reinforcement-"));
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -82,7 +82,7 @@ describe("full-course reading reinforcement", () => {
             ).toBe(true);
         }
       }
-    const report = buildEditorialRegistryInventory();
+    const report = buildEditorialRegistryInventory({ kanjiBatches: kanji, wordBatches: words });
     expect(report.validation).toEqual({ valid: true, issues: [] });
     expect(report.prepared.distinctTotals).toMatchObject({ kanji: 514, words: 800 });
     expect(report.sourceSeals.every((s) => s.status === "complete")).toBe(true);

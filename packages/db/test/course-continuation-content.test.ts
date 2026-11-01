@@ -21,8 +21,8 @@ import {
 } from "../src/course-continuation-word-content";
 import { buildEditorialRegistryInventory } from "../src/editorial-registry-inventory";
 
-const kanji = buildMainCourseContentBatches();
-const words = buildMainCourseWordBatches();
+const kanji = buildMainCourseContentBatches().filter((batch) => !batch.id.includes("expansion"));
+const words = buildMainCourseWordBatches().filter((batch) => !batch.id.includes("expansion"));
 const batch = kanji.find((b) => b.id === "full-course-kanji-continuation")!;
 const block = words.filter((b) => b.id.startsWith("full-course-vocabulary-continuation-"));
 const priorKanji = kanji.filter((b) => b !== batch);
@@ -120,7 +120,10 @@ describe("large balanced course continuation", () => {
     expect(block.every((b) => b.words.length === b.wordCount && b.words.length <= 200)).toBe(true);
     expect(validateMainCourseContentBatches(kanji)).toEqual([]);
     expect(validateMainCourseWordBatches(words)).toEqual([]);
-    expect(buildEditorialRegistryInventory().prepared.distinctTotals).toMatchObject({
+    expect(
+      buildEditorialRegistryInventory({ kanjiBatches: kanji, wordBatches: words }).prepared
+        .distinctTotals,
+    ).toMatchObject({
       kanji: 514,
       words: 800,
     });
