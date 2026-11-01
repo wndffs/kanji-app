@@ -506,3 +506,73 @@ Prepared targets after acceptance: **219 components / 514 kanji / 800 primary
 word pairs**. The full course would still require **1,786 kanji and 7,200 word
 pairs**. Keep the main curriculum DRAFT, preserve V1-V7 and enrollments, and
 record a separate live receipt only after actual successful publication.
+
+## Continuation Server Receipt: 2026-11-01
+
+- Reviewed content commit: `14e5c7b7995ab27089e395ad32ed638ceab0cf55`.
+  Finalization scaling fix/runtime release:
+  `3b3a8d15f9c0e7effa0683c4694df295ee5213d0`. The content payloads did not
+  change in the fix. All seventeen live authored import runs are SUCCESS and
+  match the exact independently reviewed manifest seals.
+- [Kanji/component publication](https://github.com/wndffs/kanji-app/actions/runs/41306739925)
+  and [complete word publication](https://github.com/wndffs/kanji-app/actions/runs/41309752071)
+  succeeded. They are two operational phases of this one large block. Only
+  the new kanji manifest and sixteen new word manifests were applied; no old
+  teaching manifest was reapplied. The 98-word finalization succeeded with
+  its bounded atomic deadline.
+- The deliberately [cancelled initial word attempt](https://github.com/wndffs/kanji-app/actions/runs/41306870374)
+  was still in full-registry preflight: a read-only database check confirmed
+  no word teaching import run or new published word. Its source supplement
+  had already successfully inserted ten absent JMdict entries and one exact
+  sense-note evidence record. The resumed attempt reused them without writes
+  to old raw records, alias repair, dictionary-wide import or a fake Word row
+  for the note-only reading. Existing licensing and full-registry source,
+  placement, prerequisite and example checks remained enabled.
+- Live main-set totals: **219 components / 514 kanji / 800 primary word
+  pairs / 1,533 published teaching targets / 2,847 core cards**. All 514 kanji
+  have stroke graphics and occur in a published word expression. All 300 new
+  words have published original bilingual examples. There are **35 populated
+  main-course levels**, up to level 38 of 60. A course-scoped count is required:
+  shared items also occur in sealed courses and their placements must not be
+  counted as extra main-course levels. The main curriculum remains **DRAFT**.
+- Final quality report: **1,533 scanned items, zero blockers, zero warnings**;
+  content version
+  `582e33ecd5c16634b78683a251e9b98837ec6fc7e143b52d3a1fb7c4168f49a9`.
+  This verifies registered source-backed material, not human linguistic
+  certification or completion of the final curriculum.
+- All **35 preservation groups** retained identical counts and private
+  digests: 30 accounts, 162 SRS states, private settings/content and review,
+  enrollment and kana history, every sealed course, and all 1,065 previous
+  main targets with their placements, cards, answers, dependencies and example
+  links. V1-V7 and enrollments remain unchanged. No private rows or digests
+  are stored in this receipt.
+- Relevant local coverage: **482 tests across seventeen files**, including
+  immutable legacy/new payloads, 134 primary reading links, eighteen exact
+  variants, one sense-note reading, strict source-proof rejection, semantic
+  near-miss blocks, 20/98-word transaction budgets and atomic rollback.
+  DB/API typechecks, changed-file lint/format and diff checks passed.
+  [Final CI including web smoke](https://github.com/wndffs/kanji-app/actions/runs/41309655590)
+  and [study integrity on PostgreSQL 18](https://github.com/wndffs/kanji-app/actions/runs/41309655457)
+  passed. Documentation-only receipt changes need no additional runtime test.
+- Public web/API health both returned 200 on runtime revision `3b3a8d1`.
+  The first API probe timed out while the free Render service was cold; its
+  bounded retry returned 200. This release makes no cold-start latency claim.
+  Live search and ordinary item pages confirmed 良い / よい with accepted
+  いい, 怒る / おこる with accepted いかる and its register note, original
+  JP/kana/RU examples, and related kanji. 怒 / ど links to 怒声 / どせい
+  and renders nine KanjiVG paths in a 320 x 320 SVG. No graded answers,
+  enrollments or translation settings were changed.
+- The previously recorded primary-meaning display ordering issue remains:
+  item/search summaries may lead with another valid curated synonym instead
+  of the manifest's primary answer (e.g. добротный before хороший for 良い).
+  The actual accepted-answer disclosure retains the correct primary order.
+  This content release does not claim to fix that UI issue.
+- All review/worker agents and temporary in-app tabs were closed. No local
+  dev server was needed; one-off evidence/scripts stayed outside Git and were
+  removed. The verified reusable official source cache is retained.
+
+**Large task remains OPEN:** reaching **2,300 kanji / 8,000 primary word
+pairs** still requires **1,786 kanji / 7,200 words** with complete independent
+teaching, review and publication. Continue substantial blocks in this same
+task, not numbered microtasks. Published additions are not a finished main
+course or grounds to switch existing learners away from V7.
