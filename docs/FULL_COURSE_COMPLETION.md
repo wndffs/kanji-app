@@ -639,3 +639,70 @@ and 6,700 words** to author, review and publish for the full target.
   and atomic finalization transaction budgets, manifest seals, source gates
   and quality checks are unchanged. An interrupted attempt must resume only
   its unfinished explicit manifests, without reapplying completed ones.
+
+## Practical Expansion Server Receipt: 2026-11-01
+
+- Content and primary-meaning display fix:
+  `d48a1f0054b37c366b4e3abd1bf0df744675390c`. Bounded workflow deadline fix:
+  `d94eb833ca662099e10628793fb5493c000c1a7a`. Reviewed payloads are unchanged
+  by the workflow fix. All **23 authored import runs are SUCCESS** and match
+  the exact frozen manifest checksums: one kanji/component manifest and
+  twenty-two level-aligned word manifests, describing one substantial block.
+- [Kanji/component publication](https://github.com/wndffs/kanji-app/actions/runs/41321783513)
+  succeeded. The [complete 500-word application](https://github.com/wndffs/kanji-app/actions/runs/41321875676)
+  finished all teaching writes and its corpus report before the old ninety-minute
+  job ceiling interrupted only the final quality report. No completed manifest
+  was reapplied and no unfinished teaching manifest remained. The subsequent
+  [read-only quality and source preflight](https://github.com/wndffs/kanji-app/actions/runs/41333637069)
+  succeeded in `plan` mode without teaching writes. Future jobs use the bounded
+  three-hour ceiling; transaction deadlines and all safety gates are unchanged.
+- Live main-set totals: **232 components / 714 kanji / 1,300 primary word
+  pairs / 2,246 published teaching targets / 4,260 core cards**. All 714 kanji
+  have stroke graphics and occur in a published word expression. All **500 new
+  words** have published original Japanese/kana/Russian/English examples.
+  There are **37 populated main-course levels**, up to level 39 of 60. These
+  counts exclude shared placements in other courses. Main remains **DRAFT**;
+  no finite release, automatic enrollment change or progress reset was made.
+- Final quality report: **2,246 scanned items, zero blockers, zero warnings**;
+  content version
+  `f1cffd6b3f36e8a79befd9ed3b3271c61fb6b69155ed34c39ca767dbacbe91ad`.
+  The 500 primary pairs and thirteen accepted variants already had exact
+  JMdict evidence in Neon: no source supplement, raw-record repair or
+  dictionary-wide import was needed. Primary readings, shape sequences,
+  phonology, meanings and examples received independent AI source/editorial
+  review. This is not human linguistic certification.
+- All **35 preservation groups** retained identical counts and private
+  digests: 30 accounts, 162 SRS states, private settings/content and history,
+  enrollments and kana data, every sealed V1-V7 course, and all **1,533 prior
+  main targets** with their placements, cards, answers, dependencies and
+  example links. No private rows or digests are stored in this receipt.
+- **501 distinct relevant tests across 21 files** passed after correcting
+  one stale CLI registry expectation. This includes immutable prior payloads,
+  200 explicit reading alignments, source-ID and kana-offset rejection,
+  grammar metadata, conservative semantic near-miss blocks, manifest seals,
+  placement, selection bounds, quality-report deadlines and per-locale
+  primary meanings without private-answer leakage. The deployment guard's
+  25 tests were also rerun after its timeout-only correction. DB/API
+  typechecks and changed-file lint, formatting and diff checks passed.
+  [Content CI including web smoke](https://github.com/wndffs/kanji-app/actions/runs/41321394458),
+  [content study integrity](https://github.com/wndffs/kanji-app/actions/runs/41321394459),
+  [workflow-fix CI](https://github.com/wndffs/kanji-app/actions/runs/41331548931)
+  and [workflow-fix study integrity](https://github.com/wndffs/kanji-app/actions/runs/41331548830)
+  passed. No additional full monorepo suite was run locally.
+- Web/API health both returned 200 on deployed content revision `d48a1f0`.
+  Live search and ordinary item pages confirmed **良い / よい / хороший**
+  with accepted **いい**, fixing the previously recorded summary ordering
+  defect. Raw dictionary senses remain separate. New **大手 / おおて**
+  correctly teaches a major company with its original example; **共通 /
+  きょうつう** links to **共 / きょう** and its reinforcement words.
+  共 renders six KanjiVG paths in a 320 x 320 SVG. No graded answers,
+  enrollment or translation settings were changed during browser checks.
+- Review agents and temporary in-app tabs are closed. No local dev server
+  was needed. One-off evidence and scripts stayed outside Git and were
+  removed; the verified reusable official source cache is retained.
+
+**Large task remains OPEN:** **1,586 kanji / 6,700 primary words** still
+require independent teaching, review and publication to reach **2,300 /
+8,000**. Continue substantial content blocks, not numbered microtasks.
+This expansion is not a completed main curriculum or permission to switch
+existing learners away from V7.
