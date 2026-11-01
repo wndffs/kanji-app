@@ -492,6 +492,15 @@ All examples and RU/EN scopes are authored separately from dictionary evidence.
   the insert-only proof pipeline. Seventeen exact manifest checksums are
   frozen in the continuation regression test. These are AI-assisted checks,
   not human linguistic certification or evidence of a completed full course.
+- Server application uses two sequential operational phases of this same block,
+  not separate tasks: kanji/components, then all 300 words. Final publication of
+  a word manifest still revalidates every example in one atomic transaction.
+  Its deadline now scales with the validated manifest size (1.5 seconds per
+  word, minimum thirty seconds, maximum five minutes for 200 words). Per-word
+  staging transactions keep the original thirty-second limit. Regression tests
+  cover the unchanged legacy budget, the 98-word group, and rollback when its
+  final example fails. The initial word attempt was deliberately cancelled to
+  deploy this safety correction before resuming; manifest payloads are unchanged.
 
 Prepared targets after acceptance: **219 components / 514 kanji / 800 primary
 word pairs**. The full course would still require **1,786 kanji and 7,200 word

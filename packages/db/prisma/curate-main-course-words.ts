@@ -413,36 +413,44 @@ export async function applyMainCourseWordBatch(
         ),
       );
     }
-    await prisma.$transaction(async (db) => {
-      // SUCCESS is visible to example validation in this transaction only. Any failed
-      // validation rolls back both the status change and every publication below.
-      await db.importRun.update({
-        where: { id: metadata.importRunId },
-        data: {
-          status: "SUCCESS",
-          finishedAt: new Date(),
-          errorText: null,
-          statsJson: stats(batch),
-        },
-      });
-      for (const entry of staged)
-        await writeWordExample(db, {
-          wordId: entry.wordId,
-          sentenceId: entry.sentenceId,
-          status: "PUBLISHED",
-          sortOrder: 0,
+    await prisma.$transaction(
+      async (db) => {
+        // SUCCESS is visible to example validation in this transaction only. Any failed
+        // validation rolls back both the status change and every publication below.
+        await db.importRun.update({
+          where: { id: metadata.importRunId },
+          data: {
+            status: "SUCCESS",
+            finishedAt: new Date(),
+            errorText: null,
+            statsJson: stats(batch),
+          },
         });
-      const published = await db.learningItem.updateMany({
-        where: {
-          id: { in: staged.map((entry) => entry.learningItemId) },
-          targetType: "WORD",
-          kind: "WORD",
-        },
-        data: { status: "PUBLISHED" },
-      });
-      if (published.count !== staged.length)
-        throw new Error("Word publication changed during finalization.");
-    }, TRANSACTION_OPTIONS);
+        for (const entry of staged)
+          await writeWordExample(db, {
+            wordId: entry.wordId,
+            sentenceId: entry.sentenceId,
+            status: "PUBLISHED",
+            sortOrder: 0,
+          });
+        const published = await db.learningItem.updateMany({
+          where: {
+            id: { in: staged.map((entry) => entry.learningItemId) },
+            targetType: "WORD",
+            kind: "WORD",
+          },
+          data: { status: "PUBLISHED" },
+        });
+        if (published.count !== staged.length)
+          throw new Error("Word publication changed during finalization.");
+      },
+      {
+        ...TRANSACTION_OPTIONS,
+        // Each example is revalidated inside this atomic publication. Manifests cap
+        // the work at 200 words; keep legacy budgets and allow up to five minutes.
+        timeout: Math.max(TRANSACTION_OPTIONS.timeout, batch.words.length * 1_500),
+      },
+    );
     return {
       batchId: batch.id,
       checksumSha256,

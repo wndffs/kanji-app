@@ -26,6 +26,43 @@ import {
 } from "../src/main-course-word-content";
 
 describe("bounded vocabulary curation", () => {
+  it.each([20, 98])(
+    "budgets atomic finalization for %s words without extending item transactions",
+    async (count) => {
+      const batch = largePublicationFixture(count);
+      const fixture = harness([batch]);
+      const result = await applyMainCourseWordBatch(fixture.db, batch);
+      expect(result.words).toBe(count);
+      expect(fixture.transaction.mock.calls).toHaveLength(count + 2);
+      expect(
+        fixture.transaction.mock.calls.slice(0, -1).every((call) => call[1]?.timeout === 30_000),
+      ).toBe(true);
+      expect(fixture.transaction.mock.calls.at(-1)?.[1]).toEqual({
+        maxWait: 10_000,
+        timeout: Math.max(30_000, count * 1_500),
+      });
+      expect([...fixture.state.examples.values()].every((row) => row.status === "PUBLISHED")).toBe(
+        true,
+      );
+      expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
+    },
+  );
+  it("rolls back all 98 published links and items when the last example fails final validation", async () => {
+    const batch = largePublicationFixture(98);
+    const fixture = harness([batch]);
+    const privateBefore = structuredClone(fixture.privateRows);
+    fixture.failPublicationAt(98);
+    await expect(applyMainCourseWordBatch(fixture.db, batch)).rejects.toThrow();
+    expect([...fixture.state.runs.values()].every((row) => row.status === "FAILED")).toBe(true);
+    expect([...fixture.state.examples.values()].every((row) => row.status === "DRAFT")).toBe(true);
+    for (const word of batch.words)
+      expect(
+        fixture.state.items.get(key({ targetType: "WORD", targetId: `word-${word.expression}` }))
+          ?.status,
+      ).toBe("DRAFT");
+    expect(fixture.privateRows).toEqual(privateBefore);
+    expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
+  });
   it("parses distinct explicit batches while rejecting duplicate, unknown and excessive selections", () => {
     const batches = registryFixtureBatches();
     expect(
@@ -1169,6 +1206,24 @@ function readingNoteFixture() {
   return { ...fixture, proof, readProof, privateBefore: structuredClone(fixture.privateRows) };
 }
 
+function largePublicationFixture(count: number): MainCourseWordBatch {
+  const batch = structuredClone(
+    count === 20
+      ? buildMainCourseWordBatch()
+      : buildMainCourseWordBatches().find((batch) => batch.words.length === count)!,
+  );
+  // Synthetic dictionary rows isolate finalization; explicit real-source proofs
+  // are exercised by their own provenance and rollback tests above.
+  return {
+    ...batch,
+    words: batch.words.map((word) => ({
+      ...word,
+      sourceNoteReadings: undefined,
+      acceptedReadingEntryIds: undefined,
+    })),
+  };
+}
+
 function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordBatch()]) {
   const batch = { ...batches[0]!, reviewedAt: "2026-10-22" };
   const words = new Map<string, ReturnType<typeof wordSource>>();
@@ -1522,32 +1577,37 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
       deleteMany: forbiddenMutation,
     },
   };
-  const transaction = vi.fn(async (callback: (db: typeof delegates) => Promise<unknown>) => {
-    const before = structuredClone(state);
-    try {
-      return await callback(delegates);
-    } catch (error) {
-      restoreMap(state.words, before.words);
-      for (const name of [
-        "items",
-        "placements",
-        "cards",
-        "answers",
-        "senses",
-        "mnemonics",
-        "hints",
-        "dependencies",
-        "licenses",
-        "sources",
-        "runs",
-        "records",
-        "sentences",
-        "examples",
-      ] as const)
-        restoreMap(state[name], before[name]);
-      throw error;
-    }
-  });
+  const transaction = vi.fn(
+    async (
+      callback: (db: typeof delegates) => Promise<unknown>,
+      _options?: { maxWait?: number; timeout?: number },
+    ) => {
+      const before = structuredClone(state);
+      try {
+        return await callback(delegates);
+      } catch (error) {
+        restoreMap(state.words, before.words);
+        for (const name of [
+          "items",
+          "placements",
+          "cards",
+          "answers",
+          "senses",
+          "mnemonics",
+          "hints",
+          "dependencies",
+          "licenses",
+          "sources",
+          "runs",
+          "records",
+          "sentences",
+          "examples",
+        ] as const)
+          restoreMap(state[name], before[name]);
+        throw error;
+      }
+    },
+  );
   return {
     db: { ...delegates, $transaction: transaction } as unknown as PrismaClient,
     state,
