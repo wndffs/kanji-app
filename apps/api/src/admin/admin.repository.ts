@@ -173,6 +173,7 @@ type MainCoursePublicationDatabase = Pick<
   | "courseLevelItem"
   | "kanji"
   | "word"
+  | "importedRecord"
   | "component"
   | "sentence"
   | "srsSystem"

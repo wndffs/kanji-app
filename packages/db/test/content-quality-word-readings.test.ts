@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { normalizeJapaneseReading } from "@kanji-srs/japanese";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { validateQualityItem } from "../src/content-quality";
 import {
@@ -8,6 +8,16 @@ import {
   loadContentQualityItems,
   type ContentQualityDatabase,
 } from "../src/content-quality-report";
+import * as wordContent from "../src/main-course-word-content";
+import { readingNoteProofChecksum, readingNoteProofData } from "../src/jmdict-reading-note-proof";
+
+afterEach(() => vi.restoreAllMocks());
+
+const EXPLICIT_BATCHES = wordContent
+  .buildMainCourseWordBatches()
+  .filter((batch) =>
+    batch.words.some((word) => word.acceptedReadingEntryIds || word.sourceNoteReadings),
+  );
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 type Pair = readonly [expression: string, primary: string, aliases: readonly string[]];
@@ -20,6 +30,15 @@ const PAIRS: readonly Pair[] = [
 ];
 
 describe("bounded canonical JMdict sibling-reading evidence", () => {
+  it("preserves legacy primary-only and sibling report hashes", async () => {
+    const primary = await collectContentQualityReport(fixture([["日本", "にほん", []]]).db);
+    const siblings = await collectContentQualityReport(fixture(PAIRS).db);
+    expect([primary.contentVersion, siblings.contentVersion]).toEqual([
+      "46e50b552f2eb4d09d1e0b1a0a03c1e7bb5325ee8fd490930da817f2e6265da0",
+      "5000234268e7e44c11bb22d9320284ab78a07f7e7639ae8a20bff243e940834e",
+    ]);
+  });
+
   it("verifies the five alternate pairs only on their exact entry, record and successful source chain", async () => {
     const h = fixture(PAIRS);
     const items = await loadContentQualityItems(h.db);
@@ -205,6 +224,274 @@ describe("bounded canonical JMdict sibling-reading evidence", () => {
     expect(h.findWords.mock.calls[1]?.[0]?.take).toBe(1001);
   });
 });
+
+describe("reviewed explicit JMdict reading proofs", () => {
+  it.each(["怒る", "良い"])(
+    "accepts the registered %s alternative after strict revalidation",
+    async (expression) => {
+      const h = strictFixture(expression);
+      const item = (await loadContentQualityItems(h.db))[0]!;
+      expect(item.sourceReadings).toEqual([h.content.reading, h.requested]);
+      expect(
+        validateQualityItem(item).filter((issue) => issue.code === "unsupported-reading"),
+      ).toEqual([]);
+      expect(h.findPrimary).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { expression_reading: { expression, reading: h.content.reading } },
+        }),
+      );
+      if (expression === "怒る") {
+        expect(h.findPrimary).toHaveBeenCalledTimes(2);
+        expect(h.findPrimary.mock.calls[1]?.[0]?.where).toEqual({
+          expression_reading: { expression, reading: "いかる" },
+        });
+        expect(h.findProof).not.toHaveBeenCalled();
+      } else {
+        expect(h.findPrimary).toHaveBeenCalledTimes(1);
+        expect(h.findProof).toHaveBeenCalledTimes(1);
+        expect(h.findProof.mock.calls[0]?.[0]?.where).toMatchObject({
+          sourceRecordId: "jmdict:1605820",
+          importRun: { checksumSha256: h.proof.importRun.checksumSha256 },
+        });
+      }
+    },
+  );
+
+  it.each(["怒る", "良い"])(
+    "does not load unrequested %s proofs or change primary-only hashes",
+    async (expression) => {
+      const h = strictFixture(expression);
+      h.items[0]!.cards[0]!.answers.splice(1);
+      const before = await collectContentQualityReport(h.db);
+      h.findWords.mockClear();
+      h.findProof.mockRejectedValue(new Error("Unrequested proof must not be read"));
+      h.findPrimary.mockRejectedValue(new Error("Unrequested primary must not be read"));
+      expect((await collectContentQualityReport(h.db)).contentVersion).toBe(before.contentVersion);
+      expect(h.findWords).toHaveBeenCalledTimes(1);
+      expect(h.findPrimary).not.toHaveBeenCalled();
+      expect(h.findProof).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["怒る", "良い"])("keeps arbitrary added %s readings unsupported", async (expression) => {
+    const h = strictFixture(expression);
+    h.items[0]!.cards[0]!.answers.push({
+      text: "あいう",
+      normalizedText: "あいう",
+      locale: "ru-RU",
+      sourceKind: "PROJECT_AUTHORED",
+      isPrimary: false,
+    });
+    const item = (await loadContentQualityItems(h.db))[0]!;
+    expect(item.sourceReadings).toEqual([h.content.reading, h.requested]);
+    expect(
+      validateQualityItem(item).filter((issue) => issue.code === "unsupported-reading"),
+    ).toHaveLength(1);
+    expect(h.findPrimary).toHaveBeenCalledTimes(expression === "怒る" ? 2 : 1);
+    expect(h.findProof).toHaveBeenCalledTimes(expression === "良い" ? 1 : 0);
+  });
+
+  it.each(["absent", "unreviewed", "course", "expression", "reading", "entry", "not-explicit"])(
+    "does not use a manifest with %s registration",
+    async (condition) => {
+      const h = strictFixture("怒る");
+      if (condition === "absent") h.registry.mockReturnValue([]);
+      if (condition === "unreviewed") Object.assign(h.batch, { reviewedAt: null });
+      if (condition === "course") Object.assign(h.batch, { courseSlug: "different-course" });
+      if (condition === "expression") Object.assign(h.content, { expression: "別語" });
+      if (condition === "reading") Object.assign(h.content, { reading: "おこり" });
+      if (condition === "entry") Object.assign(h.content, { jmdictEntryId: "jmdict:9999" });
+      if (condition === "not-explicit")
+        Object.assign(h.content, { acceptedReadingEntryIds: undefined });
+      const item = (await loadContentQualityItems(h.db))[0]!;
+      expect(item.sourceReadings).toEqual([h.words[0]!.reading]);
+      expect(
+        validateQualityItem(item).filter((issue) => issue.code === "unsupported-reading"),
+      ).toHaveLength(1);
+      expect(h.findPrimary).not.toHaveBeenCalled();
+      expect(h.findProof).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    "missing",
+    "expression",
+    "reading",
+    "entry",
+    "record",
+    "sequence",
+    "status",
+    "version",
+    "checksum",
+    "license",
+  ])("rejects %s cross-entry evidence", async (condition) => {
+    const h = strictFixture("怒る");
+    const alternative = h.aliases[0]!;
+    const record = alternative.importedRecord;
+    const run = record.importRun;
+    if (condition === "missing") h.aliases.splice(0);
+    if (condition === "expression") alternative.expression = "別語";
+    if (condition === "reading") alternative.reading = "いかり";
+    if (condition === "entry") alternative.jmdictEntryId = "jmdict:9999";
+    if (condition === "record") alternative.jmdictImportedRecordId = id(9999);
+    if (condition === "sequence") Object.assign(record, { rawJson: { sequence: "9999" } });
+    if (condition === "status") run.status = "FAILED";
+    if (condition === "version") run.sourceVersion = "unknown";
+    if (condition === "checksum") run.checksumSha256 = "bad-hash";
+    if (condition === "license") run.dataSource.licenseId = id(9999);
+    await expect(loadContentQualityItems(h.db)).rejects.toThrow();
+  });
+
+  it.each([
+    "missing",
+    "raw",
+    "extra-raw-field",
+    "expression",
+    "primary-reading",
+    "reading",
+    "document-hash",
+    "note",
+    "status",
+    "version",
+    "checksum",
+    "license",
+    "license-scope",
+  ])("rejects %s source-note proof", async (condition) => {
+    const h = strictFixture("良い");
+    const proof = h.proof;
+    const run = proof.importRun;
+    if (condition === "missing") h.findProof.mockResolvedValue(null);
+    if (condition === "raw") proof.rawJson = {};
+    if (condition === "extra-raw-field") Object.assign(proof.rawJson, { unreviewed: true });
+    if (condition === "expression") Object.assign(proof.rawJson, { expression: "好い" });
+    if (condition === "primary-reading") Object.assign(proof.rawJson, { primaryReading: "いい" });
+    if (condition === "reading") Object.assign(proof.rawJson, { reading: "よい" });
+    if (condition === "document-hash")
+      Object.assign(proof.rawJson, { sourceDocumentSha256: "a".repeat(64) });
+    if (condition === "note") Object.assign(proof.rawJson, { note: "unreviewed note" });
+    if (condition === "status") run.status = "PENDING";
+    if (condition === "version") run.sourceVersion = "different-edition";
+    if (condition === "checksum") run.checksumSha256 = "a".repeat(64);
+    if (condition === "license") run.dataSource.licenseId = id(9999);
+    if (condition === "license-scope") run.dataSource.license.scope = "USER_PRIVATE";
+    await expect(loadContentQualityItems(h.db)).rejects.toThrow(
+      "Missing verified JMdict sense-note proof",
+    );
+  });
+
+  it.each(["missing", "raw", "id", "record", "run", "version", "checksum", "license"])(
+    "rejects a %s primary returned by the proof lookup",
+    async (condition) => {
+      const h = strictFixture("良い");
+      const primary = structuredClone(h.words[0]!);
+      const run = primary.importedRecord.importRun;
+      if (condition === "missing") h.findPrimary.mockResolvedValueOnce(null);
+      else {
+        if (condition === "raw") Object.assign(primary.importedRecord, { rawJson: {} });
+        if (condition === "id") primary.id = id(9999);
+        if (condition === "record") {
+          primary.jmdictImportedRecordId = id(9999);
+          primary.importedRecord.id = id(9999);
+        }
+        if (condition === "run") run.id = id(9999);
+        if (condition === "version") run.sourceVersion = "another-valid-version";
+        if (condition === "checksum") run.checksumSha256 = "a".repeat(64);
+        if (condition === "license") {
+          run.dataSource.licenseId = id(9999);
+          run.dataSource.license.id = id(9999);
+        }
+        h.findPrimary.mockResolvedValueOnce(primary);
+      }
+      await expect(loadContentQualityItems(h.db)).rejects.toThrow();
+      expect(h.findProof).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["primary", "alternative", "note"])(
+    "surfaces %s database errors unchanged",
+    async (lookup) => {
+      const h = strictFixture(lookup === "alternative" ? "怒る" : "良い");
+      const error = new Error("database unavailable");
+      if (lookup === "primary") h.findPrimary.mockRejectedValueOnce(error);
+      if (lookup === "alternative")
+        h.findPrimary.mockResolvedValueOnce(h.words[0]!).mockRejectedValueOnce(error);
+      if (lookup === "note") h.findProof.mockRejectedValueOnce(error);
+      await expect(loadContentQualityItems(h.db)).rejects.toBe(error);
+    },
+  );
+});
+
+function strictFixture(expression: string) {
+  const original = EXPLICIT_BATCHES.find((batch) =>
+    batch.words.some((word) => word.expression === expression),
+  )!;
+  const batch = { ...structuredClone(original), reviewedAt: "2026-11-01" };
+  const content = batch.words.find((word) => word.expression === expression)!;
+  const requested = content.acceptedReadings?.[0] ?? content.sourceNoteReadings![0]!.reading;
+  const h = fixture([[expression, content.reading, [requested]]]);
+  const primary = h.words[0]!;
+  primary.jmdictEntryId = content.jmdictEntryId;
+  primary.importedRecord.sourceRecordId = content.jmdictEntryId;
+  primary.senses.push(
+    ...["ru-RU", "en-US"].map((locale) => ({
+      locale,
+      meaning: "synthetic imported gloss",
+      partOfSpeech: "dictionary-fixture",
+      sourceKind: "IMPORTED",
+    })),
+  );
+  const raw = (entryId: string) => ({
+    sequence: entryId.slice(7),
+    importedWordCount: 1,
+    retainedLocales: ["ru-RU", "en-US"],
+  });
+  Object.assign(primary.importedRecord, { rawJson: raw(content.jmdictEntryId) });
+  const alternativeEntry = content.acceptedReadingEntryIds?.[requested];
+  if (alternativeEntry) {
+    const alternative = h.aliases[0]!;
+    alternative.jmdictEntryId = alternativeEntry;
+    alternative.jmdictImportedRecordId = id(2100);
+    alternative.senses = structuredClone(primary.senses);
+    Object.assign(alternative.importedRecord, {
+      id: id(2100),
+      sourceRecordId: alternativeEntry,
+      importRunId: id(3100),
+      rawJson: raw(alternativeEntry),
+    });
+    Object.assign(alternative.importedRecord.importRun, {
+      id: id(3100),
+      sourceVersion: "another-successful-edition",
+      checksumSha256: "e".repeat(64),
+    });
+  } else h.aliases.splice(0);
+  const note = content.sourceNoteReadings?.[0];
+  const proof = {
+    ...structuredClone(primary.importedRecord),
+    id: id(2200),
+    rawJson: note ? readingNoteProofData(content, note) : {},
+  };
+  if (note)
+    Object.assign(proof.importRun, {
+      id: id(3200),
+      sourceVersion: note.sourceVersion,
+      checksumSha256: readingNoteProofChecksum(content, note),
+    });
+  const findPrimary = vi.fn(async (args?: Prisma.WordFindUniqueArgs) => {
+    const pair = args?.where.expression_reading;
+    return (
+      [primary, ...h.aliases].find(
+        (word) => word.expression === pair?.expression && word.reading === pair.reading,
+      ) ?? null
+    );
+  });
+  const findProof = vi.fn(
+    async (_args?: Prisma.ImportedRecordFindFirstArgs) => proof as typeof proof | null,
+  );
+  Object.assign(h.db.word, { findUnique: findPrimary });
+  Object.assign(h.db, { importedRecord: { findFirst: findProof } });
+  const registry = vi.spyOn(wordContent, "buildMainCourseWordBatches").mockReturnValue([batch]);
+  return { ...h, batch, content, requested, proof, findPrimary, findProof, registry };
+}
 
 function fixture(pairs: readonly Pair[] = [PAIRS[0]!]) {
   const words = pairs.map(([expression, reading], index) => ({

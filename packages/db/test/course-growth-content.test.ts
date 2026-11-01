@@ -65,10 +65,10 @@ describe("large course growth content block", () => {
     ]);
   });
   it("preserves every previously published main manifest and all finite seals", () => {
-    expect(hash(kanji.filter((b) => b !== batch))).toBe(
+    expect(hash(kanji.filter((b) => b !== batch && !b.id.includes("continuation")))).toBe(
       "9600256da1c8a55f945006855ee3839d67c121c5da150af9e48b3ef68a537955",
     );
-    expect(hash(words.filter((b) => !block.includes(b)))).toBe(
+    expect(hash(words.filter((b) => !block.includes(b) && !b.id.includes("continuation")))).toBe(
       "c4c4fba195d20df8f8cde19461a2464193b27f22c3ad786ff8840876b6e277ed",
     );
     expect(
@@ -119,7 +119,7 @@ describe("large course growth content block", () => {
         }
       }
     const report = buildEditorialRegistryInventory();
-    expect(report.prepared.distinctTotals).toMatchObject({ kanji: 380, words: 500 });
+    expect(report.prepared.distinctTotals).toMatchObject({ kanji: 514, words: 800 });
     expect(report.validation).toEqual({ valid: true, issues: [] });
   });
   it("links all 106 new taught readings and ten earlier gaps to real primary words", () => {

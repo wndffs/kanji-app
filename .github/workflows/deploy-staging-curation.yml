@@ -39,7 +39,8 @@ jobs:
   curate:
     name: Apply versioned curation to Neon
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Full source preflight plus a large authored content block can exceed 45 minutes.
+    timeout-minutes: 90
     env:
       NODE_ENV: production
       CURATION_MODE: ${{ inputs.mode }}

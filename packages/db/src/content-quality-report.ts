@@ -16,10 +16,23 @@ import {
   type QualitySource,
 } from "./content-quality";
 import { loadWordExampleQuality } from "./word-examples";
+import { buildMainCourseWordBatches } from "./main-course-word-content";
+import {
+  requireAlternativeReadingSources,
+  requireWordSource,
+  wordEvidence,
+} from "./main-course-word-source";
 
 export type ContentQualityDatabase = Pick<
   Prisma.TransactionClient,
-  "learningItem" | "kanji" | "word" | "component" | "sentence" | "srsSystem" | "$queryRaw"
+  | "learningItem"
+  | "kanji"
+  | "word"
+  | "importedRecord"
+  | "component"
+  | "sentence"
+  | "srsSystem"
+  | "$queryRaw"
 >;
 export type ContentQualityPageOptions = {
   readonly cursor?: string;
@@ -142,7 +155,7 @@ export async function loadContentQualityItems(
     (systems.find((system) => system.slug === "default-mvp") ?? systems[0])?.stages.map(
       (stage) => stage.stageIndex,
     ) ?? [];
-  const siblingReadings = await loadSiblingWordReadings(db, rows, words);
+  const siblingReadings = await loadSiblingWordReadings(db, rows, words, courseSlug);
   const wordCharacters = [
     ...new Set(
       words.flatMap((word) => Array.from(word.expression).filter((c) => /\p{Script=Han}/u.test(c))),
@@ -253,7 +266,7 @@ export async function loadContentQualityItems(
 }
 
 type WordWithReadingSource = Prisma.WordGetPayload<{
-  include: { importedRecord: { include: typeof SOURCE_INCLUDE } };
+  include: { importedRecord: { include: typeof SOURCE_INCLUDE }; senses: true };
 }>;
 type ReadingItem = {
   readonly id: string;
@@ -267,9 +280,10 @@ type ReadingItem = {
 };
 
 async function loadSiblingWordReadings(
-  db: Pick<ContentQualityDatabase, "word">,
+  db: Pick<ContentQualityDatabase, "word" | "importedRecord">,
   items: readonly ReadingItem[],
   words: readonly WordWithReadingSource[],
+  courseSlug: string,
 ): Promise<ReadonlyMap<string, readonly string[]>> {
   const wordById = new Map(words.map((word) => [word.id, word]));
   const requests = [];
@@ -354,6 +368,14 @@ async function loadSiblingWordReadings(
     take: 1001,
   });
   if (siblings.length > 1000) throw new Error("Word reading evidence exceeded the 1000-row bound.");
+  const reviewedWords = buildMainCourseWordBatches()
+    .filter(
+      (batch) =>
+        batch.courseSlug === courseSlug &&
+        batch.reviewedAt !== null &&
+        /^\d{4}-\d{2}-\d{2}$/u.test(batch.reviewedAt),
+    )
+    .flatMap((batch) => batch.words);
   const verified = new Map<string, readonly string[]>();
   for (const { itemId, word, readings } of requests) {
     const original = word.importedRecord!;
@@ -378,7 +400,44 @@ async function loadSiblingWordReadings(
         );
       }),
     );
-    if (accepted.length) verified.set(itemId, accepted);
+    const content = reviewedWords.find(
+      (content) =>
+        content.expression === word.expression &&
+        content.reading === word.reading &&
+        content.jmdictEntryId === word.jmdictEntryId,
+    );
+    if (content !== undefined) {
+      const acceptedReadings = (content.acceptedReadings ?? []).filter(
+        (reading) =>
+          content.acceptedReadingEntryIds?.[reading] !== undefined && readings.includes(reading),
+      );
+      const sourceNoteReadings = (content.sourceNoteReadings ?? []).filter((note) =>
+        readings.includes(note.reading),
+      );
+      if (acceptedReadings.length || sourceNoteReadings.length) {
+        const primary = await requireWordSource(db, content);
+        const primaryEvidence = wordEvidence(primary);
+        // Bind the independent proof lookup to the exact primary loaded for this audit page.
+        if (
+          primary.id !== word.id ||
+          JSON.stringify(primaryEvidence) !== JSON.stringify(wordEvidence(word))
+        )
+          throw new Error(
+            `Word reading proof primary mismatch for ${word.expression}/${word.reading}.`,
+          );
+        const alternatives = await requireAlternativeReadingSources(
+          db,
+          { ...content, acceptedReadings, sourceNoteReadings },
+          primaryEvidence,
+        );
+        accepted.push(...alternatives.map((alternative) => alternative.reading));
+      }
+    }
+    if (accepted.length)
+      verified.set(
+        itemId,
+        readings.filter((reading) => accepted.includes(reading)),
+      );
   }
   return verified;
 }

@@ -12,6 +12,11 @@ import { buildMainCourseBlueprint } from "../src/main-course";
 import { buildMainCourseContentBatches } from "../src/main-course-content";
 import * as courseContent from "../src/main-course-content";
 import {
+  readingNoteProofData,
+  readingNoteProofChecksum,
+  type JmdictReadingNote,
+} from "../src/jmdict-reading-note-proof";
+import {
   AUTHORED_WORD_PART_OF_SPEECH,
   buildMainCourseWordBatch,
   buildMainCourseWordBatches,
@@ -610,6 +615,72 @@ describe("bounded vocabulary curation", () => {
     expect(fixture.state.cards.size).toBe(40);
     expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
   });
+  it("accepts a separately bound exact bilingual entry without changing the primary target", async () => {
+    const fixture = alternativeReadingFixture();
+    const word = fixture.batch.words.at(-1)!;
+    Object.assign(word, { acceptedReadingEntryIds: { にっぽん: "jmdict:9999" } });
+    Object.assign(fixture.alternative, {
+      jmdictEntryId: "jmdict:9999",
+      jmdictImportedRecordId: "separate-record",
+      importedRecord: {
+        ...structuredClone(fixture.alternative.importedRecord),
+        id: "separate-record",
+        sourceRecordId: "jmdict:9999",
+        rawJson: { ...fixture.alternative.importedRecord.rawJson, sequence: "9999" },
+      },
+    });
+    await applyMainCourseWordBatch(fixture.db, fixture.batch);
+    expect([...fixture.state.answers.values()].some((a) => a.text === "にっぽん")).toBe(true);
+    expect(
+      [...fixture.state.items.values()].some((i) => i.targetId === fixture.alternative.id),
+    ).toBe(false);
+    expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
+  });
+  it.each(["missing", "pending", "version", "checksum", "body", "license"])(
+    "refuses %s sense-note proof before any mutation",
+    async (condition) => {
+      const fixture = readingNoteFixture();
+      if (condition === "missing") fixture.readProof.mockResolvedValue(null);
+      if (condition === "pending") fixture.proof.importRun.status = "PENDING";
+      if (condition === "version") fixture.proof.importRun.sourceVersion = "different";
+      if (condition === "checksum") fixture.proof.importRun.checksumSha256 = "f".repeat(64);
+      if (condition === "body") fixture.proof.rawJson.note = "A different note";
+      if (condition === "license")
+        fixture.proof.importRun.dataSource.license.scope = "PROJECT_AUTHORED";
+      await expect(applyMainCourseWordBatch(fixture.db, fixture.batch)).rejects.toThrow(
+        "sense-note proof",
+      );
+      expect(fixture.mutations).toEqual([]);
+      expect(fixture.transaction).not.toHaveBeenCalled();
+    },
+  );
+  it("accepts a verified entry note without fabricating an exact alternate Word row", async () => {
+    const fixture = readingNoteFixture();
+    await applyMainCourseWordBatch(fixture.db, fixture.batch);
+    expect(
+      [...fixture.state.answers.values()].some((a) => a.text === "さん" && a.isPrimary === false),
+    ).toBe(true);
+    expect(
+      [...fixture.state.records.values()].some((r) =>
+        JSON.stringify(r.rawJson).includes("noteEvidence"),
+      ),
+    ).toBe(true);
+    expect(fixture.state.words.has("山:さん")).toBe(false);
+    expect(fixture.readProof).toHaveBeenCalledTimes(2);
+    expect(fixture.privateRows).toEqual(fixture.privateBefore);
+    expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
+  });
+  it("rechecks note proofs inside the teaching transaction after preflight", async () => {
+    const fixture = readingNoteFixture();
+    const before = structuredClone(fixture.state.items);
+    fixture.readProof.mockResolvedValueOnce(fixture.proof).mockResolvedValue(null);
+    await expect(applyMainCourseWordBatch(fixture.db, fixture.batch)).rejects.toThrow(
+      "sense-note proof",
+    );
+    expect(fixture.state.items).toEqual(before);
+    expect(fixture.state.answers.size).toBe(0);
+    expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
+  });
   it("blocks all reads and writes for an unreviewed manifest", async () => {
     const fixture = harness();
     await expect(
@@ -1066,6 +1137,36 @@ function alternativeReadingFixture() {
   const fixture = harness([batch]);
   const alternative = fixture.state.words.get("日本:にっぽん")!;
   return { ...fixture, alternative };
+}
+
+function readingNoteFixture() {
+  const base = buildMainCourseWordBatch();
+  const word = base.words[0]!;
+  const note: JmdictReadingNote = {
+    reading: "さん",
+    sourceRecordId: word.jmdictEntryId,
+    sourceVersion: "2026-10-31",
+    sourceDocumentSha256: "a".repeat(64),
+    note: "also さん (all senses)",
+  };
+  const content = { ...word, sourceNoteReadings: [note] };
+  const batch = { ...base, words: [content, ...base.words.slice(1)] };
+  const fixture = harness([batch]);
+  const primary = fixture.state.words.get(word.expression)!;
+  const proof = {
+    ...structuredClone(primary.importedRecord),
+    id: "note-proof-record",
+    rawJson: readingNoteProofData(content, note),
+    importRun: {
+      ...structuredClone(primary.importedRecord.importRun),
+      id: "note-proof-run",
+      sourceVersion: note.sourceVersion,
+      checksumSha256: readingNoteProofChecksum(content, note),
+    },
+  };
+  const readProof = vi.fn(async () => proof as typeof proof | null);
+  Object.assign(fixture.db.importedRecord, { findFirst: readProof });
+  return { ...fixture, proof, readProof, privateBefore: structuredClone(fixture.privateRows) };
 }
 
 function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordBatch()]) {

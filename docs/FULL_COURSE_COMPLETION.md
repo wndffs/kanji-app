@@ -432,3 +432,68 @@ still need complete authored teaching, review and publication to reach the
 task, not microtasks. Do not advertise raw imports, prepared manifests or the
 unfinished main curriculum as a complete learner course, create another tiny
 pilot, or silently move existing learners from V7.
+
+## Balanced Continuation: 2026-11-01
+
+This is another substantial extension of the same OPEN completion task:
+134 kanji, 300 primary vocabulary pairs and 34 independently named visual
+components. Preparation alone is not publication or completion evidence.
+
+The former five-level-per-block layout would exhaust sixty levels long before
+the target. New kanji instead fill free earlier slots after their components,
+up to forty kanji per level; older already larger levels are not altered.
+The 500 older vocabulary slots are explicitly reserved. No previous placement,
+card, item or finite-course seal is rewritten. New components extend existing
+level 1; new kanji stay within existing levels 2-37.
+
+Vocabulary now uses explicit bounded manifest sizes, not forced twenty-word
+groups that postpone an early word until an unrelated later prerequisite.
+Legacy manifests still default to twenty and retain their exact payloads.
+New manifests declare a count from 1-200 and must match it exactly. All words
+in a continuation manifest have the same earliest readable level, including
+the kanji used in the original example. The 300 words occupy sixteen existing
+levels, with no target beyond level 38. These are storage groups, not tasks.
+
+The block emphasizes everyday verbs, descriptions and practical nouns, not
+only compounds. Explicit authored grammatical metadata now supports
+na-adjectives, pronouns and adverbs alongside nouns, verbs and i-adjectives.
+This does not change the previous source-selection quota model or old senses.
+All examples and RU/EN scopes are authored separately from dictionary evidence.
+
+- Verified local sources match all 134 selected KANJIDIC2 readings, 134 primary
+  KanjiVG sequences and 300 unique bilingual primary JMdict pairs exactly.
+  Every new selected kanji reading has an explicit primary word link. The
+  contractions `けつ -> けっ` in 決定 and `こつ -> こっ` in 骨折 are explicit
+  reviewed alignments, not a general answer-normalization rule.
+- The final live read-only source plan covers 300 primary pairs and eighteen
+  accepted exact alternatives: 308 pairs already exist, ten are absent without
+  old aliases, and no source IDs conflict. The existing insert-only supplement
+  and complete publication preflight remain mandatory.
+- Reading provenance explicitly distinguishes same-entry alternatives, the
+  separate bilingual JMdict entry for 怒る / いかる, and the source sense note
+  `also いい (all senses)` for 良い / よい. The latter is not a fictitious
+  良い / いい dictionary row. A bounded parser proves the primary expression,
+  reading, applicable sense and exact note in the pinned full JMdict snapshot.
+  It stores a separately versioned, checksummed evidence record under the
+  existing JMdict license without rewriting old raw records or Word rows.
+  Publication rechecks that proof inside each teaching transaction. The final
+  quality audit shares the same source verifier rather than broadly accepting
+  other entries or unproven reading text.
+- Private before/after preservation checks now select the previous main items
+  by a frozen pre-write timestamp, not a level-number cutoff: additions can
+  safely fill earlier levels without accidentally joining the old comparison
+  set. All 35 groups, 30 accounts, 162 SRS states and 1,065 earlier main items
+  are covered. No private rows or hashes may enter Git.
+- The curation workflow retains all source/license/placement/quality gates;
+  its bounded timeout is raised to ninety minutes so a large reviewed block
+  can finish without arbitrary twenty-word publication cycles.
+- Two independent AI reviewers accepted the corrected RU/EN content and the
+  source/shape/phonology review. A separate bounded security review accepted
+  the insert-only proof pipeline. Seventeen exact manifest checksums are
+  frozen in the continuation regression test. These are AI-assisted checks,
+  not human linguistic certification or evidence of a completed full course.
+
+Prepared targets after acceptance: **219 components / 514 kanji / 800 primary
+word pairs**. The full course would still require **1,786 kanji and 7,200 word
+pairs**. Keep the main curriculum DRAFT, preserve V1-V7 and enrollments, and
+record a separate live receipt only after actual successful publication.

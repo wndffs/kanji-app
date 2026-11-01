@@ -39,6 +39,37 @@ describe("bounded missing-source supplements for reviewed words", () => {
       missingReviewedSources([candidate], [{ ...observed, jmdictEntryId: null }]),
     ).toThrow("conflicting source");
   });
+  it("retains explicit alternate-entry IDs and does not invent exact rows for sense notes", () => {
+    const batch = buildMainCourseWordBatch();
+    const first = batch.words[0]!;
+    const changed = {
+      ...batch,
+      words: [
+        {
+          ...first,
+          acceptedReadings: ["さん"],
+          acceptedReadingEntryIds: { さん: "jmdict:9999" },
+          sourceNoteReadings: [
+            {
+              reading: "やまやま",
+              sourceRecordId: first.jmdictEntryId,
+              sourceVersion: "2026-10-31",
+              sourceDocumentSha256: "a".repeat(64),
+              note: "also やまやま (all senses)",
+            },
+          ],
+        },
+        ...batch.words.slice(1),
+      ],
+    };
+    const result = reviewedSourceCandidates([changed]);
+    expect(result).toContainEqual({
+      expression: first.expression,
+      reading: "さん",
+      jmdictEntryId: "jmdict:9999",
+    });
+    expect(result.some((r) => r.reading === "やまやま")).toBe(false);
+  });
   it("refuses every existing alias, including published null-ID and unpublished conflicting-ID rows", () => {
     expect(() => requireAbsentSupplementAliases([])).not.toThrow();
     for (const row of [

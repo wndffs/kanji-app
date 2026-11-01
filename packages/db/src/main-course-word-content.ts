@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { buildCompletionWordBatches } from "./completion-word-content";
 import { buildReinforcementWordBatches } from "./reinforcement-word-content";
 import { buildCourseGrowthWordBatches } from "./course-growth-word-content";
+import { buildCourseContinuationWordBatches } from "./course-continuation-word-content";
 import { buildMainCourseContentBatches } from "./main-course-content";
 
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
@@ -15,18 +16,23 @@ import { buildMainCourseWordBatch07 } from "./main-course-word-content-07";
 import { buildMainCourseWordBatch08 } from "./main-course-word-content-08";
 import { buildMainCourseWordBatch09 } from "./main-course-word-content-09";
 import { type LexicalKind } from "./lexical-selection";
+import { validReadingNote, type JmdictReadingNote } from "./jmdict-reading-note-proof";
 
 import {
   type MainCourseAcceptedMeanings,
   type MainCourseLocalizedText,
 } from "./main-course-content";
 
+export type AuthoredWordPartOfSpeech = LexicalKind | "na-adjective" | "pronoun" | "adverb";
+
 export type MainCourseWordContent = {
   readonly expression: string;
   readonly reading: string;
   readonly acceptedReadings?: readonly string[];
+  readonly acceptedReadingEntryIds?: Readonly<Record<string, string>>;
+  readonly sourceNoteReadings?: readonly JmdictReadingNote[];
   readonly jmdictEntryId: string;
-  readonly partOfSpeech?: LexicalKind;
+  readonly partOfSpeech?: AuthoredWordPartOfSpeech;
   readonly sortOrder: number;
   readonly meanings: {
     readonly ru: MainCourseAcceptedMeanings;
@@ -54,6 +60,8 @@ export type MainCourseWordBatch = {
   readonly courseSlug: string;
   readonly levelNumber: number;
   readonly sortOrderStart?: number;
+  /** Explicit bounded size for new level-aligned manifests; legacy manifests remain twenty. */
+  readonly wordCount?: number;
   readonly words: readonly MainCourseWordContent[];
 };
 
@@ -1132,7 +1140,7 @@ const FOUNDATION_WORD_BATCH_03: MainCourseWordBatch = {
 };
 
 export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
-  return [
+  const previous = [
     buildMainCourseWordBatch(),
     buildMainCourseWordBatch02(),
     FOUNDATION_WORD_BATCH_03,
@@ -1146,6 +1154,10 @@ export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
     ...buildReinforcementWordBatches(buildMainCourseContentBatches()),
     ...buildCourseGrowthWordBatches(buildMainCourseContentBatches()),
   ];
+  return [
+    ...previous,
+    ...buildCourseContinuationWordBatches(buildMainCourseContentBatches(), previous),
+  ];
 }
 
 export function mainCourseWordBatchChecksum(batch: MainCourseWordBatch): string {
@@ -1157,7 +1169,18 @@ export function wordHanCharacters(text: string): readonly string[] {
 }
 
 export function mainCourseWordAcceptedReadings(content: MainCourseWordContent): readonly string[] {
-  return [content.reading, ...(content.acceptedReadings ?? [])];
+  return [
+    content.reading,
+    ...(content.acceptedReadings ?? []),
+    ...(content.sourceNoteReadings ?? []).map((n) => n.reading),
+  ];
+}
+
+export function mainCourseWordReadingEntryId(
+  content: MainCourseWordContent,
+  reading: string,
+): string {
+  return content.acceptedReadingEntryIds?.[reading] ?? content.jmdictEntryId;
 }
 
 export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonly string[] {
@@ -1174,14 +1197,22 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
   }
   if (batch.reviewedAt !== null && !/^\d{4}-\d{2}-\d{2}$/u.test(batch.reviewedAt))
     issues.push("Word batch needs an ISO review date or null.");
-  if (batch.words.length !== 20) issues.push("Each word batch requires twenty words.");
+  const wordCount = batch.wordCount ?? 20;
+  if (!Number.isSafeInteger(wordCount) || wordCount < 1 || wordCount > 200)
+    issues.push("Word batch size must be a safe integer from 1 to 200.");
+  if (batch.words.length !== wordCount)
+    issues.push(
+      batch.wordCount === undefined
+        ? "Each word batch requires twenty words."
+        : "Word batch count does not match declared size.",
+    );
   if (!buildMainCourseBlueprint().levels.some((level) => level.levelNumber === batch.levelNumber))
     issues.push("Word batch requires a registered course level.");
   const sortOrderStart = batch.sortOrderStart ?? 1;
   if (
     !Number.isSafeInteger(sortOrderStart) ||
     sortOrderStart < 1 ||
-    !Number.isSafeInteger(sortOrderStart + 19)
+    !Number.isSafeInteger(sortOrderStart + wordCount - 1)
   )
     issues.push("Word batch requires a positive safe placement offset.");
   const identities = new Set<string>();
@@ -1189,7 +1220,9 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
   for (const content of batch.words) {
     if (
       content.partOfSpeech !== undefined &&
-      !["verb", "i-adjective", "noun"].includes(content.partOfSpeech)
+      !["verb", "i-adjective", "noun", "na-adjective", "pronoun", "adverb"].includes(
+        content.partOfSpeech,
+      )
     )
       issues.push(`Invalid authored part of speech for ${content.expression}.`);
     const identity = `${content.expression}:${content.reading}`;
@@ -1198,7 +1231,7 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
     if (
       !Number.isInteger(content.sortOrder) ||
       content.sortOrder < sortOrderStart ||
-      content.sortOrder > sortOrderStart + 19 ||
+      content.sortOrder > sortOrderStart + wordCount - 1 ||
       placements.has(content.sortOrder)
     )
       issues.push(`Invalid or duplicate word placement ${content.sortOrder}.`);
@@ -1210,6 +1243,17 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
     )
       issues.push(`Invalid exact word identity ${identity}.`);
     const acceptedReadings = mainCourseWordAcceptedReadings(content);
+    if (
+      Object.entries(content.acceptedReadingEntryIds ?? {}).some(
+        ([reading, id]) =>
+          !content.acceptedReadings?.includes(reading) ||
+          !/^jmdict:[1-9]\d*$/u.test(id) ||
+          id === content.jmdictEntryId,
+      )
+    )
+      issues.push(`Invalid alternate entry binding for ${identity}.`);
+    if ((content.sourceNoteReadings ?? []).some((note) => !validReadingNote(content, note)))
+      issues.push(`Invalid source-note reading evidence for ${identity}.`);
     if (
       acceptedReadings.some((reading) => !/^[ぁ-ゖー]+$/u.test(reading)) ||
       new Set(acceptedReadings.map(normalizeJapaneseReading)).size !== acceptedReadings.length

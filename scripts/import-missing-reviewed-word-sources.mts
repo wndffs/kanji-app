@@ -3,6 +3,7 @@ import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   buildMainCourseWordBatches,
+  mainCourseWordReadingEntryId,
   validateMainCourseWordBatches,
   type MainCourseWordBatch,
 } from "../packages/db/src/main-course-word-content.ts";
@@ -14,6 +15,10 @@ import {
 import { inspectLocalWords } from "./local-word-evidence.mts";
 import { verifyLocalSnapshot, type LocalSource } from "./local-source-manifest.mts";
 import { scanSourceXml, serializeNode, textOf } from "./local-source-xml.mts";
+import {
+  buildReadingNoteProofPlans,
+  planOrApplyReadingNoteProofs,
+} from "./jmdict-reading-note-proofs.mts";
 
 type Candidate = { expression: string; reading: string; jmdictEntryId: string };
 type Observed = {
@@ -36,7 +41,7 @@ export function reviewedSourceCandidates(
       [word.reading, ...(word.acceptedReadings ?? [])].map((reading) => ({
         expression: word.expression,
         reading,
-        jmdictEntryId: word.jmdictEntryId,
+        jmdictEntryId: mainCourseWordReadingEntryId(word, reading),
       })),
     ),
   );
@@ -130,13 +135,21 @@ export function parseSourceSupplementArgs(args: readonly string[]) {
 
 async function main(args: readonly string[]) {
   const options = parseSourceSupplementArgs(args);
-  const candidates = reviewedSourceCandidates(buildMainCourseWordBatches());
+  const batches = buildMainCourseWordBatches();
+  const candidates = reviewedSourceCandidates(batches);
   const snapshot = await verifyLocalSnapshot(options.directory);
   const source = snapshot.sources.find((item) => item.id === "jmdict")!;
+  const proofPlans = await buildReadingNoteProofPlans(
+    source,
+    batches.flatMap((batch) => batch.words),
+    snapshot.snapshotVersion,
+  );
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required.");
   const { PrismaClient } = await import("@prisma/client");
   const db = new PrismaClient();
   try {
+    // Validate every existing proof without writes before any raw-source supplement.
+    const proofPlan = await planOrApplyReadingNoteProofs(db, proofPlans);
     const readObserved = () =>
       db.word.findMany({
         where: { OR: candidates.map(({ expression, reading }) => ({ expression, reading })) },
@@ -148,11 +161,15 @@ async function main(args: readonly string[]) {
       });
     const missing = missingReviewedSources(candidates, await readObserved());
     if (!missing.length) {
+      const proofs = options.apply
+        ? await planOrApplyReadingNoteProofs(db, proofPlans, { apply: true })
+        : proofPlan;
       console.log(
         JSON.stringify({
           status: "no-absent-word-pairs",
           importedEntries: 0,
           existingRowsNotRevalidated: true,
+          ...proofs,
         }),
       );
       return;
@@ -175,6 +192,7 @@ async function main(args: readonly string[]) {
       derivedContentSha256: supplement.checksumSha256,
       missingPairs: missing.length,
       entries: supplement.entryCount,
+      plannedProofCount: proofPlan.plannedProofCount,
       existingRowsNotRevalidated: true,
     };
     if (!options.apply) {
@@ -192,8 +210,14 @@ async function main(args: readonly string[]) {
     });
     if (missingReviewedSources(candidates, await readObserved()).length)
       throw new Error("Source supplement did not satisfy the requested source evidence.");
+    const proofs = await planOrApplyReadingNoteProofs(db, proofPlans, { apply: true });
     console.log(
-      JSON.stringify({ status: result.status, importedEntries: result.entryCount, ...summary }),
+      JSON.stringify({
+        status: result.status,
+        importedEntries: result.entryCount,
+        ...summary,
+        ...proofs,
+      }),
     );
   } finally {
     await db.$disconnect();
