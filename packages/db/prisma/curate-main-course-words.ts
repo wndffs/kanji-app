@@ -29,6 +29,7 @@ import {
   writeWordExample,
 } from "../src/word-examples";
 import {
+  readPrimaryWordSources,
   requireWordSource,
   wordEvidence,
   requireAlternativeReadingSources,
@@ -169,12 +170,13 @@ async function planWordBatch(db: Reader, batch: MainCourseWordBatch, cache?: Pla
     });
   }
 
+  const requirePrimaryWordSource = await readPrimaryWordSources(db, batch.words);
   const words = [];
   // Keep every guard, but bound independent read-only checks to four in flight.
   for (let offset = 0; offset < batch.words.length; offset += 4) {
     const group = await Promise.allSettled(
       batch.words.slice(offset, offset + 4).map(async (content) => {
-        const word = await requireWordSource(db, content);
+        const word = requirePrimaryWordSource(content);
         const sourceEvidence = wordEvidence(word);
         const acceptedReadingEvidence = await requireAlternativeReadingSources(
           db,

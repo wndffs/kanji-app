@@ -50,12 +50,41 @@ const WORD_SOURCE_SELECT = {
     },
   },
 } as const satisfies Prisma.WordSelect;
+type WordSource = Prisma.WordGetPayload<{ select: typeof WORD_SOURCE_SELECT }>;
+
+function wordSourceKey({ expression, reading }: Pick<WordSource, "expression" | "reading">) {
+  return JSON.stringify([expression, reading]);
+}
+
+export async function readPrimaryWordSources(
+  db: Pick<Reader, "word">,
+  words: readonly MainCourseWordContent[],
+) {
+  // The caller has validated the manifest size (1-200) and exact pair uniqueness.
+  const rows = await db.word.findMany({
+    where: { OR: words.map(({ expression, reading }) => ({ expression, reading })) },
+    select: WORD_SOURCE_SELECT,
+  });
+  const byPair = new Map<string, WordSource | null>();
+  for (const row of rows) {
+    const key = wordSourceKey(row);
+    byPair.set(key, byPair.has(key) ? null : row);
+  }
+
+  // Missing and ambiguous pairs fail the same check as a missing unique row.
+  return (content: MainCourseWordContent) =>
+    validateWordSource(byPair.get(wordSourceKey(content)) ?? null, content);
+}
 
 export async function requireWordSource(db: Pick<Reader, "word">, content: MainCourseWordContent) {
   const word = await db.word.findUnique({
     where: { expression_reading: { expression: content.expression, reading: content.reading } },
     select: WORD_SOURCE_SELECT,
   });
+  return validateWordSource(word, content);
+}
+
+function validateWordSource(word: WordSource | null, content: MainCourseWordContent) {
   const record = word?.importedRecord;
   const run = record?.importRun;
   const source = run?.dataSource;

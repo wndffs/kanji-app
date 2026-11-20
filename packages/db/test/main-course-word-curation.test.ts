@@ -218,9 +218,13 @@ describe("bounded vocabulary curation", () => {
     expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
   });
   it.each([false, true])(
-    "bounds independent source reads to four and drains them on failure: %s",
+    "bounds independent alternate source reads to four and drains them on failure: %s",
     async (fail) => {
-      const batch = buildMainCourseWordBatch();
+      const base = buildMainCourseWordBatch();
+      const batch = {
+        ...base,
+        words: base.words.map((word) => ({ ...word, acceptedReadings: ["ぬ"] })),
+      };
       const fixture = harness([batch]);
       const original = fixture.readWord.getMockImplementation()!;
       let active = 0;
@@ -305,11 +309,11 @@ describe("bounded vocabulary curation", () => {
     expect(placedReads()).toBe(unique);
     expect(fixture.db.license.findUnique).toHaveBeenCalledTimes(batches.length);
     expect(fixture.db.dataSource.findUnique).toHaveBeenCalledTimes(batches.length);
+    expect(fixture.readPrimaryWords).toHaveBeenCalledTimes(batches.length);
     expect(fixture.readWord).toHaveBeenCalledTimes(
       batches.reduce(
         (count, batch) =>
-          count +
-          batch.words.reduce((sum, word) => sum + 1 + (word.acceptedReadings?.length ?? 0), 0),
+          count + batch.words.reduce((sum, word) => sum + (word.acceptedReadings?.length ?? 0), 0),
         0,
       ),
     );
@@ -319,6 +323,7 @@ describe("bounded vocabulary curation", () => {
     await planMainCourseWordBatch(fixture.db, batches[0]!);
     await planMainCourseWordBatch(fixture.db, batches[0]!);
     expect(fixture.readCourse).toHaveBeenCalledTimes(4);
+    expect(fixture.readPrimaryWords).toHaveBeenCalledTimes(batches.length * 2 + 2);
     expect(kanjiReads).toHaveBeenCalledTimes(unique * 2 + characters(batches[0]!).size * 2);
     expect(fixture.mutations).toEqual([]);
   });
@@ -497,6 +502,15 @@ describe("bounded vocabulary curation", () => {
         applyMainCourseWordBatches(fixture.db, { batches, batchId: batches[0]!.id }),
       ).rejects.toThrow(condition === "source" ? "provenance" : "changed after preflight");
       expect(fixture.readCourse).toHaveBeenCalledTimes(2);
+      expect(fixture.readPrimaryWords).toHaveBeenCalledTimes(batches.length + 1);
+      expect(fixture.readPrimaryWords.mock.calls.at(-1)).toEqual(
+        fixture.readPrimaryWords.mock.calls[0],
+      );
+      const { expression, reading } = batches[0]!.words[0]!;
+      expect(fixture.readWord).toHaveBeenLastCalledWith({
+        where: { expression_reading: { expression, reading } },
+        select: fixture.readPrimaryWords.mock.calls[0]![0].select,
+      });
       expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
       expect([...fixture.state.runs.values()].every((run) => run.status === "FAILED")).toBe(true);
     },
@@ -546,6 +560,7 @@ describe("bounded vocabulary curation", () => {
       "registered curriculum band",
     );
     expect(fixture.readWord).not.toHaveBeenCalled();
+    expect(fixture.readPrimaryWords).not.toHaveBeenCalled();
     expect(fixture.mutations).toEqual([]);
   });
 
@@ -571,6 +586,7 @@ describe("bounded vocabulary curation", () => {
     );
     expect(fixture.readCourse).not.toHaveBeenCalled();
     expect(fixture.readWord).not.toHaveBeenCalled();
+    expect(fixture.readPrimaryWords).not.toHaveBeenCalled();
     expect(fixture.transaction).not.toHaveBeenCalled();
     expect(fixture.mutations).toEqual([]);
   });
@@ -621,7 +637,7 @@ describe("bounded vocabulary curation", () => {
     await expect(
       applyMainCourseWordBatches(fixture.db, { batches, batchId: batches[0]!.id }),
     ).rejects.toThrow("provenance");
-    expect(fixture.readWord).toHaveBeenCalledTimes(45);
+    expect(fixture.readPrimaryWords).toHaveBeenCalledTimes(batches.length);
     expect(fixture.mutations).toEqual([]);
     expect(fixture.transaction).not.toHaveBeenCalled();
   });
@@ -821,6 +837,7 @@ describe("bounded vocabulary curation", () => {
       applyMainCourseWordBatch(fixture.db, { ...buildMainCourseWordBatch(), reviewedAt: null }),
     ).rejects.toThrow("needs independent parent review");
     expect(fixture.readWord).not.toHaveBeenCalled();
+    expect(fixture.readPrimaryWords).not.toHaveBeenCalled();
     expect(fixture.readCourse).not.toHaveBeenCalled();
     expect(fixture.mutations).toEqual([]);
   });
@@ -838,9 +855,48 @@ describe("bounded vocabulary curation", () => {
         checksumSha256: "f".repeat(64),
       },
     });
-    expect(fixture.readWord).toHaveBeenCalledTimes(20);
+    expect(fixture.readPrimaryWords).toHaveBeenCalledExactlyOnceWith({
+      where: {
+        OR: fixture.batch.words.map(({ expression, reading }) => ({ expression, reading })),
+      },
+      select: expect.objectContaining({
+        senses: expect.anything(),
+        importedRecord: expect.anything(),
+      }),
+    });
+    expect(plan.words.map(({ content, wordId }) => [content, wordId])).toEqual(
+      fixture.batch.words.map((content) => [content, `word-${content.expression}`]),
+    );
+    expect(fixture.readWord).not.toHaveBeenCalled();
     expect(fixture.mutations).toEqual([]);
     expect(fixture.transaction).not.toHaveBeenCalled();
+  });
+
+  it("loads a 200-word manifest in one primary query and rejects oversized manifests before reading", async () => {
+    const base = buildMainCourseWordBatch();
+    const template = base.words[0]!;
+    const sortOrderStart = 10_000;
+    const words = Array.from({ length: 201 }, (_, index) => {
+      const expression = `${template.expression}${index}`;
+      return {
+        ...template,
+        expression,
+        sortOrder: sortOrderStart + index,
+        example: { ...template.example, japaneseText: expression },
+      };
+    });
+    const batch = { ...base, wordCount: 200, sortOrderStart, words: words.slice(0, 200) };
+    const fixture = harness([batch]);
+    expect((await planMainCourseWordBatch(fixture.db, batch)).words).toHaveLength(200);
+    expect(fixture.readPrimaryWords).toHaveBeenCalledOnce();
+    expect(fixture.readPrimaryWords.mock.calls[0]![0].where.OR).toHaveLength(200);
+    expect(fixture.readWord).not.toHaveBeenCalled();
+
+    await expect(
+      planMainCourseWordBatch(fixture.db, { ...batch, wordCount: words.length, words }),
+    ).rejects.toThrow("Word batch size must be a safe integer from 1 to 200");
+    expect(fixture.readPrimaryWords).toHaveBeenCalledOnce();
+    expect(fixture.mutations).toEqual([]);
   });
 
   it("accepts the real bounded-import compact provenance with exact canonical word and RU/EN senses", async () => {
@@ -856,6 +912,13 @@ describe("bounded vocabulary curation", () => {
     }
     expect((await planMainCourseWordBatch(fixture.db)).words).toHaveLength(20);
     await applyMainCourseWordBatch(fixture.db, fixture.batch);
+    expect(fixture.readPrimaryWords).toHaveBeenCalledTimes(2);
+    const { select } = fixture.readPrimaryWords.mock.calls[0]![0];
+    expect(fixture.readWord.mock.calls).toEqual(
+      fixture.batch.words.map(({ expression, reading }) => [
+        { where: { expression_reading: { expression, reading } }, select },
+      ]),
+    );
     expect(fixture.mutations.length).toBeGreaterThan(0);
   });
 
@@ -889,7 +952,9 @@ describe("bounded vocabulary curation", () => {
   });
 
   it.each([
+    "missing",
     "pair",
+    "ambiguous",
     "entry",
     "record",
     "status",
@@ -906,7 +971,16 @@ describe("bounded vocabulary curation", () => {
     const fixture = harness();
     const last = fixture.state.words.get("月")!;
     const run = last.importedRecord.importRun;
-    if (condition === "pair") last.reading = "げつ";
+    if (condition === "missing") fixture.state.words.delete(last.expression);
+    if (condition === "pair" || condition === "ambiguous") {
+      const read = fixture.readPrimaryWords.getMockImplementation()!;
+      fixture.readPrimaryWords.mockImplementationOnce(async (...args) => {
+        const rows = await read(...args);
+        return condition === "pair"
+          ? rows.map((row) => (row.id === last.id ? { ...row, reading: "げつ" } : row))
+          : [...rows, { ...last, id: "duplicate" }];
+      });
+    }
     if (condition === "entry") last.jmdictEntryId = "jmdict:0";
     if (condition === "record") last.importedRecord.sourceRecordId = "jmdict:0";
     if (condition === "status") run.status = "FAILED";
@@ -924,12 +998,11 @@ describe("bounded vocabulary curation", () => {
         last.importedRecord.rawJson.senses[0]!.glosses.filter((gloss) => gloss.locale !== "ru-RU");
     if (condition === "canonical-en")
       last.senses = last.senses.filter((sense) => sense.locale !== "en-US");
-    await expect(applyMainCourseWordBatch(fixture.db, fixture.batch)).rejects.toThrow();
-    expect(fixture.readWord).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        where: { expression_reading: { expression: "月", reading: "つき" } },
-      }),
+    await expect(applyMainCourseWordBatch(fixture.db, fixture.batch)).rejects.toThrow(
+      "Word 月/つき",
     );
+    expect(fixture.readPrimaryWords).toHaveBeenCalledOnce();
+    expect(fixture.readWord).not.toHaveBeenCalled();
     expect(fixture.mutations).toEqual([]);
     expect(fixture.transaction).not.toHaveBeenCalled();
   });
@@ -972,6 +1045,7 @@ describe("bounded vocabulary curation", () => {
     );
     expect(fixture.mutations).toEqual([]);
     expect(fixture.readWord).not.toHaveBeenCalled();
+    expect(fixture.readPrimaryWords).not.toHaveBeenCalled();
   });
 
   it("blocks a last-slot collision, an existing moved word and imported sense collisions", async () => {
@@ -1462,29 +1536,33 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
       id: `level-${level.levelNumber}`,
     })),
   }));
-  const readWord = vi.fn(
-    async ({
-      where,
-    }: {
-      where: { expression_reading: { expression: string; reading: string } };
-    }) => {
-      const primary = state.words.get(where.expression_reading.expression);
-      const word =
-        primary?.reading === where.expression_reading.reading
-          ? primary
-          : state.words.get(
-              `${where.expression_reading.expression}:${where.expression_reading.reading}`,
-            );
-      if (word === undefined || word.reading !== where.expression_reading.reading) return null;
-      return {
-        ...word,
-        senses: [
-          ...word.senses,
-          ...[...state.senses.values()].filter((row) => row.wordId === word.id),
-        ],
-      };
-    },
+  type WordPair = { expression: string; reading: string };
+  const wordWithSenses = (word: ReturnType<typeof wordSource>) => ({
+    ...word,
+    senses: [...word.senses, ...[...state.senses.values()].filter((row) => row.wordId === word.id)],
+  });
+  const readPrimaryWords = vi.fn(
+    async ({ where }: { where: { OR: WordPair[] }; select: Record<string, unknown> }) =>
+      [...state.words.values()]
+        .filter((row) =>
+          where.OR.some(
+            ({ expression, reading }) => row.expression === expression && row.reading === reading,
+          ),
+        )
+        .reverse()
+        .map(wordWithSenses),
   );
+  const readWord = vi.fn(async ({ where }: { where: { expression_reading: WordPair } }) => {
+    const primary = state.words.get(where.expression_reading.expression);
+    const word =
+      primary?.reading === where.expression_reading.reading
+        ? primary
+        : state.words.get(
+            `${where.expression_reading.expression}:${where.expression_reading.reading}`,
+          );
+    if (word === undefined || word.reading !== where.expression_reading.reading) return null;
+    return wordWithSenses(word);
+  });
   const sentenceWithProvenance = (sentence: Row) => {
     const record = byId(state.records, sentence.importedRecordId);
     return {
@@ -1497,6 +1575,7 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
   const delegates = {
     course: { findUnique: readCourse },
     word: {
+      findMany: readPrimaryWords,
       findUnique: readWord,
       upsert: forbiddenMutation,
       update: forbiddenMutation,
@@ -1713,6 +1792,7 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
     batch,
     mutations,
     events,
+    readPrimaryWords,
     readWord,
     readCourse,
     transaction,
