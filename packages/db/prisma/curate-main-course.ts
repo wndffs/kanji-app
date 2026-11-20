@@ -20,6 +20,7 @@ import {
 const CURATION_SOURCE_NAME = "Kanji SRS main-course curation";
 const CURATION_LICENSE_NAME = "Project-authored main-course content";
 const TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 30_000 } as const;
+const KANJI_PREFLIGHT_CONCURRENCY = 4;
 const IMPORTED_SOURCE_SELECT = {
   id: true,
   recordType: true,
@@ -302,16 +303,22 @@ export async function planMainCourseContentBatch(
     await checkPlacement(db, levelId, definition.sortOrder, item);
   }
 
-  // Read every source and placement before source metadata or learning content is mutated.
-  for (const content of batch.kanji) {
-    const kanji = await requireKanjiEvidence(db, content);
-    const item = await findPlacedItem(db, "KANJI", kanji.id, course.id);
-    await checkPlacement(
-      db,
-      requiredLevelId(levelByNumber, content.levelNumber),
-      content.sortOrder,
-      item,
+  // These checks are read-only and independent. Drain each bounded group before
+  // reporting its first error or allowing any teaching writes.
+  for (let offset = 0; offset < batch.kanji.length; offset += KANJI_PREFLIGHT_CONCURRENCY) {
+    const checks = await Promise.allSettled(
+      batch.kanji.slice(offset, offset + KANJI_PREFLIGHT_CONCURRENCY).map(async (content) => {
+        const kanji = await requireKanjiEvidence(db, content);
+        const item = await findPlacedItem(db, "KANJI", kanji.id, course.id);
+        await checkPlacement(
+          db,
+          requiredLevelId(levelByNumber, content.levelNumber),
+          content.sortOrder,
+          item,
+        );
+      }),
     );
+    for (const result of checks) if (result.status === "rejected") throw result.reason;
   }
   return { courseId: course.id, levelByNumber, priorComponentLearningItemIds };
 }

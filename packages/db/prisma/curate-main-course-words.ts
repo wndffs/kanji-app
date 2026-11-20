@@ -23,7 +23,11 @@ import {
   type MainCourseWordBatch,
   type MainCourseWordContent,
 } from "../src/main-course-word-content";
-import { writeWordExample } from "../src/word-examples";
+import {
+  EXAMPLE_SENTENCE_SELECT,
+  isEligibleExampleSentence,
+  writeWordExample,
+} from "../src/word-examples";
 import {
   requireWordSource,
   wordEvidence,
@@ -427,18 +431,54 @@ export async function applyMainCourseWordBatch(
             statsJson: stats(batch),
           },
         });
-        for (const entry of staged)
-          await writeWordExample(db, {
-            wordId: entry.wordId,
-            sentenceId: entry.sentenceId,
-            status: "PUBLISHED",
+        const sentences = await db.sentence.findMany({
+          where: {
+            id: { in: staged.map((entry) => entry.sentenceId) },
+            dataSourceId: metadata.dataSourceId,
+            licenseId: metadata.licenseId,
+            importedRecord: { importRunId: metadata.importRunId, recordType: "PROJECT_AUTHORED" },
+          },
+          select: EXAMPLE_SENTENCE_SELECT,
+        });
+        const byId = new Map(sentences.map((sentence) => [sentence.id, sentence]));
+        for (const entry of staged) {
+          const sentence = byId.get(entry.sentenceId);
+          if (
+            !sentence ||
+            sentence.importedRecordId !== entry.importedRecordId ||
+            sentence.sourceId !== entry.sourceId ||
+            !isEligibleExampleSentence(sentence)
+          )
+            throw new Error(
+              `Cannot publish a word example without bilingual text and valid licensed provenance (${entry.sentenceId}).`,
+            );
+        }
+
+        // Match each staged tuple, not independent word/sentence ID sets. A
+        // missing or changed link must abort publication, never create a new one.
+        const examples = await db.wordExample.updateMany({
+          where: {
+            status: "DRAFT",
             sortOrder: 0,
-          });
+            OR: staged.map(({ linkId, wordId, sentenceId }) => ({
+              id: linkId,
+              wordId,
+              sentenceId,
+            })),
+          },
+          data: { status: "PUBLISHED" },
+        });
+        if (examples.count !== staged.length)
+          throw new Error("Staged word example links changed during finalization.");
         const published = await db.learningItem.updateMany({
           where: {
-            id: { in: staged.map((entry) => entry.learningItemId) },
             targetType: "WORD",
             kind: "WORD",
+            OR: staged.map(({ learningItemId, wordId, itemStatus }) => ({
+              id: learningItemId,
+              targetId: wordId,
+              status: itemStatus,
+            })),
           },
           data: { status: "PUBLISHED" },
         });
@@ -447,8 +487,8 @@ export async function applyMainCourseWordBatch(
       },
       {
         ...TRANSACTION_OPTIONS,
-        // Each example is revalidated inside this atomic publication. Manifests cap
-        // the work at 200 words; keep legacy budgets and allow up to five minutes.
+        // The validated manifest caps these reads and writes at 200 words.
+        // Retain the existing deadline for atomic publication.
         timeout: Math.max(TRANSACTION_OPTIONS.timeout, batch.words.length * 1_500),
       },
     );
@@ -756,13 +796,21 @@ async function applyWord(
     update: sentenceData,
     create: { ...sentenceData, dataSourceId: metadata.dataSourceId, sourceId: sourceRecordId },
   });
-  await writeWordExample(db, {
+  const link = await writeWordExample(db, {
     wordId: word.id,
     sentenceId: sentence.id,
     status: "DRAFT",
     sortOrder: 0,
   });
-  return { wordId: word.id, learningItemId: item.id, sentenceId: sentence.id };
+  return {
+    wordId: word.id,
+    learningItemId: item.id,
+    itemStatus: item.status,
+    sentenceId: sentence.id,
+    importedRecordId: record.id,
+    sourceId: sourceRecordId,
+    linkId: link.id,
+  };
 }
 
 function exampleSourceId(batch: MainCourseWordBatch, content: MainCourseWordContent): string {

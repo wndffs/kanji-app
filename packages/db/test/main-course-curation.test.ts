@@ -11,6 +11,32 @@ import { buildMainCourseContentBatches } from "../src/main-course-content";
 import { resolvePrimaryTaughtReading } from "../src/taught-reading";
 
 describe("main-course curation preflight and application", () => {
+  it("checks kanji sources in groups of four and drains a failing group before returning", async () => {
+    const fixture = curationFixture();
+    const missing = fixture.batch.kanji[0]!.character;
+    const read = vi.mocked(fixture.db.kanji.findUnique);
+    fixture.state.kanji.delete(missing);
+    let active = 0;
+    let peak = 0;
+    let finished = 0;
+    const observeRead = async ({ where }: { where: { character: string } }) => {
+      peak = Math.max(peak, ++active);
+      await Promise.resolve();
+      active--;
+      finished++;
+      return fixture.state.kanji.get(where.character) ?? null;
+    };
+    read.mockImplementation(observeRead as unknown as typeof fixture.db.kanji.findUnique);
+    await expect(
+      applyMainCourseContentBatch(fixture.db, fixture.batch, fixture.registry),
+    ).rejects.toThrow(`Kanji ${missing} is missing imported KANJIDIC2 evidence`);
+    expect(peak).toBe(4);
+    expect(finished).toBe(4);
+    expect(active).toBe(0);
+    expect(fixture.mutations).toEqual([]);
+    expect(fixture.transaction).not.toHaveBeenCalled();
+  });
+
   it("uses the shared meaning normalizer for punctuation in authored component answers", async () => {
     const fixture = curationFixture();
     const batch = structuredClone(fixture.batch);

@@ -50,7 +50,7 @@ describe("bounded vocabulary curation", () => {
     },
   );
   it.each([20, 98])(
-    "budgets atomic finalization for %s words without extending item transactions",
+    "batches atomic finalization for %s words without extending item transactions",
     async (count) => {
       const batch = largePublicationFixture(count);
       const fixture = harness([batch]);
@@ -64,6 +64,10 @@ describe("bounded vocabulary curation", () => {
         maxWait: 10_000,
         timeout: Math.max(30_000, count * 1_500),
       });
+      expect(fixture.db.sentence.findMany).toHaveBeenCalledTimes(1);
+      expect(fixture.db.wordExample.updateMany).toHaveBeenCalledTimes(1);
+      expect(fixture.db.wordExample.upsert).toHaveBeenCalledTimes(count);
+      expect(fixture.db.learningItem.updateMany).toHaveBeenCalledTimes(1);
       expect([...fixture.state.examples.values()].every((row) => row.status === "PUBLISHED")).toBe(
         true,
       );
@@ -75,7 +79,10 @@ describe("bounded vocabulary curation", () => {
     const fixture = harness([batch]);
     const privateBefore = structuredClone(fixture.privateRows);
     fixture.failPublicationAt(98);
-    await expect(applyMainCourseWordBatch(fixture.db, batch)).rejects.toThrow();
+    await expect(applyMainCourseWordBatch(fixture.db, batch)).rejects.toThrow(
+      "Cannot publish a word example",
+    );
+    expect(fixture.db.wordExample.updateMany).not.toHaveBeenCalled();
     expect([...fixture.state.runs.values()].every((row) => row.status === "FAILED")).toBe(true);
     expect([...fixture.state.examples.values()].every((row) => row.status === "DRAFT")).toBe(true);
     for (const word of batch.words)
@@ -85,6 +92,73 @@ describe("bounded vocabulary curation", () => {
       ).toBe("DRAFT");
     expect(fixture.privateRows).toEqual(privateBefore);
     expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
+  });
+  it.each(["missing sentence", "different successful run"])(
+    "refuses to publish when the staged example has a %s",
+    async (change) => {
+      const fixture = harness();
+      fixture.beforePublication(() => {
+        if (change === "missing sentence") {
+          fixture.state.sentences.delete([...fixture.state.sentences.keys()].at(-1)!);
+        } else {
+          const original = [...fixture.state.runs.values()][0]!;
+          const other = { ...original, id: "other-run", checksumSha256: "a".repeat(64) };
+          fixture.state.runs.set(other.id, other);
+          [...fixture.state.records.values()].at(-1)!.importRunId = other.id;
+        }
+      });
+      await expect(applyMainCourseWordBatch(fixture.db, fixture.batch)).rejects.toThrow(
+        "Cannot publish a word example",
+      );
+      expect(fixture.db.wordExample.updateMany).not.toHaveBeenCalled();
+      expect([...fixture.state.runs.values()][0]?.status).toBe("FAILED");
+    },
+  );
+  it.each(["missing", "crossed pairs", "replacement ID", "non-draft", "wrong sort order"])(
+    "rolls back the bulk update when staged links are %s",
+    async (change) => {
+      const fixture = harness();
+      fixture.beforePublication(() => {
+        const links = [...fixture.state.examples.entries()];
+        const [identity, first] = links[0]!;
+        const [, second] = links[1]!;
+        if (change === "missing") fixture.state.examples.delete(identity);
+        else if (change === "crossed pairs")
+          [first.sentenceId, second.sentenceId] = [second.sentenceId, first.sentenceId];
+        else if (change === "replacement ID") first.id = "replacement-link";
+        else if (change === "non-draft") first.status = "ARCHIVED";
+        else first.sortOrder = 1;
+      });
+      await expect(applyMainCourseWordBatch(fixture.db, fixture.batch)).rejects.toThrow(
+        "Staged word example links changed",
+      );
+      expect(fixture.db.wordExample.updateMany).toHaveBeenCalledTimes(1);
+      expect(fixture.db.wordExample.upsert).toHaveBeenCalledTimes(fixture.batch.words.length);
+      expect(fixture.db.learningItem.updateMany).not.toHaveBeenCalled();
+      expect([...fixture.state.runs.values()][0]?.status).toBe("FAILED");
+      expect([...fixture.state.examples.values()].map((row) => row.status)).toEqual(
+        Array(fixture.batch.words.length).fill("DRAFT"),
+      );
+    },
+  );
+  it("rolls back eligible example links when a learning item no longer targets its staged word", async () => {
+    const fixture = harness();
+    fixture.beforePublication(() => {
+      const item = [...fixture.state.items.values()].at(-1)!;
+      item.targetId = "unexpected-word";
+    });
+    await expect(applyMainCourseWordBatch(fixture.db, fixture.batch)).rejects.toThrow(
+      "Word publication changed",
+    );
+    expect(fixture.db.wordExample.updateMany).toHaveBeenCalledTimes(1);
+    expect(fixture.db.learningItem.updateMany).toHaveBeenCalledTimes(1);
+    expect([...fixture.state.runs.values()][0]?.status).toBe("FAILED");
+    expect([...fixture.state.examples.values()].map((row) => row.status)).toEqual(
+      Array(fixture.batch.words.length).fill("DRAFT"),
+    );
+    expect([...fixture.state.items.values()].filter((row) => row.status === "DRAFT")).toHaveLength(
+      fixture.batch.words.length - 1,
+    );
   });
   it("parses distinct explicit batches while rejecting duplicate, unknown and excessive selections", () => {
     const batches = registryFixtureBatches();
@@ -1328,7 +1402,7 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
   let sequence = 0;
   let failedWord: string | null = null;
   let failedPublication: number | null = null;
-  let publicationReads = 0;
+  let beforePublication: (() => void) | undefined;
   const forbiddenMutation = vi.fn(() => {
     throw new Error("Imported content/private state must not be mutated.");
   });
@@ -1361,6 +1435,26 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
       mutations.push(label);
       for (const [identity, row] of table) if (matches(row, where)) table.delete(identity);
     });
+  const updateMany = (label: string, table: Map<string, Row>) =>
+    vi.fn(
+      async ({
+        where,
+        data,
+      }: {
+        where: Record<string, unknown>;
+        data: Record<string, unknown>;
+      }) => {
+        mutations.push(label);
+        let count = 0;
+        for (const row of table.values()) {
+          if (!matches(row, where)) continue;
+          Object.assign(row, data);
+          if (label === "example.updateMany") events.push(`example:${String(row.status)}`);
+          count++;
+        }
+        return { count };
+      },
+    );
   const readCourse = vi.fn(async () => ({
     id: "main",
     levels: buildMainCourseBlueprint().levels.map((level) => ({
@@ -1391,32 +1485,15 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
       };
     },
   );
-  const readSentence = vi.fn(
-    async ({
-      where,
-    }: {
-      where: { id?: string; dataSourceId_sourceId?: { dataSourceId: string; sourceId: string } };
-    }) => {
-      const sentence =
-        where.id === undefined
-          ? state.sentences.get(key(where.dataSourceId_sourceId))
-          : byId(state.sentences, where.id);
-      if (sentence === undefined) return null;
-      const source = byId(state.sources, sentence.dataSourceId)!;
-      const license = byId(state.licenses, sentence.licenseId)!;
-      const record = byId(state.records, sentence.importedRecordId)!;
-      const run = byId(state.runs, record.importRunId)!;
-      const result = {
-        ...sentence,
-        dataSource: source,
-        license,
-        importedRecord: { ...record, importRun: run },
-      };
-      if (where.id !== undefined && ++publicationReads === failedPublication)
-        return { ...result, translationEn: null };
-      return result;
-    },
-  );
+  const sentenceWithProvenance = (sentence: Row) => {
+    const record = byId(state.records, sentence.importedRecordId);
+    return {
+      ...sentence,
+      dataSource: byId(state.sources, sentence.dataSourceId),
+      license: byId(state.licenses, sentence.licenseId),
+      importedRecord: record && { ...record, importRun: byId(state.runs, record.importRunId) },
+    };
+  };
   const delegates = {
     course: { findUnique: readCourse },
     word: {
@@ -1466,24 +1543,7 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
           })),
       ),
       upsert: upsert("item", state.items, "targetType_targetId"),
-      updateMany: vi.fn(
-        async ({
-          where,
-          data,
-        }: {
-          where: Record<string, unknown>;
-          data: Record<string, unknown>;
-        }) => {
-          mutations.push("item.updateMany");
-          let count = 0;
-          for (const row of state.items.values())
-            if (matches(row, where)) {
-              Object.assign(row, data);
-              count++;
-            }
-          return { count };
-        },
-      ),
+      updateMany: updateMany("item.updateMany", state.items),
     },
     courseLevelItem: {
       findUnique: vi.fn(
@@ -1564,10 +1624,25 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
       }),
     },
     sentence: {
-      findUnique: readSentence,
+      findUnique: vi.fn(async ({ where }: { where: { dataSourceId_sourceId: unknown } }) => {
+        const sentence = state.sentences.get(key(where.dataSourceId_sourceId));
+        return sentence === undefined ? null : sentenceWithProvenance(sentence);
+      }),
+      findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
+        [...state.sentences.values()]
+          .map(sentenceWithProvenance)
+          .filter((sentence) => matches(sentence, where))
+          .map((sentence, index) =>
+            index + 1 === failedPublication ? { ...sentence, translationEn: null } : sentence,
+          )
+          .reverse(),
+      ),
       upsert: upsert("sentence", state.sentences, "dataSourceId_sourceId"),
     },
-    wordExample: { upsert: upsert("example", state.examples, "wordId_sentenceId") },
+    wordExample: {
+      upsert: upsert("example", state.examples, "wordId_sentenceId"),
+      updateMany: updateMany("example.updateMany", state.examples),
+    },
     importedRecord: {
       upsert: upsert("record", state.records, "importRunId_recordType_sourceRecordId"),
     },
@@ -1579,6 +1654,7 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
           events.push(`run:${String(data.status)}`);
           const row = byId(state.runs, where.id)!;
           Object.assign(row, data);
+          if (data.status === "SUCCESS") beforePublication?.();
           return row;
         },
       ),
@@ -1647,7 +1723,9 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
     },
     failPublicationAt: (index: number | null) => {
       failedPublication = index;
-      publicationReads = 0;
+    },
+    beforePublication: (change: () => void) => {
+      beforePublication = change;
     },
     identities: () =>
       Object.fromEntries(
@@ -1664,12 +1742,16 @@ function restoreMap<K, V>(destination: Map<K, V>, snapshot: Map<K, V>): void {
   for (const [key, value] of snapshot) destination.set(key, value);
 }
 
-function matches(row: Row, where: Record<string, unknown>): boolean {
+function matches(row: Record<string, unknown>, where: Record<string, unknown>): boolean {
   return Object.entries(where).every(([field, expected]) => {
+    if (field === "OR")
+      return Array.isArray(expected) && expected.some((branch) => matches(row, branch));
     if (expected !== null && typeof expected === "object" && !Array.isArray(expected)) {
       const filter = expected as Record<string, unknown>;
       if (Array.isArray(filter.in)) return filter.in.includes(row[field]);
       if (Array.isArray(filter.notIn)) return !filter.notIn.includes(row[field]);
+      const value = row[field];
+      return value !== null && typeof value === "object" && matches(value as Row, filter);
     }
     return row[field] === expected;
   });
