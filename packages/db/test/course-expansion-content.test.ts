@@ -235,7 +235,12 @@ describe("large source-backed course expansion", () => {
           /^[一二三四五六七八九十百千万億兆〇零]+$/u.test(word.expression),
       ).toBe(false);
     }
-    expect(buildEditorialRegistryInventory().prepared.distinctTotals).toMatchObject({
+    expect(
+      buildEditorialRegistryInventory({
+        kanjiBatches: [...priorKanji, batch],
+        wordBatches: [...priorWords, ...block],
+      }).prepared.distinctTotals,
+    ).toMatchObject({
       kanji: 714,
       words: 1300,
     });

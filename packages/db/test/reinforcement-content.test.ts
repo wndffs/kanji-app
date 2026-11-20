@@ -18,8 +18,12 @@ import {
 import { buildEditorialRegistryInventory } from "../src/editorial-registry-inventory";
 import { buildReinforcementWordBatches } from "../src/reinforcement-word-content";
 
-const kanji = buildMainCourseContentBatches().filter((batch) => !batch.id.includes("expansion"));
-const words = buildMainCourseWordBatches().filter((batch) => !batch.id.includes("expansion"));
+const kanji = buildMainCourseContentBatches().filter(
+  (batch) => !/expansion|broadening/u.test(batch.id),
+);
+const words = buildMainCourseWordBatches().filter(
+  (batch) => !/expansion|broadening/u.test(batch.id),
+);
 const newKanji = kanji.find((b) => b.id === "full-course-kanji-reinforcement")!;
 const newWords = words.filter((b) => b.id.startsWith("full-course-vocabulary-reinforcement-"));
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");

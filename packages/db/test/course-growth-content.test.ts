@@ -17,8 +17,12 @@ import {
 } from "../src/course-growth-word-content";
 import { buildEditorialRegistryInventory } from "../src/editorial-registry-inventory";
 
-const kanji = buildMainCourseContentBatches().filter((batch) => !batch.id.includes("expansion"));
-const words = buildMainCourseWordBatches().filter((batch) => !batch.id.includes("expansion"));
+const kanji = buildMainCourseContentBatches().filter(
+  (batch) => !/expansion|broadening/u.test(batch.id),
+);
+const words = buildMainCourseWordBatches().filter(
+  (batch) => !/expansion|broadening/u.test(batch.id),
+);
 const batch = kanji.find((b) => b.id === "full-course-kanji-growth")!;
 const block = words.filter((b) => b.id.startsWith("full-course-vocabulary-growth-"));
 const hash = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).digest("hex");

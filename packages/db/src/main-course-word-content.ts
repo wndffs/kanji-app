@@ -4,6 +4,8 @@ import { buildReinforcementWordBatches } from "./reinforcement-word-content";
 import { buildCourseGrowthWordBatches } from "./course-growth-word-content";
 import { buildCourseContinuationWordBatches } from "./course-continuation-word-content";
 import { buildCourseExpansionWordBatches } from "./course-expansion-word-content";
+import { buildCourseBroadeningWords } from "./course-broadening-content";
+import { BROADENING_KANJI_BATCH } from "./course-broadening-builders";
 import { buildMainCourseContentBatches } from "./main-course-content";
 
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
@@ -27,6 +29,7 @@ import {
 export type AuthoredWordPartOfSpeech =
   | LexicalKind
   | "na-adjective"
+  | "prenominal-adjective"
   | "pronoun"
   | "adverb"
   | "prefix"
@@ -1150,6 +1153,8 @@ const FOUNDATION_WORD_BATCH_03: MainCourseWordBatch = {
 };
 
 export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
+  const kanji = buildMainCourseContentBatches();
+  const preBroadeningKanji = kanji.filter((batch) => batch.id !== BROADENING_KANJI_BATCH);
   const previous = [
     buildMainCourseWordBatch(),
     buildMainCourseWordBatch02(),
@@ -1160,18 +1165,19 @@ export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
     buildMainCourseWordBatch07(),
     buildMainCourseWordBatch08(),
     buildMainCourseWordBatch09(),
-    ...buildCompletionWordBatches(buildMainCourseContentBatches()),
-    ...buildReinforcementWordBatches(buildMainCourseContentBatches()),
-    ...buildCourseGrowthWordBatches(buildMainCourseContentBatches()),
+    ...buildCompletionWordBatches(preBroadeningKanji),
+    ...buildReinforcementWordBatches(preBroadeningKanji),
+    ...buildCourseGrowthWordBatches(preBroadeningKanji),
   ];
   const preExpansion = [
     ...previous,
-    ...buildCourseContinuationWordBatches(buildMainCourseContentBatches(), previous),
+    ...buildCourseContinuationWordBatches(preBroadeningKanji, previous),
   ];
-  return [
+  const preBroadening = [
     ...preExpansion,
-    ...buildCourseExpansionWordBatches(buildMainCourseContentBatches(), preExpansion),
+    ...buildCourseExpansionWordBatches(preBroadeningKanji, preExpansion),
   ];
+  return [...preBroadening, ...buildCourseBroadeningWords(kanji, preBroadening)];
 }
 
 export function mainCourseWordBatchChecksum(batch: MainCourseWordBatch): string {
@@ -1239,6 +1245,7 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
         "i-adjective",
         "noun",
         "na-adjective",
+        "prenominal-adjective",
         "pronoun",
         "adverb",
         "prefix",

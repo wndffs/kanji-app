@@ -7,6 +7,7 @@ import { buildReinforcementKanjiContent } from "./reinforcement-kanji-content";
 import { buildCourseGrowthKanjiContent } from "./course-growth-kanji-content";
 import { buildCourseContinuationKanji } from "./course-continuation-kanji-content";
 import { buildCourseExpansionKanji } from "./course-expansion-kanji-content";
+import { buildCourseBroadeningKanji } from "./course-broadening-content";
 import { buildMainCourseCompletionContent } from "./main-course-completion-content";
 import { buildMainCourseBlueprint } from "./main-course";
 import { validateCuratedMeaningBlocks, type CuratedMeaningBlock } from "./curated-meaning-blocks";
@@ -1552,9 +1553,14 @@ const PRE_EXPANSION_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
   buildCourseContinuationKanji(PRE_CONTINUATION_CONTENT_BATCHES),
 ];
 
-const MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
+const PRE_BROADENING_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
   ...PRE_EXPANSION_CONTENT_BATCHES,
   buildCourseExpansionKanji(PRE_EXPANSION_CONTENT_BATCHES),
+];
+
+const MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
+  ...PRE_BROADENING_CONTENT_BATCHES,
+  buildCourseBroadeningKanji(PRE_BROADENING_CONTENT_BATCHES),
 ];
 
 export function buildMainCourseContentBatches(): readonly MainCourseContentBatch[] {

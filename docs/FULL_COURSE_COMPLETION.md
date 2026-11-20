@@ -706,3 +706,77 @@ require independent teaching, review and publication to reach **2,300 /
 8,000**. Continue substantial content blocks, not numbered microtasks.
 This expansion is not a completed main curriculum or permission to switch
 existing learners away from V7.
+
+## Course Broadening: 2026-11-21
+
+The next block targets **200 new kanji and 500 new primary vocabulary pairs**.
+The published baseline is the preceding **714 kanji / 1,300 words**. Following
+successful publication this block would reach **914 kanji / 1,800 words**,
+with **1,386 kanji / 6,200 words** remaining. These targets are not a live receipt.
+
+- Choose from the existing pinned JMdict, KANJIDIC2 and KanjiVG snapshot.
+  Reuse 232 existing visual cues, require an earlier cue for every kanji, and
+  retain the 40-kanji cap for newly filled levels. New placements follow
+  existing sort orders; earlier manifests and all V1-V7 seals stay unchanged.
+- Every added kanji has an explicit character index and kana offset in a
+  distinct reinforcement word. Prefer ordinary vocabulary: 就職 for 就,
+  故障 for 障, and 興味 for 興. The matching primary source type and exact
+  dictionary pair are checked separately from the authored learning text.
+- Use a mixed vocabulary selection without alternative-spelling or numeric
+  padding. Original examples supply Japanese, kana, Russian and English;
+  all characters in the written word and its example precede the word level.
+  Keep original source senses out of the authored layer. Use an explicit
+  prenominal-adjective label for 単なる rather than calling it a na-adjective.
+- Local source review can be rerun with
+  `npm exec -- tsx scripts/local-course-evidence.mts --snapshot-dir ABSOLUTE_DIR`
+  plus explicit `--kanji-batch` and one or more `--word-batch` IDs. It checks
+  source identities, bilingual evidence and stroke sequences; it does not
+  perform independent editorial review, use database credentials or approve
+  publication. Source-note-only alternatives still require their separate proof.
+- Publication work now batches the final example lookup and exact staged-link
+  update while retaining atomic provenance, item status and rollback checks.
+  Read-only kanji evidence checks run four at a time; staging writes remain
+  individually transactional. No live Neon speedup is claimed before measurement.
+- A local capacity probe (not an inventory) found **1,559 unregistered kanji**
+  with an existing reusable cue, matching primary strokes and some candidate
+  pair under the strict initial selection. This is an optimistic upper bound
+  for that filter, not reviewed content. Together with 714 prior entries it
+  is still below 2,300; later blocks will need additional useful cues and/or
+  other verified lexical evidence. Do not pad either volume target.
+
+Keep the main curriculum DRAFT. Before claiming a release, pass independent
+editorial checks, full source and placement preflight, explicit selection
+in GitHub Actions, live corpus/quality checks and progress preservation.
+
+### Broadening verification and release handoff
+
+- Independent AI reviewers checked all **200 kanji and 500 words**, including
+  their RU/EN scopes, visual cues, phonology, meanings and original examples.
+  They accepted the corrected batch after rechecking flagged rows. This is
+  not human linguistic certification. Local checks match **200 KANJIDIC2
+  readings, 200 primary KanjiVG sequences and 504 exact bilingual JMdict
+  pairs**, including four independently accepted same-entry alternatives.
+  The authored layer contains 500 distinct written forms and source IDs;
+  none reuse one of the prior 1,300 primary source entries.
+- The scoped 19-file checks pass **534 tests**, including the old published
+  payload hashes, new manifest seals, strict distinction between actual
+  reading bindings and matching substrings, supported alternatives, and
+  conservative semantic answer validation. DB and local source tooling
+  typechecks, changed-file lint and formatting passed. The reviewed registry
+  now has **914 kanji / 1,800 words / 232 components** across 38 populated
+  levels through level 40, not a claim that those counts are live.
+- Primary word provenance preflight now loads one exact-pair group per
+  manifest, with the same validator and a fresh individual provenance check
+  inside each write transaction. Alternative sources, ownership, placement,
+  graph, license, and rollback guards are unchanged. Actual Neon performance
+  and source availability still need verification.
+- Release only `full-course-kanji-broadening` first (explicit kanji selection,
+  skip words), then the **21** explicit word IDs
+  `full-course-vocabulary-broadening-01` through `-21`. The local source
+  match does not establish that all four alternate rows or all primary rows
+  are already in Neon. Run server-side preflight and resolve any real source
+  conflicts without rewriting existing rows. No all-registry reapplication.
+- Expected live totals after successful publication: **2,946 teaching targets
+  and 5,660 core cards**. Confirm the 500 new examples, manifest seals,
+  914 stroke graphics, final quality report and pre-existing course and
+  progress preservation. No server teaching writes or new live receipt yet.
