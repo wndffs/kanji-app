@@ -14,6 +14,11 @@ import { inspectLocalKanji } from "./local-kanji-evidence.mts";
 import { inspectLocalWords } from "./local-word-evidence.mts";
 import { inspectLocalStrokes } from "./local-stroke-evidence.mts";
 import {
+  inspectLocalCourseSources,
+  parseLocalCourseEvidenceArgs,
+} from "./local-course-evidence.mts";
+import { buildMainCourseWordBatch } from "../packages/db/src/main-course-word-content";
+import {
   localCandidateFingerprint,
   summarizeLocalEvidence,
   type inspectLocalDraft,
@@ -189,6 +194,18 @@ describe("bounded streaming source evidence", () => {
       ).items.map((item) => item.status),
     ).toEqual(["missing", "matched"]);
   });
+  it("preserves requested order without counting repeated requests as distinct source hits", async () => {
+    const source = await localSource(`<JMdict>${entry("1", "<re_restr>学校</re_restr>")}</JMdict>`);
+    const school = { expression: "学校", reading: "がっこう" };
+    const mismatch = { expression: "学園", reading: "がっこう" };
+    const result = await inspectLocalWords(source, [school, mismatch, { ...school }]);
+    expect(result.items.map(({ status, matches }) => [status, matches])).toEqual([
+      ["matched", 1],
+      ["missing", 0],
+      ["matched", 1],
+    ]);
+    expect(result.items[2]).toEqual(result.items[0]);
+  });
   it("matches primary graphic IDs and rejects incomplete stroke ordering", async () => {
     const result = await inspectLocalStrokes(await localSource(vg, "kanjivg"), ["校", "学"]);
     expect(result.items[0]).toMatchObject({ status: "matched", strokeCount: 1 });
@@ -239,6 +256,48 @@ describe("bounded streaming source evidence", () => {
   });
 });
 describe("aggregate and review boundaries", () => {
+  it("checks the exact registered source identity and cannot approve publication", async () => {
+    const jmdict = await localSource(`<JMdict>${entry("1")}</JMdict>`);
+    const snapshot = { snapshotVersion: "2026-10-31", sources: [jmdict] };
+    const manifest = buildMainCourseWordBatch();
+    const word = {
+      ...manifest.words[0]!,
+      expression: "学校",
+      reading: "がっこう",
+      jmdictEntryId: "jmdict:1",
+    };
+    const verify = (entryId: string) =>
+      inspectLocalCourseSources(
+        snapshot,
+        [],
+        [{ ...manifest, words: [{ ...word, jmdictEntryId: entryId }] }],
+      );
+    await expect(verify("jmdict:1")).resolves.toMatchObject({
+      sourceMatchesComplete: true,
+      wordPairs: { checked: 1, failed: 0 },
+      independentReview: false,
+      publicationApproved: false,
+    });
+    await expect(verify("jmdict:2")).resolves.toMatchObject({
+      sourceMatchesComplete: false,
+      wordPairs: { checked: 1, failed: 1 },
+    });
+  });
+  it("requires a local snapshot and bounded explicit registry selections", () => {
+    const directory = resolve("external");
+    expect(
+      parseLocalCourseEvidenceArgs(["--snapshot-dir", directory, "--word-batch", "batch-1"]),
+    ).toMatchObject({ directory, wordBatchIds: ["batch-1"], kanjiBatchIds: [] });
+    for (const values of [
+      [],
+      ["--word-batch", "../file"],
+      ["--apply", "true"],
+      ["--word-batch", "batch-1", "--word-batch", "batch-1"],
+    ])
+      expect(() =>
+        parseLocalCourseEvidenceArgs(["--snapshot-dir", directory, ...values]),
+      ).toThrow();
+  });
   it("never turns matching identities into independent approval", () => {
     const result = summarizeLocalEvidence({
       kanji: { scanned: 10, items: [{ status: "matched" }] },

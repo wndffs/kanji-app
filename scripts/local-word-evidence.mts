@@ -47,7 +47,12 @@ export async function inspectLocalWords(
   candidates: readonly WordCandidate[],
   options: { readonly includeLexicalMetadata?: boolean } = {},
 ) {
-  const expressions = new Set(candidates.map((candidate) => candidate.expression));
+  const byExpression = new Map<string, Map<string, WordCandidate>>();
+  for (const candidate of candidates) {
+    let readings = byExpression.get(candidate.expression);
+    if (!readings) byExpression.set(candidate.expression, (readings = new Map()));
+    readings.set(candidate.reading, candidate);
+  }
   const matches = new Map<
     string,
     {
@@ -60,10 +65,13 @@ export async function inspectLocalWords(
   const scanned = await scanSourceXml(source, "JMdict", "entry", (node) => {
     const spellings = children(node, "k_ele").flatMap((element) => textOf(element, "keb"));
     const kana = children(node, "r_ele").flatMap((element) => textOf(element, "reb"));
-    if (![...spellings, ...kana].some((expression) => expressions.has(expression))) return;
+    const possible = [...new Set([...spellings, ...kana])].flatMap((expression) => [
+      ...(byExpression.get(expression)?.values() ?? []),
+    ]);
+    const permitted = possible.filter((candidate) => permitsPair(node, candidate));
+    if (permitted.length === 0) return;
     const parsed = parseJmDictXml(`<JMdict>${serializeNode(node)}</JMdict>`).entries[0]!;
-    for (const candidate of candidates) {
-      if (!permitsPair(node, candidate)) continue;
+    for (const candidate of permitted) {
       const existing = matches.get(key(candidate)) ?? [];
       existing.push({
         sourceRecordId: parsed.sourceRecordId,
