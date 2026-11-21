@@ -1029,3 +1029,20 @@ The remaining goal is **1,420 words**. This is not a Neon publication.
   Expected after all outstanding releases through this block:
   **9,124 teaching targets / 18,004 core cards**. Verify aggregate
   provenance and preservation before declaring this set live.
+
+## Supplemental Vocabulary, Second Block: 2026-11-21
+
+Adds **710 independently AI-reviewed words and original bilingual
+examples**, for **2,300 kanji / 7,290 words / 244 components** in the
+reviewed registry. The final word block is **710 words**.
+
+- The pinned snapshot matched **714 exact bilingual JMdict pairs**,
+  including four alternate readings. Lessons distinguish related
+  forms such as 外見・外観 and 迎え・出迎え. Quoted Japanese examples
+  retain the same native quotation marks in both spelling and kana.
+- Seal `8cbbc23571b87614ad0552c896d0f904baf7cf0b3dab26af9904319a2aedfe9f`.
+  After the first supplement and preceding kanji are live, explicitly
+  plan/apply the **33** `full-course-vocabulary-supplemental-second-01`
+  through `-33` manifests. Expected after all pending releases through
+  this block: **9,834 teaching targets / 19,424 core cards**. Review and
+  registry counts do not certify publication or enrollment.
