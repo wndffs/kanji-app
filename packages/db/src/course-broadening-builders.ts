@@ -276,6 +276,7 @@ export function buildBroadeningWords(
     prefix: string;
     metadata: BlockMetadata;
     meaningBlocks?: typeof WORD_BLOCKS;
+    targetWordsPerLevel?: number;
   }> = BROADENING_WORD_OPTIONS,
 ): readonly MainCourseWordBatch[] {
   const levels = new Map(
@@ -292,11 +293,22 @@ export function buildBroadeningWords(
   );
   const seen = new Set(words.flatMap((batch) => batch.words.map((word) => word.expression)));
   const byLevel = new Map<number, ExpansionWordRow[]>();
+  const wordCounts = new Map<number, number>();
+  const target = options.targetWordsPerLevel;
+  if (target !== undefined) {
+    if (!Number.isSafeInteger(target) || target < 1)
+      throw new Error("Vocabulary level target must be a positive integer.");
+    for (const batch of words)
+      wordCounts.set(
+        batch.levelNumber,
+        (wordCounts.get(batch.levelNumber) ?? 0) + batch.words.length,
+      );
+  }
   for (const row of rows) {
     const [expression] = row;
     if (seen.has(expression)) throw new Error(`Duplicate broadening word form: ${expression}.`);
     seen.add(expression);
-    const level = Math.max(
+    let level = Math.max(
       2,
       ...wordHanCharacters(expression + row[8][0]).map((char) => {
         const prerequisite = levels.get(char);
@@ -306,6 +318,10 @@ export function buildBroadeningWords(
       }),
     );
     if (level > 60) throw new Error(`Vocabulary prerequisite exceeds level 60: ${expression}.`);
+    if (target !== undefined) {
+      while (level < 60 && (wordCounts.get(level) ?? 0) >= target) level++;
+      wordCounts.set(level, (wordCounts.get(level) ?? 0) + 1);
+    }
     const group = byLevel.get(level) ?? [];
     group.push(row);
     byLevel.set(level, group);

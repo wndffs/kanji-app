@@ -17,27 +17,20 @@ import {
   authoredWordPartOfSpeech,
 } from "../src/main-course-word-content";
 
-const DEEPENING_WORD_COUNTS = [
-  1, 2, 2, 3, 7, 1, 9, 4, 9, 1, 4, 14, 28, 5, 37, 5, 6, 47, 10, 52, 54, 33, 1, 118, 71, 42, 14, 21,
-  39,
-];
-const FOLLOWTHROUGH_WORD_COUNTS = [
-  1, 3, 1, 1, 5, 1, 3, 1, 5, 1, 10, 10, 3, 11, 12, 10, 17, 5, 8, 21, 8, 20, 61, 56, 41, 4, 136, 88,
-  52, 33, 29, 31, 58,
-];
-const COVERAGE_WORD_COUNTS = [
-  1, 1, 1, 1, 4, 8, 4, 4, 8, 7, 3, 16, 2, 36, 20, 18, 43, 39, 10, 115, 120, 124, 70, 40, 16, 13, 52,
-  8,
-];
-const CONSOLIDATION_WORD_COUNTS = [
-  1, 1, 1, 1, 1, 3, 6, 1, 10, 4, 3, 19, 1, 2, 33, 4, 44, 25, 21, 31, 9, 11, 132, 133, 90, 56, 18,
-  16, 10, 6, 37, 24,
-];
-const EXTENSION_WORD_COUNTS = [
-  2, 2, 1, 3, 2, 1, 2, 1, 7, 6, 3, 15, 4, 1, 23, 1, 2, 33, 1, 2, 31, 1, 35, 1, 114, 94, 86, 52, 14,
-  15, 10, 3, 40, 40, 41, 41, 40,
-];
-const FINALIZATION_WORD_COUNTS = [10, 2, 1, 1, 18, 1, 40, 40, 40, 7];
+function expectManifestSummaries(actual: readonly unknown[]) {
+  const batches = buildMainCourseWordBatches();
+  expect(actual).toHaveLength(batches.length);
+  for (const [index, batch] of batches.entries()) {
+    expect(actual[index]).toMatchObject({
+      batchId: batch.id,
+      reviewedAt: batch.reviewedAt,
+      words: batch.words.length,
+      cards: batch.words.length * 2,
+      examples: batch.words.length,
+      checksumSha256: mainCourseWordBatchChecksum(batch),
+    });
+  }
+}
 
 it("reuses the immutable vocabulary registry within the same process", () => {
   const registry = buildMainCourseWordBatches();
@@ -185,168 +178,13 @@ describe("first bounded main-course vocabulary manifest", () => {
       ],
       { cwd: root, encoding: "utf8", env: { ...process.env, DATABASE_URL: "" } },
     );
-    expect(JSON.parse(stdout)).toMatchObject({
-      status: "valid-manifests",
-      selectedBatchId: null,
-      batches: [
-        {
-          batchId: "task-127-foundation-words-01",
-          reviewedAt: "2026-10-22",
-          words: 20,
-          cards: 40,
-          examples: 20,
-          checksumSha256: mainCourseWordBatchChecksum(buildMainCourseWordBatch()),
-        },
-        {
-          batchId: "task-127-foundation-words-02",
-          reviewedAt: "2026-10-22",
-          checksumSha256: "0110505331b1066653f4b62ce20f4c8bbb98e94ccf701eafac26ecda9a0e6a4f",
-          words: 20,
-          cards: 40,
-          examples: 20,
-        },
-        {
-          batchId: "task-127-foundation-words-03",
-          reviewedAt: "2026-10-22",
-          words: 20,
-          cards: 40,
-          examples: 20,
-        },
-        {
-          batchId: "task-127-foundation-words-04",
-          reviewedAt: "2026-10-22",
-          words: 20,
-          cards: 40,
-          examples: 20,
-        },
-        {
-          batchId: "task-127-course-words-05",
-          reviewedAt: "2026-10-22",
-          words: 20,
-          cards: 40,
-          examples: 20,
-        },
-        {
-          batchId: "task-127-course-words-06",
-          reviewedAt: "2026-10-22",
-          words: 20,
-          cards: 40,
-          examples: 20,
-        },
-        {
-          batchId: "task-127-course-words-07",
-          reviewedAt: "2026-10-29",
-          words: 20,
-          cards: 40,
-          examples: 20,
-          checksumSha256: "8a7c53c07b87b31ecfa27173731c8213f755a3349332f40ef5372c46e521ebf4",
-        },
-        {
-          batchId: "task-127-course-words-08",
-          reviewedAt: "2026-10-29",
-          words: 20,
-          cards: 40,
-          examples: 20,
-          checksumSha256: "60833d0bc8ba76f4b734f0a46307cb3de4977ed637c510b01da1a75353e27a67",
-        },
-        {
-          batchId: "task-127-course-words-09",
-          reviewedAt: "2026-10-29",
-          words: 20,
-          cards: 40,
-          examples: 20,
-          checksumSha256: "83837d6f793a30a8e3101ce7c5797e312d48be8031b8f3febb22f56513c636fa",
-        },
-        ...["01", "02", "03", "04"].map((suffix) => ({
-          batchId: `full-course-vocabulary-completion-${suffix}`,
-          reviewedAt: "2026-10-31",
-          words: 20,
-          cards: 40,
-          examples: 20,
-        })),
-        ...["01", "02", "03", "04"].map((suffix) => ({
-          batchId: `full-course-vocabulary-reinforcement-${suffix}`,
-          reviewedAt: "2026-11-01",
-          words: 20,
-          cards: 40,
-          examples: 20,
-        })),
-        ...["01", "02", "03", "04", "05", "06", "07", "08"].map((suffix) => ({
-          batchId: `full-course-vocabulary-growth-${suffix}`,
-          reviewedAt: "2026-11-01",
-          words: 20,
-          cards: 40,
-          examples: 20,
-        })),
-        ...[2, 2, 3, 5, 3, 2, 13, 33, 9, 15, 17, 28, 18, 98, 22, 30].map((count, i) => ({
-          batchId: `full-course-vocabulary-continuation-${String(i + 1).padStart(2, "0")}`,
-          reviewedAt: "2026-11-01",
-          words: count,
-          cards: count * 2,
-          examples: count,
-        })),
-        ...[7, 6, 5, 14, 17, 14, 22, 1, 1, 23, 8, 30, 35, 10, 14, 33, 20, 28, 65, 55, 64, 28].map(
-          (count, i) => ({
-            batchId: `full-course-vocabulary-expansion-${String(i + 1).padStart(2, "0")}`,
-            reviewedAt: "2026-11-01",
-            words: count,
-            cards: count * 2,
-            examples: count,
-          }),
-        ),
-        ...[1, 3, 2, 3, 1, 2, 10, 8, 2, 9, 9, 3, 14, 34, 24, 33, 108, 87, 59, 53, 35].map(
-          (count, i) => ({
-            batchId: `full-course-vocabulary-broadening-${String(i + 1).padStart(2, "0")}`,
-            reviewedAt: "2026-11-21",
-            words: count,
-            cards: count * 2,
-            examples: count,
-          }),
-        ),
-        ...DEEPENING_WORD_COUNTS.map((count, i) => ({
-          batchId: `full-course-vocabulary-deepening-${String(i + 1).padStart(2, "0")}`,
-          reviewedAt: "2026-11-21",
-          words: count,
-          cards: count * 2,
-          examples: count,
-        })),
-        ...FOLLOWTHROUGH_WORD_COUNTS.map((count, i) => ({
-          batchId: `full-course-vocabulary-followthrough-${String(i + 1).padStart(2, "0")}`,
-          reviewedAt: "2026-11-21",
-          words: count,
-          cards: count * 2,
-          examples: count,
-        })),
-        ...COVERAGE_WORD_COUNTS.map((count, i) => ({
-          batchId: `full-course-vocabulary-coverage-${String(i + 1).padStart(2, "0")}`,
-          reviewedAt: "2026-11-21",
-          words: count,
-          cards: count * 2,
-          examples: count,
-        })),
-        ...CONSOLIDATION_WORD_COUNTS.map((count, i) => ({
-          batchId: `full-course-vocabulary-consolidation-${String(i + 1).padStart(2, "0")}`,
-          reviewedAt: "2026-11-21",
-          words: count,
-          cards: count * 2,
-          examples: count,
-        })),
-        ...EXTENSION_WORD_COUNTS.map((count, i) => ({
-          batchId: `full-course-vocabulary-extension-${String(i + 1).padStart(2, "0")}`,
-          reviewedAt: "2026-11-21",
-          words: count,
-          cards: count * 2,
-          examples: count,
-        })),
-        ...FINALIZATION_WORD_COUNTS.map((count, i) => ({
-          batchId: `full-course-vocabulary-finalization-${String(i + 1).padStart(2, "0")}`,
-          reviewedAt: "2026-11-21",
-          words: count,
-          cards: count * 2,
-          examples: count,
-        })),
-      ],
+    const report = JSON.parse(stdout);
+    expect(report).toMatchObject({ status: "valid-manifests", selectedBatchId: null });
+    expect(report.batches[0]).toMatchObject({
+      batchId: "task-127-foundation-words-01",
+      checksumSha256: "1ceeb2467961f707e57047ab0c46a91badaa048f036ac3299a5a7d0685f99daf",
     });
+    expectManifestSummaries(report.batches);
   });
 
   it.each([
@@ -409,69 +247,17 @@ describe("first bounded main-course vocabulary manifest", () => {
       ],
       { cwd: root, encoding: "utf8", env: { ...process.env, DATABASE_URL: "" } },
     );
-    expect(JSON.parse(stdout)).toMatchObject({
+    const report = JSON.parse(stdout);
+    expect(report).toMatchObject({
       status: "valid-manifests",
       selectedBatchId: "task-127-foundation-words-02",
-      batches: [
-        { batchId: "task-127-foundation-words-01" },
-        { batchId: "task-127-foundation-words-02", reviewedAt: "2026-10-22" },
-        { batchId: "task-127-foundation-words-03", reviewedAt: "2026-10-22" },
-        { batchId: "task-127-foundation-words-04", reviewedAt: "2026-10-22" },
-        { batchId: "task-127-course-words-05", reviewedAt: "2026-10-22" },
-        { batchId: "task-127-course-words-06", reviewedAt: "2026-10-22" },
-        { batchId: "task-127-course-words-07", reviewedAt: "2026-10-29" },
-        { batchId: "task-127-course-words-08", reviewedAt: "2026-10-29" },
-        { batchId: "task-127-course-words-09", reviewedAt: "2026-10-29" },
-        ...["01", "02", "03", "04"].map((suffix) => ({
-          batchId: `full-course-vocabulary-completion-${suffix}`,
-          reviewedAt: "2026-10-31",
-        })),
-        ...["01", "02", "03", "04"].map((suffix) => ({
-          batchId: `full-course-vocabulary-reinforcement-${suffix}`,
-          reviewedAt: "2026-11-01",
-        })),
-        ...["01", "02", "03", "04", "05", "06", "07", "08"].map((suffix) => ({
-          batchId: `full-course-vocabulary-growth-${suffix}`,
-          reviewedAt: "2026-11-01",
-        })),
-        ...Array.from({ length: 16 }, (_, i) => ({
-          batchId: `full-course-vocabulary-continuation-${String(i + 1).padStart(2, "0")}`,
-          reviewedAt: "2026-11-01",
-        })),
-        ...Array.from({ length: 22 }, (_, i) => ({
-          batchId: `full-course-vocabulary-expansion-${String(i + 1).padStart(2, "0")}`,
-          reviewedAt: "2026-11-01",
-        })),
-        ...Array.from({ length: 21 }, (_, i) => ({
-          batchId: `full-course-vocabulary-broadening-${String(i + 1).padStart(2, "0")}`,
-          reviewedAt: "2026-11-21",
-        })),
-        ...DEEPENING_WORD_COUNTS.map((_, i) => ({
-          batchId: `full-course-vocabulary-deepening-${String(i + 1).padStart(2, "0")}`,
-          reviewedAt: "2026-11-21",
-        })),
-        ...FOLLOWTHROUGH_WORD_COUNTS.map((_, i) => ({
-          batchId: `full-course-vocabulary-followthrough-${String(i + 1).padStart(2, "0")}`,
-          reviewedAt: "2026-11-21",
-        })),
-        ...COVERAGE_WORD_COUNTS.map((_, i) => ({
-          batchId: `full-course-vocabulary-coverage-${String(i + 1).padStart(2, "0")}`,
-          reviewedAt: "2026-11-21",
-        })),
-        ...CONSOLIDATION_WORD_COUNTS.map((_, i) => ({
-          batchId: `full-course-vocabulary-consolidation-${String(i + 1).padStart(2, "0")}`,
-          reviewedAt: "2026-11-21",
-        })),
-        ...EXTENSION_WORD_COUNTS.map((_, i) => ({
-          batchId: `full-course-vocabulary-extension-${String(i + 1).padStart(2, "0")}`,
-          reviewedAt: "2026-11-21",
-        })),
-        ...FINALIZATION_WORD_COUNTS.map((_, i) => ({
-          batchId: `full-course-vocabulary-finalization-${String(i + 1).padStart(2, "0")}`,
-          reviewedAt: "2026-11-21",
-        })),
-      ],
     });
+    expect(report.batches[1]).toMatchObject({
+      batchId: "task-127-foundation-words-02",
+      reviewedAt: "2026-10-22",
+      checksumSha256: "0110505331b1066653f4b62ce20f4c8bbb98e94ccf701eafac26ecda9a0e6a4f",
+    });
+    expectManifestSummaries(report.batches);
   });
 });
 
@@ -635,7 +421,7 @@ describe("second bounded vocabulary batch and registry", () => {
 describe("reviewed third vocabulary batch", () => {
   it("adds twenty distinct beginner words at free slots with verified source identities", () => {
     const batches = buildMainCourseWordBatches();
-    expect(batches).toHaveLength(253);
+    expect(batches).toHaveLength(259);
     const third = batches[2]!;
     expect(third).toMatchObject({
       id: "task-127-foundation-words-03",

@@ -984,3 +984,29 @@ across **54 populated levels**. Remaining to the requested volume:
   core cards**. Verify actual counts, provenance, and preservation in Neon.
   Main stays DRAFT with no enrollment changes. Keep the next large editorial
   block focused on the remaining coverage and actionable vocabulary.
+
+## Kanji Coverage Closure: 2026-11-21
+
+The reviewed registry reaches **2,300 kanji / 5,880 words / 244 components**
+across **59 populated levels** by adding **226 kanji, 226 reinforcement words
+and five shape cues**. The remaining volume goal is **2,120 words**. The
+registry is not a live publication receipt.
+
+- Against pinned KANJIDIC2 grade metadata, the registry includes all **1,026**
+  school-grade characters and **2,134 of 2,136** grade 1–8 characters overall.
+  Swapped 28 lower-priority candidates before registration to add common
+  forms including 角, 逮, 巡, 缶, and both glyphs in 挨拶 and 犠牲. 旺 lacks
+  bilingual evidence for the straightforward 旺盛 pair; the ordinary
+  曖昧 entry already supports earlier content and was not duplicated.
+  The grade audit is not a JLPT vocabulary or test-readiness claim.
+- Independent AI editorial review and the pinned snapshot confirmed **226
+  KANJIDIC2 readings, 226 KanjiVG primary sequences, 321 component groups and
+  229 exact JMdict word readings**. Previous placements and V1–V7 seals are
+  unchanged. Closure seal:
+  `8cc3dd0ccb72dd0658d9a395c16a98f9a20d2e7adfb540bffa6415202cbd4623`.
+- After all preceding releases, plan/apply `full-course-kanji-closure` with
+  `skip_words=true`, then explicitly plan/apply the six manifests
+  `full-course-vocabulary-closure-01` through `-06`. Expected after all
+  outstanding releases through Closure: **8,424 targets / 16,604 core
+  cards**. Confirm live counts and preservation separately; keep main
+  DRAFT and do not change enrollment or learner progress.

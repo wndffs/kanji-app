@@ -13,6 +13,7 @@ import { COVERAGE_KANJI_BATCH, coverageWords } from "./course-coverage-content";
 import { CONSOLIDATION_KANJI_BATCH, consolidationWords } from "./course-consolidation-content";
 import { EXTENSION_KANJI_BATCH, extensionWords } from "./course-extension-content";
 import { FINALIZATION_KANJI_BATCH, finalizationWords } from "./course-finalization-content";
+import { CLOSURE_KANJI_BATCH, closureWords } from "./course-closure-content";
 import { buildMainCourseContentBatches } from "./main-course-content";
 
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
@@ -42,6 +43,7 @@ export type AuthoredWordPartOfSpeech =
   | "prenominal-adjective"
   | "pronoun"
   | "adverb"
+  | "conjunction"
   | "prefix"
   | "suffix"
   | "counter"
@@ -1171,7 +1173,10 @@ export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
 
 function assembleMainCourseWordBatches(): readonly MainCourseWordBatch[] {
   const kanji = buildMainCourseContentBatches();
-  const preFinalizationKanji = kanji.filter((batch) => batch.id !== FINALIZATION_KANJI_BATCH);
+  const preClosureKanji = kanji.filter((batch) => batch.id !== CLOSURE_KANJI_BATCH);
+  const preFinalizationKanji = preClosureKanji.filter(
+    (batch) => batch.id !== FINALIZATION_KANJI_BATCH,
+  );
   const preExtensionKanji = preFinalizationKanji.filter(
     (batch) => batch.id !== EXTENSION_KANJI_BATCH,
   );
@@ -1230,7 +1235,8 @@ function assembleMainCourseWordBatches(): readonly MainCourseWordBatch[] {
     ...consolidationWords(preExtensionKanji, preConsolidation),
   ];
   const preFinalization = [...preExtension, ...extensionWords(preFinalizationKanji, preExtension)];
-  return [...preFinalization, ...finalizationWords(kanji, preFinalization)];
+  const preClosure = [...preFinalization, ...finalizationWords(preClosureKanji, preFinalization)];
+  return [...preClosure, ...closureWords(kanji, preClosure)];
 }
 
 export function mainCourseWordBatchChecksum(batch: MainCourseWordBatch): string {
@@ -1297,6 +1303,7 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
         "prenominal-adjective",
         "pronoun",
         "adverb",
+        "conjunction",
         "prefix",
         "suffix",
         "counter",
