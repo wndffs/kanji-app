@@ -27,13 +27,16 @@ import {
 } from "../src/course-broadening-builders";
 import { BROADENING_READING_LINKS } from "../src/course-broadening-reading-links";
 import { DEEPENING_KANJI_BATCH, DEEPENING_WORD_PREFIX } from "../src/course-deepening-builders";
+import { beforeCourseBatch } from "./course-registry-fixture";
 
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
-const throughBroadeningKanji = buildMainCourseContentBatches().filter(
-  (batch) => batch.id !== DEEPENING_KANJI_BATCH,
+const throughBroadeningKanji = beforeCourseBatch(
+  buildMainCourseContentBatches(),
+  DEEPENING_KANJI_BATCH,
 );
-const throughBroadeningWords = buildMainCourseWordBatches().filter(
-  (batch) => !batch.id.startsWith(DEEPENING_WORD_PREFIX),
+const throughBroadeningWords = beforeCourseBatch(
+  buildMainCourseWordBatches(),
+  `${DEEPENING_WORD_PREFIX}01`,
 );
 const priorKanji = throughBroadeningKanji.filter((batch) => batch.id !== BROADENING_KANJI_BATCH);
 const priorWords = throughBroadeningWords.filter(

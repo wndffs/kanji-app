@@ -827,3 +827,45 @@ are applied; the last confirmed live totals are still **714 / 1,300**.
   targets / 7,340 core cards**. Check final source and quality gates and
   compare only aggregate preservation evidence for existing progress and
   courses. Keep the main curriculum DRAFT; do not create V8 or switch users.
+
+## Course Followthrough: 2026-11-21
+
+This independently reviewed block adds **200 kanji / 746 primary words**,
+with a distinct reading reinforcement word for every kanji and **746
+original JP/kana/RU/EN examples**. The authored registry now contains
+**1,314 kanji / 3,186 words / 232 components** across **41 populated levels
+through level 42**. **986 kanji / 4,814 words** remain to the full-course
+target. This is not a live release receipt; the last confirmed live count
+remains **714 kanji / 1,300 words**.
+
+- Independent AI reviewers checked 200 reinforcement pairs and cross-reviewed
+  the additional 546 vocabulary entries. The corrected batch matched **754
+  exact bilingual JMdict pairs** (eight reviewed alternatives), **200
+  KANJIDIC2 readings**, and **200 KanjiVG primary stroke sequences** in the
+  previously pinned 2026-10-31 snapshot. Authored examples and meanings remain
+  separate from dictionary data. This is not human linguistic certification.
+- Eighteen new kun readings distinguish the taught kanji stem from the
+  written okurigana: 戻 teaches もど, while 戻る teaches もどる. The word
+  check also preserves independently verified same-entry pronunciation
+  variants such as いぞん / いそん for 依存. Semantic near-miss guards reject
+  unrelated answers such as medication/mediation and morality/mortality.
+- The new payload SHA-256 is
+  `9bbbc07401ef1b8c88d84bdc460cf3803f5327e7a95ddae125bc349619f7f0ce`.
+  The prior **1,114 K / 2,440 W** manifests, coordinates and V1-V7 seals are
+  unchanged. The main course remains DRAFT. No account, private progress
+  or published course version was changed to prepare this release.
+- Explicit vocabulary selection now preflights all selected batches in the
+  database before any teaching write, with per-item checks still repeated
+  during application. The entire registry still passes database-free conflict
+  validation and staging still checks already published learning content.
+  Later unselected kanji and raw vocabulary cannot block an earlier release
+  solely because their sources or placements have not reached Neon yet.
+- After Broadening and Deepening are live, use an explicit plan and apply for
+  `full-course-kanji-followthrough` with vocabulary skipped. Then plan and
+  apply the **33** vocabulary IDs `full-course-vocabulary-followthrough-01`
+  through `-33`. Leave source supplementation off unless the live scoped plan
+  shows a gap. Limit any later raw supplement to verified selected pairs.
+- Expected after the three outstanding blocks reach Neon: **4,732 teaching
+  targets / 9,232 core cards**. Confirm counts, source attribution, quality
+  and preservation live. GitHub Actions authorization is still needed for
+  the manual release; existing accounts and finite courses must not be moved.

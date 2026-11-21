@@ -19,15 +19,9 @@ import {
 } from "../src/completion-reading-memory";
 import { buildCompletionWordBatches } from "../src/completion-word-content";
 import { validateMainCourseWordBatches, wordHanCharacters } from "../src/main-course-word-content";
+import { beforeCourseBatch } from "./course-registry-fixture";
 
-const base = buildMainCourseContentBatches().filter(
-  (batch) =>
-    batch.id !== "full-course-kanji-completion-01" &&
-    !batch.id.includes("reinforcement") &&
-    !batch.id.includes("growth") &&
-    !batch.id.includes("continuation") &&
-    !/expansion|broadening|deepening/u.test(batch.id),
-);
+const base = beforeCourseBatch(buildMainCourseContentBatches(), "full-course-kanji-completion-01");
 const makeContent = () =>
   buildMainCourseCompletionContent(base.flatMap((batch) => batch.components));
 
@@ -37,11 +31,11 @@ describe("single full-course completion content block", () => {
     const report = JSON.parse(result.stdout);
     expect(result.exitCode).toBe(0);
     expect(report.validation.valid).toBe(true);
-    expect(report.prepared.distinctTotals.kanji).toBe(1114);
-    expect(report.prepared.reviewedDistinctTotals.kanji).toBe(1114);
+    expect(report.prepared.distinctTotals.kanji).toBe(1314);
+    expect(report.prepared.reviewedDistinctTotals.kanji).toBe(1314);
     expect(report.prepared.pendingReviewDistinctTotals.kanji).toBe(0);
-    expect(report.prepared.distinctTotals.words).toBe(2440);
-    expect(report.prepared.reviewedDistinctTotals.words).toBe(2440);
+    expect(report.prepared.distinctTotals.words).toBe(3186);
+    expect(report.prepared.reviewedDistinctTotals.words).toBe(3186);
     expect(result.stdout).toBe(runEditorialRegistryInventory(["--json"]).stdout);
     expect(report.sourceSeals.every((seal: { status: string }) => seal.status === "complete")).toBe(
       true,
@@ -197,13 +191,9 @@ describe("single full-course completion content block", () => {
   it("provides eighty reviewed word cards with closed earlier kanji dependencies", () => {
     const kanji = [...base, makeContent()];
     const words = buildCompletionWordBatches(kanji);
-    const priorWords = buildMainCourseWordBatches().filter(
-      (batch) =>
-        !batch.id.startsWith("full-course-vocabulary-completion-") &&
-        !batch.id.includes("reinforcement") &&
-        !batch.id.includes("growth") &&
-        !batch.id.includes("continuation") &&
-        !/expansion|broadening|deepening/u.test(batch.id),
+    const priorWords = beforeCourseBatch(
+      buildMainCourseWordBatches(),
+      "full-course-vocabulary-completion-01",
     );
     expect(words).toHaveLength(4);
     expect(

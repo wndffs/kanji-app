@@ -26,14 +26,11 @@ import {
   validateMainCourseWordBatches,
   wordHanCharacters,
 } from "../src/main-course-word-content";
+import { beforeCourseBatch } from "./course-registry-fixture";
 
 const sha = (data: unknown) => createHash("sha256").update(JSON.stringify(data)).digest("hex");
-const oldKanji = buildMainCourseContentBatches().filter(
-  (batch) => batch.id !== DEEPENING_KANJI_BATCH,
-);
-const oldWords = buildMainCourseWordBatches().filter(
-  (batch) => !batch.id.startsWith(DEEPENING_WORD_PREFIX),
-);
+const oldKanji = beforeCourseBatch(buildMainCourseContentBatches(), DEEPENING_KANJI_BATCH);
+const oldWords = beforeCourseBatch(buildMainCourseWordBatches(), `${DEEPENING_WORD_PREFIX}01`);
 const kanji = deepeningKanji(oldKanji);
 const allKanji = [...oldKanji, kanji];
 const words = deepeningWords(allKanji, oldWords);

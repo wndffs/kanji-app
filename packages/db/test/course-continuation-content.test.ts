@@ -21,11 +21,12 @@ import {
 } from "../src/course-continuation-word-content";
 import { buildEditorialRegistryInventory } from "../src/editorial-registry-inventory";
 
-const kanji = buildMainCourseContentBatches().filter(
-  (batch) => !/expansion|broadening|deepening/u.test(batch.id),
-);
-const words = buildMainCourseWordBatches().filter(
-  (batch) => !/expansion|broadening|deepening/u.test(batch.id),
+import { beforeCourseBatch } from "./course-registry-fixture";
+
+const kanji = beforeCourseBatch(buildMainCourseContentBatches(), "full-course-kanji-expansion");
+const words = beforeCourseBatch(
+  buildMainCourseWordBatches(),
+  "full-course-vocabulary-expansion-01",
 );
 const batch = kanji.find((b) => b.id === "full-course-kanji-continuation")!;
 const block = words.filter((b) => b.id.startsWith("full-course-vocabulary-continuation-"));

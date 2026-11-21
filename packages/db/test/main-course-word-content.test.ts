@@ -21,6 +21,10 @@ const DEEPENING_WORD_COUNTS = [
   1, 2, 2, 3, 7, 1, 9, 4, 9, 1, 4, 14, 28, 5, 37, 5, 6, 47, 10, 52, 54, 33, 1, 118, 71, 42, 14, 21,
   39,
 ];
+const FOLLOWTHROUGH_WORD_COUNTS = [
+  1, 3, 1, 1, 5, 1, 3, 1, 5, 1, 10, 10, 3, 11, 12, 10, 17, 5, 8, 21, 8, 20, 61, 56, 41, 4, 136, 88,
+  52, 33, 29, 31, 58,
+];
 
 describe("first bounded main-course vocabulary manifest", () => {
   it("keeps legacy noun metadata and rejects unsupported explicit authoring classes", () => {
@@ -287,6 +291,13 @@ describe("first bounded main-course vocabulary manifest", () => {
           cards: count * 2,
           examples: count,
         })),
+        ...FOLLOWTHROUGH_WORD_COUNTS.map((count, i) => ({
+          batchId: `full-course-vocabulary-followthrough-${String(i + 1).padStart(2, "0")}`,
+          reviewedAt: "2026-11-21",
+          words: count,
+          cards: count * 2,
+          examples: count,
+        })),
       ],
     });
   });
@@ -390,6 +401,10 @@ describe("first bounded main-course vocabulary manifest", () => {
         })),
         ...DEEPENING_WORD_COUNTS.map((_, i) => ({
           batchId: `full-course-vocabulary-deepening-${String(i + 1).padStart(2, "0")}`,
+          reviewedAt: "2026-11-21",
+        })),
+        ...FOLLOWTHROUGH_WORD_COUNTS.map((_, i) => ({
+          batchId: `full-course-vocabulary-followthrough-${String(i + 1).padStart(2, "0")}`,
           reviewedAt: "2026-11-21",
         })),
       ],
@@ -557,7 +572,7 @@ describe("second bounded vocabulary batch and registry", () => {
 describe("reviewed third vocabulary batch", () => {
   it("adds twenty distinct beginner words at free slots with verified source identities", () => {
     const batches = buildMainCourseWordBatches();
-    expect(batches).toHaveLength(113);
+    expect(batches).toHaveLength(146);
     const third = batches[2]!;
     expect(third).toMatchObject({
       id: "task-127-foundation-words-03",

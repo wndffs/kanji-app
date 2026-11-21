@@ -13,8 +13,8 @@ describe("nonpublishing foundation wave", () => {
       readyToPublish: false,
       publicationApproved: false,
       counts: { components: 9, kanji: 10, words: 20, examples: 20, proposedCards: 69 },
-      reviewedRegistry: { kanji: 1114, words: 2440 },
-      remainingReviewedContent: { kanji: 1186, words: 5560 },
+      reviewedRegistry: { kanji: 1314, words: 3186 },
+      remainingReviewedContent: { kanji: 986, words: 4814 },
       checks: {
         placement: {
           unresolvedWordSourceIds: 20,
