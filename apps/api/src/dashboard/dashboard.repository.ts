@@ -13,6 +13,12 @@ import { resolveCurrentCourseId } from "../courses/current-course";
 import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
 import { PrismaService } from "../database/prisma.service";
 import {
+  leechRecentReviewSelect,
+  leechStateWhere,
+  summarizeLeechReviews,
+  type LeechReviewAnswerRow,
+} from "../reviews/leech-signals";
+import {
   type DashboardCourseItemProgressRecord,
   type DashboardCourseProgressRecord,
   type DashboardLeechSignalRecord,
@@ -127,12 +133,6 @@ type LeechLearningItemRow = {
   readonly targetId: string;
   readonly levelHint: number | null;
   readonly cards: readonly PrimaryTaughtReadingCard[];
-};
-
-type LeechReviewAnswerRow = {
-  readonly result: string;
-  readonly previousStageIndex: number | null;
-  readonly nextStageIndex: number | null;
 };
 
 type SrsStageRow = {
@@ -497,39 +497,9 @@ export class PrismaDashboardRepository extends DashboardRepository {
     since: Date,
   ): Promise<readonly DashboardLeechSignalRecord[]> {
     const states = (await this.prisma.db.userSrsState.findMany({
-      where: {
-        userId,
-        burnedAt: null,
-        OR: [
-          {
-            wrongCount: {
-              gt: 0,
-            },
-          },
-          {
-            reviewAnswers: {
-              some: {
-                answeredAt: {
-                  gte: since,
-                },
-              },
-            },
-          },
-        ],
-      },
+      where: leechStateWhere(userId, since),
       include: {
-        reviewAnswers: {
-          where: {
-            answeredAt: {
-              gte: since,
-            },
-          },
-          select: {
-            result: true,
-            previousStageIndex: true,
-            nextStageIndex: true,
-          },
-        },
+        reviewAnswers: leechRecentReviewSelect(since),
         learningCard: {
           select: {
             learningItem: {
@@ -577,9 +547,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
         wrongCount: state.wrongCount,
         correctStreak: state.correctStreak,
         stages: state.srsSystem.stages,
-        recentWrongCount: countWrongLikeAnswers(state.reviewAnswers),
-        stageDropCount: countStageDrops(state.reviewAnswers),
-        stageDropMagnitude: sumStageDropMagnitude(state.reviewAnswers),
+        ...summarizeLeechReviews(state.reviewAnswers),
         item,
       });
     }
@@ -1382,35 +1350,6 @@ function toDashboardItemKind(kind: string): DashboardCourseItemProgressRecord["i
     default:
       throw new Error(`Unsupported learning item kind: ${kind}`);
   }
-}
-
-function countWrongLikeAnswers(answers: readonly LeechReviewAnswerRow[]): number {
-  return answers.filter((answer) => answer.result === "WRONG" || answer.result === "REVEAL").length;
-}
-
-function countStageDrops(answers: readonly LeechReviewAnswerRow[]): number {
-  return answers.filter(isStageDrop).length;
-}
-
-function sumStageDropMagnitude(answers: readonly LeechReviewAnswerRow[]): number {
-  return answers.reduce((sum, answer) => {
-    if (!isStageDrop(answer)) {
-      return sum;
-    }
-
-    return sum + (answer.previousStageIndex - answer.nextStageIndex);
-  }, 0);
-}
-
-function isStageDrop(answer: LeechReviewAnswerRow): answer is LeechReviewAnswerRow & {
-  readonly previousStageIndex: number;
-  readonly nextStageIndex: number;
-} {
-  return (
-    answer.previousStageIndex !== null &&
-    answer.nextStageIndex !== null &&
-    answer.previousStageIndex > answer.nextStageIndex
-  );
 }
 
 function dashboardLocalizedText(

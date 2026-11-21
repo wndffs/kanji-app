@@ -16,6 +16,7 @@ import {
 } from "@kanji-srs/srs";
 import {
   DEFAULT_TRANSLATION_DISPLAY_MODE,
+  PRACTICE_SOURCES,
   type ActivePracticeSessionResponse,
   type ActiveReviewSessionResponse,
   type ReviewCorrectionResponse,
@@ -38,6 +39,7 @@ import {
 
 import { type CurrentUserDto } from "../auth/auth.types";
 import { hasCompletedListeningPlayback } from "../audio/listening-playback";
+import { LEECH_RECENT_REVIEW_DAYS } from "./leech-signals";
 import { OverridesService } from "../overrides/overrides.service";
 import { ReviewsRepository } from "./reviews.repository";
 import {
@@ -279,14 +281,22 @@ export class ReviewsService {
     user: CurrentUserDto,
     body: unknown,
   ): Promise<PracticeSessionResponse> {
-    const source = parsePracticeSource(parseRecord(body).source);
+    const input = parseRecord(body);
+    const source = parsePracticeSource(input.source);
+    const requested = parsePracticeCardIds(source, input.cardIds);
     const active = await this.reviewsRepository.findActivePracticeSession(user.id, source);
 
     if (active !== null) {
+      assertPracticeSelection(active, requested);
       return this.toPracticeSessionResponse(active);
     }
 
-    const records = await this.listPracticeRecords(user.id, source);
+    const candidates = await this.listPracticeRecords(user.id, source);
+    const records =
+      requested === null ? candidates : candidates.filter(({ card }) => requested.has(card.id));
+
+    if (requested !== null && records.length !== requested.size)
+      throw new ConflictException("Список сложных карточек изменился. Обновите подборку.");
 
     if (records.length === 0) {
       throw new BadRequestException("Для выбранного источника нет карточек для практики.");
@@ -299,9 +309,8 @@ export class ReviewsService {
       cardIds: records.map((record) => record.card.id),
     });
 
-    return {
-      ...(await this.toPracticeSessionResponse(session)),
-    };
+    assertPracticeSelection(session, requested);
+    return this.toPracticeSessionResponse(session);
   }
 
   async submitPracticeAnswer(
@@ -439,7 +448,9 @@ export class ReviewsService {
         ? addDays(now, -RECENT_LESSON_DAYS)
         : source === "recent-mistakes"
           ? addDays(now, -RECENT_MISTAKE_DAYS)
-          : new Date(0);
+          : source === "leeches"
+            ? addDays(now, -LEECH_RECENT_REVIEW_DAYS)
+            : new Date(0);
 
     return this.reviewsRepository.listPracticeCards(userId, source, since, PRACTICE_QUEUE_LIMIT);
   }
@@ -734,11 +745,37 @@ function assertListeningPlayback(
 }
 
 function parsePracticeSource(value: unknown): PracticeSource {
-  if (value === "recent-lessons" || value === "recent-mistakes" || value === "burned") {
-    return value;
-  }
+  const source = PRACTICE_SOURCES.find((candidate) => candidate === value);
+  if (source !== undefined) return source;
 
-  throw new BadRequestException("source must be recent-lessons, recent-mistakes, or burned.");
+  throw new BadRequestException(`source must be one of: ${PRACTICE_SOURCES.join(", ")}.`);
+}
+
+function parsePracticeCardIds(source: PracticeSource, value: unknown): ReadonlySet<string> | null {
+  if (value === undefined) return null;
+  if (
+    source !== "leeches" ||
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    value.length > PRACTICE_QUEUE_LIMIT
+  )
+    throw new BadRequestException("Некорректный выбор сложных карточек.");
+
+  const ids = new Set(value.map((id) => parseRequiredString(id, "cardIds", 80)));
+  if (ids.size !== value.length)
+    throw new BadRequestException("Сложную карточку можно выбрать только один раз.");
+  return ids;
+}
+
+function assertPracticeSelection(
+  session: PracticeSessionRecord,
+  requested: ReadonlySet<string> | null,
+): void {
+  if (
+    requested !== null &&
+    (requested.size !== session.cardIds.length || session.cardIds.some((id) => !requested.has(id)))
+  )
+    throw new ConflictException("Открыта другая сессия практики. Обновите подборку.");
 }
 
 function parseRecord(value: unknown): Record<string, unknown> {

@@ -34,7 +34,7 @@ describe("PrismaReviewsRepository practice snapshot updates", () => {
     ).toBeNull();
     expect(row).toEqual(snapshot);
   });
-  it.each(["recent-lessons", "recent-mistakes", "burned", "confusable-kanji"])(
+  it.each(["recent-lessons", "recent-mistakes", "leeches", "burned", "confusable-kanji"])(
     "rejects a delayed %s answer after newer answers have committed",
     async (source) => {
       const { repository, row } = createHarness({ source });

@@ -20,7 +20,7 @@ import {
   type PracticeSource,
   type ReviewSrsTransition,
 } from "@kanji-srs/shared";
-import { type ReviewResult as SrsReviewResult } from "@kanji-srs/srs";
+import { calculateLeechScore, type ReviewResult as SrsReviewResult } from "@kanji-srs/srs";
 
 import { PrismaService } from "../database/prisma.service";
 import {
@@ -29,6 +29,7 @@ import {
   type AudioAssetRecord,
 } from "../audio/audio-asset";
 import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
+import { leechRecentReviewSelect, leechStateWhere, summarizeLeechReviews } from "./leech-signals";
 import { buildReviewSessionSummary } from "./review-summary";
 import {
   type CreatePracticeSessionInput,
@@ -313,6 +314,41 @@ export class PrismaReviewsRepository extends ReviewsRepository {
   ): Promise<readonly ReviewQueueRecord[]> {
     if (limit <= 0) {
       return [];
+    }
+
+    if (source === "leeches") {
+      const states = await this.prisma.db.userSrsState.findMany({
+        where: {
+          ...leechStateWhere(userId, since),
+          learningCard: {
+            ...listeningReviewCardEligibilityWhere,
+            learningItem: { status: "PUBLISHED" },
+          },
+        },
+        select: {
+          learningCardId: true,
+          wrongCount: true,
+          correctStreak: true,
+          burnedAt: true,
+          reviewAnswers: leechRecentReviewSelect(since),
+        },
+      });
+      const ids = states
+        .map(({ learningCardId, reviewAnswers, ...state }) => ({
+          learningCardId,
+          leech: calculateLeechScore({ ...state, ...summarizeLeechReviews(reviewAnswers) }),
+        }))
+        .filter(({ leech }) => leech.isCandidate)
+        .sort(
+          (left, right) =>
+            right.leech.score - left.leech.score ||
+            right.leech.recentWrongCount - left.leech.recentWrongCount ||
+            right.leech.wrongCount - left.leech.wrongCount ||
+            left.learningCardId.localeCompare(right.learningCardId),
+        )
+        .slice(0, limit)
+        .map(({ learningCardId }) => learningCardId);
+      return this.listPracticeCardsByIds(userId, ids);
     }
 
     if (source === "recent-mistakes") {
@@ -1790,6 +1826,7 @@ function toPracticeSource(value: unknown): ResumablePracticeSource | null {
   switch (value) {
     case "recent-lessons":
     case "recent-mistakes":
+    case "leeches":
     case "burned":
     case "confusable-kanji":
       return value;

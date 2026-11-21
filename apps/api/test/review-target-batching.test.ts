@@ -174,4 +174,47 @@ describe("bounded review target hydration", () => {
     );
     expect(h.tables.kanji.findUnique).not.toHaveBeenCalled();
   });
+
+  it("ranks actual per-card leech signals and hydrates only the selected owner card ids", async () => {
+    const h = harness([item("KANJI", 1), item("KANJI", 2)]);
+    const [weakReading, wrongMeaning, wrongReading] = [h.states[1]!, h.states[2]!, h.states[3]!];
+    const since = new Date("2026-11-07T00:00:00Z");
+    h.db.userSrsState.findMany
+      .mockResolvedValueOnce([
+        { ...weakReading, reviewAnswers: [] },
+        { ...wrongMeaning, wrongCount: 7, correctStreak: 0, reviewAnswers: [] },
+        {
+          ...wrongReading,
+          reviewAnswers: [
+            { result: "WRONG", previousStageIndex: 7, nextStageIndex: 2 },
+            { result: "REVEAL", previousStageIndex: 2, nextStageIndex: 1 },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([wrongReading]);
+    const result = await h.repository.listPracticeCards("owner", "leeches", since, 1);
+    expect(result.map(({ card }) => card.id)).toEqual([wrongReading.learningCardId]);
+    expect(h.db.userSrsState.findMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: "owner",
+          burnedAt: null,
+          learningCard: expect.objectContaining({ learningItem: { status: "PUBLISHED" } }),
+        }),
+        select: expect.objectContaining({
+          reviewAnswers: expect.objectContaining({ where: { answeredAt: { gte: since } } }),
+        }),
+      }),
+    );
+    expect(h.db.userSrsState.findMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: "owner",
+          learningCardId: { in: [wrongReading.learningCardId] },
+        }),
+      }),
+    );
+  });
 });

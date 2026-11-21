@@ -107,8 +107,10 @@ to the content deficit. Keep them within this single task:
   before applying caps, not merely a started-state label after truncation.
 - Burned-item practice exists, but explicit card-scoped resurrection is not
   connected to the learner workflow.
-- Leeches are identified, but selecting those exact cards into resumable
-  non-SRS practice is not complete.
+- **Implemented in code:** the dashboard links to a ranked difficult-card
+  queue. Learners can choose a subset of exact meaning/reading cards and
+  resume that selection later. Extra practice writes neither scheduled
+  answers nor SRS state. Verified in local service and browser tests.
 - Item/search headings can prefer an accepted synonym over the authored primary
   meaning (observed for 安心). Align read-side primary selection without removing
   valid synonyms or rewriting users' accepted answers.

@@ -512,7 +512,7 @@ export type ReviewAnswerResponse = {
   readonly srsTransition: ReviewSrsTransition;
 };
 
-export const PRACTICE_SOURCES = ["recent-lessons", "recent-mistakes", "burned"] as const;
+export const PRACTICE_SOURCES = ["recent-lessons", "recent-mistakes", "leeches", "burned"] as const;
 export type PracticeSource = (typeof PRACTICE_SOURCES)[number];
 
 export type PracticeQueueResponse = {
@@ -557,6 +557,7 @@ export type ActivePracticeSessionResponse = {
 
 export type StartPracticeSessionRequest = {
   readonly source: PracticeSource;
+  readonly cardIds?: readonly string[];
 };
 
 export type PracticeAnswerRequest = {

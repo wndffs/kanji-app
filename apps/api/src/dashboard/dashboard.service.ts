@@ -24,6 +24,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { type CurrentUserDto } from "../auth/auth.types";
+import { LEECH_RECENT_REVIEW_DAYS } from "../reviews/leech-signals";
 import { DashboardRepository } from "./dashboard.repository";
 import {
   type DashboardCourseItemProgressRecord,
@@ -46,7 +47,6 @@ const FORECAST_HORIZON_DAYS = 7;
 const RECENT_REVIEW_STATS_DAYS = 7;
 const STUDY_ACTIVITY_DAYS = 365;
 const STUDY_ACTIVITY_QUERY_BUFFER_DAYS = 1;
-const LEECH_RECENT_REVIEW_DAYS = 14;
 const MAX_DASHBOARD_LEECH_CANDIDATES = 5;
 const MAX_RECENT_ACTIVITY_ITEMS = 5;
 const RECENT_MISTAKE_DAYS = 30;

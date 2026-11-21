@@ -504,6 +504,33 @@ describe("ReviewsService", () => {
     expect(repository.getState("state-burned")).toEqual(previousState);
   });
 
+  it("persists the exact selected difficult cards without changing SRS or mixing in other cards", async () => {
+    const { repository, service } = createHarness();
+    const user = createUser("owner");
+    const previousState = { ...repository.getState("state-due") };
+    const queue = await service.getPracticeQueue(user, "leeches");
+    expect(queue.items.map(({ card }) => card.id)).toEqual(["card-meaning", "card-late"]);
+    await expect(
+      service.startPracticeSession(user, { source: "leeches", cardIds: ["card-burned"] }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      service.startPracticeSession(user, {
+        source: "leeches",
+        cardIds: ["card-meaning", "card-meaning"],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    const started = await service.startPracticeSession(user, {
+      source: "leeches",
+      cardIds: ["card-meaning"],
+    });
+    expect(started.items.map(({ card }) => card.id)).toEqual(["card-meaning"]);
+    await expect(
+      service.startPracticeSession(user, { source: "leeches", cardIds: ["card-late"] }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.getActivePracticeSession(user, "leeches")).resolves.toEqual(started);
+    expect(repository.getState("state-due")).toEqual(previousState);
+  });
+
   it("keeps an alternative reading as a neutral retry in optional practice", async () => {
     const overridesService = {
       validateAnswerForUser: async () => ({
@@ -550,7 +577,7 @@ describe("ReviewsService", () => {
     });
 
     await expect(service.getPracticeQueue(createUser("owner"), "all")).rejects.toThrow(
-      "source must be recent-lessons, recent-mistakes, or burned.",
+      "source must be one of:",
     );
     await expect(
       service.submitPracticeAnswer(started.session.id, createUser("other"), {
@@ -1057,7 +1084,7 @@ class InMemoryReviewsRepository extends ReviewsRepository {
 
   async listPracticeCards(
     userId: string,
-    source: "recent-lessons" | "recent-mistakes" | "burned",
+    source: PracticeSource,
     _since: Date,
     limit: number,
   ): Promise<readonly ReviewQueueRecord[]> {
@@ -1067,7 +1094,9 @@ class InMemoryReviewsRepository extends ReviewsRepository {
         ? records.filter((record) => record.state.burnedAt !== null)
         : source === "recent-mistakes"
           ? records.filter((record) => record.card.id === "card-late")
-          : records.filter((record) => record.state.burnedAt === null);
+          : source === "leeches"
+            ? records.filter(({ card }) => ["card-meaning", "card-late"].includes(card.id))
+            : records.filter((record) => record.state.burnedAt === null);
 
     return selected.slice(0, limit);
   }

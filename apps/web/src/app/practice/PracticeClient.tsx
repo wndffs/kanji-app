@@ -44,6 +44,7 @@ type QueueState =
       readonly status: "ready";
       readonly token: string;
       readonly items: readonly ReviewQueueItem[];
+      readonly availableItems?: readonly ReviewQueueItem[];
     };
 
 const INITIAL_PROGRESS: PracticeProgressDto = { answered: 0, accepted: 0, missed: 0 };
@@ -81,6 +82,8 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
   const [progress, setProgress] = useState<PracticeProgressDto>(INITIAL_PROGRESS);
   const [finishedSummary, setFinishedSummary] = useState<PracticeProgressDto | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [excludedCardIds, setExcludedCardIds] = useState<ReadonlySet<string>>(new Set());
+  const [selectionOutdated, setSelectionOutdated] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isContinuing, setIsContinuing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +95,14 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
   const answerInputRef = useRef<HTMLInputElement>(null);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
   const requestRevision = useRef(0);
+  const startPending = useRef(false);
+  const isChoosingLeeches = source === "leeches" && practiceSession === null;
+  const selectedCardIds =
+    isChoosingLeeches && queueState.status === "ready"
+      ? queueState.items
+          .filter(({ card }) => !excludedCardIds.has(card.id))
+          .map(({ card }) => card.id)
+      : undefined;
 
   const loadQueue = useCallback(async () => {
     const revision = ++requestRevision.current;
@@ -103,6 +114,8 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
     }
 
     setQueueState({ status: "loading" });
+    setExcludedCardIds(new Set());
+    setSelectionOutdated(false);
     setPracticeSession(null);
     setIsPracticing(false);
     setCurrentIndex(0);
@@ -129,7 +142,12 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
       }
 
       if (active.session !== null) {
-        setQueueState({ status: "ready", token: storedSession.token, items: active.items });
+        setQueueState({
+          status: "ready",
+          token: storedSession.token,
+          items: active.items,
+          availableItems: queue.items,
+        });
         setPracticeSession(active.session);
         setCurrentIndex(active.session.currentIndex);
         setProgress(active.session.progress);
@@ -198,18 +216,25 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
       queueState.status !== "ready" ||
       !ownsSession(queueState.token) ||
       queueState.items.length === 0 ||
-      isStarting
+      startPending.current ||
+      selectionOutdated ||
+      selectedCardIds?.length === 0
     ) {
       return;
     }
 
+    startPending.current = true;
     setIsStarting(true);
     setError(null);
 
     try {
-      const response = await startPracticeSession(queueState.token, source);
+      const response = await startPracticeSession(queueState.token, source, selectedCardIds);
       if (!ownsSession(queueState.token)) return;
-      setQueueState({ ...queueState, items: response.items });
+      setQueueState({
+        ...queueState,
+        items: response.items,
+        availableItems: queueState.availableItems ?? queueState.items,
+      });
       setPracticeSession(response.session);
       setIsPracticing(true);
       setCurrentIndex(response.session.currentIndex);
@@ -219,10 +244,14 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
       setFinishedSummary(null);
       setListeningEvidence({ completed: false, playCount: 0 });
     } catch (requestError: unknown) {
+      if (!ownsSession(queueState.token)) return;
+      if (isChoosingLeeches && requestError instanceof ApiError && requestError.status === 409)
+        setSelectionOutdated(true);
       setError(
         requestError instanceof Error ? requestError.message : "Не удалось начать практику.",
       );
     } finally {
+      startPending.current = false;
       setIsStarting(false);
     }
   }
@@ -296,6 +325,8 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
         setProgress(response.summary);
         setFinishedSummary(response.summary);
         setPracticeSession(null);
+        if (source === "leeches" && queueState.availableItems !== undefined)
+          setQueueState({ ...queueState, items: queueState.availableItems });
         setIsPracticing(false);
         setFeedback(null);
         setAnswer("");
@@ -365,7 +396,10 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
         <div className="page-heading practice-heading">
           <div>
             <h1>Практика</h1>
-            <p>Карточек: {queueState.items.length}. SRS и расписание не изменяются.</p>
+            <p>
+              Карточек: {selectedCardIds?.length ?? queueState.items.length}. SRS и расписание не
+              изменяются.
+            </p>
             {practiceSession === null ? null : (
               <p>
                 Сохранено: {practiceSession.progress.answered} из {practiceSession.totalItems}.
@@ -374,7 +408,12 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
           </div>
           <button
             className={finishedSummary === null ? "primary-action" : "secondary-action"}
-            disabled={queueState.items.length === 0 || isStarting}
+            disabled={
+              queueState.items.length === 0 ||
+              selectedCardIds?.length === 0 ||
+              isStarting ||
+              selectionOutdated
+            }
             onClick={() => void handleStart()}
             type="button"
           >
@@ -440,6 +479,13 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
             {error}
           </p>
         )}
+        {selectionOutdated ? (
+          <div className="action-row">
+            <button className="secondary-action" onClick={() => void loadQueue()} type="button">
+              Обновить подборку
+            </button>
+          </div>
+        ) : null}
 
         {finishedSummary === null ? null : (
           <section className="practice-summary panel" aria-label="Результат практики">
@@ -474,6 +520,34 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
             <div className="notice-panel">
               <p>{formatEmptyMessage(source)}</p>
             </div>
+          ) : isChoosingLeeches ? (
+            <SectionDisclosure title="Состав практики" defaultOpen>
+              <fieldset className="review-queue-grid" disabled={isStarting || selectionOutdated}>
+                <legend className="eyebrow">Сложные карточки</legend>
+                {queueState.items.map(({ card, item }) => (
+                  <label className="checkbox-row" key={card.id}>
+                    <input
+                      type="checkbox"
+                      checked={!excludedCardIds.has(card.id)}
+                      onChange={({ currentTarget: { checked } }) =>
+                        setExcludedCardIds((previous) => {
+                          const next = new Set(previous);
+                          if (checked) next.delete(card.id);
+                          else next.add(card.id);
+                          return next;
+                        })
+                      }
+                    />
+                    <JapaneseText>{item.japanese}</JapaneseText>
+                    <span>
+                      {card.promptType === "listening"
+                        ? "На слух"
+                        : formatAnswerType(card.answerType)}
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+            </SectionDisclosure>
           ) : (
             <SectionDisclosure title="Состав практики">
               <PracticeQueuePreview items={queueState.items} />
@@ -683,6 +757,8 @@ function formatSource(source: PracticeSource): string {
       return "Недавние уроки";
     case "burned":
       return "Сожжённые";
+    case "leeches":
+      return "Сложные";
     default:
       return "Недавние ошибки";
   }
@@ -694,6 +770,8 @@ function formatEmptyMessage(source: PracticeSource): string {
       return "За последние 14 дней новых карточек не найдено.";
     case "burned":
       return "Сожжённых карточек пока нет.";
+    case "leeches":
+      return "Пока нет сложных карточек для отдельной практики.";
     default:
       return "За последние 30 дней ошибок не найдено.";
   }

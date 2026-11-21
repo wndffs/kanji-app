@@ -1128,11 +1128,12 @@ export function getActivePracticeSession(
 export function startPracticeSession(
   token: string,
   source: PracticeSource,
+  cardIds?: readonly string[],
 ): Promise<PracticeSessionResponse> {
   return apiRequest<PracticeSessionResponse>("/reviews/practice/start", {
     method: "POST",
     token,
-    body: { source },
+    body: { source, ...(cardIds === undefined ? {} : { cardIds }) },
   });
 }
 

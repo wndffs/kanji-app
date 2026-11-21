@@ -6,6 +6,7 @@ import {
   type PracticeSessionDto,
   type PracticeSource,
   type ReviewQueueItem,
+  type StartPracticeSessionRequest,
 } from "@kanji-srs/shared";
 
 import { createSilentWav } from "./support/test-audio";
@@ -192,6 +193,33 @@ test.describe("optional practice", () => {
     await expect(page.getByText("Ошибок")).toBeVisible();
   });
 
+  test("practises and resumes only the selected difficult cards", async ({ page }) => {
+    await signIn(page);
+    const requests: StartPracticeSessionRequest[] = [];
+    await mockPracticeApi(page, [practiceItem, secondPracticeItem], undefined, requests);
+    await page.goto("/practice?source=leeches");
+
+    const first = page.getByRole("checkbox", { name: "学 Значение" });
+    const second = page.getByRole("checkbox", { name: "火 Значение" });
+    await expect(first).toBeChecked();
+    await expect(second).toBeChecked();
+    await first.uncheck();
+    await second.uncheck();
+    const start = page.getByRole("button", { name: "Начать практику" });
+    await expect(start).toBeDisabled();
+    await second.check();
+    await start.click();
+    const session = page.getByRole("region", { name: "Сессия практики" });
+    await expect(session.getByText("火", { exact: true })).toBeVisible();
+    await expect(session.getByText("Без изменения SRS")).toBeVisible();
+    expect(requests).toEqual([{ source: "leeches", cardIds: [secondPracticeItem.card.id] }]);
+
+    await page.reload();
+    await page.getByRole("button", { name: "Продолжить практику" }).click();
+    await expect(session.getByText("火", { exact: true })).toBeVisible();
+    await expect(session.getByText("学", { exact: true })).toHaveCount(0);
+  });
+
   test("retries an alternative kanji reading without counting a practice error", async ({
     page,
   }) => {
@@ -315,8 +343,10 @@ async function mockPracticeApi(
   page: Page,
   items: readonly ReviewQueueItem[] = [practiceItem],
   answerRequests?: CapturedPracticeAnswerRequest[],
+  startRequests?: StartPracticeSessionRequest[],
 ): Promise<void> {
   let activeSession: PracticeSessionDto | null = null;
+  let activeItems = items;
 
   await page.route("https://media.example.test/**", async (route) => {
     await route.fulfill({
@@ -335,20 +365,26 @@ async function mockPracticeApi(
   await page.route(`${API_BASE_URL}/reviews/practice/active?*`, async (route) => {
     const source = new URL(route.request().url()).searchParams.get("source") as PracticeSource;
     const session = activeSession?.source === source ? activeSession : null;
-    await route.fulfill({ json: { session, items: session === null ? [] : items } });
+    await route.fulfill({ json: { session, items: session === null ? [] : activeItems } });
   });
 
   await page.route(`${API_BASE_URL}/reviews/practice/start`, async (route) => {
-    const body = route.request().postDataJSON() as { readonly source: PracticeSource };
+    const body = route.request().postDataJSON() as StartPracticeSessionRequest;
+    startRequests?.push(body);
+    if (activeSession === null)
+      activeItems =
+        body.cardIds === undefined
+          ? items
+          : items.filter(({ card }) => body.cardIds?.includes(card.id));
     activeSession ??= {
       id: SESSION_ID,
       startedAt: "2026-06-22T08:00:00.000Z",
       source: body.source,
       currentIndex: 0,
-      totalItems: items.length,
+      totalItems: activeItems.length,
       progress: { answered: 0, accepted: 0, missed: 0 },
     };
-    await route.fulfill({ json: { session: activeSession, items } });
+    await route.fulfill({ json: { session: activeSession, items: activeItems } });
   });
 
   await page.route(`${API_BASE_URL}/reviews/practice/${SESSION_ID}/answer`, async (route) => {

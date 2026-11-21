@@ -1509,6 +1509,11 @@ function LeechCandidatesPanel({
   return (
     <section className="panel">
       <h2>Сложные карточки</h2>
+      {candidates.length === 0 ? null : (
+        <Link className="secondary-action" href="/practice?source=leeches">
+          Тренировать сложные карточки
+        </Link>
+      )}
       {candidates.length === 0 ? (
         <p className="muted">Нет карточек, которые требуют отдельного внимания.</p>
       ) : (
