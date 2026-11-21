@@ -276,6 +276,7 @@ export function buildBroadeningWords(
     prefix: string;
     metadata: BlockMetadata;
     meaningBlocks?: typeof WORD_BLOCKS;
+    minimumLevel?: number;
     targetWordsPerLevel?: number;
   }> = BROADENING_WORD_OPTIONS,
 ): readonly MainCourseWordBatch[] {
@@ -294,6 +295,9 @@ export function buildBroadeningWords(
   const seen = new Set(words.flatMap((batch) => batch.words.map((word) => word.expression)));
   const byLevel = new Map<number, ExpansionWordRow[]>();
   const wordCounts = new Map<number, number>();
+  const minimum = options.minimumLevel ?? 2;
+  if (!Number.isSafeInteger(minimum) || minimum < 2 || minimum > 60)
+    throw new Error("Vocabulary minimum level must be an integer between 2 and 60.");
   const target = options.targetWordsPerLevel;
   if (target !== undefined) {
     if (!Number.isSafeInteger(target) || target < 1)
@@ -309,7 +313,7 @@ export function buildBroadeningWords(
     if (seen.has(expression)) throw new Error(`Duplicate broadening word form: ${expression}.`);
     seen.add(expression);
     let level = Math.max(
-      2,
+      minimum,
       ...wordHanCharacters(expression + row[8][0]).map((char) => {
         const prerequisite = levels.get(char);
         if (prerequisite === undefined)

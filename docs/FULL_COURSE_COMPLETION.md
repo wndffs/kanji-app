@@ -1046,3 +1046,31 @@ reviewed registry. The final word block is **710 words**.
   through `-33` manifests. Expected after all pending releases through
   this block: **9,834 teaching targets / 19,424 core cards**. Review and
   registry counts do not certify publication or enrollment.
+
+## Reviewed Registry Reaches Both Targets: 2026-11-21
+
+The final block adds **710 independently AI-reviewed words**, resulting in
+**2,300 kanji / 8,000 distinct expression–reading word pairs / 244
+components** across all **60** levels in the registry. Alternate readings
+are not counted as separate words. One historical JMdict ID intentionally
+supports separate taught spellings and meanings: 早い (early) and 速い
+(fast). This milestone is not database curation or a live learner release.
+
+- The final block matched **714 exact bilingual JMdict pairs** including
+  four alternate readings. Fifty of the new words form a level-60
+  capstone, including related 休学・休講・休養 and contextual review
+  material such as 脈絡, 完璧 and 四捨五入. No previously registered
+  placements or V1–V7 seals changed.
+- Seal `ed33e355c0a88ba325592fbd3ea2b77c0267db9a0c384f3ec3889c29d2f47a95`.
+  After preceding releases, select the **32**
+  `full-course-vocabulary-supplemental-third-01` through `-32`
+  manifests and `full-course-vocabulary-supplemental-capstone-01`.
+  Expected after all outstanding releases: **10,544 teaching targets /
+  20,844 core cards**. Read-only preflights and server receipts still
+  determine actual publication and preservation.
+- Outstanding Neon workflow requires signed-in GitHub write access to
+  **Deploy staging curation**. An explicitly selected source supplement
+  checks only those reviewed manifests, retaining the existing 100-missing-pair
+  safety bound. Verify the actual last applied batches, source readiness,
+  public learner flows, all sixty levels, and retained progress before
+  declaring completion. No automatic learner version switch or V8.

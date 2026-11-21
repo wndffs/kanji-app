@@ -10,8 +10,11 @@ import {
 import {
   FIRST_SUPPLEMENTAL_WORD_PREFIX,
   SECOND_SUPPLEMENTAL_WORD_PREFIX,
+  SUPPLEMENTAL_CAPSTONE_WORD_PREFIX,
+  THIRD_SUPPLEMENTAL_WORD_PREFIX,
   firstSupplementalWords,
   secondSupplementalWords,
+  thirdSupplementalWords,
 } from "../src/course-supplemental-content";
 import { beforeCourseBatch } from "./course-registry-fixture";
 
@@ -22,6 +25,8 @@ const prior = beforeCourseBatch(registered, `${FIRST_SUPPLEMENTAL_WORD_PREFIX}01
 const first = firstSupplementalWords(kanji, prior);
 const preSecond = beforeCourseBatch(registered, `${SECOND_SUPPLEMENTAL_WORD_PREFIX}01`);
 const second = secondSupplementalWords(kanji, preSecond);
+const preThird = beforeCourseBatch(registered, `${THIRD_SUPPLEMENTAL_WORD_PREFIX}01`);
+const third = thirdSupplementalWords(kanji, preThird);
 
 describe("reviewed supplemental vocabulary", () => {
   it("appends 700 original bilingual words without altering earlier payloads", () => {
@@ -50,7 +55,7 @@ describe("reviewed supplemental vocabulary", () => {
         batch.kanji.map((item) => [item.character, item.levelNumber] as const),
       ),
     );
-    for (const batch of [...first, ...second]) {
+    for (const batch of [...first, ...second, ...third]) {
       const total = (wordCounts.get(batch.levelNumber) ?? 0) + batch.words.length;
       expect(total).toBeLessThanOrEqual(160);
       wordCounts.set(batch.levelNumber, total);
@@ -84,6 +89,34 @@ describe("reviewed supplemental vocabulary", () => {
     Object.assign(word.example, { readingText: `${word.example.readingText} romaji` });
     expect(validateMainCourseWordBatch(copy)).toContain(
       "Incomplete original example for 姉さん:ねえさん.",
+    );
+  });
+
+  it("reaches 8,000 distinct study forms and completes all sixty planned levels", () => {
+    expect(seal(preThird)).toBe("58a19c202858e5e1b239cda1486a00ef53ef4a89614ca045ae26f06871e53ef5");
+    expect(seal(third)).toBe("ed33e355c0a88ba325592fbd3ea2b77c0267db9a0c384f3ec3889c29d2f47a95");
+    expect(third).toHaveLength(33);
+    expect(third.flatMap((batch) => batch.words)).toHaveLength(710);
+    expect(registered.slice(preThird.length)).toEqual(third);
+    expect(third.at(-1)).toMatchObject({
+      id: `${SUPPLEMENTAL_CAPSTONE_WORD_PREFIX}01`,
+      levelNumber: 60,
+      wordCount: 50,
+    });
+    const words = registered.flatMap((batch) => batch.words);
+    expect(words).toHaveLength(8000);
+    expect(new Set(words.map((word) => word.expression)).size).toBe(8000);
+    // Earlier lessons deliberately distinguish 早い (early) from 速い (fast).
+    expect(new Set(words.map((word) => word.jmdictEntryId)).size).toBe(7999);
+    const populatedLevels = new Set([
+      ...kanji
+        .filter((batch) => batch.components.length)
+        .map((batch) => batch.componentLevelNumber),
+      ...kanji.flatMap((batch) => batch.kanji.map((item) => item.levelNumber)),
+      ...registered.map((batch) => batch.levelNumber),
+    ]);
+    expect([...populatedLevels].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 60 }, (_, index) => index + 1),
     );
   });
 });

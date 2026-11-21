@@ -114,4 +114,17 @@ describe("supplementary vocabulary", () => {
     expect(unshifted!.levelNumber).toBe(naturalLevel);
     expect(existing[0]?.levelNumber).toBe(naturalLevel);
   });
+
+  it("allows a deliberate later word level but never moves a word before its kanji", () => {
+    const rows = supplementWordRows([authored]);
+    const options = { prefix: "fixture-", metadata };
+    const [normal] = buildBroadeningWords(allKanji, [], rows, options);
+    const [earliest] = buildBroadeningWords(allKanji, [], rows, { ...options, minimumLevel: 2 });
+    const [capstone] = buildBroadeningWords(allKanji, [], rows, { ...options, minimumLevel: 60 });
+    expect(earliest!.levelNumber).toBe(normal!.levelNumber);
+    expect(capstone!.levelNumber).toBe(60);
+    expect(() =>
+      buildBroadeningWords(allKanji, [], rows, { ...options, minimumLevel: 61 }),
+    ).toThrow("Vocabulary minimum level");
+  });
 });
