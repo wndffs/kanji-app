@@ -72,6 +72,8 @@ export async function inspectLocalCourseSources(
   const badReadings = readings.filter((item) => item.status !== "matched");
   const badStrokes = strokes.filter((item) => item.status !== "matched");
   const missingComponents = strokes.reduce((n, item) => n + item.missingComponents.length, 0);
+  const wholeShapeCues = strokes.reduce((n, item) => n + (item.wholeShapeCues ?? 0), 0);
+  const sourceVariantCues = strokes.reduce((n, item) => n + (item.sourceVariantCues ?? 0), 0);
   const badWords = matches.filter(
     (item, index) =>
       item.status !== "matched" ||
@@ -92,6 +94,9 @@ export async function inspectLocalCourseSources(
           strokeComponents: {
             checked: [...expectedComponents.values()].reduce((n, items) => n + items.length, 0),
             failed: missingComponents,
+            wholeShapeCues,
+            sourceVariantCues,
+            unresolved: missingComponents - wholeShapeCues - sourceVariantCues,
           },
         }
       : {}),

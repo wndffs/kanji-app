@@ -4,13 +4,23 @@ import { scanSourceXml, serializeNode, type SourceNode } from "./local-source-xm
 
 function strokeComponentLabels(record: SourceNode, character: string) {
   const labels = new Set<string>();
+  const sourceVariants = new Set<string>();
+  let wholeShape = false;
   const visit = (node: SourceNode, root: boolean): boolean => {
     let hasStroke = node.name === "path";
     for (const child of node.children) {
       hasStroke = visit(child, false) || hasStroke;
     }
     const label = node.attributes["kvg:element"];
-    if (!root && hasStroke && node.name === "g" && label) labels.add(label);
+    if (hasStroke && node.name === "g" && label) {
+      if (root) {
+        wholeShape ||= label === character;
+      } else {
+        labels.add(label);
+        const original = node.attributes["kvg:original"];
+        if (original) sourceVariants.add(original);
+      }
+    }
     return hasStroke;
   };
   for (const root of record.children) {
@@ -25,7 +35,7 @@ function strokeComponentLabels(record: SourceNode, character: string) {
       labels.add(character);
     }
   }
-  return labels;
+  return { labels, sourceVariants, wholeShape };
 }
 
 export async function inspectLocalStrokes(
@@ -38,7 +48,11 @@ export async function inspectLocalStrokes(
   );
   const matches = new Map<
     string,
-    { sourceRecordId: string; strokeCount: number; componentLabels: Set<string> | undefined }[]
+    {
+      sourceRecordId: string;
+      strokeCount: number;
+      components: ReturnType<typeof strokeComponentLabels> | undefined;
+    }[]
   >();
   const scanned = await scanSourceXml(source, "kanjivg", "kanji", (node) => {
     const codepoint = /^kvg:kanji_([a-f0-9]{5,6})$/u.exec(node.attributes.id ?? "")?.[1];
@@ -56,7 +70,7 @@ export async function inspectLocalStrokes(
       {
         sourceRecordId: parsed[0]!.sourceRecordId,
         strokeCount: parsed[0]!.strokeCount,
-        componentLabels: expectedComponents
+        components: expectedComponents
           ? strokeComponentLabels(node, String.fromCodePoint(Number.parseInt(codepoint, 16)))
           : undefined,
       },
@@ -67,14 +81,29 @@ export async function inspectLocalStrokes(
     items: characters.map((character) => {
       const records = matches.get(character.codePointAt(0)!.toString(16).padStart(5, "0")) ?? [];
       const record = records.length === 1 ? records[0] : undefined;
+      const components = record?.components;
+      const missingComponents = (expectedComponents?.get(character) ?? []).filter(
+        (symbol) => !components?.labels.has(symbol),
+      );
       return {
         character,
         matches: records.length,
         sourceRecordId: record?.sourceRecordId ?? null,
         strokeCount: record?.strokeCount ?? null,
-        missingComponents: (expectedComponents?.get(character) ?? []).filter(
-          (symbol) => !record?.componentLabels?.has(symbol),
-        ),
+        missingComponents,
+        ...(expectedComponents
+          ? {
+              // Keep nonexact cues out of the strict match; this is evidence for editorial review.
+              wholeShapeCues: missingComponents.filter(
+                (symbol) => components?.wholeShape && symbol === character,
+              ).length,
+              sourceVariantCues: missingComponents.filter(
+                (symbol) =>
+                  !(components?.wholeShape && symbol === character) &&
+                  components?.sourceVariants.has(symbol),
+              ).length,
+            }
+          : {}),
         status: records.length === 0 ? "missing" : records.length > 1 ? "ambiguous" : "matched",
       };
     }),

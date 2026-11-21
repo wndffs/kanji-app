@@ -1112,3 +1112,18 @@ transaction and re-reads the persisted course status. Both response hashes
 are regenerated for the published status. This removes a duplicate corpus
 scan. Readiness depends on the audited content hash and totals, not the report
 timestamp. The full-size Neon execution time is not yet verified.
+
+### Full Registry Source Audit
+
+The pinned 2026-10-31 snapshots independently match **2,300 teaching
+readings, 2,300 primary stroke sequences and 8,103 exact bilingual JMdict
+pairs**, including accepted alternate readings. One historical reading uses
+the separate sense-note proof path, not the exact-pair count.
+
+Of **5,288** component references, **4,974** match exact ink-bearing
+groups (including elementary whole signs), **210** are annotated source
+variants, **29** match the whole glyph rather than a sub-group, and **75**
+historical links have neither kind of direct evidence. Those 75 remain for
+editorial review; no old cues, gates, V1–V7 seals, or stored progress were
+automatically rewritten. The 226-kanji Closure passed all 321 strict
+component checks. This is local source evidence, not a publication receipt.

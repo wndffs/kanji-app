@@ -257,7 +257,12 @@ describe("bounded streaming source evidence", () => {
       ["校"],
       new Map([["校", ["木", "交", "校", "父"]]]),
     );
-    expect(items[0]).toMatchObject({ status: "matched", missingComponents: ["交", "校", "父"] });
+    expect(items[0]).toMatchObject({
+      status: "matched",
+      missingComponents: ["交", "校", "父"],
+      wholeShapeCues: 1,
+      sourceVariantCues: 1,
+    });
 
     const elementary = vg.replace('<g id="kvg:StrokePaths_06821">', '<g kvg:element="校">');
     const self = await inspectLocalStrokes(
@@ -265,7 +270,12 @@ describe("bounded streaming source evidence", () => {
       ["校"],
       new Map([["校", ["校"]]]),
     );
-    expect(self.items[0]).toMatchObject({ status: "matched", missingComponents: [] });
+    expect(self.items[0]).toMatchObject({
+      status: "matched",
+      missingComponents: [],
+      wholeShapeCues: 0,
+      sourceVariantCues: 0,
+    });
   });
   it("accepts bounded literal entities but never external or recursive expansion", async () => {
     const safe = await localSource(
@@ -323,7 +333,7 @@ describe("aggregate and review boundaries", () => {
     );
     expect(report).toMatchObject({
       strokes: { checked: 1, failed: 0 },
-      strokeComponents: { checked: 1, failed: 1 },
+      strokeComponents: { checked: 1, failed: 1, unresolved: 1 },
       sourceMatchesComplete: false,
       publicationApproved: false,
     });
