@@ -1,4 +1,7 @@
-import { normalizeJapaneseReading } from "@kanji-srs/japanese";
+import {
+  selectAuthoredSourceReading,
+  selectedCourseSourceKana,
+} from "./course-kanji-source-reading";
 import type { ExpansionKanjiRow, ExpansionWordRow } from "./course-expansion-content-types";
 import type { MainCourseAcceptedMeanings, MainCourseContentBatch } from "./main-course-content";
 import type { MainCourseWordBatch } from "./main-course-word-content";
@@ -13,6 +16,12 @@ const review = {
 } as const;
 export const BROADENING_KANJI_BATCH = "full-course-kanji-broadening";
 export const BROADENING_WORD_PREFIX = "full-course-vocabulary-broadening-";
+
+type BlockMetadata = Pick<
+  MainCourseWordBatch,
+  "authoredAt" | "reviewedAt" | "reviewNotes" | "sourceFile"
+>;
+export type CourseBlockReadingLink = (typeof BROADENING_READING_LINKS)[number];
 
 const KANJI_RU_BLOCKS: Readonly<Record<string, MainCourseAcceptedMeanings["blocked"]>> = {
   破: [
@@ -64,6 +73,25 @@ export const BROADENING_PRIOR_WORD_ENDS: readonly (readonly [number, number])[] 
   [39, 28],
 ];
 
+const BROADENING_METADATA = {
+  authoredAt: AUTHORED_AT,
+  ...review,
+  sourceFile: "packages/db/src/course-broadening-builders.ts",
+} satisfies BlockMetadata;
+
+const BROADENING_KANJI_OPTIONS = {
+  id: BROADENING_KANJI_BATCH,
+  metadata: BROADENING_METADATA,
+  priorWordSlots: BROADENING_PRIOR_WORD_ENDS,
+  meaningBlocks: { ru: KANJI_RU_BLOCKS },
+};
+
+const BROADENING_WORD_OPTIONS = {
+  prefix: BROADENING_WORD_PREFIX,
+  metadata: BROADENING_METADATA,
+  meaningBlocks: WORD_BLOCKS,
+};
+
 function coursePlacementEnds(
   kanji: readonly MainCourseContentBatch[],
   wordEnds: readonly (readonly [number, number])[],
@@ -88,6 +116,12 @@ function coursePlacementEnds(
 export function buildBroadeningKanji(
   previous: readonly MainCourseContentBatch[],
   rows: readonly ExpansionKanjiRow[],
+  options: Readonly<{
+    id: string;
+    metadata: BlockMetadata;
+    priorWordSlots: readonly (readonly [number, number])[];
+    meaningBlocks?: Readonly<Partial<Record<"ru" | "en", typeof KANJI_RU_BLOCKS>>>;
+  }> = BROADENING_KANJI_OPTIONS,
 ): MainCourseContentBatch {
   const scoped = previous.filter((batch) => batch.courseSlug === COURSE_SLUG);
   const cues = new Map(
@@ -97,7 +131,7 @@ export function buildBroadeningKanji(
       ),
     ),
   );
-  const ends = coursePlacementEnds(scoped, BROADENING_PRIOR_WORD_ENDS);
+  const ends = coursePlacementEnds(scoped, options.priorWordSlots);
   const counts = new Map<number, number>();
   const seen = new Set<string>();
   for (const batch of scoped)
@@ -106,11 +140,9 @@ export function buildBroadeningKanji(
       seen.add(item.character);
     }
   return {
-    id: BROADENING_KANJI_BATCH,
+    id: options.id,
     version: "1",
-    authoredAt: AUTHORED_AT,
-    ...review,
-    sourceFile: "packages/db/src/course-broadening-builders.ts",
+    ...options.metadata,
     courseSlug: COURSE_SLUG,
     componentLevelNumber: 1,
     components: [],
@@ -131,7 +163,11 @@ export function buildBroadeningKanji(
         const order = (ends.get(level) ?? 0) + 1;
         ends.set(level, order);
         counts.set(level, (counts.get(level) ?? 0) + 1);
-        const reading = normalizeJapaneseReading(source);
+        const selection = selectAuthoredSourceReading(source);
+        const reading = selectedCourseSourceKana(selection);
+        if (!reading) throw new Error(`Invalid selected reading for ${character}.`);
+        const ruBlocks = options.meaningBlocks?.ru?.[character];
+        const enBlocks = options.meaningBlocks?.en?.[character];
         return {
           character,
           levelNumber: level,
@@ -140,13 +176,12 @@ export function buildBroadeningKanji(
             ru: {
               primary: ru[0]!,
               accepted: ru,
-              ...(KANJI_RU_BLOCKS[character] ? { blocked: KANJI_RU_BLOCKS[character] } : {}),
+              ...(ruBlocks ? { blocked: ruBlocks } : {}),
             },
-            en: { primary: en[0]!, accepted: en },
+            en: { primary: en[0]!, accepted: en, ...(enBlocks ? { blocked: enBlocks } : {}) },
           },
           reading: {
-            source,
-            sourceType: /[ァ-ヶ]/u.test(source) ? "ja_on" : "ja_kun",
+            ...selection,
             primary: reading,
             accepted: [reading],
           },
@@ -174,25 +209,18 @@ const han = (text: string) => [
 export function assertBroadeningReadingLinks(
   kanjiRows: readonly ExpansionKanjiRow[],
   wordRows: readonly ExpansionWordRow[],
+  links: readonly CourseBlockReadingLink[] = BROADENING_READING_LINKS,
 ): void {
   const known = new Map(kanjiRows.map((row) => [row[0], row]));
   const words = new Map(wordRows.map((row) => [row[0], row]));
   const linked = new Set<string>();
-  for (const [
-    character,
-    reading,
-    expression,
-    wordReading,
-    index,
-    offset,
-    sequence,
-  ] of BROADENING_READING_LINKS) {
+  for (const [character, reading, expression, wordReading, index, offset, sequence] of links) {
     const row = known.get(character);
     const word = words.get(expression);
     if (
       linked.has(character) ||
       !row ||
-      normalizeJapaneseReading(row[1]) !== reading ||
+      selectedCourseSourceKana(selectAuthoredSourceReading(row[1])) !== reading ||
       row[9] !== expression ||
       row[10] !== wordReading ||
       !word ||
@@ -212,6 +240,11 @@ export function buildBroadeningWords(
   kanji: readonly MainCourseContentBatch[],
   previous: readonly MainCourseWordBatch[],
   rows: readonly ExpansionWordRow[],
+  options: Readonly<{
+    prefix: string;
+    metadata: BlockMetadata;
+    meaningBlocks?: typeof WORD_BLOCKS;
+  }> = BROADENING_WORD_OPTIONS,
 ): readonly MainCourseWordBatch[] {
   const levels = new Map(
     kanji
@@ -252,11 +285,9 @@ export function buildBroadeningWords(
       const start = (ends.get(level) ?? 0) + 1;
       ends.set(level, start + slice.length - 1);
       result.push({
-        id: BROADENING_WORD_PREFIX + String(result.length + 1).padStart(2, "0"),
+        id: options.prefix + String(result.length + 1).padStart(2, "0"),
         version: "1",
-        authoredAt: AUTHORED_AT,
-        ...review,
-        sourceFile: "packages/db/src/course-broadening-builders.ts",
+        ...options.metadata,
         courseSlug: COURSE_SLUG,
         levelNumber: level,
         wordCount: slice.length,
@@ -288,12 +319,18 @@ export function buildBroadeningWords(
               meanings: {
                 ru: meanings(
                   ru,
-                  [...(metadata.blockedRu ?? []), ...(WORD_BLOCKS[expression]?.ru ?? [])],
+                  [
+                    ...(metadata.blockedRu ?? []),
+                    ...(options.meaningBlocks?.[expression]?.ru ?? []),
+                  ],
                   scope[0],
                 ),
                 en: meanings(
                   en,
-                  [...(metadata.blockedEn ?? []), ...(WORD_BLOCKS[expression]?.en ?? [])],
+                  [
+                    ...(metadata.blockedEn ?? []),
+                    ...(options.meaningBlocks?.[expression]?.en ?? []),
+                  ],
                   scope[1],
                 ),
               },

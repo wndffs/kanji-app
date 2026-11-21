@@ -7,6 +7,7 @@ import { normalizeMeaning } from "@kanji-srs/japanese";
 import { withNeonConnectionDefaults } from "../src/connection-defaults";
 import { buildMainCourseBlueprint } from "../src/main-course";
 import { buildCuratedMeaningBlocks } from "../src/curated-meaning-blocks";
+import { selectedCourseSourceKana } from "../src/course-kanji-source-reading";
 
 import {
   buildMainCourseContentBatches,
@@ -674,7 +675,7 @@ async function requireKanjiEvidence(
     );
   }
 
-  if (normalizeReading(content.reading.primary) !== sourceReading) {
+  if (normalizeReading(content.reading.primary) !== selectedCourseSourceKana(content.reading)) {
     throw new Error(
       `Kanji ${content.character} taught reading must match its selected KANJIDIC2 source reading.`,
     );

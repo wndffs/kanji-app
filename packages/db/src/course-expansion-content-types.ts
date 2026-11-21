@@ -38,3 +38,26 @@ export type ExpansionWordRow = readonly [
     readonly blockedEn?: readonly string[];
   },
 ];
+
+export type ExpansionReinforcementRow = readonly [
+  kanji: readonly [
+    character: string,
+    sourceReading: string,
+    symbols: readonly string[],
+    meaningsRu: readonly string[],
+    meaningsEn: readonly string[],
+    image: readonly [ru: string, en: string],
+  ],
+  location: readonly [characterIndex: number, readingOffset: number],
+  word: readonly [
+    expression: ExpansionWordRow[0],
+    reading: ExpansionWordRow[1],
+    sequence: ExpansionWordRow[2],
+    meaningsRu: ExpansionWordRow[3],
+    meaningsEn: ExpansionWordRow[4],
+    scope: ExpansionWordRow[5],
+    image: ExpansionWordRow[6],
+    example: ExpansionWordRow[8],
+    metadata?: ExpansionWordRow[9],
+  ],
+];

@@ -18,10 +18,10 @@ import {
 import { buildEditorialRegistryInventory } from "../src/editorial-registry-inventory";
 
 const kanji = buildMainCourseContentBatches().filter(
-  (batch) => !/expansion|broadening/u.test(batch.id),
+  (batch) => !/expansion|broadening|deepening/u.test(batch.id),
 );
 const words = buildMainCourseWordBatches().filter(
-  (batch) => !/expansion|broadening/u.test(batch.id),
+  (batch) => !/expansion|broadening|deepening/u.test(batch.id),
 );
 const batch = kanji.find((b) => b.id === "full-course-kanji-growth")!;
 const block = words.filter((b) => b.id.startsWith("full-course-vocabulary-growth-"));

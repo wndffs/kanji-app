@@ -19,10 +19,10 @@ import { buildEditorialRegistryInventory } from "../src/editorial-registry-inven
 import { buildReinforcementWordBatches } from "../src/reinforcement-word-content";
 
 const kanji = buildMainCourseContentBatches().filter(
-  (batch) => !/expansion|broadening/u.test(batch.id),
+  (batch) => !/expansion|broadening|deepening/u.test(batch.id),
 );
 const words = buildMainCourseWordBatches().filter(
-  (batch) => !/expansion|broadening/u.test(batch.id),
+  (batch) => !/expansion|broadening|deepening/u.test(batch.id),
 );
 const newKanji = kanji.find((b) => b.id === "full-course-kanji-reinforcement")!;
 const newWords = words.filter((b) => b.id.startsWith("full-course-vocabulary-reinforcement-"));

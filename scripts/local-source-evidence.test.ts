@@ -141,7 +141,7 @@ describe("bounded streaming source evidence", () => {
   });
   it("attests an exact kanji reading but rejects inferred source type or reading", async () => {
     const source = await localSource(kd, "kanjidic2");
-    const reading = { primary: "こう", source: "コウ", sourceType: "ja_on" };
+    const reading = { primary: "こう", source: "コウ", sourceType: "ja_on" } as const;
     const result = await inspectLocalKanji(source, [
       { character: "校", reading },
       { character: "校", reading: { ...reading, source: "ガク" } },
@@ -156,6 +156,32 @@ describe("bounded streaming source evidence", () => {
       "missing",
     ]);
     expect(result.items[0]!.sourceRecordId).toBe("kanjidic2:6821");
+  });
+  it("keeps the exact dotted source while permitting only an explicitly selected kun stem", async () => {
+    const source = await localSource(
+      '<kanjidic2><character><literal>戻</literal><misc><stroke_count>7</stroke_count></misc><reading_meaning><rmgroup><reading r_type="ja_kun">もど.る</reading></rmgroup></reading_meaning></character></kanjidic2>',
+      "kanjidic2",
+    );
+    const reading = {
+      primary: "もど",
+      source: "もど.る",
+      sourceType: "ja_kun",
+      sourceForm: "okurigana-stem",
+    } as const;
+    const result = await inspectLocalKanji(source, [
+      { character: "戻", reading },
+      { character: "戻", reading: { ...reading, source: "もど.す" } },
+      { character: "戻", reading: { ...reading, sourceForm: undefined } },
+      { character: "戻", reading: { ...reading, sourceForm: undefined, primary: "もどる" } },
+      { character: "戻", reading: { ...reading, primary: "もどる" } },
+    ]);
+    expect(result.items.map((item) => item.status)).toEqual([
+      "matched",
+      "reading-mismatch",
+      "reading-mismatch",
+      "matched",
+      "reading-mismatch",
+    ]);
   });
   it("respects spelling/reading restrictions and keeps bilingual evidence sense-specific", async () => {
     const source = await localSource(`<JMdict>${entry("1", "<re_restr>学校</re_restr>")}</JMdict>`);

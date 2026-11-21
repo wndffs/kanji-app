@@ -780,3 +780,50 @@ in GitHub Actions, live corpus/quality checks and progress preservation.
   and 5,660 core cards**. Confirm the 500 new examples, manifest seals,
   914 stroke graphics, final quality report and pre-existing course and
   progress preservation. No server teaching writes or new live receipt yet.
+
+## Course Deepening: 2026-11-21
+
+This independent block adds **200 kanji, 640 distinct words and 640 original
+JP/kana/RU/EN examples**. Every new kanji has an explicit character index and
+kana offset in an actual reinforcement word. The 440 additional vocabulary
+items use existing course kanji, with an emphasis on useful ordinary words.
+The registered reviewed totals are **1,114 kanji / 2,440 words / 232
+components** across **40 populated levels**. This is not a live release
+receipt. **1,186 kanji / 5,560 words** remain to the target after these blocks
+are applied; the last confirmed live totals are still **714 / 1,300**.
+
+- Two independent AI review passes covered every item, with cross-review for
+  authored vocabulary and parent resolution of findings. The pinned
+  2026-10-31 snapshot matched **200 KANJIDIC2 readings, 200 primary KanjiVG
+  sequences, and 642 exact bilingual JMdict pairs** (includes two accepted
+  same-entry alternates). This is not human linguistic certification. No
+  competitor materials were copied; raw sources and authored text are separate.
+- The new structural example check anchors the target reading at the written
+  word and retains surrounding literal kana and punctuation. It deliberately
+  does not claim to read unannotated kanji or replace editorial review.
+  Scope-specific answer blocks prevent false positives such as
+  infection/injection, evaluation/evacuation and предложение/предположение.
+- The source checker can now support an explicit kun stem, without rewriting
+  the imported form or changing old accepted answers. For example, a candidate
+  can bind 戻 to もど through the raw もど.る reading and teach 戻る as もどる.
+  The suffix must match where written as kana. The current deepening payload
+  uses plain source readings; the stem support prepares the subsequent block.
+- Previous registry payloads (914 kanji and 1,800 words), placements and
+  V1-V7 seals are preserved. The reviewed payload SHA-256 is
+  `18ebed77062678bb7496e52589133911312193b666401674cbcfba74bd93affd`.
+  Reading alignment SHA-256:
+  `74367396ed8fc5c8888ae7bec937fa5c7ecadd2f55ab92a9c5148adf2bca78ec`.
+- All 637 scoped tests across 24 files passed, including the inventory
+  expectation rerun. DB and source-tool typechecks passed.
+- Release needs authenticated GitHub Actions access and live Neon preflight.
+  First complete the earlier broadening handoff. Then use explicit
+  `full-course-kanji-deepening` (kanji only with skip words), followed by the
+  **29** explicit word IDs `full-course-vocabulary-deepening-01` through
+  `-29`. Empty apply selections are rejected; a full read-only plan remains
+  supported. Keep the raw supplement off unless a scoped server plan shows
+  missing evidence. Do not replace existing raw identities or reapply the
+  entire registry.
+- Expected after both outstanding blocks are applied: **3,786 teaching
+  targets / 7,340 core cards**. Check final source and quality gates and
+  compare only aggregate preservation evidence for existing progress and
+  courses. Keep the main curriculum DRAFT; do not create V8 or switch users.

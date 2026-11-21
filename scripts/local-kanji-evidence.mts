@@ -1,14 +1,15 @@
 import { parseKanjiDic2Xml } from "../packages/content-importers/src/kanjidic2";
-import { normalizeJapaneseReading } from "@kanji-srs/japanese";
+import {
+  selectedCourseSourceKana,
+  type CourseKanjiSourceReading,
+} from "../packages/db/src/course-kanji-source-reading";
 import { type LocalSource } from "./local-source-manifest.mts";
 import { scanSourceXml, serializeNode, textOf } from "./local-source-xml.mts";
 
 export type KanjiCandidate = {
   readonly character: string;
-  readonly reading: {
+  readonly reading: CourseKanjiSourceReading & {
     readonly primary: string;
-    readonly source: string;
-    readonly sourceType?: string;
   };
 };
 export async function inspectLocalKanji(
@@ -34,7 +35,7 @@ export async function inspectLocalKanji(
           (reading) =>
             reading.sourceType === candidate.reading.sourceType &&
             reading.reading === candidate.reading.source &&
-            normalizeJapaneseReading(reading.reading) === candidate.reading.primary,
+            selectedCourseSourceKana(candidate.reading) === candidate.reading.primary,
         );
       return {
         character: candidate.character,

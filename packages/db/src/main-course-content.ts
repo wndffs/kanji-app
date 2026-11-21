@@ -8,9 +8,14 @@ import { buildCourseGrowthKanjiContent } from "./course-growth-kanji-content";
 import { buildCourseContinuationKanji } from "./course-continuation-kanji-content";
 import { buildCourseExpansionKanji } from "./course-expansion-kanji-content";
 import { buildCourseBroadeningKanji } from "./course-broadening-content";
+import { deepeningKanji } from "./course-deepening-content";
 import { buildMainCourseCompletionContent } from "./main-course-completion-content";
 import { buildMainCourseBlueprint } from "./main-course";
 import { validateCuratedMeaningBlocks, type CuratedMeaningBlock } from "./curated-meaning-blocks";
+import {
+  selectedCourseSourceKana,
+  type CourseKanjiSourceReading,
+} from "./course-kanji-source-reading";
 
 export type MainCourseContentLocale = "ru-RU" | "en-US";
 
@@ -42,9 +47,7 @@ export type MainCourseKanjiContent = {
     readonly ru: MainCourseAcceptedMeanings;
     readonly en: MainCourseAcceptedMeanings;
   };
-  readonly reading: {
-    readonly source: string;
-    readonly sourceType?: "ja_on" | "ja_kun";
+  readonly reading: CourseKanjiSourceReading & {
     readonly primary: string;
     readonly accepted: readonly string[];
   };
@@ -1558,9 +1561,14 @@ const PRE_BROADENING_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
   buildCourseExpansionKanji(PRE_EXPANSION_CONTENT_BATCHES),
 ];
 
-const MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
+const PRE_DEEPENING_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
   ...PRE_BROADENING_CONTENT_BATCHES,
   buildCourseBroadeningKanji(PRE_BROADENING_CONTENT_BATCHES),
+];
+
+const MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
+  ...PRE_DEEPENING_CONTENT_BATCHES,
+  deepeningKanji(PRE_DEEPENING_CONTENT_BATCHES),
 ];
 
 export function buildMainCourseContentBatches(): readonly MainCourseContentBatch[] {
@@ -1710,7 +1718,7 @@ export function validateMainCourseContentBatches(
         item.reading.primary.trim() === "" ||
         item.reading.accepted.length === 0 ||
         !item.reading.accepted.includes(item.reading.primary) ||
-        normalizeReading(item.reading.source) !== item.reading.primary ||
+        selectedCourseSourceKana(item.reading) !== item.reading.primary ||
         item.reading.accepted.some((text) => text !== item.reading.primary)
       ) {
         issues.push(`${batch.id} kanji ${item.character} has an invalid taught reading`);
@@ -1794,16 +1802,4 @@ function kanji(
     readingMnemonic: { ru: readingMnemonicRu, en: readingMnemonicEn },
     requireStrokeData: true,
   };
-}
-
-function normalizeReading(value: string): string {
-  return [...value.normalize("NFKC").trim()]
-    .filter((character) => character !== "." && character !== "-")
-    .map((character) => {
-      const codePoint = character.codePointAt(0);
-      return codePoint !== undefined && codePoint >= 0x30a1 && codePoint <= 0x30f6
-        ? String.fromCodePoint(codePoint - 0x60)
-        : character;
-    })
-    .join("");
 }

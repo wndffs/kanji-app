@@ -6,6 +6,8 @@ import { buildCourseContinuationWordBatches } from "./course-continuation-word-c
 import { buildCourseExpansionWordBatches } from "./course-expansion-word-content";
 import { buildCourseBroadeningWords } from "./course-broadening-content";
 import { BROADENING_KANJI_BATCH } from "./course-broadening-builders";
+import { DEEPENING_KANJI_BATCH } from "./course-deepening-builders";
+import { deepeningWords } from "./course-deepening-content";
 import { buildMainCourseContentBatches } from "./main-course-content";
 
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
@@ -1154,7 +1156,10 @@ const FOUNDATION_WORD_BATCH_03: MainCourseWordBatch = {
 
 export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
   const kanji = buildMainCourseContentBatches();
-  const preBroadeningKanji = kanji.filter((batch) => batch.id !== BROADENING_KANJI_BATCH);
+  const preDeepeningKanji = kanji.filter((batch) => batch.id !== DEEPENING_KANJI_BATCH);
+  const preBroadeningKanji = preDeepeningKanji.filter(
+    (batch) => batch.id !== BROADENING_KANJI_BATCH,
+  );
   const previous = [
     buildMainCourseWordBatch(),
     buildMainCourseWordBatch02(),
@@ -1177,7 +1182,11 @@ export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
     ...preExpansion,
     ...buildCourseExpansionWordBatches(preBroadeningKanji, preExpansion),
   ];
-  return [...preBroadening, ...buildCourseBroadeningWords(kanji, preBroadening)];
+  const preDeepening = [
+    ...preBroadening,
+    ...buildCourseBroadeningWords(preDeepeningKanji, preBroadening),
+  ];
+  return [...preDeepening, ...deepeningWords(kanji, preDeepening)];
 }
 
 export function mainCourseWordBatchChecksum(batch: MainCourseWordBatch): string {

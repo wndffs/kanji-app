@@ -196,11 +196,20 @@ describe("main-course curation preflight and application", () => {
   );
 
   it.each([
-    ["木", "ja_on", "モク", "ボク", "ぼく", "ONYOMI"],
-    ["田", "ja_kun", "デン", "た", "た", "KUNYOMI"],
+    ["木", "ja_on", "モク", "ボク", "ぼく", "ONYOMI", undefined],
+    ["田", "ja_kun", "デン", "た", "た", "KUNYOMI", undefined],
+    ["上", "ja_kun", "ジョウ", "あ.がる", "あ", "KUNYOMI", "okurigana-stem"],
   ] as const)(
     "teaches a secondary %s %s reading without changing raw priorities or private progress",
-    async (character, sourceType, firstReading, sourceReading, primary, readingType) => {
+    async (
+      character,
+      sourceType,
+      firstReading,
+      sourceReading,
+      primary,
+      readingType,
+      sourceForm,
+    ) => {
       const fixture = curationFixture();
       const batch = {
         ...fixture.batch,
@@ -209,7 +218,13 @@ describe("main-course curation preflight and application", () => {
             ? item
             : {
                 ...item,
-                reading: { source: sourceReading, sourceType, primary, accepted: [primary] },
+                reading: {
+                  source: sourceReading,
+                  sourceType,
+                  sourceForm,
+                  primary,
+                  accepted: [primary],
+                },
               },
         ),
       };
@@ -220,7 +235,7 @@ describe("main-course curation preflight and application", () => {
       ];
       source.readings = [
         { reading: firstReading, readingType: "ONYOMI", priority: 0 },
-        { reading: primary, readingType, priority: 7 },
+        { reading: sourceForm ? sourceReading : primary, readingType, priority: 7 },
       ];
       const before = structuredClone({
         kanji: fixture.state.kanji,

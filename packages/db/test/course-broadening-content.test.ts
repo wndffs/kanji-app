@@ -26,12 +26,17 @@ import {
   assertBroadeningReadingLinks,
 } from "../src/course-broadening-builders";
 import { BROADENING_READING_LINKS } from "../src/course-broadening-reading-links";
+import { DEEPENING_KANJI_BATCH, DEEPENING_WORD_PREFIX } from "../src/course-deepening-builders";
 
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
-const priorKanji = buildMainCourseContentBatches().filter(
-  (batch) => batch.id !== BROADENING_KANJI_BATCH,
+const throughBroadeningKanji = buildMainCourseContentBatches().filter(
+  (batch) => batch.id !== DEEPENING_KANJI_BATCH,
 );
-const priorWords = buildMainCourseWordBatches().filter(
+const throughBroadeningWords = buildMainCourseWordBatches().filter(
+  (batch) => !batch.id.startsWith(DEEPENING_WORD_PREFIX),
+);
+const priorKanji = throughBroadeningKanji.filter((batch) => batch.id !== BROADENING_KANJI_BATCH);
+const priorWords = throughBroadeningWords.filter(
   (batch) => !batch.id.startsWith(BROADENING_WORD_PREFIX),
 );
 const kanji = buildCourseBroadeningKanji(priorKanji);
@@ -40,8 +45,8 @@ const words = buildCourseBroadeningWords(allKanji, priorWords);
 
 describe("source-backed broadening block", () => {
   it("seals the reviewed payloads that will be applied by the explicit selector", () => {
-    expect(buildMainCourseContentBatches().at(-1)).toEqual(kanji);
-    expect(buildMainCourseWordBatches().slice(priorWords.length)).toEqual(words);
+    expect(throughBroadeningKanji.at(-1)).toEqual(kanji);
+    expect(throughBroadeningWords.slice(priorWords.length)).toEqual(words);
     expect([kanji, ...words].every((batch) => batch.reviewedAt === "2026-11-21")).toBe(true);
     expect(hash([kanji, ...words])).toBe(
       "4eaca5e83feb402b340156f4dfd5001b5b2d0c3e06305e95381d0ddfdf16803a",
