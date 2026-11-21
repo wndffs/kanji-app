@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import type { PrismaClient } from "@kanji-srs/db";
+import type { Prisma, PrismaClient } from "@kanji-srs/db";
 import { createPrismaJmDictBatchWriter } from "../src/jmdict-prisma-batch";
 import { parseJmDictXml } from "../src/jmdict";
 
@@ -77,5 +77,31 @@ describe("JMdict insert-only supplements", () => {
       expect.objectContaining({ skipDuplicates: true }),
     );
     expect(transaction.$executeRaw).toHaveBeenCalledOnce();
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      maxWait: 30_000,
+      timeout: 120_000,
+    });
+  });
+  it("uses the caller's transaction directly for every insert-only write", async () => {
+    const { transaction } = database();
+    await createPrismaJmDictBatchWriter(transaction as unknown as Prisma.TransactionClient, {
+      insertOnly: true,
+    }).writeBatch({ importRunId: "fixture-run", entries: [entry] });
+    expect(transaction.importedRecord.createMany).toHaveBeenCalledOnce();
+    expect(transaction.word.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skipDuplicates: false }),
+    );
+    expect(transaction.wordSense.createMany).toHaveBeenCalledOnce();
+    expect(transaction.$executeRaw).not.toHaveBeenCalled();
+  });
+  it("propagates an insert-only conflict to the owner of the existing transaction", async () => {
+    const { transaction } = database(true);
+    await expect(
+      createPrismaJmDictBatchWriter(transaction as unknown as Prisma.TransactionClient, {
+        insertOnly: true,
+      }).writeBatch({ importRunId: "fixture-run", entries: [entry] }),
+    ).rejects.toThrow("unique Word");
+    expect(transaction.wordSense.createMany).not.toHaveBeenCalled();
+    expect(transaction.$executeRaw).not.toHaveBeenCalled();
   });
 });

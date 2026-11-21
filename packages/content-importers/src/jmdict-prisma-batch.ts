@@ -21,99 +21,100 @@ export type JmDictWordBatchCandidate = {
 };
 
 export function createPrismaJmDictBatchWriter(
-  prisma: PrismaClient,
+  prisma: PrismaClient | Prisma.TransactionClient,
   options: { readonly insertOnly?: boolean } = {},
 ): JmDictBatchWriter {
-  return {
-    async writeBatch({ importRunId, entries }): Promise<void> {
-      await prisma.$transaction(
-        async (transaction) => {
-          await transaction.importedRecord.createMany({
-            data: entries.map((entry) => ({
-              importRunId,
-              recordType: "JMDICT_ENTRY",
-              sourceRecordId: entry.sourceRecordId,
-              rawJson: buildCompactJmDictImportedRecord(entry),
-            })),
-            skipDuplicates: true,
-          });
-
-          const importedRecords = await transaction.importedRecord.findMany({
-            where: {
-              importRunId,
-              recordType: "JMDICT_ENTRY",
-              sourceRecordId: { in: entries.map((entry) => entry.sourceRecordId) },
-            },
-            select: {
-              id: true,
-              sourceRecordId: true,
-            },
-          });
-          const words = buildJmDictWordBatchCandidates(entries, importedRecords);
-
-          if (words.length === 0) {
-            return;
-          }
-
-          await transaction.word.createMany({
-            data: words.map((word) => ({
-              expression: word.expression,
-              reading: word.reading,
-              commonnessRank: word.commonnessRank,
-              jmdictEntryId: word.jmdictEntryId,
-              jmdictImportedRecordId: word.importedRecordId,
-            })),
-            // A concurrent insert must abort an insert-only supplement, not become an update.
-            skipDuplicates: !options.insertOnly,
-          });
-          if (!options.insertOnly) await transaction.$executeRaw(buildWordProvenanceUpdate(words));
-
-          const wordRows = await transaction.word.findMany({
-            where: {
-              OR: words.map((word) => ({
-                expression: word.expression,
-                reading: word.reading,
-              })),
-            },
-            select: {
-              id: true,
-              expression: true,
-              reading: true,
-            },
-          });
-          const wordIds = new Map(
-            wordRows.map((word) => [wordIdentityKey(word.expression, word.reading), word.id]),
-          );
-          const senses = words.flatMap((word) => {
-            const wordId = wordIds.get(wordIdentityKey(word.expression, word.reading));
-
-            if (wordId === undefined) {
-              throw new Error(
-                `JMdict batch did not resolve word ${word.expression}/${word.reading}.`,
-              );
-            }
-
-            return word.senses.map((sense) => ({
-              wordId,
-              locale: sense.locale,
-              meaning: sense.meaning,
-              partOfSpeech: sense.partOfSpeech,
-              sourceKind: sense.sourceKind,
-            }));
-          });
-
-          for (let index = 0; index < senses.length; index += SENSE_WRITE_BATCH_SIZE) {
-            await transaction.wordSense.createMany({
-              data: senses.slice(index, index + SENSE_WRITE_BATCH_SIZE),
-              skipDuplicates: true,
-            });
-          }
-        },
-        {
+  const inTransaction = (operation: (transaction: Prisma.TransactionClient) => Promise<void>) =>
+    "$transaction" in prisma
+      ? prisma.$transaction(operation, {
           maxWait: TRANSACTION_MAX_WAIT_MS,
           timeout: TRANSACTION_TIMEOUT_MS,
-        },
-      );
+        })
+      : operation(prisma);
+  return {
+    async writeBatch({ importRunId, entries }): Promise<void> {
+      await inTransaction(async (transaction) => {
+        await transaction.importedRecord.createMany({
+          data: entries.map((entry) => ({
+            importRunId,
+            recordType: "JMDICT_ENTRY",
+            sourceRecordId: entry.sourceRecordId,
+            rawJson: buildCompactJmDictImportedRecord(entry),
+          })),
+          skipDuplicates: true,
+        });
+
+        const importedRecords = await transaction.importedRecord.findMany({
+          where: {
+            importRunId,
+            recordType: "JMDICT_ENTRY",
+            sourceRecordId: { in: entries.map((entry) => entry.sourceRecordId) },
+          },
+          select: {
+            id: true,
+            sourceRecordId: true,
+          },
+        });
+        const words = buildJmDictWordBatchCandidates(entries, importedRecords);
+
+        if (words.length === 0) {
+          return;
+        }
+
+        await transaction.word.createMany({
+          data: words.map((word) => ({
+            expression: word.expression,
+            reading: word.reading,
+            commonnessRank: word.commonnessRank,
+            jmdictEntryId: word.jmdictEntryId,
+            jmdictImportedRecordId: word.importedRecordId,
+          })),
+          // A concurrent insert must abort an insert-only supplement, not become an update.
+          skipDuplicates: !options.insertOnly,
+        });
+        if (!options.insertOnly) await transaction.$executeRaw(buildWordProvenanceUpdate(words));
+
+        const wordRows = await transaction.word.findMany({
+          where: {
+            OR: words.map((word) => ({
+              expression: word.expression,
+              reading: word.reading,
+            })),
+          },
+          select: {
+            id: true,
+            expression: true,
+            reading: true,
+          },
+        });
+        const wordIds = new Map(
+          wordRows.map((word) => [wordIdentityKey(word.expression, word.reading), word.id]),
+        );
+        const senses = words.flatMap((word) => {
+          const wordId = wordIds.get(wordIdentityKey(word.expression, word.reading));
+
+          if (wordId === undefined) {
+            throw new Error(
+              `JMdict batch did not resolve word ${word.expression}/${word.reading}.`,
+            );
+          }
+
+          return word.senses.map((sense) => ({
+            wordId,
+            locale: sense.locale,
+            meaning: sense.meaning,
+            partOfSpeech: sense.partOfSpeech,
+            sourceKind: sense.sourceKind,
+          }));
+        });
+
+        for (let index = 0; index < senses.length; index += SENSE_WRITE_BATCH_SIZE) {
+          await transaction.wordSense.createMany({
+            data: senses.slice(index, index + SENSE_WRITE_BATCH_SIZE),
+            skipDuplicates: true,
+          });
+        }
+      });
     },
   };
 }

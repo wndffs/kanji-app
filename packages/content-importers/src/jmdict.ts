@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { verifySha256 } from "./import-metadata";
 import { forEachConcurrent } from "./concurrency";
 import { executeTrackedImport, findSuccessfulImportRun, type ImportRunLookup } from "./import-run";
@@ -68,6 +70,13 @@ export type JmDictImportOptions = {
   readonly onProgress?: ContentImportProgressCallback;
   readonly batchWriter?: JmDictBatchWriter;
   readonly selectionProfile?: JmDictSelectionProfileName;
+  readonly exactPairs?: readonly JmDictExactPair[];
+};
+
+export type JmDictExactPair = {
+  readonly expression: string;
+  readonly reading: string;
+  readonly sourceRecordId: string;
 };
 
 export type JmDictBatchWriter = {
@@ -209,10 +218,23 @@ export async function importJmDictXml(
   xml: string,
   options: JmDictImportOptions,
 ): Promise<JmDictImportResult> {
-  const checksumSha256 = verifySha256(xml, options.checksumSha256);
+  const sourceChecksum = verifySha256(xml, options.checksumSha256);
   const parsed = parseJmDictXml(xml);
   const sourceWordCount = countWords(parsed.entries);
-  const selectedEntries = selectJmDictEntries(parsed.entries, options.selectionProfile);
+  if (options.exactPairs !== undefined && options.selectionProfile !== undefined)
+    throw new Error("Exact JMdict pairs require a separate import selection.");
+  const selection =
+    options.exactPairs === undefined
+      ? null
+      : selectExactJmDictPairs(parsed.entries, options.exactPairs);
+  const checksumSha256 =
+    selection === null
+      ? sourceChecksum
+      : createHash("sha256")
+          .update(JSON.stringify(["jmdict-exact-pairs-v1", sourceChecksum, selection.identity]))
+          .digest("hex");
+  const selectedEntries =
+    selection?.entries ?? selectJmDictEntries(parsed.entries, options.selectionProfile);
   const sourceVersion = options.sourceVersion ?? "unknown";
   const wordCount = countWords(selectedEntries);
   const importedGlossCount = countSupportedGlosses(selectedEntries);
@@ -228,6 +250,7 @@ export async function importJmDictXml(
     source: {
       entries: parsed.entries.length,
       words: sourceWordCount,
+      ...(selection === null ? {} : { checksumSha256: sourceChecksum }),
     },
   };
 
@@ -499,6 +522,34 @@ export function selectJmDictEntries(
     const words = selectedWordsByEntry.get(entry.sourceRecordId);
     return words === undefined ? [] : [{ ...entry, words }];
   });
+}
+
+function selectExactJmDictPairs(
+  entries: readonly JmDictEntryDto[],
+  pairs: readonly JmDictExactPair[],
+) {
+  const pairKey = ({ expression, reading }: Pick<JmDictExactPair, "expression" | "reading">) =>
+    JSON.stringify([expression, reading]);
+  const requested = new Map(pairs.map((pair) => [pairKey(pair), pair.sourceRecordId]));
+  if (pairs.length === 0 || pairs.length > 100 || requested.size !== pairs.length)
+    throw new Error("Expected 1-100 distinct exact JMdict pairs.");
+  const seen = new Set<string>();
+  const selected = entries.flatMap((entry) => {
+    const words = entry.words.filter((word) => {
+      const key = pairKey(word);
+      if (requested.get(key) !== entry.sourceRecordId) return false;
+      if (seen.has(key) || !isBilingualWord(word))
+        throw new Error("Exact JMdict source pair is not unique and bilingual.");
+      seen.add(key);
+      return true;
+    });
+    return words.length > 0 ? [{ ...entry, words }] : [];
+  });
+  if (seen.size !== requested.size) throw new Error("Exact JMdict source pair is missing.");
+  return {
+    entries: selected,
+    identity: [...requested].sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)),
+  };
 }
 
 function compareJmDictWordCandidates(

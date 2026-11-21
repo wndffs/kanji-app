@@ -10,6 +10,8 @@ export function selectStagingCuration(env = process.env) {
   const skipWords = env.SKIP_WORDS ?? "false";
   const mode = env.CURATION_MODE ?? "plan";
   const supplement = env.SUPPLEMENT_WORD_SOURCES ?? "false";
+  const sourcePairLimit = env.SOURCE_PAIR_LIMIT ?? "100";
+  const sourceOnly = mode === "plan_sources" || mode === "apply_sources";
   if (
     typeof words !== "string" ||
     ![kanji, ...wordIds].every(
@@ -19,8 +21,13 @@ export function selectStagingCuration(env = process.env) {
     wordIds.length > MAX_WORD_BATCH_IDS ||
     new Set(wordIds).size !== wordIds.length ||
     !["true", "false"].includes(skipWords) ||
-    !["plan", "apply"].includes(mode) ||
+    !["plan", "apply", "plan_sources", "apply_sources"].includes(mode) ||
     !["true", "false"].includes(supplement) ||
+    typeof sourcePairLimit !== "string" ||
+    !/^(?:[1-9][0-9]?|100)$/u.test(sourcePairLimit) ||
+    (!sourceOnly && sourcePairLimit !== "100") ||
+    (sourceOnly &&
+      (kanji !== "" || words === "" || skipWords !== "false" || supplement !== "false")) ||
     (supplement === "true" && words === "") ||
     // An empty vocabulary selection means all manifests in plan mode only.
     (mode === "apply" && words === "" && skipWords !== "true") ||
@@ -28,9 +35,10 @@ export function selectStagingCuration(env = process.env) {
   )
     throw new Error("Invalid staging curation selection.");
   return {
-    applyKanji: kanji !== "" || words === "",
-    applyWords: skipWords !== "true",
-    supplementWordSources: supplement === "true",
+    applyKanji: !sourceOnly && (kanji !== "" || words === ""),
+    applyWords: !sourceOnly && skipWords !== "true",
+    supplementWordSources: sourceOnly || supplement === "true",
+    sourceOnly,
   };
 }
 
@@ -39,7 +47,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     if (process.argv.length !== 2) throw new Error("Unexpected arguments.");
     const selection = selectStagingCuration();
     console.log(
-      `apply_kanji=${selection.applyKanji}\napply_words=${selection.applyWords}\nsupplement_word_sources=${selection.supplementWordSources}`,
+      `apply_kanji=${selection.applyKanji}\napply_words=${selection.applyWords}\nsupplement_word_sources=${selection.supplementWordSources}\nsource_only=${selection.sourceOnly}`,
     );
   } catch {
     console.error("Invalid staging curation selection.");

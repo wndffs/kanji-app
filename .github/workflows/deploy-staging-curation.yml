@@ -4,13 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Read-only preflight or explicit application
+        description: Teaching preflight/application or a bounded raw-source-only window
         required: true
         default: plan
         type: choice
         options:
           - plan
           - apply
+          - plan_sources
+          - apply_sources
       kanji_batch:
         description: Optional registered kanji batch ID (empty with word_batch skips kanji)
         required: false
@@ -27,6 +29,10 @@ on:
         description: Import only missing raw sources for reviewed words from the pinned snapshot (max 100 pairs)
         type: boolean
         default: false
+      source_pair_limit:
+        description: Only for plan_sources/apply_sources, exact missing pairs per window (1–100)
+        type: number
+        default: 100
 
 permissions:
   contents: read
@@ -49,6 +55,7 @@ jobs:
       KANJI_BATCH: ${{ inputs.kanji_batch }}
       SKIP_WORDS: ${{ inputs.skip_words }}
       SUPPLEMENT_WORD_SOURCES: ${{ inputs.supplement_word_sources }}
+      SOURCE_PAIR_LIMIT: ${{ inputs.source_pair_limit }}
 
     steps:
       - name: Check out repository
@@ -83,7 +90,7 @@ jobs:
           fi
 
       - name: Validate selected word manifests before any database writes
-        if: ${{ steps.selection.outputs.apply_words == 'true' }}
+        if: ${{ steps.selection.outputs.apply_words == 'true' || steps.selection.outputs.source_only == 'true' }}
         shell: bash
         run: |
           args=()
@@ -102,6 +109,7 @@ jobs:
           npm run db:curate -- --validate-only "${args[@]}"
 
       - name: Check existing published content before new teaching writes
+        if: ${{ steps.selection.outputs.source_only != 'true' }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         run: >-
@@ -134,7 +142,7 @@ jobs:
           key: ${{ steps.word-source-cache.outputs.cache-primary-key }}
 
       - name: Plan missing reviewed word sources without mutations
-        if: ${{ steps.selection.outputs.supplement_word_sources == 'true' }}
+        if: ${{ steps.selection.outputs.supplement_word_sources == 'true' && inputs.mode != 'apply_sources' }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         shell: bash
@@ -142,11 +150,12 @@ jobs:
           args=()
           IFS=',' read -ra ids <<< "$WORD_BATCH"
           for id in "${ids[@]}"; do args+=(--batch "$id"); done
+          if [ "$CURATION_MODE" = 'plan_sources' ]; then args+=(--max-pairs "$SOURCE_PAIR_LIMIT"); fi
           npm exec -- tsx scripts/import-missing-reviewed-word-sources.mts \
             --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/2026-10-31" "${args[@]}"
 
       - name: Apply missing reviewed word sources
-        if: ${{ inputs.mode == 'apply' && steps.selection.outputs.supplement_word_sources == 'true' }}
+        if: ${{ (inputs.mode == 'apply' || inputs.mode == 'apply_sources') && steps.selection.outputs.supplement_word_sources == 'true' }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         shell: bash
@@ -154,6 +163,7 @@ jobs:
           args=()
           IFS=',' read -ra ids <<< "$WORD_BATCH"
           for id in "${ids[@]}"; do args+=(--batch "$id"); done
+          if [ "$CURATION_MODE" = 'apply_sources' ]; then args+=(--max-pairs "$SOURCE_PAIR_LIMIT"); fi
           npm exec -- tsx scripts/import-missing-reviewed-word-sources.mts \
             --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/2026-10-31" "${args[@]}" --apply
 

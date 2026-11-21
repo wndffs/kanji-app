@@ -9,7 +9,7 @@ import {
 } from "../packages/db/src/main-course-word-content.ts";
 import {
   importJmDictXml,
-  parseJmDictXml,
+  type JmDictExactPair,
   type JmDictImportDatabase,
 } from "../packages/content-importers/src/jmdict.ts";
 import { inspectLocalWords } from "./local-word-evidence.mts";
@@ -25,11 +25,14 @@ type Observed = {
   expression: string;
   reading: string;
   jmdictEntryId: string | null;
+  importStatus?: string | null;
 };
 const pairKey = (item: { expression: string; reading: string }) =>
   JSON.stringify([item.expression, item.reading]);
 
 const MAX_BATCH_IDS = 40;
+const MAX_SOURCE_PAIRS = 100;
+class IncompleteExistingSourceError extends Error {}
 
 export function selectReviewedSourceBatches(
   batches: readonly MainCourseWordBatch[],
@@ -68,28 +71,46 @@ export function reviewedSourceCandidates(
   );
 }
 
-export function missingReviewedSources(
+function findAbsentReviewedSources(
   candidates: readonly Candidate[],
   observed: readonly Observed[],
 ): readonly Candidate[] {
   const existing = new Map(observed.map((item) => [pairKey(item), item]));
-  const missing = candidates.filter((candidate) => {
+  return candidates.filter((candidate) => {
     const item = existing.get(pairKey(candidate));
     if (item && item.jmdictEntryId !== candidate.jmdictEntryId)
       throw new Error("Existing word has a conflicting source identity; automatic repair refused.");
+    if (item?.importStatus !== undefined && item.importStatus !== "SUCCESS")
+      throw new IncompleteExistingSourceError(
+        "Existing word pairs have incomplete import provenance; automatic repair refused.",
+      );
     // Existing rows are never repaired or declared source-verified here.
     // The full curator remains authoritative for their licensed provenance and RU/EN senses.
     return !item;
   });
-  if (missing.length > 100)
-    throw new Error("Missing source set exceeds the bounded supplement limit (100 pairs).");
-  return missing;
 }
 
-export function requireAbsentSupplementAliases(existing: readonly unknown[]): void {
+export function planReviewedSourceWindow(
+  candidates: readonly Candidate[],
+  observed: readonly Observed[],
+  maxPairs?: number,
+) {
+  const missing = findAbsentReviewedSources(candidates, observed);
+  if (maxPairs === undefined && missing.length > MAX_SOURCE_PAIRS)
+    throw new Error("Missing source set exceeds the bounded supplement limit (100 pairs).");
+  if (
+    maxPairs !== undefined &&
+    (!Number.isInteger(maxPairs) || maxPairs < 1 || maxPairs > MAX_SOURCE_PAIRS)
+  )
+    throw new Error("Source-only windows are limited to 1-100 pairs.");
+  const selected = missing.slice(0, maxPairs ?? MAX_SOURCE_PAIRS);
+  return { selected, totalMissingPairs: missing.length };
+}
+
+export function requireAbsentSupplementPairs(existing: readonly unknown[]): void {
   if (existing.length)
     throw new Error(
-      "Supplement would touch an existing word or alias; insert-only import refused.",
+      "Supplement would touch an existing exact word pair; insert-only import refused.",
     );
 }
 
@@ -97,7 +118,7 @@ export async function buildReviewedSourceSupplement(
   source: LocalSource,
   candidates: readonly Candidate[],
 ) {
-  if (!candidates.length || candidates.length > 100)
+  if (!candidates.length || candidates.length > MAX_SOURCE_PAIRS)
     throw new Error("A supplement needs 1-100 explicit pairs.");
   const evidence = await inspectLocalWords(source, candidates);
   if (
@@ -126,14 +147,16 @@ export async function buildReviewedSourceSupplement(
     .join("")}</JMdict>`;
   if (Buffer.byteLength(xml, "utf8") > 8_388_608)
     throw new Error("Source supplement exceeds its byte budget.");
-  const touchedPairs = parseJmDictXml(xml).entries.flatMap((entry) =>
-    entry.words.map(({ expression, reading }) => ({ expression, reading })),
+  const exactPairs = candidates.map(
+    ({ expression, reading, jmdictEntryId }): JmDictExactPair => ({
+      expression,
+      reading,
+      sourceRecordId: jmdictEntryId,
+    }),
   );
-  if (touchedPairs.length > 400)
-    throw new Error("Source supplement exceeds its word-variant budget.");
   return {
     xml,
-    touchedPairs,
+    exactPairs,
     entryCount: records.size,
     checksumSha256: createHash("sha256").update(xml).digest("hex"),
   };
@@ -141,9 +164,10 @@ export async function buildReviewedSourceSupplement(
 
 export function parseSourceSupplementArgs(args: readonly string[]) {
   const usage =
-    "Usage: import-missing-reviewed-word-sources --snapshot-dir ABSOLUTE_DIRECTORY --batch ID [--batch ID ...] [--apply]";
+    "Usage: import-missing-reviewed-word-sources --snapshot-dir ABSOLUTE_DIRECTORY --batch ID [--batch ID ...] [--max-pairs 1-100] [--apply]";
   let directory: string | undefined;
   let apply = false;
+  let maxPairs: number | undefined;
   const batchIds: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -152,6 +176,12 @@ export function parseSourceSupplementArgs(args: readonly string[]) {
       directory = args[++i];
     } else if (arg === "--batch" && /^[a-z][a-z0-9-]{0,79}$/u.test(args[i + 1] ?? "")) {
       batchIds.push(args[++i]!);
+    } else if (
+      arg === "--max-pairs" &&
+      maxPairs === undefined &&
+      /^(?:[1-9][0-9]?|100)$/u.test(args[i + 1] ?? "")
+    ) {
+      maxPairs = Number(args[++i]);
     } else throw new Error(usage);
   }
   if (
@@ -162,7 +192,7 @@ export function parseSourceSupplementArgs(args: readonly string[]) {
     new Set(batchIds).size !== batchIds.length
   )
     throw new Error(usage);
-  return { directory, apply, batchIds };
+  return { directory, apply, batchIds, ...(maxPairs === undefined ? {} : { maxPairs }) };
 }
 
 async function main(args: readonly string[]) {
@@ -183,16 +213,26 @@ async function main(args: readonly string[]) {
   try {
     // Validate every existing proof without writes before any raw-source supplement.
     const proofPlan = await planOrApplyReadingNoteProofs(db, proofPlans);
-    const readObserved = () =>
-      db.word.findMany({
-        where: { OR: candidates.map(({ expression, reading }) => ({ expression, reading })) },
-        select: {
-          expression: true,
-          reading: true,
-          jmdictEntryId: true,
-        },
-      });
-    const missing = missingReviewedSources(candidates, await readObserved());
+    const readObserved = async (reader: Pick<typeof db, "word"> = db) =>
+      (
+        await reader.word.findMany({
+          where: { OR: candidates.map(({ expression, reading }) => ({ expression, reading })) },
+          select: {
+            expression: true,
+            reading: true,
+            jmdictEntryId: true,
+            importedRecord: { select: { importRun: { select: { status: true } } } },
+          },
+        })
+      ).map(({ importedRecord, ...row }) => ({
+        ...row,
+        importStatus: importedRecord?.importRun.status ?? null,
+      }));
+    const { selected: missing, totalMissingPairs } = planReviewedSourceWindow(
+      candidates,
+      await readObserved(),
+      options.maxPairs,
+    );
     if (!missing.length) {
       const proofs = options.apply
         ? await planOrApplyReadingNoteProofs(db, proofPlans, { apply: true })
@@ -201,6 +241,7 @@ async function main(args: readonly string[]) {
         JSON.stringify({
           status: "no-absent-word-pairs",
           importedEntries: 0,
+          remainingPairs: 0,
           existingRowsNotRevalidated: true,
           ...counts,
           ...proofs,
@@ -209,47 +250,70 @@ async function main(args: readonly string[]) {
       return;
     }
     const supplement = await buildReviewedSourceSupplement(source, missing);
-    // Protect every alias, including unpublished words and rows with missing source IDs.
-    const existing = await db.word.findMany({
-      where: {
-        OR: [
-          { jmdictEntryId: { in: [...new Set(missing.map((item) => item.jmdictEntryId))] } },
-          ...supplement.touchedPairs,
-        ],
-      },
-      select: { id: true },
-    });
-    requireAbsentSupplementAliases(existing);
+    // Only these exact pairs are written; other spellings/readings of the same entries are untouched.
+    const checkAbsent = async (reader: Pick<typeof db, "word">) =>
+      requireAbsentSupplementPairs(
+        await reader.word.findMany({
+          where: {
+            OR: supplement.exactPairs.map(({ expression, reading }) => ({ expression, reading })),
+          },
+          select: { id: true },
+        }),
+      );
     const summary = {
       snapshotVersion: snapshot.snapshotVersion,
       ...counts,
       parentContentSha256: source.contentSha256,
       derivedContentSha256: supplement.checksumSha256,
       missingPairs: missing.length,
+      totalMissingPairs,
       entries: supplement.entryCount,
       plannedProofCount: proofPlan.plannedProofCount,
       existingRowsNotRevalidated: true,
     };
     if (!options.apply) {
+      await checkAbsent(db);
       console.log(JSON.stringify({ status: "supplement-plan", ...summary }));
       return;
     }
     const { createPrismaJmDictBatchWriter } =
       await import("../packages/content-importers/src/jmdict-prisma-batch.ts");
-    const result = await importJmDictXml(db as unknown as JmDictImportDatabase, supplement.xml, {
-      sourceFileName: `JMdict-${snapshot.snapshotVersion}-derived-from-${source.contentSha256}.xml`,
-      sourceVersion: snapshot.snapshotVersion,
-      sourceDownloadedAt: new Date(source.downloadedAt),
-      checksumSha256: supplement.checksumSha256,
-      batchWriter: createPrismaJmDictBatchWriter(db, { insertOnly: true }),
-    });
-    if (missingReviewedSources(candidates, await readObserved()).length)
-      throw new Error("Source supplement did not satisfy the requested source evidence.");
-    const proofs = await planOrApplyReadingNoteProofs(db, proofPlans, { apply: true });
+    const attempted = new Set(missing.map(pairKey));
+    const { result, remaining } = await db.$transaction(
+      async (transaction) => {
+        await checkAbsent(transaction);
+        const result = await importJmDictXml(
+          transaction as unknown as JmDictImportDatabase,
+          supplement.xml,
+          {
+            sourceFileName: `JMdict-${snapshot.snapshotVersion}-derived-from-${source.contentSha256}.xml`,
+            sourceVersion: snapshot.snapshotVersion,
+            sourceDownloadedAt: new Date(source.downloadedAt),
+            checksumSha256: supplement.checksumSha256,
+            exactPairs: supplement.exactPairs,
+            batchWriter: createPrismaJmDictBatchWriter(transaction, { insertOnly: true }),
+          },
+        );
+        const remaining = findAbsentReviewedSources(candidates, await readObserved(transaction));
+        if (
+          remaining.some((candidate) => attempted.has(pairKey(candidate))) ||
+          (options.maxPairs === undefined && remaining.length > 0)
+        )
+          throw new Error("Source supplement did not satisfy the requested source evidence.");
+        return { result, remaining };
+      },
+      { maxWait: 5_000, timeout: 120_000 },
+    );
+    const proofs =
+      remaining.length === 0
+        ? await planOrApplyReadingNoteProofs(db, proofPlans, { apply: true })
+        : proofPlan;
     console.log(
       JSON.stringify({
         status: result.status,
         importedEntries: result.entryCount,
+        importChecksumSha256: result.checksumSha256,
+        remainingPairs: remaining.length,
         ...summary,
         ...proofs,
       }),
@@ -260,7 +324,11 @@ async function main(args: readonly string[]) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  main(process.argv.slice(2)).catch(() => {
+  main(process.argv.slice(2)).catch((error: unknown) => {
+    if (error instanceof IncompleteExistingSourceError)
+      console.error(
+        "REVIEWED_SOURCE_PROVENANCE_INCOMPLETE: existing rows need a separate reviewed provenance repair.",
+      );
     console.error(
       "REVIEWED_SOURCE_SUPPLEMENT_FAILED: check pinned source evidence, exact identities and published-target guard. No teaching content is published by this command.",
     );

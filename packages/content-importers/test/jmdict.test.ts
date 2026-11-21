@@ -188,6 +188,46 @@ describe("JMdict importer", () => {
     expect(db.importedRecords.size).toBe(0);
   });
 
+  it("imports only requested bilingual pairs with separate receipts for windows in the same entry", async () => {
+    const db = new InMemoryJmDictDb();
+    const xml = fixtureXml.replace(
+      "<gloss>to see</gloss>",
+      '<gloss>to see</gloss><gloss xml:lang="rus">видеть</gloss>',
+    );
+    const sourceFileName = "jmdict-exact-pairs.xml";
+    const first = { expression: "見る", reading: "みる", sourceRecordId: "jmdict:1000003" };
+    const second = { ...first, expression: "観る" };
+
+    const a = await importJmDictXml(db, xml, { sourceFileName, exactPairs: [first] });
+    expect(a).toMatchObject({ wordCount: 1, entryCount: 1, sourceWordCount: 5 });
+    expect([...db.wordRows.values()].map((row) => row.expression)).toEqual(["見る"]);
+    expect(await importJmDictXml(db, xml, { sourceFileName, exactPairs: [first] })).toEqual(a);
+    const b = await importJmDictXml(db, xml, { sourceFileName, exactPairs: [second] });
+    expect(b.checksumSha256).not.toBe(a.checksumSha256);
+    expect([...db.wordRows.values()].map((row) => row.expression)).toEqual(["見る", "観る"]);
+    expect([...db.importRuns.values()]).toEqual(
+      [a, b].map(({ checksumSha256 }) =>
+        expect.objectContaining({
+          status: "SUCCESS",
+          checksumSha256,
+          statsJson: expect.objectContaining({
+            source: { entries: 3, words: 5, checksumSha256: calculateSha256(xml) },
+          }),
+        }),
+      ),
+    );
+    await expect(
+      importJmDictXml(db, xml, {
+        sourceFileName,
+        exactPairs: [{ ...first, sourceRecordId: "jmdict:1000002" }],
+      }),
+    ).rejects.toThrow("missing");
+    await expect(
+      importJmDictXml(db, xml, { sourceFileName, exactPairs: [first, first] }),
+    ).rejects.toThrow("distinct");
+    expect(db.importRuns.size).toBe(2);
+  });
+
   it("deduplicates word identities and merges imported senses inside a batch", () => {
     const first = parseJmDictXml(buildDuplicateWordFixture("2000001", "first meaning")).entries[0];
     const second = parseJmDictXml(buildDuplicateWordFixture("2000002", "second meaning"))

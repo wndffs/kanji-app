@@ -23,13 +23,18 @@ describe("explicit staging curation selection", () => {
       { applyKanji: true, applyWords: false },
     ],
   ])("preserves defaults and supports an explicit kanji-only selection: %j", (env, expected) => {
-    expect(selectStagingCuration(env)).toEqual({ ...expected, supplementWordSources: false });
+    expect(selectStagingCuration(env)).toEqual({
+      ...expected,
+      supplementWordSources: false,
+      sourceOnly: false,
+    });
   });
   it("requires an explicit source-supplement opt-in with vocabulary enabled", () => {
     expect(selectStagingCuration({ WORD_BATCH: WORDS, SUPPLEMENT_WORD_SOURCES: "true" })).toEqual({
       applyKanji: false,
       applyWords: true,
       supplementWordSources: true,
+      sourceOnly: false,
     });
   });
   it("accepts explicit distinct word selections without also selecting kanji", () => {
@@ -37,6 +42,7 @@ describe("explicit staging curation selection", () => {
       applyKanji: false,
       applyWords: true,
       supplementWordSources: false,
+      sourceOnly: false,
     });
   });
 
@@ -57,6 +63,14 @@ describe("explicit staging curation selection", () => {
     { WORD_BATCH: `${WORDS},${WORDS}` },
     { WORD_BATCH: `${WORDS},` },
     { WORD_BATCH: `${WORDS},../secret` },
+    { CURATION_MODE: "apply_sources" },
+    { CURATION_MODE: "plan_sources", KANJI_BATCH: KANJI, WORD_BATCH: WORDS },
+    { CURATION_MODE: "apply_sources", WORD_BATCH: WORDS, SKIP_WORDS: "true" },
+    { CURATION_MODE: "apply_sources", WORD_BATCH: WORDS, SUPPLEMENT_WORD_SOURCES: "true" },
+    { CURATION_MODE: "apply_sources", WORD_BATCH: WORDS, SOURCE_PAIR_LIMIT: "101" },
+    { CURATION_MODE: "plan_sources", WORD_BATCH: WORDS, SOURCE_PAIR_LIMIT: "0" },
+    { CURATION_MODE: "plan_sources", WORD_BATCH: WORDS, SOURCE_PAIR_LIMIT: "5.2" },
+    { CURATION_MODE: "apply", WORD_BATCH: WORDS, SOURCE_PAIR_LIMIT: "50" },
     { WORD_BATCH: Array.from({ length: 41 }, (_, i) => `word-${i}`).join(",") },
   ])("fails ambiguous or unsafe input before database work: %j", (env) => {
     expect(() => selectStagingCuration(env)).toThrow("Invalid staging curation selection.");
@@ -75,6 +89,7 @@ describe("explicit staging curation selection", () => {
     expect(selectStagingCuration({ ...env, CURATION_MODE: "apply" })).toEqual({
       ...expected,
       supplementWordSources: false,
+      sourceOnly: false,
     });
   });
   it.each([22, 40])("accepts a bounded %s-manifest level-aligned block", (count) => {
@@ -82,7 +97,22 @@ describe("explicit staging curation selection", () => {
       selectStagingCuration({
         WORD_BATCH: Array.from({ length: count }, (_, i) => `word-${i}`).join(","),
       }),
-    ).toEqual({ applyKanji: false, applyWords: true, supplementWordSources: false });
+    ).toEqual({
+      applyKanji: false,
+      applyWords: true,
+      supplementWordSources: false,
+      sourceOnly: false,
+    });
+  });
+  it.each(["plan_sources", "apply_sources"])("isolates %s from teaching writes", (mode) => {
+    expect(
+      selectStagingCuration({ CURATION_MODE: mode, WORD_BATCH: WORDS, SOURCE_PAIR_LIMIT: "50" }),
+    ).toEqual({
+      applyKanji: false,
+      applyWords: false,
+      supplementWordSources: true,
+      sourceOnly: true,
+    });
   });
   it("defaults the workflow to read-only and scopes secrets away from installation", () => {
     const workflow = readFileSync(
@@ -108,6 +138,11 @@ describe("explicit staging curation selection", () => {
       .split("\n      - name:")[0]!;
     expect(readOnlyWords).toContain("inputs.mode == 'plan'");
     expect(readOnlyWords).toContain("npm run db:curate:words -- --preflight-only");
+    const sourceApply = workflow
+      .split("- name: Apply missing reviewed word sources")[1]!
+      .split("\n      - name:")[0]!;
+    expect(sourceApply).toContain("inputs.mode == 'apply_sources'");
+    expect(sourceApply).toContain('--max-pairs "$SOURCE_PAIR_LIMIT"');
   });
 
   it("emits only fixed boolean outputs, not batch inputs or unrelated credentials", () => {
@@ -121,12 +156,14 @@ describe("explicit staging curation selection", () => {
         WORD_BATCH: "",
         SKIP_WORDS: "true",
         SUPPLEMENT_WORD_SOURCES: "false",
+        SOURCE_PAIR_LIMIT: "100",
+        CURATION_MODE: "plan",
         DATABASE_URL: "synthetic-private-value",
       },
     });
     expect(result.status).toBe(0);
     expect(result.stdout).toBe(
-      "apply_kanji=true\napply_words=false\nsupplement_word_sources=false\n",
+      "apply_kanji=true\napply_words=false\nsupplement_word_sources=false\nsource_only=false\n",
     );
     expect(result.stderr).toBe("");
     const failure = spawnSync(process.execPath, [script], {

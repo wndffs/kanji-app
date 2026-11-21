@@ -7,9 +7,9 @@ import { parseJmDictXml } from "../packages/content-importers/src/jmdict";
 import { SOURCE_CONTRACTS } from "./local-source-manifest.mts";
 import {
   buildReviewedSourceSupplement,
-  missingReviewedSources,
+  planReviewedSourceWindow,
   parseSourceSupplementArgs,
-  requireAbsentSupplementAliases,
+  requireAbsentSupplementPairs,
   reviewedSourceCandidates,
   selectReviewedSourceBatches,
 } from "./import-missing-reviewed-word-sources.mts";
@@ -34,10 +34,16 @@ describe("bounded missing-source supplements for reviewed words", () => {
     expect(() => reviewedSourceCandidates([{ ...batch, reviewedAt: null }])).toThrow("reviewed");
   });
   it("only requests absent pairs; existing source validation remains the curator's job", () => {
-    expect(missingReviewedSources([candidate], [observed])).toEqual([]);
-    expect(missingReviewedSources([candidate], [])).toEqual([candidate]);
+    expect(planReviewedSourceWindow([candidate], [observed])).toEqual({
+      selected: [],
+      totalMissingPairs: 0,
+    });
+    expect(planReviewedSourceWindow([candidate], [])).toEqual({
+      selected: [candidate],
+      totalMissingPairs: 1,
+    });
     expect(() =>
-      missingReviewedSources([candidate], [{ ...observed, jmdictEntryId: null }]),
+      planReviewedSourceWindow([candidate], [{ ...observed, jmdictEntryId: null }]),
     ).toThrow("conflicting source");
   });
   it("retains explicit alternate-entry IDs and does not invent exact rows for sense notes", () => {
@@ -71,25 +77,53 @@ describe("bounded missing-source supplements for reviewed words", () => {
     });
     expect(result.some((r) => r.reading === "やまやま")).toBe(false);
   });
-  it("refuses every existing alias, including published null-ID and unpublished conflicting-ID rows", () => {
-    expect(() => requireAbsentSupplementAliases([])).not.toThrow();
+  it("always refuses to overwrite an existing requested pair", () => {
+    expect(() => requireAbsentSupplementPairs([])).not.toThrow();
     for (const row of [
       { id: "fixture-published", jmdictEntryId: null, status: "PUBLISHED" },
       { id: "fixture-other-source", jmdictEntryId: "jmdict:999", status: "DRAFT" },
       { id: "fixture-same-source", jmdictEntryId: candidate.jmdictEntryId },
     ])
-      expect(() => requireAbsentSupplementAliases([row])).toThrow("insert-only");
+      expect(() => requireAbsentSupplementPairs([row])).toThrow("insert-only");
+  });
+  it("stops on matching rows left without successful provenance by an earlier import", () => {
+    for (const status of [null, "PENDING", "FAILED"])
+      expect(() =>
+        planReviewedSourceWindow([candidate], [{ ...observed, importStatus: status }], 1),
+      ).toThrow("incomplete import provenance");
+    expect(
+      planReviewedSourceWindow([candidate], [{ ...observed, importStatus: "SUCCESS" }], 1),
+    ).toMatchObject({ selected: [], totalMissingPairs: 0 });
   });
   it("refuses source identity conflicts and oversized backfills rather than silently importing everything", () => {
     expect(() =>
-      missingReviewedSources([candidate], [{ ...observed, jmdictEntryId: "jmdict:1" }]),
+      planReviewedSourceWindow([candidate], [{ ...observed, jmdictEntryId: "jmdict:1" }]),
     ).toThrow("conflicting source");
     expect(() =>
-      missingReviewedSources(
+      planReviewedSourceWindow(
         Array.from({ length: 101 }, (_, i) => ({ ...candidate, expression: `fixture-${i}` })),
         [],
       ),
     ).toThrow("100 pairs");
+  });
+  it("reconciles missing exact pairs across bounded source-only windows and checks conflicts outside the next window", () => {
+    const candidates = Array.from({ length: 134 }, (_, index) => ({
+      ...candidate,
+      expression: `fixture-${index}`,
+    }));
+    const first = planReviewedSourceWindow(candidates, [], 100);
+    expect(first).toEqual({ selected: candidates.slice(0, 100), totalMissingPairs: 134 });
+    const second = planReviewedSourceWindow(candidates, [...first.selected].reverse(), 100);
+    expect(second).toEqual({ selected: candidates.slice(100), totalMissingPairs: 34 });
+    expect(planReviewedSourceWindow(candidates, [...first.selected, ...second.selected])).toEqual({
+      selected: [],
+      totalMissingPairs: 0,
+    });
+    expect(() => planReviewedSourceWindow(candidates, [], 0)).toThrow("1-100");
+    expect(() => planReviewedSourceWindow(candidates, [], 101)).toThrow("1-100");
+    expect(() =>
+      planReviewedSourceWindow(candidates, [{ ...candidates[133]!, jmdictEntryId: null }], 1),
+    ).toThrow("conflicting source");
   });
   it("derives only requested exact bilingual fixture records, with a distinct reproducible checksum", async () => {
     const path = resolve("data/fixtures/jmdict-small.xml");
@@ -110,7 +144,9 @@ describe("bounded missing-source supplements for reviewed words", () => {
     expect(parseJmDictXml(derived.xml).entries.map((entry) => entry.sourceRecordId)).toEqual([
       "jmdict:1000002",
     ]);
-    expect(derived.touchedPairs).toEqual([{ expression: "ありがとう", reading: "ありがとう" }]);
+    expect(derived.exactPairs).toEqual([
+      { expression: "ありがとう", reading: "ありがとう", sourceRecordId: "jmdict:1000002" },
+    ]);
     expect(derived.checksumSha256).not.toBe(source.contentSha256);
     expect(await buildReviewedSourceSupplement(source, wanted)).toEqual(derived);
     await expect(
@@ -137,7 +173,13 @@ describe("bounded missing-source supplements for reviewed words", () => {
       apply: true,
       batchIds: ["reviewed-01", "reviewed-02"],
     });
-    for (const args of [
+    expect(parseSourceSupplementArgs([...args, "--max-pairs", "60"])).toEqual({
+      directory: path,
+      apply: false,
+      batchIds: ["reviewed-01"],
+      maxPairs: 60,
+    });
+    for (const invalidArgs of [
       [],
       ["--apply"],
       ["--snapshot-dir", path],
@@ -146,13 +188,17 @@ describe("bounded missing-source supplements for reviewed words", () => {
       ["--snapshot-dir", path, "--batch", "reviewed-01", "--apply", "--apply"],
       ["--snapshot-dir", path, "--batch", "reviewed-01", "--batch", "reviewed-01"],
       ["--snapshot-dir", path, "--batch", "reviewed-01,reviewed-02"],
+      [...args, "--max-pairs", "0"],
+      [...args, "--max-pairs", "101"],
+      [...args, "--max-pairs", "2.5"],
+      [...args, "--max-pairs", "1", "--max-pairs", "2"],
       [
         "--snapshot-dir",
         path,
         ...Array.from({ length: 41 }, (_, i) => ["--batch", `reviewed-${i}`]).flat(),
       ],
     ])
-      expect(() => parseSourceSupplementArgs(args)).toThrow("Usage");
+      expect(() => parseSourceSupplementArgs(invalidArgs)).toThrow("Usage");
   });
 
   it("derives evidence only for selected reviewed batches in stable registry order", () => {
