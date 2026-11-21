@@ -132,6 +132,41 @@ describe("word primary meanings in item hydration", () => {
     );
   });
 
+  it("uses the authored primary for 安心 in detail and search, preserving accepted synonyms", async () => {
+    const h = harness();
+    Object.assign(h.item, { title: "安心" });
+    Object.assign(h.word, { expression: "安心", reading: "あんしん" });
+    h.word.senses = [
+      sense("душевный покой", "ru-RU", "PROJECT_AUTHORED"),
+      sense("спокойствие", "ru-RU", "PROJECT_AUTHORED"),
+      sense("peace of mind", "en-US", "PROJECT_AUTHORED"),
+      sense("relief", "en-US", "PROJECT_AUTHORED"),
+    ];
+    h.meaningCard.answers = [
+      answer("душевный покой", "ru-RU", false, "PROJECT_AUTHORED"),
+      answer("спокойствие", "ru-RU", true, "PROJECT_AUTHORED"),
+      answer("peace of mind", "en-US", true, "PROJECT_AUTHORED"),
+      answer("relief", "en-US", false, "PROJECT_AUTHORED"),
+    ];
+    const details = await h.service.getItemDetails(h.item.id, null);
+    h.db.$queryRaw.mockResolvedValueOnce([{ ids: [h.item.id], total: 1n }]);
+    const search = await h.service.search({ q: "安心" }, null);
+
+    expect(details.translations).toMatchObject({
+      primaryRu: "спокойствие",
+      primaryEn: "peace of mind",
+    });
+    expect(search.items[0]?.translations).toEqual(details.translations);
+    expect(details.translations.ru).toEqual([
+      { locale: "ru-RU", text: "душевный покой", isPrimary: false },
+      { locale: "ru-RU", text: "спокойствие", isPrimary: true },
+    ]);
+    expect(details.translations.en.map((entry) => entry.text)).toEqual(["peace of mind", "relief"]);
+    expect(details.cards[0]?.acceptedAnswers).toContainEqual(
+      expect.objectContaining({ text: "душевный покой", isPrimary: false }),
+    );
+  });
+
   it("does not re-rank the accepted teaching scope by dictionary source kind", async () => {
     const h = harness();
     h.meaningCard.answers = h.meaningCard.answers.map((entry) => ({
