@@ -34,8 +34,8 @@ describe("single full-course completion content block", () => {
     expect(report.prepared.distinctTotals.kanji).toBe(2300);
     expect(report.prepared.reviewedDistinctTotals.kanji).toBe(2300);
     expect(report.prepared.pendingReviewDistinctTotals.kanji).toBe(0);
-    expect(report.prepared.distinctTotals.words).toBe(5880);
-    expect(report.prepared.reviewedDistinctTotals.words).toBe(5880);
+    expect(report.prepared.distinctTotals.words).toBe(6580);
+    expect(report.prepared.reviewedDistinctTotals.words).toBe(6580);
     expect(result.stdout).toBe(runEditorialRegistryInventory(["--json"]).stdout);
     expect(report.sourceSeals.every((seal: { status: string }) => seal.status === "complete")).toBe(
       true,

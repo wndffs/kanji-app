@@ -14,6 +14,7 @@ import { CONSOLIDATION_KANJI_BATCH, consolidationWords } from "./course-consolid
 import { EXTENSION_KANJI_BATCH, extensionWords } from "./course-extension-content";
 import { FINALIZATION_KANJI_BATCH, finalizationWords } from "./course-finalization-content";
 import { CLOSURE_KANJI_BATCH, closureWords } from "./course-closure-content";
+import { firstSupplementalWords } from "./course-supplemental-content";
 import { buildMainCourseContentBatches } from "./main-course-content";
 
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
@@ -1236,7 +1237,8 @@ function assembleMainCourseWordBatches(): readonly MainCourseWordBatch[] {
   ];
   const preFinalization = [...preExtension, ...extensionWords(preFinalizationKanji, preExtension)];
   const preClosure = [...preFinalization, ...finalizationWords(preClosureKanji, preFinalization)];
-  return [...preClosure, ...closureWords(kanji, preClosure)];
+  const preSupplemental = [...preClosure, ...closureWords(kanji, preClosure)];
+  return [...preSupplemental, ...firstSupplementalWords(kanji, preSupplemental)];
 }
 
 export function mainCourseWordBatchChecksum(batch: MainCourseWordBatch): string {

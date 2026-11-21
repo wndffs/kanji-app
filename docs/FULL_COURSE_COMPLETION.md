@@ -1010,3 +1010,22 @@ registry is not a live publication receipt.
   outstanding releases through Closure: **8,424 targets / 16,604 core
   cards**. Confirm live counts and preservation separately; keep main
   DRAFT and do not change enrollment or learner progress.
+
+## Supplemental Vocabulary, First Block: 2026-11-21
+
+Adds **700 original RU/EN words and JP/kana/RU/EN examples**, increasing
+the reviewed registry to **2,300 kanji / 6,580 words / 244 components**.
+The remaining goal is **1,420 words**. This is not a Neon publication.
+
+- Independent AI reviewers checked all 700 cards. **704 exact bilingual
+  JMdict pairs** passed, including four alternate readings. New words
+  start after all expression and example kanji; a soft load target of 160
+  words per level avoids adding to already crowded levels. No previous
+  course positions or version seals changed.
+- Seal `805745e95225a5295689c1f8bfa2b830f98153d0e411397fb80c58e7904b9104`.
+  After Closure and prior blocks succeed, plan and apply the **35**
+  explicit `full-course-vocabulary-supplemental-first-01` through `-35`
+  manifests, using bounded exact-source supplements where needed.
+  Expected after all outstanding releases through this block:
+  **9,124 teaching targets / 18,004 core cards**. Verify aggregate
+  provenance and preservation before declaring this set live.
