@@ -21,7 +21,9 @@ export function selectStagingCuration(env = process.env) {
     !["true", "false"].includes(skipWords) ||
     !["plan", "apply"].includes(mode) ||
     !["true", "false"].includes(supplement) ||
-    (supplement === "true" && skipWords === "true") ||
+    (supplement === "true" && words === "") ||
+    // An empty vocabulary selection means all manifests in plan mode only.
+    (mode === "apply" && words === "" && skipWords !== "true") ||
     (skipWords === "true" && (kanji === "" || words !== ""))
   )
     throw new Error("Invalid staging curation selection.");

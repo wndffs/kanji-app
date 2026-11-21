@@ -41,6 +41,9 @@ describe("explicit staging curation selection", () => {
   });
 
   it.each([
+    { CURATION_MODE: "apply" },
+    { CURATION_MODE: "apply", KANJI_BATCH: KANJI },
+    { SUPPLEMENT_WORD_SOURCES: "true" },
     { SKIP_WORDS: "true" },
     { CURATION_MODE: "publish" },
     { CURATION_MODE: "apply\nsecret=value" },
@@ -57,6 +60,22 @@ describe("explicit staging curation selection", () => {
     { WORD_BATCH: Array.from({ length: 41 }, (_, i) => `word-${i}`).join(",") },
   ])("fails ambiguous or unsafe input before database work: %j", (env) => {
     expect(() => selectStagingCuration(env)).toThrow("Invalid staging curation selection.");
+  });
+  it.each([
+    [{ WORD_BATCH: WORDS }, { applyKanji: false, applyWords: true }],
+    [
+      { KANJI_BATCH: KANJI, SKIP_WORDS: "true" },
+      { applyKanji: true, applyWords: false },
+    ],
+    [
+      { KANJI_BATCH: KANJI, WORD_BATCH: WORDS },
+      { applyKanji: true, applyWords: true },
+    ],
+  ])("only applies scopes explicitly selected for writes: %j", (env, expected) => {
+    expect(selectStagingCuration({ ...env, CURATION_MODE: "apply" })).toEqual({
+      ...expected,
+      supplementWordSources: false,
+    });
   });
   it.each([22, 40])("accepts a bounded %s-manifest level-aligned block", (count) => {
     expect(

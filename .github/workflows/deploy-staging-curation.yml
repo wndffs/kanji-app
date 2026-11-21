@@ -16,7 +16,7 @@ on:
         required: false
         type: string
       word_batch:
-        description: Optional registered word batch IDs, comma-separated (empty reapplies all curation)
+        description: Explicit registered word batch IDs, comma-separated (empty only for plan or kanji-only)
         required: false
         type: string
       skip_words:
