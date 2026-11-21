@@ -1,0 +1,1092 @@
+import type { ExpansionReinforcementRow } from "./course-expansion-content-types";
+
+export const COURSE_FINALIZATION_REINFORCEMENT_A: readonly ExpansionReinforcementRow[] = [
+  [
+    [
+      "狙",
+      "ねら.う",
+      ["⺨", "且", "月"],
+      ["целиться", "нацеливаться", "выслеживать"],
+      ["aim at", "target", "stalk"],
+      [
+        "У формы зверя ⺨ представьте взгляд, прикованный к одной выбранной точке.",
+        "At ⺨, picture an animal keeping its eyes on one chosen spot.",
+      ],
+    ],
+    [0, 0],
+    [
+      "狙う",
+      "ねらう",
+      "1396590",
+      ["целиться", "нацеливаться", "метить", "стремиться заполучить"],
+      ["aim at", "target", "aim for", "set one's sights on"],
+      [
+        "Удерживать цель в поле внимания, буквально или образно. Не случайно получить желаемое.",
+        "Keep a target in mind, literally or figuratively, rather than achieving it by chance.",
+      ],
+      [
+        "Участник соревнования уже решил, что будет бороться за первое место.",
+        "A competitor has decided to aim for first place.",
+      ],
+      [
+        "次の大会では優勝を狙う。",
+        "つぎのたいかいではゆうしょうをねらう。",
+        "На следующем турнире я нацелен на победу.",
+        "I'm aiming to win the next tournament.",
+      ],
+      { partOfSpeech: "verb" },
+    ],
+  ],
+  [
+    [
+      "襲",
+      "おそ.う",
+      ["衣", "立", "月"],
+      ["нападать", "обрушиваться", "настигать"],
+      ["attack", "assail", "strike"],
+      [
+        "Вообразите, как верхняя тяжёлая форма обрушивается на одежду 衣 снизу.",
+        "Picture the heavy shape at the top bearing down on 衣 below.",
+      ],
+    ],
+    [0, 0],
+    [
+      "襲う",
+      "おそう",
+      "1333330",
+      ["нападать", "обрушиваться", "внезапно охватывать"],
+      ["attack", "strike", "assail", "come over suddenly"],
+      [
+        "Внезапно напасть, обрушиться или охватить: так можно сказать и о сонливости.",
+        "Attack, strike or come over someone suddenly; sleepiness can also be the subject.",
+      ],
+      [
+        "После долгой работы человека внезапно клонит в сон.",
+        "Sleepiness comes over someone suddenly after a long period of work.",
+      ],
+      [
+        "午後になると強い眠気が私を襲う。",
+        "ごごになるとつよいねむけがわたしをおそう。",
+        "Во второй половине дня меня одолевает сонливость.",
+        "In the afternoon, a wave of drowsiness hits me.",
+      ],
+      { partOfSpeech: "verb" },
+    ],
+  ],
+  [
+    [
+      "閥",
+      "バツ",
+      ["門", "戈", "弋"],
+      ["группировка", "клика", "фракция"],
+      ["clique", "faction", "group"],
+      [
+        "За створками 門 представьте тесный круг, в который не допускают посторонних.",
+        "Behind 門, picture a close group that keeps outsiders from entering.",
+      ],
+    ],
+    [1, 1],
+    [
+      "派閥",
+      "はばつ",
+      "1471180",
+      ["фракция", "группировка", "клика"],
+      ["faction", "clique", "internal group"],
+      [
+        "Замкнутая группа внутри организации или движения, часто со своими интересами.",
+        "A distinct group within a larger organisation or movement, often with interests of its own.",
+      ],
+      [
+        "В одной организации две группы спорят, кто будет задавать курс.",
+        "Two groups inside one organisation dispute who should decide its course.",
+      ],
+      [
+        "党の中にいくつかの派閥がある。",
+        "とうのなかにいくつかのはばつがある。",
+        "Внутри партии есть несколько фракций.",
+        "There are several factions within the party.",
+      ],
+    ],
+  ],
+  [
+    [
+      "脅",
+      "おど.す",
+      ["力", "月"],
+      ["угрожать", "запугивать"],
+      ["threaten", "intimidate"],
+      [
+        "Густую группу 力 мысленно окружите тревожным шумом: кто-то пытается напугать другого.",
+        "Around the clustered 力 shapes, imagine threatening noise meant to frighten someone.",
+      ],
+    ],
+    [0, 0],
+    [
+      "脅す",
+      "おどす",
+      "1238070",
+      ["угрожать", "пугать угрозами", "запугивать"],
+      ["threaten", "intimidate", "make threats"],
+      [
+        "Пугать угрозой, иногда чтобы заставить сделать что-либо. Не просто удивлять.",
+        "Frighten someone with a threat, sometimes to pressure them into acting. Not mere surprise.",
+      ],
+      [
+        "Человека пытаются заставить согласиться, пугая последствиями отказа.",
+        "Someone is pressured into agreeing by threats about the consequences of refusal.",
+      ],
+      [
+        "相手を脅すのはやめてほしい。",
+        "あいてをおどすのはやめてほしい。",
+        "Я хочу, чтобы ты перестал угрожать собеседнику.",
+        "I want you to stop threatening the other person.",
+      ],
+      { partOfSpeech: "verb" },
+    ],
+  ],
+  [
+    [
+      "茂",
+      "しげ.る",
+      ["艹", "丿", "厂"],
+      ["густо расти", "разрастаться", "буять"],
+      ["grow thick", "grow lush", "thrive"],
+      [
+        "Из верхней формы 艹 вырастите столько воображаемых веток, что они прикроют навес 厂.",
+        "Let enough branches grow from 艹 to cover the sloping canopy 厂.",
+      ],
+    ],
+    [0, 0],
+    [
+      "茂る",
+      "しげる",
+      "1533740",
+      ["густо расти", "разрастаться", "пышно расти"],
+      ["grow thickly", "grow lush"],
+      [
+        "О густом росте травы, ветвей или листьев. Подлежащее — сама растительность.",
+        "Used when grass, branches or leaves grow thick; the plants themselves are the subject.",
+      ],
+      [
+        "За лето негустой куст становится сплошной зелёной стеной.",
+        "Over summer a sparse bush turns into a wall of greenery.",
+      ],
+      [
+        "夏になると道の両側に草が茂る。",
+        "なつになるとみちのりょうがわにくさがしげる。",
+        "Летом трава густо разрастается по обеим сторонам дороги.",
+        "In summer grass grows thick on both sides of the road.",
+      ],
+      { partOfSpeech: "verb" },
+    ],
+  ],
+  [
+    [
+      "茨",
+      "いばら",
+      ["艹", "冫", "欠"],
+      ["колючий кустарник", "терновник"],
+      ["briar", "thorn bush", "bramble"],
+      [
+        "Под верхом 艹 представьте зацепившуюся за рукав колючую ветку.",
+        "Beneath 艹, picture a thorny branch catching on a sleeve.",
+      ],
+    ],
+    [0, 0],
+    [
+      "茨",
+      "いばら",
+      "1167940",
+      ["колючий кустарник", "терновник", "колючие заросли"],
+      ["briar", "bramble", "thorn bush"],
+      [
+        "Общее обозначение колючих кустов или их ветвей; не обязательно один ботанический вид.",
+        "A general name for thorny bushes or their branches, not necessarily a single species.",
+      ],
+      ["К краю тропы подступают колючие заросли.", "Thorny bushes crowd the edge of a path."],
+      [
+        "道のわきに茨が生えている。",
+        "みちのわきにいばらがはえている。",
+        "У края дороги растут колючие кусты.",
+        "Briars are growing at the side of the road.",
+      ],
+    ],
+  ],
+  [
+    [
+      "潟",
+      "かた",
+      ["氵", "灬"],
+      ["лагуна", "прибрежное мелководье"],
+      ["lagoon", "tidal inlet"],
+      [
+        "Слева видны капли 氵. У нижних точек вообразите песок, отделивший неглубокую воду от моря.",
+        "Use 氵 for water and the dots at the bottom for sand separating shallow water from the sea.",
+      ],
+    ],
+    [0, 0],
+    [
+      "潟",
+      "かた",
+      "1207710",
+      ["лагуна", "мелководный прибрежный залив"],
+      ["lagoon", "tidal lagoon"],
+      [
+        "Неглубокая прибрежная вода, часто частично отделённая от моря.",
+        "A shallow body of water at the coast, often partly separated from the sea.",
+      ],
+      [
+        "Часть морской воды отделена от открытого моря полосой песка.",
+        "A strip of sand partly separates the water from the open sea.",
+      ],
+      [
+        "潟の水は浅かった。",
+        "かたのみずはあさかった。",
+        "Вода в лагуне была мелкой.",
+        "The water in the lagoon was shallow.",
+      ],
+    ],
+  ],
+  [
+    [
+      "噴",
+      "フン",
+      ["口", "十", "貝"],
+      ["извергать", "бить струёй", "выплёскивать"],
+      ["erupt", "spout", "gush out"],
+      [
+        "Через контур 口 вообразите поток, вырывающийся из тесного отверстия.",
+        "At 口, imagine a stream bursting through a narrow opening.",
+      ],
+    ],
+    [0, 0],
+    [
+      "噴火",
+      "ふんか",
+      "1504560",
+      ["извержение вулкана", "вулканическое извержение", "извержение"],
+      ["volcanic eruption", "eruption"],
+      [
+        "Выброс вещества и газов из вулкана. Не просто распространение огня.",
+        "An eruption of material and gases from a volcano, not simply a fire spreading.",
+      ],
+      ["Люди видят облако пепла над вулканом.", "People see an ash cloud above a volcano."],
+      [
+        "島の山で噴火が起こった。",
+        "しまのやまでふんかがおこった。",
+        "На горе на острове произошло извержение.",
+        "An eruption took place on the island's mountain.",
+      ],
+    ],
+  ],
+  [
+    [
+      "誇",
+      "ほこ.る",
+      ["言", "大", "二"],
+      ["гордиться", "похваляться"],
+      ["be proud", "boast"],
+      [
+        "Крупное 大 вообразите поводом для гордости, о котором говорят у 言.",
+        "Use 大 for a source of pride someone speaks about at 言.",
+      ],
+    ],
+    [0, 0],
+    [
+      "誇る",
+      "ほこる",
+      "1267760",
+      ["гордиться", "гордиться достижением", "похваляться", "славиться"],
+      ["be proud of", "boast of", "take pride in"],
+      [
+        "Испытывать гордость или иметь что-то достойное гордости; не обязательно хвастаться собеседнику.",
+        "Take pride in something or have something worth being proud of; not necessarily showing off to someone.",
+      ],
+      ["Город гордится своей старой библиотекой.", "A town takes pride in its old library."],
+      [
+        "この町が誇る古い図書館を訪ねた。",
+        "このまちがほこるふるいとしょかんをたずねた。",
+        "Я побывал в старой библиотеке, которой гордится этот город.",
+        "I visited the old library the town takes pride in.",
+      ],
+      { partOfSpeech: "verb" },
+    ],
+  ],
+  [
+    [
+      "祥",
+      "ショウ",
+      ["礻", "羊"],
+      ["доброе предзнаменование", "счастливый знак"],
+      ["auspicious sign", "good omen"],
+      [
+        "У формы 礻 вообразите отметку, которую заметили перед удачным событием.",
+        "At 礻, imagine a small mark noticed before a fortunate event.",
+      ],
+    ],
+    [1, 1],
+    [
+      "不祥事",
+      "ふしょうじ",
+      "1492930",
+      ["скандал", "позорное происшествие", "служебный скандал"],
+      ["scandal", "disgraceful incident", "misconduct scandal"],
+      [
+        "Постыдное происшествие или проступок, о котором становится известно, часто в организации.",
+        "A disgraceful incident or misconduct made known, often involving an organisation.",
+      ],
+      [
+        "В учреждении обнаруживают серьёзный проступок и начинают проверку.",
+        "An institution discovers serious misconduct and starts an inquiry.",
+      ],
+      [
+        "会社の不祥事が明らかになった。",
+        "かいしゃのふしょうじがあきらかになった。",
+        "В компании вскрылся скандал.",
+        "A scandal at the company came to light.",
+      ],
+    ],
+  ],
+  [
+    [
+      "帝",
+      "テイ",
+      ["亠", "冖", "巾"],
+      ["император", "верховный правитель"],
+      ["emperor", "sovereign"],
+      [
+        "Под верхним навесом 冖 представьте церемониальное полотнище 巾 над троном.",
+        "Picture a ceremonial banner 巾 under 冖 and above a throne.",
+      ],
+    ],
+    [0, 0],
+    [
+      "帝国",
+      "ていこく",
+      "1435920",
+      ["империя"],
+      ["empire"],
+      [
+        "Империя как государство или политическое объединение. Не титул императора.",
+        "An empire as a state or political entity, not the title of an emperor.",
+      ],
+      [
+        "На старой карте отмечены границы большой империи.",
+        "An old map shows the boundaries of a large empire.",
+      ],
+      [
+        "その帝国は広い土地を支配した。",
+        "そのていこくはひろいとちをしはいした。",
+        "Та империя управляла обширной территорией.",
+        "That empire ruled a large territory.",
+      ],
+      { partOfSpeech: "noun", blockedRu: ["император"], blockedEn: ["emperor"] },
+    ],
+  ],
+  [
+    [
+      "唆",
+      "サ",
+      ["口", "厶", "儿"],
+      ["подстрекать", "побуждать", "намекать"],
+      ["instigate", "incite", "suggest"],
+      [
+        "От рта 口 вообразите слова, которые направляют чужую мысль или поступок в нужную сторону.",
+        "From 口, picture words nudging another person's thoughts or actions in a direction.",
+      ],
+    ],
+    [1, 1],
+    [
+      "示唆",
+      "しさ",
+      "1317130",
+      ["намёк", "косвенное указание", "косвенно указывать"],
+      ["indication", "suggestion", "implication"],
+      [
+        "Косвенно показать, что нечто возможно или вероятно, вместо прямого утверждения.",
+        "Point indirectly toward a possibility or conclusion rather than stating it outright.",
+      ],
+      [
+        "Данные не доказывают вывод, но указывают, в каком направлении смотреть.",
+        "The data do not prove a conclusion but point toward one.",
+      ],
+      [
+        "この結果は大きな変化を示唆している。",
+        "このけっかはおおきなへんかをしさしている。",
+        "Этот результат указывает на возможность серьёзных изменений.",
+        "This result suggests a major change.",
+      ],
+    ],
+  ],
+  [
+    [
+      "阻",
+      "ソ",
+      ["且"],
+      ["препятствовать", "преграждать"],
+      ["block", "hinder", "obstruct"],
+      [
+        "Поставьте воображаемую перегородку 且 на узком месте, чтобы никто не прошёл.",
+        "Set the imagined barrier 且 across a narrow place to block the way.",
+      ],
+    ],
+    [0, 0],
+    [
+      "阻止",
+      "そし",
+      "1397820",
+      ["предотвращение", "пресечение", "предотвращать", "пресекать"],
+      ["prevention", "prevent", "stop from happening", "block"],
+      [
+        "Помешать чему-то произойти, часто активным вмешательством.",
+        "Prevent something from happening, often through active intervention.",
+      ],
+      [
+        "Люди вовремя замечают опасность и не дают происшествию случиться.",
+        "People spot the danger in time and prevent an incident.",
+      ],
+      [
+        "事故を阻止するために声を上げた。",
+        "じこをそしするためにこえをあげた。",
+        "Я крикнул, чтобы предотвратить происшествие.",
+        "I shouted to prevent an accident.",
+      ],
+    ],
+  ],
+  [
+    [
+      "乳",
+      "ニュウ",
+      ["⺤", "子"],
+      ["молоко", "грудь", "материнское молоко"],
+      ["milk", "breast", "breast milk"],
+      [
+        "У формы ребёнка 子 вообразите первую пищу младенца.",
+        "By the child shape 子, picture a baby's first food.",
+      ],
+    ],
+    [1, 3],
+    [
+      "牛乳",
+      "ぎゅうにゅう",
+      "1231590",
+      ["коровье молоко", "молоко коровы", "молоко"],
+      ["cow's milk", "cow milk", "milk"],
+      [
+        "Молоко коровы; не любое молоко по происхождению.",
+        "Milk from a cow, rather than milk of any origin.",
+      ],
+      [
+        "Перед выпечкой в тесто добавляют немного молока.",
+        "A little milk goes into the batter before baking.",
+      ],
+      [
+        "朝は牛乳を一杯飲む。",
+        "あさはぎゅうにゅうをいっぱいのむ。",
+        "Утром я выпиваю стакан молока.",
+        "I drink a glass of milk in the morning.",
+      ],
+    ],
+  ],
+  [
+    [
+      "縁",
+      "ふち",
+      ["糸", "彑", "豕"],
+      ["край", "ободок", "связь"],
+      ["edge", "rim", "connection"],
+      [
+        "Вытяните нить 糸 вдоль контура предмета, чтобы отметить его край.",
+        "Stretch the thread 糸 along the outline of an object to mark its edge.",
+      ],
+    ],
+    [0, 0],
+    [
+      "縁",
+      "ふち",
+      "1177500",
+      ["край", "ободок", "кромка"],
+      ["edge", "rim", "border"],
+      [
+        "Край предмета, например чашки. Другое чтение えん часто означает связь или знакомство.",
+        "The edge of an object such as a cup. The reading えん often refers to a connection instead.",
+      ],
+      [
+        "По краю тарелки идёт тонкая синяя полоса.",
+        "A thin blue stripe runs along the rim of a plate.",
+      ],
+      [
+        "皿の縁に小さな傷があった。",
+        "さらのふちにちいさなきずがあった。",
+        "На краю тарелки была маленькая царапина.",
+        "There was a small scratch on the rim of the plate.",
+      ],
+      { partOfSpeech: "noun", blockedRu: ["судьба"], blockedEn: ["fate"] },
+    ],
+  ],
+  [
+    [
+      "唯",
+      "ユイ",
+      ["口", "隹"],
+      ["только", "единственно"],
+      ["only", "solely", "merely"],
+      [
+        "У формы 口 произнесите одно имя и мысленно исключите все остальные.",
+        "At 口, say just one name and set all the others aside.",
+      ],
+    ],
+    [0, 0],
+    [
+      "唯一",
+      "ゆいいつ",
+      "1538920",
+      ["единственный", "один-единственный"],
+      ["only", "sole", "one and only"],
+      [
+        "Указывает, что второго экземпляра или варианта нет.",
+        "Indicates that there is no second example or option.",
+      ],
+      ["Из нескольких дорог только одна ещё открыта.", "Only one of several roads is still open."],
+      [
+        "これが唯一の方法だ。",
+        "これがゆいいつのほうほうだ。",
+        "Это единственный способ.",
+        "This is the only way.",
+      ],
+    ],
+  ],
+  [
+    [
+      "膨",
+      "ボウ",
+      ["月", "吉", "彡"],
+      ["надуваться", "увеличиваться в объёме", "раздуваться"],
+      ["swell", "expand", "inflate"],
+      [
+        "Изгиб 月 вообразите оболочкой, которая выпирает сильнее с каждым штрихом 彡.",
+        "Picture 月 as a surface bulging farther out with each stroke of 彡.",
+      ],
+    ],
+    [0, 0],
+    [
+      "膨大",
+      "ぼうだい",
+      "1603660",
+      ["огромный", "громадный", "колоссальный"],
+      ["enormous", "immense", "vast"],
+      [
+        "Об очень большом количестве или масштабе, например данных или работы.",
+        "Of a very large amount or scale, such as data or work.",
+      ],
+      [
+        "Объём собранных данных оказался намного больше ожидаемого.",
+        "The data collected turn out to be far greater in volume than expected.",
+      ],
+      [
+        "膨大な資料を整理している。",
+        "ぼうだいなしりょうをせいりしている。",
+        "Я разбираю огромный объём материалов.",
+        "I'm sorting through a vast amount of material.",
+      ],
+      { partOfSpeech: "na-adjective" },
+    ],
+  ],
+  [
+    [
+      "矢",
+      "や",
+      ["大"],
+      ["стрела"],
+      ["arrow"],
+      [
+        "Пусть нижние расходящиеся линии 大 станут воображаемым оперением стрелы.",
+        "Use the diverging lower lines of 大 as imagined arrow fletching.",
+      ],
+    ],
+    [0, 0],
+    [
+      "矢",
+      "や",
+      "1537760",
+      ["стрела", "стрелы"],
+      ["arrow", "arrows"],
+      [
+        "Стрела для лука; для графической стрелки обычно 矢印.",
+        "An arrow used with a bow. A graphic arrow sign is usually 矢印.",
+      ],
+      ["Старая стрела выставлена рядом с луком.", "An old arrow is on display beside a bow."],
+      [
+        "古い矢を箱に入れた。",
+        "ふるいやをはこにいれた。",
+        "Я положил старую стрелу в коробку.",
+        "I put the old arrow in a box.",
+      ],
+    ],
+  ],
+  [
+    [
+      "耐",
+      "た.える",
+      ["寸"],
+      ["выдерживать", "выносить", "терпеть"],
+      ["endure", "withstand", "bear"],
+      [
+        "У формы 寸 представьте мерку давления, которое предмет способен выдержать.",
+        "At 寸, picture a measure of the pressure an object can withstand.",
+      ],
+    ],
+    [0, 0],
+    [
+      "耐える",
+      "たえる",
+      "1211310",
+      ["выдерживать", "выдержать", "переносить", "терпеть"],
+      ["endure", "withstand", "bear", "put up with"],
+      [
+        "Выдерживать нагрузку, воздействие или трудность. Прекращаться — другой омоним, 絶える.",
+        "Endure a load, outside force or difficulty. The homophone 絶える means to cease.",
+      ],
+      [
+        "Материал сохраняет форму после долгого воздействия жары.",
+        "A material retains its shape after prolonged exposure to heat.",
+      ],
+      [
+        "この材料は高い温度に耐える。",
+        "このざいりょうはたかいおんどにたえる。",
+        "Этот материал выдерживает высокую температуру.",
+        "This material can withstand high temperatures.",
+      ],
+      { partOfSpeech: "verb", blockedRu: ["прекращаться"], blockedEn: ["cease"] },
+    ],
+  ],
+  [
+    [
+      "漏",
+      "も.れる",
+      ["氵", "尸", "雨"],
+      ["протекать", "просачиваться", "становиться известным"],
+      ["leak", "seep out", "get out"],
+      [
+        "Под навесом 尸 найдите 雨 и вообразите, как отдельные капли 氵 всё же проходят наружу.",
+        "Find 雨 under 尸 and picture individual drops 氵 still getting through.",
+      ],
+    ],
+    [0, 0],
+    [
+      "漏れる",
+      "もれる",
+      "1605330",
+      ["просачиваться", "протекать", "утекать", "просачиваться наружу"],
+      ["leak", "leak out", "seep out", "escape"],
+      [
+        "Жидкость, звук или информация выходят через щель либо становятся известны. Сам процесс, а не намеренное разглашение.",
+        "Liquid, sound or information escapes or gets out. It describes what happens, not someone deliberately disclosing it.",
+      ],
+      [
+        "Из неплотно закрытой ёмкости капает вода.",
+        "Water drips out of a container that is not properly closed.",
+      ],
+      [
+        "ふたがゆるいと水が漏れる。",
+        "ふたがゆるいとみずがもれる。",
+        "Если крышка неплотная, вода протекает.",
+        "If the lid is loose, water leaks out.",
+      ],
+      { partOfSpeech: "verb" },
+    ],
+  ],
+  [
+    [
+      "炭",
+      "タン",
+      ["山", "厂", "火"],
+      ["уголь", "древесный уголь"],
+      ["charcoal", "coal"],
+      [
+        "Под формой 山 у 火 вообразите огонь и тёмный остаток после него.",
+        "Below 山, picture a fire at 火 and the dark material left behind.",
+      ],
+    ],
+    [0, 0],
+    [
+      "炭素",
+      "たんそ",
+      "1418570",
+      ["углерод", "химический элемент углерод"],
+      ["carbon"],
+      [
+        "Химический элемент углерод. Древесный уголь — материал, а не название элемента.",
+        "The chemical element carbon. Charcoal is a material, not the element's name.",
+      ],
+      [
+        "На уроке сравнивают материалы, в состав которых входит углерод.",
+        "A class compares materials containing carbon.",
+      ],
+      [
+        "炭素は多くの物質に含まれる。",
+        "たんそはおおくのぶっしつにふくまれる。",
+        "Углерод входит в состав многих веществ.",
+        "Carbon occurs in many substances.",
+      ],
+      { partOfSpeech: "noun", blockedRu: ["уголь"], blockedEn: ["coal", "charcoal"] },
+    ],
+  ],
+  [
+    [
+      "恒",
+      "コウ",
+      ["忄", "一", "日"],
+      ["постоянный", "неизменный", "постоянство"],
+      ["constant", "steady", "unchanging"],
+      [
+        "У 日 вообразите одно и то же действие, которое повторяют каждый день по устойчивой привычке.",
+        "At 日, picture the same action repeated every day out of an enduring habit.",
+      ],
+    ],
+    [0, 0],
+    [
+      "恒例",
+      "こうれい",
+      "1278800",
+      ["установившийся обычай", "традиционное мероприятие", "по заведённому обычаю"],
+      ["established custom", "regular event", "customary practice"],
+      [
+        "Регулярно повторяемый обычай или событие, ставшее традицией.",
+        "A recurring custom or event that has become a tradition.",
+      ],
+      [
+        "Каждый год жильцы устраивают одно и то же осеннее мероприятие.",
+        "Residents hold the same autumn event every year.",
+      ],
+      [
+        "町の祭りは毎年の恒例だ。",
+        "まちのまつりはまいとしのこうれいだ。",
+        "Городской праздник стал ежегодной традицией.",
+        "The town festival is an annual tradition.",
+      ],
+    ],
+  ],
+  [
+    [
+      "揚",
+      "あ.げる",
+      ["扌", "日", "勿"],
+      ["поднимать", "вывешивать", "жарить во фритюре"],
+      ["raise", "hoist", "deep-fry"],
+      [
+        "Рукой 扌 вообразите подъём чего-либо вверх. Для другого смысла вообразите продукты, которые поднимают из горячего масла.",
+        "Use 扌 for lifting something. For the other sense, picture food lifted out of hot oil.",
+      ],
+    ],
+    [0, 0],
+    [
+      "揚げる",
+      "あげる",
+      "2864817",
+      ["жарить во фритюре", "обжаривать в масле"],
+      ["deep-fry", "fry in oil"],
+      [
+        "Здесь жарить продукт, погружая его в горячее масло, а не повышать цену или дарить предмет.",
+        "Here it means frying by immersing food in hot oil, not raising a price or giving something away.",
+      ],
+      [
+        "Кусочки в тесте опускают в масло до золотистой корочки.",
+        "Battered pieces are dropped into oil until golden.",
+      ],
+      [
+        "魚を油で揚げる。",
+        "さかなをあぶらであげる。",
+        "Рыбу жарят во фритюре.",
+        "Deep-fry the fish in oil.",
+      ],
+      {
+        partOfSpeech: "verb",
+        blockedRu: ["дарить", "повышать"],
+        blockedEn: ["give", "raise a price"],
+      },
+    ],
+  ],
+  [
+    [
+      "潜",
+      "もぐ.る",
+      ["氵", "夫", "日"],
+      ["нырять", "погружаться", "скрываться"],
+      ["dive", "go under", "hide beneath"],
+      [
+        "От света 日 вообразите движение вниз, под водную форму 氵.",
+        "Start from 日 and imagine going down beneath the water at 氵.",
+      ],
+    ],
+    [0, 0],
+    [
+      "潜る",
+      "もぐる",
+      "1609715",
+      ["нырять", "погружаться", "забираться под что-либо"],
+      ["dive", "go under", "get beneath"],
+      [
+        "Уйти под поверхность воды или пробраться под что-нибудь. В примере — нырнуть под воду.",
+        "Go under the water or get beneath something. In the example, it means diving under water.",
+      ],
+      [
+        "Пловец смотрит на камни под поверхностью.",
+        "A swimmer looks at stones beneath the surface.",
+      ],
+      [
+        "海に潜るのが好きだ。",
+        "うみにもぐるのがすきだ。",
+        "Я люблю нырять в море.",
+        "I like diving in the sea.",
+      ],
+      { partOfSpeech: "verb" },
+    ],
+  ],
+  [
+    [
+      "梨",
+      "なし",
+      ["禾", "丿", "木"],
+      ["груша", "грушевое дерево"],
+      ["pear", "pear tree"],
+      [
+        "На дереве 木 вообразите плод вытянутой формы у наклонного штриха 丿.",
+        "On 木, picture a pear-shaped fruit by the sloping stroke 丿.",
+      ],
+    ],
+    [0, 0],
+    [
+      "梨",
+      "なし",
+      "1549860",
+      ["груша", "грушевое дерево", "японская груша"],
+      ["pear", "pear tree", "Asian pear"],
+      [
+        "Груша или её дерево; в Японии часто имеется в виду сочная круглая азиатская груша.",
+        "A pear or pear tree; in Japan this often means the juicy round Asian pear.",
+      ],
+      [
+        "Сочный плод режут дольками и приносят к столу.",
+        "A juicy pear is sliced and brought to the table.",
+      ],
+      [
+        "冷たい梨を食べた。",
+        "つめたいなしをたべた。",
+        "Я съел охлаждённую грушу.",
+        "I ate a chilled pear.",
+      ],
+    ],
+  ],
+  [
+    [
+      "克",
+      "コク",
+      ["十", "口", "儿"],
+      ["преодолевать", "побеждать", "справляться"],
+      ["overcome", "conquer", "prevail"],
+      [
+        "У двух опор 儿 представьте, как устойчиво проходят через воображаемое препятствие у 口.",
+        "Use the supports 儿 to picture steadily getting past an obstacle at 口.",
+      ],
+    ],
+    [0, 0],
+    [
+      "克服",
+      "こくふく",
+      "1285790",
+      ["преодоление", "преодолевать", "справиться с трудностью"],
+      ["overcoming", "overcome", "surmount"],
+      [
+        "Преодолеть препятствие, страх или затруднение, а не просто избегать его.",
+        "Surmount an obstacle, fear or difficulty rather than merely avoiding it.",
+      ],
+      [
+        "Человек понемногу привыкает говорить перед аудиторией.",
+        "Someone gradually grows accustomed to speaking in front of an audience.",
+      ],
+      [
+        "苦手を克服するには時間がかかる。",
+        "にがてをこくふくするにはじかんがかかる。",
+        "Требуется время, чтобы справиться с тем, что даётся трудно.",
+        "It takes time to overcome something you struggle with.",
+      ],
+    ],
+  ],
+  [
+    [
+      "岳",
+      "ガク",
+      ["斤", "丿", "一"],
+      ["вершина", "высокая гора"],
+      ["high mountain", "peak"],
+      [
+        "От горизонтали 一 поднимите воображаемый склон по направлению 丿.",
+        "Raise an imagined slope from the base line 一 in the direction of 丿.",
+      ],
+    ],
+    [1, 2],
+    [
+      "山岳",
+      "さんがく",
+      "1302780",
+      ["горы", "горный массив", "высокие горы"],
+      ["mountains", "high mountains", "mountain range"],
+      [
+        "Высокие горы или горная местность. Часто употребляется в составных словах.",
+        "Mountains or mountainous terrain, often used in compounds.",
+      ],
+      [
+        "Карта показывает маршруты по высокой горной местности.",
+        "A map shows routes through a region of high mountains.",
+      ],
+      [
+        "この国の山岳地帯は広い。",
+        "このくにのさんがくちたいはひろい。",
+        "Горная местность в этой стране обширна.",
+        "This country has extensive mountainous terrain.",
+      ],
+    ],
+  ],
+  [
+    [
+      "概",
+      "ガイ",
+      ["木", "艮", "儿"],
+      ["общее представление", "общие очертания", "обобщать"],
+      ["outline", "general idea", "summarise"],
+      [
+        "На воображаемой дощечке 木 отметьте только общий контур, не прорисовывая мелкие детали.",
+        "On an imagined board 木, mark only the broad outline rather than every detail.",
+      ],
+    ],
+    [0, 0],
+    [
+      "概念",
+      "がいねん",
+      "1204480",
+      ["понятие", "концепция", "общее представление"],
+      ["concept", "notion", "general idea"],
+      [
+        "Обобщённое понятие, которым описывают явления или группы предметов.",
+        "A general idea used to describe a phenomenon or class of things.",
+      ],
+      [
+        "Преподаватель показывает один случай, чтобы объяснить абстрактное понятие.",
+        "An instructor shows a single case to illustrate an abstract concept.",
+      ],
+      [
+        "難しい概念を例で説明した。",
+        "むずかしいがいねんをれいでせつめいした。",
+        "Я объяснил сложное понятие на примере.",
+        "I explained the difficult concept with an example.",
+      ],
+    ],
+  ],
+  [
+    [
+      "墓",
+      "はか",
+      ["艹", "日", "土"],
+      ["могила", "захоронение"],
+      ["grave", "tomb"],
+      [
+        "Под растительной формой 艹 и светом 日 представьте место в земле 土, где похоронили человека.",
+        "Under 艹 and 日, picture a burial place in the earth 土.",
+      ],
+    ],
+    [0, 0],
+    [
+      "墓",
+      "はか",
+      "1514840",
+      ["могила", "захоронение", "гробница"],
+      ["grave", "tomb", "burial place"],
+      [
+        "Место погребения. Могила не обязательно находится на отдельном кладбище.",
+        "A place of burial, not necessarily in a separate cemetery.",
+      ],
+      [
+        "Родственники приходят положить цветы на могилу.",
+        "Relatives visit to put flowers on a grave.",
+      ],
+      [
+        "祖父の墓に花を供えた。",
+        "そふのはかにはなをそなえた。",
+        "Я возложил цветы на могилу дедушки.",
+        "I laid flowers at my grandfather's grave.",
+      ],
+    ],
+  ],
+  [
+    [
+      "丈",
+      "ジョウ",
+      ["一", "丿"],
+      ["длина", "рост", "крепкий"],
+      ["length", "height", "sturdy"],
+      [
+        "Под линией 一 вообразите наклонную мерку 丿, по которой определяют длину.",
+        "Below 一, picture 丿 as a tilted measure for checking length.",
+      ],
+    ],
+    [1, 2],
+    [
+      "大丈夫",
+      "だいじょうぶ",
+      "1414150",
+      ["всё в порядке", "нормально", "не о чем беспокоиться", "безопасно"],
+      ["all right", "okay", "fine", "safe"],
+      [
+        "Успокаивающее «всё в порядке» или вопрос о состоянии. При предложении может быть вежливым отказом.",
+        "A reassuring 'it's fine' or a question about someone's condition. In reply to an offer it can be a polite refusal.",
+      ],
+      [
+        "После падения у человека спрашивают, не ушибся ли он.",
+        "After someone falls, another person asks whether they are all right.",
+      ],
+      [
+        "少し休めば大丈夫だよ。",
+        "すこしやすめばだいじょうぶだよ。",
+        "Немного отдохнёшь, и всё будет в порядке.",
+        "You'll be fine after a short rest.",
+      ],
+      { partOfSpeech: "na-adjective" },
+    ],
+  ],
+  [
+    [
+      "尋",
+      "ジン",
+      ["工", "口", "寸"],
+      ["спрашивать", "выяснять", "расспрашивать"],
+      ["inquire", "ask", "find out"],
+      [
+        "От рта 口 мысленно задайте не один вопрос, а целую последовательность по мерке 寸.",
+        "At 口, ask a whole set of measured questions rather than a single one.",
+      ],
+    ],
+    [0, 0],
+    [
+      "尋問",
+      "じんもん",
+      "1369980",
+      ["допрос", "официальный допрос"],
+      ["interrogation", "formal questioning", "examination"],
+      [
+        "Официальный или настойчивый расспрос, часто в ходе разбирательства.",
+        "Formal or intensive questioning, often in an investigation.",
+      ],
+      [
+        "В протокол вносят вопросы и ответы, прозвучавшие во время допроса.",
+        "The record includes the questions and answers from the interrogation.",
+      ],
+      [
+        "尋問の記録を読んだ。",
+        "じんもんのきろくをよんだ。",
+        "Я прочитал протокол допроса.",
+        "I read the interrogation record.",
+      ],
+    ],
+  ],
+];

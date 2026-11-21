@@ -961,3 +961,26 @@ count remains **714 / 1,300**.
   targets / 15,055 core cards**. Scope any missing raw-source import to the
   exact manifest selection; confirm aggregate preservation and full quality
   before reporting a Neon release. Keep the main course DRAFT.
+
+## Course Finalization, First Block: 2026-11-21
+
+This block adds **160 independently reviewed kanji and 160 words**, with
+one reinforced reading and an original JP/kana/RU/EN word example per
+kanji. Reviewed totals: **2,074 kanji / 5,654 words / 239 components**
+across **54 populated levels**. Remaining to the requested volume:
+**226 kanji / 2,346 words**. Live Neon counts have not been updated.
+
+- Two independent AI reviewers checked all 160 pairs in two halves, then
+  the corrected block matched **160 exact bilingual JMdict pairs, 160
+  KANJIDIC2 readings, 160 KanjiVG primary sequences and 432 actual component
+  groups**. Retained the existing 補佐, 会う and 穴 identities; used distinct
+  reinforcement for 輔, 逢 and 孔. This is not human certification.
+- Earlier positions and V1–V7 seals are unchanged. The Finalization payload
+  seal is `342325e43f375aa98f40e241bcfdc4547c0049483a3736195ab647740ddc06e4`.
+  After Extension and all preceding batches, use an explicit plan/apply for
+  `full-course-kanji-finalization` with words skipped, then the **10**
+  word IDs `full-course-vocabulary-finalization-01` through `-10`.
+- Expected after all pending releases: **7,967 teaching targets / 15,695
+  core cards**. Verify actual counts, provenance, and preservation in Neon.
+  Main stays DRAFT with no enrollment changes. Keep the next large editorial
+  block focused on the remaining coverage and actionable vocabulary.

@@ -13,6 +13,7 @@ import { followthroughKanji } from "./course-followthrough-content";
 import { coverageKanji } from "./course-coverage-content";
 import { consolidationKanji } from "./course-consolidation-content";
 import { extensionKanji } from "./course-extension-content";
+import { finalizationKanji } from "./course-finalization-content";
 import { buildMainCourseCompletionContent } from "./main-course-completion-content";
 import { buildMainCourseBlueprint } from "./main-course";
 import { validateCuratedMeaningBlocks, type CuratedMeaningBlock } from "./curated-meaning-blocks";
@@ -1590,9 +1591,14 @@ const PRE_EXTENSION_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
   consolidationKanji(PRE_CONSOLIDATION_CONTENT_BATCHES),
 ];
 
-const MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
+const PRE_FINALIZATION_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
   ...PRE_EXTENSION_CONTENT_BATCHES,
   extensionKanji(PRE_EXTENSION_CONTENT_BATCHES),
+];
+
+const MAIN_COURSE_CONTENT_BATCHES: readonly MainCourseContentBatch[] = [
+  ...PRE_FINALIZATION_CONTENT_BATCHES,
+  finalizationKanji(PRE_FINALIZATION_CONTENT_BATCHES),
 ];
 
 export function buildMainCourseContentBatches(): readonly MainCourseContentBatch[] {
