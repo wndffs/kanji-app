@@ -165,6 +165,47 @@ describe("deepening course block", () => {
     ).toThrow("Unaligned reinforcement");
   });
 
+  it("keeps the independent on-reading when a compound explicitly geminates final tsu", () => {
+    const row: ExpansionReinforcementRow = [
+      ["疾", "シツ", ["疒"], ["недуг"], ["illness"], ["Болезнь.", "Illness."]],
+      [0, 0, "tsu-sokuon"],
+      [
+        "疾患",
+        "しっかん",
+        "1320580",
+        ["заболевание"],
+        ["disease"],
+        ["Медицинский термин.", "A medical term."],
+        ["Название в карте.", "An entry in a chart."],
+        [
+          "その疾患を調べた。",
+          "そのしっかんをしらべた。",
+          "Я изучил заболевание.",
+          "I examined the disease.",
+        ],
+      ],
+    ];
+    const { bindings, kanji, words: reinforcement } = unpackDeepeningReinforcement([row]);
+    expect(kanji[0]?.[1]).toBe("シツ");
+    expect(bindings[0]).toEqual(["疾", "しつ", "疾患", "しっかん", 0, 0, "1320580", "tsu-sokuon"]);
+    expect(kanji[0]?.[8]).toContain("final つ in the reading しつ becomes small っ");
+    expect(reinforcement[0]?.[7][1]).toContain("しっ・かん");
+    expect(() => unpackDeepeningReinforcement([[row[0], [0, 0], row[2]]])).toThrow(
+      "Unaligned reinforcement",
+    );
+    const [, , ...fields] = row[2];
+    for (const [expression, reading] of [
+      ["疾患", "しつかん"],
+      ["疾患", "しっあん"],
+      ["疾かん", "しっかん"],
+      ["疾患", "しっがん"],
+    ]) {
+      expect(() =>
+        unpackDeepeningReinforcement([[row[0], row[1], [expression!, reading!, ...fields]]]),
+      ).toThrow("Unaligned reinforcement");
+    }
+  });
+
   it("honors scoped extra blocks without invalidating the reviewed answers", () => {
     for (const item of [...kanji.kanji, ...words.flatMap((batch) => batch.words)]) {
       for (const locale of ["ru", "en"] as const) {

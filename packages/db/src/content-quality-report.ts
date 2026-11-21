@@ -17,6 +17,7 @@ import {
 } from "./content-quality";
 import { loadWordExampleQuality } from "./word-examples";
 import { buildMainCourseWordBatches } from "./main-course-word-content";
+import { wordHanCharacters } from "./course-word-orthography";
 import {
   requireAlternativeReadingSources,
   requireWordSource,
@@ -164,11 +165,7 @@ export async function loadContentQualityItems(
       (stage) => stage.stageIndex,
     ) ?? [];
   const siblingReadings = await loadSiblingWordReadings(db, rows, words, courseSlug);
-  const wordCharacters = [
-    ...new Set(
-      words.flatMap((word) => Array.from(word.expression).filter((c) => /\p{Script=Han}/u.test(c))),
-    ),
-  ];
+  const wordCharacters = [...new Set(words.flatMap((word) => wordHanCharacters(word.expression)))];
   const spellingKanji = await db.kanji.findMany({
     where: { character: { in: wordCharacters } },
     select: { id: true, character: true },
@@ -258,7 +255,7 @@ export async function loadContentQualityItems(
         character?.components.map((link) => link.componentId) ??
         (word === undefined
           ? []
-          : [...new Set(Array.from(word.expression).filter((c) => /\p{Script=Han}/u.test(c)))].map(
+          : wordHanCharacters(word.expression).map(
               (c) => spellingKanji.find((k) => k.character === c)?.id ?? `missing-kanji:${c}`,
             )),
       dependencies: row.dependencies.map((dep) => ({

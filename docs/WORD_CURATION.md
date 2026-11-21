@@ -190,6 +190,9 @@ batches do not prevent releasing a reviewed earlier batch.
 Only the word expression's kanji become its stage-2 prerequisites. Additional
 kanji in examples must also already be published earlier, but examples do not
 create separate sentence-learning prerequisites or cards.
+An iteration mark 々 must follow a kanji. It retains its exact spelling in
+JMdict evidence and examples, but repeats the preceding kanji rather than
+introducing an additional prerequisite.
 
 ## Application And Restart
 

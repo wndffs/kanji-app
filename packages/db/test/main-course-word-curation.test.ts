@@ -26,6 +26,37 @@ import {
 } from "../src/main-course-word-content";
 
 describe("bounded vocabulary curation", () => {
+  it("preflights an exact repeated-kanji entry using only the real kanji prerequisite", async () => {
+    const base = buildMainCourseWordBatch();
+    const [original, ...rest] = base.words;
+    const repeated: MainCourseWordContent = {
+      ...original!,
+      expression: "山々",
+      reading: "やまやま",
+      example: {
+        japaneseText: "山々が見えた。",
+        readingText: "やまやまがみえた。",
+        translationRu: "Были видны горы.",
+        translationEn: "The mountains were visible.",
+      },
+    };
+    const batch = { ...base, words: [repeated, ...rest] };
+    const fixture = harness([batch]);
+    expect(
+      (await planMainCourseWordBatch(fixture.db, batch)).words[0]?.prerequisiteItemIds,
+    ).toEqual(["kanji-item-山"]);
+    const broken = {
+      ...repeated,
+      expression: "々山",
+      example: { ...repeated.example, japaneseText: "々山が見えた。" },
+    };
+    await expect(
+      planMainCourseWordBatch(fixture.db, { ...batch, words: [broken, ...rest] }),
+    ).rejects.toThrow("Invalid exact word identity");
+    expect(wordHanCharacters("山々の𠮷")).toEqual(["山", "𠮷"]);
+    expect(fixture.transaction).not.toHaveBeenCalled();
+  });
+
   it.each([22, 40])(
     "parses %s distinct registered manifests without broadening their scope",
     (count) => {

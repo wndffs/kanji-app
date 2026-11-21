@@ -22,6 +22,9 @@ import { buildMainCourseWordBatch08 } from "./main-course-word-content-08";
 import { buildMainCourseWordBatch09 } from "./main-course-word-content-09";
 import { type LexicalKind } from "./lexical-selection";
 import { validReadingNote, type JmdictReadingNote } from "./jmdict-reading-note-proof";
+import { validKanjiIterationMarks, wordHanCharacters } from "./course-word-orthography";
+
+export { wordHanCharacters } from "./course-word-orthography";
 
 import {
   type MainCourseAcceptedMeanings,
@@ -1193,10 +1196,6 @@ export function mainCourseWordBatchChecksum(batch: MainCourseWordBatch): string 
   return createHash("sha256").update(JSON.stringify(batch), "utf8").digest("hex");
 }
 
-export function wordHanCharacters(text: string): readonly string[] {
-  return [...new Set([...text].filter((character) => /\p{Script=Han}/u.test(character)))];
-}
-
 export function mainCourseWordAcceptedReadings(content: MainCourseWordContent): readonly string[] {
   return [
     content.reading,
@@ -1279,6 +1278,7 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
     if (
       !/^jmdict:[1-9]\d*$/u.test(content.jmdictEntryId) ||
       wordHanCharacters(content.expression).length === 0 ||
+      !validKanjiIterationMarks(content.expression) ||
       !/^[ぁ-ゖー]+$/u.test(content.reading)
     )
       issues.push(`Invalid exact word identity ${identity}.`);
@@ -1324,6 +1324,7 @@ export function validateMainCourseWordBatch(batch: MainCourseWordBatch): readonl
     }
     if (
       Object.values(content.example).some((text) => !text.trim()) ||
+      !validKanjiIterationMarks(content.example.japaneseText) ||
       !content.example.japaneseText.includes(content.expression) ||
       !content.example.readingText.includes(content.reading) ||
       !/^[ぁ-ゖー、。！？\s]+$/u.test(content.example.readingText)

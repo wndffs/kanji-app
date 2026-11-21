@@ -1,3 +1,5 @@
+import { validKanjiIterationMarks, wordHanCharacters } from "./course-word-orthography";
+
 export type LexicalKind = "verb" | "i-adjective" | "noun";
 export type LexicalCandidate = {
   readonly expression: string;
@@ -32,17 +34,16 @@ export function rankLexicalCandidates(
   }
   for (const candidate of candidates) {
     const key = lexicalPairKey(candidate);
-    const missing = [...new Set(candidate.expression.match(/\p{Script=Han}/gu) ?? [])].some(
-      (character) => {
-        const level = options.prerequisiteLevels.get(character);
-        return (
-          level === undefined || !Number.isInteger(level) || level < 1 || level >= options.wordLevel
-        );
-      },
-    );
+    const missing = wordHanCharacters(candidate.expression).some((character) => {
+      const level = options.prerequisiteLevels.get(character);
+      return (
+        level === undefined || !Number.isInteger(level) || level < 1 || level >= options.wordLevel
+      );
+    });
     const reason =
       !candidate.expression ||
       candidate.expression.trim() !== candidate.expression ||
+      !validKanjiIterationMarks(candidate.expression) ||
       !/^[\u3041-\u3096\u30fc]+$/u.test(candidate.reading) ||
       !["verb", "i-adjective", "noun"].includes(candidate.kind) ||
       !Number.isInteger(candidate.usefulness) ||

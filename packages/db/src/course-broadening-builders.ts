@@ -1,11 +1,14 @@
 import {
+  boundCourseKana,
   selectAuthoredSourceReading,
   selectedCourseSourceKana,
+  type CourseReinforcementSoundChange,
 } from "./course-kanji-source-reading";
 import type { ExpansionKanjiRow, ExpansionWordRow } from "./course-expansion-content-types";
 import type { MainCourseAcceptedMeanings, MainCourseContentBatch } from "./main-course-content";
 import type { MainCourseWordBatch } from "./main-course-word-content";
 import { BROADENING_READING_LINKS } from "./course-broadening-reading-links";
+import { wordHanCharacters } from "./course-word-orthography";
 
 const COURSE_SLUG = "japanese-ru-n2";
 const AUTHORED_AT = "2026-11-21";
@@ -21,7 +24,10 @@ type BlockMetadata = Pick<
   MainCourseWordBatch,
   "authoredAt" | "reviewedAt" | "reviewNotes" | "sourceFile"
 >;
-export type CourseBlockReadingLink = (typeof BROADENING_READING_LINKS)[number];
+export type CourseBlockReadingLink = readonly [
+  ...(typeof BROADENING_READING_LINKS)[number],
+  soundChange?: CourseReinforcementSoundChange,
+];
 
 const KANJI_RU_BLOCKS: Readonly<Record<string, MainCourseAcceptedMeanings["blocked"]>> = {
   破: [
@@ -202,10 +208,6 @@ export function buildBroadeningKanji(
 }
 
 const localize = ([ru, en]: readonly [string, string]) => ({ ru, en });
-const han = (text: string) => [
-  ...new Set([...text].filter((char) => /\p{Script=Han}/u.test(char))),
-];
-
 export function assertBroadeningReadingLinks(
   kanjiRows: readonly ExpansionKanjiRow[],
   wordRows: readonly ExpansionWordRow[],
@@ -214,20 +216,32 @@ export function assertBroadeningReadingLinks(
   const known = new Map(kanjiRows.map((row) => [row[0], row]));
   const words = new Map(wordRows.map((row) => [row[0], row]));
   const linked = new Set<string>();
-  for (const [character, reading, expression, wordReading, index, offset, sequence] of links) {
+  for (const [
+    character,
+    reading,
+    expression,
+    wordReading,
+    index,
+    offset,
+    sequence,
+    soundChange,
+  ] of links) {
     const row = known.get(character);
     const word = words.get(expression);
+    const characters = [...expression];
+    const source = row ? selectAuthoredSourceReading(row[1]) : null;
     if (
       linked.has(character) ||
       !row ||
-      selectedCourseSourceKana(selectAuthoredSourceReading(row[1])) !== reading ||
+      !source ||
+      selectedCourseSourceKana(source) !== reading ||
       row[9] !== expression ||
       row[10] !== wordReading ||
       !word ||
       word[1] !== wordReading ||
       word[2] !== sequence ||
-      [...expression][index] !== character ||
-      wordReading.slice(offset, offset + reading.length) !== reading
+      characters[index] !== character ||
+      boundCourseKana(source, characters, index, wordReading, offset, soundChange) === null
     )
       throw new Error(`Invalid broadening reading reinforcement for ${character}.`);
     linked.add(character);
@@ -266,7 +280,7 @@ export function buildBroadeningWords(
     seen.add(expression);
     const level = Math.max(
       2,
-      ...han(expression + row[8][0]).map((char) => {
+      ...wordHanCharacters(expression + row[8][0]).map((char) => {
         const prerequisite = levels.get(char);
         if (prerequisite === undefined)
           throw new Error(`Unknown prerequisite ${char} for ${expression}.`);

@@ -44,10 +44,20 @@ describe("independent lexical selection", () => {
     [{ matches: 2 }, "missing-or-ambiguous-source"],
     [{ bilingual: false }, "missing-bilingual-source"],
     [{ expression: "来る" }, "missing-earlier-kanji"],
+    [{ expression: "々読" }, "invalid-metadata"],
     [{ sourceRank: -1 }, "invalid-metadata"],
     [{ reading: "ヨム" }, "invalid-metadata"],
   ] as const)("rejects unsupported candidate %j", (change, reason) => {
     expect(rankLexicalCandidates([candidate(change)], options).rejected[0]!.reason).toBe(reason);
+  });
+  it("ranks a valid repeated kanji without a separate mark prerequisite", () => {
+    const repeated = candidate({ expression: "時々", reading: "ときどき", kind: "noun" });
+    expect(
+      rankLexicalCandidates([repeated], {
+        ...options,
+        prerequisiteLevels: new Map([["時", 3]]),
+      }).selected,
+    ).toEqual([repeated]);
   });
   it("rejects both duplicates and already registered exact pairs", () => {
     expect(rankLexicalCandidates([candidate(), candidate()], options).selected).toEqual([]);

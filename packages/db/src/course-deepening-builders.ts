@@ -1,5 +1,6 @@
 import { DEEPENING_KANJI_BLOCKS, DEEPENING_WORD_BLOCKS } from "./course-deepening-answer-blocks";
 import {
+  boundCourseKana,
   kanjidic2Okurigana,
   selectAuthoredSourceReading,
   selectedCourseSourceKana,
@@ -66,7 +67,7 @@ export function unpackDeepeningReinforcement(rows: readonly ExpansionReinforceme
   const bindings: CourseBlockReadingLink[] = [];
   for (const [
     [character, source, symbols, meaningsRu, meaningsEn, image],
-    [index, offset],
+    [index, offset, soundChange],
     [expression, reading, sequence, wordRu, wordEn, scope, wordImage, example, details],
   ] of rows) {
     const selection = selectAuthoredSourceReading(source);
@@ -74,27 +75,32 @@ export function unpackDeepeningReinforcement(rows: readonly ExpansionReinforceme
     const ending =
       selection.sourceForm === "okurigana-stem" ? kanjidic2Okurigana(source)?.ending : undefined;
     const symbolsInWord = [...expression];
+    const inWord = boundCourseKana(selection, symbolsInWord, index, reading, offset, soundChange);
     if (
       !Number.isSafeInteger(index) ||
-      !Number.isSafeInteger(offset) ||
-      offset < 0 ||
       !kana ||
+      inWord === null ||
       symbolsInWord[index] !== character ||
-      reading.slice(offset, offset + kana.length) !== kana ||
       (ending !== undefined &&
         (!symbolsInWord
           .slice(index + 1)
           .join("")
           .startsWith(ending) ||
-          !reading.startsWith(ending, offset + kana.length)))
+          !reading.startsWith(ending, offset + inWord.length)))
     ) {
       throw new Error(`Unaligned reinforcement reading for ${character} in ${expression}.`);
     }
-    const aligned = [reading.slice(0, offset), kana, reading.slice(offset + kana.length)]
+    const aligned = [reading.slice(0, offset), inWord, reading.slice(offset + inWord.length)]
       .filter(Boolean)
       .join("・");
-    const promptRu = `В слове ${expression} знак ${character} даёт ${kana}: ${aligned}.${ending ? ` Окуригана ${ending} пишется после знака.` : ""}`;
-    const promptEn = `In ${expression}, ${character} supplies ${kana}: ${aligned}.${ending ? ` The okurigana ${ending} is written after the kanji.` : ""}`;
+    const changeRu = soundChange
+      ? ` Здесь в чтении ${kana} конечное つ переходит в маленькое っ.`
+      : "";
+    const changeEn = soundChange
+      ? ` Here the final つ in the reading ${kana} becomes small っ.`
+      : "";
+    const promptRu = `В слове ${expression} знак ${character} даёт ${inWord}: ${aligned}.${ending ? ` Окуригана ${ending} пишется после знака.` : ""}${changeRu}`;
+    const promptEn = `In ${expression}, ${character} supplies ${inWord}: ${aligned}.${ending ? ` The okurigana ${ending} is written after the kanji.` : ""}${changeEn}`;
     kanji.push([
       character,
       source,
@@ -117,13 +123,17 @@ export function unpackDeepeningReinforcement(rows: readonly ExpansionReinforceme
       scope,
       wordImage,
       [
-        `Произнесите ${aligned} слитно: ${kana} здесь соответствует ${character}.`,
-        `Say ${aligned} as one word: ${kana} is the part written ${character}.`,
+        `Произнесите ${aligned} слитно: ${inWord} здесь соответствует ${character}.${changeRu}`,
+        `Say ${aligned} as one word: ${inWord} is the part written ${character}.${changeEn}`,
       ],
       example,
       details ?? { partOfSpeech: "noun" },
     ]);
-    bindings.push([character, kana, expression, reading, index, offset, sequence]);
+    bindings.push(
+      soundChange
+        ? [character, kana, expression, reading, index, offset, sequence, soundChange]
+        : [character, kana, expression, reading, index, offset, sequence],
+    );
   }
   assertBroadeningReadingLinks(kanji, words, bindings);
   return { kanji, words, bindings };
@@ -147,10 +157,22 @@ export function buildCourseDeepeningWords(
   reinforcement: readonly ExpansionReinforcementRow[],
   extraWords: readonly ExpansionWordRow[],
 ) {
+  const rows = [...unpackDeepeningReinforcement(reinforcement).words, ...extraWords];
+  requireNewCourseWordEvidence(previous, rows);
+  return buildBroadeningWords(kanji, previous, rows, {
+    prefix: DEEPENING_WORD_PREFIX,
+    metadata,
+    meaningBlocks: DEEPENING_WORD_BLOCKS,
+  });
+}
+
+export function requireNewCourseWordEvidence(
+  previous: readonly MainCourseWordBatch[],
+  rows: readonly ExpansionWordRow[],
+) {
   const previousEntries = new Set(
     previous.flatMap((batch) => batch.words.map((item) => item.jmdictEntryId)),
   );
-  const rows = [...unpackDeepeningReinforcement(reinforcement).words, ...extraWords];
   for (const [expression, reading, sequence, , , , , , [sentence, sentenceReading]] of rows) {
     const id = `jmdict:${sequence}`;
     if (previousEntries.has(id))
@@ -159,9 +181,4 @@ export function buildCourseDeepeningWords(
     if (!matchesAuthoredExampleReading(expression, reading, sentence, sentenceReading))
       throw new Error(`Unaligned example kana for ${expression}.`);
   }
-  return buildBroadeningWords(kanji, previous, rows, {
-    prefix: DEEPENING_WORD_PREFIX,
-    metadata,
-    meaningBlocks: DEEPENING_WORD_BLOCKS,
-  });
 }

@@ -86,6 +86,22 @@ function databaseFixture(count: number) {
 }
 
 describe("bounded content-quality reporting", () => {
+  it("requires the written kanji but not its iteration mark for an exact word form", async () => {
+    const { db, rows } = databaseFixture(1);
+    Object.assign(rows[0], { kind: "WORD", targetType: "WORD", targetId: "word-1" });
+    vi.mocked(db.word.findMany).mockResolvedValue([
+      { id: "word-1", expression: "山々", reading: "やまやま", importedRecord: null, senses: [] },
+    ] as never);
+    vi.mocked(db.kanji.findMany)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: "mountain", character: "山" }] as never);
+    const result = await loadContentQualityItems(db, {});
+    expect(result[0]?.requiredPrerequisiteTargetIds).toEqual(["mountain"]);
+    expect(db.kanji.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ where: { character: { in: ["山"] } } }),
+    );
+  });
+
   it("intersects internal item IDs with the course and keyset cursor without changing the default report", async () => {
     const { db, rows, findMany } = databaseFixture(201);
     const itemIds = rows

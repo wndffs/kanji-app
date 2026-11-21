@@ -1,4 +1,5 @@
 import type { AuthoredWordPartOfSpeech } from "./main-course-word-content";
+import type { CourseReinforcementSoundChange } from "./course-kanji-source-reading";
 
 export type ExpansionKanjiRow = readonly [
   character: string,
@@ -48,7 +49,11 @@ export type ExpansionReinforcementRow = readonly [
     meaningsEn: readonly string[],
     image: readonly [ru: string, en: string],
   ],
-  location: readonly [characterIndex: number, readingOffset: number],
+  location: readonly [
+    characterIndex: number,
+    readingOffset: number,
+    soundChange?: CourseReinforcementSoundChange,
+  ],
   word: readonly [
     expression: ExpansionWordRow[0],
     reading: ExpansionWordRow[1],
