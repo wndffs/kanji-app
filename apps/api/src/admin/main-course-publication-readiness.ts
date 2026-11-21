@@ -229,7 +229,11 @@ function buildReadinessVersion(
     placedKanji: input.placedKanji,
     placedWords: input.placedWords,
     initialLessonItems: input.initialLessonItems,
-    contentQuality: input.contentQuality,
+    contentQuality: {
+      contentVersion: input.contentQuality.contentVersion,
+      scannedItems: input.contentQuality.scannedItems,
+      blockerCount: input.contentQuality.blockerCount,
+    },
     checks: checks.map(({ code, passed, current, required }) => ({
       code,
       passed,

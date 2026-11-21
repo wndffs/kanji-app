@@ -60,7 +60,10 @@ import {
   type ImportedCandidateRankingInput,
   rankImportedCandidates,
 } from "./imported-candidate-ranking";
-import { buildMainCoursePublicationReadiness } from "./main-course-publication-readiness";
+import {
+  buildMainCoursePublicationReadiness,
+  type MainCoursePublicationReadinessInput,
+} from "./main-course-publication-readiness";
 import {
   buildMainCourseEnrollmentRolloutPreview,
   type EnrollmentRolloutStatus,
@@ -1037,11 +1040,12 @@ export class PrismaAdminRepository extends AdminRepository {
     return this.prisma.db
       .$transaction(
         async (db) => {
-          const readiness = await this.loadMainCoursePublicationReadiness(db);
+          const snapshot = await this.loadMainCoursePublicationSnapshot(db);
 
-          if (readiness === null) {
+          if (snapshot === null) {
             return null;
           }
+          const readiness = buildPublicationReadiness(snapshot);
 
           if (readiness.readinessVersion !== readinessVersion) {
             throw new MainCourseReadinessChangedError();
@@ -1065,10 +1069,19 @@ export class PrismaAdminRepository extends AdminRepository {
             }
           }
 
-          const publishedReadiness = await this.loadMainCoursePublicationReadiness(db);
+          let publishedReadiness = readiness;
+          if (statusChanged) {
+            const persisted = await db.course.findUnique({
+              where: { id: readiness.course.id },
+              select: { status: true },
+            });
+            if (persisted?.status !== "PUBLISHED") throw new MainCourseReadinessChangedError();
+            // The guarded write changes only Course.status. Reuse the same serializable
+            // content snapshot, but regenerate both status-bound version hashes.
+            publishedReadiness = buildPublicationReadiness(snapshot, "published");
+          }
 
           if (
-            publishedReadiness === null ||
             publishedReadiness.course.status !== "published" ||
             !publishedReadiness.readyToPublish
           ) {
@@ -1220,15 +1233,19 @@ export class PrismaAdminRepository extends AdminRepository {
   private async loadMainCoursePublicationReadiness(
     db: MainCoursePublicationDatabase,
   ): Promise<AdminMainCoursePublicationReadinessResponse | null> {
+    const snapshot = await this.loadMainCoursePublicationSnapshot(db);
+    return snapshot === null ? null : buildPublicationReadiness(snapshot);
+  }
+
+  private async loadMainCoursePublicationSnapshot(
+    db: MainCoursePublicationDatabase,
+  ): Promise<MainCoursePublicationSnapshot | null> {
     const input = await this.loadCourseAllocationInput(db);
 
     if (input === null) {
       return null;
     }
 
-    const allocation = buildCourseAllocationPreview(input, {
-      previewLimit: Number.MAX_SAFE_INTEGER,
-    });
     const [course, stalePlacements, placedKanji, placedWords, initialLessonItems] =
       await Promise.all([
         db.course.findUnique({
@@ -1298,38 +1315,33 @@ export class PrismaAdminRepository extends AdminRepository {
 
     const contentQuality = await collectContentQualityReport(db, { maxIssues: 0 });
 
-    return buildMainCoursePublicationReadiness({
-      course: {
-        id: course.id,
-        slug: course.slug,
-        title: course.titleRu,
-        description: course.descriptionRu,
-        targetLevel: course.targetLevel,
-        band: toApiBand(course.band),
-        courseType: toApiCourseType(course.courseType),
-        status: toApiStatus(course.status),
+    return {
+      allocationInput: input,
+      readinessInput: {
+        course: {
+          id: course.id,
+          slug: course.slug,
+          title: course.titleRu,
+          description: course.descriptionRu,
+          targetLevel: course.targetLevel,
+          band: toApiBand(course.band),
+          courseType: toApiCourseType(course.courseType),
+          status: toApiStatus(course.status),
+        },
+        levels: course.levels.map((level) => ({
+          levelNumber: level.levelNumber,
+          band: toApiBand(level.band),
+          title: level.titleRu,
+          description: level.descriptionRu,
+          publishedItems: level._count.items,
+        })),
+        stalePlacements,
+        placedKanji,
+        placedWords,
+        initialLessonItems,
+        contentQuality,
       },
-      levels: course.levels.map((level) => ({
-        levelNumber: level.levelNumber,
-        band: toApiBand(level.band),
-        title: level.titleRu,
-        description: level.descriptionRu,
-        publishedItems: level._count.items,
-      })),
-      allocation: {
-        planVersion: allocation.planVersion,
-        publishedItems: allocation.summary.publishedItems,
-        existingPlacements: allocation.summary.existingPlacements,
-        proposedPlacements: allocation.summary.proposedPlacements,
-        blockedItems: allocation.summary.blockedItems,
-        issueCount: allocation.issues.length,
-      },
-      stalePlacements,
-      placedKanji,
-      placedWords,
-      initialLessonItems,
-      contentQuality,
-    });
+    };
   }
 
   private async loadCourseAllocationInput(
@@ -2722,6 +2734,39 @@ function pickMeaning(
     meanings.find((meaning) => meaning.locale === locale)?.meaning ??
     ""
   );
+}
+
+type MainCoursePublicationSnapshot = {
+  readonly allocationInput: CourseAllocationPlanInput;
+  readonly readinessInput: Omit<MainCoursePublicationReadinessInput, "allocation">;
+};
+
+function buildPublicationReadiness(
+  snapshot: MainCoursePublicationSnapshot,
+  statusOverride?: AdminContentStatus,
+): AdminMainCoursePublicationReadinessResponse {
+  const { allocationInput, readinessInput } = snapshot;
+  const allocation = buildCourseAllocationPreview(
+    statusOverride === undefined
+      ? allocationInput
+      : { ...allocationInput, course: { ...allocationInput.course, status: statusOverride } },
+    { previewLimit: Number.MAX_SAFE_INTEGER },
+  );
+  return buildMainCoursePublicationReadiness({
+    ...readinessInput,
+    course:
+      statusOverride === undefined
+        ? readinessInput.course
+        : { ...readinessInput.course, status: statusOverride },
+    allocation: {
+      planVersion: allocation.planVersion,
+      publishedItems: allocation.summary.publishedItems,
+      existingPlacements: allocation.summary.existingPlacements,
+      proposedPlacements: allocation.summary.proposedPlacements,
+      blockedItems: allocation.summary.blockedItems,
+      issueCount: allocation.issues.length,
+    },
+  });
 }
 
 async function updateTargetMeanings(

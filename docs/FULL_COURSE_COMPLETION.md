@@ -101,19 +101,23 @@ to the content deficit. Keep them within this single task:
 - Learner-facing reveal/manual-ignore and reviewed-answer recovery are not
   complete just because API flags exist. Define audited, explicit recovery;
   never silently reverse a penalty on a synonym save.
-- A capped private deck needs an actionable route to omitted prerequisites;
-  a warning and a permanently empty lesson queue are not a complete study path.
-- Text selection needs progress-aware unknown-material/prerequisite priority
-  before applying caps, not merely a started-state label after truncation.
+- **Implemented in code:** stalled private-deck lessons offer a bounded plan
+  of currently startable external prerequisites, and can create a separate
+  private follow-up deck. Below-stage prerequisites lead to reviews; original
+  deck membership and all SRS gates are preserved.
+- **Implemented in code:** longest dictionary match still resolves overlaps
+  before selection. The automatic text plan prioritizes unstarted matches
+  and their unstarted prerequisites under the cap without rejecting a
+  learner's explicit choice of an already-started item.
 - Burned-item practice exists, but explicit card-scoped resurrection is not
   connected to the learner workflow.
 - **Implemented in code:** the dashboard links to a ranked difficult-card
   queue. Learners can choose a subset of exact meaning/reading cards and
   resume that selection later. Extra practice writes neither scheduled
   answers nor SRS state. Verified in local service and browser tests.
-- Item/search headings can prefer an accepted synonym over the authored primary
-  meaning (observed for 安心). Align read-side primary selection without removing
-  valid synonyms or rewriting users' accepted answers.
+- **Verified on server:** item and search headings show the authored primary
+  meaning of 安心 and 良い. Regression coverage checks this independently of
+  accepted synonyms. No answer changes were needed in this delivery.
 - The current serial curation path is not yet performance-verified at 2,300/8,000.
   Batch database I/O while preserving complete source/graph checks, idempotency
   and private data. Removing a duplicate workflow preflight is not proof that
@@ -1077,3 +1081,34 @@ supports separate taught spellings and meanings: 早い (early) and 速い
   safety bound. Verify the actual last applied batches, source readiness,
   public learner flows, all sixty levels, and retained progress before
   declaring completion. No automatic learner version switch or V8.
+
+### Oversized Source-Only Windows
+
+Use only if the normal preflight finds missing exact JMdict pairs. In
+**Deploy staging curation**, select explicitly reviewed vocabulary manifests
+in `word_batch`, leave `kanji_batch` empty and both checkboxes off:
+
+1. `plan_sources`, with `source_pair_limit` between 1 and 100, checks the
+   next bounded window against the pinned snapshot and existing identities
+   without writes. The plan prints aggregate counts only.
+2. `apply_sources` for the same selection repeats the checks and inserts
+   only absent requested pairs, not their unrelated spelling/reading aliases.
+   Each window's rows and successful raw-import receipt commit together.
+   It does not run teaching curation or switch the course. Repeat only while
+   `remainingPairs` is positive; reduce the window if the byte budget fails.
+   Existing incomplete provenance is a separate blocker, never repaired here.
+3. With no missing pairs, rerun ordinary teaching `plan` for the chosen
+   manifests before `apply`. The ordinary preflight independently verifies
+   licensed provenance, the prerequisite graph, and RU/EN teaching data.
+
+First reconcile applied manifest checksums and quota before resuming in
+registry order. A timed-out job can have committed individual checkpoints.
+Use small first releases to measure throughput, and keep V1–V7, enrollments
+and study progress intact. Final course publication is separate from raw
+sources and curation; recheck admin readiness and server learner flows first.
+
+The final status change uses one full validation inside the serializable
+transaction and re-reads the persisted course status. Both response hashes
+are regenerated for the published status. This removes a duplicate corpus
+scan. Readiness depends on the audited content hash and totals, not the report
+timestamp. The full-size Neon execution time is not yet verified.

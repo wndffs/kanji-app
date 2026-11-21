@@ -1623,18 +1623,19 @@ describe("AdminService", () => {
   });
 
   it("audits and atomically publishes the seeded main course without changing enrollments", async () => {
+    let auditCount = 0;
     const contentAudit = vi
       .spyOn(databasePackage, "collectContentQualityReport")
-      .mockResolvedValue({
+      .mockImplementation(async () => ({
         policyVersion: "course-content-quality-v2",
-        generatedAt: "2026-10-21T12:00:00Z",
+        generatedAt: new Date(Date.UTC(2026, 9, 21, 12, 0, auditCount++)).toISOString(),
         contentVersion: "verified-fixture",
         scannedItems: 10301,
         blockerCount: 0,
         warningCount: 0,
         issues: [],
         issuesTruncated: false,
-      });
+      }));
     const blueprint = buildMainCourseBlueprint();
     let courseStatus = "DRAFT";
     const allocationCourse = {
@@ -1757,11 +1758,23 @@ describe("AdminService", () => {
     });
     expect(learningItem.count).toHaveBeenCalledTimes(3);
 
-    await expect(repository.publishMainCourse(readiness!.readinessVersion)).resolves.toMatchObject({
+    const auditedBeforePublish = contentAudit.mock.calls.length;
+    const publication = await repository.publishMainCourse(readiness!.readinessVersion);
+    expect(publication).toMatchObject({
       appliedReadinessVersion: readiness!.readinessVersion,
       statusChanged: true,
       readiness: { readyToPublish: true, course: { status: "published" } },
     });
+    expect(contentAudit).toHaveBeenCalledTimes(auditedBeforePublish + 1);
+    expect(course.findUnique).toHaveBeenLastCalledWith({
+      where: { id: "course-main" },
+      select: { status: true },
+    });
+    expect(publication?.readiness.readinessVersion).not.toBe(readiness?.readinessVersion);
+    expect(publication?.readiness.allocationPlanVersion).not.toBe(readiness?.allocationPlanVersion);
+    const fresh = await repository.getMainCoursePublicationReadiness();
+    expect(publication?.readiness.readinessVersion).toBe(fresh?.readinessVersion);
+    expect(publication?.readiness.allocationPlanVersion).toBe(fresh?.allocationPlanVersion);
     expect(course.updateMany).toHaveBeenCalledWith({
       where: { id: "course-main", status: "DRAFT" },
       data: { status: "PUBLISHED" },
