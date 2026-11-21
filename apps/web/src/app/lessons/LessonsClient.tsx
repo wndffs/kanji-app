@@ -36,6 +36,7 @@ import { normalizeJapaneseReading, romanizeKana } from "@kanji-srs/japanese";
 
 import { JapaneseText } from "../../components/JapaneseText";
 import { LessonPickerSearch } from "../../components/LessonPickerSearch";
+import { DeckPrerequisiteRecovery } from "./DeckPrerequisiteRecovery";
 import { useStudyFocus } from "../../components/StudyFocus";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
@@ -1043,6 +1044,9 @@ function LessonsScreen({
             </Link>
           </div>
         </div>
+        {queueState.source.kind === "deck" && queueState.remainingToday > 0 ? (
+          <DeckPrerequisiteRecovery token={queueState.token} deckId={queueState.source.deckId} />
+        ) : null}
       </section>
     );
   }

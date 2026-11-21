@@ -551,6 +551,52 @@ test.describe("lesson session", () => {
     await expect(page.getByRole("button", { name: "Начать урок", exact: true })).toHaveCount(0);
   });
 
+  test("opens startable prerequisites from a blocked private deck", async ({ page }) => {
+    await signIn(page);
+    await mockLessonApi(page);
+    let reads = 0;
+    let writes = 0;
+    await page.route(`${API_BASE_URL}/lessons/queue?deckId=**`, (route) => {
+      const deckId = new URL(route.request().url()).searchParams.get("deckId");
+      const isFollowup = deckId === "deck-followup";
+      return route.fulfill({
+        json: {
+          ...queueResponse(isFollowup ? [lessonQueueItem] : [], true),
+          source: { kind: "deck", deckId, title: isFollowup ? "Предпосылки" : "Текст" },
+        },
+      });
+    });
+    await page.route(`${API_BASE_URL}/decks/deck-capped/prerequisites`, (route) => {
+      if (route.request().method() === "GET") {
+        reads++;
+        return route.fulfill({
+          json: {
+            readyCount: 1,
+            waitingReviewCount: 1,
+            unavailableCount: 0,
+            preview: [{ id: "component-tree", japanese: "木" }],
+          },
+        });
+      }
+      expect(route.request().method()).toBe("POST");
+      writes++;
+      return route.fulfill({ json: { deckId: "deck-followup", itemCount: 1 } });
+    });
+
+    await page.goto("/lessons?deckId=deck-capped");
+    await expect(page.getByText("Очередь пуста.", { exact: true })).toBeVisible();
+    expect(reads).toBe(0);
+    await page.getByRole("button", { name: "Недостающие предпосылки" }).click();
+    await expect(page.getByText("木", { exact: true })).toBeVisible();
+    await expect(page.getByText(/Требуют повторения: 1/u)).toBeVisible();
+    expect(writes).toBe(0);
+    await page.getByRole("button", { name: "Создать колоду предпосылок" }).click();
+    await page.getByRole("link", { name: "Уроки предпосылок (1)" }).click();
+    await expect(page).toHaveURL(/deckId=deck-followup/u);
+    await expect(page.getByRole("button", { name: "Начать урок", exact: true })).toBeVisible();
+    expect([reads, writes]).toEqual([1, 1]);
+  });
+
   test("requires every lesson quiz answer before completing one item", async ({ page }) => {
     await signIn(page);
     const savedSettings = await mockLessonApi(page);

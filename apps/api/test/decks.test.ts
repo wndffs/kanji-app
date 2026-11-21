@@ -56,6 +56,66 @@ describe("DecksService", () => {
     expect(response.plannedItemCount).toBe(1);
     expect(response.externalPrerequisiteCount).toBe(2);
   });
+
+  it("applies the automatic root cap after ranking matches by the owner's progress", async () => {
+    const repository = new InMemoryDecksRepository({
+      startedItemIds: new Map([["owner", new Set(["item-word-school", "item-kanji-study"])]]),
+    });
+    const service = new DecksService(repository);
+    const request = { text: "学校。猫。", maxItems: 1 };
+    const owner = createUser("owner");
+    const preview = await service.previewFromText(owner, request);
+    expect(preview.candidates.map(({ item }) => item.id)).toContain("item-word-school");
+    expect(preview.selectedItemIds).toEqual(["item-word-cat"]);
+    expect((await service.previewFromText(createUser("other"), request)).selectedItemIds).toEqual([
+      "item-word-school",
+    ]);
+    expect(
+      (await service.createFromText(owner, request)).deck.items.map(({ item }) => item.id),
+    ).toEqual(["item-word-cat"]);
+    const explicit = await service.createFromText(owner, {
+      ...request,
+      selectedItemIds: ["item-word-school"],
+    });
+    expect(explicit.deck.items.map(({ item, isNewForUser }) => [item.id, isNewForUser])).toEqual([
+      ["item-word-school", false],
+    ]);
+  });
+
+  it("reserves remaining space for new prerequisites and saves the preview's root selection", async () => {
+    const service = new DecksService(
+      new InMemoryDecksRepository({
+        startedItemIds: new Map([["owner", new Set(["item-word-cat", "item-kanji-study"])]]),
+      }),
+    );
+    const owner = createUser("owner");
+    const request = { text: "猫。学校。", maxItems: 2 };
+    const preview = await service.previewFromText(owner, request);
+    expect(preview.selectedItemIds).toEqual(["item-word-school"]);
+    expect(preview.plannedItemCount).toBe(2);
+    expect(preview.externalPrerequisiteCount).toBe(1);
+
+    const automatic = await service.createFromText(owner, request);
+    const confirmed = await service.createFromText(owner, {
+      ...request,
+      selectedItemIds: preview.selectedItemIds,
+    });
+    expect(automatic.deck.items.map(({ item }) => item.id)).toEqual([
+      "item-word-school",
+      "item-component-child",
+    ]);
+    expect(confirmed.deck.items).toEqual(automatic.deck.items);
+    expect(confirmed.tokenization).toEqual(preview.tokenization);
+    const explicit = await service.createFromText(owner, {
+      ...request,
+      selectedItemIds: ["item-word-cat", "item-word-school"],
+    });
+    expect(explicit.deck.items.map(({ item }) => item.id)).toEqual([
+      "item-word-cat",
+      "item-word-school",
+    ]);
+  });
+
   it("keeps manual membership private and canonical across repeat additions/removal", async () => {
     const service = createService();
     const owner = createUser("owner"),
@@ -157,6 +217,7 @@ describe("DecksService", () => {
         }),
       ],
       dependencies: new Map(),
+      startedItemIds: new Map([["owner", new Set(["item-word-tokyo-university"])]]),
     });
     const service = new DecksService(repository);
 
@@ -169,6 +230,12 @@ describe("DecksService", () => {
       "item-word-tokyo",
     ]);
     expect(response.tokenization.discardedOverlapCount).toBe(1);
+    const shortText = await service.previewFromText(createUser("owner"), {
+      text: "東京大学",
+      maxItems: 1,
+    });
+    expect(shortText.selectedItemIds).toEqual(["item-word-tokyo-university"]);
+    expect(shortText.candidates.map(({ item }) => item.id)).toContain("item-word-university");
   });
 
   it("adds unknown user words when they are present in the DB", async () => {
@@ -300,6 +367,11 @@ class InMemoryDecksRepository extends DecksRepository {
         return item === undefined ? [] : [{ sourceItemId, item }];
       }),
     );
+  }
+
+  async findStartedItemIds(ownerUserId: string, ids: readonly string[]): Promise<Set<string>> {
+    const started = this.startedItemIds.get(ownerUserId);
+    return new Set(ids.filter((id) => started?.has(id)));
   }
 
   async createTextDeck(input: CreateTextDeckInput): Promise<TextDeckRecord> {

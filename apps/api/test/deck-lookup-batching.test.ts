@@ -73,14 +73,12 @@ describe("text deck lookup boundaries", () => {
         prerequisiteItem: prerequisite,
       })),
     );
-    const component = vi
-      .fn()
-      .mockResolvedValue({
-        symbol: "一",
-        meaningRu: "один",
-        meaningEn: "one",
-        sourceKind: "PROJECT_AUTHORED",
-      });
+    const component = vi.fn().mockResolvedValue({
+      symbol: "一",
+      meaningRu: "один",
+      meaningEn: "one",
+      sourceKind: "PROJECT_AUTHORED",
+    });
     const repository = new PrismaDecksRepository({
       db: { dependency: { findMany: reads }, component: { findUnique: component } },
     } as never);
@@ -92,6 +90,32 @@ describe("text deck lookup boundaries", () => {
     expect(component).toHaveBeenCalledOnce();
     await repository.findPrerequisites(ids.slice(0, 2));
     expect(component).toHaveBeenCalledTimes(2);
+  });
+
+  it("checks started items only for the owner and in bounded unique ID batches", async () => {
+    const ids = Array.from({ length: 101 }, (_, index) => `item-${index}`);
+    const findMany = vi.fn(
+      async ({
+        where,
+      }: {
+        where: { userId: string; learningCard: { learningItemId: { in: string[] } } };
+      }) =>
+        where.learningCard.learningItemId.in
+          .filter((id) => id === "item-100")
+          .map((learningItemId) => ({ learningCard: { learningItemId } })),
+    );
+    const repository = new PrismaDecksRepository({ db: { userSrsState: { findMany } } } as never);
+
+    expect(await repository.findStartedItemIds("owner", [...ids, ids[0]!])).toEqual(
+      new Set(["item-100"]),
+    );
+    expect(findMany.mock.calls.map(([{ where }]) => where.userId)).toEqual(["owner", "owner"]);
+    expect(findMany.mock.calls.map(([{ where }]) => where.learningCard.learningItemId.in)).toEqual([
+      ids.slice(0, 100),
+      ids.slice(100),
+    ]);
+    expect(await repository.findStartedItemIds("owner", [])).toEqual(new Set());
+    expect(findMany).toHaveBeenCalledTimes(2);
   });
 
   it("skips all target lookups for empty candidates", async () => {

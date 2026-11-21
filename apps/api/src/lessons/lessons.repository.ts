@@ -53,7 +53,13 @@ export abstract class LessonsRepository {
   ): Promise<ReadonlyMap<string, LessonItemRecord>>;
   abstract listCourseLessonItems(userId: string): Promise<readonly CourseLessonItemRecord[]>;
   abstract findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null>;
-  abstract listUserProgress(userId: string): Promise<readonly UserItemProgressRecord[]>;
+  abstract listUserProgress(
+    userId: string,
+    itemIds?: readonly string[],
+  ): Promise<readonly UserItemProgressRecord[]>;
+  abstract loadLessonEligibilityItems(
+    itemIds: readonly string[],
+  ): Promise<readonly LessonEligibilityItemRecord[]>;
   abstract listPrerequisiteCardIds(
     itemIds: readonly string[],
   ): Promise<ReadonlyMap<string, readonly string[]>>;
@@ -561,9 +567,18 @@ export class PrismaLessonsRepository extends LessonsRepository {
     };
   }
 
-  async listUserProgress(userId: string): Promise<readonly UserItemProgressRecord[]> {
+  async listUserProgress(
+    userId: string,
+    itemIds?: readonly string[],
+  ): Promise<readonly UserItemProgressRecord[]> {
+    if (itemIds?.length === 0) return [];
     const states = (await this.prisma.db.userSrsState.findMany({
-      where: { userId },
+      where: {
+        userId,
+        ...(itemIds === undefined
+          ? {}
+          : { learningCard: { learningItemId: { in: [...itemIds] } } }),
+      },
       select: {
         stageIndex: true,
         createdAt: true,
@@ -582,6 +597,24 @@ export class PrismaLessonsRepository extends LessonsRepository {
       stageIndex: state.stageIndex,
       createdAt: state.createdAt,
     }));
+  }
+
+  async loadLessonEligibilityItems(
+    itemIds: readonly string[],
+  ): Promise<readonly LessonEligibilityItemRecord[]> {
+    const ids = [...new Set(itemIds)];
+    const items: LessonEligibilityItemRecord[] = [];
+    for (let offset = 0; offset < ids.length; offset += LESSON_TARGET_BATCH_SIZE) {
+      const rows = await this.prisma.db.learningItem.findMany({
+        where: {
+          id: { in: ids.slice(offset, offset + LESSON_TARGET_BATCH_SIZE) },
+          status: "PUBLISHED",
+        },
+        select: lessonEligibilitySelect,
+      });
+      items.push(...rows.map(toEligibilityItem));
+    }
+    return items;
   }
 
   async listPrerequisiteCardIds(

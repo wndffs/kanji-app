@@ -1249,14 +1249,22 @@ class InMemoryLessonsRepository extends LessonsRepository {
     return userId === "owner" && deckId === "deck-study" ? createDeckLesson(this.deckStatus) : null;
   }
 
-  async listUserProgress(userId: string): Promise<readonly UserItemProgressRecord[]> {
+  async listUserProgress(
+    userId: string,
+    itemIds?: readonly string[],
+  ): Promise<readonly UserItemProgressRecord[]> {
     this.readCounts.progress++;
     return this.progress
       .filter((record) => record.learningItemId.startsWith(`${userId}:`))
       .map((record) => ({
         ...record,
         learningItemId: record.learningItemId.slice(`${userId}:`.length),
-      }));
+      }))
+      .filter((record) => itemIds === undefined || itemIds.includes(record.learningItemId));
+  }
+
+  async loadLessonEligibilityItems(itemIds: readonly string[]) {
+    return [...(await this.loadLessonItems("owner", itemIds)).values()];
   }
 
   async listPrerequisiteCardIds(

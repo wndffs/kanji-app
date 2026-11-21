@@ -1385,6 +1385,18 @@ export type DeckDetailsDto = Omit<DeckDto, "items"> & {
   readonly items: readonly DeckItemDto[];
 };
 
+export type DeckPrerequisitePlanDto = {
+  readonly readyCount: number;
+  readonly waitingReviewCount: number;
+  readonly unavailableCount: number;
+  readonly preview: readonly { readonly id: string; readonly japanese: string }[];
+};
+
+export type CreatePrerequisiteDeckResponse = {
+  readonly deckId: string;
+  readonly itemCount: number;
+};
+
 export type CreateTextDeckRequest = {
   readonly text: string;
   readonly title?: string | null;

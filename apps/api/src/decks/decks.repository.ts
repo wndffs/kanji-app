@@ -30,6 +30,10 @@ import {
 
 export abstract class DecksRepository {
   abstract findTextMatches(tokens: TextDeckTokenLookup): Promise<readonly TextDeckMatchRecord[]>;
+  abstract findStartedItemIds(
+    ownerUserId: string,
+    learningItemIds: readonly string[],
+  ): Promise<ReadonlySet<string>>;
   abstract findPrerequisites(
     learningItemIds: readonly string[],
   ): Promise<readonly TextDeckPrerequisiteRecord[]>;
@@ -501,7 +505,7 @@ export class PrismaDecksRepository extends DecksRepository {
     return items;
   }
 
-  private async findStartedItemIds(
+  async findStartedItemIds(
     ownerUserId: string,
     learningItemIds: readonly string[],
   ): Promise<Set<string>> {

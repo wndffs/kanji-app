@@ -72,7 +72,7 @@ export class DecksService {
 
   async createFromText(user: CurrentUserDto, body: unknown): Promise<CreateTextDeckResponse> {
     const request = parseCreateTextDeckRequest(body);
-    const prepared = await this.prepareText(request);
+    const prepared = await this.prepareText(user.id, request);
     const deck = await this.decksRepository.createTextDeck({
       ownerUserId: user.id,
       title: request.title,
@@ -90,7 +90,7 @@ export class DecksService {
   }
 
   async previewFromText(user: CurrentUserDto, body: unknown): Promise<TextDeckPreviewResponse> {
-    const prepared = await this.prepareText(parseCreateTextDeckRequest(body));
+    const prepared = await this.prepareText(user.id, parseCreateTextDeckRequest(body));
     return {
       candidates: prepared.candidates.map((match) => ({
         item: toItemSummary(match.item, getDisplayMode(user)),
@@ -104,7 +104,7 @@ export class DecksService {
     };
   }
 
-  private async prepareText(request: ParsedCreateTextDeckRequest) {
+  private async prepareText(ownerUserId: string, request: ParsedCreateTextDeckRequest) {
     const tokens = analyzeText(request.text);
 
     if (tokens.wordCandidates.length === 0 && tokens.kanjiCharacters.length === 0) {
@@ -115,14 +115,10 @@ export class DecksService {
       ...tokens,
       sourceText: tokens.normalizedText,
     });
-    const matchSelection = selectBestTextMatches(
-      textMatches,
-      tokens.normalizedText,
-      request.maxItems,
-    );
     const candidates = [...new Map(textMatches.map((match) => [match.item.id, match])).values()];
     if (candidates.length > 320)
       throw new BadRequestException("Too many matching materials; shorten the text.");
+    const matchSelection = selectBestTextMatches(textMatches, tokens.normalizedText);
     const selectedIds = request.selectedItemIds;
     if (
       selectedIds !== undefined &&
@@ -133,21 +129,64 @@ export class DecksService {
     if (selectedIds !== undefined && selectedIds.length > request.maxItems) {
       throw new BadRequestException("Selected materials exceed maxItems.");
     }
-    const selectedMatches =
-      selectedIds === undefined
-        ? matchSelection.matches
-        : candidates.filter((match) => selectedIds.includes(match.item.id));
     const itemPlans = new Map<string, DeckItemPlan>();
+    const checkedIds = new Set<string>();
+    const startedIds = new Set<string>();
+    const checkProgress = async (ids: Iterable<string>) => {
+      const unchecked = [...ids].filter((id) => !checkedIds.has(id));
+      if (unchecked.length === 0) return;
+      for (const id of await this.decksRepository.findStartedItemIds(ownerUserId, unchecked))
+        startedIds.add(id);
+      for (const id of unchecked) checkedIds.add(id);
+    };
+    const addRoots = async (matches: readonly TextDeckMatchRecord[]) => {
+      for (const match of matches) addMatchedItemPlan(itemPlans, match);
+      await this.addPrerequisitePlans(itemPlans, matches);
+    };
 
-    for (const match of selectedMatches) {
-      addMatchedItemPlan(itemPlans, match);
+    let selectedMatches: readonly TextDeckMatchRecord[];
+    if (selectedIds !== undefined) {
+      selectedMatches = candidates.filter((match) => selectedIds.includes(match.item.id));
+      await addRoots(selectedMatches);
+    } else {
+      const matches = matchSelection.matches;
+      await checkProgress(matches.map((match) => match.item.id));
+      const fresh = matches
+        .filter((match) => !startedIds.has(match.item.id))
+        .slice(0, request.maxItems);
+      await addRoots(fresh);
+      const started = matches.filter((match) => startedIds.has(match.item.id));
+      let spare = request.maxItems - fresh.length;
+      if (spare > 0 && started.length > 0) {
+        await checkProgress(itemPlans.keys());
+        // Never spend a new root's unstarted prerequisite slot on a started default root.
+        const unstartedPlanCount = [...itemPlans.keys()].filter((id) => !startedIds.has(id)).length;
+        spare = Math.max(0, request.maxItems - unstartedPlanCount);
+      }
+      const fallback = started.slice(0, spare);
+      await addRoots(fallback);
+      selectedMatches = [...fresh, ...fallback];
     }
 
-    await this.addPrerequisitePlans(itemPlans, selectedMatches);
-
-    const sortedPlans = sortItemPlans([...itemPlans.values()]).slice(0, request.maxItems);
+    const sortedPlans = sortItemPlans([...itemPlans.values()]);
+    const rootIds = new Set(selectedMatches.map((match) => match.item.id));
+    const prerequisiteSlots = request.maxItems - rootIds.size;
+    const prerequisites = sortedPlans.filter((plan) => !rootIds.has(plan.item.id));
+    let plans = sortedPlans;
+    if (prerequisites.length > prerequisiteSlots) {
+      if (prerequisiteSlots > 0) await checkProgress(prerequisites.map((plan) => plan.item.id));
+      const keep = new Set(
+        [
+          ...prerequisites.filter((plan) => !startedIds.has(plan.item.id)),
+          ...prerequisites.filter((plan) => startedIds.has(plan.item.id)),
+        ]
+          .slice(0, prerequisiteSlots)
+          .map((plan) => plan.item.id),
+      );
+      plans = sortedPlans.filter((plan) => rootIds.has(plan.item.id) || keep.has(plan.item.id));
+    }
     return {
-      plans: sortedPlans,
+      plans,
       candidates,
       tokens,
       selectedIds: selectedMatches.map((match) => match.item.id),
@@ -157,7 +196,7 @@ export class DecksService {
         candidateCount: tokens.wordCandidates.length + tokens.kanjiCharacters.length,
         matchedItemCount: selectedMatches.length,
         discardedOverlapCount: matchSelection.discardedOverlapCount,
-        externalPrerequisiteCount: itemPlans.size - sortedPlans.length,
+        externalPrerequisiteCount: itemPlans.size - plans.length,
         unmatchedCandidateCount: Math.max(
           0,
           tokens.wordCandidates.length + tokens.kanjiCharacters.length - selectedMatches.length,
@@ -350,7 +389,6 @@ function analyzeText(text: string) {
 function selectBestTextMatches(
   matches: readonly TextDeckMatchRecord[],
   sourceText: string,
-  maxItems: number,
 ): TextMatchSelection {
   const bestByItem = new Map<string, TextDeckMatchRecord>();
 
@@ -373,7 +411,7 @@ function selectBestTextMatches(
   const nonWordMatches = uniqueMatches.filter((match) => match.item.itemType !== "word");
 
   return {
-    matches: [...selectedWords, ...nonWordMatches].sort(compareTextMatches).slice(0, maxItems),
+    matches: [...selectedWords, ...nonWordMatches].sort(compareTextMatches),
     discardedOverlapCount: wordMatches.length - selectedWords.length,
   };
 }

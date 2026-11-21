@@ -92,6 +92,8 @@ import {
   type KanaPracticeSessionDto,
   type KanaScript,
   type DeckDetailsDto,
+  type DeckPrerequisitePlanDto,
+  type CreatePrerequisiteDeckResponse,
   type DeckListResponse,
   type LessonQueueResponse,
   type LessonOrderMode,
@@ -1211,6 +1213,20 @@ export function removeDeckItem(token: string, deckId: string, itemId: string) {
 
 export function getDeck(token: string, deckId: string): Promise<DeckDetailsDto> {
   return apiRequest<DeckDetailsDto>(`/decks/${encodeURIComponent(deckId)}`, { token });
+}
+
+export function getDeckPrerequisitePlan(token: string, deckId: string, signal?: AbortSignal) {
+  return apiRequest<DeckPrerequisitePlanDto>(`/decks/${encodeURIComponent(deckId)}/prerequisites`, {
+    token,
+    signal,
+  });
+}
+
+export function createPrerequisiteDeck(token: string, deckId: string) {
+  return apiRequest<CreatePrerequisiteDeckResponse>(
+    `/decks/${encodeURIComponent(deckId)}/prerequisites`,
+    { method: "POST", token },
+  );
 }
 
 export function updateDeckStatus(
