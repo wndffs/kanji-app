@@ -10,7 +10,7 @@ remote-smoke guardrails; a complete bundle measurement is not yet a CI gate.
 
 ## Confirmed Format And Limits
 
-The current workspace has Next **16.4.2**, `next build --webpack`, and
+The current workspace has Next **16.4.6**, `next build --webpack`, and
 `output: "standalone"`. The production smoke runner
 `apps/web/scripts/run-playwright-smoke.mjs` copies static assets into the
 standalone directory and starts a server. This helper does **neither**; it uses
@@ -33,10 +33,20 @@ The installed build source confirms:
 
 HTML is parsed with the existing MIT-licensed parser bundled at
 `next/dist/compiled/node-html-parser`, guarded to the reviewed installed version
-16.4.2. This introduces no dependency or lockfile change. The parser path is an
+16.4.6. This introduces no additional dependency. The parser path is an
 explicit version-bound implementation dependency, not a promised stable Next API.
 Other versions fail closed until reviewed; no future manifest compatibility is
 assumed. Fixtures are synthetic HTML, not claimed real build output.
+
+On 2026-11-21, the 16.4.6 webpack production build was also checked using
+standalone HTML responses for all seven routes. All seven measured within the
+starting budgets: distinct external JS was 306,824 gzip bytes, and distinct
+CSS was 27,590 gzip bytes. This does not measure lazy chunks or API latency.
+
+On 2026-11-21, the 16.4.6 webpack production build was also checked using
+standalone HTML responses for all seven routes. All seven measured within the
+starting budgets: distinct external JS was 306,824 gzip bytes, and distinct
+CSS was 27,590 gzip bytes. This does not measure lazy chunks or API latency.
 
 Extraction includes external executable `script[src]`, stylesheet links,
 `preload` links with `as=script|style`, and `modulepreload`. Duplicate references

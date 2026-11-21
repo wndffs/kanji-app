@@ -8,6 +8,7 @@ import { gzipSync } from "node:zlib";
 
 const require = createRequire(import.meta.url);
 const DEFAULT_BUILD_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../apps/web/.next");
+const REVIEWED_NEXT_VERSION = "16.4.6";
 export const STUDY_ROUTES = Object.freeze([
   "/dashboard",
   "/lessons",
@@ -45,7 +46,8 @@ const fail = (code) => {
 function htmlParser() {
   // An existing MIT parser bundled with the installed, reviewed Next release.
   // Never evaluate emitted client/server manifest JavaScript.
-  if (require("next/package.json").version !== "16.4.2") fail("UNREVIEWED_PARSER_VERSION");
+  if (require("next/package.json").version !== REVIEWED_NEXT_VERSION)
+    fail("UNREVIEWED_PARSER_VERSION");
   const { parse } = require("next/dist/compiled/node-html-parser");
   if (typeof parse !== "function") fail("UNSUPPORTED_HTML_PARSER");
   return parse;
@@ -218,7 +220,7 @@ async function buildGuard(root) {
   } catch {
     fail("UNCONFIRMED_BUILD_FRAMEWORK");
   }
-  if (framework?.name !== "Next.js" || framework?.version !== "16.4.2")
+  if (framework?.name !== "Next.js" || framework?.version !== REVIEWED_NEXT_VERSION)
     fail("UNREVIEWED_BUILD_FRAMEWORK");
   return id.toString("utf8");
 }

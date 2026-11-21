@@ -39,7 +39,7 @@ async function fixture(
     await write("BUILD_ID", "synthetic-test-build");
     await write(
       "diagnostics/framework.json",
-      JSON.stringify({ name: "Next.js", version: "16.4.2" }),
+      JSON.stringify({ name: "Next.js", version: "16.4.6" }),
     );
     await write("static/css/shared.css", "body { color: black; }");
     await write("static/chunks/shared.js", "globalThis.example = true;");
