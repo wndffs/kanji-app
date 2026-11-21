@@ -10,6 +10,7 @@ import { DEEPENING_KANJI_BATCH } from "./course-deepening-builders";
 import { deepeningWords } from "./course-deepening-content";
 import { FOLLOWTHROUGH_KANJI_BATCH, followthroughWords } from "./course-followthrough-content";
 import { COVERAGE_KANJI_BATCH, coverageWords } from "./course-coverage-content";
+import { CONSOLIDATION_KANJI_BATCH, consolidationWords } from "./course-consolidation-content";
 import { buildMainCourseContentBatches } from "./main-course-content";
 
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
@@ -1161,7 +1162,10 @@ const FOUNDATION_WORD_BATCH_03: MainCourseWordBatch = {
 
 export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
   const kanji = buildMainCourseContentBatches();
-  const preCoverageKanji = kanji.filter((batch) => batch.id !== COVERAGE_KANJI_BATCH);
+  const preConsolidationKanji = kanji.filter((batch) => batch.id !== CONSOLIDATION_KANJI_BATCH);
+  const preCoverageKanji = preConsolidationKanji.filter(
+    (batch) => batch.id !== COVERAGE_KANJI_BATCH,
+  );
   const preFollowthroughKanji = preCoverageKanji.filter(
     (batch) => batch.id !== FOLLOWTHROUGH_KANJI_BATCH,
   );
@@ -1205,7 +1209,8 @@ export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
     ...preFollowthrough,
     ...followthroughWords(preCoverageKanji, preFollowthrough),
   ];
-  return [...preCoverage, ...coverageWords(kanji, preCoverage)];
+  const preConsolidation = [...preCoverage, ...coverageWords(preConsolidationKanji, preCoverage)];
+  return [...preConsolidation, ...consolidationWords(kanji, preConsolidation)];
 }
 
 export function mainCourseWordBatchChecksum(batch: MainCourseWordBatch): string {

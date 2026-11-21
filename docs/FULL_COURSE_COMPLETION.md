@@ -900,3 +900,35 @@ remain **714 / 1,300**, not the reviewed registry totals.
   teaching targets / 11,200 core cards**. Verify full quality and aggregate
   preservation evidence. Do not enroll users in the DRAFT main course or
   modify any sealed V1-V7 course or historical SRS data.
+
+## Course Consolidation: 2026-11-21
+
+This block adds **200 independently reviewed kanji and 754 words**, with a
+reinforcement word for each new character and **754 original
+JP/kana/RU/EN examples**. The reviewed registry now contains **1,714 kanji,
+4,724 words and 232 components** across **45 populated levels**. Remaining:
+**586 kanji and 3,276 words**. The last confirmed Neon count remains
+**714 kanji / 1,300 words**.
+
+- Two AI reviewers checked all 200 reading links and cross-reviewed all 554
+  supplementary entries. The pinned 2026-10-31 snapshot confirmed **754
+  exact bilingual JMdict pairs, 200 KANJIDIC2 readings, 200 KanjiVG primary
+  stroke sequences and 519 actual component groups**. The optional
+  `--check-components true` local evidence flag checks groups carrying
+  strokes, not alias metadata or empty groups. It does not claim human
+  certification or approval to publish.
+- Examples teach everyday distinctions such as 扱う (handle or deal with),
+  跳ねる (hop or bounce) and 縦横 read じゅうおう in a clear context; guards
+  reject unrelated near-answers such as medication for 調停. The two
+  sound-change links 窃盗 and 傑作 keep せつ and けつ for their standalone
+  kanji cards while showing せっ and けっ in the compounds.
+- All older registry coordinates and payloads remain unchanged. New seal:
+  `c9e628fb69582ecbcdeb0c73965f3a10c41fb942844d3706bae21bfd423a859c`.
+  No curricula or accounts have been moved to the DRAFT main course.
+- After Coverage is live, plan/apply `full-course-kanji-consolidation`
+  with words skipped. Plan/apply the **32** explicit word IDs
+  `full-course-vocabulary-consolidation-01` through `-32`; supplement only
+  a selected missing source set if the live plan requires it. Expected
+  after all outstanding reviewed batches: **6,670 targets / 13,108 core
+  cards**. Verify aggregate source, quality and preservation evidence
+  before recording the Neon release.
