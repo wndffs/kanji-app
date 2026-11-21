@@ -30,6 +30,7 @@ export class DeckPrerequisitesService {
     return {
       readyCount: plan.ready.length,
       waitingReviewCount: plan.waitingReviewCount,
+      incompleteProgressCount: plan.incompleteProgressCount,
       unavailableCount: plan.unavailableCount,
       preview: [...items.values()].map(({ id, target }) => ({ id, japanese: target.japanese })),
     };
@@ -82,6 +83,7 @@ export class DeckPrerequisitesService {
     const visited = new Set<string>();
     const ready: LessonEligibilityItemRecord[] = [];
     const waiting = new Set<string>();
+    const incomplete = new Set<string>();
     const unavailable = new Set<string>();
     const started = ({ id, cards }: LessonEligibilityItemRecord) =>
       cards.some((card) => progress.get(id)?.has(card.id));
@@ -132,8 +134,11 @@ export class DeckPrerequisitesService {
             continue;
 
           hasAllPrerequisites = false;
-          if (started(prerequisite)) waiting.add(prerequisite.id);
-          else if (!visited.has(prerequisite.id)) next.set(prerequisite.id, prerequisite);
+          if (started(prerequisite)) {
+            if (prerequisite.cards.some(({ id }) => !stages?.has(id)))
+              incomplete.add(prerequisite.id);
+            else waiting.add(prerequisite.id);
+          } else if (!visited.has(prerequisite.id)) next.set(prerequisite.id, prerequisite);
         }
         if (hasAllPrerequisites && !members.has(item.id)) ready.push(item);
       }
@@ -144,6 +149,7 @@ export class DeckPrerequisitesService {
       title: deck.title,
       ready,
       waitingReviewCount: waiting.size,
+      incompleteProgressCount: incomplete.size,
       unavailableCount: unavailable.size,
     };
   }

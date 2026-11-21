@@ -1388,6 +1388,7 @@ export type DeckDetailsDto = Omit<DeckDto, "items"> & {
 export type DeckPrerequisitePlanDto = {
   readonly readyCount: number;
   readonly waitingReviewCount: number;
+  readonly incompleteProgressCount: number;
   readonly unavailableCount: number;
   readonly preview: readonly { readonly id: string; readonly japanese: string }[];
 };

@@ -27,11 +27,12 @@ function item(
 
 function harness() {
   const rows = [
-    item("word", "word", ["kanji", "waiting", "unpublished", "internal"]),
+    item("word", "word", ["kanji", "waiting", "partial", "unpublished", "internal"]),
     item("internal", "component"),
     item("kanji", "kanji", ["root"]),
     item("root", "component"),
     item("waiting", "kanji", [], 2),
+    item("partial", "kanji", [], 2),
   ];
   const addProgress = (learningItemId: string, index: number, stageIndex: number) => {
     progress.push({
@@ -44,6 +45,7 @@ function harness() {
   const progress: UserItemProgressRecord[] = [];
   addProgress("waiting", 0, 5);
   addProgress("waiting", 1, 1);
+  addProgress("partial", 0, 5);
   const lessons = {
     findDeckEligibility: vi.fn(async (userId: string, deckId: string) =>
       userId !== "owner" || deckId !== "source"
@@ -75,6 +77,7 @@ describe("private deck prerequisite recovery", () => {
     await expect(service.preview("owner", "source")).resolves.toEqual({
       readyCount: 1,
       waitingReviewCount: 1,
+      incompleteProgressCount: 1,
       unavailableCount: 1,
       preview: [{ id: "root", japanese: "木" }],
     });
@@ -110,6 +113,7 @@ describe("private deck prerequisite recovery", () => {
     await expect(service.preview("owner", "source")).resolves.toMatchObject({
       readyCount: 0,
       waitingReviewCount: 2,
+      incompleteProgressCount: 1,
     });
     await expect(service.create("owner", "source")).rejects.toBeInstanceOf(BadRequestException);
     expect(createTextDeck).not.toHaveBeenCalled();

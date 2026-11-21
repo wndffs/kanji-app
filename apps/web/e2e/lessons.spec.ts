@@ -572,7 +572,8 @@ test.describe("lesson session", () => {
         return route.fulfill({
           json: {
             readyCount: 1,
-            waitingReviewCount: 1,
+            waitingReviewCount: reads === 1 ? 1 : 0,
+            incompleteProgressCount: 1,
             unavailableCount: 0,
             preview: [{ id: "component-tree", japanese: "木" }],
           },
@@ -586,15 +587,20 @@ test.describe("lesson session", () => {
     await page.goto("/lessons?deckId=deck-capped");
     await expect(page.getByText("Очередь пуста.", { exact: true })).toBeVisible();
     expect(reads).toBe(0);
-    await page.getByRole("button", { name: "Недостающие предпосылки" }).click();
+    const disclosure = page.getByRole("button", { name: "Недостающие предпосылки" });
+    await disclosure.click();
     await expect(page.getByText("木", { exact: true })).toBeVisible();
     await expect(page.getByText(/Требуют повторения: 1/u)).toBeVisible();
+    await expect(page.getByText(/Неполный прогресс по карточкам: 1/u)).toBeVisible();
     expect(writes).toBe(0);
+    await disclosure.click();
+    await disclosure.click();
+    await expect(page.getByText(/Требуют повторения/u)).toHaveCount(0);
     await page.getByRole("button", { name: "Создать колоду предпосылок" }).click();
     await page.getByRole("link", { name: "Уроки предпосылок (1)" }).click();
     await expect(page).toHaveURL(/deckId=deck-followup/u);
     await expect(page.getByRole("button", { name: "Начать урок", exact: true })).toBeVisible();
-    expect([reads, writes]).toEqual([1, 1]);
+    expect([reads, writes]).toEqual([2, 1]);
   });
 
   test("requires every lesson quiz answer before completing one item", async ({ page }) => {

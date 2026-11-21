@@ -46,8 +46,10 @@ export function DeckPrerequisiteRecovery({
       const response = await getDeckPrerequisitePlan(token, deckId, controller.signal);
       if (!controller.signal.aborted && ownsSession(token)) setPlan(response);
     } catch {
-      if (!controller.signal.aborted && ownsSession(token))
+      if (!controller.signal.aborted && ownsSession(token)) {
+        setPlan(null);
         setError("Не удалось проверить предпосылки.");
+      }
     } finally {
       pending.current = false;
       if (mounted.current && ownsSession(token)) setBusy(false);
@@ -77,7 +79,7 @@ export function DeckPrerequisiteRecovery({
     <SectionDisclosure
       title="Недостающие предпосылки"
       onOpen={() => {
-        if (plan === null) void load();
+        if (followup === null) void load();
       }}
     >
       {busy && plan === null ? <p className="muted">Проверяю предпосылки…</p> : null}
@@ -114,6 +116,9 @@ export function DeckPrerequisiteRecovery({
           ) : null}
           {plan.unavailableCount > 0 ? (
             <p className="muted">Недоступно в каталоге: {plan.unavailableCount}.</p>
+          ) : null}
+          {plan.incompleteProgressCount > 0 ? (
+            <p className="muted">Неполный прогресс по карточкам: {plan.incompleteProgressCount}.</p>
           ) : null}
           {followup !== null ? (
             <Link className="primary-action" href={lessonSourceHref(followup.deckId)}>
