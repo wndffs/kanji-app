@@ -11,6 +11,7 @@ import {
   parseSourceSupplementArgs,
   requireAbsentSupplementAliases,
   reviewedSourceCandidates,
+  selectReviewedSourceBatches,
 } from "./import-missing-reviewed-word-sources.mts";
 
 vi.mock("@prisma/client", () => {
@@ -125,18 +126,55 @@ describe("bounded missing-source supplements for reviewed words", () => {
   });
   it("defaults to read-only planning and accepts only explicit bounded CLI arguments", () => {
     const path = resolve(".");
-    expect(parseSourceSupplementArgs(["--snapshot-dir", path])).toEqual({
+    const args = ["--snapshot-dir", path, "--batch", "reviewed-01"];
+    expect(parseSourceSupplementArgs(args)).toEqual({
       directory: path,
       apply: false,
+      batchIds: ["reviewed-01"],
     });
-    expect(parseSourceSupplementArgs(["--snapshot-dir", path, "--apply"]).apply).toBe(true);
+    expect(parseSourceSupplementArgs([...args, "--batch", "reviewed-02", "--apply"])).toEqual({
+      directory: path,
+      apply: true,
+      batchIds: ["reviewed-01", "reviewed-02"],
+    });
     for (const args of [
       [],
       ["--apply"],
+      ["--snapshot-dir", path],
       ["--snapshot-dir", "relative"],
-      ["--snapshot-dir", path, "--all"],
-      ["--snapshot-dir", path, "--apply", "--apply"],
+      ["--snapshot-dir", path, "--batch", "reviewed-01", "--all"],
+      ["--snapshot-dir", path, "--batch", "reviewed-01", "--apply", "--apply"],
+      ["--snapshot-dir", path, "--batch", "reviewed-01", "--batch", "reviewed-01"],
+      ["--snapshot-dir", path, "--batch", "reviewed-01,reviewed-02"],
+      [
+        "--snapshot-dir",
+        path,
+        ...Array.from({ length: 41 }, (_, i) => ["--batch", `reviewed-${i}`]).flat(),
+      ],
     ])
       expect(() => parseSourceSupplementArgs(args)).toThrow("Usage");
+  });
+
+  it("derives evidence only for selected reviewed batches in stable registry order", () => {
+    const reviewed = buildMainCourseWordBatch();
+    const other = {
+      ...reviewed,
+      id: "other-reviewed",
+      wordCount: 1,
+      sortOrderStart: reviewed.words[1]!.sortOrder,
+      words: reviewed.words.slice(1, 2),
+    };
+    const pending = { ...reviewed, id: "pending", reviewedAt: null };
+    const registered = [reviewed, pending, other];
+    expect(selectReviewedSourceBatches(registered, [other.id, reviewed.id])).toEqual([
+      reviewed,
+      other,
+    ]);
+    const selected = selectReviewedSourceBatches(registered, [other.id]);
+    expect(reviewedSourceCandidates(selected)).toHaveLength(1);
+    expect(reviewedSourceCandidates(selected)).not.toContainEqual(candidate);
+    expect(() => selectReviewedSourceBatches(registered, [pending.id])).toThrow("reviewed");
+    expect(() => selectReviewedSourceBatches(registered, ["unknown"])).toThrow("existing");
+    expect(() => selectReviewedSourceBatches(registered, [])).toThrow("1-40");
   });
 });

@@ -137,17 +137,25 @@ jobs:
         if: ${{ steps.selection.outputs.supplement_word_sources == 'true' }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-        run: >-
-          npm exec -- tsx scripts/import-missing-reviewed-word-sources.mts
-          --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/2026-10-31"
+        shell: bash
+        run: |
+          args=()
+          IFS=',' read -ra ids <<< "$WORD_BATCH"
+          for id in "${ids[@]}"; do args+=(--batch "$id"); done
+          npm exec -- tsx scripts/import-missing-reviewed-word-sources.mts \
+            --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/2026-10-31" "${args[@]}"
 
       - name: Apply missing reviewed word sources
         if: ${{ inputs.mode == 'apply' && steps.selection.outputs.supplement_word_sources == 'true' }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-        run: >-
-          npm exec -- tsx scripts/import-missing-reviewed-word-sources.mts
-          --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/2026-10-31" --apply
+        shell: bash
+        run: |
+          args=()
+          IFS=',' read -ra ids <<< "$WORD_BATCH"
+          for id in "${ids[@]}"; do args+=(--batch "$id"); done
+          npm exec -- tsx scripts/import-missing-reviewed-word-sources.mts \
+            --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/2026-10-31" "${args[@]}" --apply
 
       - name: Preflight selected kanji without mutations
         if: ${{ steps.selection.outputs.apply_kanji == 'true' }}

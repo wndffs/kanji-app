@@ -29,6 +29,27 @@ type Observed = {
 const pairKey = (item: { expression: string; reading: string }) =>
   JSON.stringify([item.expression, item.reading]);
 
+const MAX_BATCH_IDS = 40;
+
+export function selectReviewedSourceBatches(
+  batches: readonly MainCourseWordBatch[],
+  ids: readonly string[],
+): readonly MainCourseWordBatch[] {
+  if (
+    !ids.length ||
+    ids.length > MAX_BATCH_IDS ||
+    ids.some((id) => !/^[a-z][a-z0-9-]{0,79}$/u.test(id)) ||
+    new Set(ids).size !== ids.length
+  )
+    throw new Error("Source supplementation requires 1-40 distinct registered word batch IDs.");
+
+  const selected = new Set(ids);
+  const scoped = batches.filter((batch) => selected.has(batch.id));
+  if (scoped.length !== ids.length || scoped.some((batch) => !batch.reviewedAt))
+    throw new Error("Source supplementation requires existing, editorially reviewed word batches.");
+  return scoped;
+}
+
 export function reviewedSourceCandidates(
   batches: readonly MainCourseWordBatch[],
 ): readonly Candidate[] {
@@ -119,24 +140,36 @@ export async function buildReviewedSourceSupplement(
 }
 
 export function parseSourceSupplementArgs(args: readonly string[]) {
-  const apply = args.includes("--apply");
-  const values = args.filter((arg) => arg !== "--apply");
+  const usage =
+    "Usage: import-missing-reviewed-word-sources --snapshot-dir ABSOLUTE_DIRECTORY --batch ID [--batch ID ...] [--apply]";
+  let directory: string | undefined;
+  let apply = false;
+  const batchIds: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--apply" && !apply) apply = true;
+    else if (arg === "--snapshot-dir" && directory === undefined && args[i + 1]) {
+      directory = args[++i];
+    } else if (arg === "--batch" && /^[a-z][a-z0-9-]{0,79}$/u.test(args[i + 1] ?? "")) {
+      batchIds.push(args[++i]!);
+    } else throw new Error(usage);
+  }
   if (
-    new Set(args).size !== args.length ||
-    values.length !== 2 ||
-    values[0] !== "--snapshot-dir" ||
-    !isAbsolute(values[1]!)
+    !directory ||
+    !isAbsolute(directory) ||
+    !batchIds.length ||
+    batchIds.length > MAX_BATCH_IDS ||
+    new Set(batchIds).size !== batchIds.length
   )
-    throw new Error(
-      "Usage: import-missing-reviewed-word-sources --snapshot-dir ABSOLUTE_DIRECTORY [--apply]",
-    );
-  return { directory: values[1]!, apply };
+    throw new Error(usage);
+  return { directory, apply, batchIds };
 }
 
 async function main(args: readonly string[]) {
   const options = parseSourceSupplementArgs(args);
-  const batches = buildMainCourseWordBatches();
+  const batches = selectReviewedSourceBatches(buildMainCourseWordBatches(), options.batchIds);
   const candidates = reviewedSourceCandidates(batches);
+  const counts = { selectedBatchCount: batches.length, candidatePairCount: candidates.length };
   const snapshot = await verifyLocalSnapshot(options.directory);
   const source = snapshot.sources.find((item) => item.id === "jmdict")!;
   const proofPlans = await buildReadingNoteProofPlans(
@@ -169,6 +202,7 @@ async function main(args: readonly string[]) {
           status: "no-absent-word-pairs",
           importedEntries: 0,
           existingRowsNotRevalidated: true,
+          ...counts,
           ...proofs,
         }),
       );
@@ -188,6 +222,7 @@ async function main(args: readonly string[]) {
     requireAbsentSupplementAliases(existing);
     const summary = {
       snapshotVersion: snapshot.snapshotVersion,
+      ...counts,
       parentContentSha256: source.contentSha256,
       derivedContentSha256: supplement.checksumSha256,
       missingPairs: missing.length,
