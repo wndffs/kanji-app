@@ -33,7 +33,11 @@ import { useStudyFocus } from "../../components/StudyFocus";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { ReviewQueueBrowser } from "../../components/ReviewQueueBrowser";
 import { StudyAnswerInput } from "../../components/StudyAnswerInput";
-import { prepareStudyAnswer } from "../../lib/study-answer";
+import {
+  prepareStudyAnswer,
+  resolveStudyAnswerMode,
+  type StudyAnswerMode,
+} from "../../lib/study-answer";
 import {
   Volume2,
   Languages,
@@ -286,6 +290,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       ? queueState.queue
       : [];
   const currentItem = session === null ? null : (activeQueue[currentIndex] ?? null);
+  const answerMode = resolveStudyAnswerMode(currentItem?.card ?? null);
   const totalCount = activeQueue.length;
   const progressLabel = useMemo(() => {
     if (currentItem === null) {
@@ -444,7 +449,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       return;
     }
 
-    const trimmedAnswer = prepareStudyAnswer(answer, currentItem.card.answerType);
+    const trimmedAnswer = prepareStudyAnswer(answer, answerMode);
 
     if (currentItem.card.promptType === "listening" && !listeningEvidence.completed) {
       setFormError("Сначала прослушайте запись полностью.");
@@ -1048,7 +1053,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           <label htmlFor="review-answer">
             <span>{formatInputLabel(currentItem.card.answerType)}</span>
             <StudyAnswerInput
-              answerType={currentItem.card.answerType}
+              mode={answerMode}
               aria-describedby={formError === null ? undefined : "review-answer-error"}
               aria-invalid={formError !== null}
               composingRef={composingAnswer}
@@ -1059,7 +1064,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
               }
               id="review-answer"
               onValueChange={setAnswer}
-              placeholder={formatInputPlaceholder(currentItem.card.answerType)}
+              placeholder={formatInputPlaceholder(answerMode)}
               ref={answerInputRef}
               value={answer}
             />
@@ -1386,8 +1391,9 @@ function formatInputLabel(answerType: CardAnswerType): string {
   return answerType === "reading" ? "Ответ чтением" : "Ответ значением";
 }
 
-function formatInputPlaceholder(answerType: CardAnswerType): string {
-  return answerType === "reading" ? "например: にほん" : "например: Япония";
+function formatInputPlaceholder(mode: StudyAnswerMode): string {
+  if (mode === "meaning") return "например: Япония";
+  return mode === "katakana" ? "カタカナ" : "ひらがな";
 }
 
 function formatResult(result: ReviewAnswerResponse["result"]): string {

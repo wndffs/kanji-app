@@ -88,11 +88,12 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
   the next action in the same visual group. Enter should advance from the
   focused feedback action; details and private answers remain available
   without a detour. These presentation choices never modify grading.
-- Typed reading answers convert romaji to katakana as the learner types,
-  using [WanaKana](https://github.com/WaniKani/WanaKana) (MIT) for standard
-  kana input and preserving kana entered directly. A pending final `n`
-  becomes `ン` on submission. Meaning answers and kana exercises that ask
-  for romaji do not convert. Validation still uses the existing kana rules.
+- Typed reading answers convert romaji with [WanaKana](https://github.com/WaniKani/WanaKana)
+  (MIT). Use hiragana by default and katakana for visible katakana expressions
+  without kanji or hiragana. Do not infer the script from a hidden audio answer.
+  A pending final `n` becomes `ん` or `ン` on submission. Keep kana entered
+  directly, meaning answers, and romaji exercises unchanged. Validation still
+  uses the existing kana rules.
 - In lessons, use the compact side-by-side subject layout only for a single
   glyph. Words and sentences get a full-width text row, with pronunciation
   aids shown according to the learner's existing preferences.

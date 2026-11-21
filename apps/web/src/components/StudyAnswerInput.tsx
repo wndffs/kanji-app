@@ -1,18 +1,18 @@
 "use client";
 
 import { type ComponentPropsWithRef, type RefObject, useRef } from "react";
-import { romajiToKatakanaInput } from "@kanji-srs/japanese";
-import { type CardAnswerType } from "@kanji-srs/shared";
+import { romajiToKanaInput } from "@kanji-srs/japanese";
+import { type StudyAnswerMode } from "../lib/study-answer";
 
 type StudyAnswerInputProps = Omit<ComponentPropsWithRef<"input">, "onChange" | "value" | "type"> & {
-  readonly answerType: CardAnswerType;
+  readonly mode: StudyAnswerMode;
   readonly value: string;
   readonly onValueChange: (value: string) => void;
   readonly composingRef?: RefObject<boolean>;
 };
 
 export function StudyAnswerInput({
-  answerType,
+  mode,
   value,
   onValueChange,
   composingRef,
@@ -20,15 +20,19 @@ export function StudyAnswerInput({
 }: StudyAnswerInputProps) {
   const internalComposition = useRef(false);
   const composing = composingRef ?? internalComposition;
-  const isReading = answerType === "reading";
+  const isReading = mode !== "meaning";
 
   function update(input: HTMLInputElement, isComposing: boolean) {
     const text = input.value;
-    const converted = isReading && !isComposing ? romajiToKatakanaInput(text) : text;
+    if (mode === "meaning" || isComposing) {
+      onValueChange(text);
+      return;
+    }
+    const converted = romajiToKanaInput(text, mode);
     if (converted !== text) {
       // Keep the caret at the edit, rather than jumping to the end of a controlled input.
       const caret = input.selectionEnd ?? text.length;
-      const convertedCaret = romajiToKatakanaInput(text.slice(0, caret)).length;
+      const convertedCaret = romajiToKanaInput(text.slice(0, caret), mode).length;
       input.value = converted;
       input.setSelectionRange(convertedCaret, convertedCaret);
     }

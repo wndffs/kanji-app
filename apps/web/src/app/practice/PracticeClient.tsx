@@ -22,7 +22,7 @@ import { JapaneseText } from "../../components/JapaneseText";
 import { ViewTabs } from "../../components/ViewTabs";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { StudyAnswerInput } from "../../components/StudyAnswerInput";
-import { prepareStudyAnswer } from "../../lib/study-answer";
+import { prepareStudyAnswer, resolveStudyAnswerMode } from "../../lib/study-answer";
 import { useStudyFocus } from "../../components/StudyFocus";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
@@ -184,6 +184,7 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
 
   const currentItem =
     queueState.status === "ready" && isPracticing ? (queueState.items[currentIndex] ?? null) : null;
+  const answerMode = resolveStudyAnswerMode(currentItem?.card ?? null);
   useStudyFocus(currentItem !== null, "Практика");
 
   useEffect(() => {
@@ -280,7 +281,7 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
     try {
       const response = await submitPracticeAnswer(queueState.token, practiceSession.id, {
         cardId: currentItem.card.id,
-        answer: prepareStudyAnswer(answer, currentItem.card.answerType),
+        answer: prepareStudyAnswer(answer, answerMode),
         answerType: currentItem.card.answerType,
         listeningEvidence:
           currentItem.card.promptType === "listening" ? listeningEvidence : undefined,
@@ -609,7 +610,7 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
           <label htmlFor="practice-answer">
             <span>{formatInputLabel(currentItem.card.answerType)}</span>
             <StudyAnswerInput
-              answerType={currentItem.card.answerType}
+              mode={answerMode}
               disabled={
                 isSubmitting ||
                 (currentItem.card.promptType === "listening" && !listeningEvidence.completed)

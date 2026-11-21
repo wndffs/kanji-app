@@ -555,7 +555,7 @@ test.describe("review session", () => {
     expect(finishes).toBe(0);
   });
 
-  test("converts romaji live only on reading cards and commits the final n on Enter", async ({
+  test("converts romaji to the prompt's kana script and leaves meanings alone", async ({
     page,
   }) => {
     const readingItem: ReviewQueueItem = {
@@ -568,8 +568,26 @@ test.describe("review session", () => {
       },
       item: { ...secondReviewQueueItem.item, japanese: "日本", reading: "にほん" },
     };
+    const loanword: ReviewQueueItem = {
+      ...readingItem,
+      card: {
+        ...readingItem.card,
+        id: "card-ramen-reading",
+        learningItemId: "item-ramen",
+        itemType: "word",
+        prompt: { japanese: "ラーメン", reading: "ラーメン" },
+      },
+      item: {
+        ...readingItem.item,
+        id: "item-ramen",
+        slug: "word:ramen",
+        itemType: "word",
+        japanese: "ラーメン",
+        reading: "ラーメン",
+      },
+    };
     await signIn(page, "en");
-    await mockReviewApi(page, { queue: [reviewQueueItem, readingItem] });
+    await mockReviewApi(page, { queue: [reviewQueueItem, readingItem, loanword] });
     await page.goto("/reviews");
     await page.getByRole("button", { name: "Начать повторение", exact: true }).click();
 
@@ -580,10 +598,10 @@ test.describe("review session", () => {
     await page.getByRole("button", { name: "Дальше", exact: true }).click();
 
     const reading = page.getByLabel("Ответ чтением");
-    await reading.fill("ホン");
+    await reading.fill("ほん");
     await reading.press("Home");
     await reading.pressSequentially("ni");
-    await expect(reading).toHaveValue("ニホン");
+    await expect(reading).toHaveValue("にほん");
     expect(await reading.evaluate((input: HTMLInputElement) => input.selectionStart)).toBe(1);
 
     await reading.dispatchEvent("compositionstart");
@@ -597,16 +615,31 @@ test.describe("review session", () => {
     await reading.clear();
 
     await reading.pressSequentially("niho");
-    await expect(reading).toHaveValue("ニホ");
+    await expect(reading).toHaveValue("にほ");
     await reading.press("n");
-    await expect(reading).toHaveValue("ニホn");
+    await expect(reading).toHaveValue("にほn");
     const submission = page.waitForRequest((request) =>
       request.url().endsWith(`/${SESSION_ID}/answer`),
     );
     await reading.press("Enter");
     expect((await submission).postDataJSON()).toMatchObject({
       answerType: "reading",
-      answer: "ニホン",
+      answer: "にほん",
+    });
+    await expect(page.getByRole("heading", { name: "Верно", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Дальше", exact: true }).click();
+    await expect(page.locator(".review-prompt")).toHaveText("ラーメン");
+    await reading.pressSequentially("ra-me");
+    await expect(reading).toHaveValue("ラーメ");
+    await reading.press("n");
+    await expect(reading).toHaveValue("ラーメn");
+    const katakanaSubmission = page.waitForRequest((request) =>
+      request.url().endsWith(`/${SESSION_ID}/answer`),
+    );
+    await reading.press("Enter");
+    expect((await katakanaSubmission).postDataJSON()).toMatchObject({
+      answerType: "reading",
+      answer: "ラーメン",
     });
     await expect(page.getByRole("heading", { name: "Верно", exact: true })).toBeVisible();
   });

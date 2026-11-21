@@ -40,7 +40,11 @@ import { DeckPrerequisiteRecovery } from "./DeckPrerequisiteRecovery";
 import { useStudyFocus } from "../../components/StudyFocus";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { StudyAnswerInput } from "../../components/StudyAnswerInput";
-import { prepareStudyAnswer } from "../../lib/study-answer";
+import {
+  prepareStudyAnswer,
+  resolveStudyAnswerMode,
+  type StudyAnswerMode,
+} from "../../lib/study-answer";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
   abandonLessonSession,
@@ -377,6 +381,7 @@ function LessonsScreen({
   );
   const currentQuizCard =
     currentLesson?.cards.find((card) => card.id === quizPendingCardIds[0]) ?? null;
+  const quizAnswerMode = resolveStudyAnswerMode(currentQuizCard, currentLesson?.item.japanese);
   const currentStudyPhases = useMemo(
     () => (currentLesson === null ? [] : getLessonStudyPhases(currentLesson)),
     [currentLesson],
@@ -737,7 +742,7 @@ function LessonsScreen({
       return;
     }
 
-    const submittedAnswer = prepareStudyAnswer(quizAnswer, quizCard.answerType);
+    const submittedAnswer = prepareStudyAnswer(quizAnswer, quizAnswerMode);
     setIsCompleting(true);
     setSessionError(null);
 
@@ -1257,6 +1262,7 @@ function LessonsScreen({
           card={currentQuizCard}
           completedCardCount={currentLesson.cards.length - quizPendingCardIds.length}
           answer={quizAnswer}
+          answerMode={quizAnswerMode}
           feedback={quizFeedback}
           displayMode={activeDisplayMode}
           listeningEvidence={
@@ -2024,6 +2030,7 @@ function LessonQuizView({
   card,
   completedCardCount,
   answer,
+  answerMode,
   feedback,
   displayMode,
   listeningEvidence,
@@ -2038,6 +2045,7 @@ function LessonQuizView({
   readonly card: LearningCardDto | null;
   readonly completedCardCount: number;
   readonly answer: string;
+  readonly answerMode: StudyAnswerMode;
   readonly feedback: CompleteLessonItemResponse["answers"][number] | null;
   readonly displayMode: TranslationDisplayMode;
   readonly listeningEvidence: ListeningPlaybackEvidenceDto | undefined;
@@ -2081,11 +2089,13 @@ function LessonQuizView({
         <label htmlFor="lesson-quiz-answer" hidden={feedback !== null}>
           <span>{answerType === "reading" ? "Ваше чтение" : "Ваше значение"}</span>
           <StudyAnswerInput
-            answerType={answerType}
+            mode={answerMode}
             disabled={isCompleting || feedback !== null || !listeningReady}
             id="lesson-quiz-answer"
             onValueChange={onAnswerChange}
-            placeholder={answerType === "reading" ? "かな" : "Значение"}
+            placeholder={
+              answerMode === "meaning" ? "Значение" : answerMode === "katakana" ? "カナ" : "かな"
+            }
             ref={inputRef}
             value={answer}
           />

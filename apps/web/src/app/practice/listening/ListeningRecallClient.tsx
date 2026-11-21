@@ -74,7 +74,7 @@ function ListeningRecall({ token }: { readonly token: string | null }) {
   function check(event: FormEvent) {
     event.preventDefault();
     if (item && evidence.completed && !result && answer.trim())
-      setResult(gradeListeningRecall(item, prepareStudyAnswer(answer, "reading")));
+      setResult(gradeListeningRecall(item, prepareStudyAnswer(answer, "hiragana")));
   }
   return (
     <section className="page-stack listening-recall">
@@ -115,7 +115,7 @@ function ListeningRecall({ token }: { readonly token: string | null }) {
           <form className="listening-recall-form" onSubmit={check}>
             <label htmlFor="listening-recall-answer">Чтение каной</label>
             <StudyAnswerInput
-              answerType="reading"
+              mode="hiragana"
               id="listening-recall-answer"
               value={answer}
               disabled={!evidence.completed || result !== null}

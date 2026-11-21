@@ -17,7 +17,7 @@ import {
 
 import { JapaneseText } from "../../../components/JapaneseText";
 import { StudyAnswerInput } from "../../../components/StudyAnswerInput";
-import { prepareStudyAnswer } from "../../../lib/study-answer";
+import { prepareStudyAnswer, resolveStudyAnswerMode } from "../../../lib/study-answer";
 import {
   abandonConfusablePracticeSession,
   ApiError,
@@ -108,6 +108,7 @@ export function ConfusablePracticeClient({
   const selected = state.status === "ready" ? state.selected : null;
   const currentCard =
     selected !== null && session !== null ? (selected.cards[session.currentIndex] ?? null) : null;
+  const answerMode = resolveStudyAnswerMode(currentCard);
   const visibleCard = feedback === null ? currentCard : answeredCard;
 
   useEffect(() => {
@@ -164,7 +165,7 @@ export function ConfusablePracticeClient({
     try {
       const result = await submitConfusablePracticeAnswer(state.token, session.id, {
         cardId: currentCard.id,
-        answer: prepareStudyAnswer(answer, currentCard.answerType),
+        answer: prepareStudyAnswer(answer, answerMode),
         answerType: currentCard.answerType,
       });
       setAnsweredCard(currentCard);
@@ -369,7 +370,7 @@ export function ConfusablePracticeClient({
               {visibleCard.answerType === "reading" ? "Введите чтение" : "Введите значение"}
             </span>
             <StudyAnswerInput
-              answerType={visibleCard.answerType}
+              mode={answerMode}
               disabled={isBusy}
               id="confusable-answer"
               onValueChange={setAnswer}
