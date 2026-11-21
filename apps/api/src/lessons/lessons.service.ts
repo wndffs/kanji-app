@@ -1,4 +1,12 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { createHash } from "node:crypto";
+
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 
 import {
   DEFAULT_TRANSLATION_DISPLAY_MODE,
@@ -44,6 +52,8 @@ import {
 
 const DEFAULT_DAILY_LESSON_LIMIT = 10;
 const DEFAULT_LESSON_BATCH_LIMIT = 5;
+const DEFAULT_LESSON_CATALOGUE_LIMIT = 24;
+const MAX_LESSON_CATALOGUE_LIMIT = 48;
 const MAX_LESSON_ANSWER_LENGTH = 500;
 
 @Injectable()
@@ -53,31 +63,65 @@ export class LessonsService {
     @Inject(OverridesService) private readonly overridesService: OverridesService,
   ) {}
 
-  async getQueue(user: CurrentUserDto, deckIdValue?: unknown): Promise<LessonQueueResponse> {
+  async getQueue(
+    user: CurrentUserDto,
+    deckIdValue?: unknown,
+    catalogue: {
+      readonly offset?: unknown;
+      readonly limit?: unknown;
+      readonly version?: unknown;
+    } = {},
+  ): Promise<LessonQueueResponse> {
     const deckId = parseOptionalDeckId(deckIdValue);
+    const page = parseLessonCataloguePage(catalogue);
     const { availableItems, displayMode, remainingToday, source } = await this.getAvailableMetadata(
       user,
       new Date(),
       deckId,
     );
-    const teachingItems = await this.hydrateAvailableItems(
-      user.id,
-      availableItems.slice(0, remainingToday),
-    );
-    const selectableItems = teachingItems.map((item) =>
-      toLessonQueueItem(item.item, item.unlockedBy, displayMode),
-    );
     const batchLimit = getLessonBatchSize(user);
     const orderMode = getLessonOrderMode(user);
-    const suggestedItems = orderLessonItems(
-      selectableItems,
-      orderMode,
-      (entry) => entry.item.itemType,
+    const catalogueVersion = page
+      ? createHash("sha256")
+          .update(JSON.stringify(availableItems.map(({ item }) => item.id)))
+          .digest("hex")
+      : null;
+    if (page?.version !== undefined && page.version !== catalogueVersion) {
+      throw new ConflictException("Lesson catalogue changed; reload from the first page.");
+    }
+    const daily = availableItems.slice(0, remainingToday);
+    const selectable = page ? availableItems.slice(page.offset, page.offset + page.limit) : daily;
+    const suggested =
+      page && page.offset > 0
+        ? []
+        : orderLessonItems(daily, orderMode, (entry) => entry.item.itemType).slice(0, batchLimit);
+    const selectedIds = new Set(selectable.map((entry) => entry.item.id));
+    const teachingItems = await this.hydrateAvailableItems(user.id, [
+      ...selectable,
+      ...suggested.filter((entry) => !selectedIds.has(entry.item.id)),
+    ]);
+    const hydrated = new Map(
+      teachingItems.map(({ item, unlockedBy }) => [
+        item.id,
+        toLessonQueueItem(item, unlockedBy, displayMode),
+      ]),
     );
+    const toItems = (entries: readonly AvailableLessonMetadata[]) =>
+      entries.map((entry) => hydrated.get(entry.item.id)!);
 
     return {
-      items: suggestedItems.slice(0, batchLimit),
-      availableItems: selectableItems,
+      items: toItems(suggested),
+      availableItems: toItems(selectable),
+      ...(page && catalogueVersion !== null
+        ? {
+            availablePage: {
+              version: catalogueVersion,
+              totalItems: availableItems.length,
+              nextOffset:
+                page.offset + page.limit < availableItems.length ? page.offset + page.limit : null,
+            },
+          }
+        : {}),
       batchLimit,
       remainingToday,
       orderMode,
@@ -918,6 +962,37 @@ function parseLessonSessionProgress(body: unknown): {
   }
 
   return { currentItemId, phase: record.phase };
+}
+
+function parseLessonCataloguePage(input: {
+  readonly offset?: unknown;
+  readonly limit?: unknown;
+  readonly version?: unknown;
+}): { readonly offset: number; readonly limit: number; readonly version?: string } | null {
+  if (input.offset === undefined && input.limit === undefined && input.version === undefined)
+    return null;
+  const version = input.version;
+  if (version !== undefined && (typeof version !== "string" || !/^[0-9a-f]{64}$/u.test(version)))
+    throw new BadRequestException("Invalid lesson catalogue version.");
+  const number = (value: unknown, fallback: number, min: number, max: number, label: string) => {
+    if (value === undefined) return fallback;
+    const parsed =
+      typeof value === "string" && /^(?:0|[1-9]\d*)$/u.test(value) ? Number(value) : NaN;
+    if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max)
+      throw new BadRequestException(`Invalid lesson catalogue ${label}.`);
+    return parsed;
+  };
+  return {
+    version,
+    offset: number(input.offset, 0, 0, Number.MAX_SAFE_INTEGER, "offset"),
+    limit: number(
+      input.limit,
+      DEFAULT_LESSON_CATALOGUE_LIMIT,
+      1,
+      MAX_LESSON_CATALOGUE_LIMIT,
+      "limit",
+    ),
+  };
 }
 
 function parseOptionalDeckId(value: unknown): string | null {

@@ -9,6 +9,21 @@ export function lessonSelectionCardCount(items: readonly LessonQueueItem[]): num
   return new Set(items.flatMap((lesson) => lesson.cards.map((card) => card.id))).size;
 }
 
+export function appendLessonQueueItems(
+  current: readonly LessonQueueItem[],
+  next: readonly LessonQueueItem[],
+): readonly LessonQueueItem[] {
+  const seen = new Set(current.map(({ item }) => item.id));
+  return [
+    ...current,
+    ...next.filter(({ item }) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    }),
+  ];
+}
+
 export function boundedLessonSelection(
   eligible: readonly LessonQueueItem[],
   requestedIds: readonly string[],

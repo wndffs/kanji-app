@@ -762,14 +762,21 @@ export function isLessonOrderMode(value: unknown): value is LessonOrderMode {
 }
 
 export type LessonQueueResponse = {
-  /** Suggested default batch, already capped by batchLimit. */
+  /** Suggested default batch on the first page, already capped by batchLimit. */
   readonly items: readonly LessonQueueItem[];
-  /** All currently eligible items the learner may choose from today. */
+  /** Current catalogue page when requested, otherwise the legacy daily slice. */
   readonly availableItems: readonly LessonQueueItem[];
+  readonly availablePage?: LessonQueuePageDto;
   readonly batchLimit: number;
   readonly remainingToday: number;
   readonly orderMode: LessonOrderMode;
   readonly source: LessonQueueSourceDto;
+};
+
+export type LessonQueuePageDto = {
+  readonly version: string;
+  readonly totalItems: number;
+  readonly nextOffset: number | null;
 };
 
 export type LessonSessionDto = {

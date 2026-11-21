@@ -28,7 +28,7 @@ test.describe("lesson session", () => {
       "href",
       target,
     );
-    await page.route(`${API_BASE_URL}/lessons/queue`, (route) =>
+    await page.route(`${API_BASE_URL}/lessons/queue?offset=0**`, (route) =>
       route.fulfill({ json: queueResponse([]) }),
     );
     await page.goto(`/lessons?${params}`);
@@ -48,7 +48,7 @@ test.describe("lesson session", () => {
     page.on("request", (request) => {
       if (request.url().startsWith(API_BASE_URL) && request.method() !== "GET") writes++;
     });
-    await page.route(`${API_BASE_URL}/lessons/queue`, (route) => {
+    await page.route(`${API_BASE_URL}/lessons/queue?offset=0**`, (route) => {
       reads++;
       return route.fulfill({ json: queueResponse(items) });
     });
@@ -110,7 +110,7 @@ test.describe("lesson session", () => {
   test("restores bounded picker pages and source on reload and Back", async ({ page }) => {
     await signIn(page);
     await mockLessonApi(page);
-    await page.route(`${API_BASE_URL}/lessons/queue?deckId=deck-saved`, (route) =>
+    await page.route(`${API_BASE_URL}/lessons/queue?deckId=deck-saved&offset=0**`, (route) =>
       route.fulfill({ json: queueResponse(largeLessonQueue(), true) }),
     );
     await page.goto("/lessons?deckId=deck-saved&page=9999");
@@ -127,13 +127,123 @@ test.describe("lesson session", () => {
     await expect(page).toHaveURL("/lessons?deckId=deck-saved&page=3");
   });
 
+  test("loads later eligible lessons without losing selection or raising the daily cap", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockLessonApi(page);
+    const items = largeLessonQueue();
+    const target = items[24]!;
+    const version = "a".repeat(64);
+    const offsets: number[] = [];
+    await page.route(`${API_BASE_URL}/lessons/queue**`, async (route) => {
+      const query = new URL(route.request().url()).searchParams;
+      const offset = Number(query.get("offset"));
+      expect(query.get("version")).toBe(offset === 0 ? null : version);
+      offsets.push(offset);
+      if (offset === 24 && offsets.length === 2) {
+        await route.fulfill({ status: 422, json: { message: "Temporary catalogue failure" } });
+        return;
+      }
+      const end = offset + 24;
+      await route.fulfill({
+        json: {
+          ...queueResponse(items.slice(offset, end)),
+          items: offset === 0 ? items.slice(0, 1) : [],
+          remainingToday: 1,
+          availablePage: {
+            totalItems: items.length,
+            nextOffset: end < items.length ? end : null,
+            version,
+          },
+        },
+      });
+    });
+    await page.route(`${API_BASE_URL}/lessons/start`, async (route) => {
+      expect(route.request().postDataJSON()).toEqual({ itemIds: [target.item.id] });
+      await route.fulfill({
+        json: {
+          session: { ...lessonSession("meaning", target.item.id), itemIds: [target.item.id] },
+        },
+      });
+    });
+
+    await page.goto("/lessons");
+    await expect(page.locator(".lesson-queue-counts")).toContainText("Доступно: 50");
+    await page.getByRole("button", { name: "Изменить группу", exact: true }).click();
+    const selected = page.getByRole("list", { name: "Выбранные материалы", exact: true });
+    await expect(selected.locator("li")).toHaveCount(1);
+    const loadMore = page.getByRole("button", { name: "Загрузить ещё", exact: true });
+    await loadMore.click();
+    await expect(page.getByText("Не удалось загрузить следующую порцию материалов.")).toBeVisible();
+    await expect(selected.locator("li")).toHaveCount(1);
+    await loadMore.click();
+    await expect(page).toHaveURL(/page=2/u);
+    await expect(page.getByText("Не удалось загрузить следующую порцию материалов.")).toHaveCount(
+      0,
+    );
+    const later = page.getByRole("checkbox", {
+      name: new RegExp(`^Выбрать ${target.item.japanese}:`),
+    });
+    await expect(later).toBeDisabled();
+    await page.getByRole("button", { name: "Очистить", exact: true }).click();
+    await later.check();
+    await expect(selected.locator("li")).toHaveCount(1);
+    expect(offsets).toEqual([0, 24, 24]);
+    await page.getByRole("button", { name: "Начать урок", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Изучение", exact: true })).toBeVisible();
+  });
+
+  test("restores a third catalogue page without shifting it by an earlier suggestion", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockLessonApi(page);
+    const items = largeLessonQueue();
+    const version = "a".repeat(64);
+    const catalogueRequests: number[] = [];
+    await page.route(`${API_BASE_URL}/lessons/queue**`, async (route) => {
+      const query = new URL(route.request().url()).searchParams;
+      const offset = Number(query.get("offset"));
+      const end = offset + Number(query.get("limit") ?? 24);
+      catalogueRequests.push(offset);
+      expect(query.get("version")).toBe(offset === 0 ? null : version);
+      await route.fulfill({
+        json: {
+          ...queueResponse(items.slice(offset, end)),
+          items: offset === 0 ? items.slice(49) : [],
+          availablePage: {
+            totalItems: items.length,
+            nextOffset: end < items.length ? end : null,
+            version,
+          },
+        },
+      });
+    });
+
+    await page.goto("/lessons?page=3");
+    const selected = page.getByRole("list", { name: "Выбранные материалы", exact: true });
+    await expect(selected).toContainText(items[49]!.item.japanese);
+    expect(catalogueRequests).toEqual([0]);
+    await page.getByRole("button", { name: "Изменить группу", exact: true }).click();
+    await expect(page.getByRole("navigation", { name: "Страницы новых материалов" })).toContainText(
+      "3 / 3",
+    );
+    const shown = page.locator(".lesson-preview-grid .lesson-preview-card");
+    await expect(shown).toHaveCount(2);
+    await expect(shown.first()).toContainText(items[48]!.item.japanese);
+    await expect(shown.last()).toContainText(items[49]!.item.japanese);
+    await expect(page).toHaveURL(/page=3/u);
+    expect(catalogueRequests).toEqual([0, 48]);
+  });
+
   test("previews exact interleaved small batch and starts only those materials", async ({
     page,
   }, info) => {
     await signIn(page);
     await mockLessonApi(page);
     const items = largeLessonQueue();
-    await page.route(`${API_BASE_URL}/lessons/queue`, (route) =>
+    await page.route(`${API_BASE_URL}/lessons/queue?offset=0**`, (route) =>
       route.fulfill({ json: queueResponse(items) }),
     );
     let body: unknown;
@@ -200,7 +310,7 @@ test.describe("lesson session", () => {
           createdSrsStateCount: 0,
         };
         let oldQueueReads = 0;
-        await page.route(`${API_BASE_URL}/lessons/queue`, async (route) => {
+        await page.route(`${API_BASE_URL}/lessons/queue?offset=0**`, async (route) => {
           const old = route.request().headers().authorization === `Bearer ${ACCESS_TOKEN}`;
           if (old) oldQueueReads++;
           if (endpoint === "queue" && old) {
@@ -421,7 +531,7 @@ test.describe("lesson session", () => {
     await signIn(page);
     await mockLessonApi(page);
     let reads = 0;
-    await page.route(`${API_BASE_URL}/lessons/queue`, (route) => {
+    await page.route(`${API_BASE_URL}/lessons/queue?offset=0**`, (route) => {
       reads++;
       return route.fulfill({ json: { ...queueResponse([]), remainingToday: 0 } });
     });
@@ -729,7 +839,7 @@ test.describe("lesson session", () => {
             },
       });
     });
-    await page.route(`${API_BASE_URL}/lessons/queue`, async (route) => {
+    await page.route(`${API_BASE_URL}/lessons/queue?offset=0**`, async (route) => {
       await route.fulfill({
         json: {
           items: [lessonQueueItem],
@@ -926,7 +1036,7 @@ async function mockLessonApi(page: Page): Promise<() => unknown> {
   let savedSettings: unknown = null;
   await mockNoActiveLesson(page);
 
-  await page.route(`${API_BASE_URL}/lessons/queue`, async (route) => {
+  await page.route(`${API_BASE_URL}/lessons/queue?offset=0**`, async (route) => {
     await route.fulfill({
       json: {
         items: [lessonQueueItem],
@@ -1039,7 +1149,7 @@ async function mockDeckLessonApi(page: Page): Promise<() => unknown> {
   let startBody: unknown = null;
   await mockNoActiveLesson(page);
 
-  await page.route(`${API_BASE_URL}/lessons/queue?deckId=deck-saved`, async (route) => {
+  await page.route(`${API_BASE_URL}/lessons/queue?deckId=deck-saved&offset=0**`, async (route) => {
     await route.fulfill({
       json: {
         items: [lessonQueueItem],

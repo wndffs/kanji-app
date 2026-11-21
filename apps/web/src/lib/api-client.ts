@@ -955,10 +955,19 @@ export function searchItems(
 export function getLessonQueue(
   token: string,
   deckId: string | null = null,
-  options: { readonly signal?: AbortSignal } = {},
+  options: {
+    readonly offset?: number;
+    readonly limit?: number;
+    readonly version?: string;
+    readonly signal?: AbortSignal;
+  } = {},
 ): Promise<LessonQueueResponse> {
-  const params = deckId === null ? "" : `?${new URLSearchParams({ deckId }).toString()}`;
-  return apiRequest<LessonQueueResponse>(`/lessons/queue${params}`, {
+  const params = new URLSearchParams();
+  if (deckId !== null) params.set("deckId", deckId);
+  if (options.offset !== undefined) params.set("offset", String(options.offset));
+  if (options.limit !== undefined) params.set("limit", String(options.limit));
+  if (options.version !== undefined) params.set("version", options.version);
+  return apiRequest<LessonQueueResponse>(`/lessons/queue${params.size ? `?${params}` : ""}`, {
     token,
     signal: options.signal,
   });

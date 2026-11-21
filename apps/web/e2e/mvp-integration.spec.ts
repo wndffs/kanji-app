@@ -307,7 +307,7 @@ async function mockMvpApi(page: Page): Promise<MvpApiState> {
     });
   });
 
-  await page.route(`${API_BASE_URL}/lessons/queue`, async (route) => {
+  await page.route(`${API_BASE_URL}/lessons/queue?offset=0**`, async (route) => {
     expectAuthorized(route);
 
     await route.fulfill({

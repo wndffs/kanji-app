@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { nextTabIndex } from "../../lib/tab-navigation";
 import { lessonReturnHref } from "../../lib/learning-return";
-import { Volume2, Check, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Volume2, Check, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
   type FormEvent,
   type RefObject,
@@ -24,6 +24,7 @@ import {
   type LearningCardDto,
   type LessonOrderMode,
   type LessonQueueItem,
+  type LessonQueuePageDto,
   type LessonQueueSourceDto,
   type LessonSessionDto,
   type LocalizedTextDto,
@@ -52,6 +53,7 @@ import {
 } from "../../lib/api-client";
 import { clearStoredSession, readStoredSession, updateStoredUser } from "../../lib/auth-storage";
 import {
+  appendLessonQueueItems,
   boundedLessonSelection,
   lessonBatchCapacity,
   lessonSelectionCardCount,
@@ -92,6 +94,7 @@ type QueueState =
       readonly token: string;
       readonly suggestedItems: readonly LessonQueueItem[];
       readonly availableItems: readonly LessonQueueItem[];
+      readonly page: LessonQueuePageDto | null;
       readonly batchLimit: number;
       readonly remainingToday: number;
       readonly source: LessonQueueSourceDto;
@@ -103,6 +106,8 @@ type CompletionSummary = {
   readonly learnedItems: number;
   readonly createdCards: number;
 };
+
+type LessonPageError = "retry" | "stale";
 
 export function LessonsClient() {
   const account = useStoredSession();
@@ -168,6 +173,9 @@ function LessonsScreen({
     CompleteLessonItemResponse["answers"][number] | null
   >(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [hasOpenedPicker, setHasOpenedPicker] = useState(false);
+  const [isLoadingPage, setIsLoadingPage] = useState(false);
+  const [pageError, setPageError] = useState<LessonPageError | null>(null);
   const [isSavingOrderMode, setIsSavingOrderMode] = useState(false);
   const [isSavingProgress, setIsSavingProgress] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
@@ -179,6 +187,7 @@ function LessonsScreen({
   const quizInputRef = useRef<HTMLInputElement>(null);
   const quizActionRef = useRef<HTMLButtonElement>(null);
   const queueRequest = useRef<AbortController | null>(null);
+  const queuePageRequest = useRef<AbortController | null>(null);
   const mounted = useRef(true);
   const startPending = useRef(false);
   const orderPending = useRef(false);
@@ -189,6 +198,10 @@ function LessonsScreen({
 
   const loadQueue = useCallback(async () => {
     queueRequest.current?.abort();
+    queuePageRequest.current?.abort();
+    queuePageRequest.current = null;
+    setIsLoadingPage(false);
+    setPageError(null);
     const controller = new AbortController();
     queueRequest.current = controller;
     const storedSession = readStoredSession();
@@ -203,6 +216,7 @@ function LessonsScreen({
       ownsSession(storedSession.token);
 
     setQueueState({ status: "loading" });
+    setHasOpenedPicker(false);
     setSession(null);
     setSessionQueue([]);
     setSelectedItemIds([]);
@@ -261,6 +275,7 @@ function LessonsScreen({
           token: storedSession.token,
           suggestedItems: active.items,
           availableItems: active.items,
+          page: null,
           batchLimit: active.items.length,
           remainingToday: active.items.length,
           source: active.source,
@@ -284,6 +299,10 @@ function LessonsScreen({
       }
 
       const queue = await getLessonQueue(storedSession.token, requestedDeckId, {
+        offset: 0,
+        ...(parseLessonBrowser(new URLSearchParams(window.location.search)).page > 1
+          ? { limit: LESSON_PICKER_PAGE_SIZE * 2 }
+          : {}),
         signal: controller.signal,
       });
       if (!isCurrent()) return;
@@ -293,6 +312,7 @@ function LessonsScreen({
         token: storedSession.token,
         suggestedItems: queue.items,
         availableItems,
+        page: queue.availablePage ?? null,
         batchLimit: queue.batchLimit,
         remainingToday: queue.remainingToday,
         source: queue.source ?? { kind: "course" },
@@ -300,7 +320,7 @@ function LessonsScreen({
       setOrderMode(queue.orderMode ?? "course");
       setSelectedItemIds(
         boundedLessonSelection(
-          availableItems,
+          appendLessonQueueItems(availableItems, queue.items),
           queue.items.map((lesson) => lesson.item.id),
           lessonBatchCapacity(queue.batchLimit, queue.remainingToday),
         ),
@@ -326,6 +346,7 @@ function LessonsScreen({
     return () => {
       mounted.current = false;
       queueRequest.current?.abort();
+      queuePageRequest.current?.abort();
     };
   }, [loadQueue]);
 
@@ -335,12 +356,16 @@ function LessonsScreen({
   );
   const activeQueue = step === "quiz" ? quizQueue : sessionQueue;
   const selectedItemIdSet = useMemo(() => new Set(selectedItemIds), [selectedItemIds]);
-  const selectedLessons = useMemo(
+  const knownItems = useMemo(
     () =>
       queueState.status === "ready"
-        ? queueState.availableItems.filter((lesson) => selectedItemIdSet.has(lesson.item.id))
+        ? appendLessonQueueItems(queueState.availableItems, queueState.suggestedItems)
         : [],
-    [queueState, selectedItemIdSet],
+    [queueState],
+  );
+  const selectedLessons = useMemo(
+    () => knownItems.filter((lesson) => selectedItemIdSet.has(lesson.item.id)),
+    [knownItems, selectedItemIdSet],
   );
   const currentLesson = session === null ? null : (activeQueue[currentIndex] ?? null);
   const orderedSelection = useMemo(
@@ -381,6 +406,9 @@ function LessonsScreen({
 
     const orderedLessons = orderedSelection;
     startPending.current = true;
+    queuePageRequest.current?.abort();
+    queuePageRequest.current = null;
+    setIsLoadingPage(false);
     setIsStarting(true);
     setSessionError(null);
     setCompletionSummary(null);
@@ -410,11 +438,69 @@ function LessonsScreen({
     }
   }
 
+  async function handleLoadMoreLessons(): Promise<readonly LessonQueueItem[] | null> {
+    if (queueState.status !== "ready" || session !== null || startPending.current) return null;
+
+    const page = queueState.page;
+    if (page?.nextOffset == null || queuePageRequest.current !== null || pageError === "stale")
+      return null;
+
+    const offset = page.nextOffset;
+    const { token } = queueState;
+    const controller = new AbortController();
+    queuePageRequest.current = controller;
+    const isCurrent = () =>
+      !controller.signal.aborted && queuePageRequest.current === controller && ownsWorkspace(token);
+
+    setIsLoadingPage(true);
+    setPageError(null);
+    try {
+      const response = await getLessonQueue(token, requestedDeckId, {
+        offset,
+        version: page.version,
+        signal: controller.signal,
+      });
+      if (!isCurrent()) return null;
+      const loaded = response.availableItems ?? [];
+      setQueueState((current) => {
+        if (current.status !== "ready" || current.token !== token) return current;
+        const responsePage = response.availablePage;
+        const next = responsePage?.nextOffset;
+        return {
+          ...current,
+          availableItems: appendLessonQueueItems(current.availableItems, loaded),
+          remainingToday: response.remainingToday,
+          page: responsePage
+            ? {
+                ...responsePage,
+                nextOffset: next != null && next > offset ? next : null,
+              }
+            : null,
+        };
+      });
+      return loaded;
+    } catch (error: unknown) {
+      if (!isCurrent()) return null;
+      if (error instanceof ApiError && error.status === 401) {
+        clearStoredSession();
+        setQueueState({ status: "unauthenticated" });
+        return null;
+      }
+      setPageError(error instanceof ApiError && error.status === 409 ? "stale" : "retry");
+      return null;
+    } finally {
+      if (queuePageRequest.current === controller) {
+        queuePageRequest.current = null;
+        if (!controller.signal.aborted && mounted.current) setIsLoadingPage(false);
+      }
+    }
+  }
+
   function handleToggleLesson(itemId: string): void {
     if (
       queueState.status !== "ready" ||
       startPending.current ||
-      !queueState.availableItems.some(({ item }) => item.id === itemId)
+      !knownItems.some(({ item }) => item.id === itemId)
     ) {
       return;
     }
@@ -434,7 +520,7 @@ function LessonsScreen({
     if (queueState.status === "ready" && !startPending.current) {
       setSelectedItemIds(
         boundedLessonSelection(
-          queueState.availableItems,
+          knownItems,
           queueState.suggestedItems.map((lesson) => lesson.item.id),
           lessonBatchCapacity(queueState.batchLimit, queueState.remainingToday),
         ),
@@ -1011,10 +1097,10 @@ function LessonsScreen({
           <p className="muted">Материалы в группу не выбраны.</p>
         ) : null}
         <p className="muted lesson-queue-counts">
-          Доступно: {queueState.availableItems.length} · Осталось на сегодня:{" "}
-          {queueState.remainingToday}
+          Доступно: {queueState.page?.totalItems ?? queueState.availableItems.length} · Осталось на
+          сегодня: {queueState.remainingToday}
         </p>
-        <SectionDisclosure title="Изменить группу">
+        <SectionDisclosure title="Изменить группу" onOpen={() => setHasOpenedPicker(true)}>
           <LessonPicker
             availableItems={queueState.availableItems}
             batchLimit={queueState.batchLimit}
@@ -1022,12 +1108,20 @@ function LessonsScreen({
             orderMode={orderMode}
             orderModeSaving={isSavingOrderMode}
             selectedItemIds={selectedItemIdSet}
+            selectedItems={selectedLessons}
             onClear={() => {
               if (!startPending.current) setSelectedItemIds([]);
             }}
             onOrderModeChange={(mode) => void handleOrderModeChange(mode)}
             onToggle={handleToggleLesson}
             onUseSuggested={handleUseSuggestedBatch}
+            hasMore={queueState.page?.nextOffset != null}
+            totalItems={queueState.page?.totalItems ?? queueState.availableItems.length}
+            hasOpenedPicker={hasOpenedPicker}
+            isLoadingPage={isLoadingPage}
+            pageError={pageError}
+            onLoadMore={handleLoadMoreLessons}
+            onReload={() => void loadQueue()}
             onPreset={(size) => {
               if (!startPending.current)
                 setSelectedItemIds(
@@ -1293,10 +1387,18 @@ function LessonPicker({
   orderMode,
   orderModeSaving,
   selectedItemIds,
+  selectedItems,
   onClear,
   onOrderModeChange,
   onToggle,
   onUseSuggested,
+  hasMore,
+  totalItems,
+  hasOpenedPicker,
+  isLoadingPage,
+  pageError,
+  onLoadMore,
+  onReload,
   onPreset,
   capacity,
   disabled,
@@ -1307,10 +1409,18 @@ function LessonPicker({
   readonly orderMode: LessonOrderMode;
   readonly orderModeSaving: boolean;
   readonly selectedItemIds: ReadonlySet<string>;
+  readonly selectedItems: readonly LessonQueueItem[];
   readonly onClear: () => void;
   readonly onOrderModeChange: (mode: LessonOrderMode) => void;
   readonly onToggle: (itemId: string) => void;
   readonly onUseSuggested: () => void;
+  readonly hasMore: boolean;
+  readonly totalItems: number;
+  readonly hasOpenedPicker: boolean;
+  readonly isLoadingPage: boolean;
+  readonly pageError: LessonPageError | null;
+  readonly onLoadMore: () => Promise<readonly LessonQueueItem[] | null>;
+  readonly onReload: () => void;
   readonly onPreset: (size: number) => void;
   readonly capacity: number;
   readonly disabled: boolean;
@@ -1330,18 +1440,53 @@ function LessonPicker({
     if (replace) window.history.replaceState(null, "", href);
     else window.history.pushState(null, "", href);
   }
-  const matchingItems = filterLessonBrowser(availableItems, browse, selectedItemIds);
-  const pageCount = Math.max(1, Math.ceil(matchingItems.length / LESSON_PICKER_PAGE_SIZE));
-  const page = Math.min(browse.page, pageCount);
-  const visibleItems = matchingItems.slice(
-    (page - 1) * LESSON_PICKER_PAGE_SIZE,
-    page * LESSON_PICKER_PAGE_SIZE,
+  const matchingItems = filterLessonBrowser(
+    browse.selected ? selectedItems : availableItems,
+    browse,
+    selectedItemIds,
   );
+  const pageCount = Math.max(1, Math.ceil(matchingItems.length / LESSON_PICKER_PAGE_SIZE));
+  const maxPage =
+    hasMore && !browse.selected
+      ? Math.max(1, Math.ceil(totalItems / LESSON_PICKER_PAGE_SIZE))
+      : pageCount;
+  const page = Math.min(browse.page, maxPage);
+  const needsMore = page > pageCount;
+  const canRestore =
+    needsMore &&
+    page === pageCount + 1 &&
+    browse.q === "" &&
+    browse.kind === "all" &&
+    browse.level === null;
+  const visibleItems = needsMore
+    ? []
+    : matchingItems.slice((page - 1) * LESSON_PICKER_PAGE_SIZE, page * LESSON_PICKER_PAGE_SIZE);
+  async function browseMore() {
+    const search = window.location.search;
+    const loaded = await onLoadMore();
+    if (loaded === null || search !== window.location.search || browse.page > page) return;
+    const combined = appendLessonQueueItems(availableItems, loaded);
+    const count = filterLessonBrowser(combined, browse, selectedItemIds).length;
+    if (
+      page === pageCount &&
+      matchingItems.length >= page * LESSON_PICKER_PAGE_SIZE &&
+      count > page * LESSON_PICKER_PAGE_SIZE
+    )
+      navigate({ page: page + 1 });
+  }
   useEffect(() => {
     if (page !== browse.page) navigate({ page }, true);
   }, [page, browse.page, navigate]);
+  useEffect(() => {
+    if (hasOpenedPicker && canRestore && !disabled && !isLoadingPage && pageError === null)
+      void onLoadMore();
+  }, [hasOpenedPicker, canRestore, disabled, isLoadingPage, pageError, onLoadMore]);
   const levels = [
-    ...new Set(availableItems.flatMap(({ item }) => (item.level === null ? [] : [item.level]))),
+    ...new Set(
+      [...availableItems, ...selectedItems]
+        .flatMap(({ item }) => (item.level === null ? [] : [item.level]))
+        .concat(browse.level ?? []),
+    ),
   ].sort((a, b) => a - b);
 
   return (
@@ -1483,7 +1628,10 @@ function LessonPicker({
           })}
         </div>
         <div className="lesson-picker-results">
-          <span>Найдено: {matchingItems.length}</span>
+          <span>
+            {hasMore && !browse.selected ? "Среди загруженных: " : "Найдено: "}
+            {matchingItems.length}
+          </span>
           {browse.q || browse.kind !== "all" || browse.level !== null || browse.selected ? (
             <button
               className="link-button"
@@ -1494,10 +1642,44 @@ function LessonPicker({
             </button>
           ) : null}
         </div>
-        {matchingItems.length === 0 ? (
-          <p className="muted">По выбранным фильтрам материалы не найдены.</p>
+        {needsMore ? (
+          <p className="muted">
+            {isLoadingPage ? "Загружаю материалы…" : `Страница ${page} ещё не загружена.`}
+          </p>
+        ) : matchingItems.length === 0 ? (
+          <p className="muted">
+            {hasMore && !browse.selected
+              ? "Совпадений среди загруженных пока нет."
+              : "По выбранным фильтрам материалы не найдены."}
+          </p>
         ) : null}
-        {pageCount <= 1 ? null : (
+        {pageError === null ? null : (
+          <p className="form-error" role="alert">
+            {pageError === "stale"
+              ? "Список доступных материалов изменился. Обновите его перед продолжением."
+              : "Не удалось загрузить следующую порцию материалов."}
+          </p>
+        )}
+        {pageError === "stale" ? (
+          <div className="action-row">
+            <button className="secondary-action" onClick={onReload} type="button">
+              Обновить список
+            </button>
+          </div>
+        ) : !hasMore || browse.selected ? null : (
+          <div className="action-row">
+            <button
+              className="secondary-action"
+              disabled={isLoadingPage}
+              onClick={() => void browseMore()}
+              type="button"
+            >
+              <ChevronDown size={16} aria-hidden="true" />
+              {isLoadingPage ? "Загружаю..." : "Загрузить ещё"}
+            </button>
+          </div>
+        )}
+        {pageCount <= 1 || needsMore ? null : (
           <nav className="lesson-picker-pages" aria-label="Страницы новых материалов">
             <button
               className="icon-button"

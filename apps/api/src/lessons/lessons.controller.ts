@@ -28,10 +28,13 @@ export class LessonsController {
     @Query("deckId") deckId?: string,
     @Req() request?: RequestWithCurrentUser,
     @Res({ passthrough: true }) response?: TimingResponse,
+    @Query("offset") offset?: string,
+    @Query("limit") limit?: string,
+    @Query("version") version?: string,
   ) {
     return timedQueueRead(
       "lessons",
-      () => this.lessonsService.getQueue(currentUser, deckId),
+      () => this.lessonsService.getQueue(currentUser, deckId, { offset, limit, version }),
       response,
       request?.authDurationMs,
     );

@@ -667,6 +667,84 @@ describe("LessonsService", () => {
     expect(queue).toMatchObject({ batchLimit: 5, remainingToday: 10 });
   });
 
+  it("pages the eligible catalogue independently of the daily admission limit", async () => {
+    const courseItems = Array.from({ length: 55 }, (_, i) =>
+      createCourseItem(createItem(`catalogue-${i}`, "component", [`card-${i}`]), i + 1),
+    );
+    const repository = new InMemoryLessonsRepository({ courseItems });
+    const hydrate = vi.spyOn(repository, "loadLessonItems");
+    const service = new LessonsService(repository, createOverridesService());
+    const user = createUser("owner", { dailyLessonLimit: 1 });
+
+    const first = await service.getQueue(user, undefined, { offset: "0" });
+    expect(first.items.map(({ item }) => item.id)).toEqual(["catalogue-0"]);
+    expect(first.availableItems).toHaveLength(24);
+    const version = first.availablePage?.version;
+    expect(version).toMatch(/^[0-9a-f]{64}$/u);
+    expect(first.availablePage).toEqual({ totalItems: 55, nextOffset: 24, version });
+    expect(hydrate).toHaveBeenLastCalledWith(
+      "owner",
+      courseItems.slice(0, 24).map(({ item }) => item.id),
+    );
+
+    const second = await service.getQueue(user, undefined, { offset: "24", limit: "48", version });
+    expect(second.items).toEqual([]);
+    expect(second.availableItems.map(({ item }) => item.id)).toEqual(
+      courseItems.slice(24).map(({ item }) => item.id),
+    );
+    expect(second.availablePage).toEqual({ totalItems: 55, nextOffset: null, version });
+    expect(hydrate).toHaveBeenLastCalledWith(
+      "owner",
+      courseItems.slice(24).map(({ item }) => item.id),
+    );
+
+    await expect(
+      service.startSession(user, { itemIds: ["catalogue-24", "catalogue-25"] }),
+    ).rejects.toThrow("current lesson batch limit");
+    await expect(service.startSession(user, { itemIds: ["catalogue-24"] })).resolves.toMatchObject({
+      session: { itemIds: ["catalogue-24"] },
+    });
+  });
+
+  it("rejects a stale offset if progress in another session shifts the catalogue", async () => {
+    const repository = new InMemoryLessonsRepository();
+    const hydrate = vi.spyOn(repository, "loadLessonItems");
+    const service = new LessonsService(repository, createOverridesService());
+    const user = createUser("owner");
+    const first = await service.getQueue(user, undefined, { offset: "0", limit: "1" });
+    expect(first.availablePage?.nextOffset).toBe(1);
+    repository.addProgress("owner", "item-component-one", ["card-component-one"], 1);
+    hydrate.mockClear();
+
+    await expect(
+      service.getQueue(user, undefined, { offset: "1", version: first.availablePage?.version }),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(hydrate).not.toHaveBeenCalled();
+    await expect(service.getQueue(user, undefined, { offset: "0" })).resolves.toMatchObject({
+      availableItems: expect.arrayContaining([
+        expect.objectContaining({ item: expect.objectContaining({ id: "item-kanji-one" }) }),
+      ]),
+    });
+  });
+
+  it.each([
+    { offset: "-1" },
+    { offset: ["0", "24"] },
+    { offset: "9007199254740992" },
+    { limit: "49" },
+    { limit: "0" },
+    { limit: "1.5" },
+    { offset: "24", version: ["a".repeat(64), "b".repeat(64)] },
+  ])("rejects invalid catalogue pagination before reading the lesson graph: %j", async (query) => {
+    const repository = new InMemoryLessonsRepository();
+    const eligibility = vi.spyOn(repository, "listCourseEligibility");
+    const service = new LessonsService(repository, createOverridesService());
+    await expect(service.getQueue(createUser("owner"), undefined, query)).rejects.toThrow(
+      "Invalid lesson catalogue",
+    );
+    expect(eligibility).not.toHaveBeenCalled();
+  });
+
   it("applies the saved lesson batch size and ordering preference", async () => {
     const courseItems = [
       createCourseItem(createItem("item-component-0", "component", ["card-component-0"]), 1),

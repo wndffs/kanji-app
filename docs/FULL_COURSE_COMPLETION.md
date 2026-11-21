@@ -93,10 +93,11 @@ or the remaining numbered roadmap has been completed.
 The bounded source audit found these unfinished learner workflows, in addition
 to the content deficit. Keep them within this single task:
 
-- The lesson picker cannot select beyond the daily-limit slice used to build
-  its catalogue. Add bounded server pagination (24 default, 48 maximum), not
-  an unbounded rich teaching payload or a different hidden hard cap. Daily
-  admission and prerequisite checks remain authoritative at session start.
+- **Implemented in code:** the lesson picker browses eligible materials beyond
+  the daily-limit slice with bounded server pagination (24 default, 48 maximum).
+  Filters operate on loaded materials; eligibility changes invalidate the
+  current page sequence. Daily admission and prerequisites still gate session
+  start. Verified in local service and browser tests.
 - Learner-facing reveal/manual-ignore and reviewed-answer recovery are not
   complete just because API flags exist. Define audited, explicit recovery;
   never silently reverse a penalty on a synonym save.
@@ -117,7 +118,7 @@ to the content deficit. Keep them within this single task:
   importing the entire teaching corpus will fit one execution window.
 
 These findings are from code inspection, not a fresh exhaustive live UX audit.
-They are not described as fixed by this content-focused change.
+Only entries explicitly marked implemented have been addressed.
 
 ## Current Content Work
 

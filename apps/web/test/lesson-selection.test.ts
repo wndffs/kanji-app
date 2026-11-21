@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { type ItemKind, type LessonQueueItem } from "@kanji-srs/shared";
 
 import {
+  appendLessonQueueItems,
   boundedLessonSelection,
   lessonBatchCapacity,
   lessonSelectionCardCount,
@@ -10,6 +11,14 @@ import {
 } from "../src/lib/lesson-selection";
 
 describe("orderLessonSelection", () => {
+  it("keeps earlier selections in source order while appending unique catalogue items", () => {
+    const first = createLesson("first", "kanji");
+    const second = createLesson("second", "word");
+    const third = createLesson("third", "word");
+    const merged = appendLessonQueueItems([first, second], [second, third, third]);
+    expect(merged).toEqual([first, second, third]);
+    expect(boundedLessonSelection(merged, ["third", "first"], 2)).toEqual(["third", "first"]);
+  });
   it("caps recommendations to eligible unique materials and the remaining daily allowance", () => {
     const lessons = [createLesson("one", "kanji"), createLesson("two", "word")];
     expect(boundedLessonSelection(lessons, ["missing", "two", "two", "one"], 2)).toEqual([
