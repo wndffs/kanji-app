@@ -869,3 +869,34 @@ remains **714 kanji / 1,300 words**.
   targets / 9,232 core cards**. Confirm counts, source attribution, quality
   and preservation live. GitHub Actions authorization is still needed for
   the manual release; existing accounts and finite courses must not be moved.
+
+## Course Coverage: 2026-11-21
+
+This block adds **200 reviewed kanji, 784 words and 784 original
+JP/kana/RU/EN examples**, with one explicitly aligned reinforcement word per
+kanji. The independent teaching registry now contains **1,514 kanji, 3,970
+words and 232 components** across **44 populated levels**. Remaining to the
+full target: **786 kanji / 4,030 words**. The last confirmed figures in Neon
+remain **714 / 1,300**, not the reviewed registry totals.
+
+- Two AI editors cross-reviewed all vocabulary and checked each of the 200
+  constituent kanji/word pairs. The pinned 2026-10-31 sources matched **787
+  exact bilingual JMdict pairs** (three accepted alternative readings),
+  **200 KANJIDIC2 readings**, and **200 primary KanjiVG sequences**. The
+  project-authored examples and meanings do not reproduce competitors'
+  content. Editorial review is not human certification.
+- Common written forms such as 様々, 日々 and 別々 keep their exact source forms;
+  the iteration mark does not create a separate kanji prerequisite. An
+  explicitly marked compound such as 疾患 can explain how しつ becomes しっ
+  without accepting the compound realization as the standalone 疾 reading.
+- The prior 1,314-kanji/3,186-word payloads and course placements are
+  byte-for-byte unchanged. Coverage seal:
+  `1c005f272a819af9a4b09306b69943b29f83376824a075b254c6c78edb2ac0e0`.
+- Release after the preceding blocks. Plan/apply `full-course-kanji-coverage`
+  with vocabulary skipped. Then plan/apply the **28** explicit word IDs
+  `full-course-vocabulary-coverage-01` through `-28`. Only use a narrowly scoped
+  raw-source supplement if live preflight detects missing evidence.
+- Expected after all outstanding reviewed batches are live: **5,716
+  teaching targets / 11,200 core cards**. Verify full quality and aggregate
+  preservation evidence. Do not enroll users in the DRAFT main course or
+  modify any sealed V1-V7 course or historical SRS data.

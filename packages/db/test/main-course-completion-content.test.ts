@@ -31,11 +31,11 @@ describe("single full-course completion content block", () => {
     const report = JSON.parse(result.stdout);
     expect(result.exitCode).toBe(0);
     expect(report.validation.valid).toBe(true);
-    expect(report.prepared.distinctTotals.kanji).toBe(1314);
-    expect(report.prepared.reviewedDistinctTotals.kanji).toBe(1314);
+    expect(report.prepared.distinctTotals.kanji).toBe(1514);
+    expect(report.prepared.reviewedDistinctTotals.kanji).toBe(1514);
     expect(report.prepared.pendingReviewDistinctTotals.kanji).toBe(0);
-    expect(report.prepared.distinctTotals.words).toBe(3186);
-    expect(report.prepared.reviewedDistinctTotals.words).toBe(3186);
+    expect(report.prepared.distinctTotals.words).toBe(3970);
+    expect(report.prepared.reviewedDistinctTotals.words).toBe(3970);
     expect(result.stdout).toBe(runEditorialRegistryInventory(["--json"]).stdout);
     expect(report.sourceSeals.every((seal: { status: string }) => seal.status === "complete")).toBe(
       true,
