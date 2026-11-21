@@ -34,6 +34,12 @@ const CONSOLIDATION_WORD_COUNTS = [
   16, 10, 6, 37, 24,
 ];
 
+it("reuses the immutable vocabulary registry within the same process", () => {
+  const registry = buildMainCourseWordBatches();
+  expect(registry.length).toBeGreaterThan(1);
+  expect(buildMainCourseWordBatches()).toBe(registry);
+});
+
 describe("first bounded main-course vocabulary manifest", () => {
   it("keeps legacy noun metadata and rejects unsupported explicit authoring classes", () => {
     expect(authoredWordPartOfSpeech({})).toBe("noun (course-authored)");

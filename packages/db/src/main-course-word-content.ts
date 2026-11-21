@@ -1160,7 +1160,14 @@ const FOUNDATION_WORD_BATCH_03: MainCourseWordBatch = {
   ].map((content, index) => ({ ...content, sortOrder: 41 + index })),
 };
 
+let registeredWordBatches: readonly MainCourseWordBatch[] | undefined;
+
 export function buildMainCourseWordBatches(): readonly MainCourseWordBatch[] {
+  // Reports often inspect the same immutable source registry several times.
+  return (registeredWordBatches ??= assembleMainCourseWordBatches());
+}
+
+function assembleMainCourseWordBatches(): readonly MainCourseWordBatch[] {
   const kanji = buildMainCourseContentBatches();
   const preConsolidationKanji = kanji.filter((batch) => batch.id !== CONSOLIDATION_KANJI_BATCH);
   const preCoverageKanji = preConsolidationKanji.filter(
