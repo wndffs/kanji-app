@@ -17,12 +17,12 @@ import {
 } from "../src/reinforcement-reading-evidence";
 import { buildEditorialRegistryInventory } from "../src/editorial-registry-inventory";
 import { buildReinforcementWordBatches } from "../src/reinforcement-word-content";
+import { beforeCourseBatch } from "./course-registry-fixture";
 
-const kanji = buildMainCourseContentBatches().filter(
-  (batch) => !/expansion|broadening|deepening/u.test(batch.id),
-);
-const words = buildMainCourseWordBatches().filter(
-  (batch) => !/expansion|broadening|deepening/u.test(batch.id),
+const kanji = beforeCourseBatch(buildMainCourseContentBatches(), "full-course-kanji-expansion");
+const words = beforeCourseBatch(
+  buildMainCourseWordBatches(),
+  "full-course-vocabulary-expansion-01",
 );
 const newKanji = kanji.find((b) => b.id === "full-course-kanji-reinforcement")!;
 const newWords = words.filter((b) => b.id.startsWith("full-course-vocabulary-reinforcement-"));
