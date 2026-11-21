@@ -16,7 +16,21 @@ describe("isolated editorial drafts", () => {
   it("separates the reviewed backlog, V4 seal and unapproved proposals", () => {
     const report = buildEditorialCoverage();
     expect(report.validation).toEqual({ valid: true, issues: [] });
-    expect(report.remainingReviewedContent).toEqual({ kanji: 1386, words: 6200 });
+    const reviewedKanji = new Set(
+      buildMainCourseContentBatches()
+        .filter((batch) => batch.reviewedAt !== null)
+        .flatMap((batch) => batch.kanji.map((item) => item.character)),
+    );
+    const reviewedWords = new Set(
+      buildMainCourseWordBatches()
+        .filter((batch) => batch.reviewedAt !== null)
+        .flatMap((batch) => batch.words.map((item) => `${item.expression}:${item.reading}`)),
+    );
+    expect(report.target).toMatchObject({ kanji: 2_300, words: 8_000 });
+    expect(report.remainingReviewedContent).toEqual({
+      kanji: Math.max(0, 2_300 - reviewedKanji.size),
+      words: Math.max(0, 8_000 - reviewedWords.size),
+    });
     expect(report.pendingDrafts).toEqual({
       components: 0,
       kanji: 0,
