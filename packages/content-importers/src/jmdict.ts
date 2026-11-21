@@ -4,7 +4,13 @@ import { verifySha256 } from "./import-metadata";
 import { forEachConcurrent } from "./concurrency";
 import { executeTrackedImport, findSuccessfulImportRun, type ImportRunLookup } from "./import-run";
 import { createContentImportProgressTracker, type ContentImportProgressCallback } from "./progress";
-import { decodeXml, extractAttributedElements, extractElements, extractRequiredText } from "./xml";
+import {
+  decodeXml,
+  extractAttributedElements,
+  extractElements,
+  extractRequiredText,
+  extractSelfClosingElements,
+} from "./xml";
 
 export type JmDictGlossDto = {
   readonly locale: "en-US" | "ru-RU";
@@ -15,6 +21,8 @@ export type JmDictGlossDto = {
 export type JmDictSenseDto = {
   readonly partOfSpeech: readonly string[];
   readonly glosses: readonly JmDictGlossDto[];
+  readonly spellings?: readonly string[];
+  readonly readings?: readonly string[];
 };
 
 export type JmDictKanjiElementDto = {
@@ -26,6 +34,7 @@ export type JmDictReadingElementDto = {
   readonly reading: string;
   readonly priorities: readonly string[];
   readonly restrictions: readonly string[];
+  readonly kanaOnly?: true;
 };
 
 export type JmDictWordSenseDto = {
@@ -543,7 +552,17 @@ function selectExactJmDictPairs(
       seen.add(key);
       return true;
     });
-    return words.length > 0 ? [{ ...entry, words }] : [];
+    return words.length > 0
+      ? [
+          {
+            ...entry,
+            words,
+            senses: entry.senses.filter((sense) =>
+              words.some(({ expression, reading }) => appliesToWord(sense, expression, reading)),
+            ),
+          },
+        ]
+      : [];
   });
   if (seen.size !== requested.size) throw new Error("Exact JMdict source pair is missing.");
   return {
@@ -643,10 +662,14 @@ function parseKanjiElement(block: string): JmDictKanjiElementDto {
 }
 
 function parseReadingElement(block: string): JmDictReadingElementDto {
+  const kanaOnly =
+    extractSelfClosingElements(block, "re_nokanji").length > 0 ||
+    extractElements(block, "re_nokanji").length > 0;
   return {
     reading: extractRequiredText(block, "reb"),
     priorities: extractElements(block, "re_pri").map((value) => decodeXml(value.trim())),
     restrictions: extractElements(block, "re_restr").map((value) => decodeXml(value.trim())),
+    ...(kanaOnly ? { kanaOnly: true as const } : {}),
   };
 }
 
@@ -654,6 +677,8 @@ function parseSense(block: string): JmDictSenseDto {
   const partOfSpeech = extractElements(block, "pos").map((value) =>
     decodeJmDictEntity(decodeXml(value.trim())),
   );
+  const spellings = extractElements(block, "stagk").map((value) => decodeXml(value.trim()));
+  const readings = extractElements(block, "stagr").map((value) => decodeXml(value.trim()));
 
   return {
     partOfSpeech: partOfSpeech.length === 0 ? ["unknown"] : partOfSpeech,
@@ -663,7 +688,16 @@ function parseSense(block: string): JmDictSenseDto {
 
       return locale === null ? [] : [{ locale, text: gloss.text, sourceLanguage }];
     }),
+    ...(spellings.length ? { spellings } : {}),
+    ...(readings.length ? { readings } : {}),
   };
+}
+
+function appliesToWord(sense: JmDictSenseDto, expression: string, reading: string): boolean {
+  return (
+    (sense.spellings === undefined || sense.spellings.includes(expression)) &&
+    (sense.readings === undefined || sense.readings.includes(reading))
+  );
 }
 
 function buildWords(
@@ -671,40 +705,42 @@ function buildWords(
   readingElements: readonly JmDictReadingElementDto[],
   senses: readonly JmDictSenseDto[],
 ): readonly JmDictWordDto[] {
-  const senseRows = senses.flatMap((sense) =>
-    sense.glosses.map((gloss) => ({
-      locale: gloss.locale,
-      meaning: gloss.text,
-      partOfSpeech: sense.partOfSpeech.join("; "),
-      sourceKind: "IMPORTED" as const,
-    })),
-  );
-  const expressions =
-    kanjiElements.length === 0
-      ? readingElements.map((reading) => ({
-          expression: reading.reading,
-          priorities: reading.priorities,
-        }))
-      : kanjiElements;
   const words: JmDictWordDto[] = [];
-
-  for (const expression of expressions) {
+  const addWord = (expression: string, reading: string, priorities: readonly string[]) => {
+    words.push({
+      expression,
+      reading,
+      commonnessRank: pickCommonnessRank(priorities),
+      senses: senses
+        .filter((sense) => appliesToWord(sense, expression, reading))
+        .flatMap((sense) =>
+          sense.glosses.map((gloss) => ({
+            locale: gloss.locale,
+            meaning: gloss.text,
+            partOfSpeech: sense.partOfSpeech.join("; "),
+            sourceKind: "IMPORTED" as const,
+          })),
+        ),
+    });
+  };
+  for (const expression of kanjiElements) {
     for (const reading of readingElements) {
       if (
-        reading.restrictions.length > 0 &&
-        !reading.restrictions.includes(expression.expression)
+        reading.kanaOnly ||
+        (reading.restrictions.length > 0 && !reading.restrictions.includes(expression.expression))
       ) {
         continue;
       }
 
-      words.push({
-        expression: expression.expression,
-        reading: reading.reading,
-        commonnessRank: pickCommonnessRank([...expression.priorities, ...reading.priorities]),
-        senses: senseRows,
-      });
+      addWord(expression.expression, reading.reading, [
+        ...expression.priorities,
+        ...reading.priorities,
+      ]);
     }
   }
+  for (const reading of readingElements)
+    if (kanjiElements.length === 0 || reading.kanaOnly)
+      addWord(reading.reading, reading.reading, reading.priorities);
 
   return words;
 }

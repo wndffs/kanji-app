@@ -110,6 +110,51 @@ describe("JMdict importer", () => {
     );
   });
 
+  it("keeps kana-only forms and spelling/reading-specific glosses on their exact pairs", async () => {
+    const xml = `<JMdict><entry>
+      <ent_seq>2000001</ent_seq>
+      <k_ele><keb>仮名</keb></k_ele><k_ele><keb>假名</keb></k_ele>
+      <r_ele><reb>かな</reb></r_ele>
+      <r_ele><reb>かりな</reb><re_restr>假名</re_restr></r_ele>
+      <r_ele><reb>かめい</reb><re_nokanji/></r_ele>
+      <sense><stagk>仮名</stagk><stagr>かな</stagr><gloss>kana</gloss><gloss xml:lang="rus">кана</gloss></sense>
+      <sense><stagk>假名</stagk><stagr>かりな</stagr><gloss>alias</gloss><gloss xml:lang="rus">псевдоним</gloss></sense>
+      <sense><stagr>かめい</stagr><gloss>temporary name</gloss><gloss xml:lang="rus">временное имя</gloss></sense>
+    </entry><entry>
+      <ent_seq>2000002</ent_seq>
+      <r_ele><reb>あの</reb></r_ele><r_ele><reb>あのう</reb></r_ele>
+      <sense><gloss>well</gloss></sense>
+    </entry></JMdict>`;
+    const parsed = parseJmDictXml(xml);
+    expect(
+      parsed.entries[0]!.words.map(({ expression, reading, senses }) => [
+        expression,
+        reading,
+        senses.map(({ meaning }) => meaning),
+      ]),
+    ).toEqual([
+      ["仮名", "かな", ["kana", "кана"]],
+      ["假名", "かな", []],
+      ["假名", "かりな", ["alias", "псевдоним"]],
+      ["かめい", "かめい", ["temporary name", "временное имя"]],
+    ]);
+    expect(
+      parsed.entries[1]!.words.map(({ expression, reading }) => [expression, reading]),
+    ).toEqual([
+      ["あの", "あの"],
+      ["あのう", "あのう"],
+    ]);
+    const inserted = new InMemoryJmDictDb();
+    await importJmDictXml(inserted, xml, {
+      sourceFileName: "jmdict-restrictions.xml",
+      exactPairs: [{ expression: "仮名", reading: "かな", sourceRecordId: "jmdict:2000001" }],
+    });
+    expect([...inserted.senseRows.values()].map(({ meaning }) => meaning)).toEqual([
+      "kana",
+      "кана",
+    ]);
+  });
+
   it("records import run checksum and success status", async () => {
     const db = new InMemoryJmDictDb();
     const checksum = calculateSha256(fixtureXml);
