@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { type ItemDetails } from "@kanji-srs/shared";
+import { type ItemDetails, type TranslationDisplayMode } from "@kanji-srs/shared";
 
 import { JapaneseText } from "./JapaneseText";
 import { selectReinforcementWords } from "../lib/item-reinforcement";
@@ -7,9 +7,13 @@ import { selectReinforcementWords } from "../lib/item-reinforcement";
 export function KanjiWordReinforcement({
   item,
   contextHref,
+  displayMode,
+  hideReadings,
 }: {
   readonly item: ItemDetails;
   readonly contextHref: string;
+  readonly displayMode: TranslationDisplayMode;
+  readonly hideReadings: boolean;
 }) {
   const words = selectReinforcementWords(item);
   const query = new URL(contextHref, "https://kanji.invalid").search;
@@ -22,16 +26,16 @@ export function KanjiWordReinforcement({
           <li key={word.id}>
             <Link href={`/items/${word.id}${query}`} className="inline-link">
               <JapaneseText>{word.japanese}</JapaneseText>
-              {word.reading ? (
+              {word.reading && !hideReadings ? (
                 <>
                   {" "}
                   · <JapaneseText>{word.reading}</JapaneseText>
                 </>
               ) : null}
-              {word.translations.displayMode !== "en" && word.translations.primaryRu
+              {displayMode !== "en" && word.translations.primaryRu
                 ? ` · ${word.translations.primaryRu}`
                 : ""}
-              {word.translations.displayMode !== "ru" && word.translations.primaryEn
+              {displayMode !== "ru" && word.translations.primaryEn
                 ? ` · ${word.translations.primaryEn}`
                 : ""}
             </Link>

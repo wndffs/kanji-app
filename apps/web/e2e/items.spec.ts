@@ -36,7 +36,7 @@ test.describe("item details", () => {
   test("connects selected readings to whole-word reinforcement without losing course context", async ({
     page,
   }) => {
-    await signIn(page);
+    await signIn(page, { translationDisplayMode: "en" });
     await mockItemApi(page);
     const item = buildItemDetails([], null);
     Object.assign(item, {
@@ -49,8 +49,13 @@ test.describe("item details", () => {
               ...item.relationGroups[0]!.items[0]!,
               id: WORD_ID,
               itemType: "word",
-              japanese: "学校",
-              reading: "がっこう",
+              japanese: "一人",
+              reading: "ひとり",
+              translations: {
+                ...item.translations,
+                primaryRu: "один человек",
+                primaryEn: "one person",
+              },
             },
           ],
         },
@@ -63,8 +68,18 @@ test.describe("item details", () => {
     await reading.getByRole("link", { name: "Слова с этим кандзи", exact: true }).click();
     await expect(page).toHaveURL(/level=2#item-related-vocabulary$/u);
     await expect(
-      page.getByTestId("item-relation-groups").getByRole("link", { name: "学校", exact: true }),
+      page.getByTestId("item-relation-groups").getByRole("link", { name: "一人", exact: true }),
     ).toHaveAttribute("href", /courseId=00000000-0000-4000-8000-000000000010/u);
+    const reinforcement = reading
+      .getByRole("heading", { name: "Закрепление в словах" })
+      .locator("..");
+    await expect(reinforcement).toContainText("ひとり");
+    await expect(reinforcement).toContainText("one person");
+    await expect(reinforcement).not.toContainText("один человек");
+    await page.getByLabel("Скрыть подсказки чтения", { exact: true }).check();
+    await page.getByRole("button", { name: "Показать чтение", exact: true }).click();
+    await expect(reinforcement).toBeVisible();
+    await expect(reinforcement).not.toContainText("ひとり");
   });
   test("renders teaching before slow notes and retries a failed private snapshot without losing the item", async ({
     page,
@@ -217,7 +232,7 @@ test.describe("item details", () => {
     await page.getByRole("button", { name: "Показать чтение", exact: true }).click();
     await expect(page.locator(".item-study-memory")).toBeVisible();
     await expect(
-      details.locator(".reading-evidence-grid").first().getByText("いち", { exact: true }),
+      page.locator(".item-primary-reading").getByText("いち", { exact: true }),
     ).toBeVisible();
     await expect(page.getByTestId("item-relation-groups")).not.toContainText("ひとり");
   });
@@ -389,11 +404,15 @@ test.describe("item details", () => {
     expect((await snapshot()).cancels).toBeGreaterThan(beforeView);
   });
 
-  for (const denied of [false, true]) {
-    test(`copies only a visible kana reading and reports clipboard denial (${denied})`, async ({
+  for (const [mode, denied] of [
+    ["kana", false],
+    ["furigana", false],
+    ["kana", true],
+  ] as const) {
+    test(`copies only a visible ${mode} reading and reports clipboard denial (${denied})`, async ({
       page,
     }) => {
-      await signIn(page);
+      await signIn(page, { lessonPronunciationMode: mode });
       await mockItemApi(page);
       await page.addInitScript((fail) => {
         Object.defineProperty(navigator, "clipboard", {
@@ -522,7 +541,7 @@ test.describe("item details", () => {
 
     await expect(page.locator(".item-hero-main > .eyebrow")).toHaveText("Кандзи");
     await expect(page.getByRole("heading", { name: "一" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Значения" })).toBeVisible();
+    await expect(page.locator(".item-hero .item-translation-rows dd")).toHaveText(["один", "one"]);
     const tabs = await page
       .getByRole("tablist", { name: "Разделы материала", exact: true })
       .boundingBox();
@@ -562,8 +581,8 @@ test.describe("item details", () => {
     await page.goto(`/items/${ITEM_ID}`);
 
     const readings = page.getByTestId("kanji-reading-details");
-    await expect(readings.getByText("Основное учебное чтение")).toBeVisible();
-    await expect(readings.getByText("いち", { exact: true }).first()).toBeVisible();
+    await expect(page.locator(".item-primary-reading")).toHaveText(/Учебное чтение.*いち/u);
+    await expect(readings.getByText("いち", { exact: true })).toBeHidden();
     await readings.getByRole("button", { name: "Словарные чтения", exact: true }).click();
     await expect(readings.getByRole("heading", { name: "Онъёми", exact: true })).toBeVisible();
     await expect(readings.getByRole("heading", { name: "Кунъёми", exact: true })).toBeVisible();
@@ -588,9 +607,12 @@ test.describe("item details", () => {
     await page.goto(`/items/${WORD_ID}`);
 
     const details = page.getByTestId("word-study-details");
-    await expect(details.getByText("がっこう", { exact: true })).toBeVisible();
+    await expect(
+      page.locator(".item-primary-reading").getByText("がっこう", { exact: true }),
+    ).toBeVisible();
     await expect(details.locator(".word-sense-list")).toBeHidden();
-    await details.getByRole("button", { name: "Словарные значения", exact: true }).click();
+    await expect(details.getByText("420", { exact: true })).toBeHidden();
+    await details.getByRole("button", { name: "Словарные сведения", exact: true }).click();
     await expect(details.getByText(/существительное/).first()).toBeVisible();
     await expect(details.getByText("420", { exact: true })).toBeVisible();
     await expect(page.getByText("Составляющие кандзи")).toBeVisible();
@@ -605,14 +627,94 @@ test.describe("item details", () => {
 
     await page.goto(`/items/${COMPONENT_ID}`);
 
-    await expect(page.getByRole("heading", { name: "Значения" })).toBeVisible();
     await expect(page.locator(".item-hero .item-translation-rows dd")).toHaveText(["один", "one"]);
+    await expect(page.getByRole("heading", { name: "Примеры", exact: true })).toHaveCount(0);
     const details = page.getByTestId("component-details");
     await expect(details.getByText("единица / one", { exact: true })).toBeVisible();
     await expect(
       details.getByText("горизонтальная черта / horizontal stroke", { exact: true }),
     ).toBeVisible();
     await expect(page.getByText("одна черта", { exact: true })).toHaveCount(0);
+  });
+
+  test("keeps the reading and both translations together at 320 px", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 680 });
+    await signIn(page, { lessonPronunciationMode: "furigana", lessonRomaji: true });
+    const item = buildWordDetails();
+    await page.route(`${API_BASE_URL}/items/${WORD_ID}`, (route) =>
+      route.fulfill({
+        json: {
+          ...item,
+          japanese: "東京国際空港",
+          wordDetails: { ...item.wordDetails, reading: "とうきょうこくさいくうこう" },
+          translations: {
+            ...item.translations,
+            primaryRu: "Международный аэропорт Токио",
+            primaryEn: "Tokyo International Airport",
+            ru: [],
+            en: [],
+          },
+        },
+      }),
+    );
+    await page.goto(`/items/${WORD_ID}`);
+
+    const hero = page.locator(".item-hero-main");
+    await expect(hero.locator("rt")).toHaveText("とうきょうこくさいくうこう");
+    await expect(hero.getByRole("button", { name: "Копировать чтение" })).toBeInViewport();
+    const translations = hero.locator(".item-translation-rows dd");
+    await expect(translations).toHaveText([
+      "Международный аэропорт Токио",
+      "Tokyo International Airport",
+    ]);
+    await expect(translations.last()).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      320,
+    );
+
+    const study = page.locator(".item-main > .item-tab-content:visible");
+    const headings = await study.getByRole("heading", { level: 2 }).allTextContents();
+    expect(headings).toContain("Примеры");
+    expect(headings).toContain("Чтение и словарные сведения");
+    expect(headings.indexOf("Связи")).toBeLessThan(headings.indexOf("Примеры"));
+    expect(headings.indexOf("Примеры")).toBeLessThan(
+      headings.indexOf("Чтение и словарные сведения"),
+    );
+  });
+
+  test("shows only alternative meanings and skips empty study sections", async ({ page }) => {
+    await signIn(page, { translationDisplayMode: "ru" });
+    const item = buildComponentDetails();
+    await page.route(`${API_BASE_URL}/items/${COMPONENT_ID}`, (route) =>
+      route.fulfill({
+        json: {
+          ...item,
+          translations: {
+            ...item.translations,
+            ru: [
+              ...item.translations.ru,
+              { locale: "ru-RU", text: "единица", isPrimary: false, sourceKind: "curated" },
+            ],
+          },
+          mnemonics: { ...item.mnemonics, ru: [], en: [] },
+          hints: { ...item.hints, ru: [], en: [] },
+          relations: [],
+          relationGroups: [{ kind: "used-in-kanji", items: [], total: 0 }],
+        },
+      }),
+    );
+    await page.goto(`/items/${COMPONENT_ID}`);
+
+    await expect(page.locator(".item-hero .item-translation-rows dd")).toHaveText(["один"]);
+    await expect(
+      page.getByRole("heading", { name: /Связи|Примеры|Мнемоники и подсказки/u }),
+    ).toHaveCount(0);
+    const disclosure = page
+      .locator(".section-disclosure")
+      .filter({ has: page.getByRole("button", { name: "Другие значения", exact: true }) });
+    await disclosure.getByRole("button", { name: "Другие значения", exact: true }).click();
+    await expect(disclosure.getByText("единица", { exact: true })).toBeVisible();
+    await expect(disclosure.getByText("один", { exact: true })).toHaveCount(0);
   });
 
   test("uses persisted furigana and explicit romaji on words and examples with local reveal", async ({

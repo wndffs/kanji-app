@@ -587,15 +587,22 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
 
   const { item, token, timezone } = state;
   const displayMode = liveDisplayMode;
+  const studyHref = itemViewHref(pathname, new URLSearchParams(searchParams), "study");
   const readingCards = item.cards.filter((card) => card.answerType === "reading");
+  const teachingReading =
+    item.wordDetails?.reading.trim() ||
+    item.kanjiDetails?.primaryTaughtReading?.text.trim() ||
+    item.reading?.trim() ||
+    null;
   const presentationPreferences = hideReadingHints
     ? { ...readingPreferences, mode: "hide" as const }
     : readingPreferences;
   const reading = itemReadingPresentation(
-    item.wordDetails?.reading.trim() || item.reading,
+    teachingReading,
     presentationPreferences,
     revealedReadings.has("item"),
   );
+  const visibleReading = reading.kana ?? reading.furigana;
   const hideReadingAnswers = hideReadingHints && !revealedReadings.has("item");
   const readingHidden = reading.hidden || (hideReadingAnswers && readingCards.length > 0);
   const privateOverrides = item.userOverrides.filter(
@@ -604,24 +611,26 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
   const userMnemonicTexts = privateMnemonics
     .filter((note) => getContentLocalesForDisplayMode(displayMode).includes(note.locale))
     .map((note) => ({ locale: note.locale, text: note.body, sourceKind: "user" as const }));
+  const showReadingToggle =
+    teachingReading !== null ||
+    readingCards.length > 0 ||
+    item.exampleSentences.some((sentence) => sentence.readingText !== null) ||
+    item.relationGroups.some((group) => group.items.some((related) => related.reading !== null)) ||
+    item.relations.some(({ item: related }) => related.reading !== null);
+  const otherMeanings = getLocalizedTexts(item.translations, displayMode).filter(
+    ({ locale, text }) =>
+      text.trim() !==
+      (locale === "ru-RU" ? item.translations.primaryRu : item.translations.primaryEn)?.trim(),
+  );
+  const mnemonics = getLocalizedTexts(item.mnemonics, displayMode).filter(
+    (text) => text.sourceKind !== "user",
+  );
+  const hints = getLocalizedTexts(item.hints, displayMode).filter(
+    (text) => text.sourceKind !== "user",
+  );
 
   return (
     <section className="item-page" data-item-type={item.itemType}>
-      {item.reading === null &&
-      item.cards.every((card) => card.answerType !== "reading") &&
-      item.exampleSentences.every((sentence) => sentence.readingText === null) ? null : (
-        <label className="checkbox-row">
-          <input
-            checked={hideReadingHints}
-            onChange={(event) => {
-              setHideReadingHints(event.target.checked);
-              setRevealedReadings(new Set());
-            }}
-            type="checkbox"
-          />
-          Скрыть подсказки чтения
-        </label>
-      )}
       <header className="item-hero panel">
         <div className="item-hero-main">
           <span className="eyebrow">{formatItemType(item.itemType)}</span>
@@ -629,85 +638,86 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
             as="h1"
             className="review-japanese"
             furigana={reading.furigana}
-            variant={item.itemType === "sentence" ? "sentence" : "display"}
+            variant={
+              item.itemType === "sentence" || Array.from(item.japanese).length > 5
+                ? "sentence"
+                : "display"
+            }
           >
             {item.japanese}
           </JapaneseText>
+          {visibleReading !== null || readingHidden ? (
+            <div className="item-primary-reading">
+              <span className="eyebrow">{item.kanjiDetails ? "Учебное чтение" : "Чтение"}</span>
+              {readingHidden ? (
+                <button className="link-button" onClick={() => revealReading("item")} type="button">
+                  Показать чтение
+                </button>
+              ) : (
+                <div className="item-reading-line">
+                  {reading.kana === null ? null : <JapaneseText>{reading.kana}</JapaneseText>}
+                  {reading.romaji === null ? null : (
+                    <span className="item-romaji">{reading.romaji}</span>
+                  )}
+                  {visibleReading === null ? null : (
+                    <CopyReadingButton key={visibleReading} reading={visibleReading} />
+                  )}
+                  {visibleReading === null ? null : (
+                    <ItemReadingAudio reading={visibleReading} view={itemView} />
+                  )}
+                </div>
+              )}
+            </div>
+          ) : null}
           <ItemTranslationRows
             ru={item.translations.primaryRu}
             en={item.translations.primaryEn}
             displayMode={displayMode}
           />
-          {reading.furigana === null ? null : (
-            <ItemReadingAudio
-              reading={item.wordDetails?.reading.trim() || item.reading}
-              hidden={readingHidden}
-              view={itemView}
-            />
-          )}
         </div>
-        <dl className="lesson-facts">
-          {reading.kana === null && !readingHidden ? null : (
-            <div data-fact="reading">
-              <dt>Чтение</dt>
+        <div className="item-hero-context">
+          <dl className="lesson-facts">
+            {item.level === null ? null : (
+              <div>
+                <dt>Уровень</dt>
+                <dd>{item.level}</dd>
+              </div>
+            )}
+            {item.jlptLevel === null ? null : (
+              <div>
+                <dt>JLPT</dt>
+                <dd>{item.jlptLevel}</dd>
+              </div>
+            )}
+            <div>
+              <dt>Повторения</dt>
               <dd>
-                {readingHidden ? (
-                  <button
-                    className="link-button"
-                    onClick={() => revealReading("item")}
-                    type="button"
-                  >
-                    Показать чтение
-                  </button>
-                ) : (
-                  <>
-                    <JapaneseText>{reading.kana}</JapaneseText>
-                    {reading.kana === null ? null : (
-                      <CopyReadingButton key={reading.kana} reading={reading.kana} />
-                    )}
-                    <ItemReadingAudio
-                      reading={reading.kana}
-                      hidden={readingHidden}
-                      view={itemView}
-                    />
-                  </>
-                )}
+                <button
+                  className="link-button item-history-link"
+                  type="button"
+                  onClick={() => setItemView("history")}
+                  aria-label="Открыть историю повторений"
+                >
+                  <History size={16} aria-hidden="true" />
+                  {formatSrsStageName(item.srs?.stageName)}
+                </button>
               </dd>
             </div>
-          )}
-          {reading.romaji === null ? null : (
-            <div data-fact="romaji">
-              <dt>Ромадзи</dt>
-              <dd>{reading.romaji}</dd>
-            </div>
-          )}
-          {item.level === null ? null : (
-            <div>
-              <dt>Уровень</dt>
-              <dd>{item.level}</dd>
-            </div>
-          )}
-          {item.jlptLevel === null ? null : (
-            <div>
-              <dt>JLPT</dt>
-              <dd>{item.jlptLevel}</dd>
-            </div>
-          )}
-          <div>
-            <dt>Повторения</dt>
-            <dd>
-              <button
-                className="link-button item-history-link"
-                type="button"
-                onClick={() => setItemView("history")}
-                aria-label="Открыть историю повторений"
-              >
-                <History size={16} aria-hidden="true" />
-                {formatSrsStageName(item.srs?.stageName)}
-              </button>
-            </dd>
-          </div>
-        </dl>
+          </dl>
+          {showReadingToggle ? (
+            <label className="checkbox-row">
+              <input
+                checked={hideReadingHints}
+                onChange={(event) => {
+                  setHideReadingHints(event.target.checked);
+                  setRevealedReadings(new Set());
+                }}
+                type="checkbox"
+              />
+              Скрыть подсказки чтения
+            </label>
+          ) : null}
+        </div>
       </header>
 
       {statusMessage === null ? null : <p className="success-text">{statusMessage}</p>}
@@ -740,11 +750,6 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
         <div className="item-main">
           <div className="item-tab-content" hidden={itemView !== "study"}>
             {item.srs?.leech?.isCandidate ? <LeechNotice item={item} /> : null}
-            <section className="panel">
-              <h2>Значения</h2>
-              <TextList texts={getLocalizedTexts(item.translations, displayMode)} />
-            </section>
-
             {item.componentDetails === null ? null : (
               <section className="panel" data-testid="component-details">
                 <h2>Компонент</h2>
@@ -763,70 +768,6 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               </section>
             )}
 
-            <ItemReadingDetails
-              displayMode={displayMode}
-              item={item}
-              readingCards={readingCards}
-              kanaReading={reading.kana}
-              hideReadings={hideReadingAnswers}
-              studyHref={itemViewHref(pathname, new URLSearchParams(searchParams), "study")}
-            />
-
-            {hideReadingAnswers ? null : (
-              <section className="panel item-study-memory">
-                <h2>Мнемоники и подсказки</h2>
-                <ContentBlock
-                  title="Мнемоники"
-                  texts={getLocalizedTexts(item.mnemonics, displayMode).filter(
-                    (text) => text.sourceKind !== "user",
-                  )}
-                />
-                <ContentBlock
-                  title="Подсказки"
-                  texts={getLocalizedTexts(item.hints, displayMode).filter(
-                    (text) => text.sourceKind !== "user",
-                  )}
-                />
-              </section>
-            )}
-            {item.pronunciationAudio && !hideReadingAnswers ? (
-              <SectionDisclosure title="Записанное произношение">
-                <ListeningPrompt
-                  allowAutoplay={false}
-                  audio={item.pronunciationAudio}
-                  onEvidenceChange={() => undefined}
-                />
-                <ListeningAttribution audio={item.pronunciationAudio} />
-                <Link className="inline-link" href="/practice/listening">
-                  Практика на слух
-                </Link>
-              </SectionDisclosure>
-            ) : null}
-
-            <SectionDisclosure title="Все допустимые ответы">
-              <section>
-                <h2>Глобальные ответы</h2>
-                <CardAnswerList
-                  cards={item.cards}
-                  displayMode={displayMode}
-                  hideReadings={hideReadingAnswers}
-                />
-              </section>
-            </SectionDisclosure>
-          </div>
-
-          <div className="item-tab-content" hidden={itemView !== "history"}>
-            <SrsHistory
-              history={item.reviewHistory}
-              isLoading={isLoadingHistory}
-              nextReviewAt={item.nextReviewAt}
-              onLoadMore={handleLoadHistory}
-              stageName={item.srs?.stageName ?? null}
-              timezone={timezone}
-            />
-          </div>
-
-          <div className="item-tab-content" hidden={itemView !== "study"}>
             <RelationGroups
               displayMode={displayMode}
               groups={item.relationGroups}
@@ -835,11 +776,17 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               hrefForItem={(id) => relatedCourseItemHref(id, new URLSearchParams(searchParams))}
             />
 
-            <section className="panel">
-              <h2>Примеры</h2>
-              {item.exampleSentences.length === 0 ? (
-                <p className="muted">Примеры для этого материала пока не добавлены.</p>
-              ) : (
+            {!hideReadingAnswers && (mnemonics.length > 0 || hints.length > 0) ? (
+              <section className="panel item-study-memory">
+                <h2>Мнемоники и подсказки</h2>
+                {mnemonics.length > 0 ? <ContentBlock title="Мнемоники" texts={mnemonics} /> : null}
+                {hints.length > 0 ? <ContentBlock title="Подсказки" texts={hints} /> : null}
+              </section>
+            ) : null}
+
+            {item.exampleSentences.length > 0 ? (
+              <section className="panel">
+                <h2>Примеры</h2>
                 <ItemPreviewList
                   items={item.exampleSentences}
                   limit={3}
@@ -881,8 +828,59 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
                     );
                   }}
                 />
-              )}
-            </section>
+              </section>
+            ) : null}
+
+            {otherMeanings.length > 0 ? (
+              <SectionDisclosure title="Другие значения">
+                <TextList texts={otherMeanings} />
+              </SectionDisclosure>
+            ) : null}
+
+            <ItemReadingDetails
+              displayMode={displayMode}
+              item={item}
+              readingCards={readingCards}
+              hideReadings={hideReadingAnswers}
+              hideRelatedReadings={hideReadingHints}
+              studyHref={studyHref}
+            />
+
+            {item.pronunciationAudio && !hideReadingAnswers ? (
+              <SectionDisclosure title="Записанное произношение">
+                <ListeningPrompt
+                  allowAutoplay={false}
+                  audio={item.pronunciationAudio}
+                  onEvidenceChange={() => undefined}
+                />
+                <ListeningAttribution audio={item.pronunciationAudio} />
+                <Link className="inline-link" href="/practice/listening">
+                  Практика на слух
+                </Link>
+              </SectionDisclosure>
+            ) : null}
+
+            <SectionDisclosure title="Все допустимые ответы">
+              <section>
+                <h2>Глобальные ответы</h2>
+                <CardAnswerList
+                  cards={item.cards}
+                  displayMode={displayMode}
+                  hideReadings={hideReadingAnswers}
+                />
+              </section>
+            </SectionDisclosure>
+          </div>
+
+          <div className="item-tab-content" hidden={itemView !== "history"}>
+            <SrsHistory
+              history={item.reviewHistory}
+              isLoading={isLoadingHistory}
+              nextReviewAt={item.nextReviewAt}
+              onLoadMore={handleLoadHistory}
+              stageName={item.srs?.stageName ?? null}
+              timezone={timezone}
+            />
           </div>
 
           <section className="panel item-tab-content" hidden={itemView !== "sources"}>
@@ -1395,18 +1393,22 @@ function ItemReadingDetails({
   displayMode,
   item,
   readingCards,
-  kanaReading,
   hideReadings,
+  hideRelatedReadings,
   studyHref,
 }: {
   readonly displayMode: TranslationDisplayMode;
   readonly item: ItemDetails;
   readonly readingCards: readonly LearningCardDto[];
-  readonly kanaReading: string | null;
   readonly hideReadings: boolean;
+  readonly hideRelatedReadings: boolean;
   readonly studyHref: string;
 }) {
-  if (item.kanjiDetails !== null) {
+  const { kanjiDetails, wordDetails } = item;
+  if (kanjiDetails !== null) {
+    const additionalReadings = kanjiDetails.additionalAcceptedReadings.filter(
+      ({ text }) => text !== kanjiDetails.primaryTaughtReading?.text,
+    );
     if (hideReadings)
       return (
         <section className="panel" data-testid="kanji-reading-details">
@@ -1433,69 +1435,62 @@ function ItemReadingDetails({
             Слова с этим кандзи
           </Link>
         ) : null}
-        <div className="reading-evidence-grid">
-          <div className="content-block">
-            <h3>Основное учебное чтение</h3>
-            {item.kanjiDetails.primaryTaughtReading === null ? (
-              <p className="muted">Учебное чтение пока не выбрано.</p>
-            ) : (
-              <TextList textKind="reading" texts={[item.kanjiDetails.primaryTaughtReading]} />
-            )}
-          </div>
-          <div className="content-block">
-            <h3>Допустимые учебные чтения</h3>
-            <TextList textKind="reading" texts={item.kanjiDetails.additionalAcceptedReadings} />
-          </div>
-        </div>
-        <SectionDisclosure title="Словарные чтения">
-          <div className="dictionary-evidence">
-            <div className="section-heading-row">
-              <span className="source-kind-label imported">импортированные данные</span>
-            </div>
-            <div className="reading-evidence-grid">
-              {readingGroups.map(([kind, title]) => {
-                const readings = item.kanjiDetails?.readingEvidence.filter(
-                  (reading) => reading.readingType === kind,
-                );
+        {additionalReadings.length > 0 ? (
+          <SectionDisclosure title="Другие учебные чтения">
+            <TextList textKind="reading" texts={additionalReadings} />
+          </SectionDisclosure>
+        ) : null}
+        {kanjiDetails.readingEvidence.length > 0 ? (
+          <SectionDisclosure title="Словарные чтения">
+            <div className="dictionary-evidence">
+              <div className="section-heading-row">
+                <span className="source-kind-label imported">импортированные данные</span>
+              </div>
+              <div className="reading-evidence-grid">
+                {readingGroups.map(([kind, title]) => {
+                  const readings = kanjiDetails.readingEvidence.filter(
+                    (reading) => reading.readingType === kind,
+                  );
 
-                return readings === undefined || readings.length === 0 ? null : (
-                  <div className="content-block" key={kind}>
-                    <h3>{title}</h3>
-                    {kind === "on" || kind === "kun" ? (
-                      <ReadingGuidanceText kind={kind} displayMode={displayMode} />
-                    ) : null}
-                    <ul className="reading-chip-list">
-                      {readings.map((reading) => (
-                        <li key={`${kind}-${reading.reading}`}>
-                          <JapaneseText>{reading.reading}</JapaneseText>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
+                  return readings.length === 0 ? null : (
+                    <div className="content-block" key={kind}>
+                      <h3>{title}</h3>
+                      {kind === "on" || kind === "kun" ? (
+                        <ReadingGuidanceText kind={kind} displayMode={displayMode} />
+                      ) : null}
+                      <ul className="reading-chip-list">
+                        {readings.map((reading) => (
+                          <li key={`${kind}-${reading.reading}`}>
+                            <JapaneseText>{reading.reading}</JapaneseText>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
+              <ImportedSourceLinks sources={item.attributions} />
             </div>
-            <ImportedSourceLinks sources={item.attributions} />
-          </div>
-        </SectionDisclosure>
-        <KanjiWordReinforcement item={item} contextHref={studyHref} />
+          </SectionDisclosure>
+        ) : null}
+        <KanjiWordReinforcement
+          item={item}
+          contextHref={studyHref}
+          displayMode={displayMode}
+          hideReadings={hideRelatedReadings}
+        />
         <VisualContrast character={item.japanese} displayMode={displayMode} />
       </section>
     );
   }
 
-  if (item.wordDetails !== null) {
+  if (wordDetails !== null) {
     const locales = getContentLocalesForDisplayMode(displayMode);
-    const senses = item.wordDetails.senses.filter((sense) => locales.includes(sense.locale));
-    const teachingSenses = senses.filter((sense) => sense.sourceKind === "curated");
+    const senses = wordDetails.senses.filter((sense) => locales.includes(sense.locale));
 
     return (
       <section className="panel" data-testid="word-study-details">
         <h2>Чтение и словарные сведения</h2>
-        <p className="muted">
-          Чтение слова изучается целиком: его нельзя всегда получить сложением чтений отдельных
-          кандзи.
-        </p>
         {hideReadings ? null : (
           <SectionDisclosure title="Чтение целого слова">
             <ReadingGuidanceText kind="word" displayMode={displayMode} />
@@ -1506,70 +1501,49 @@ function ItemReadingDetails({
             Кандзи этого слова
           </Link>
         ) : null}
-        <dl className="lesson-facts">
-          {teachingSenses.length > 0 ? (
-            <div>
-              <dt>Учебный смысл</dt>
-              <dd>
-                {teachingSenses.slice(0, 4).map((sense) => (
-                  <p
-                    key={`${sense.locale}-${sense.meaning}`}
-                    lang={sense.locale === "ru-RU" ? "ru" : "en"}
-                  >
-                    {sense.meaning} <small>{formatPartOfSpeech(sense.partOfSpeech)}</small>
-                  </p>
+        {senses.length > 0 ||
+        wordDetails.commonnessRank !== null ||
+        item.attributions.length > 0 ? (
+          <SectionDisclosure title="Словарные сведения">
+            {senses.length === 0 ? null : (
+              <ul className="word-sense-list">
+                {senses.map((sense, index) => (
+                  <li key={`${sense.locale}-${sense.meaning}-${sense.partOfSpeech}-${index}`}>
+                    <strong>{sense.meaning}</strong>
+                    <span>
+                      {formatLocale(sense.locale)} · {formatPartOfSpeech(sense.partOfSpeech)}
+                      {sense.register === null ? "" : ` · ${sense.register}`}
+                    </span>
+                    {sense.tags.length === 0 ? null : <small>{sense.tags.join(", ")}</small>}
+                    <span className={`source-kind-label ${sense.sourceKind}`}>
+                      {formatSourceKind(sense.sourceKind)}
+                    </span>
+                  </li>
                 ))}
-              </dd>
-            </div>
-          ) : null}
-          {kanaReading === null ? null : (
-            <div>
-              <dt>Чтение</dt>
-              <dd>
-                <JapaneseText>{kanaReading}</JapaneseText>
-              </dd>
-            </div>
-          )}
-          {item.wordDetails.commonnessRank === null ? null : (
-            <div>
-              <dt>Частотный ранг источника</dt>
-              <dd>{item.wordDetails.commonnessRank}</dd>
-            </div>
-          )}
-        </dl>
-        <SectionDisclosure title="Словарные значения">
-          {senses.length === 0 ? (
-            <p className="muted">Словарные сведения для выбранного языка пока не добавлены.</p>
-          ) : (
-            <ul className="word-sense-list">
-              {senses.map((sense, index) => (
-                <li key={`${sense.locale}-${sense.meaning}-${sense.partOfSpeech}-${index}`}>
-                  <strong>{sense.meaning}</strong>
-                  <span>
-                    {formatLocale(sense.locale)} · {formatPartOfSpeech(sense.partOfSpeech)}
-                    {sense.register === null ? "" : ` · ${sense.register}`}
-                  </span>
-                  {sense.tags.length === 0 ? null : <small>{sense.tags.join(", ")}</small>}
-                  <span className={`source-kind-label ${sense.sourceKind}`}>
-                    {formatSourceKind(sense.sourceKind)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <ImportedSourceLinks sources={item.attributions} />
-        </SectionDisclosure>
+              </ul>
+            )}
+            {wordDetails.commonnessRank === null ? null : (
+              <dl className="lesson-facts">
+                <div>
+                  <dt>Частотный ранг источника</dt>
+                  <dd>{wordDetails.commonnessRank}</dd>
+                </div>
+              </dl>
+            )}
+            <ImportedSourceLinks sources={item.attributions} />
+          </SectionDisclosure>
+        ) : null}
       </section>
     );
   }
+
+  if (item.reading === null && readingCards.length === 0) return null;
 
   return (
     <section className="panel">
       <h2>Чтения</h2>
       {hideReadings ? (
         <p className="muted">Чтение скрыто.</p>
-      ) : item.reading === null && readingCards.length === 0 ? (
-        <p className="muted">Для этого материала чтение не требуется.</p>
       ) : (
         <TextList
           textKind="reading"
@@ -1659,10 +1633,12 @@ function RelationGroups({
   readonly hideReadings: boolean;
   readonly hrefForItem: (id: string) => string;
 }) {
+  const visibleGroups = groups.filter((group) => group.total > 0 || group.items.length > 0);
+  if (visibleGroups.length === 0 && legacyRelations.length === 0) return null;
   return (
     <section className="panel" data-testid="item-relation-groups">
       <h2>Связи</h2>
-      {groups.length === 0 ? (
+      {visibleGroups.length === 0 ? (
         <RelationsList
           relations={legacyRelations}
           displayMode={displayMode}
@@ -1671,7 +1647,7 @@ function RelationGroups({
         />
       ) : (
         <div className="relation-group-list">
-          {groups.map((group) => (
+          {visibleGroups.map((group) => (
             <div className="content-block" key={group.kind} id={`item-related-${group.kind}`}>
               <h3>{formatRelationGroup(group.kind)}</h3>
               {group.kind === "components" || group.kind === "used-in-kanji" ? (
@@ -1716,10 +1692,6 @@ function RelationsList({
   readonly hideReadings: boolean;
   readonly hrefForItem: (id: string) => string;
 }) {
-  if (relations.length === 0) {
-    return <p className="muted">Связанные материалы пока не добавлены.</p>;
-  }
-
   return (
     <ItemPreviewList
       items={relations}
@@ -1874,11 +1846,9 @@ function ReadingGuidanceText({
 
 function ItemReadingAudio({
   reading,
-  hidden,
   view,
 }: {
-  readonly reading: string | null;
-  readonly hidden: boolean;
+  readonly reading: string;
   readonly view: ItemView;
 }) {
   const speech = useJapaneseSpeech();
@@ -1886,8 +1856,8 @@ function ItemReadingAudio({
   useEffect(() => {
     setFailed(false);
     return speech.cancel;
-  }, [reading, hidden, view, speech.cancel]);
-  if (hidden || !reading?.trim() || view !== "study") return null;
+  }, [reading, view, speech.cancel]);
+  if (view !== "study") return null;
   return (
     <div className="item-audio-control">
       <button
@@ -1904,7 +1874,6 @@ function ItemReadingAudio({
       >
         <Volume2 size={18} aria-hidden="true" />
       </button>
-      <small>Синтез речи браузера</small>
       {failed ? <small role="status">Не удалось озвучить чтение</small> : null}
     </div>
   );

@@ -91,6 +91,9 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
 - In lessons, use the compact side-by-side subject layout only for a single
   glyph. Words and sentences get a full-width text row, with pronunciation
   aids shown according to the learner's existing preferences.
+- On material pages, keep the Japanese text, taught reading and active
+  translation languages together. Show relevant links and examples before
+  dictionary disclosures. Keep private notes, history and sources one tab away.
 - Validate the study path at narrow (320 px), mobile and desktop widths,
   including short viewports, wrapped Russian text and distinct Japanese
   glyphs. Check actual focus and bounds, not merely the presence of controls.
