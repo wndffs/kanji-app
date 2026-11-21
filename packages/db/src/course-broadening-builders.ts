@@ -126,6 +126,10 @@ export function buildBroadeningKanji(
     id: string;
     metadata: BlockMetadata;
     priorWordSlots: readonly (readonly [number, number])[];
+    newComponents?: {
+      readonly levelNumber: number;
+      readonly items: MainCourseContentBatch["components"];
+    };
     meaningBlocks?: Readonly<Partial<Record<"ru" | "en", typeof KANJI_RU_BLOCKS>>>;
   }> = BROADENING_KANJI_OPTIONS,
 ): MainCourseContentBatch {
@@ -138,6 +142,19 @@ export function buildBroadeningKanji(
     ),
   );
   const ends = coursePlacementEnds(scoped, options.priorWordSlots);
+  const componentLevelNumber = options.newComponents?.levelNumber ?? 1;
+  const newComponents = options.newComponents?.items ?? [];
+  const componentSortOrderStart = (ends.get(componentLevelNumber) ?? 0) + 1;
+  if (newComponents.length) {
+    ends.set(componentLevelNumber, componentSortOrderStart + newComponents.length - 1);
+    const usedKeys = new Set([...cues.values()].map((cue) => cue.key));
+    for (const component of newComponents) {
+      if (cues.has(component.symbol) || usedKeys.has(component.key))
+        throw new Error(`Duplicate broadening component ${component.symbol}.`);
+      cues.set(component.symbol, { key: component.key, level: componentLevelNumber });
+      usedKeys.add(component.key);
+    }
+  }
   const counts = new Map<number, number>();
   const seen = new Set<string>();
   for (const batch of scoped)
@@ -150,8 +167,9 @@ export function buildBroadeningKanji(
     version: "1",
     ...options.metadata,
     courseSlug: COURSE_SLUG,
-    componentLevelNumber: 1,
-    components: [],
+    componentLevelNumber,
+    ...(newComponents.length ? { componentSortOrderStart } : {}),
+    components: newComponents,
     kanji: rows.map(
       ([character, source, ru, en, symbols, imageRu, imageEn, soundRu, soundEn, word, kana]) => {
         if (seen.has(character)) throw new Error(`Duplicate broadening kanji ${character}.`);
@@ -161,7 +179,7 @@ export function buildBroadeningKanji(
           if (!cue) throw new Error(`Missing earlier cue ${symbol} for ${character}.`);
           return cue;
         });
-        let level = Math.max(2, ...components.map((cue) => cue.level + 1));
+        let level = Math.max(componentLevelNumber + 1, ...components.map((cue) => cue.level + 1));
         // Leave a later level for each kanji's word reinforcement.
         while (level < 60 && (counts.get(level) ?? 0) >= 40) level++;
         if (level >= 60)

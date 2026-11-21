@@ -1,0 +1,985 @@
+import type { ExpansionReinforcementRow } from "./course-expansion-content-types";
+
+export const COURSE_EXTENSION_REINFORCEMENT_F: readonly ExpansionReinforcementRow[] = [
+  [
+    [
+      "片",
+      "かた",
+      ["片"],
+      ["одна сторона", "одна половина", "обломок"],
+      ["one side", "one half", "fragment"],
+      [
+        "В цельном контуре 片 вообразите одну пластину, отделённую от пары.",
+        "Picture the whole form 片 as one sliver separated from a pair.",
+      ],
+    ],
+    [0, 0],
+    [
+      "片方",
+      "かたほう",
+      "1511810",
+      ["один из двух", "одна сторона", "одна половина"],
+      ["one of the two", "one side", "one half"],
+      [
+        "Одна из двух сторон или один предмет из пары.",
+        "One of two sides or one of a pair of objects.",
+      ],
+      ["Из пары перчаток осталась только одна.", "Only one glove from a pair is left."],
+      [
+        "手袋の片方が見つからない。",
+        "てぶくろのかたほうがみつからない。",
+        "Не могу найти одну из перчаток.",
+        "I can't find one of my gloves.",
+      ],
+    ],
+  ],
+  [
+    [
+      "凹",
+      "へこ.む",
+      ["凵"],
+      ["углубляться", "впадина", "вогнутый"],
+      ["dent", "depression", "concave"],
+      [
+        "У открытого сверху контура 凵 вообразите участок поверхности, который ушёл внутрь.",
+        "At the open-topped shape 凵, picture a section of surface that has sunk inward.",
+      ],
+    ],
+    [0, 0],
+    [
+      "凹む",
+      "へこむ",
+      "1179200",
+      ["проминаться", "вдавливаться", "падать духом"],
+      ["become dented", "sink in", "feel down"],
+      [
+        "О поверхности, которая промялась; разговорно также о человеке, который пал духом.",
+        "Used of a surface becoming dented; colloquially, of a person feeling down.",
+      ],
+      ["Под сильным нажимом тонкая крышка проминается.", "A thin lid dents under strong pressure."],
+      [
+        "強く押すと箱が凹む。",
+        "つよくおすとはこがへこむ。",
+        "Если сильно надавить, коробка промнётся.",
+        "The box dents if you press it hard.",
+      ],
+      { partOfSpeech: "verb" },
+    ],
+  ],
+  [
+    [
+      "凸",
+      "でこ",
+      ["一", "凵", "丨"],
+      ["выступ", "выпуклость", "выпуклый"],
+      ["bump", "protrusion", "convex"],
+      [
+        "На прямой линии 一 вообразите поднятую площадку — в отличие от провала у 凹.",
+        "Picture a raised platform on 一, as opposed to the depression in 凹.",
+      ],
+    ],
+    [0, 0],
+    [
+      "凸凹",
+      "でこぼこ",
+      "1582410",
+      ["неровность", "выбоины и бугры", "неровный", "бугристый"],
+      ["unevenness", "bumpy", "uneven", "bumps and dips"],
+      [
+        "Неровная поверхность, на которой выступы перемежаются с углублениями.",
+        "An uneven surface with raised bumps and recessed dips.",
+      ],
+      ["По неровной дороге велосипед едет с толчками.", "A bicycle jolts along a bumpy road."],
+      [
+        "この道は凸凹している。",
+        "このみちはでこぼこしている。",
+        "Эта дорога вся в неровностях.",
+        "This road is bumpy.",
+      ],
+    ],
+  ],
+  [
+    [
+      "贅",
+      "ゼイ",
+      ["土", "方", "攵"],
+      ["роскошь", "излишество"],
+      ["luxury", "extravagance"],
+      [
+        "От формы 土 вообразите хозяйство, где после покупки необходимого остаются деньги на излишества.",
+        "At 土, picture a household with money left over for luxuries after buying what is necessary.",
+      ],
+    ],
+    [0, 0],
+    [
+      "贅沢",
+      "ぜいたく",
+      "1573150",
+      ["роскошь", "излишество", "расточительный", "роскошный"],
+      ["luxury", "extravagance", "luxurious", "extravagant"],
+      [
+        "Удовольствие или трата сверх обычной необходимости. Может звучать и с удовольствием, и с осуждением.",
+        "A pleasure or expense beyond ordinary needs. The word can sound approving or critical.",
+      ],
+      [
+        "По особому случаю человек выбирает завтрак дороже обычного.",
+        "On a special occasion, someone chooses a pricier breakfast than usual.",
+      ],
+      [
+        "今日は少し贅沢をした。",
+        "きょうはすこしぜいたくをした。",
+        "Сегодня я позволил себе немного роскоши.",
+        "I treated myself a little today.",
+      ],
+    ],
+  ],
+  [
+    [
+      "杖",
+      "つえ",
+      ["木", "一", "丿"],
+      ["трость", "посох"],
+      ["cane", "walking stick", "staff"],
+      [
+        "Вытяните воображаемую деревянную форму 木 в опору для ходьбы.",
+        "Stretch imagined wood 木 into a support for walking.",
+      ],
+    ],
+    [0, 0],
+    [
+      "杖",
+      "つえ",
+      "1356620",
+      ["трость", "посох", "палка для ходьбы"],
+      ["cane", "walking stick", "staff"],
+      [
+        "Палка, на которую опираются при ходьбе, или длинный посох.",
+        "A stick used for support when walking, or a staff.",
+      ],
+      [
+        "На длинной прогулке человек опирается на трость.",
+        "Someone uses a walking stick on a long walk.",
+      ],
+      [
+        "祖父は杖を持って出かけた。",
+        "そふはつえをもってでかけた。",
+        "Дедушка взял трость и вышел.",
+        "My grandfather went out with his walking stick.",
+      ],
+    ],
+  ],
+  [
+    [
+      "蓋",
+      "ふた",
+      ["艹", "土", "皿"],
+      ["крышка"],
+      ["lid", "cover"],
+      [
+        "Над воображаемой посудой 皿 опустите крышку и мысленно услышьте, как она села на место.",
+        "Lower a lid over the dish 皿 and imagine hearing it settle into place.",
+      ],
+    ],
+    [0, 0],
+    [
+      "蓋",
+      "ふた",
+      "1204540",
+      ["крышка", "крышка сосуда"],
+      ["lid", "cover", "cap"],
+      [
+        "Предмет, закрывающий верх ёмкости или отверстие кастрюли, коробки либо бутылки.",
+        "Something that closes the top of a container such as a pot, box or bottle.",
+      ],
+      [
+        "Чтобы не выходил пар, кастрюлю накрывают крышкой.",
+        "A lid is placed on the pot to keep the steam in.",
+      ],
+      [
+        "箱の蓋を開けた。",
+        "はこのふたをあけた。",
+        "Я открыл крышку коробки.",
+        "I opened the lid of the box.",
+      ],
+    ],
+  ],
+  [
+    [
+      "竿",
+      "さお",
+      ["竹", "干"],
+      ["шест", "удилище"],
+      ["pole", "rod", "fishing rod"],
+      [
+        "Из прямого стебля 竹 вообразите длинный шест; форма 干 напоминает перекладину.",
+        "Picture a long pole made from straight bamboo 竹, with 干 suggesting a crossbar.",
+      ],
+    ],
+    [0, 0],
+    [
+      "竿",
+      "さお",
+      "1214060",
+      ["шест", "удилище", "длинная жердь"],
+      ["pole", "rod", "fishing rod"],
+      [
+        "Длинная тонкая жердь, например удилище или перекладина для сушки белья.",
+        "A long slender pole, such as a fishing rod or a pole for hanging laundry.",
+      ],
+      [
+        "Перед рыбалкой человек берёт длинное удилище.",
+        "Someone picks up a long fishing rod before going fishing.",
+      ],
+      [
+        "川のそばで竿を伸ばした。",
+        "かわのそばでさおをのばした。",
+        "У реки я раздвинул удилище.",
+        "I extended the fishing rod by the river.",
+      ],
+    ],
+  ],
+  [
+    [
+      "蟹",
+      "かに",
+      ["刀", "牛", "虫"],
+      ["краб"],
+      ["crab"],
+      [
+        "У формы 虫 вообразите краба, который поднимает острую клешню у штриха 刀.",
+        "At 虫, picture a crab raising a sharp claw by 刀.",
+      ],
+    ],
+    [0, 0],
+    [
+      "蟹",
+      "かに",
+      "1202410",
+      ["краб", "крабы"],
+      ["crab", "crabs"],
+      ["Краб как животное или как продукт питания.", "A crab as an animal or as food."],
+      ["На берегу краб прячется под камнем.", "A crab hides under a rock on the shore."],
+      [
+        "海で小さな蟹を見つけた。",
+        "うみでちいさなかにをみつけた。",
+        "У моря я нашёл маленького краба.",
+        "I found a little crab by the sea.",
+      ],
+    ],
+  ],
+  [
+    [
+      "芋",
+      "いも",
+      ["艹", "二", "亅"],
+      ["клубень", "картофель", "таро"],
+      ["tuber", "potato", "taro"],
+      [
+        "Под растительной формой 艹 вообразите клубни на корнях, которые вытягивают из земли.",
+        "Beneath 艹, picture edible tubers being pulled out of the soil.",
+      ],
+    ],
+    [0, 0],
+    [
+      "芋",
+      "いも",
+      "1167960",
+      ["клубень", "картофель", "батат", "таро"],
+      ["tuber", "potato", "sweet potato", "taro"],
+      [
+        "Бытовое слово о крахмалистых клубнях и клубневидных корнях, например картофеле, батате и таро.",
+        "An everyday word for starchy tubers or tuber-like roots such as potatoes, sweet potatoes and taro.",
+      ],
+      [
+        "На участке собирают клубни, не трогая надземную часть растения.",
+        "People harvest edible tubers from the soil.",
+      ],
+      [
+        "畑で芋を掘った。",
+        "はたけでいもをほった。",
+        "Мы выкопали клубни на грядке.",
+        "We dug up tubers in the field.",
+      ],
+    ],
+  ],
+  [
+    [
+      "頬",
+      "ほお",
+      ["大", "人", "頁"],
+      ["щека", "щёки"],
+      ["cheek", "cheeks"],
+      [
+        "Возле головной формы 頁 вообразите щёку, слегка округлившуюся от улыбки.",
+        "By the head cue 頁, imagine a cheek rounding slightly in a smile.",
+      ],
+    ],
+    [0, 0],
+    [
+      "頬",
+      "ほお",
+      "1584160",
+      ["щека", "щёки"],
+      ["cheek", "cheeks"],
+      [
+        "Боковая часть лица ниже глаза. Встречается также чтение ほほ.",
+        "The side of the face below the eye. Also read ほほ.",
+      ],
+      ["На холоде у человека краснеют щёки.", "Someone's cheeks turn red in the cold."],
+      [
+        "寒さで頬が赤くなった。",
+        "さむさでほおがあかくなった。",
+        "Щёки покраснели от холода.",
+        "My cheeks went red from the cold.",
+      ],
+      {
+        partOfSpeech: "noun",
+        acceptedReadings: ["ほほ"],
+        variantNotes: [
+          "В этой форме и ほお, и ほほ означают щёку.",
+          "Both ほお and ほほ mean cheek in this spelling.",
+        ],
+      },
+    ],
+  ],
+  [
+    [
+      "犀",
+      "サイ",
+      ["尸", "二", "牛"],
+      ["носорог"],
+      ["rhinoceros", "rhino"],
+      [
+        "У формы 牛 вообразите массивное животное, у которого рог растёт на носу.",
+        "At 牛, picture a heavy animal with a horn on its nose.",
+      ],
+    ],
+    [0, 0],
+    [
+      "犀",
+      "さい",
+      "1295160",
+      ["носорог"],
+      ["rhinoceros", "rhino"],
+      [
+        "Крупное животное с одним или двумя рогами на носу; название часто пишут サイ.",
+        "A large animal with one or two horns on its nose; often written サイ.",
+      ],
+      [
+        "У тяжёлого животного в загоне хорошо виден рог на морде.",
+        "A heavy animal in an enclosure has a clearly visible horn on its snout.",
+      ],
+      [
+        "犀がゆっくり歩いていた。",
+        "さいがゆっくりあるいていた。",
+        "Носорог медленно шёл.",
+        "The rhinoceros was walking slowly.",
+      ],
+    ],
+  ],
+  [
+    [
+      "喘",
+      "ゼン",
+      ["口", "山", "冂"],
+      ["задыхаться", "тяжело дышать", "хватать воздух"],
+      ["pant", "gasp", "breathe hard"],
+      [
+        "У формы рта 口 представьте, как после подъёма на 山 трудно сразу выровнять дыхание.",
+        "At 口, picture someone catching their breath after climbing 山.",
+      ],
+    ],
+    [0, 0],
+    [
+      "喘息",
+      "ぜんそく",
+      "1565360",
+      ["астма", "бронхиальная астма"],
+      ["asthma", "bronchial asthma"],
+      [
+        "Название заболевания, связанного с приступами затруднённого дыхания; не любой случай одышки.",
+        "A condition involving episodes of breathing difficulty, not any instance of shortness of breath.",
+      ],
+      [
+        "Человек говорит врачу, что у него давно диагностирована астма.",
+        "Someone tells a doctor that they were diagnosed with asthma some time ago.",
+      ],
+      [
+        "兄には喘息がある。",
+        "あににはぜんそくがある。",
+        "У старшего брата астма.",
+        "My older brother has asthma.",
+      ],
+      { partOfSpeech: "noun", blockedRu: ["одышка"], blockedEn: ["shortness of breath"] },
+    ],
+  ],
+  [
+    [
+      "溜",
+      "た.める",
+      ["氵", "卩", "田"],
+      ["накапливать", "собирать"],
+      ["save up", "accumulate", "collect"],
+      [
+        "У водной формы 氵 вообразите маленькую ёмкость, где капля за каплей собирается вода.",
+        "At the water cue 氵, picture a small container filling drop by drop.",
+      ],
+    ],
+    [0, 0],
+    [
+      "溜める",
+      "ためる",
+      "1552630",
+      ["накапливать", "собирать", "копить", "задерживать"],
+      ["store up", "accumulate", "collect", "hold back"],
+      [
+        "Дать воде, вещам или другим запасам накопиться. Для откладывания денег часто 貯める.",
+        "Let water, things or other reserves build up. Saving money often uses 貯める.",
+      ],
+      [
+        "Под кран ставят ёмкость, чтобы собрать воду.",
+        "A container is placed beneath the tap to collect water.",
+      ],
+      [
+        "大きな桶に水を溜める。",
+        "おおきなおけにみずをためる。",
+        "Я набираю воду в большую кадку.",
+        "I collect water in a large tub.",
+      ],
+      { partOfSpeech: "verb" },
+    ],
+  ],
+  [
+    [
+      "儲",
+      "もう.ける",
+      ["亻", "言", "日"],
+      ["зарабатывать с прибылью", "получать прибыль"],
+      ["make a profit", "earn a profit"],
+      [
+        "У формы 亻 представьте продавца, который вечером обнаруживает, что выручка выше затрат.",
+        "Use 亻 for a shopkeeper who finds at day's end that receipts exceeded costs.",
+      ],
+    ],
+    [0, 0],
+    [
+      "儲ける",
+      "もうける",
+      "1534500",
+      ["получать прибыль", "зарабатывать", "наживать прибыль"],
+      ["make a profit", "make money", "earn"],
+      [
+        "Получать заработок или прибыль. Не учреждать организацию, для чего пишут 設ける.",
+        "Earn money or make a profit. Not to establish an organisation, which uses 設ける.",
+      ],
+      [
+        "После вычета расходов от продаж остаётся небольшая прибыль.",
+        "After costs, sales leave a small profit.",
+      ],
+      [
+        "どうすればこの店で儲けることができるか。",
+        "どうすればこのみせでもうけることができるか。",
+        "Как нам заработать на этом магазине?",
+        "How can we make a profit with this shop?",
+      ],
+      { partOfSpeech: "verb", blockedRu: ["учреждать"], blockedEn: ["establish"] },
+    ],
+  ],
+  [
+    [
+      "鯛",
+      "たい",
+      ["魚", "周"],
+      ["морской лещ", "морской карась"],
+      ["sea bream"],
+      [
+        "У формы 魚 вообразите рыбу для праздничного блюда; 周 можно представить ободом тарелки.",
+        "Use 魚 for a fish served on a special occasion, with 周 as the rim of the plate.",
+      ],
+    ],
+    [0, 0],
+    [
+      "鯛",
+      "たい",
+      "1411550",
+      ["морской лещ", "морской карась"],
+      ["sea bream"],
+      [
+        "Морская рыба из группы спаровых, часто красный морской лещ в японской кухне.",
+        "A fish of the sea bream family, often red sea bream in Japanese cooking.",
+      ],
+      [
+        "По случаю торжества к столу подают рыбу целиком.",
+        "A whole fish is served on a special occasion.",
+      ],
+      [
+        "祝いの日に鯛を焼いた。",
+        "いわいのひにたいをやいた。",
+        "В праздничный день мы запекли морского леща.",
+        "We grilled sea bream for the celebration.",
+      ],
+    ],
+  ],
+  [
+    [
+      "煎",
+      "セン",
+      ["八", "月", "灬"],
+      ["прожаривать", "подсушивать", "вываривать"],
+      ["roast", "toast", "decoct"],
+      [
+        "У нижнего огня 灬 вообразите сковороду, где подсушивают зёрна без масла.",
+        "At the heat cue 灬, picture a pan toasting grains without oil.",
+      ],
+    ],
+    [0, 0],
+    [
+      "煎茶",
+      "せんちゃ",
+      "1391530",
+      ["сэнтя", "сенча", "зелёный чай сэнтя"],
+      ["sencha", "sencha green tea"],
+      [
+        "Один из видов японского листового зелёного чая. Заваривают листья, а не готовят напиток из порошка, как маття.",
+        "A type of Japanese loose-leaf green tea. The leaves are steeped rather than prepared from powder like matcha.",
+      ],
+      [
+        "В чайник кладут сухие листья, а не порошок.",
+        "Dried tea leaves, not powder, go into the pot.",
+      ],
+      [
+        "夕食の後で煎茶を飲んだ。",
+        "ゆうしょくのあとでせんちゃをのんだ。",
+        "После ужина я выпил сэнтя.",
+        "I drank sencha after dinner.",
+      ],
+      { partOfSpeech: "noun", blockedRu: ["маття", "матча"], blockedEn: ["matcha"] },
+    ],
+  ],
+  [
+    [
+      "嗜",
+      "シ",
+      ["口", "耂", "日"],
+      ["иметь вкус к чему-либо", "иметь пристрастие", "предпочитать"],
+      ["have a taste for", "be fond of", "prefer"],
+      [
+        "У формы 口 вообразите, как человек вновь выбирает любимый вкус.",
+        "At 口, picture someone choosing a favourite taste again.",
+      ],
+    ],
+    [0, 0],
+    [
+      "嗜好",
+      "しこう",
+      "1565500",
+      ["предпочтения", "вкусы", "пристрастия"],
+      ["tastes", "preferences", "liking"],
+      [
+        "Личные вкусы, особенно в еде и напитках. Омоним 思考 означает мышление.",
+        "Personal tastes, especially in food or drink. The homophone 思考 means thinking.",
+      ],
+      [
+        "В меню учитывают, что вкусы посетителей различаются.",
+        "A menu takes account of customers having different tastes.",
+      ],
+      [
+        "人によって嗜好が違う。",
+        "ひとによってしこうがちがう。",
+        "У людей разные вкусы.",
+        "Tastes differ from person to person.",
+      ],
+    ],
+  ],
+  [
+    [
+      "蹄",
+      "ひづめ",
+      ["足", "亠", "巾"],
+      ["копыто"],
+      ["hoof"],
+      [
+        "Продлите форму 足 в воображаемую ногу крупного животного и сделайте конец твёрдым, как копыто.",
+        "Extend 足 into the leg of a large animal and make the end hard like a hoof.",
+      ],
+    ],
+    [0, 0],
+    [
+      "蹄",
+      "ひづめ",
+      "1436750",
+      ["копыто", "копыта"],
+      ["hoof", "hooves"],
+      [
+        "Твёрдая часть ноги лошади и других копытных.",
+        "The hard part of the foot of a horse or another hoofed animal.",
+      ],
+      ["На каменной дороге слышен стук копыт.", "Hooves can be heard on a stone road."],
+      [
+        "馬の蹄の音が聞こえた。",
+        "うまのひづめのおとがきこえた。",
+        "Послышался стук лошадиных копыт.",
+        "I heard the sound of the horse's hooves.",
+      ],
+    ],
+  ],
+  [
+    [
+      "楕",
+      "ダ",
+      ["木", "工", "月"],
+      ["овал", "овальный"],
+      ["oval", "elliptical"],
+      [
+        "У вытянутой формы 月 вообразите круг, который растянули вдоль одной оси.",
+        "At the tall form 月, picture a circle stretched along one axis.",
+      ],
+    ],
+    [0, 0],
+    [
+      "楕円",
+      "だえん",
+      "1409000",
+      ["эллипс", "эллиптическая форма", "овал"],
+      ["ellipse", "oval", "elliptical shape"],
+      [
+        "Эллиптическая фигура. В строгом геометрическом смысле не всякий овал является эллипсом.",
+        "An ellipse. In strict geometry, not every oval is an ellipse.",
+      ],
+      [
+        "На рисунке вместо круга получилась вытянутая фигура.",
+        "An elongated shape was drawn instead of a circle.",
+      ],
+      [
+        "紙の中央に楕円を描いた。",
+        "かみのちゅうおうにだえんをかいた。",
+        "В середине листа я нарисовал эллипс.",
+        "I drew an ellipse in the middle of the sheet.",
+      ],
+    ],
+  ],
+  [
+    [
+      "鮭",
+      "さけ",
+      ["魚", "灬", "土"],
+      ["лосось", "кета"],
+      ["salmon", "chum salmon"],
+      [
+        "У рыбы 魚 вообразите оранжевое филе, которое готовят над нижним жаром 灬.",
+        "At 魚, picture an orange fillet cooking above the heat cue 灬.",
+      ],
+    ],
+    [0, 0],
+    [
+      "鮭",
+      "さけ",
+      "1579300",
+      ["лосось", "кета"],
+      ["salmon", "chum salmon"],
+      [
+        "Лосось как рыба и продукт; в разговоре встречается しゃけ. Не омоним 酒, алкоголь.",
+        "Salmon as a fish and food; しゃけ is also used in speech. Not the homophone 酒, alcohol.",
+      ],
+      [
+        "К рису на завтрак подали кусок жареного лосося.",
+        "Grilled salmon is served with rice for breakfast.",
+      ],
+      [
+        "朝ご飯に鮭を焼いた。",
+        "あさごはんにさけをやいた。",
+        "На завтрак я пожарил лосося.",
+        "I grilled salmon for breakfast.",
+      ],
+      {
+        partOfSpeech: "noun",
+        acceptedReadings: ["しゃけ"],
+        variantNotes: [
+          "Для рыбы подтверждены さけ и しゃけ.",
+          "Both さけ and しゃけ are attested for the fish.",
+        ],
+        blockedRu: ["сакэ", "алкоголь"],
+        blockedEn: ["sake", "alcohol"],
+      },
+    ],
+  ],
+  [
+    [
+      "倹",
+      "ケン",
+      ["亻", "人", "口"],
+      ["бережливый", "экономный"],
+      ["frugal", "thrifty"],
+      [
+        "У фигуры 亻 вообразите человека, который записывает траты и не покупает лишнего.",
+        "At 亻, picture someone keeping track of expenses and not buying more than needed.",
+      ],
+    ],
+    [0, 0],
+    [
+      "倹約",
+      "けんやく",
+      "1256010",
+      ["бережливость", "экономия", "экономность"],
+      ["frugality", "thrift", "economizing"],
+      [
+        "Привычка разумно ограничивать траты, а не отказ от любых расходов.",
+        "A habit of keeping expenses down, not refusing to spend anything.",
+      ],
+      [
+        "Семья заранее планирует покупки, чтобы не тратить лишнее.",
+        "A family plans purchases in advance to avoid extra expenses.",
+      ],
+      [
+        "倹約のために弁当を作る。",
+        "けんやくのためにべんとうをつくる。",
+        "Я готовлю обед с собой, чтобы сэкономить.",
+        "I pack lunch to save money.",
+      ],
+    ],
+  ],
+  [
+    [
+      "嗅",
+      "キュウ",
+      ["口", "自", "犬"],
+      ["нюхать", "обоняние"],
+      ["smell", "sniff"],
+      [
+        "Возле формы носа 自 вообразите собаку 犬, которая принюхивается.",
+        "By the nose cue 自, picture a dog 犬 sniffing.",
+      ],
+    ],
+    [0, 0],
+    [
+      "嗅覚",
+      "きゅうかく",
+      "1565490",
+      ["обоняние", "чувство запаха"],
+      ["sense of smell", "olfaction"],
+      ["Способность воспринимать запахи.", "The ability to perceive odours."],
+      [
+        "Животное по запаху точно находит спрятанный предмет.",
+        "An animal uses smell to pinpoint a hidden object.",
+      ],
+      [
+        "犬は嗅覚が鋭い。",
+        "いぬはきゅうかくがするどい。",
+        "У собак острое обоняние.",
+        "Dogs have a keen sense of smell.",
+      ],
+    ],
+  ],
+  [
+    [
+      "詫",
+      "わ.びる",
+      ["言", "宀", "丿"],
+      ["извиняться", "просить прощения"],
+      ["apologise", "apologize"],
+      [
+        "От формы 言 мысленно произнесите слова извинения, а 丿 представьте лёгким поклоном.",
+        "Mentally say an apology at 言, with 丿 suggesting a small bow.",
+      ],
+    ],
+    [0, 0],
+    [
+      "詫びる",
+      "わびる",
+      "1606790",
+      ["извиняться", "просить прощения", "принести извинения"],
+      ["apologise", "apologize", "say sorry"],
+      [
+        "Признать неудобство или ошибку и принести извинения. Не благодарить.",
+        "Acknowledge an inconvenience or mistake and apologise. Not to thank someone.",
+      ],
+      [
+        "Работник открыто признаёт ошибку и извиняется перед покупателем.",
+        "A worker acknowledges an error and apologises to the customer.",
+      ],
+      [
+        "まず客に遅れを詫びる。",
+        "まずきゃくにおくれをわびる。",
+        "Сначала я извинюсь перед клиентом за задержку.",
+        "First I'll apologise to the customer for the delay.",
+      ],
+      { partOfSpeech: "verb", blockedRu: ["благодарить"], blockedEn: ["thank"] },
+    ],
+  ],
+  [
+    [
+      "蔑",
+      "ベツ",
+      ["艹", "罒", "戈"],
+      ["презирать", "относиться свысока"],
+      ["despise", "look down on", "scorn"],
+      [
+        "Из высокого контура 罒 мысленно смотрите вниз на то, к чему человек относится с презрением.",
+        "From 罒, imagine someone looking down on what they treat with contempt.",
+      ],
+    ],
+    [1, 2],
+    [
+      "軽蔑",
+      "けいべつ",
+      "1252860",
+      ["презрение", "презирать", "относиться с презрением"],
+      ["contempt", "despise", "look down on"],
+      [
+        "Относиться к человеку или поступку как к недостойному уважения.",
+        "Regard a person or act as unworthy of respect.",
+      ],
+      [
+        "Человек испытывает презрение к тем, кто намеренно унижает других.",
+        "Someone feels contempt for people who deliberately humiliate others.",
+      ],
+      [
+        "そんな態度は軽蔑される。",
+        "そんなたいどはけいべつされる。",
+        "Такое отношение вызывает презрение.",
+        "That sort of attitude is looked down on.",
+      ],
+    ],
+  ],
+  [
+    [
+      "醤",
+      "ショウ",
+      ["寸", "酉"],
+      ["ферментированная приправа", "паста из ферментированных продуктов"],
+      ["fermented seasoning", "fermented paste"],
+      [
+        "В сосуде 酉 вообразите тёмную выдержанную приправу.",
+        "At 酉, picture a dark seasoning aged in a container.",
+      ],
+    ],
+    [0, 0],
+    [
+      "醤油",
+      "しょうゆ",
+      "1595020",
+      ["соевый соус", "сёю"],
+      ["soy sauce", "shoyu"],
+      [
+        "Тёмная жидкая приправа из ферментированных соевых бобов, обычно с зерном.",
+        "A dark liquid seasoning made from fermented soybeans, usually with grain.",
+      ],
+      [
+        "Чтобы сделать блюдо солонее, добавляют несколько капель соевого соуса.",
+        "A few drops of soy sauce are added to make the dish saltier.",
+      ],
+      [
+        "卵に少し醤油をかけた。",
+        "たまごにすこししょうゆをかけた。",
+        "Я добавил к яйцу немного соевого соуса.",
+        "I put a little soy sauce on the egg.",
+      ],
+    ],
+  ],
+  [
+    [
+      "柚",
+      "ゆず",
+      ["木", "由"],
+      ["юдзу", "цитрус юдзу"],
+      ["yuzu"],
+      [
+        "На дереве 木 поместите яркий ароматный плод у контура 由.",
+        "Put a brightly scented citrus fruit on the tree 木 beside 由.",
+      ],
+    ],
+    [0, 0],
+    [
+      "柚",
+      "ゆず",
+      "1605750",
+      ["юдзу", "юзу", "плод юдзу"],
+      ["yuzu", "yuzu fruit"],
+      [
+        "Ароматный восточноазиатский цитрус. В блюдах часто используют сок или кожуру.",
+        "A fragrant East Asian citrus fruit whose juice and peel are often used in cooking.",
+      ],
+      [
+        "Заправке добавляют аромат с помощью кислого цитрусового сока.",
+        "Tart citrus juice adds fragrance to the dressing.",
+      ],
+      [
+        "柚の香りが好きだ。",
+        "ゆずのかおりがすきだ。",
+        "Мне нравится аромат юдзу.",
+        "I like the scent of yuzu.",
+      ],
+    ],
+  ],
+  [
+    [
+      "縞",
+      "しま",
+      ["糸", "亠", "口"],
+      ["полоса", "полосатый рисунок"],
+      ["stripe", "striped pattern"],
+      [
+        "Линиями из нитей 糸 сотките ткань, чередуя светлые и тёмные полосы.",
+        "Weave alternating light and dark stripes from threads 糸.",
+      ],
+    ],
+    [0, 0],
+    [
+      "縞",
+      "しま",
+      "1321670",
+      ["полоса на ткани", "полосы", "полосатый рисунок"],
+      ["stripe", "stripes", "striped pattern"],
+      [
+        "Полоса как элемент повторяющегося рисунка, например на ткани.",
+        "A stripe in a repeating pattern, for example on fabric.",
+      ],
+      [
+        "На ткани чередуются узкие светлые и тёмные линии.",
+        "Narrow light and dark lines alternate on the fabric.",
+      ],
+      [
+        "青い縞の服を選んだ。",
+        "あおいしまのふくをえらんだ。",
+        "Я выбрал одежду в синюю полоску.",
+        "I chose clothes with blue stripes.",
+      ],
+    ],
+  ],
+  [
+    [
+      "釘",
+      "くぎ",
+      ["金", "丁"],
+      ["гвоздь"],
+      ["nail", "metal nail"],
+      [
+        "Из 金 возьмите воображаемый металл. Поперечная черта 丁 станет шляпкой гвоздя, а длинная под ней — стержнем.",
+        "Use 金 for the metal. In 丁, picture the top line as a nailhead and the long stroke below as its shaft.",
+      ],
+    ],
+    [0, 0],
+    [
+      "釘",
+      "くぎ",
+      "1436840",
+      ["гвоздь", "металлический гвоздь"],
+      ["nail", "metal nail"],
+      [
+        "Металлический штырёк для крепления. Ноготь тоже nail по-английски, но по-японски 爪.",
+        "A small metal pin for fastening something. A fingernail is 爪, despite the shared English word.",
+      ],
+      [
+        "Для крепления доски забивают несколько гвоздей.",
+        "A few nails are driven in to fasten the board.",
+      ],
+      [
+        "壁に釘を打った。",
+        "かべにくぎをうった。",
+        "Я забил гвоздь в стену.",
+        "I drove a nail into the wall.",
+      ],
+      { partOfSpeech: "noun", blockedRu: ["ноготь"], blockedEn: ["fingernail", "claw"] },
+    ],
+  ],
+];

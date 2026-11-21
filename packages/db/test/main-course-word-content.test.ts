@@ -33,6 +33,10 @@ const CONSOLIDATION_WORD_COUNTS = [
   1, 1, 1, 1, 1, 3, 6, 1, 10, 4, 3, 19, 1, 2, 33, 4, 44, 25, 21, 31, 9, 11, 132, 133, 90, 56, 18,
   16, 10, 6, 37, 24,
 ];
+const EXTENSION_WORD_COUNTS = [
+  2, 2, 1, 3, 2, 1, 2, 1, 7, 6, 3, 15, 4, 1, 23, 1, 2, 33, 1, 2, 31, 1, 35, 1, 114, 94, 86, 52, 14,
+  15, 10, 3, 40, 40, 41, 41, 40,
+];
 
 it("reuses the immutable vocabulary registry within the same process", () => {
   const registry = buildMainCourseWordBatches();
@@ -326,6 +330,13 @@ describe("first bounded main-course vocabulary manifest", () => {
           cards: count * 2,
           examples: count,
         })),
+        ...EXTENSION_WORD_COUNTS.map((count, i) => ({
+          batchId: `full-course-vocabulary-extension-${String(i + 1).padStart(2, "0")}`,
+          reviewedAt: "2026-11-21",
+          words: count,
+          cards: count * 2,
+          examples: count,
+        })),
       ],
     });
   });
@@ -441,6 +452,10 @@ describe("first bounded main-course vocabulary manifest", () => {
         })),
         ...CONSOLIDATION_WORD_COUNTS.map((_, i) => ({
           batchId: `full-course-vocabulary-consolidation-${String(i + 1).padStart(2, "0")}`,
+          reviewedAt: "2026-11-21",
+        })),
+        ...EXTENSION_WORD_COUNTS.map((_, i) => ({
+          batchId: `full-course-vocabulary-extension-${String(i + 1).padStart(2, "0")}`,
           reviewedAt: "2026-11-21",
         })),
       ],
@@ -608,7 +623,7 @@ describe("second bounded vocabulary batch and registry", () => {
 describe("reviewed third vocabulary batch", () => {
   it("adds twenty distinct beginner words at free slots with verified source identities", () => {
     const batches = buildMainCourseWordBatches();
-    expect(batches).toHaveLength(206);
+    expect(batches).toHaveLength(243);
     const third = batches[2]!;
     expect(third).toMatchObject({
       id: "task-127-foundation-words-03",

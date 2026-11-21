@@ -932,3 +932,32 @@ JP/kana/RU/EN examples**. The reviewed registry now contains **1,714 kanji,
   after all outstanding reviewed batches: **6,670 targets / 13,108 core
   cards**. Verify aggregate source, quality and preservation evidence
   before recording the Neon release.
+
+## Course Extension: 2026-11-21
+
+This block adds **200 independently reviewed kanji, 770 words and seven
+component cues**. Each word has an original JP/kana/RU/EN example. Reviewed
+totals: **1,914 kanji / 5,494 words / 239 components** across **50 populated
+levels**; remaining: **386 kanji / 2,506 words**. The last confirmed live
+count remains **714 / 1,300**.
+
+- The pinned snapshot matched **774 exact bilingual JMdict pairs**, including
+  four alternate readings, **200 KANJIDIC2 readings**, **200 primary KanjiVG
+  sequences** and **534 actual component groups**. Independent AI reviewers
+  checked all 200 reinforcement pairs, seven cues, and 570 additional
+  words. This is not human certification or a live publication receipt.
+- Seven shape cues including 氵, 扌, 亻 and 片 begin at level 44, after
+  the already allocated placements there. Each has at least one dependent
+  kanji at a later level. Earlier level coordinates and V1–V7 seals are
+  unchanged. Common examples include 鍵, 風呂, 箸, 伺う and 貼付; British
+  and American floor numbering and the transitive/intransitive distinction
+  are handled explicitly where relevant.
+- Extension seal:
+  `310b49162266cde950908fbf1207a284359156d38a47b9ead8c1514c5a8712aa`.
+  After Consolidation is live, plan/apply `full-course-kanji-extension`
+  with vocabulary skipped, then the **37** explicit word IDs
+  `full-course-vocabulary-extension-01` through `-37`.
+- Expected after all outstanding reviewed batches: **7,647 teaching
+  targets / 15,055 core cards**. Scope any missing raw-source import to the
+  exact manifest selection; confirm aggregate preservation and full quality
+  before reporting a Neon release. Keep the main course DRAFT.
