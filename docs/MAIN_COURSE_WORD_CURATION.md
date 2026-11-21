@@ -81,11 +81,12 @@ pilot continues to use `buildMainCourseWordBatch()` (word01), not the growing
 registry, and its pinned kanji01/02 inputs are unchanged. This candidate does
 not enroll users, extend the pilot or complete Task127.
 
-Existing curator behavior is retained: all registered manifests are preflighted
-before writes, default application skips unreviewed batches, and explicitly
-selected pending application fails before database access. Consequently an
-unresolved pending source can block default-all or even an approved selected
-application at full-registry preflight. Do not confuse pending selection's
+At the time of this foundation batch, all registered manifests were checked
+against the database before any write. The current operator policy in
+`docs/WORD_CURATION.md` scopes the database preflight to explicitly selected
+batches, without narrowing static registry validation; default application
+still preflights all batches. Explicitly selected pending application fails
+before database access. Do not confuse pending selection's
 early review rejection with source acceptance. Tests use synthetic source and
 published-kanji fixtures, never live provenance evidence.
 

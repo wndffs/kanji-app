@@ -195,7 +195,7 @@ describe("bounded vocabulary curation", () => {
       expect(fixture.mutations).toEqual([]);
     }
   });
-  it("preflights the entire registry once and applies only multiple explicitly selected additions", async () => {
+  it("preflights and applies only explicitly selected additions in registry order", async () => {
     const batches = thirdPendingFixtureBatches().map((batch) => ({
       ...batch,
       reviewedAt: "2026-10-31",
@@ -208,7 +208,7 @@ describe("bounded vocabulary curation", () => {
       batches,
       batchIds: [batches[2]!.id, batches[1]!.id],
     });
-    expect(result.preflightedBatchIds).toEqual(batches.map((batch) => batch.id));
+    expect(result.preflightedBatchIds).toEqual([batches[1]!.id, batches[2]!.id]);
     expect(result.batches.map((batch) => batch.batchId)).toEqual([batches[1]!.id, batches[2]!.id]);
     for (const name of Object.keys(before) as (keyof typeof before)[]) {
       for (const [identity, row] of before[name])
@@ -461,7 +461,7 @@ describe("bounded vocabulary curation", () => {
     },
   );
 
-  it("freshly plans a selected write after the cached whole-registry preflight", async () => {
+  it("freshly plans a selected write after the cached selection preflight", async () => {
     const batches = registryFixtureBatches();
     const fixture = harness(batches);
     const readCourse = fixture.readCourse.getMockImplementation()!;
@@ -502,7 +502,7 @@ describe("bounded vocabulary curation", () => {
         applyMainCourseWordBatches(fixture.db, { batches, batchId: batches[0]!.id }),
       ).rejects.toThrow(condition === "source" ? "provenance" : "changed after preflight");
       expect(fixture.readCourse).toHaveBeenCalledTimes(2);
-      expect(fixture.readPrimaryWords).toHaveBeenCalledTimes(batches.length + 1);
+      expect(fixture.readPrimaryWords).toHaveBeenCalledTimes(2);
       expect(fixture.readPrimaryWords.mock.calls.at(-1)).toEqual(
         fixture.readPrimaryWords.mock.calls[0],
       );
@@ -614,31 +614,53 @@ describe("bounded vocabulary curation", () => {
     expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
   });
 
-  it("does not bypass pending third-batch source failures when applying an approved selection", async () => {
+  it("ignores missing future evidence for an explicit release but reports it for a full plan", async () => {
     const batches = thirdPendingFixtureBatches();
     const fixture = harness(batches);
     fixture.state.words.get(batches[2]!.words.at(-1)!.expression)!.importedRecord.importRun.status =
       "FAILED";
+    await expect(planMainCourseWordBatches(fixture.db, batches)).rejects.toThrow("provenance");
+    await expect(
+      planMainCourseWordBatches(fixture.db, batches, { batchId: batches[0]!.id }),
+    ).resolves.toMatchObject([{ batchId: batches[0]!.id }]);
+    expect(fixture.transaction).not.toHaveBeenCalled();
     await expect(
       applyMainCourseWordBatches(fixture.db, {
         batches,
         batchId: batches[0]!.id,
       }),
-    ).rejects.toThrow("provenance");
-    expect(fixture.mutations).toEqual([]);
-    expect(fixture.transaction).not.toHaveBeenCalled();
+    ).resolves.toMatchObject({
+      preflightedBatchIds: [batches[0]!.id],
+      skippedUnreviewedBatchIds: [batches[2]!.id],
+      batches: [{ batchId: batches[0]!.id }],
+    });
   });
 
-  it("preflights the whole registry, including an unselected last word, before any mutation", async () => {
+  it("preflights the last word of every selected batch before any mutation", async () => {
     const batches = registryFixtureBatches();
     const fixture = harness(batches);
     fixture.state.words.get(batches[1]!.words.at(-1)!.expression)!.importedRecord.importRun.status =
       "FAILED";
     await expect(
-      applyMainCourseWordBatches(fixture.db, { batches, batchId: batches[0]!.id }),
+      applyMainCourseWordBatches(fixture.db, { batches, batchIds: batches.map(({ id }) => id) }),
     ).rejects.toThrow("provenance");
     expect(fixture.readPrimaryWords).toHaveBeenCalledTimes(batches.length);
     expect(fixture.mutations).toEqual([]);
+    expect(fixture.transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate registry identities outside the explicit selection before reads", async () => {
+    const [first, second] = registryFixtureBatches();
+    const batches = [first!, { ...second!, id: first!.id }];
+    const fixture = harness();
+    const selection = { batchId: first!.id };
+    await expect(planMainCourseWordBatches(fixture.db, batches, selection)).rejects.toThrow(
+      "Invalid word batch registry",
+    );
+    await expect(applyMainCourseWordBatches(fixture.db, { batches, ...selection })).rejects.toThrow(
+      "Invalid word batch registry",
+    );
+    expect(fixture.readCourse).not.toHaveBeenCalled();
     expect(fixture.transaction).not.toHaveBeenCalled();
   });
 

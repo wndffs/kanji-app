@@ -39,7 +39,7 @@ jobs:
   curate:
     name: Apply versioned curation to Neon
     runs-on: ubuntu-latest
-    # Full-registry preflight plus 500 reviewed words can exceed 90 minutes on Neon.
+    # Large selected releases can exceed 90 minutes on Neon.
     # Individual staging/finalization transactions retain their own bounded deadlines.
     timeout-minutes: 180
     env:
@@ -170,7 +170,7 @@ jobs:
           npm run db:curate -- "${args[@]}"
 
       - name: Preflight reviewed vocabulary without mutations
-        # Apply performs this same full-registry preflight internally before any teaching write.
+        # Apply performs this scoped database preflight internally before any teaching write.
         if: ${{ inputs.mode == 'plan' && steps.selection.outputs.apply_words == 'true' }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}

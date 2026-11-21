@@ -156,10 +156,13 @@ over all items and alternatives is still required before applying this batch.
 manifests. It performs no mutations. Before application, it validates the entire
 batch, including its last word, before license/source/run metadata is written:
 
-`planMainCourseWordBatches(db, batches)` first validates the complete registry,
-then plans every batch read-only. The CLI and `applyMainCourseWordBatches` finish
-this whole-registry preflight before any mutation, even when `--batch` selects
-only one batch. A late invalid source, reading variant or slot blocks all writes.
+`planMainCourseWordBatches(db, batches, selection?)` first validates the complete
+registry for manifest conflicts, then plans the explicit selection or, if none
+is supplied, every batch. The CLI and `applyMainCourseWordBatches` finish all
+selected database preflights before any teaching mutation. A late invalid
+source, reading variant or slot in any selected batch blocks all selected
+writes. Unpublished prerequisites or missing sources in later unselected
+batches do not prevent releasing a reviewed earlier batch.
 
 - Look up each `Word` only by the exact expression/reading composite key.
 - Require the exact `jmdictEntryId`, imported-record ID/type and source-record ID.
@@ -210,25 +213,23 @@ npm run db:curate:words -- --batch task-127-foundation-words-02 --validate-only
 ```
 
 `--validate-only` validates the registry manifests only, not live source evidence.
-`--preflight-only` checks every registered batch against the database, including
-pending manifests; selection never narrows that safety check. The parent
-must separately run the exported read-only preflight against the intended
-database and review its source/wording results before recording approval.
+`--preflight-only` checks the explicit selection against the database, or the
+full registry when no IDs are passed. It can inspect pending manifests but does
+not approve them. Operators still need live preflight against the destination
+database and independent editorial review before applying selected batches.
 
 After approval, `npm run db:curate:words` applies all reviewed batches with `DATABASE_URL`.
 To avoid rewriting earlier published answers while adding batch 02, use
 `npm run db:curate:words -- --batch task-127-foundation-words-02`. Only that
-registered, reviewed batch is applied after the complete registry preflight.
+registered, reviewed batch is applied after its complete database preflight.
 Single-batch exported helpers retain their existing behavior for focused callers.
 The operator workflow `.github/workflows/deploy-staging-curation.yml` also has
-optional input `word_batch`: leave it blank to retain the existing full curation
-path, or set `task-127-foundation-words-02` to pass that selection to the word CLI
-and skip old kanji reapplication. The selection narrows word mutations, not the
-CLI's complete registered-word preflight. The older staging import workflow keeps
-its default all-reviewed-batches behavior. No workflow changes are part of this
-slice, and neither operator path bypasses approval or source checks.
-Both staging curation/import workflows run the read-only preflight before this
-step. The two inspection flags are mutually exclusive; unknown/duplicate flags
+input `word_batch`: set explicit reviewed IDs for vocabulary apply, with an
+empty `kanji_batch` to skip kanji writes. Leaving the IDs blank is permitted
+only for a nonmutating plan or explicit kanji-only apply. The older staging
+import workflow keeps its default all-reviewed-batches behavior. Neither path
+bypasses approval or source checks, and staging curation still checks existing
+published course quality. The two inspection flags are mutually exclusive; unknown/duplicate flags
 and unknown/repeated/missing `--batch` selections
 are rejected before database construction so a mistyped preflight cannot write.
 The CLI applies `withNeonConnectionDefaults`, preserving explicit settings while

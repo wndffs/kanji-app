@@ -41,6 +41,7 @@ const SOURCE_URL =
   "https://github.com/wndffs/kanji-app/blob/main/packages/db/src/main-course-word-content.ts";
 const TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 30_000 } as const;
 const MAX_SELECTED_WORD_BATCHES = 40;
+type WordBatchSelection = { readonly batchId?: string; readonly batchIds?: readonly string[] };
 type Reader = Pick<
   Prisma.TransactionClient,
   | "course"
@@ -219,12 +220,13 @@ async function planWordBatch(db: Reader, batch: MainCourseWordBatch, cache?: Pla
 export async function planMainCourseWordBatches(
   db: Reader,
   batches: readonly MainCourseWordBatch[] = buildMainCourseWordBatches(),
+  selection: WordBatchSelection = {},
 ) {
-  assertRegistry(batches);
+  const selected = explicitSelection(batches, selection) ?? batches;
   // Share bounded reads only within this plan; write preflights must observe fresh data.
   const cache: PlanReadCache = { courses: new Map(), kanji: new Map() };
   const plans = [];
-  for (const batch of batches) {
+  for (const batch of selected) {
     plans.push({
       batchId: batch.id,
       checksumSha256: mainCourseWordBatchChecksum(batch),
@@ -236,24 +238,21 @@ export async function planMainCourseWordBatches(
 
 export async function applyMainCourseWordBatches(
   prisma: PrismaClient,
-  options: {
-    readonly batches?: readonly MainCourseWordBatch[];
-    readonly batchId?: string;
-    readonly batchIds?: readonly string[];
-  } = {},
+  options: WordBatchSelection & { readonly batches?: readonly MainCourseWordBatch[] } = {},
 ) {
   const batches = options.batches ?? buildMainCourseWordBatches();
-  const selected = reviewedSelection(batches, options.batchId, options.batchIds);
-  // Complete every registered read-only plan before creating even source/run metadata.
-  const plans = await planMainCourseWordBatches(prisma, batches);
+  const selected = reviewedSelection(batches, options);
+  // Validate the entire registry, but require live evidence only for the explicit release scope.
+  // Each selected batch must pass before even source/run metadata are created.
+  const plans = await planMainCourseWordBatches(prisma, batches, options);
   const applied = [];
   for (const batch of selected) applied.push(await applyMainCourseWordBatch(prisma, batch));
   return {
     status: "applied-reviewed-batches",
     preflightedBatchIds: plans.map((entry) => entry.batchId),
     skippedUnreviewedBatchIds: batches
-      .filter((batch) => batch.reviewedAt === null && batch.id !== options.batchId)
-      .map((batch) => batch.id),
+      .filter((batch) => batch.reviewedAt === null)
+      .map(({ id }) => id),
     batches: applied,
   };
 }
@@ -829,11 +828,10 @@ function assertRegistry(batches: readonly MainCourseWordBatch[]): void {
   const issues = validateMainCourseWordBatches(batches);
   if (issues.length) throw new Error(`Invalid word batch registry: ${issues.join("; ")}`);
 }
-function reviewedSelection(
+function explicitSelection(
   batches: readonly MainCourseWordBatch[],
-  batchId?: string,
-  batchIds?: readonly string[],
-): readonly MainCourseWordBatch[] {
+  { batchId, batchIds }: WordBatchSelection,
+): readonly MainCourseWordBatch[] | undefined {
   assertRegistry(batches);
   if (batchId !== undefined && batchIds !== undefined)
     throw new Error("Conflicting word batch selection.");
@@ -841,14 +839,20 @@ function reviewedSelection(
   if (ids !== undefined) {
     if (!ids.length || ids.length > MAX_SELECTED_WORD_BATCHES || new Set(ids).size !== ids.length)
       throw new Error("Invalid word batch selection.");
-    for (const id of ids) {
-      const selected = batches.find((batch) => batch.id === id);
-      if (!selected) throw new Error(`Unknown registered word batch ${id}.`);
-      requireReview(selected);
-    }
+    for (const id of ids)
+      if (!batches.some((batch) => batch.id === id))
+        throw new Error(`Unknown registered word batch ${id}.`);
     return batches.filter((batch) => ids.includes(batch.id));
   }
-  const reviewed = batches.filter((batch) => batch.reviewedAt !== null);
+  return undefined;
+}
+
+function reviewedSelection(
+  batches: readonly MainCourseWordBatch[],
+  selection: WordBatchSelection,
+): readonly MainCourseWordBatch[] {
+  const reviewed =
+    explicitSelection(batches, selection) ?? batches.filter((batch) => batch.reviewedAt !== null);
   if (reviewed.length === 0)
     throw new Error("No independently reviewed word batches are available for application.");
   for (const batch of reviewed) requireReview(batch);
@@ -940,7 +944,7 @@ async function main(): Promise<void> {
     return;
   }
   const preflightOnly = options.mode === "preflight-only";
-  if (!preflightOnly) reviewedSelection(batches, options.batchId, options.batchIds);
+  if (!preflightOnly) reviewedSelection(batches, options);
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is required for live word curation.");
   const prisma = new PrismaClient({ datasourceUrl: withNeonConnectionDefaults(url) });
@@ -950,7 +954,7 @@ async function main(): Promise<void> {
           status: "preflight-passed",
           selectedBatchId: options.batchId ?? null,
           ...(options.batchIds ? { selectedBatchIds: options.batchIds } : {}),
-          batches: (await planMainCourseWordBatches(prisma, batches)).map((entry) => ({
+          batches: (await planMainCourseWordBatches(prisma, batches, options)).map((entry) => ({
             batchId: entry.batchId,
             checksumSha256: entry.checksumSha256,
             words: entry.plan.words.length,
