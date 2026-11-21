@@ -13,6 +13,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { createSilentWav } from "./support/test-audio";
+import { normalizeJapaneseReading } from "@kanji-srs/japanese";
 
 const API_BASE_URL = "http://localhost:3001";
 const ACCESS_TOKEN = "test-token";
@@ -552,6 +553,62 @@ test.describe("review session", () => {
     expect(starts).toBe(1);
     expect(requests).toHaveLength(1);
     expect(finishes).toBe(0);
+  });
+
+  test("converts romaji live only on reading cards and commits the final n on Enter", async ({
+    page,
+  }) => {
+    const readingItem: ReviewQueueItem = {
+      ...secondReviewQueueItem,
+      card: {
+        ...secondReviewQueueItem.card,
+        promptType: "reading",
+        answerType: "reading",
+        prompt: { japanese: "日本", reading: "にほん" },
+      },
+      item: { ...secondReviewQueueItem.item, japanese: "日本", reading: "にほん" },
+    };
+    await signIn(page, "en");
+    await mockReviewApi(page, { queue: [reviewQueueItem, readingItem] });
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение", exact: true }).click();
+
+    const meaning = page.getByLabel("Ответ значением");
+    await meaning.pressSequentially("sun");
+    await expect(meaning).toHaveValue("sun");
+    await meaning.press("Enter");
+    await page.getByRole("button", { name: "Дальше", exact: true }).click();
+
+    const reading = page.getByLabel("Ответ чтением");
+    await reading.fill("ホン");
+    await reading.press("Home");
+    await reading.pressSequentially("ni");
+    await expect(reading).toHaveValue("ニホン");
+    expect(await reading.evaluate((input: HTMLInputElement) => input.selectionStart)).toBe(1);
+
+    await reading.dispatchEvent("compositionstart");
+    await reading.fill("nihon");
+    await expect(reading).toHaveValue("nihon");
+    await reading.press("Enter");
+    await expect(reading).toBeVisible();
+    await reading.fill("にほん");
+    await reading.dispatchEvent("compositionend");
+    await expect(reading).toHaveValue("にほん");
+    await reading.clear();
+
+    await reading.pressSequentially("niho");
+    await expect(reading).toHaveValue("ニホ");
+    await reading.press("n");
+    await expect(reading).toHaveValue("ニホn");
+    const submission = page.waitForRequest((request) =>
+      request.url().endsWith(`/${SESSION_ID}/answer`),
+    );
+    await reading.press("Enter");
+    expect((await submission).postDataJSON()).toMatchObject({
+      answerType: "reading",
+      answer: "ニホン",
+    });
+    await expect(page.getByRole("heading", { name: "Верно", exact: true })).toBeVisible();
   });
 
   test("does not carry a private-answer draft into the next card's feedback", async ({ page }) => {
@@ -1638,7 +1695,11 @@ async function mockReviewApi(
       await route.fulfill({ status: 404, json: { message: "No review item" } });
       return;
     }
-    const accepted = getExpectedAnswerTexts(item).includes(answer) || privateAnswers.has(answer);
+    const normalize =
+      item.card.answerType === "reading" ? normalizeJapaneseReading : (value: string) => value;
+    const accepted =
+      getExpectedAnswerTexts(item).map(normalize).includes(normalize(answer)) ||
+      privateAnswers.has(answer);
 
     options.answerRequests?.push({
       answerType: body.answerType,

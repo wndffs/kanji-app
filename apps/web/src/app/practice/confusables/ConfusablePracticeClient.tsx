@@ -16,6 +16,8 @@ import {
 } from "@kanji-srs/shared";
 
 import { JapaneseText } from "../../../components/JapaneseText";
+import { StudyAnswerInput } from "../../../components/StudyAnswerInput";
+import { prepareStudyAnswer } from "../../../lib/study-answer";
 import {
   abandonConfusablePracticeSession,
   ApiError,
@@ -162,7 +164,7 @@ export function ConfusablePracticeClient({
     try {
       const result = await submitConfusablePracticeAnswer(state.token, session.id, {
         cardId: currentCard.id,
-        answer: answer.trim(),
+        answer: prepareStudyAnswer(answer, currentCard.answerType),
         answerType: currentCard.answerType,
       });
       setAnsweredCard(currentCard);
@@ -366,11 +368,11 @@ export function ConfusablePracticeClient({
             <span>
               {visibleCard.answerType === "reading" ? "Введите чтение" : "Введите значение"}
             </span>
-            <input
-              autoComplete="off"
+            <StudyAnswerInput
+              answerType={visibleCard.answerType}
               disabled={isBusy}
               id="confusable-answer"
-              onChange={(event) => setAnswer(event.currentTarget.value)}
+              onValueChange={setAnswer}
               ref={answerRef}
               value={answer}
             />

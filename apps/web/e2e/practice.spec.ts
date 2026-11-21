@@ -264,8 +264,13 @@ test.describe("optional practice", () => {
     await playButton.click();
     await expect(page.getByText("Запись прослушана. Можно отвечать.")).toBeVisible();
 
-    await answerInput.fill("ひとつ");
+    await answerInput.pressSequentially("hitotsu");
+    await expect(answerInput).toHaveValue("ヒトツ");
+    const submission = page.waitForRequest((request) =>
+      request.url().endsWith(`/practice/${SESSION_ID}/answer`),
+    );
     await page.keyboard.press("Enter");
+    expect((await submission).postDataJSON()).toMatchObject({ answer: "ヒトツ" });
 
     await expect
       .poll(() => answerRequests)

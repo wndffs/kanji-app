@@ -9,6 +9,8 @@ import {
 } from "@kanji-srs/shared";
 import { ListeningAttribution, ListeningPrompt } from "../../../components/ListeningPrompt";
 import { JapaneseText } from "../../../components/JapaneseText";
+import { StudyAnswerInput } from "../../../components/StudyAnswerInput";
+import { prepareStudyAnswer } from "../../../lib/study-answer";
 import { searchItems, getItemDetails } from "../../../lib/api-client";
 import { useStoredSession } from "../../../lib/use-stored-session";
 import { gradeListeningRecall } from "../../../lib/listening-recall";
@@ -72,7 +74,7 @@ function ListeningRecall({ token }: { readonly token: string | null }) {
   function check(event: FormEvent) {
     event.preventDefault();
     if (item && evidence.completed && !result && answer.trim())
-      setResult(gradeListeningRecall(item, answer));
+      setResult(gradeListeningRecall(item, prepareStudyAnswer(answer, "reading")));
   }
   return (
     <section className="page-stack listening-recall">
@@ -112,12 +114,12 @@ function ListeningRecall({ token }: { readonly token: string | null }) {
           />
           <form className="listening-recall-form" onSubmit={check}>
             <label htmlFor="listening-recall-answer">Чтение каной</label>
-            <input
+            <StudyAnswerInput
+              answerType="reading"
               id="listening-recall-answer"
-              autoComplete="off"
               value={answer}
               disabled={!evidence.completed || result !== null}
-              onChange={(event) => setAnswer(event.target.value)}
+              onValueChange={setAnswer}
             />
             <button
               className="primary-action"

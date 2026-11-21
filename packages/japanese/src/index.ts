@@ -5,6 +5,7 @@ export * from "./kana";
 export * from "./kana-contrasts";
 export * from "./text-candidates";
 export * from "./reading-diagnostic";
+export * from "./romaji-input";
 
 export type AnswerKind = "meaning" | "reading";
 export type MeaningLocale = "ru-RU" | "en-US";

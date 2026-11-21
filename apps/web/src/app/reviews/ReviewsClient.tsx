@@ -32,6 +32,8 @@ import { JapaneseText } from "../../components/JapaneseText";
 import { useStudyFocus } from "../../components/StudyFocus";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { ReviewQueueBrowser } from "../../components/ReviewQueueBrowser";
+import { StudyAnswerInput } from "../../components/StudyAnswerInput";
+import { prepareStudyAnswer } from "../../lib/study-answer";
 import {
   Volume2,
   Languages,
@@ -442,7 +444,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       return;
     }
 
-    const trimmedAnswer = answer.trim();
+    const trimmedAnswer = prepareStudyAnswer(answer, currentItem.card.answerType);
 
     if (currentItem.card.promptType === "listening" && !listeningEvidence.completed) {
       setFormError("Сначала прослушайте запись полностью.");
@@ -480,6 +482,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       if (!response.retry) {
         playAnswerSound(response.accepted);
       }
+      if (currentItem.card.answerType === "reading") setAnswer(trimmedAnswer);
       setFeedback(response);
       if (!response.retry && !isCorrecting) {
         setProgress((previous) => ({
@@ -1044,36 +1047,20 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
         <form className="review-answer-bar" onSubmit={(event) => void handleSubmit(event)}>
           <label htmlFor="review-answer">
             <span>{formatInputLabel(currentItem.card.answerType)}</span>
-            <input
+            <StudyAnswerInput
+              answerType={currentItem.card.answerType}
               aria-describedby={formError === null ? undefined : "review-answer-error"}
               aria-invalid={formError !== null}
-              autoComplete="off"
-              autoCapitalize="none"
+              composingRef={composingAnswer}
               disabled={
                 isSubmitting ||
                 isReconciling ||
                 (currentItem.card.promptType === "listening" && !listeningEvidence.completed)
               }
               id="review-answer"
-              onChange={(event) => setAnswer(event.currentTarget.value)}
-              onCompositionStart={() => {
-                composingAnswer.current = true;
-              }}
-              onCompositionEnd={() => {
-                composingAnswer.current = false;
-              }}
-              onKeyDown={(event) => {
-                if (
-                  event.key === "Enter" &&
-                  (composingAnswer.current ||
-                    event.nativeEvent.isComposing ||
-                    event.nativeEvent.keyCode === 229)
-                )
-                  event.preventDefault();
-              }}
+              onValueChange={setAnswer}
               placeholder={formatInputPlaceholder(currentItem.card.answerType)}
               ref={answerInputRef}
-              spellCheck={currentItem.card.answerType === "meaning"}
               value={answer}
             />
           </label>

@@ -21,6 +21,8 @@ import {
 import { JapaneseText } from "../../components/JapaneseText";
 import { ViewTabs } from "../../components/ViewTabs";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
+import { StudyAnswerInput } from "../../components/StudyAnswerInput";
+import { prepareStudyAnswer } from "../../lib/study-answer";
 import { useStudyFocus } from "../../components/StudyFocus";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
@@ -278,7 +280,7 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
     try {
       const response = await submitPracticeAnswer(queueState.token, practiceSession.id, {
         cardId: currentItem.card.id,
-        answer: answer.trim(),
+        answer: prepareStudyAnswer(answer, currentItem.card.answerType),
         answerType: currentItem.card.answerType,
         listeningEvidence:
           currentItem.card.promptType === "listening" ? listeningEvidence : undefined,
@@ -606,14 +608,14 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
         <form className="review-answer-bar" onSubmit={(event) => void handleSubmit(event)}>
           <label htmlFor="practice-answer">
             <span>{formatInputLabel(currentItem.card.answerType)}</span>
-            <input
-              autoComplete="off"
+            <StudyAnswerInput
+              answerType={currentItem.card.answerType}
               disabled={
                 isSubmitting ||
                 (currentItem.card.promptType === "listening" && !listeningEvidence.completed)
               }
               id="practice-answer"
-              onChange={(event) => setAnswer(event.currentTarget.value)}
+              onValueChange={setAnswer}
               ref={answerInputRef}
               value={answer}
             />

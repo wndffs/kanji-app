@@ -39,6 +39,8 @@ import { LessonPickerSearch } from "../../components/LessonPickerSearch";
 import { DeckPrerequisiteRecovery } from "./DeckPrerequisiteRecovery";
 import { useStudyFocus } from "../../components/StudyFocus";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
+import { StudyAnswerInput } from "../../components/StudyAnswerInput";
+import { prepareStudyAnswer } from "../../lib/study-answer";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
   abandonLessonSession,
@@ -735,6 +737,7 @@ function LessonsScreen({
       return;
     }
 
+    const submittedAnswer = prepareStudyAnswer(quizAnswer, quizCard.answerType);
     setIsCompleting(true);
     setSessionError(null);
 
@@ -743,14 +746,14 @@ function LessonsScreen({
         itemId: currentLesson.item.id,
         cardId: quizCard.id,
         answerType: quizCard.answerType,
-        answer: quizAnswer.trim(),
+        answer: submittedAnswer,
         listeningEvidence:
           quizCard.promptType === "listening" ? quizListeningEvidence[quizCard.id] : undefined,
       });
       if (!ownsWorkspace(queueState.token)) return;
 
       if (result.accepted) {
-        setQuizAnswers((current) => ({ ...current, [quizCard.id]: quizAnswer.trim() }));
+        setQuizAnswers((current) => ({ ...current, [quizCard.id]: submittedAnswer }));
       }
       if (result.diagnostic?.kind !== "alternative-reading") {
         playAnswerSound(result.accepted);
@@ -2077,13 +2080,12 @@ function LessonQuizView({
       <form className="lesson-quiz-form" onSubmit={onSubmit}>
         <label htmlFor="lesson-quiz-answer" hidden={feedback !== null}>
           <span>{answerType === "reading" ? "Ваше чтение" : "Ваше значение"}</span>
-          <input
-            autoComplete="off"
+          <StudyAnswerInput
+            answerType={answerType}
             disabled={isCompleting || feedback !== null || !listeningReady}
             id="lesson-quiz-answer"
-            onChange={(event) => onAnswerChange(event.currentTarget.value)}
+            onValueChange={onAnswerChange}
             placeholder={answerType === "reading" ? "かな" : "Значение"}
-            spellCheck={answerType === "meaning"}
             ref={inputRef}
             value={answer}
           />

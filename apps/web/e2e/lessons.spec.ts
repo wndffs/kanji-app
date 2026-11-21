@@ -792,6 +792,28 @@ test.describe("lesson session", () => {
     await expect(page.locator(".lesson-summary .primary-action")).toHaveAttribute("href", returnTo);
   });
 
+  test("submits a katakana reading typed with the Latin keyboard in the lesson quiz", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockLessonApi(page);
+    await page.goto("/lessons");
+    await page.getByRole("button", { name: "Начать урок", exact: true }).click();
+    await page.getByRole("button", { name: "Далее: Чтение", exact: true }).click();
+    await page.getByRole("button", { name: "Далее: Контекст", exact: true }).click();
+    await page.getByRole("button", { name: "Перейти к проверке", exact: true }).click();
+    const reading = page.getByLabel("Ваше чтение");
+    await reading.pressSequentially("ichi");
+    await expect(reading).toHaveValue("イチ");
+    const submission = page.waitForRequest((request) => request.url().endsWith("/check-answer"));
+    await reading.press("Enter");
+    expect((await submission).postDataJSON()).toMatchObject({
+      answerType: "reading",
+      answer: "イチ",
+    });
+    await expect(page.getByRole("heading", { name: "Верно", exact: true })).toBeVisible();
+  });
+
   test("applies saved pronunciation aids only to study stages", async ({ page }) => {
     await signIn(page, {
       lessonPronunciationMode: "furigana",

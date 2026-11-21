@@ -103,7 +103,8 @@ test("recorded recall conceals answers and credits until playback and grading, w
   expect(
     await page.locator("audio").evaluate((audio: HTMLAudioElement) => audio.duration),
   ).toBeCloseTo(1.032, 2);
-  await input.fill("タベル");
+  await input.pressSequentially("taberu");
+  await expect(input).toHaveValue("タベル");
   await page.getByRole("button", { name: "Проверить", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Верно", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Верно", exact: true })).toBeFocused();
