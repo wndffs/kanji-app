@@ -1210,7 +1210,7 @@ function FeedbackPanel({
   return (
     <section
       aria-label="Результат ответа"
-      className={`feedback-panel feedback-panel-${reviewFeedbackTone(feedback)}`}
+      className={`feedback-panel review-feedback feedback-panel-${reviewFeedbackTone(feedback)}`}
     >
       <div className="feedback-header">
         <div role="status" aria-atomic="true">
@@ -1222,6 +1222,21 @@ function FeedbackPanel({
           {!feedback.retry && "nextSrs" in feedback ? (
             <span className="feedback-stage">{formatSrsStageName(feedback.nextSrs.stageName)}</span>
           ) : null}
+        </div>
+        <div className="feedback-actions">
+          <button
+            className="primary-action"
+            disabled={isContinuing || isSaving}
+            onClick={onContinue}
+            ref={continueButtonRef}
+            type="button"
+          >
+            {isContinuing
+              ? "Завершаю..."
+              : feedback.retry || (correction && "corrected" in feedback && !feedback.corrected)
+                ? "Ответить снова"
+                : "Дальше"}
+          </button>
         </div>
       </div>
 
@@ -1319,21 +1334,6 @@ function FeedbackPanel({
           )}
         </form>
       </SectionDisclosure>
-      <div className="feedback-actions">
-        <button
-          className="primary-action"
-          disabled={isContinuing || isSaving}
-          onClick={onContinue}
-          ref={continueButtonRef}
-          type="button"
-        >
-          {isContinuing
-            ? "Завершаю..."
-            : feedback.retry || (correction && "corrected" in feedback && !feedback.corrected)
-              ? "Ответить снова"
-              : "Дальше"}
-        </button>
-      </div>
     </section>
   );
 }

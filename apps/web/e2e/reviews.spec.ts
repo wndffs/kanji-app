@@ -1180,6 +1180,30 @@ test.describe("review session", () => {
     await expect(page.getByText("Сессия завершена.")).toBeVisible();
   });
 
+  test("keeps the feedback status and continuation together on a narrow screen", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 560 });
+    await signIn(page);
+    await mockReviewApi(page);
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение", exact: true }).click();
+    await page.getByLabel("Ответ значением").fill("солнце");
+    await page.keyboard.press("Enter");
+    const feedback = page.getByRole("region", { name: "Результат ответа" });
+    const next = feedback.getByRole("button", { name: "Дальше", exact: true });
+    await expect(next).toBeFocused();
+    await expect(next).toBeInViewport();
+    await expect(feedback.getByRole("heading", { name: "Верно", exact: true })).toBeInViewport();
+    await expect(feedback.getByRole("list", { name: "Правильные ответы" })).toBeVisible();
+    await expect(feedback.getByRole("button", { name: "Добавить свой ответ" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Сессия завершена.")).toBeVisible();
+  });
+
   test("persists and reloads the selected review order", async ({ page }) => {
     await signIn(page);
     const getMockState = await mockReviewApi(page, {

@@ -479,10 +479,11 @@ function DashboardView({
     ? draftWidgets
     : presentDashboardWidgets(dashboard.user.dashboardWidgets);
   const visibleWidgets = activeWidgets.filter((widget) => widget.visible);
+  const vacationActive = readStoredSession()?.user.settings.vacationStartedAt != null;
   const nextAction = dashboardNextAction({
     ...dashboard.counts,
     hasCourse: dashboard.currentCourse !== null,
-    vacationActive: readStoredSession()?.user.settings.vacationStartedAt != null,
+    vacationActive,
   });
   const newLearnerGuide = resolveNewLearnerGuideState(
     dashboard.newLearnerGuide,
@@ -528,12 +529,16 @@ function DashboardView({
     ["summary", "course-progress", "review-forecast"].includes(widget.id),
   );
   const secondaryWidgets = visibleWidgets.filter((widget) => !primaryWidgets.includes(widget));
+  const showHeadingAction =
+    (nextAction.href !== "/reviews" && nextAction.href !== "/lessons") ||
+    !visibleWidgets.some((widget) => widget.id === "summary");
   function renderWidget(widget: DashboardWidgetPreferenceDto) {
     const content = (
       <DashboardWidgetContent
         coursesState={coursesState}
         dashboard={dashboard}
         id={widget.id}
+        vacationActive={vacationActive}
         onCourseChange={onCourseChange}
         onCoursesRequested={onCoursesRequested}
       />
@@ -600,7 +605,7 @@ function DashboardView({
           >
             <RotateCw size={18} aria-hidden="true" />
           </button>
-          {visibleWidgets.some((widget) => widget.id === "summary") ? null : (
+          {!showHeadingAction ? null : (
             <Link className="primary-action" href={nextAction.href}>
               {nextAction.label}
               <ArrowRight size={18} aria-hidden="true" />
@@ -1062,18 +1067,20 @@ function DashboardWidgetContent({
   coursesState,
   dashboard,
   id,
+  vacationActive,
   onCourseChange,
   onCoursesRequested,
 }: {
   readonly coursesState: CoursesState;
   readonly dashboard: DashboardDto;
   readonly id: DashboardWidgetId;
+  readonly vacationActive: boolean;
   readonly onCourseChange: (courseId: string) => void;
   readonly onCoursesRequested: (retry?: boolean) => void;
 }) {
   switch (id) {
     case "summary":
-      return <DashboardSummary counts={dashboard.counts} />;
+      return <DashboardSummary counts={dashboard.counts} vacationActive={vacationActive} />;
     case "workload":
       return <WorkloadPanel workload={dashboard.workload} />;
     case "study-activity":
@@ -1101,7 +1108,8 @@ function DashboardWidgetContent({
       return (
         <ReviewForecastPanel
           forecast={dashboard.reviewForecast}
-          vacationActive={readStoredSession()?.user.settings.vacationStartedAt != null}
+          next24Hours={dashboard.workload.reviews.next24Hours}
+          vacationActive={vacationActive}
         />
       );
     case "leech-candidates":
@@ -1117,7 +1125,13 @@ function assertUnknownDashboardWidget(id: never): never {
   throw new Error(`Unknown dashboard widget: ${String(id)}`);
 }
 
-function DashboardSummary({ counts }: { readonly counts: DashboardDto["counts"] }) {
+function DashboardSummary({
+  counts,
+  vacationActive,
+}: {
+  readonly counts: DashboardDto["counts"];
+  readonly vacationActive: boolean;
+}) {
   return (
     <section aria-label="Счётчики" className="dashboard-study-summary">
       <div className="metric-grid">
@@ -1125,17 +1139,23 @@ function DashboardSummary({ counts }: { readonly counts: DashboardDto["counts"] 
           label="К повторению"
           value={counts.dueReviews}
           icon={RotateCw}
-          href="/reviews"
+          href={!vacationActive && counts.dueReviews > 0 ? "/reviews" : undefined}
           tone="review"
-          action="Начать повторение"
+          action={
+            vacationActive
+              ? "На паузе"
+              : counts.dueReviews > 0
+                ? "Начать повторение"
+                : "Сейчас нет карточек"
+          }
         />
         <MetricCard
           label="Доступно уроков"
           value={counts.availableLessons}
           icon={BookOpen}
-          href="/lessons"
+          href={counts.availableLessons > 0 ? "/lessons" : undefined}
           tone="lesson"
-          action="Начать урок"
+          action={counts.availableLessons > 0 ? "Начать урок" : "Нет новых материалов"}
         />
       </div>
       <dl className="dashboard-secondary-counts">
@@ -1462,13 +1482,29 @@ function formatJourneyDate(value: string, timezone: string): string {
 
 function ReviewForecastPanel({
   forecast,
+  next24Hours,
   vacationActive,
 }: {
   readonly forecast: DashboardDto["reviewForecast"];
+  readonly next24Hours: number;
   readonly vacationActive: boolean;
 }) {
-  const populated = forecast.filter((bucket) => bucket.dueCount > 0);
-  const peak = populated.reduce((maximum, bucket) => Math.max(maximum, bucket.dueCount), 0);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const days = new Map<
+    string,
+    { count: number; buckets: DashboardDto["reviewForecast"][number][] }
+  >();
+  for (const bucket of forecast) {
+    if (bucket.dueCount <= 0) continue;
+    const day = days.get(bucket.localDate) ?? { count: 0, buckets: [] };
+    day.count += bucket.dueCount;
+    day.buckets.push(bucket);
+    days.set(bucket.localDate, day);
+  }
+  const activeDate =
+    selectedDate !== null && days.has(selectedDate) ? selectedDate : days.keys().next().value;
+  const buckets = activeDate === undefined ? [] : (days.get(activeDate)?.buckets ?? []);
+  const peak = buckets.reduce((maximum, bucket) => Math.max(maximum, bucket.dueCount), 0);
   const renderBuckets = (buckets: typeof forecast) => (
     <ol className="forecast-list" data-testid="forecast-list">
       {buckets.map((bucket) => (
@@ -1482,21 +1518,53 @@ function ReviewForecastPanel({
       ))}
     </ol>
   );
+  const schedule =
+    buckets.length === 0 ? null : (
+      <>
+        <div className="forecast-controls">
+          {vacationActive ? null : (
+            <p className="forecast-next-total">
+              <strong>{next24Hours}</strong>
+              <span>Новых повторений за 24 часа</span>
+            </p>
+          )}
+          {days.size < 2 ? null : (
+            <label>
+              <span>День прогноза</span>
+              <select
+                value={activeDate}
+                onChange={(event) => setSelectedDate(event.currentTarget.value)}
+              >
+                {[...days].map(([date, day]) => (
+                  <option key={date} value={date}>
+                    {`${formatForecastBucket({ ...day.buckets[0]!, localHour: null })} · ${formatCount(day.count, "карточка", "карточки", "карточек")}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+        {renderBuckets(buckets.slice(0, 3))}
+        {buckets.length > 3 ? (
+          <SectionDisclosure key={activeDate} title="Остальные часы">
+            {renderBuckets(buckets.slice(3))}
+          </SectionDisclosure>
+        ) : null}
+      </>
+    );
   return (
     <section className="panel forecast-summary">
       <h2>Прогноз</h2>
       {vacationActive ? (
-        <p className="muted">Режим отпуска: повторения приостановлены.</p>
-      ) : populated.length === 0 ? (
-        <p className="muted">Нет запланированных повторений.</p>
+        <>
+          <p className="muted">Режим отпуска: повторения приостановлены.</p>
+          {schedule === null ? null : (
+            <SectionDisclosure title="Сохранённые сроки">{schedule}</SectionDisclosure>
+          )}
+        </>
       ) : (
-        renderBuckets(populated.slice(0, 3))
+        (schedule ?? <p className="muted">Нет запланированных повторений.</p>)
       )}
-      {(vacationActive && populated.length > 0) || populated.length > 3 ? (
-        <SectionDisclosure title={vacationActive ? "Сохранённые сроки" : "Остальные сроки"}>
-          {renderBuckets(vacationActive ? populated : populated.slice(3))}
-        </SectionDisclosure>
-      ) : null}
     </section>
   );
 }
@@ -2146,7 +2214,7 @@ function MetricCard({
       <strong>{value}</strong>
       <span className="metric-card-action">
         {action}
-        <ArrowRight size={16} aria-hidden="true" />
+        {href === undefined ? null : <ArrowRight size={16} aria-hidden="true" />}
       </span>
     </>
   );

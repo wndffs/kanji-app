@@ -852,6 +852,44 @@ test.describe("lesson session", () => {
     await expect(page.getByText("hitotsukudasai。", { exact: true })).toBeHidden();
   });
 
+  test("gives a long Japanese word the full mobile row and retains its furigana", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await signIn(page, { lessonPronunciationMode: "furigana" });
+    await mockLessonApi(page);
+    const japanese = "四捨五入";
+    const reading = "ししゃごにゅう";
+    const word: LessonQueueItem = {
+      ...lessonQueueItem,
+      item: { ...lessonQueueItem.item, itemType: "word", japanese, reading },
+      cards: lessonQueueItem.cards.map((card) => ({
+        ...card,
+        itemType: "word",
+        prompt: { japanese, reading },
+        acceptedAnswers:
+          card.answerType === "reading"
+            ? [{ locale: "ru-RU", text: reading, isPrimary: true }]
+            : card.acceptedAnswers,
+      })),
+    };
+    await page.route(`${API_BASE_URL}/lessons/queue?offset=0**`, (route) =>
+      route.fulfill({ json: queueResponse([word]) }),
+    );
+    await page.goto("/lessons");
+    await page.getByRole("button", { name: "Начать урок", exact: true }).click();
+    const subject = page.locator(".lesson-teaching-hero");
+    const prompt = subject.locator(".review-japanese");
+    await expect(prompt).toHaveText(japanese);
+    await expect(subject).toHaveAttribute("data-subject-layout", "text");
+    expect((await prompt.boundingBox())!.width).toBeGreaterThan(220);
+    await page.getByRole("button", { name: "Далее: Чтение" }).click();
+    await expect(prompt.locator("rt")).toHaveText(reading);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+  });
+
   test("starts the existing lesson flow from a saved deck", async ({ page }) => {
     await signIn(page);
     const startBody = await mockDeckLessonApi(page);

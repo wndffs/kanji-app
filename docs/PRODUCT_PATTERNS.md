@@ -78,6 +78,23 @@ learning content:
 Only those general product mechanics inform this plan. User progress, item
 content, copy, visual styling, and proprietary curriculum order are excluded.
 
+## Everyday Study Ergonomics
+
+- The dashboard separates the queue due now from new reviews in the next
+  24 hours. A non-actionable queue displays its state, not a start command.
+  Forecast dates show their total load and reveal the original hourly
+  breakdown without recomputing the schedule in the browser.
+- In a review, show the question type before the answer and keep feedback and
+  the next action in the same visual group. Enter should advance from the
+  focused feedback action; details and private answers remain available
+  without a detour. These presentation choices never modify grading.
+- In lessons, use the compact side-by-side subject layout only for a single
+  glyph. Words and sentences get a full-width text row, with pronunciation
+  aids shown according to the learner's existing preferences.
+- Validate the study path at narrow (320 px), mobile and desktop widths,
+  including short viewports, wrapped Russian text and distinct Japanese
+  glyphs. Check actual focus and bounds, not merely the presence of controls.
+
 ## Corrected post-MVP sequence
 
 1. Task 41: add standard yoon combinations as independent kana lesson units.

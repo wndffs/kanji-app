@@ -186,8 +186,9 @@ test.describe("dashboard smoke", () => {
     await page.route(`${API_BASE_URL}/courses`, (route) =>
       route.fulfill({ json: buildCourseList("course-1") }),
     );
+    const dashboard = buildMinimalDashboard("course-1", "Базовый курс");
     await page.route(`${API_BASE_URL}/dashboard`, (route) =>
-      route.fulfill({ json: buildMinimalDashboard("course-1", "Базовый курс") }),
+      route.fulfill({ json: { ...dashboard, counts: { ...dashboard.counts, dueReviews: 3 } } }),
     );
     await page.goto("/dashboard");
     await expect(page.locator(".dashboard-heading .primary-action")).toHaveCount(0);
@@ -319,7 +320,7 @@ test.describe("dashboard smoke", () => {
     await expect(page.getByLabel("Режим перевода карточек")).toBeVisible();
   });
 
-  test("displays forecast bucket due counts", async ({ page }) => {
+  test("shows 24-hour workload and switches the forecast by day", async ({ page }) => {
     await signIn(page);
 
     await page.route(`${API_BASE_URL}/courses`, async (route) => {
@@ -464,6 +465,12 @@ test.describe("dashboard smoke", () => {
               localDate: "2026-06-24",
               localHour: 16,
               dueCount: 1,
+            },
+            {
+              bucketKey: "2026-06-25T09:00",
+              localDate: "2026-06-25",
+              localHour: 9,
+              dueCount: 6,
             },
           ],
           leechCandidates: [
@@ -618,6 +625,19 @@ test.describe("dashboard smoke", () => {
       .locator(".forecast-volume > span")
       .evaluate((element) => parseFloat((element as HTMLElement).style.height));
     expect(volume).toBeCloseTo(100 / 3);
+    const forecast = page.locator(".forecast-summary");
+    await expect(forecast.locator(".forecast-next-total")).toHaveText(
+      /3\s*Новых повторений за 24 часа/u,
+    );
+    const day = forecast.getByLabel("День прогноза");
+    await expect(day.locator("option")).toHaveText([
+      "24.06.2026 · 4 карточки",
+      "25.06.2026 · 6 карточек",
+    ]);
+    await day.selectOption("2026-06-25");
+    await expect(forecast.getByTestId("forecast-bucket")).toHaveCount(1);
+    await expect(forecast.getByTestId("forecast-bucket")).toContainText("25.06.2026, 09:00");
+    await expect(forecast.getByTestId("forecast-bucket")).toContainText("6 карточек");
     await expect(page.getByTestId("srs-spread-stage")).toHaveCount(2);
     await expect(page.getByTestId("srs-spread-stage").first()).toContainText("Ученик 1");
     await expect(page.getByTestId("srs-spread-stage").last()).toContainText("Закреплено");
@@ -659,6 +679,34 @@ test.describe("dashboard smoke", () => {
     await expect(page.getByRole("link", { name: /^К повторению:/ })).toHaveAttribute(
       "href",
       "/reviews",
+    );
+  });
+
+  test("shows empty queues without fake start actions on a narrow screen", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await signIn(page);
+    const dashboard = buildMinimalDashboard("course-1", "Базовый курс");
+    await page.route(`${API_BASE_URL}/dashboard`, (route) =>
+      route.fulfill({
+        json: { ...dashboard, counts: { ...dashboard.counts, availableLessons: 0 } },
+      }),
+    );
+    await page.goto("/dashboard");
+    const metrics = page.getByRole("region", { name: "Счётчики" });
+    await expect(metrics.getByText("Сейчас нет карточек", { exact: true })).toBeVisible();
+    await expect(metrics.getByText("Нет новых материалов", { exact: true })).toBeVisible();
+    await expect(metrics.getByRole("link")).toHaveCount(0);
+    await expect(page.locator(".dashboard-heading .primary-action")).toHaveAttribute(
+      "href",
+      "/practice",
+    );
+    const [first, second] = await Promise.all(
+      [0, 1].map((index) => metrics.locator(".metric-card").nth(index).boundingBox()),
+    );
+    expect(first!.y).toBe(second!.y);
+    expect(first!.x + first!.width).toBeLessThanOrEqual(second!.x);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
     );
   });
 

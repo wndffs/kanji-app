@@ -1772,6 +1772,8 @@ function LessonStudyView({
     );
   }, [lesson.item.id, phase]);
   const showsMemory = mnemonicGroups.length > 0 || hintGroups.length > 0;
+  const glyphCount = Array.from(lesson.item.japanese).length;
+  const usesTextSize = glyphCount >= 4 || lesson.item.itemType === "sentence";
   const pronunciationText = getLessonPronunciationText(lesson);
   const pronunciationRevealed = phase !== "meaning";
   const itemRomaji =
@@ -1830,7 +1832,10 @@ function LessonStudyView({
       </div>
 
       <div className="lesson-teaching-layout">
-        <article className="lesson-hero lesson-teaching-hero">
+        <article
+          className="lesson-hero lesson-teaching-hero"
+          data-subject-layout={glyphCount === 1 && !usesTextSize ? "glyph" : "text"}
+        >
           <div className="lesson-hero-main">
             <div className="lesson-item-meta">
               <span>{formatItemType(lesson.item.itemType)}</span>
@@ -1842,7 +1847,7 @@ function LessonStudyView({
               furigana={
                 pronunciationRevealed && pronunciationMode === "furigana" ? pronunciationText : null
               }
-              variant={lesson.item.itemType === "sentence" ? "sentence" : "display"}
+              variant={usesTextSize ? "sentence" : "display"}
             >
               {lesson.item.japanese}
             </JapaneseText>
