@@ -556,7 +556,28 @@ describe("bounded vocabulary curation", () => {
   ] as const)(
     "curates a reviewed batch at registered level %i with its %s band",
     async (levelNumber, band) => {
-      const batch = { ...buildMainCourseWordBatch(), levelNumber };
+      const original = buildMainCourseWordBatch();
+      const sortOrderStart =
+        1 +
+        Math.max(
+          0,
+          ...buildMainCourseContentBatches()
+            .flatMap((entry) => entry.kanji)
+            .filter((item) => item.levelNumber === levelNumber)
+            .map((item) => item.sortOrder),
+          ...buildMainCourseWordBatches()
+            .filter((entry) => entry.levelNumber === levelNumber)
+            .flatMap((entry) => entry.words.map((item) => item.sortOrder)),
+        );
+      const batch = {
+        ...original,
+        levelNumber,
+        sortOrderStart,
+        words: original.words.map((word, index) => ({
+          ...word,
+          sortOrder: sortOrderStart + index,
+        })),
+      };
       const fixture = harness([batch]);
       expect(await planMainCourseWordBatch(fixture.db, batch)).toMatchObject({
         courseLevelId: `level-${levelNumber}`,

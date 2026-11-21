@@ -18,6 +18,7 @@ export async function inspectLocalCourseSources(
   snapshot: LocalSourceSnapshot,
   kanjiBatches: readonly MainCourseContentBatch[],
   wordBatches: readonly MainCourseWordBatch[],
+  componentSymbolsByKey?: ReadonlyMap<string, string>,
 ) {
   const source = (id: "jmdict" | "kanjidic2" | "kanjivg") => {
     const entry = snapshot.sources.find((source) => source.id === id);
@@ -28,6 +29,18 @@ export async function inspectLocalCourseSources(
   const words = wordBatches.flatMap((batch) => batch.words);
   if (kanji.length + words.length === 0) throw new Error("Select nonempty course manifests.");
   const requiredStrokes = kanji.filter((item) => item.requireStrokeData);
+  const expectedComponents = componentSymbolsByKey
+    ? new Map(
+        requiredStrokes.map((item) => [
+          item.character,
+          item.componentKeys.map((key) => {
+            const symbol = componentSymbolsByKey.get(key);
+            if (!symbol) throw new Error(`Unknown component key ${key}.`);
+            return symbol;
+          }),
+        ]),
+      )
+    : undefined;
   const pairs = words.flatMap((word) =>
     [word.reading, ...(word.acceptedReadings ?? [])].map((reading) => ({
       expression: word.expression,
@@ -51,12 +64,14 @@ export async function inspectLocalCourseSources(
         await inspectLocalStrokes(
           source("kanjivg"),
           requiredStrokes.map((item) => item.character),
+          expectedComponents,
         )
       ).items
     : [];
   const matches = pairs.length ? (await inspectLocalWords(source("jmdict"), pairs)).items : [];
   const badReadings = readings.filter((item) => item.status !== "matched");
   const badStrokes = strokes.filter((item) => item.status !== "matched");
+  const missingComponents = strokes.reduce((n, item) => n + item.missingComponents.length, 0);
   const badWords = matches.filter(
     (item, index) =>
       item.status !== "matched" ||
@@ -72,10 +87,23 @@ export async function inspectLocalCourseSources(
     snapshotVersion: snapshot.snapshotVersion,
     kanji: { checked: readings.length, failed: badReadings.length },
     strokes: { checked: strokes.length, failed: badStrokes.length },
+    ...(expectedComponents
+      ? {
+          strokeComponents: {
+            checked: [...expectedComponents.values()].reduce((n, items) => n + items.length, 0),
+            failed: missingComponents,
+          },
+        }
+      : {}),
     wordPairs: { checked: matches.length, failed: badWords.length },
     noteProofsRequired,
     sourceMatchesComplete:
-      badReadings.length + badStrokes.length + badWords.length + noteProofsRequired === 0,
+      badReadings.length +
+        badStrokes.length +
+        badWords.length +
+        noteProofsRequired +
+        missingComponents ===
+      0,
     independentReview: false,
     publicationApproved: false,
   };
@@ -83,6 +111,7 @@ export async function inspectLocalCourseSources(
 
 export function parseLocalCourseEvidenceArgs(args: readonly string[]) {
   let directory: string | undefined;
+  let checkComponents = false;
   const kanjiBatchIds: string[] = [];
   const wordBatchIds: string[] = [];
   for (let index = 0; index < args.length; index += 2) {
@@ -90,6 +119,10 @@ export function parseLocalCourseEvidenceArgs(args: readonly string[]) {
     if (!value || value.startsWith("--")) throw new Error("Missing local evidence argument.");
     if (flag === "--snapshot-dir" && directory === undefined && isAbsolute(value)) {
       directory = value;
+      continue;
+    }
+    if (flag === "--check-components" && value === "true" && !checkComponents) {
+      checkComponents = true;
       continue;
     }
     const ids =
@@ -107,7 +140,9 @@ export function parseLocalCourseEvidenceArgs(args: readonly string[]) {
     throw new Error(
       "Use --snapshot-dir ABSOLUTE_DIR and explicit --kanji-batch / --word-batch IDs.",
     );
-  return { directory, kanjiBatchIds, wordBatchIds };
+  if (checkComponents && kanjiBatchIds.length === 0)
+    throw new Error("Select a kanji batch to check component evidence.");
+  return { directory, kanjiBatchIds, wordBatchIds, checkComponents };
 }
 
 function select<T extends { readonly id: string }>(registry: readonly T[], ids: readonly string[]) {
@@ -120,12 +155,19 @@ function select<T extends { readonly id: string }>(registry: readonly T[], ids: 
 
 async function main() {
   const options = parseLocalCourseEvidenceArgs(process.argv.slice(2));
-  const kanji = select(buildMainCourseContentBatches(), options.kanjiBatchIds);
+  const course = buildMainCourseContentBatches();
+  const kanji = select(course, options.kanjiBatchIds);
   const words = select(buildMainCourseWordBatches(), options.wordBatchIds);
+  const components = options.checkComponents
+    ? new Map(
+        course.flatMap((batch) => batch.components.map((item) => [item.key, item.symbol] as const)),
+      )
+    : undefined;
   const result = await inspectLocalCourseSources(
     await verifyLocalSnapshot(options.directory),
     kanji,
     words,
+    components,
   );
   console.log(JSON.stringify(result));
   process.exitCode = result.sourceMatchesComplete ? 0 : 2;

@@ -18,6 +18,7 @@ import {
   parseLocalCourseEvidenceArgs,
 } from "./local-course-evidence.mts";
 import { buildMainCourseWordBatch } from "../packages/db/src/main-course-word-content";
+import { buildMainCourseContentBatches } from "../packages/db/src/main-course-content";
 import {
   localCandidateFingerprint,
   summarizeLocalEvidence,
@@ -244,6 +245,28 @@ describe("bounded streaming source evidence", () => {
       inspectLocalStrokes(await localSource(vg.replace("-s1", "-s2"), "kanjivg"), ["校"]),
     ).rejects.toThrow("complete primary sequence");
   });
+  it("requires actual component labels with strokes rather than aliases or empty groups", async () => {
+    const graphic = vg
+      .replace('<g id="kvg:StrokePaths_06821">', '<g kvg:element="校">')
+      .replace(
+        '<path id="kvg:06821-s1" d="M1 2 L3 4"/>',
+        '<g kvg:element="木" kvg:original="交"><path id="kvg:06821-s1" d="M1 2 L3 4"/></g><g kvg:element="父"/>',
+      );
+    const { items } = await inspectLocalStrokes(
+      await localSource(graphic, "kanjivg"),
+      ["校"],
+      new Map([["校", ["木", "交", "校", "父"]]]),
+    );
+    expect(items[0]).toMatchObject({ status: "matched", missingComponents: ["交", "校", "父"] });
+
+    const elementary = vg.replace('<g id="kvg:StrokePaths_06821">', '<g kvg:element="校">');
+    const self = await inspectLocalStrokes(
+      await localSource(elementary, "kanjivg"),
+      ["校"],
+      new Map([["校", ["校"]]]),
+    );
+    expect(self.items[0]).toMatchObject({ status: "matched", missingComponents: [] });
+  });
   it("accepts bounded literal entities but never external or recursive expansion", async () => {
     const safe = await localSource(
       '<!DOCTYPE JMdict [<!ENTITY term "school">]><JMdict><entry><gloss>&term;</gloss></entry></JMdict>',
@@ -282,6 +305,33 @@ describe("bounded streaming source evidence", () => {
   });
 });
 describe("aggregate and review boundaries", () => {
+  it("reports missing requested stroke components without exposing glyphs or proving approval", async () => {
+    const batch = buildMainCourseContentBatches().find((batch) =>
+      batch.kanji.some((item) => item.character === "校"),
+    )!;
+    const kanji = batch.kanji.find((item) => item.character === "校")!;
+    const snapshot = {
+      snapshotVersion: "2026-10-31",
+      sources: [await localSource(kd, "kanjidic2"), await localSource(vg, "kanjivg")],
+    };
+    const selection = [{ ...batch, kanji: [{ ...kanji, componentKeys: ["fixture"] }] }];
+    const report = await inspectLocalCourseSources(
+      snapshot,
+      selection,
+      [],
+      new Map([["fixture", "木"]]),
+    );
+    expect(report).toMatchObject({
+      strokes: { checked: 1, failed: 0 },
+      strokeComponents: { checked: 1, failed: 1 },
+      sourceMatchesComplete: false,
+      publicationApproved: false,
+    });
+    expect(JSON.stringify(report)).not.toMatch(/校|木/u);
+    await expect(inspectLocalCourseSources(snapshot, selection, [])).resolves.toMatchObject({
+      sourceMatchesComplete: true,
+    });
+  });
   it("checks the exact registered source identity and cannot approve publication", async () => {
     const jmdict = await localSource(`<JMdict>${entry("1")}</JMdict>`);
     const snapshot = { snapshotVersion: "2026-10-31", sources: [jmdict] };
@@ -318,11 +368,22 @@ describe("aggregate and review boundaries", () => {
       [],
       ["--word-batch", "../file"],
       ["--apply", "true"],
+      ["--word-batch", "batch-1", "--check-components", "true"],
       ["--word-batch", "batch-1", "--word-batch", "batch-1"],
     ])
       expect(() =>
         parseLocalCourseEvidenceArgs(["--snapshot-dir", directory, ...values]),
       ).toThrow();
+    expect(
+      parseLocalCourseEvidenceArgs([
+        "--snapshot-dir",
+        directory,
+        "--kanji-batch",
+        "batch-2",
+        "--check-components",
+        "true",
+      ]),
+    ).toMatchObject({ checkComponents: true, kanjiBatchIds: ["batch-2"] });
   });
   it("never turns matching identities into independent approval", () => {
     const result = summarizeLocalEvidence({
