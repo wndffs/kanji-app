@@ -140,6 +140,7 @@ async function main(): Promise<void> {
           await applyMainCourseContentBatches(prisma, {
             registry: batches,
             onProgress: logCurationCheckpoint,
+            ...(options.stagePairs ? { stagePairs: true } : {}),
             ...(options.batchId === undefined ? {} : { batchId: options.batchId }),
           }),
           null,
@@ -158,15 +159,19 @@ export function parseMainCourseCurationArgs(
 ) {
   const invalid = () =>
     new Error(
-      "Use no arguments to apply all batches, --validate-only, or --preflight-only; optionally select --batch <registered-id> once.",
+      "Use no arguments to apply all batches, --validate-only, or --preflight-only; optionally select --batch <registered-id> once. Use --stage-pairs only with explicit apply selection.",
     );
   let mode: "apply" | "validate-only" | "preflight-only" = "apply";
   let batchId: string | undefined;
+  let stagePairs = false;
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
     if (arg === "--validate-only" || arg === "--preflight-only") {
       if (mode !== "apply") throw invalid();
       mode = arg.slice(2) as "validate-only" | "preflight-only";
+    } else if (arg === "--stage-pairs") {
+      if (stagePairs) throw invalid();
+      stagePairs = true;
     } else if (arg === "--batch") {
       const value = args[++index];
       if (batchId !== undefined || value === undefined || value.startsWith("--")) throw invalid();
@@ -175,7 +180,12 @@ export function parseMainCourseCurationArgs(
       batchId = value;
     } else throw invalid();
   }
-  return { mode, ...(batchId === undefined ? {} : { batchId }) };
+  if (stagePairs && (mode !== "apply" || batchId === undefined)) throw invalid();
+  return {
+    mode,
+    ...(batchId === undefined ? {} : { batchId }),
+    ...(stagePairs ? { stagePairs } : {}),
+  };
 }
 
 function selectRegisteredBatches(registry: readonly MainCourseContentBatch[], batchId?: string) {
@@ -193,14 +203,25 @@ export async function applyMainCourseContentBatches(
     readonly registry?: readonly MainCourseContentBatch[];
     readonly batchId?: string;
     readonly onProgress?: CurationProgressListener;
+    readonly stagePairs?: boolean;
   } = {},
 ) {
+  if (options.stagePairs && options.batchId === undefined)
+    throw new Error("Paired kanji staging requires an explicit manifest selection.");
   const registry = options.registry ?? buildMainCourseContentBatches();
   const selected = selectRegisteredBatches(registry, options.batchId);
   for (const batch of selected) requireParentReview(batch);
   const results = [];
   for (const batch of selected)
-    results.push(await applyMainCourseContentBatch(prisma, batch, registry, options.onProgress));
+    results.push(
+      await applyMainCourseContentBatch(
+        prisma,
+        batch,
+        registry,
+        options.onProgress,
+        options.stagePairs,
+      ),
+    );
   return { status: "success", batches: results };
 }
 
@@ -312,11 +333,13 @@ export async function planMainCourseContentBatch(
 
   // These checks are read-only and independent. Drain each bounded group before
   // reporting its first error or allowing any teaching writes.
+  const newKanji = new Set<string>();
   for (let offset = 0; offset < batch.kanji.length; offset += KANJI_PREFLIGHT_CONCURRENCY) {
     const checks = await Promise.allSettled(
       batch.kanji.slice(offset, offset + KANJI_PREFLIGHT_CONCURRENCY).map(async (content) => {
         const kanji = await requireKanjiEvidence(db, content);
         const item = await findPlacedItem(db, "KANJI", kanji.id, course.id);
+        if (item === null) newKanji.add(content.character);
         await checkPlacement(
           db,
           requiredLevelId(levelByNumber, content.levelNumber),
@@ -327,7 +350,7 @@ export async function planMainCourseContentBatch(
     );
     for (const result of checks) if (result.status === "rejected") throw result.reason;
   }
-  return { courseId: course.id, levelByNumber, priorComponentLearningItemIds };
+  return { courseId: course.id, levelByNumber, priorComponentLearningItemIds, newKanji };
 }
 
 async function findPlacedItem(
@@ -377,9 +400,10 @@ export async function applyMainCourseContentBatch(
   batch: MainCourseContentBatch,
   registry: readonly MainCourseContentBatch[] = buildMainCourseContentBatches(),
   onProgress?: CurationProgressListener,
+  stagePairs = false,
 ) {
   requireParentReview(batch);
-  const { courseId, levelByNumber, priorComponentLearningItemIds } =
+  const { courseId, levelByNumber, priorComponentLearningItemIds, newKanji } =
     await planMainCourseContentBatch(prisma, batch, registry);
   const checksumSha256 = checksum(batch);
   const dataSourceId = await upsertCurationSource(prisma);
@@ -429,8 +453,8 @@ export async function applyMainCourseContentBatch(
       componentLearningItemIds.set(componentContent.key, learningItemId);
     }
 
-    for (const [index, kanjiContent] of batch.kanji.entries()) {
-      await prisma.$transaction(
+    const stage = (kanjiContent: MainCourseKanjiContent, mustBeNew = false) =>
+      prisma.$transaction(
         (db) =>
           applyKanji(
             db,
@@ -441,11 +465,29 @@ export async function applyMainCourseContentBatch(
             levelByNumber.get(kanjiContent.levelNumber)!.band,
             courseId,
             componentLearningItemIds,
+            mustBeNew,
           ),
         TRANSACTION_OPTIONS,
       );
-      const completed = index + 1;
-      if (completed % KANJI_CHECKPOINT_INTERVAL === 0 || completed === batch.kanji.length)
+    let completed = 0;
+    while (completed < batch.kanji.length) {
+      const entry = batch.kanji[completed]!;
+      const next = batch.kanji[completed + 1];
+      const previous = completed;
+      if (stagePairs && next && newKanji.has(entry.character) && newKanji.has(next.character)) {
+        // Component prerequisites are already committed; the two new kanji own disjoint rows.
+        const outcomes = await Promise.allSettled([stage(entry, true), stage(next, true)]);
+        for (const outcome of outcomes) if (outcome.status === "rejected") throw outcome.reason;
+        completed += 2;
+      } else {
+        await stage(entry);
+        completed++;
+      }
+      if (
+        Math.floor(completed / KANJI_CHECKPOINT_INTERVAL) >
+          Math.floor(previous / KANJI_CHECKPOINT_INTERVAL) ||
+        completed === batch.kanji.length
+      )
         onProgress?.({
           phase: "kanji-items-committed",
           batchId: batch.id,
@@ -718,6 +760,7 @@ async function applyKanji(
   curriculumBand: CourseBand,
   courseId: string,
   componentLearningItemIds: ReadonlyMap<string, string>,
+  mustBeNew: boolean,
 ): Promise<void> {
   const kanji = await requireKanjiEvidence(db, content);
 
@@ -761,30 +804,22 @@ async function applyKanji(
     })),
   });
 
-  const learningItem = await db.learningItem.upsert({
-    where: {
-      targetType_targetId: {
-        targetType: "KANJI",
-        targetId: kanji.id,
-      },
-    },
-    update: {
-      kind: "KANJI",
-      title: `Кандзи ${content.character}`,
-      levelHint: content.levelNumber,
-      curriculumBand,
-      status: "PUBLISHED",
-    },
-    create: {
-      kind: "KANJI",
-      targetType: "KANJI",
-      targetId: kanji.id,
-      title: `Кандзи ${content.character}`,
-      levelHint: content.levelNumber,
-      curriculumBand,
-      status: "PUBLISHED",
-    },
-  });
+  const targetType_targetId = { targetType: "KANJI", targetId: kanji.id } as const;
+  const learningItemFields = {
+    kind: "KANJI",
+    title: `Кандзи ${content.character}`,
+    levelHint: content.levelNumber,
+    curriculumBand,
+    status: "PUBLISHED",
+  } as const;
+  const data = { ...learningItemFields, ...targetType_targetId };
+  const learningItem = mustBeNew
+    ? await db.learningItem.create({ data })
+    : await db.learningItem.upsert({
+        where: { targetType_targetId },
+        update: learningItemFields,
+        create: data,
+      });
 
   await syncCards(db, learningItem.id, [
     {
@@ -946,13 +981,16 @@ async function upsertPlacement(
   learningItemId: string,
   sortOrder: number,
 ): Promise<void> {
-  await db.courseLevelItem.deleteMany({
+  const moved = await db.courseLevelItem.findFirst({
     where: {
       learningItemId,
-      courseLevelId: { not: courseLevelId },
       courseLevel: { courseId },
+      OR: [{ courseLevelId: { not: courseLevelId } }, { sortOrder: { not: sortOrder } }],
     },
+    select: { learningItemId: true },
   });
+  if (moved !== null)
+    throw new Error(`Refusing to move existing main-course placement for ${learningItemId}.`);
   const occupied = await db.courseLevelItem.findUnique({
     where: { courseLevelId_sortOrder: { courseLevelId, sortOrder } },
     select: { learningItemId: true },

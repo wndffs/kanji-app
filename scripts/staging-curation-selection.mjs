@@ -12,6 +12,7 @@ export function selectStagingCuration(env = process.env) {
   const supplement = env.SUPPLEMENT_WORD_SOURCES ?? "false";
   const sourcePairLimit = env.SOURCE_PAIR_LIMIT ?? "100";
   const stageWordPairs = env.STAGE_WORD_PAIRS ?? "false";
+  const stageKanjiPairs = env.STAGE_KANJI_PAIRS ?? "false";
   const sourceOnly = mode === "plan_sources" || mode === "apply_sources";
   const receiptsOnly = mode === "receipts";
   if (
@@ -26,6 +27,13 @@ export function selectStagingCuration(env = process.env) {
     !["plan", "apply", "plan_sources", "apply_sources", "receipts"].includes(mode) ||
     !["true", "false"].includes(supplement) ||
     !["true", "false"].includes(stageWordPairs) ||
+    !["true", "false"].includes(stageKanjiPairs) ||
+    (stageKanjiPairs === "true" &&
+      (mode !== "apply" ||
+        kanji === "" ||
+        skipWords !== "true" ||
+        words !== "" ||
+        supplement !== "false")) ||
     (stageWordPairs === "true" &&
       (mode !== "apply" || kanji !== "" || words === "" || supplement !== "false")) ||
     typeof sourcePairLimit !== "string" ||

@@ -84,6 +84,10 @@ describe("explicit staging curation selection", () => {
       STAGE_WORD_PAIRS: "true",
     },
     { CURATION_MODE: "apply_sources", WORD_BATCH: WORDS, STAGE_WORD_PAIRS: "true" },
+    { CURATION_MODE: "plan", KANJI_BATCH: KANJI, SKIP_WORDS: "true", STAGE_KANJI_PAIRS: "true" },
+    { CURATION_MODE: "apply", KANJI_BATCH: KANJI, SKIP_WORDS: "true", STAGE_KANJI_PAIRS: "2" },
+    { CURATION_MODE: "apply", KANJI_BATCH: KANJI, WORD_BATCH: WORDS, STAGE_KANJI_PAIRS: "true" },
+    { CURATION_MODE: "apply", WORD_BATCH: WORDS, STAGE_KANJI_PAIRS: "true" },
     { WORD_BATCH: Array.from({ length: 41 }, (_, i) => `word-${i}`).join(",") },
   ])("fails ambiguous or unsafe input before database work: %j", (env) => {
     expect(() => selectStagingCuration(env)).toThrow("Invalid staging curation selection.");
@@ -131,6 +135,21 @@ describe("explicit staging curation selection", () => {
       sourceOnly: false,
     });
   });
+  it("allows paired kanji staging only with words and source writes disabled", () => {
+    expect(
+      selectStagingCuration({
+        CURATION_MODE: "apply",
+        KANJI_BATCH: KANJI,
+        SKIP_WORDS: "true",
+        STAGE_KANJI_PAIRS: "true",
+      }),
+    ).toEqual({
+      applyKanji: true,
+      applyWords: false,
+      supplementWordSources: false,
+      sourceOnly: false,
+    });
+  });
   it.each(["plan_sources", "apply_sources"])("isolates %s from teaching writes", (mode) => {
     expect(
       selectStagingCuration({ CURATION_MODE: mode, WORD_BATCH: WORDS, SOURCE_PAIR_LIMIT: "50" }),
@@ -174,6 +193,13 @@ describe("explicit staging curation selection", () => {
       .split("\n      - name:")[0]!;
     expect(readOnlyKanji).toContain("inputs.mode == 'plan'");
     expect(readOnlyKanji).toContain("npm run db:curate -- --preflight-only");
+    expect(readOnlyKanji).not.toContain("--stage-pairs");
+    const applyKanji = workflow
+      .split("- name: Apply versioned main-course curation")[1]!
+      .split("\n      - name:")[0]!;
+    expect(applyKanji).toContain(
+      "if [ \"$STAGE_KANJI_PAIRS\" = 'true' ]; then args+=(--stage-pairs); fi",
+    );
     const readOnlyWords = workflow
       .split("- name: Preflight reviewed vocabulary without mutations")[1]!
       .split("\n      - name:")[0]!;

@@ -1178,6 +1178,13 @@ staging, so a restart cannot withdraw their already-published examples.
 Rerun receipts and a plan before resuming.
 The default is sequential. Measure a real release before broad use.
 
+`stage_kanji_pairs` is the separate kanji-only option. Components are written
+sequentially first; pairs contain only newly created kanji, each rechecking
+its raw source, prerequisites and slot. If a pair fails, both transactions
+finish before the run is marked failed. Committed kanji retain their prior
+per-item visibility, but the block has no complete receipt. No mode moves an
+established main-course placement if it changes after preflight.
+
 The full content-quality CLI prints `courseCoverage` from the same database
 snapshot as the quality audit. It reports only aggregate published main-course
 targets, core review cards, licensed strokes, eligible word examples, level

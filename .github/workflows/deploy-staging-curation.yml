@@ -38,6 +38,10 @@ on:
         description: For word-only apply with existing raw sources, stage two new word items at once
         type: boolean
         default: false
+      stage_kanji_pairs:
+        description: For kanji-only apply, stage two new kanji items at once
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -62,6 +66,7 @@ jobs:
       SUPPLEMENT_WORD_SOURCES: ${{ inputs.supplement_word_sources }}
       SOURCE_PAIR_LIMIT: ${{ inputs.source_pair_limit }}
       STAGE_WORD_PAIRS: ${{ inputs.stage_word_pairs }}
+      STAGE_KANJI_PAIRS: ${{ inputs.stage_kanji_pairs }}
 
     steps:
       - name: Check out repository
@@ -207,6 +212,7 @@ jobs:
         run: |
           args=()
           if [ -n "$KANJI_BATCH" ]; then args+=(--batch "$KANJI_BATCH"); fi
+          if [ "$STAGE_KANJI_PAIRS" = 'true' ]; then args+=(--stage-pairs); fi
           npm run db:curate -- "${args[@]}"
 
       - name: Preflight reviewed vocabulary without mutations

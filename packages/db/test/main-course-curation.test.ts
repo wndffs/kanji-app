@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   applyMainCourseContentBatch,
   applyMainCourseContentBatches,
+  parseMainCourseCurationArgs,
   planMainCourseContentBatch,
 } from "../prisma/curate-main-course";
 import { buildMainCourseBlueprint } from "../src/main-course";
@@ -11,6 +12,23 @@ import { buildMainCourseContentBatches } from "../src/main-course-content";
 import { resolvePrimaryTaughtReading } from "../src/taught-reading";
 
 describe("main-course curation preflight and application", () => {
+  it("allows paired kanji staging only with an explicit registered apply", () => {
+    const { batch, registry } = curationFixture();
+    const args = ["--batch", batch.id, "--stage-pairs"];
+    expect(parseMainCourseCurationArgs(args, registry)).toEqual({
+      mode: "apply",
+      batchId: batch.id,
+      stagePairs: true,
+    });
+    for (const invalid of [
+      ["--stage-pairs"],
+      [...args, "--preflight-only"],
+      [...args, "--stage-pairs"],
+    ])
+      expect(() => parseMainCourseCurationArgs(invalid, registry)).toThrow(
+        "explicit apply selection",
+      );
+  });
   it("checks kanji sources in groups of four and drains a failing group before returning", async () => {
     const fixture = curationFixture();
     const missing = fixture.batch.kanji[0]!.character;
@@ -853,6 +871,120 @@ describe("main-course curation preflight and application", () => {
     expect(fixture.state.cards.size).toBe(120);
     expect(fixture.privateMutation).not.toHaveBeenCalled();
   });
+
+  it("commits components before any new kanji pair and retains bounded checkpoints", async () => {
+    const fixture = curationFixture();
+    const transaction = fixture.transaction.getMockImplementation()!;
+    let active = 0;
+    const inFlight: number[] = [];
+    fixture.transaction.mockImplementation(async (callback) => {
+      inFlight.push(++active);
+      try {
+        return await transaction(callback);
+      } finally {
+        active--;
+      }
+    });
+    const progress = vi.fn();
+    await applyMainCourseContentBatches(fixture.db, {
+      registry: fixture.registry,
+      batchId: fixture.batch.id,
+      stagePairs: true,
+      onProgress: progress,
+    });
+    expect(inFlight.slice(0, fixture.batch.components.length)).toEqual(
+      fixture.batch.components.map(() => 1),
+    );
+    expect(
+      inFlight.slice(fixture.batch.components.length, fixture.batch.components.length + 2),
+    ).toEqual([1, 2]);
+    expect(Math.max(...inFlight)).toBe(2);
+    expect(active).toBe(0);
+    expect(fixture.db.learningItem.create).toHaveBeenCalledTimes(fixture.batch.kanji.length);
+    expect(progress).toHaveBeenLastCalledWith(
+      expect.objectContaining({ completed: fixture.batch.kanji.length }),
+    );
+    expect(fixture.privateMutation).not.toHaveBeenCalled();
+  });
+
+  it("drains the active kanji pair on failure without marking its manifest successful", async () => {
+    const fixture = curationFixture();
+    const [first, second] = fixture.batch.kanji;
+    fixture.failDependencyFor(`kanji-${first!.character}`);
+    const transaction = fixture.transaction.getMockImplementation()!;
+    const failureIndex = fixture.batch.components.length + 1;
+    let started = 0;
+    let signalFailure!: () => void;
+    let releasePeer!: () => void;
+    const failed = new Promise<void>((resolve) => {
+      signalFailure = resolve;
+    });
+    const peer = new Promise<void>((resolve) => {
+      releasePeer = resolve;
+    });
+    fixture.transaction.mockImplementation(async (callback) => {
+      const index = ++started;
+      if (index === failureIndex + 1) await peer;
+      try {
+        return await transaction(callback);
+      } finally {
+        if (index === failureIndex) signalFailure();
+      }
+    });
+    const applied = expect(
+      applyMainCourseContentBatch(fixture.db, fixture.batch, fixture.registry, undefined, true),
+    ).rejects.toThrow("test dependency failure");
+    await failed;
+    try {
+      expect(started).toBe(failureIndex + 1);
+      expect(fixture.db.importRun.update).not.toHaveBeenCalled();
+    } finally {
+      releasePeer();
+    }
+    await applied;
+    expect(started).toBe(failureIndex + 1);
+    expect(fixture.state.items.has(`KANJI:kanji-${first!.character}`)).toBe(false);
+    expect(fixture.state.items.get(`KANJI:kanji-${second!.character}`)?.status).toBe("PUBLISHED");
+    expect(fixture.db.importRun.update).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "FAILED" }) }),
+    );
+  });
+
+  it("does not move an existing kanji whose slot changed after preflight", async () => {
+    const fixture = curationFixture();
+    const first = fixture.batch.kanji[0]!;
+    const item = {
+      id: "existing-first",
+      targetId: `kanji-${first.character}`,
+      targetType: "KANJI",
+      kind: "KANJI",
+      status: "PUBLISHED",
+    };
+    fixture.state.items.set(`KANJI:${item.targetId}`, item);
+    const levelId = `level-${first.levelNumber}`;
+    const originalKey = `${levelId}:${first.sortOrder}`;
+    const original = {
+      courseId: "main-course",
+      courseLevelId: levelId,
+      sortOrder: first.sortOrder,
+      learningItemId: item.id,
+    };
+    fixture.state.placements.set(originalKey, original);
+    const moved = { ...original, sortOrder: 9_999 };
+    const transaction = fixture.transaction.getMockImplementation()!;
+    fixture.transaction.mockImplementation(async (callback) => {
+      if (fixture.transaction.mock.calls.length === fixture.batch.components.length + 1) {
+        fixture.state.placements.delete(originalKey);
+        fixture.state.placements.set(`${levelId}:${moved.sortOrder}`, moved);
+      }
+      return transaction(callback);
+    });
+    await expect(
+      applyMainCourseContentBatch(fixture.db, fixture.batch, fixture.registry),
+    ).rejects.toThrow("Refusing to move existing main-course placement");
+    expect(fixture.state.placements.get(`${levelId}:${moved.sortOrder}`)).toEqual(moved);
+    expect(fixture.state.placements.has(originalKey)).toBe(false);
+  });
 });
 
 type Item = { id: string; targetId: string; targetType: string; kind: string; status: string };
@@ -1113,6 +1245,13 @@ function curationFixture(includeBridge = false) {
       ),
     },
     learningItem: {
+      create: write("learningItem.create", ({ data }: { data: Omit<Item, "id"> }) => {
+        const key = `${data.targetType}:${data.targetId}`;
+        if (state.items.has(key)) throw new Error("Conflicting kanji item.");
+        const row = { ...data, id: `new-item-${state.items.size + 1}` };
+        state.items.set(key, row);
+        return row;
+      }),
       findUnique: vi.fn(
         async ({
           where,
@@ -1176,26 +1315,23 @@ function curationFixture(includeBridge = false) {
           return state.placements.get(`${courseLevelId}:${sortOrder}`) ?? null;
         },
       ),
-      deleteMany: write(
-        "placement.deleteMany",
-        ({
+      findFirst: vi.fn(
+        async ({
           where,
         }: {
           where: {
             learningItemId: string;
-            courseLevelId: { not: string };
             courseLevel: { courseId: string };
+            OR: [{ courseLevelId: { not: string } }, { sortOrder: { not: number } }];
           };
-        }) => {
-          for (const [key, row] of state.placements) {
-            if (
+        }) =>
+          [...state.placements.values()].find(
+            (row) =>
               row.learningItemId === where.learningItemId &&
-              row.courseLevelId !== where.courseLevelId.not &&
-              row.courseId === where.courseLevel.courseId
-            )
-              state.placements.delete(key);
-          }
-        },
+              row.courseId === where.courseLevel.courseId &&
+              (row.courseLevelId !== where.OR[0].courseLevelId.not ||
+                row.sortOrder !== where.OR[1].sortOrder.not),
+          ) ?? null,
       ),
       upsert: write("placement.upsert", ({ create }: { create: Omit<Placement, "courseId"> }) => {
         const row = { ...create, courseId: "main-course" };
