@@ -38,8 +38,11 @@ const MAX_SOURCE_AUDIT_BATCH_IDS = 240;
 const MAX_SOURCE_PAIRS = 100;
 class IncompleteExistingSourceError extends Error {}
 class ChangedReviewedSourceError extends Error {
-  constructor(readonly mismatchedPairs: number) {
+  constructor(readonly mismatchedPairKeys: readonly string[]) {
     super("Refreshed JMdict evidence differs from reviewed lexical evidence.");
+  }
+  get mismatchedPairs() {
+    return this.mismatchedPairKeys.length;
   }
 }
 
@@ -186,7 +189,7 @@ export async function buildReviewedSourceSupplement(
       const expected = reviewedSeals.get(pairKey(candidate));
       return !expected || reviewedLexicalPairSeal(candidate, evidence.items[index]!) !== expected;
     });
-    if (mismatched.length) throw new ChangedReviewedSourceError(mismatched.length);
+    if (mismatched.length) throw new ChangedReviewedSourceError(mismatched.map(pairKey));
   }
   const ids = new Set(candidates.map((item) => item.jmdictEntryId.replace(/^jmdict:/u, "")));
   const records = new Map<string, string>();
@@ -311,7 +314,28 @@ async function main(args: readonly string[]) {
       );
       return;
     }
-    const supplement = await buildReviewedSourceSupplement(source, missing, reviewedSeals);
+    const supplement = await buildReviewedSourceSupplement(source, missing, reviewedSeals).catch(
+      (error: unknown) => {
+        if (error instanceof ChangedReviewedSourceError) {
+          const changed = new Set(error.mismatchedPairKeys);
+          const manifests = batches
+            .map((batch) => ({
+              id: batch.id,
+              pairs: reviewedSourceCandidates([batch]).filter((item) => changed.has(pairKey(item)))
+                .length,
+            }))
+            .filter(({ pairs }) => pairs > 0);
+          console.error(
+            JSON.stringify({
+              status: "refreshed-source-review-required",
+              pairs: error.mismatchedPairs,
+              manifests,
+            }),
+          );
+        }
+        throw error;
+      },
+    );
     // Only these exact pairs are written; other spellings/readings of the same entries are untouched.
     const checkAbsent = async (reader: Pick<typeof db, "word">) =>
       requireAbsentSupplementPairs(
@@ -388,13 +412,6 @@ async function main(args: readonly string[]) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   main(process.argv.slice(2)).catch((error: unknown) => {
-    if (error instanceof ChangedReviewedSourceError)
-      console.error(
-        JSON.stringify({
-          status: "refreshed-source-review-required",
-          pairs: error.mismatchedPairs,
-        }),
-      );
     if (error instanceof IncompleteExistingSourceError)
       console.error(
         "REVIEWED_SOURCE_PROVENANCE_INCOMPLETE: existing rows need a separate reviewed provenance repair.",

@@ -1001,6 +1001,38 @@ remains **714 kanji / 1,300 words**.
   and preservation live. GitHub Actions authorization is still needed for
   the manual release; existing accounts and finite courses must not be moved.
 
+### Followthrough kanji receipt and remaining source inventory: 2026-11-22
+
+- The [kanji apply](https://github.com/wndffs/kanji-app/actions/runs/45040089799)
+  committed 200/200 and verified the exact receipt. Its final quality step
+  flagged 18 okurigana stems that had passed source preflight. The audit was
+  corrected to require an explicit reviewed stem selection and the matching
+  exact licensed KANJIDIC2 record, without permitting arbitrary prefixes.
+  No kanji or user data were rewritten to repair the audit.
+- The [corrected read-only plan](https://github.com/wndffs/kanji-app/actions/runs/45042594993)
+  confirmed **1,314 kanji / 2,440 words / 232 components / 7,740 core cards**,
+  zero blockers and warnings, and a `DRAFT` course. All **746 words in 33
+  manifests** passed live preflight. The kanji release preservation check
+  found all 18 protected groups unchanged; the public API returns 戻 / もど
+  with both languages, two review cards, and a licensed stroke graphic.
+- A [single read-only inventory](https://github.com/wndffs/kanji-app/actions/runs/45042668831)
+  checked all **4,814 words** after Followthrough (**214 manifests / 4,836
+  exact pairs**). It found **262 missing pairs**, no conflicting identities
+  and no incomplete import provenance. This checks presence only; exact
+  licensed lexical evidence and kanji gates still require regular preflight.
+
+| Remaining block | Absent exact pairs |
+| --------------- | -----------------: |
+| Coverage        |                 15 |
+| Consolidation   |                 30 |
+| Extension       |                 52 |
+| Finalization    |                 55 |
+| Closure         |                 67 |
+| Supplemental 1  |                  0 |
+| Supplemental 2  |                  8 |
+| Supplemental 3  |                 33 |
+| Capstone        |                  2 |
+
 ## Course Coverage: 2026-11-21
 
 This block adds **200 reviewed kanji, 784 words and 784 original
