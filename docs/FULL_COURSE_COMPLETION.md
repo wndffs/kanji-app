@@ -1210,7 +1210,8 @@ This block adds **160 independently reviewed kanji and 160 words**, with
 one reinforced reading and an original JP/kana/RU/EN word example per
 kanji. Reviewed totals: **2,074 kanji / 5,654 words / 239 components**
 across **54 populated levels**. Remaining to the requested volume:
-**226 kanji / 2,346 words**. Live Neon counts have not been updated.
+**226 kanji / 2,346 words** after applying both parts. See the live receipt
+below for deployed counts.
 
 - Two independent AI reviewers checked all 160 pairs in two halves, then
   the corrected block matched **160 exact bilingual JMdict pairs, 160
@@ -1226,6 +1227,21 @@ across **54 populated levels**. Remaining to the requested volume:
   core cards**. Verify actual counts, provenance, and preservation in Neon.
   Main stays DRAFT with no enrollment changes. Keep the next large editorial
   block focused on the remaining coverage and actionable vocabulary.
+
+### Finalization kanji server receipt: 2026-11-22
+
+- The [plan](https://github.com/wndffs/kanji-app/actions/runs/45062553288)
+  and [kanji apply](https://github.com/wndffs/kanji-app/actions/runs/45063604678)
+  completed the exact 160-kanji manifest. Live coverage: **2,074 kanji /
+  5,494 words / 239 components / 7,807 teaching targets / 15,375 core
+  cards**, 53/60 populated levels. The audit found zero blockers and
+  warnings, and all 18 protected groups matched. The public API returned
+  鴎 / かもめ, both translations, two cards and 15 licensed strokes.
+- The 160 reinforcement words were not applied. The existing source
+  inventory found 55 absent exact pairs in six of ten manifests. The
+  remaining reviewed kanji can be applied independently while the main
+  course is `DRAFT`; this does not complete vocabulary reinforcement or
+  enroll learners in the new levels.
 
 ## Kanji Coverage Closure: 2026-11-21
 
@@ -1252,6 +1268,23 @@ registry is not a live publication receipt.
   outstanding releases through Closure: **8,424 targets / 16,604 core
   cards**. Confirm live counts and preservation separately; keep main
   DRAFT and do not change enrollment or learner progress.
+
+### Kanji coverage server receipt: 2026-11-22
+
+- The [Closure plan](https://github.com/wndffs/kanji-app/actions/runs/45063640156)
+  and [kanji apply](https://github.com/wndffs/kanji-app/actions/runs/45066401809)
+  completed the final **226 kanji and five component cues**. Neon now has
+  **2,300 kanji / 5,494 words / 244 components / 8,038 teaching targets /
+  15,832 core cards**, with 58/60 populated levels and 2,300 licensed stroke
+  sequences. There were zero blockers and warnings. All 18 protected
+  groups were unchanged. The public API returned 錮 / こ with both
+  translations, two cards and 16 licensed strokes.
+- This meets the kanji count, not the complete-course gate. The main
+  course remains `DRAFT`, and **2,506 words** are still needed. The
+  Finalization and Closure word manifests still need 122 exact raw pairs
+  in total. Where sources already exist, independently reviewed word
+  manifests can advance after a live preflight confirms that all their
+  kanji and component prerequisites are present. No enrollment changes.
 
 ## Supplemental Vocabulary, First Block: 2026-11-21
 
