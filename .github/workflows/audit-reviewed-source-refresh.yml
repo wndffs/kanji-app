@@ -1,0 +1,42 @@
+name: Audit reviewed source refresh
+
+on:
+  workflow_dispatch:
+    inputs:
+      snapshot_version:
+        description: Date label for the official snapshot to inspect (YYYY-MM-DD)
+        type: string
+        required: true
+      word_batch:
+        description: Up to 40 explicit reviewed word batch IDs, comma-separated
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SNAPSHOT_VERSION: ${{ inputs.snapshot_version }}
+      WORD_BATCH: ${{ inputs.word_batch }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev
+      - name: Fetch and fingerprint official sources without database access
+        shell: bash
+        run: |
+          if ! [[ "$SNAPSHOT_VERSION" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then exit 1; fi
+          if ! [[ "$WORD_BATCH" =~ ^[a-z][a-z0-9-]{0,79}(,[a-z][a-z0-9-]{0,79}){0,39}$ ]]; then exit 1; fi
+          args=()
+          IFS=',' read -ra ids <<< "$WORD_BATCH"
+          for id in "${ids[@]}"; do args+=(--batch "$id"); done
+          node scripts/prepare-content-snapshot.mjs --snapshot-version "$SNAPSHOT_VERSION" --cache-root "$RUNNER_TEMP/reviewed-source-refresh"
+          npm exec -- tsx scripts/compare-reviewed-source-snapshots.mts \
+            --snapshot-dir "$RUNNER_TEMP/reviewed-source-refresh/$SNAPSHOT_VERSION" "${args[@]}"

@@ -40,3 +40,21 @@ prose/identities or changing either fingerprint makes the binding stale. A bound
 worksheet is only ready for independent review (or still source-blocked), never
 approval. A reviewer name or edited JSON flag cannot turn it into a publishing
 credential. Existing curator/review/publication gates are not wired to this file.
+
+## Refreshing an expired CI source cache
+
+The read-only `Audit reviewed source refresh` workflow downloads the official
+archives to runner temp and prints aggregate checksums for explicitly named
+reviewed word manifests. It has no database secret and does not upload source
+files. Compute the matching baseline against the intact local pinned snapshot
+with `npm exec -- tsx scripts/compare-reviewed-source-snapshots.mts
+--snapshot-dir ABSOLUTE_DIRECTORY --batch REGISTERED_ID` (repeat `--batch`
+as needed). The lexical seal covers exact pairs, source identifiers and the
+effective RU/EN gloss/part-of-speech set. Reordering and commonness alone do
+not change it. Compare two local snapshots with `--before-dir` and `--after-dir`
+instead. Output remains aggregate-only.
+
+This is evidence for reviewing a new pin, not permission to repin or import.
+Scope changes and separate historical sense-note proofs need their own review.
+The teaching workflow retains its fixed official archive hashes and all
+database preflight requirements.
