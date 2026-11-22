@@ -318,7 +318,43 @@ describe("bounded vocabulary curation", () => {
       ],
     });
   });
-  it("reads one course and each distinct kanji once per registry plan, but never caches standalone plans", async () => {
+
+  it("writes both authored cards' answers together without replacing non-authored rows", async () => {
+    const fixture = harness();
+    const imported = {
+      id: "imported-meaning-answer",
+      learningCardId: "existing-MEANING-card",
+      sourceKind: "IMPORTED",
+      text: "imported answer",
+    };
+    fixture.state.answers.set(imported.id, imported);
+    const obsolete = { ...imported, id: "obsolete-authored", sourceKind: "PROJECT_AUTHORED" };
+    fixture.state.answers.set(obsolete.id, obsolete);
+
+    await applyMainCourseWordBatch(fixture.db, fixture.batch);
+
+    expect(fixture.db.wordSense.deleteMany).toHaveBeenCalledTimes(fixture.batch.words.length);
+    expect(fixture.db.learningAnswer.deleteMany).toHaveBeenCalledTimes(fixture.batch.words.length);
+    expect(fixture.db.blockedAnswer.deleteMany).toHaveBeenCalledTimes(fixture.batch.words.length);
+    expect(fixture.db.learningAnswer.createMany).toHaveBeenCalledTimes(fixture.batch.words.length);
+    expect(fixture.db.learningAnswer.deleteMany).toHaveBeenCalledWith({
+      where: {
+        learningCardId: { in: ["existing-MEANING-card", "existing-READING-card"] },
+        sourceKind: "PROJECT_AUTHORED",
+      },
+    });
+    expect(fixture.db.learningAnswer.createMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({ learningCardId: "existing-MEANING-card", locale: "ru-RU" }),
+        expect.objectContaining({ learningCardId: "existing-MEANING-card", locale: "en-US" }),
+        expect.objectContaining({ learningCardId: "existing-READING-card", answerKind: "READING" }),
+      ]),
+    });
+    expect(fixture.state.answers.get(imported.id)).toEqual(imported);
+    expect(fixture.state.answers.has(obsolete.id)).toBe(false);
+    expect(fixture.forbiddenMutation).not.toHaveBeenCalled();
+  });
+  it("batches uncached kanji and placement reads while never caching standalone plans", async () => {
     const batches = registryFixtureBatches();
     const fixture = harness(batches);
     const characters = (batch: MainCourseWordBatch) =>
@@ -328,16 +364,16 @@ describe("bounded vocabulary curation", () => {
         ),
       );
     const unique = new Set(batches.flatMap((batch) => [...characters(batch)])).size;
-    const kanjiReads = vi.mocked(fixture.db.kanji.findUnique);
+    const kanjiReads = () =>
+      fixture.readKanji.mock.calls.flatMap(([args]) => args.where.character.in);
     const placedReads = () =>
-      vi
-        .mocked(fixture.db.learningItem.findUnique)
-        .mock.calls.filter(([args]) => args.where.targetType_targetId?.targetType === "KANJI")
-        .length;
+      fixture.readKanjiItems.mock.calls.flatMap(([args]) => args.where.targetId.in);
     await planMainCourseWordBatches(fixture.db, batches);
     expect(fixture.readCourse).toHaveBeenCalledTimes(1);
-    expect(kanjiReads).toHaveBeenCalledTimes(unique);
-    expect(placedReads()).toBe(unique);
+    expect(kanjiReads()).toHaveLength(unique);
+    expect(placedReads()).toHaveLength(unique);
+    expect(fixture.readKanji.mock.calls.length).toBeLessThanOrEqual(batches.length);
+    expect(fixture.readKanjiItems.mock.calls.length).toBeLessThanOrEqual(batches.length);
     expect(fixture.db.license.findUnique).toHaveBeenCalledTimes(batches.length);
     expect(fixture.db.dataSource.findUnique).toHaveBeenCalledTimes(batches.length);
     expect(fixture.readPrimaryWords).toHaveBeenCalledTimes(batches.length);
@@ -350,12 +386,12 @@ describe("bounded vocabulary curation", () => {
     );
     await planMainCourseWordBatches(fixture.db, batches);
     expect(fixture.readCourse).toHaveBeenCalledTimes(2);
-    expect(kanjiReads).toHaveBeenCalledTimes(unique * 2);
+    expect(kanjiReads()).toHaveLength(unique * 2);
     await planMainCourseWordBatch(fixture.db, batches[0]!);
     await planMainCourseWordBatch(fixture.db, batches[0]!);
     expect(fixture.readCourse).toHaveBeenCalledTimes(4);
     expect(fixture.readPrimaryWords).toHaveBeenCalledTimes(batches.length * 2 + 2);
-    expect(kanjiReads).toHaveBeenCalledTimes(unique * 2 + characters(batches[0]!).size * 2);
+    expect(kanjiReads()).toHaveLength(unique * 2 + characters(batches[0]!).size * 2);
     expect(fixture.mutations).toEqual([]);
   });
 
@@ -419,11 +455,11 @@ describe("bounded vocabulary curation", () => {
         }
       await planMainCourseWordBatches(fixture.db, batches);
       expect(expectedReads).toBeGreaterThan(allCharacters.size);
-      expect(fixture.db.kanji.findUnique).toHaveBeenCalledTimes(expectedReads);
+      const chunks = fixture.readKanji.mock.calls.map(([args]) => args.where.character.in);
+      expect(chunks.flat()).toHaveLength(expectedReads);
+      expect(Math.max(...chunks.map((chunk) => chunk.length))).toBe(256);
       expect(
-        vi
-          .mocked(fixture.db.learningItem.findUnique)
-          .mock.calls.filter(([args]) => args.where.targetType_targetId?.targetType === "KANJI"),
+        fixture.readKanjiItems.mock.calls.flatMap(([args]) => args.where.targetId.in),
       ).toHaveLength(expectedReads);
       expect(fixture.readCourse).toHaveBeenCalledTimes(1);
       expect(fixture.mutations).toEqual([]);
@@ -461,9 +497,7 @@ describe("bounded vocabulary curation", () => {
         "registered earlier",
       );
       expect(
-        vi
-          .mocked(fixture.db.kanji.findUnique)
-          .mock.calls.filter(([args]) => args.where.character === common),
+        fixture.readKanji.mock.calls.filter(([args]) => args.where.character.in.includes(common)),
       ).toHaveLength(1);
       expect(fixture.mutations).toEqual([]);
     } finally {
@@ -1104,6 +1138,18 @@ describe("bounded vocabulary curation", () => {
     },
   );
 
+  it("rejects a registered prerequisite missing from the batched raw kanji response", async () => {
+    const fixture = harness();
+    const readKanji = fixture.readKanji.getMockImplementation()!;
+    fixture.readKanji.mockImplementationOnce(async (args) =>
+      (await readKanji(args)).filter(({ character }) => character !== "山"),
+    );
+    await expect(planMainCourseWordBatch(fixture.db, fixture.batch)).rejects.toThrow(
+      "Missing registered kanji 山",
+    );
+    expect(fixture.mutations).toEqual([]);
+  });
+
   it("rejects unregistered kanji in an example rather than using a globally published fallback", async () => {
     const fixture = harness();
     const first = fixture.batch.words[0]!;
@@ -1646,6 +1692,25 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
       importedRecord: record && { ...record, importRun: byId(state.runs, record.importRunId) },
     };
   };
+  const readKanji = vi.fn(async ({ where }: { where: { character: { in: string[] } } }) =>
+    where.character.in.map((character) => ({ id: `kanji-${character}`, character })),
+  );
+  const withKanjiPlacements = (item: Row) => ({
+    ...item,
+    courseLevelItems: [...state.placements.values()].filter(
+      (row) => row.learningItemId === item.id && row.courseId === "main",
+    ),
+  });
+  const readKanjiItems = vi.fn(
+    async ({ where }: { where: { targetType: string; targetId: { in: string[] } } }) =>
+      [...state.items.values()]
+        .filter(
+          (item) =>
+            item.targetType === where.targetType &&
+            where.targetId.in.includes(String(item.targetId)),
+        )
+        .map(withKanjiPlacements),
+  );
   const delegates = {
     course: { findUnique: readCourse },
     word: {
@@ -1656,9 +1721,7 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
       deleteMany: forbiddenMutation,
     },
     kanji: {
-      findUnique: vi.fn(async ({ where }: { where: { character: string } }) => ({
-        id: `kanji-${where.character}`,
-      })),
+      findMany: readKanji,
     },
     learningItem: {
       findUnique: vi.fn(
@@ -1682,18 +1745,21 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
               };
         },
       ),
-      findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) =>
-        [...state.items.values()]
-          .filter(
-            (item) =>
-              where.id.in.includes(item.id) && item.kind === "KANJI" && item.status === "PUBLISHED",
-          )
-          .map((item) => ({
-            ...item,
-            courseLevelItems: [...state.placements.values()].filter(
-              (row) => row.learningItemId === item.id && row.courseId === "main",
-            ),
-          })),
+      findMany: vi.fn(
+        async (args: {
+          where: { id: { in: string[] } } | { targetType: string; targetId: { in: string[] } };
+        }) => {
+          const { where } = args;
+          if ("targetId" in where) return readKanjiItems({ where });
+          return [...state.items.values()]
+            .filter(
+              (item) =>
+                where.id.in.includes(item.id) &&
+                item.kind === "KANJI" &&
+                item.status === "PUBLISHED",
+            )
+            .map(withKanjiPlacements);
+        },
       ),
       upsert: upsert("item", state.items, "targetType_targetId"),
       updateMany: updateMany("item.updateMany", state.items),
@@ -1869,6 +1935,8 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
     readPrimaryWords,
     readWord,
     readCourse,
+    readKanji,
+    readKanjiItems,
     transaction,
     forbiddenMutation,
     privateRows,

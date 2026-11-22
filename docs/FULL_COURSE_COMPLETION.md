@@ -122,6 +122,11 @@ to the content deficit. Keep them within this single task:
   Batch database I/O while preserving complete source/graph checks, idempotency
   and private data. Removing a duplicate workflow preflight is not proof that
   importing the entire teaching corpus will fit one execution window.
+  Vocabulary preflight now fetches uncached kanji and their exact course
+  placements in groups of up to 256. Word staging uses four fewer database
+  calls for authored senses, accepted answers and blocked answers per word;
+  it retains fresh per-word provenance and placement checks and the same
+  atomic publication. This reduces calls, not a claimed live speedup.
 
 These findings are from code inspection, not a fresh exhaustive live UX audit.
 Only entries explicitly marked implemented have been addressed.

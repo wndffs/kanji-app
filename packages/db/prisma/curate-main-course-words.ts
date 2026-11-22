@@ -58,9 +58,11 @@ type Reader = Pick<
 >;
 
 const PLAN_READ_CACHE_LIMIT = 512;
+const PLAN_KANJI_READ_SIZE = 256;
+type PlanKanji = Awaited<ReturnType<typeof readPlanKanji>>[number][1];
 type PlanReadCache = {
   courses: Map<string, Awaited<ReturnType<typeof readPlanCourse>>>;
-  kanji: Map<string, Awaited<ReturnType<typeof readPlanKanji>>>;
+  kanji: Map<string, PlanKanji>;
 };
 
 async function readPlanCourse(db: Reader, slug: string) {
@@ -70,10 +72,27 @@ async function readPlanCourse(db: Reader, slug: string) {
   });
 }
 
-async function readPlanKanji(db: Reader, character: string, courseId: string) {
-  const raw = await db.kanji.findUnique({ where: { character }, select: { id: true } });
-  const item = raw === null ? null : await findItem(db, "KANJI", raw.id, courseId);
-  return { raw, item };
+async function readPlanKanji(db: Reader, characters: readonly string[], courseId: string) {
+  const raw = await db.kanji.findMany({
+    where: { character: { in: [...characters] } },
+    select: { id: true, character: true },
+  });
+  if (raw.length === 0) return [];
+  const items = await db.learningItem.findMany({
+    where: { targetType: "KANJI", targetId: { in: raw.map(({ id }) => id) } },
+    select: {
+      id: true,
+      targetId: true,
+      kind: true,
+      status: true,
+      courseLevelItems: {
+        where: { courseLevel: { courseId } },
+        select: { courseLevelId: true, sortOrder: true },
+      },
+    },
+  });
+  const byTarget = new Map(items.map((item) => [item.targetId, item]));
+  return raw.map(({ character, id }) => [character, { item: byTarget.get(id) ?? null }] as const);
 }
 
 export async function planMainCourseWordBatch(
@@ -129,23 +148,33 @@ async function planWordBatch(db: Reader, batch: MainCourseWordBatch, cache?: Pla
 
   const kanjiItems = new Map<string, string>();
   const kanjiPlacements = new Map<string, { courseLevelId: string; sortOrder: number }>();
-  for (const character of new Set(
-    batch.words.flatMap((content) =>
-      wordHanCharacters(content.expression + content.example.japaneseText),
+  const prerequisites = [
+    ...new Set(
+      batch.words.flatMap((content) =>
+        wordHanCharacters(content.expression + content.example.japaneseText),
+      ),
     ),
-  )) {
+  ].map((character) => {
     const registered = registeredKanji.get(character);
     if (registered === undefined || registered.levelNumber >= batch.levelNumber)
       throw new Error(`Unregistered earlier kanji prerequisite ${character}.`);
-    const cacheKey = `${course.id}:${character}`;
-    let prerequisite = cache?.kanji.get(cacheKey);
-    if (prerequisite === undefined) {
-      prerequisite = await readPlanKanji(db, character, course.id);
-      if (cache !== undefined && cache.kanji.size < PLAN_READ_CACHE_LIMIT)
-        cache.kanji.set(cacheKey, prerequisite);
+    return { character, registered, cacheKey: `${course.id}:${character}` };
+  });
+  const missing = prerequisites.filter(({ cacheKey }) => !cache?.kanji.has(cacheKey));
+  const fresh = new Map<string, PlanKanji>();
+  // A plan reads each uncached group once; write transactions still verify the exact placements.
+  for (let offset = 0; offset < missing.length; offset += PLAN_KANJI_READ_SIZE) {
+    const characters = missing
+      .slice(offset, offset + PLAN_KANJI_READ_SIZE)
+      .map(({ character }) => character);
+    for (const [character, prerequisite] of await readPlanKanji(db, characters, course.id)) {
+      fresh.set(character, prerequisite);
     }
-    const { raw, item } = prerequisite;
-    if (raw === null) throw new Error(`Missing registered kanji ${character}.`);
+  }
+  for (const { character, registered, cacheKey } of prerequisites) {
+    const prerequisite = cache?.kanji.get(cacheKey) ?? fresh.get(character);
+    if (prerequisite === undefined) throw new Error(`Missing registered kanji ${character}.`);
+    const { item } = prerequisite;
     const expectedLevel = course.levels.find(
       (candidate) => candidate.levelNumber === registered.levelNumber,
     );
@@ -166,6 +195,8 @@ async function planWordBatch(db: Reader, batch: MainCourseWordBatch, cache?: Pla
       throw new Error(
         `Kanji ${character} is not published at its registered earlier main-course placement.`,
       );
+    if (cache && !cache.kanji.has(cacheKey) && cache.kanji.size < PLAN_READ_CACHE_LIMIT)
+      cache.kanji.set(cacheKey, prerequisite);
     kanjiItems.set(character, item.id);
     kanjiPlacements.set(item.id, {
       courseLevelId: expectedLevel.id,
@@ -572,19 +603,23 @@ async function applyWord(
   )
     throw new Error(`Kanji prerequisite changed after preflight for ${content.expression}.`);
 
-  for (const [locale, meanings] of [
+  const localizedMeanings = [
     ["ru-RU", content.meanings.ru],
     ["en-US", content.meanings.en],
-  ] as const) {
-    await db.wordSense.deleteMany({
-      where: {
-        wordId: word.id,
+  ] as const;
+  const partOfSpeech = authoredWordPartOfSpeech(content);
+  await db.wordSense.deleteMany({
+    where: {
+      wordId: word.id,
+      sourceKind: "PROJECT_AUTHORED",
+      partOfSpeech,
+      OR: localizedMeanings.map(([locale, meanings]) => ({
         locale,
-        sourceKind: "PROJECT_AUTHORED",
-        partOfSpeech: authoredWordPartOfSpeech(content),
         meaning: { notIn: [...meanings.accepted] },
-      },
-    });
+      })),
+    },
+  });
+  for (const [locale, meanings] of localizedMeanings) {
     for (const meaning of meanings.accepted)
       await db.wordSense.upsert({
         where: {
@@ -592,7 +627,7 @@ async function applyWord(
             wordId: word.id,
             locale,
             meaning,
-            partOfSpeech: authoredWordPartOfSpeech(content),
+            partOfSpeech,
           },
         },
         update: { sourceKind: "PROJECT_AUTHORED" },
@@ -600,7 +635,7 @@ async function applyWord(
           wordId: word.id,
           locale,
           meaning,
-          partOfSpeech: authoredWordPartOfSpeech(content),
+          partOfSpeech,
           sourceKind: "PROJECT_AUTHORED",
         },
       });
@@ -623,6 +658,9 @@ async function applyWord(
       status: "DRAFT",
     },
   });
+  const cardIds: string[] = [];
+  const authoredAnswers: Prisma.LearningAnswerCreateManyInput[] = [];
+  const authoredBlocks: Prisma.BlockedAnswerCreateManyInput[] = [];
   for (const [promptType, sortOrder] of [
     ["MEANING", 1],
     ["READING", 2],
@@ -646,12 +684,7 @@ async function applyWord(
         sortOrder,
       },
     });
-    await db.learningAnswer.deleteMany({
-      where: { learningCardId: card.id, sourceKind: "PROJECT_AUTHORED" },
-    });
-    await db.blockedAnswer.deleteMany({
-      where: { learningCardId: card.id, sourceKind: "PROJECT_AUTHORED" },
-    });
+    cardIds.push(card.id);
     const answers =
       promptType === "READING"
         ? mainCourseWordAcceptedReadings(content).map((reading, index) => ({
@@ -660,12 +693,7 @@ async function applyWord(
             normalizedText: normalizeJapaneseReading(reading),
             isPrimary: index === 0,
           }))
-        : (
-            [
-              ["ru-RU", content.meanings.ru],
-              ["en-US", content.meanings.en],
-            ] as const
-          ).flatMap(([locale, meanings]) =>
+        : localizedMeanings.flatMap(([locale, meanings]) =>
             meanings.accepted.map((text, index) => ({
               locale,
               text,
@@ -673,23 +701,22 @@ async function applyWord(
               isPrimary: index === 0,
             })),
           );
-    await db.learningAnswer.createMany({
-      data: answers.map((answer) => ({
+    authoredAnswers.push(
+      ...answers.map((answer) => ({
         ...answer,
         learningCardId: card.id,
         answerKind: promptType,
         sourceKind: "PROJECT_AUTHORED" as const,
       })),
-    });
-    const blocks = promptType === "MEANING" ? buildCuratedMeaningBlocks(content.meanings) : [];
-    if (blocks.length)
-      await db.blockedAnswer.createMany({
-        data: blocks.map((block) => ({
+    );
+    if (promptType === "MEANING")
+      authoredBlocks.push(
+        ...buildCuratedMeaningBlocks(content.meanings).map((block) => ({
           ...block,
           learningCardId: card.id,
           sourceKind: "PROJECT_AUTHORED" as const,
         })),
-      });
+      );
     for (const [key, locale] of [
       ["ru", "ru-RU"],
       ["en", "en-US"],
@@ -736,6 +763,15 @@ async function applyWord(
       });
     }
   }
+  // Replace only the two cards' authored rows, within the existing word transaction.
+  const authoredCardScope = {
+    learningCardId: { in: cardIds },
+    sourceKind: "PROJECT_AUTHORED",
+  } as const;
+  await db.learningAnswer.deleteMany({ where: authoredCardScope });
+  await db.blockedAnswer.deleteMany({ where: authoredCardScope });
+  await db.learningAnswer.createMany({ data: authoredAnswers });
+  if (authoredBlocks.length > 0) await db.blockedAnswer.createMany({ data: authoredBlocks });
   await db.dependency.deleteMany({
     where: { learningItemId: item.id, dependencyType: "PREREQUISITE" },
   });
