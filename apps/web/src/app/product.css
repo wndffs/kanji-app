@@ -1302,9 +1302,16 @@ textarea::placeholder {
   min-height: 56px;
   font-size: 22px;
 }
-.review-answer-bar .primary-action {
+.review-session .review-answer-bar .review-submit {
   align-self: end;
-  min-height: 56px;
+  min-block-size: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.review-answer-bar .review-submit svg {
+  flex: 0 0 auto;
 }
 .review-reveal-actions {
   display: flex;
@@ -3325,11 +3332,21 @@ textarea::placeholder {
     padding: 0 6px;
     min-height: 24px;
   }
-  .review-answer-bar {
-    grid-template-columns: minmax(0, 1fr);
+  .review-session .review-answer-bar {
+    grid-template-columns: minmax(0, 1fr) 52px;
+    column-gap: 8px;
   }
-  .review-answer-bar .primary-action {
-    min-height: 46px;
+  .review-answer-bar label {
+    min-width: 0;
+  }
+  .review-session .review-answer-bar .review-submit {
+    inline-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 52px;
+    padding-inline: 0;
+  }
+  .review-submit-label {
+    display: none;
   }
   .review-answer-bar input {
     min-height: 52px;

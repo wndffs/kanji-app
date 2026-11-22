@@ -41,6 +41,8 @@ import {
   type StudyAnswerMode,
 } from "../../lib/study-answer";
 import {
+  ArrowRight,
+  LoaderCircle,
   Volume2,
   Languages,
   Type,
@@ -977,6 +979,17 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
     );
   }
 
+  const submitLabel = isSubmitting
+    ? "Проверяю..."
+    : unconfirmedAnswer === "answer"
+      ? "Повторить отправку"
+      : "Ответить";
+  const SubmitIcon = isSubmitting
+    ? LoaderCircle
+    : unconfirmedAnswer === "answer"
+      ? RotateCcw
+      : ArrowRight;
+
   return (
     <section
       className="review-session"
@@ -1091,7 +1104,8 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
             />
           </label>
           <button
-            className="primary-action"
+            aria-label={submitLabel}
+            className="primary-action review-submit"
             disabled={
               isSubmitting ||
               isReconciling ||
@@ -1099,13 +1113,11 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
               confirmReveal ||
               unconfirmedAnswer === "reveal"
             }
+            title={submitLabel}
             type="submit"
           >
-            {isSubmitting
-              ? "Проверяю..."
-              : unconfirmedAnswer === "answer"
-                ? "Повторить отправку"
-                : "Ответить"}
+            <span className="review-submit-label">{submitLabel}</span>
+            <SubmitIcon aria-hidden="true" size={20} />
           </button>
           {!isCorrecting && (unconfirmedAnswer === null || unconfirmedAnswer === "reveal") ? (
             <div className="review-reveal-actions">

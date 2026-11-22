@@ -792,6 +792,34 @@ test.describe("review session", () => {
     await expect(page.getByLabel("Приватный правильный вариант")).toHaveValue("луна");
   });
 
+  test("keeps the submit action on the input row at narrow widths", async ({ page }, info) => {
+    const mobile = info.project.name === "mobile";
+    await page.setViewportSize({ width: mobile ? 360 : 1280, height: 480 });
+    await signIn(page);
+    await mockReviewApi(page);
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение", exact: true }).click();
+    const input = page.getByLabel("Ответ значением");
+    const submit = page.getByRole("button", { name: "Ответить", exact: true });
+    await expect(input).toBeFocused();
+    const inputBox = (await input.boundingBox())!;
+    const submitBox = (await submit.boundingBox())!;
+    expect(submitBox.x).toBeGreaterThanOrEqual(inputBox.x + inputBox.width);
+    expect(submitBox.y + submitBox.height).toBeCloseTo(inputBox.y + inputBox.height, 0);
+    expect(submitBox.height).toBeGreaterThanOrEqual(44);
+    expect(submitBox.y + submitBox.height).toBeLessThanOrEqual(480);
+    const label = submit.getByText("Ответить", { exact: true });
+    if (mobile) {
+      expect(submitBox.width).toBe(52);
+      await expect(label).toBeHidden();
+    } else {
+      await expect(label).toBeVisible();
+    }
+    await input.fill("луна");
+    await submit.click();
+    await expect(page.getByRole("button", { name: "Дальше", exact: true })).toBeFocused();
+  });
+
   test("fits answer and long feedback on a short-height viewport", async ({ page }, info) => {
     await page.setViewportSize({ width: info.project.name === "mobile" ? 393 : 1280, height: 480 });
     await signIn(page);
