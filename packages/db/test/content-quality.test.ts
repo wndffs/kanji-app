@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CONTENT_QUALITY_ISSUE_CODES, type ContentQualityIssueCode } from "@kanji-srs/shared";
 import {
   normalizeQualityAnswer,
+  validateQualityCard,
   validateQualityItem,
   type QualityItem,
 } from "../src/content-quality";
@@ -183,6 +184,50 @@ describe("shared course-content quality rules", () => {
   });
   it("accepts an attributed bilingual prerequisite-safe item", () =>
     expect(validateQualityItem(validItem())).toEqual([]));
+  it("accepts the technical meaning of заглушка alongside an authored Russian primary", () => {
+    const card = validItem().cards[0]!;
+    const [ru, en] = card.answers;
+    expect(
+      validateQualityCard("word-stopper", {
+        ...card,
+        answers: [
+          { ...ru!, text: "пробка", normalizedText: "пробка" },
+          { ...en!, text: "stopper", normalizedText: "stopper" },
+          { ...ru!, text: "заглушка", normalizedText: "заглушка", isPrimary: false },
+        ],
+      }),
+    ).toEqual([]);
+  });
+  it("keeps flagging the ambiguous synonym when there is no authored main meaning", () => {
+    const card = validItem().cards[0]!;
+    const [ru, en] = card.answers;
+    expect(
+      validateQualityCard("word-incomplete", {
+        ...card,
+        answers: [en!, { ...ru!, text: "заглушка", normalizedText: "заглушка", isPrimary: false }],
+      }),
+    ).toContainEqual(expect.objectContaining({ code: "placeholder-content" }));
+  });
+  it.each([
+    { text: "заглушка", isPrimary: true, sourceKind: "PROJECT_AUTHORED" },
+    { text: "заглушка", isPrimary: false, sourceKind: "IMPORTED" },
+    { text: "TODO: translate", isPrimary: false, sourceKind: "PROJECT_AUTHORED" },
+  ])("still flags a placeholder answer: $text ($sourceKind, primary=$isPrimary)", (answer) => {
+    const card = validItem().cards[0]!;
+    expect(
+      validateQualityCard("word-incomplete", {
+        ...card,
+        answers: [
+          ...card.answers,
+          {
+            ...answer,
+            locale: "ru-RU",
+            normalizedText: normalizeQualityAnswer(answer.text, "MEANING", "ru-RU"),
+          },
+        ],
+      }),
+    ).toContainEqual(expect.objectContaining({ code: "placeholder-content" }));
+  });
   it.each(CONTENT_QUALITY_ISSUE_CODES)("detects %s in a broken fixture", (code) => {
     expect(validateQualityItem(invalid[code](validItem()))).toContainEqual(
       expect.objectContaining({

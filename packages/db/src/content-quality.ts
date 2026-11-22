@@ -86,6 +86,29 @@ export function normalizeQualityAnswer(text: string, answerType: string, locale:
     : normalizeMeaning(text, locale === "en-US" ? "en-US" : "ru-RU");
 }
 
+function isAuthoredStopperSynonym(
+  card: QualityCard,
+  answer: QualityAnswer,
+  value: string,
+): boolean {
+  // This ordinary technical term doubles as an editorial marker when used alone.
+  return (
+    card.answerType === "MEANING" &&
+    value === "заглушка" &&
+    answer.locale === "ru-RU" &&
+    answer.sourceKind === "PROJECT_AUTHORED" &&
+    !answer.isPrimary &&
+    card.answers.some(
+      (primary) =>
+        primary.isPrimary &&
+        primary.locale === answer.locale &&
+        primary.sourceKind === "PROJECT_AUTHORED" &&
+        primary.normalizedText !== "" &&
+        !PLACEHOLDER.test(primary.text.trim()),
+    )
+  );
+}
+
 export function validateQualityCard(
   itemId: string,
   card: QualityCard,
@@ -141,7 +164,7 @@ export function validateQualityCard(
     if (normalized.has(key))
       add("duplicate-answer", "Ответ повторяется после нормализации.", "Объедините дубли ответов.");
     normalized.add(key);
-    if (PLACEHOLDER.test(answer.text))
+    if (PLACEHOLDER.test(answer.text) && !isAuthoredStopperSynonym(card, answer, value))
       add(
         "placeholder-content",
         "В учебном ответе найдена заглушка.",
