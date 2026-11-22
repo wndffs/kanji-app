@@ -102,6 +102,8 @@ to the content deficit. Keep them within this single task:
   reveal. It uses the audited missed-answer outcome, puts the same card in
   the correction pass, and never schedules a second result for a correction.
   Uncertain submissions can be reconciled with the saved review session.
+  An optional post-answer breakdown shows the item's localized teaching
+  notes and a licensed example without preloading them during recall.
   Explicit manual-ignore and reviewed-answer recovery remain open; never
   silently reverse a penalty on a synonym save.
 - **Implemented in code:** stalled private-deck lessons offer a bounded plan

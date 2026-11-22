@@ -32,6 +32,7 @@ import { JapaneseText } from "../../components/JapaneseText";
 import { useStudyFocus } from "../../components/StudyFocus";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { ReviewQueueBrowser } from "../../components/ReviewQueueBrowser";
+import { ReviewItemBreakdown } from "../../components/ReviewItemBreakdown";
 import { StudyAnswerInput } from "../../components/StudyAnswerInput";
 import { StudyQuestion } from "../../components/StudyQuestion";
 import {
@@ -1312,6 +1313,7 @@ function FeedbackPanel({
           />
         </div>
       </div>
+      <ReviewItemBreakdown itemId={item.item.id} token={token} displayMode={displayMode} />
       <SectionDisclosure title="Расписание повторений">
         {"srsTransition" in feedback ? (
           <div>

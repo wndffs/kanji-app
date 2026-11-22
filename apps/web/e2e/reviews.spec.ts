@@ -91,6 +91,67 @@ test.describe("review session", () => {
     expect(answerRequests).toHaveLength(1);
   });
 
+  test("loads a localized card breakdown only after feedback and explicit expansion", async ({
+    page,
+  }) => {
+    await signIn(page, "en");
+    await mockReviewApi(page);
+    let reads = 0;
+    await page.route(`${API_BASE_URL}/items/${reviewQueueItem.item.id}`, async (route) => {
+      reads++;
+      await route.fulfill(
+        reads === 1
+          ? { status: 503, json: { message: "Temporary error" } }
+          : {
+              json: {
+                id: reviewQueueItem.item.id,
+                mnemonics: {
+                  ru: [{ locale: "ru-RU", text: "Русская мнемоника" }],
+                  en: [{ locale: "en-US", text: "English mnemonic" }],
+                },
+                hints: { ru: [], en: [{ locale: "en-US", text: "English hint" }] },
+                exampleSentences: [
+                  {
+                    japaneseText: "朝日を見た。",
+                    readingText: "あさひをみた。",
+                    translationRu: "Русский пример",
+                    translationEn: "I saw the morning sun.",
+                    attribution: {
+                      attributionText: "Original example",
+                      licenseName: "Project authored",
+                    },
+                  },
+                ],
+              },
+            },
+      );
+    });
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение", exact: true }).click();
+    const breakdown = page.getByRole("button", { name: "Разбор карточки", exact: true });
+    await expect(breakdown).toHaveCount(0);
+    const input = page.getByLabel("Ответ значением");
+    await input.fill("sun");
+    await input.press("Enter");
+    await expect(breakdown).toBeVisible();
+    expect(reads).toBe(0);
+    await breakdown.click();
+    await expect(page.getByText("Не удалось загрузить разбор.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Загрузить снова", exact: true }).click();
+    await expect(page.getByText("English mnemonic", { exact: true })).toBeVisible();
+    await expect(page.getByText("English hint", { exact: true })).toBeVisible();
+    await expect(page.getByText("I saw the morning sun.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Русская мнемоника", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Русский пример", { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByText("Original example · Project authored", { exact: true }),
+    ).toBeVisible();
+    await breakdown.click();
+    await breakdown.click();
+    await expect(page.getByText("English mnemonic", { exact: true })).toBeVisible();
+    expect(reads).toBe(2);
+  });
+
   test("retries an initial queue failure only after explicit action", async ({ page }) => {
     await signIn(page);
     await mockReviewApi(page);
