@@ -1152,6 +1152,12 @@ transaction still rechecks the same placement, ownership and source rules
 against fresh database reads. The release bound and word manifest order
 are unchanged.
 
+For words with no existing learning item, staging also creates the two
+cards, four mnemonics and four hints in groups inside the same word
+transaction. Returned card IDs are matched by prompt type, not insert
+order. Existing items retain their IDs, source ownership guards and scoped
+updates. The manifest still publishes its examples and items atomically.
+
 The final status change uses one full validation inside the serializable
 transaction and re-reads the persisted course status. Both response hashes
 are regenerated for the published status. This removes a duplicate corpus

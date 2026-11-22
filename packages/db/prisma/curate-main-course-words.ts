@@ -44,6 +44,14 @@ const SOURCE_URL =
   "https://github.com/wndffs/kanji-app/blob/main/packages/db/src/main-course-word-content.ts";
 const TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 30_000 } as const;
 const MAX_SELECTED_WORD_BATCHES = 40;
+const WORD_PROMPTS = [
+  ["MEANING", 1],
+  ["READING", 2],
+] as const;
+const WORD_TEXT_LOCALES = [
+  ["ru", "ru-RU"],
+  ["en", "en-US"],
+] as const;
 type WordBatchSelection = { readonly batchId?: string; readonly batchIds?: readonly string[] };
 type Reader = Pick<
   Prisma.TransactionClient,
@@ -700,50 +708,55 @@ async function applyWord(
         },
       });
   }
-  const item = await db.learningItem.upsert({
-    where: { targetType_targetId: { targetType: "WORD", targetId: word.id } },
-    update: {
-      kind: "WORD",
-      title: `Слово ${content.expression}`,
-      levelHint: batch.levelNumber,
-      curriculumBand: plan.curriculumBand,
-    },
-    create: {
-      kind: "WORD",
-      targetType: "WORD",
-      targetId: word.id,
-      title: `Слово ${content.expression}`,
-      levelHint: batch.levelNumber,
-      curriculumBand: plan.curriculumBand,
-      status: "DRAFT",
-    },
-  });
+  const itemFields = {
+    kind: "WORD",
+    title: `Слово ${content.expression}`,
+    levelHint: batch.levelNumber,
+    curriculumBand: plan.curriculumBand,
+  } as const;
+  // An unseen item must be created, not upserted over another writer's card.
+  const item =
+    existing === null
+      ? await db.learningItem.create({
+          data: { ...itemFields, targetType: "WORD", targetId: word.id, status: "DRAFT" },
+        })
+      : await db.learningItem.update({ where: { id: existing.id }, data: itemFields });
+  const cardRows = WORD_PROMPTS.map(([promptType, sortOrder]) => ({
+    learningItemId: item.id,
+    cardType: "REVIEW" as const,
+    promptType,
+    answerType: promptType,
+    locale: "ru-RU",
+    sortOrder,
+  }));
+  const newCards =
+    existing === null
+      ? new Map(
+          (
+            await db.learningCard.createManyAndReturn({
+              data: cardRows,
+              select: { id: true, promptType: true },
+            })
+          ).map((card) => [card.promptType, card]),
+        )
+      : null;
   const cardIds: string[] = [];
   const authoredAnswers: Prisma.LearningAnswerCreateManyInput[] = [];
   const authoredBlocks: Prisma.BlockedAnswerCreateManyInput[] = [];
-  for (const [promptType, sortOrder] of [
-    ["MEANING", 1],
-    ["READING", 2],
-  ] as const) {
-    const card = await db.learningCard.upsert({
-      where: {
-        learningItemId_promptType_answerType_locale: {
-          learningItemId: item.id,
-          promptType,
-          answerType: promptType,
-          locale: "ru-RU",
-        },
-      },
-      update: { cardType: "REVIEW", sortOrder },
-      create: {
-        learningItemId: item.id,
-        cardType: "REVIEW",
-        promptType,
-        answerType: promptType,
-        locale: "ru-RU",
-        sortOrder,
-      },
-    });
+  const newMnemonics: Prisma.MnemonicCreateManyInput[] = [];
+  const newHints: Prisma.HintCreateManyInput[] = [];
+  for (const cardRow of cardRows) {
+    const { cardType, sortOrder, ...identity } = cardRow;
+    const { promptType } = identity;
+    const card =
+      newCards === null
+        ? await db.learningCard.upsert({
+            where: { learningItemId_promptType_answerType_locale: identity },
+            update: { cardType, sortOrder },
+            create: cardRow,
+          })
+        : newCards.get(promptType);
+    if (card === undefined) throw new Error(`Missing staged ${promptType} card.`);
     cardIds.push(card.id);
     const answers =
       promptType === "READING"
@@ -777,49 +790,28 @@ async function applyWord(
           sourceKind: "PROJECT_AUTHORED" as const,
         })),
       );
-    for (const [key, locale] of [
-      ["ru", "ru-RU"],
-      ["en", "en-US"],
-    ] as const) {
+    for (const [key, locale] of WORD_TEXT_LOCALES) {
       const mnemonic = promptType === "MEANING" ? content.meaningMnemonic : content.readingMnemonic;
       const hint = promptType === "MEANING" ? content.meaningHint : content.readingHint;
+      const textIdentity = { learningItemId: item.id, locale, version: 1 };
+      const mnemonicIdentity = { ...textIdentity, mnemonicType: promptType };
+      const hintIdentity = { ...textIdentity, hintType: promptType };
+      const mnemonicValues = { body: mnemonic[key], sourceKind: "PROJECT_AUTHORED" } as const;
+      const hintValues = { body: hint[key], sourceKind: "PROJECT_AUTHORED" } as const;
+      if (existing === null) {
+        newMnemonics.push({ ...mnemonicIdentity, ...mnemonicValues });
+        newHints.push({ ...hintIdentity, ...hintValues });
+        continue;
+      }
       await db.mnemonic.upsert({
-        where: {
-          learningItemId_locale_mnemonicType_version: {
-            learningItemId: item.id,
-            locale,
-            mnemonicType: promptType,
-            version: 1,
-          },
-        },
-        update: { body: mnemonic[key], sourceKind: "PROJECT_AUTHORED" },
-        create: {
-          learningItemId: item.id,
-          locale,
-          mnemonicType: promptType,
-          version: 1,
-          body: mnemonic[key],
-          sourceKind: "PROJECT_AUTHORED",
-        },
+        where: { learningItemId_locale_mnemonicType_version: mnemonicIdentity },
+        update: mnemonicValues,
+        create: { ...mnemonicIdentity, ...mnemonicValues },
       });
       await db.hint.upsert({
-        where: {
-          learningItemId_locale_hintType_version: {
-            learningItemId: item.id,
-            locale,
-            hintType: promptType,
-            version: 1,
-          },
-        },
-        update: { body: hint[key], sourceKind: "PROJECT_AUTHORED" },
-        create: {
-          learningItemId: item.id,
-          locale,
-          hintType: promptType,
-          version: 1,
-          body: hint[key],
-          sourceKind: "PROJECT_AUTHORED",
-        },
+        where: { learningItemId_locale_hintType_version: hintIdentity },
+        update: hintValues,
+        create: { ...hintIdentity, ...hintValues },
       });
     }
   }
@@ -828,13 +820,18 @@ async function applyWord(
     learningCardId: { in: cardIds },
     sourceKind: "PROJECT_AUTHORED",
   } as const;
-  await db.learningAnswer.deleteMany({ where: authoredCardScope });
-  await db.blockedAnswer.deleteMany({ where: authoredCardScope });
+  if (existing === null) {
+    await db.mnemonic.createMany({ data: newMnemonics });
+    await db.hint.createMany({ data: newHints });
+  } else {
+    await db.learningAnswer.deleteMany({ where: authoredCardScope });
+    await db.blockedAnswer.deleteMany({ where: authoredCardScope });
+    await db.dependency.deleteMany({
+      where: { learningItemId: item.id, dependencyType: "PREREQUISITE" },
+    });
+  }
   await db.learningAnswer.createMany({ data: authoredAnswers });
   if (authoredBlocks.length > 0) await db.blockedAnswer.createMany({ data: authoredBlocks });
-  await db.dependency.deleteMany({
-    where: { learningItemId: item.id, dependencyType: "PREREQUISITE" },
-  });
   await db.dependency.createMany({
     data: entry.prerequisiteItemIds.map((id) => ({
       learningItemId: item.id,

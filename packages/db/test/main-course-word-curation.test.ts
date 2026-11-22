@@ -334,8 +334,8 @@ describe("bounded vocabulary curation", () => {
     await applyMainCourseWordBatch(fixture.db, fixture.batch);
 
     expect(fixture.db.wordSense.deleteMany).toHaveBeenCalledTimes(fixture.batch.words.length);
-    expect(fixture.db.learningAnswer.deleteMany).toHaveBeenCalledTimes(fixture.batch.words.length);
-    expect(fixture.db.blockedAnswer.deleteMany).toHaveBeenCalledTimes(fixture.batch.words.length);
+    expect(fixture.db.learningAnswer.deleteMany).toHaveBeenCalledOnce();
+    expect(fixture.db.blockedAnswer.deleteMany).toHaveBeenCalledOnce();
     expect(fixture.db.learningAnswer.createMany).toHaveBeenCalledTimes(fixture.batch.words.length);
     expect(fixture.db.learningAnswer.deleteMany).toHaveBeenCalledWith({
       where: {
@@ -1306,6 +1306,12 @@ describe("bounded vocabulary curation", () => {
     expect(result).toMatchObject({ words: 20, cards: 40, examples: 20 });
     expect(fixture.state.words).toEqual(importedBefore);
     expect(fixture.state.cards.size).toBe(40);
+    expect(fixture.db.learningCard.createManyAndReturn).toHaveBeenCalledTimes(19);
+    expect(fixture.db.learningCard.upsert).toHaveBeenCalledTimes(2);
+    expect(fixture.db.mnemonic.createMany).toHaveBeenCalledTimes(19);
+    expect(fixture.db.mnemonic.upsert).toHaveBeenCalledTimes(4);
+    expect(fixture.db.hint.createMany).toHaveBeenCalledTimes(19);
+    expect(fixture.db.hint.upsert).toHaveBeenCalledTimes(4);
     expect(fixture.state.mnemonics.size).toBe(80);
     expect(fixture.state.hints.size).toBe(80);
     expect(fixture.state.sentences.size).toBe(20);
@@ -1333,6 +1339,15 @@ describe("bounded vocabulary curation", () => {
         .filter((answer) => answer.learningCardId === mountainReading.id)
         .map((answer) => answer.text),
     ).toEqual(["やま"]);
+    const river = fixture.state.items.get(key({ targetType: "WORD", targetId: "word-川" }))!;
+    const riverReading = [...fixture.state.cards.values()].find(
+      (card) => card.learningItemId === river.id && card.promptType === "READING",
+    )!;
+    expect(
+      [...fixture.state.answers.values()]
+        .filter(({ learningCardId }) => learningCardId === riverReading.id)
+        .map(({ text }) => text),
+    ).toEqual(["かわ"]);
     const firstSuccess = fixture.events.indexOf("run:SUCCESS");
     expect(
       fixture.events.slice(0, firstSuccess).filter((event) => event === "example:DRAFT"),
@@ -1644,6 +1659,44 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
   });
   const byId = (table: Map<string, Row>, id: unknown) =>
     [...table.values()].find((row) => row.id === id);
+  const insert = (
+    table: Map<string, Row>,
+    identity: Record<string, unknown>,
+    data: Record<string, unknown>,
+  ) => {
+    const pair = key(identity);
+    if (table.has(pair)) throw new Error("Test fixture cannot insert duplicate row.");
+    const row = { ...data, id: `new-${++sequence}` };
+    table.set(pair, row);
+    return row;
+  };
+  const createTeachingText = (
+    label: "mnemonic" | "hint",
+    table: Map<string, Row>,
+    promptKey: "mnemonicType" | "hintType",
+  ) =>
+    vi.fn(({ data }: { data: Record<string, unknown>[] }) => {
+      mutations.push(`${label}.createMany`);
+      for (const entry of data) {
+        if (
+          label === "hint" &&
+          failedWord !== null &&
+          byId(state.items, entry.learningItemId)?.targetId === `word-${failedWord}`
+        )
+          throw new Error("test word interruption");
+        insert(
+          table,
+          {
+            learningItemId: entry.learningItemId,
+            locale: entry.locale,
+            [promptKey]: entry[promptKey],
+            version: entry.version,
+          },
+          entry,
+        );
+      }
+      return { count: data.length };
+    });
   const upsert = (label: string, table: Map<string, Row>, unique: string | null) =>
     vi.fn((args: UpsertArgs) => {
       mutations.push(label);
@@ -1807,7 +1860,14 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
             .map(withKanjiPlacements);
         },
       ),
-      upsert: upsert("item", state.items, "targetType_targetId"),
+      create: vi.fn(({ data }: { data: Record<string, unknown> }) => {
+        mutations.push("item.create");
+        return insert(state.items, { targetType: data.targetType, targetId: data.targetId }, data);
+      }),
+      update: vi.fn(({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+        mutations.push("item.update");
+        return Object.assign(byId(state.items, where.id)!, data);
+      }),
       updateMany: updateMany("item.updateMany", state.items),
     },
     courseLevelItem: {
@@ -1848,6 +1908,23 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
       upsert: upsert("source", state.sources, null),
     },
     learningCard: {
+      createManyAndReturn: vi.fn(({ data }: { data: Record<string, unknown>[] }) => {
+        mutations.push("card.createManyAndReturn");
+        return data
+          .map((entry) =>
+            insert(
+              state.cards,
+              {
+                learningItemId: entry.learningItemId,
+                promptType: entry.promptType,
+                answerType: entry.answerType,
+                locale: entry.locale,
+              },
+              entry,
+            ),
+          )
+          .reverse();
+      }),
       upsert: upsert("card", state.cards, "learningItemId_promptType_answerType_locale"),
     },
     learningAnswer: {
@@ -1874,9 +1951,13 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
       upsert: upsert("sense", state.senses, "wordId_locale_meaning_partOfSpeech"),
     },
     mnemonic: {
+      createMany: createTeachingText("mnemonic", state.mnemonics, "mnemonicType"),
       upsert: upsert("mnemonic", state.mnemonics, "learningItemId_locale_mnemonicType_version"),
     },
-    hint: { upsert: upsert("hint", state.hints, "learningItemId_locale_hintType_version") },
+    hint: {
+      createMany: createTeachingText("hint", state.hints, "hintType"),
+      upsert: upsert("hint", state.hints, "learningItemId_locale_hintType_version"),
+    },
     dependency: {
       deleteMany: deleteMany("dependency.deleteMany", state.dependencies),
       createMany: vi.fn(({ data }: { data: Record<string, unknown>[] }) => {
