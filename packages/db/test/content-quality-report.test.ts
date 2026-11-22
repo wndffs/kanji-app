@@ -199,6 +199,70 @@ describe("bounded content-quality reporting", () => {
     );
   });
 
+  it.each([
+    ["exact source", "もど", "ja_kun", "もど.る", "kanjidic2:623b", true],
+    ["unreviewed shorter answer", "も", "ja_kun", "もど.る", "kanjidic2:623b", false],
+    ["wrong raw reading", "もど", "ja_kun", "も.どる", "kanjidic2:623b", false],
+    ["wrong reading type", "もど", "ja_on", "もど.る", "kanjidic2:623b", false],
+    ["different record identity", "もど", "ja_kun", "もど.る", "kanjidic2:623c", false],
+  ] as const)(
+    "validates an explicitly reviewed okurigana stem only with exact evidence (%s)",
+    async (_reason, answer, rawType, rawReading, sourceRecordId, supported) => {
+      const { db, rows } = databaseFixture(1);
+      Object.assign(rows[0]!, {
+        kind: "KANJI",
+        targetType: "KANJI",
+        targetId: "return-kanji",
+        cards: [
+          {
+            id: "reading-card",
+            cardType: "REVIEW",
+            promptType: "READING",
+            answerType: "READING",
+            locale: "ru-RU",
+            answers: [{ locale: "ru-RU", text: answer, normalizedText: answer, isPrimary: true }],
+            blockedAnswers: [],
+            audioAsset: null,
+          },
+        ],
+      });
+      vi.mocked(db.kanji.findMany).mockResolvedValue([
+        {
+          id: "return-kanji",
+          character: "戻",
+          kanjidicImportedRecordId: "kun-evidence",
+          readings: [{ reading: "もど.る", readingType: "KUNYOMI" }],
+          components: [],
+          meanings: [],
+          strokeGraphic: null,
+          importedRecord: {
+            id: "kun-evidence",
+            recordType: "KANJIDIC2_CHARACTER",
+            sourceRecordId,
+            rawJson: { literal: "戻", readings: [{ sourceType: rawType, reading: rawReading }] },
+            importRun: {
+              status: "SUCCESS",
+              checksumSha256: "a".repeat(64),
+              sourceVersion: "2026-10-31",
+              dataSource: {
+                name: "KANJIDIC2",
+                homepageUrl: "https://www.edrdg.org/wiki/index.php/KANJIDIC_Project",
+                attributionText: "KANJIDIC2",
+                license: { name: "CC BY-SA 4.0", spdxLikeId: "CC-BY-SA-4.0" },
+              },
+            },
+          },
+        },
+      ] as never);
+      const [item] = await loadContentQualityItems(db);
+      expect(item?.sourceReadings).toEqual(
+        supported || answer === "も" ? ["もど.る", "もど"] : ["もど.る"],
+      );
+      const report = await collectContentQualityReport(db);
+      expect(report.issues.some(({ code }) => code === "unsupported-reading")).toBe(!supported);
+    },
+  );
+
   it("intersects internal item IDs with the course and keyset cursor without changing the default report", async () => {
     const { db, rows, findMany } = databaseFixture(201);
     const itemIds = rows

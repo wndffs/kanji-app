@@ -18,6 +18,12 @@ import {
 } from "./content-quality";
 import { loadWordExampleQuality } from "./word-examples";
 import { buildMainCourseBlueprint } from "./main-course";
+import { buildMainCourseContentBatches } from "./main-course-content";
+import {
+  normalizeKanjidic2SourceReading,
+  selectedCourseSourceKana,
+  type CourseKanjiSourceReading,
+} from "./course-kanji-source-reading";
 import { buildMainCourseWordBatches } from "./main-course-word-content";
 import { wordHanCharacters } from "./course-word-orthography";
 import {
@@ -60,6 +66,75 @@ export function contentQualityReportTimeoutMs(publishedItemCount: number): numbe
   return Math.min(1_800_000, Math.max(120_000, Math.ceil(publishedItemCount / 100) * 10_000));
 }
 type SourceRecord = Prisma.ImportedRecordGetPayload<{ include: typeof SOURCE_INCLUDE }>;
+
+let reviewedKanjiStems: ReadonlyMap<string, CourseKanjiSourceReading> | undefined;
+
+function reviewedKanjiStem(character: string, courseSlug: string) {
+  if (courseSlug !== "japanese-ru-n2") return undefined;
+  reviewedKanjiStems ??= new Map(
+    buildMainCourseContentBatches()
+      .filter(
+        (batch) =>
+          batch.courseSlug === courseSlug &&
+          batch.reviewedAt !== null &&
+          /^\d{4}-\d{2}-\d{2}$/u.test(batch.reviewedAt),
+      )
+      .flatMap(({ kanji }) =>
+        kanji
+          .filter(({ reading }) => reading.sourceForm === "okurigana-stem")
+          .map(({ character, reading }) => [character, reading] as const),
+      ),
+  );
+  return reviewedKanjiStems.get(character);
+}
+
+function qualityKanjiReadings(
+  kanji: {
+    character: string;
+    kanjidicImportedRecordId: string | null;
+    importedRecord: SourceRecord | null;
+    readings: readonly { reading: string; readingType: string }[];
+  },
+  courseSlug: string,
+): readonly string[] {
+  const readings = kanji.readings.map(({ reading }) => reading);
+  const selected = reviewedKanjiStem(kanji.character, courseSlug);
+  if (!selected) return readings;
+  const stem = selectedCourseSourceKana(selected);
+  const record = kanji.importedRecord;
+  const raw = record?.rawJson;
+  const dictionary = record?.importRun.dataSource;
+  if (
+    stem !== null &&
+    record?.recordType === "KANJIDIC2_CHARACTER" &&
+    record.id === kanji.kanjidicImportedRecordId &&
+    record.sourceRecordId === `kanjidic2:${kanji.character.codePointAt(0)?.toString(16)}` &&
+    dictionary?.name === "KANJIDIC2" &&
+    dictionary.license.spdxLikeId === "CC-BY-SA-4.0" &&
+    validSource(record) &&
+    raw !== null &&
+    typeof raw === "object" &&
+    !Array.isArray(raw) &&
+    raw.literal === kanji.character &&
+    Array.isArray(raw.readings) &&
+    raw.readings.some(
+      (entry) =>
+        entry !== null &&
+        typeof entry === "object" &&
+        !Array.isArray(entry) &&
+        entry.sourceType === "ja_kun" &&
+        entry.reading === selected.source,
+    ) &&
+    kanji.readings.some(
+      ({ reading, readingType }) =>
+        readingType === "KUNYOMI" &&
+        normalizeKanjidic2SourceReading(reading) ===
+          normalizeKanjidic2SourceReading(selected.source),
+    )
+  )
+    return [...readings, stem];
+  return readings;
+}
 
 export async function loadContentQualityItems(
   db: ContentQualityDatabase,
@@ -240,12 +315,13 @@ async function loadContentQualityBatch(
         sentence !== undefined,
       source: source(record),
       sourceReadings:
-        character?.readings.map((reading) => reading.reading) ??
-        (word === undefined
-          ? sentence?.readingText === null || sentence?.readingText === undefined
-            ? []
-            : [sentence.readingText]
-          : [word.reading, ...(siblingReadings.get(row.id) ?? [])]),
+        character !== undefined
+          ? qualityKanjiReadings(character, courseSlug)
+          : word !== undefined
+            ? [word.reading, ...(siblingReadings.get(row.id) ?? [])]
+            : sentence?.readingText == null
+              ? []
+              : [sentence.readingText],
       requiresImportedSource:
         row.kind === "KANJI" ||
         row.kind === "WORD" ||
