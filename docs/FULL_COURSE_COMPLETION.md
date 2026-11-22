@@ -1307,8 +1307,9 @@ Rerun receipts and a plan before resuming.
 The default is sequential. Measure a real release before broad use.
 
 `stage_kanji_pairs` is the separate kanji-only option. Components are written
-sequentially first; pairs contain only newly created kanji, each rechecking
-its raw source, prerequisites and slot. If a pair fails, both transactions
+sequentially first; groups contain only new kanji, each rechecking its raw
+source, prerequisites and slot. Two is the default width; four requires
+explicit `stage_kanji_width: 4`. If a group fails, all its transactions
 finish before the run is marked failed. Committed kanji retain their prior
 per-item visibility, but the block has no complete receipt. No mode moves an
 established main-course placement if it changes after preflight.

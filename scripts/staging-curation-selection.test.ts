@@ -93,6 +93,7 @@ describe("explicit staging curation selection", () => {
     { CURATION_MODE: "apply_sources", WORD_BATCH: WORDS, STAGE_WORD_PAIRS: "true" },
     { CURATION_MODE: "plan", KANJI_BATCH: KANJI, SKIP_WORDS: "true", STAGE_KANJI_PAIRS: "true" },
     { CURATION_MODE: "apply", KANJI_BATCH: KANJI, SKIP_WORDS: "true", STAGE_KANJI_PAIRS: "2" },
+    { CURATION_MODE: "apply", KANJI_BATCH: KANJI, SKIP_WORDS: "true", STAGE_KANJI_WIDTH: "4" },
     { CURATION_MODE: "apply", KANJI_BATCH: KANJI, WORD_BATCH: WORDS, STAGE_KANJI_PAIRS: "true" },
     { CURATION_MODE: "apply", WORD_BATCH: WORDS, STAGE_KANJI_PAIRS: "true" },
     { WORD_BATCH: Array.from({ length: 41 }, (_, i) => `word-${i}`).join(",") },
@@ -146,13 +147,14 @@ describe("explicit staging curation selection", () => {
       });
     },
   );
-  it("allows paired kanji staging only with words and source writes disabled", () => {
+  it.each(["2", "4"])("allows a kanji staging width of %s only for kanji-only apply", (width) => {
     expect(
       selectStagingCuration({
         CURATION_MODE: "apply",
         KANJI_BATCH: KANJI,
         SKIP_WORDS: "true",
         STAGE_KANJI_PAIRS: "true",
+        STAGE_KANJI_WIDTH: width,
       }),
     ).toEqual({
       applyKanji: true,
@@ -235,6 +237,9 @@ describe("explicit staging curation selection", () => {
     expect(applyKanji).toContain(
       "if [ \"$STAGE_KANJI_PAIRS\" = 'true' ]; then args+=(--stage-pairs); fi",
     );
+    expect(applyKanji).toContain(
+      "if [ \"$STAGE_KANJI_WIDTH\" = '4' ]; then args+=(--stage-width 4); fi",
+    );
     const readOnlyWords = workflow
       .split("- name: Preflight reviewed vocabulary without mutations")[1]!
       .split("\n      - name:")[0]!;
@@ -299,6 +304,7 @@ describe("explicit staging curation selection", () => {
       STAGE_WORD_PAIRS: "false",
       STAGE_WORD_WIDTH: "2",
       STAGE_KANJI_PAIRS: "false",
+      STAGE_KANJI_WIDTH: "2",
       CURATION_MODE: "plan",
       DATABASE_URL: "synthetic-private-value",
     };

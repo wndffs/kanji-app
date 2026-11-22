@@ -15,6 +15,7 @@ export function selectStagingCuration(env = process.env) {
   const stageWordPairs = env.STAGE_WORD_PAIRS ?? "false";
   const stageWordWidth = env.STAGE_WORD_WIDTH ?? "2";
   const stageKanjiPairs = env.STAGE_KANJI_PAIRS ?? "false";
+  const stageKanjiWidth = env.STAGE_KANJI_WIDTH ?? "2";
   const supplementOnly = mode === "plan_sources" || mode === "apply_sources";
   const sourceOnly = supplementOnly || mode === "audit_sources";
   const receiptsOnly = mode === "receipts";
@@ -35,6 +36,8 @@ export function selectStagingCuration(env = process.env) {
     !["2", "4"].includes(stageWordWidth) ||
     (stageWordWidth === "4" && stageWordPairs !== "true") ||
     !["true", "false"].includes(stageKanjiPairs) ||
+    !["2", "4"].includes(stageKanjiWidth) ||
+    (stageKanjiWidth === "4" && stageKanjiPairs !== "true") ||
     (stageKanjiPairs === "true" &&
       (mode !== "apply" ||
         kanji === "" ||

@@ -20,10 +20,18 @@ describe("main-course curation preflight and application", () => {
       batchId: batch.id,
       stagePairs: true,
     });
+    expect(parseMainCourseCurationArgs([...args, "--stage-width", "4"], registry)).toEqual({
+      mode: "apply",
+      batchId: batch.id,
+      stagePairs: true,
+      stageWidth: 4,
+    });
     for (const invalid of [
       ["--stage-pairs"],
+      ["--batch", batch.id, "--stage-width", "4"],
       [...args, "--preflight-only"],
       [...args, "--stage-pairs"],
+      [...args, "--stage-width", "5"],
     ])
       expect(() => parseMainCourseCurationArgs(invalid, registry)).toThrow(
         "explicit apply selection",
@@ -872,40 +880,44 @@ describe("main-course curation preflight and application", () => {
     expect(fixture.privateMutation).not.toHaveBeenCalled();
   });
 
-  it("commits components before any new kanji pair and retains bounded checkpoints", async () => {
-    const fixture = curationFixture();
-    const transaction = fixture.transaction.getMockImplementation()!;
-    let active = 0;
-    const inFlight: number[] = [];
-    fixture.transaction.mockImplementation(async (callback) => {
-      inFlight.push(++active);
-      try {
-        return await transaction(callback);
-      } finally {
-        active--;
-      }
-    });
-    const progress = vi.fn();
-    await applyMainCourseContentBatches(fixture.db, {
-      registry: fixture.registry,
-      batchId: fixture.batch.id,
-      stagePairs: true,
-      onProgress: progress,
-    });
-    expect(inFlight.slice(0, fixture.batch.components.length)).toEqual(
-      fixture.batch.components.map(() => 1),
-    );
-    expect(
-      inFlight.slice(fixture.batch.components.length, fixture.batch.components.length + 2),
-    ).toEqual([1, 2]);
-    expect(Math.max(...inFlight)).toBe(2);
-    expect(active).toBe(0);
-    expect(fixture.db.learningItem.create).toHaveBeenCalledTimes(fixture.batch.kanji.length);
-    expect(progress).toHaveBeenLastCalledWith(
-      expect.objectContaining({ completed: fixture.batch.kanji.length }),
-    );
-    expect(fixture.privateMutation).not.toHaveBeenCalled();
-  });
+  it.each([2, 4] as const)(
+    "commits components before staging %d new kanji at a time",
+    async (width) => {
+      const fixture = curationFixture();
+      const transaction = fixture.transaction.getMockImplementation()!;
+      let active = 0;
+      const inFlight: number[] = [];
+      fixture.transaction.mockImplementation(async (callback) => {
+        inFlight.push(++active);
+        try {
+          return await transaction(callback);
+        } finally {
+          active--;
+        }
+      });
+      const progress = vi.fn();
+      await applyMainCourseContentBatches(fixture.db, {
+        registry: fixture.registry,
+        batchId: fixture.batch.id,
+        stagePairs: true,
+        stageWidth: width,
+        onProgress: progress,
+      });
+      expect(inFlight.slice(0, fixture.batch.components.length)).toEqual(
+        fixture.batch.components.map(() => 1),
+      );
+      expect(
+        inFlight.slice(fixture.batch.components.length, fixture.batch.components.length + 2),
+      ).toEqual([1, 2]);
+      expect(Math.max(...inFlight)).toBe(width);
+      expect(active).toBe(0);
+      expect(fixture.db.learningItem.create).toHaveBeenCalledTimes(fixture.batch.kanji.length);
+      expect(progress).toHaveBeenLastCalledWith(
+        expect.objectContaining({ completed: fixture.batch.kanji.length }),
+      );
+      expect(fixture.privateMutation).not.toHaveBeenCalled();
+    },
+  );
 
   it("drains the active kanji pair on failure without marking its manifest successful", async () => {
     const fixture = curationFixture();

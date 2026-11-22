@@ -44,9 +44,13 @@ on:
         type: number
         default: 2
       stage_kanji_pairs:
-        description: For kanji-only apply, stage two new kanji items at once
+        description: For kanji-only apply, stage new kanji items concurrently
         type: boolean
         default: false
+      stage_kanji_width:
+        description: Parallel new items when stage_kanji_pairs is enabled (2 or 4)
+        type: number
+        default: 2
 
 permissions:
   contents: read
@@ -73,6 +77,7 @@ jobs:
       STAGE_WORD_PAIRS: ${{ inputs.stage_word_pairs }}
       STAGE_WORD_WIDTH: ${{ inputs.stage_word_width }}
       STAGE_KANJI_PAIRS: ${{ inputs.stage_kanji_pairs }}
+      STAGE_KANJI_WIDTH: ${{ inputs.stage_kanji_width }}
 
     steps:
       - name: Check out repository
@@ -245,6 +250,7 @@ jobs:
           args=()
           if [ -n "$KANJI_BATCH" ]; then args+=(--batch "$KANJI_BATCH"); fi
           if [ "$STAGE_KANJI_PAIRS" = 'true' ]; then args+=(--stage-pairs); fi
+          if [ "$STAGE_KANJI_WIDTH" = '4' ]; then args+=(--stage-width 4); fi
           npm run db:curate -- "${args[@]}"
 
       - name: Preflight reviewed vocabulary without mutations

@@ -141,6 +141,7 @@ async function main(): Promise<void> {
             registry: batches,
             onProgress: logCurationCheckpoint,
             ...(options.stagePairs ? { stagePairs: true } : {}),
+            ...(options.stageWidth === undefined ? {} : { stageWidth: options.stageWidth }),
             ...(options.batchId === undefined ? {} : { batchId: options.batchId }),
           }),
           null,
@@ -159,11 +160,12 @@ export function parseMainCourseCurationArgs(
 ) {
   const invalid = () =>
     new Error(
-      "Use no arguments to apply all batches, --validate-only, or --preflight-only; optionally select --batch <registered-id> once. Use --stage-pairs only with explicit apply selection.",
+      "Use no arguments to apply all batches, --validate-only, or --preflight-only; optionally select --batch <registered-id> once. Use --stage-pairs [--stage-width 4] only with explicit apply selection.",
     );
   let mode: "apply" | "validate-only" | "preflight-only" = "apply";
   let batchId: string | undefined;
   let stagePairs = false;
+  let stageWidth: 4 | undefined;
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
     if (arg === "--validate-only" || arg === "--preflight-only") {
@@ -172,6 +174,9 @@ export function parseMainCourseCurationArgs(
     } else if (arg === "--stage-pairs") {
       if (stagePairs) throw invalid();
       stagePairs = true;
+    } else if (arg === "--stage-width") {
+      if (stageWidth !== undefined || args[++index] !== "4") throw invalid();
+      stageWidth = 4;
     } else if (arg === "--batch") {
       const value = args[++index];
       if (batchId !== undefined || value === undefined || value.startsWith("--")) throw invalid();
@@ -181,10 +186,12 @@ export function parseMainCourseCurationArgs(
     } else throw invalid();
   }
   if (stagePairs && (mode !== "apply" || batchId === undefined)) throw invalid();
+  if (stageWidth !== undefined && !stagePairs) throw invalid();
   return {
     mode,
     ...(batchId === undefined ? {} : { batchId }),
     ...(stagePairs ? { stagePairs } : {}),
+    ...(stageWidth === undefined ? {} : { stageWidth }),
   };
 }
 
@@ -204,10 +211,12 @@ export async function applyMainCourseContentBatches(
     readonly batchId?: string;
     readonly onProgress?: CurationProgressListener;
     readonly stagePairs?: boolean;
+    readonly stageWidth?: 2 | 4;
   } = {},
 ) {
   if (options.stagePairs && options.batchId === undefined)
     throw new Error("Paired kanji staging requires an explicit manifest selection.");
+  assertKanjiStageWidth(options.stagePairs, options.stageWidth ?? 2);
   const registry = options.registry ?? buildMainCourseContentBatches();
   const selected = selectRegisteredBatches(registry, options.batchId);
   for (const batch of selected) requireParentReview(batch);
@@ -220,6 +229,7 @@ export async function applyMainCourseContentBatches(
         registry,
         options.onProgress,
         options.stagePairs,
+        options.stageWidth,
       ),
     );
   return { status: "success", batches: results };
@@ -395,13 +405,20 @@ async function checkPlacement(
   }
 }
 
+function assertKanjiStageWidth(stagePairs: boolean | undefined, stageWidth: number): void {
+  if (stageWidth !== 2 && (stageWidth !== 4 || !stagePairs))
+    throw new Error("Staging width 4 requires explicit parallel kanji staging.");
+}
+
 export async function applyMainCourseContentBatch(
   prisma: PrismaClient,
   batch: MainCourseContentBatch,
   registry: readonly MainCourseContentBatch[] = buildMainCourseContentBatches(),
   onProgress?: CurationProgressListener,
   stagePairs = false,
+  stageWidth: 2 | 4 = 2,
 ) {
+  assertKanjiStageWidth(stagePairs, stageWidth);
   requireParentReview(batch);
   const { courseId, levelByNumber, priorComponentLearningItemIds, newKanji } =
     await planMainCourseContentBatch(prisma, batch, registry);
@@ -475,10 +492,15 @@ export async function applyMainCourseContentBatch(
       const next = batch.kanji[completed + 1];
       const previous = completed;
       if (stagePairs && next && newKanji.has(entry.character) && newKanji.has(next.character)) {
-        // Component prerequisites are already committed; the two new kanji own disjoint rows.
-        const outcomes = await Promise.allSettled([stage(entry, true), stage(next, true)]);
+        const group = [entry, next];
+        for (const peer of batch.kanji.slice(completed + 2, completed + stageWidth)) {
+          if (!newKanji.has(peer.character)) break;
+          group.push(peer);
+        }
+        // Component prerequisites are committed, and each new kanji owns disjoint rows.
+        const outcomes = await Promise.allSettled(group.map((item) => stage(item, true)));
         for (const outcome of outcomes) if (outcome.status === "rejected") throw outcome.reason;
-        completed += 2;
+        completed += group.length;
       } else {
         await stage(entry);
         completed++;
