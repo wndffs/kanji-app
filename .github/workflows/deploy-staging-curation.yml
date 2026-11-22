@@ -183,7 +183,8 @@ jobs:
             --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/2026-10-31" "${args[@]}" --apply
 
       - name: Preflight selected kanji without mutations
-        if: ${{ steps.selection.outputs.apply_kanji == 'true' }}
+        # Apply validates live sources and placements internally before any teaching write.
+        if: ${{ inputs.mode == 'plan' && steps.selection.outputs.apply_kanji == 'true' }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         shell: bash

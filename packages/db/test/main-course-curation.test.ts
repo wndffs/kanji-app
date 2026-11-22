@@ -796,7 +796,16 @@ describe("main-course curation preflight and application", () => {
 
   it("uses prior component learning items and keeps decomposition order independent of query order", async () => {
     const fixture = curationFixture();
-    await applyMainCourseContentBatch(fixture.db, fixture.batch, fixture.registry);
+    const progress = vi.fn();
+    await applyMainCourseContentBatch(fixture.db, fixture.batch, fixture.registry, progress);
+    expect(progress.mock.calls.flat()).toEqual(
+      [fixture.batch.kanji.length].map((completed) => ({
+        phase: "kanji-items-committed",
+        batchId: fixture.batch.id,
+        completed,
+        total: fixture.batch.kanji.length,
+      })),
+    );
     const mountain = fixture.state.items.get("KANJI:kanji-山")!;
     expect(fixture.state.dependencies.filter((row) => row.learningItemId === mountain.id)).toEqual([
       {
@@ -827,10 +836,14 @@ describe("main-course curation preflight and application", () => {
 
   it("rolls back a failed kanji transaction and permits safe reapplication", async () => {
     const fixture = curationFixture();
+    const progress = vi.fn();
     fixture.failDependencyFor("kanji-石");
     await expect(
-      applyMainCourseContentBatch(fixture.db, fixture.batch, fixture.registry),
+      applyMainCourseContentBatch(fixture.db, fixture.batch, fixture.registry, progress),
     ).rejects.toThrow("test dependency failure");
+    expect(progress).not.toHaveBeenCalledWith(
+      expect.objectContaining({ completed: fixture.batch.kanji.length }),
+    );
     expect(fixture.state.items.has("KANJI:kanji-石")).toBe(false);
     expect(fixture.state.links.some((row) => row.kanjiId === "kanji-石")).toBe(false);
     expect(fixture.state.meanings.some((row) => row.kanjiId === "kanji-石")).toBe(false);

@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { PrismaClient, type ImportRunStatus, type Prisma } from "@prisma/client";
+import { withNeonConnectionDefaults } from "../src/connection-defaults";
 import { CURATION_SOURCE_NAMES } from "../src/curation-source-names";
 import {
   buildEditorialRegistryInventory,
@@ -121,7 +122,8 @@ async function main() {
 
   let prisma: PrismaClient | undefined;
   try {
-    prisma = new PrismaClient();
+    const url = process.env.DATABASE_URL;
+    prisma = new PrismaClient(url ? { datasourceUrl: withNeonConnectionDefaults(url) } : undefined);
     const receipts = await prisma.importRun.findMany({
       where: {
         OR: manifests.map((manifest) => ({

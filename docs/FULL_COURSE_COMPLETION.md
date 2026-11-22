@@ -130,6 +130,8 @@ to the content deficit. Keep them within this single task:
   Kanji staging groups RU and EN cleanup and the two cards' authored answers
   in each existing kanji transaction, avoiding five calls per kanji without
   changing stable card identifiers, prerequisites, or imported meanings.
+  The apply workflow no longer repeats the kanji preflight in a separate
+  process; the curator still verifies the entire selection before writes.
 
 These findings are from code inspection, not a fresh exhaustive live UX audit.
 Only entries explicitly marked implemented have been addressed.
@@ -1124,6 +1126,11 @@ revision, not that no rows were ever staged. `PENDING` and `FAILED` may have
 partial writes. Resume pending or failed work only after an explicit `plan`;
 do not include already completed manifests in the retry. A receipt is neither
 a current content quality check nor a learner-course publication result.
+
+Apply logs now report committed kanji transactions every 25 items and at
+the end of the manifest, plus each fully published word manifest. A kanji
+checkpoint does not attest the import receipt; use `receipts` after failure,
+timeout, or cancellation. Checkpoints contain counts and manifest IDs only.
 
 The final status change uses one full validation inside the serializable
 transaction and re-reads the persisted course status. Both response hashes

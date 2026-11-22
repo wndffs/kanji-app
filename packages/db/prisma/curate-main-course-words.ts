@@ -36,6 +36,7 @@ import {
 } from "../src/main-course-word-source";
 
 import { CURATION_SOURCE_NAMES } from "../src/curation-source-names";
+import { logCurationCheckpoint, type CurationProgressListener } from "../src/curation-progress";
 
 const SOURCE_NAME = CURATION_SOURCE_NAMES.word;
 const LICENSE_NAME = "Project-authored main-course word content";
@@ -271,7 +272,10 @@ export async function planMainCourseWordBatches(
 
 export async function applyMainCourseWordBatches(
   prisma: PrismaClient,
-  options: WordBatchSelection & { readonly batches?: readonly MainCourseWordBatch[] } = {},
+  options: WordBatchSelection & {
+    readonly batches?: readonly MainCourseWordBatch[];
+    readonly onProgress?: CurationProgressListener;
+  } = {},
 ) {
   const batches = options.batches ?? buildMainCourseWordBatches();
   const selected = reviewedSelection(batches, options);
@@ -279,7 +283,15 @@ export async function applyMainCourseWordBatches(
   // Each selected batch must pass before even source/run metadata are created.
   const plans = await planMainCourseWordBatches(prisma, batches, options);
   const applied = [];
-  for (const batch of selected) applied.push(await applyMainCourseWordBatch(prisma, batch));
+  for (const batch of selected) {
+    applied.push(await applyMainCourseWordBatch(prisma, batch));
+    options.onProgress?.({
+      phase: "word-manifests-published",
+      batchId: batch.id,
+      completed: applied.length,
+      total: selected.length,
+    });
+  }
   return {
     status: "applied-reviewed-batches",
     preflightedBatchIds: plans.map((entry) => entry.batchId),
@@ -1000,6 +1012,7 @@ async function main(): Promise<void> {
         }
       : await applyMainCourseWordBatches(prisma, {
           batches,
+          onProgress: logCurationCheckpoint,
           ...(options.batchId === undefined ? {} : { batchId: options.batchId }),
           ...(options.batchIds === undefined ? {} : { batchIds: options.batchIds }),
         });

@@ -145,7 +145,11 @@ describe("explicit staging curation selection", () => {
       expect(step).toContain("inputs.mode == 'apply'");
       expect(step).toContain("DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}");
     }
-    expect(workflow).toContain("npm run db:curate -- --preflight-only");
+    const readOnlyKanji = workflow
+      .split("- name: Preflight selected kanji without mutations")[1]!
+      .split("\n      - name:")[0]!;
+    expect(readOnlyKanji).toContain("inputs.mode == 'plan'");
+    expect(readOnlyKanji).toContain("npm run db:curate -- --preflight-only");
     const readOnlyWords = workflow
       .split("- name: Preflight reviewed vocabulary without mutations")[1]!
       .split("\n      - name:")[0]!;

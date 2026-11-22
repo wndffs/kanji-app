@@ -19,11 +19,13 @@ import {
 } from "../src/main-course-content";
 
 import { CURATION_SOURCE_NAMES } from "../src/curation-source-names";
+import { logCurationCheckpoint, type CurationProgressListener } from "../src/curation-progress";
 
 const CURATION_SOURCE_NAME = CURATION_SOURCE_NAMES.kanji;
 const CURATION_LICENSE_NAME = "Project-authored main-course content";
 const TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 30_000 } as const;
 const KANJI_PREFLIGHT_CONCURRENCY = 4;
+const KANJI_CHECKPOINT_INTERVAL = 25;
 const IMPORTED_SOURCE_SELECT = {
   id: true,
   recordType: true,
@@ -137,6 +139,7 @@ async function main(): Promise<void> {
         JSON.stringify(
           await applyMainCourseContentBatches(prisma, {
             registry: batches,
+            onProgress: logCurationCheckpoint,
             ...(options.batchId === undefined ? {} : { batchId: options.batchId }),
           }),
           null,
@@ -189,6 +192,7 @@ export async function applyMainCourseContentBatches(
   options: {
     readonly registry?: readonly MainCourseContentBatch[];
     readonly batchId?: string;
+    readonly onProgress?: CurationProgressListener;
   } = {},
 ) {
   const registry = options.registry ?? buildMainCourseContentBatches();
@@ -196,7 +200,7 @@ export async function applyMainCourseContentBatches(
   for (const batch of selected) requireParentReview(batch);
   const results = [];
   for (const batch of selected)
-    results.push(await applyMainCourseContentBatch(prisma, batch, registry));
+    results.push(await applyMainCourseContentBatch(prisma, batch, registry, options.onProgress));
   return { status: "success", batches: results };
 }
 
@@ -372,6 +376,7 @@ export async function applyMainCourseContentBatch(
   prisma: PrismaClient,
   batch: MainCourseContentBatch,
   registry: readonly MainCourseContentBatch[] = buildMainCourseContentBatches(),
+  onProgress?: CurationProgressListener,
 ) {
   requireParentReview(batch);
   const { courseId, levelByNumber, priorComponentLearningItemIds } =
@@ -424,7 +429,7 @@ export async function applyMainCourseContentBatch(
       componentLearningItemIds.set(componentContent.key, learningItemId);
     }
 
-    for (const kanjiContent of batch.kanji) {
+    for (const [index, kanjiContent] of batch.kanji.entries()) {
       await prisma.$transaction(
         (db) =>
           applyKanji(
@@ -439,6 +444,14 @@ export async function applyMainCourseContentBatch(
           ),
         TRANSACTION_OPTIONS,
       );
+      const completed = index + 1;
+      if (completed % KANJI_CHECKPOINT_INTERVAL === 0 || completed === batch.kanji.length)
+        onProgress?.({
+          phase: "kanji-items-committed",
+          batchId: batch.id,
+          completed,
+          total: batch.kanji.length,
+        });
     }
 
     await prisma.importRun.update({

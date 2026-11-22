@@ -684,13 +684,22 @@ describe("bounded vocabulary curation", () => {
     const plans = await planMainCourseWordBatches(fixture.db, batches);
     expect(plans.map((entry) => entry.plan.words.length)).toEqual([20, 20, 20]);
     expect(fixture.mutations).toEqual([]);
-    const result = await applyMainCourseWordBatches(fixture.db, { batches });
+    const onProgress = vi.fn();
+    const result = await applyMainCourseWordBatches(fixture.db, { batches, onProgress });
     expect(result).toMatchObject({
       preflightedBatchIds: batches.map((batch) => batch.id),
       skippedUnreviewedBatchIds: [batches[2]!.id],
       batches: [{ batchId: batches[0]!.id }, { batchId: batches[1]!.id }],
     });
     expect(fixture.state.cards.size).toBe(80);
+    expect(onProgress.mock.calls.flat()).toEqual(
+      batches.slice(0, 2).map((batch, index) => ({
+        phase: "word-manifests-published",
+        batchId: batch.id,
+        completed: index + 1,
+        total: 2,
+      })),
+    );
     for (const word of batches[2]!.words)
       expect(
         [...fixture.state.items.values()].some(
