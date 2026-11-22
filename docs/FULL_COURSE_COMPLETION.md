@@ -1021,6 +1021,21 @@ remains **714 kanji / 1,300 words**.
   and no incomplete import provenance. This checks presence only; exact
   licensed lexical evidence and kanji gates still require regular preflight.
 
+- The [Followthrough vocabulary apply](https://github.com/wndffs/kanji-app/actions/runs/45043261185)
+  published 746 words in 33 manifests, all with complete receipts, in about
+  14 minutes of curation including internal preflight. Final coverage:
+  **1,314 kanji / 3,186 words / 232 components / 9,232 core cards**, 41/60
+  populated levels, 3,186 eligible examples, no blockers or warnings, and
+  all 18 protected groups unchanged. The main course remains `DRAFT`.
+  Public API sample 往来 / おうらい showed RU/EN meaning, two review cards
+  and an attributed bilingual example.
+- The first three remaining blocks passed a scope-locked
+  [97-pair source plan](https://github.com/wndffs/kanji-app/actions/runs/45043775283)
+  and [source-only import](https://github.com/wndffs/kanji-app/actions/runs/45045260769).
+  Coverage, Consolidation and Extension now have no missing pairs in that
+  selection. This inserted 96 dictionary records for 97 exact pairs and
+  did not create or publish any teaching content.
+
 | Remaining block | Absent exact pairs |
 | --------------- | -----------------: |
 | Coverage        |                 15 |
