@@ -3,6 +3,7 @@ import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   buildMainCourseWordBatches,
+  mainCourseWordBatchChecksum,
   mainCourseWordReadingEntryId,
   validateMainCourseWordBatches,
   type MainCourseWordBatch,
@@ -15,6 +16,8 @@ import {
 import { inspectLocalWords } from "./local-word-evidence.mts";
 import { verifyLocalSnapshot, type LocalSource } from "./local-source-manifest.mts";
 import { scanSourceXml, serializeNode, textOf } from "./local-source-xml.mts";
+import { reviewedLexicalPairSeal } from "./reviewed-lexical-evidence.mts";
+import { reviewedRefreshManifests } from "./reviewed-source-pins.mjs";
 import {
   buildReadingNoteProofPlans,
   planOrApplyReadingNoteProofs,
@@ -33,6 +36,11 @@ const pairKey = (item: { expression: string; reading: string }) =>
 const MAX_BATCH_IDS = 40;
 const MAX_SOURCE_PAIRS = 100;
 class IncompleteExistingSourceError extends Error {}
+class ChangedReviewedSourceError extends Error {
+  constructor(readonly mismatchedPairs: number) {
+    super("Refreshed JMdict evidence differs from reviewed lexical evidence.");
+  }
+}
 
 export function selectReviewedSourceBatches(
   batches: readonly MainCourseWordBatch[],
@@ -114,13 +122,38 @@ export function requireAbsentSupplementPairs(existing: readonly unknown[]): void
     );
 }
 
+export function reviewedSourcePairSeals(
+  batches: readonly MainCourseWordBatch[],
+  manifests: Readonly<Record<string, { manifestSha256: string; pairs: readonly string[] }>>,
+): ReadonlyMap<string, string> {
+  const result = new Map<string, string>();
+  for (const batch of batches) {
+    const candidates = reviewedSourceCandidates([batch]);
+    const reviewed = manifests[batch.id];
+    if (
+      !Object.hasOwn(manifests, batch.id) ||
+      reviewed?.manifestSha256 !== mainCourseWordBatchChecksum(batch) ||
+      reviewed.pairs.length !== candidates.length ||
+      reviewed.pairs.some((seal) => !/^[a-f0-9]{64}$/u.test(seal))
+    )
+      throw new Error("The refreshed archive requires the exact sealed teaching manifests.");
+    candidates.forEach((candidate, index) =>
+      result.set(pairKey(candidate), reviewed.pairs[index]!),
+    );
+  }
+  return result;
+}
+
 export async function buildReviewedSourceSupplement(
   source: LocalSource,
   candidates: readonly Candidate[],
+  reviewedSeals?: ReadonlyMap<string, string>,
 ) {
   if (!candidates.length || candidates.length > MAX_SOURCE_PAIRS)
     throw new Error("A supplement needs 1-100 explicit pairs.");
-  const evidence = await inspectLocalWords(source, candidates);
+  const evidence = await inspectLocalWords(source, candidates, {
+    includeLexicalMetadata: reviewedSeals !== undefined,
+  });
   if (
     evidence.items.some(
       (item, index) =>
@@ -132,6 +165,13 @@ export async function buildReviewedSourceSupplement(
     throw new Error(
       "Supplement requires exact, unique bilingual source matches for every requested pair.",
     );
+  if (reviewedSeals !== undefined) {
+    const mismatched = candidates.filter((candidate, index) => {
+      const expected = reviewedSeals.get(pairKey(candidate));
+      return !expected || reviewedLexicalPairSeal(candidate, evidence.items[index]!) !== expected;
+    });
+    if (mismatched.length) throw new ChangedReviewedSourceError(mismatched.length);
+  }
   const ids = new Set(candidates.map((item) => item.jmdictEntryId.replace(/^jmdict:/u, "")));
   const records = new Map<string, string>();
   await scanSourceXml(source, "JMdict", "entry", (node) => {
@@ -202,6 +242,12 @@ async function main(args: readonly string[]) {
   const counts = { selectedBatchCount: batches.length, candidatePairCount: candidates.length };
   const snapshot = await verifyLocalSnapshot(options.directory);
   const source = snapshot.sources.find((item) => item.id === "jmdict")!;
+  const reviewedManifests = reviewedRefreshManifests(
+    snapshot.snapshotVersion,
+    source.archiveSha256,
+  );
+  const reviewedSeals =
+    reviewedManifests === null ? undefined : reviewedSourcePairSeals(batches, reviewedManifests);
   const proofPlans = await buildReadingNoteProofPlans(
     source,
     batches.flatMap((batch) => batch.words),
@@ -249,7 +295,7 @@ async function main(args: readonly string[]) {
       );
       return;
     }
-    const supplement = await buildReviewedSourceSupplement(source, missing);
+    const supplement = await buildReviewedSourceSupplement(source, missing, reviewedSeals);
     // Only these exact pairs are written; other spellings/readings of the same entries are untouched.
     const checkAbsent = async (reader: Pick<typeof db, "word">) =>
       requireAbsentSupplementPairs(
@@ -269,6 +315,7 @@ async function main(args: readonly string[]) {
       totalMissingPairs,
       entries: supplement.entryCount,
       plannedProofCount: proofPlan.plannedProofCount,
+      ...(reviewedSeals === undefined ? {} : { revalidatedLexicalPairs: missing.length }),
       existingRowsNotRevalidated: true,
     };
     if (!options.apply) {
@@ -325,6 +372,13 @@ async function main(args: readonly string[]) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   main(process.argv.slice(2)).catch((error: unknown) => {
+    if (error instanceof ChangedReviewedSourceError)
+      console.error(
+        JSON.stringify({
+          status: "refreshed-source-review-required",
+          pairs: error.mismatchedPairs,
+        }),
+      );
     if (error instanceof IncompleteExistingSourceError)
       console.error(
         "REVIEWED_SOURCE_PROVENANCE_INCOMPLETE: existing rows need a separate reviewed provenance repair.",

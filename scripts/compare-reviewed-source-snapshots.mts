@@ -2,37 +2,20 @@ import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { createHash } from "node:crypto";
-import { buildMainCourseWordBatches } from "../packages/db/src/main-course-word-content.ts";
+import {
+  buildMainCourseWordBatches,
+  mainCourseWordBatchChecksum,
+} from "../packages/db/src/main-course-word-content.ts";
 import {
   reviewedSourceCandidates,
   selectReviewedSourceBatches,
 } from "./import-missing-reviewed-word-sources.mts";
 import { verifyLocalSnapshot } from "./local-source-manifest.mts";
 import { inspectLocalWords } from "./local-word-evidence.mts";
+import { reviewedLexicalEvidence, reviewedLexicalPairSeal } from "./reviewed-lexical-evidence.mts";
 
 type Candidate = ReturnType<typeof reviewedSourceCandidates>[number];
 type Observation = Awaited<ReturnType<typeof inspectLocalWords>>["items"][number];
-
-function glosses(item: Observation) {
-  return [
-    ...new Set(
-      item.lexical?.senses.map((sense) =>
-        JSON.stringify([sense.locale, sense.meaning, sense.partOfSpeech]),
-      ),
-    ),
-  ].sort();
-}
-
-function matchesCandidate(item: Observation, candidate: Candidate): boolean {
-  return (
-    item.expression === candidate.expression &&
-    item.reading === candidate.reading &&
-    item.sourceRecordId === candidate.jmdictEntryId &&
-    item.status === "matched" &&
-    item.bilingual &&
-    item.lexical !== undefined
-  );
-}
 
 export function reviewedLexicalFingerprint(
   candidates: readonly Candidate[],
@@ -43,12 +26,9 @@ export function reviewedLexicalFingerprint(
   const hash = createHash("sha256");
   let missingOrChangedIdentity = 0;
   for (const [index, candidate] of candidates.entries()) {
-    const item = observations[index]!;
-    if (!matchesCandidate(item, candidate)) missingOrChangedIdentity++;
-    else
-      hash.update(
-        `${JSON.stringify([candidate.expression, candidate.reading, candidate.jmdictEntryId, glosses(item)])}\n`,
-      );
+    const evidence = reviewedLexicalEvidence(candidate, observations[index]!);
+    if (evidence === null) missingOrChangedIdentity++;
+    else hash.update(`${evidence}\n`);
   }
   return {
     pairs: candidates.length,
@@ -75,13 +55,15 @@ export function compareReviewedSourceObservations(
   for (const [index, candidate] of candidates.entries()) {
     const previous = before[index]!;
     const next = after[index]!;
-    if (!matchesCandidate(previous, candidate) || !matchesCandidate(next, candidate)) {
+    const previousEvidence = reviewedLexicalEvidence(candidate, previous);
+    const nextEvidence = reviewedLexicalEvidence(candidate, next);
+    if (previousEvidence === null || nextEvidence === null) {
       pairs.missingOrChangedIdentity++;
       differences.push({ candidate, reason: "identity" });
       continue;
     }
     if (previous.lexical?.commonnessRank !== next.lexical?.commonnessRank) pairs.changedRank++;
-    if (JSON.stringify(glosses(previous)) === JSON.stringify(glosses(next))) pairs.unchanged++;
+    if (previousEvidence === nextEvidence) pairs.unchanged++;
     else {
       pairs.changedGlosses++;
       differences.push({ candidate, reason: "gloss" });
@@ -95,6 +77,7 @@ async function main(args: readonly string[]) {
     args: [...args],
     options: {
       "snapshot-dir": { type: "string" },
+      "pair-seals": { type: "boolean" },
       "before-dir": { type: "string" },
       "after-dir": { type: "string" },
       batch: { type: "string", multiple: true },
@@ -120,6 +103,32 @@ async function main(args: readonly string[]) {
       throw new Error("Select one absolute snapshot directory for fingerprinting.");
     const snapshot = await verifyLocalSnapshot(singleDir);
     const { items } = await inspect(snapshot);
+    if (values["pair-seals"]) {
+      if (noteProofsRequired) throw new Error("Source note evidence requires separate review.");
+      let offset = 0;
+      const manifests = Object.fromEntries(
+        batches.map((batch) => {
+          const pairs = reviewedSourceCandidates([batch]).map((candidate) =>
+            reviewedLexicalPairSeal(candidate, items[offset++]!),
+          );
+          if (pairs.some((seal) => seal === null))
+            throw new Error("Missing exact bilingual source evidence.");
+          return [batch.id, { manifestSha256: mainCourseWordBatchChecksum(batch), pairs }];
+        }),
+      );
+      console.log(
+        JSON.stringify(
+          {
+            version: snapshot.snapshotVersion,
+            jmdictArchiveSha256: snapshot.sources.find(({ id }) => id === "jmdict")!.archiveSha256,
+            manifests,
+          },
+          null,
+          2,
+        ),
+      );
+      return;
+    }
     const total = reviewedLexicalFingerprint(candidates, items);
     let offset = 0;
     const manifests = batches.map((batch) => {
@@ -152,6 +161,7 @@ async function main(args: readonly string[]) {
     return;
   }
   if (
+    values["pair-seals"] ||
     !beforeDir ||
     !afterDir ||
     !isAbsolute(beforeDir) ||

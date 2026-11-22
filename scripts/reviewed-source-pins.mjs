@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import reviewedWordSources from "./reviewed-word-sources-2026-10-31.json" with { type: "json" };
 
 const kanjivg = "b36579789775ea912d5e98356bf243f54fb953fa3b58a16c2d6995f252e2a3e2";
 const original = Object.freeze({
@@ -15,13 +16,16 @@ const refreshed = Object.freeze({
   kanjivg,
 });
 
-// Only these manifests matched their previous bilingual lexical fingerprints.
-// Reproduce the refresh evidence before adding any other manifest to this pin.
-const refreshedDeepening = new Set(
-  Array.from({ length: 29 }, (_, index) => index + 1)
-    .filter((number) => ![15, 21, 24].includes(number))
-    .map((number) => `full-course-vocabulary-deepening-${String(number).padStart(2, "0")}`),
-);
+export function reviewedRefreshManifests(version, jmdictArchiveSha256) {
+  if (version !== refreshed.version) return null;
+  if (
+    jmdictArchiveSha256 !== refreshed.jmdict ||
+    reviewedWordSources.version !== original.version ||
+    reviewedWordSources.jmdictArchiveSha256 !== original.jmdict
+  )
+    throw new Error("The refreshed and reviewed JMdict archive pins do not match.");
+  return reviewedWordSources.manifests;
+}
 
 export function selectReviewedSourcePin(values) {
   const ids = typeof values === "string" ? values.split(",") : [];
@@ -32,7 +36,7 @@ export function selectReviewedSourcePin(values) {
     ids.some((id) => !/^[a-z][a-z0-9-]{0,79}$/u.test(id))
   )
     throw new Error("Invalid reviewed word selection for a source snapshot.");
-  return ids.every((id) => refreshedDeepening.has(id)) ? refreshed : original;
+  return ids.every((id) => Object.hasOwn(reviewedWordSources.manifests, id)) ? refreshed : original;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

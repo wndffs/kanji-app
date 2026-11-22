@@ -913,9 +913,32 @@ source data. All **642** Deepening pairs retained their exact bilingual
 identities. **26 manifests for 431 words** also have unchanged bilingual
 lexical fingerprints. Those manifests may use the separately pinned official
 2026-11-22 archives for source-only windows. The other **3 manifests / 209
-words** (`-15`, `-21`, `-24`) still require an editorial drift check or their
-original source. The pin remains the original one for any other or mixed
-selection. This comparison is not a teaching publication.
+words** (`-15`, `-21`, `-24`) needed a narrower inventory check: a changed
+manifest fingerprint does not imply that the pairs missing in Neon changed.
+
+### Deepening vocabulary server receipt: 2026-11-22
+
+- A [source-only supplement](https://github.com/wndffs/kanji-app/actions/runs/45029223681)
+  inserted five missing dictionary pairs. The subsequent [live plan](https://github.com/wndffs/kanji-app/actions/runs/45029277380)
+  passed 431 words in 26 manifests. The [paired apply](https://github.com/wndffs/kanji-app/actions/runs/45029820418)
+  published all 26 with complete receipts, **431 words and 431 original examples**.
+- The live total was **1,114 kanji / 2,231 words / 232 components / 6,922 core
+  review cards**, with 40/60 populated levels, 1,114 stroke sequences and
+  2,231 eligible examples. Quality scanned 3,577 targets with no blockers or
+  warnings. All 15 learner-data groups and three protected curriculum groups
+  matched their pre-release state. The main curriculum remained `DRAFT`.
+- [Read-only inventory](https://github.com/wndffs/kanji-app/actions/runs/45030143142)
+  found all 37 exact pairs for `-15`; `-21` and `-24` jointly lacked three.
+  Six Followthrough manifests lacked seven additional pairs. The other rows
+  were left in place and still require normal curator validation.
+- For archive recovery, the source-supplement command verifies only absent
+  pairs against both the pinned refreshed archive and independent per-pair
+  lexical seals from the original archive. The seals contain no raw glosses
+  or database rows and are tied to the exact teaching-manifest checksums.
+  Regenerate them locally with `compare-reviewed-source-snapshots.mts
+--pair-seals --snapshot-dir ABSOLUTE_DIRECTORY --batch ID` (repeated IDs are
+  supplied as separate batch arguments). A missing seal or a changed exact
+  pair blocks the entire import window before raw or teaching writes.
 
 ## Course Followthrough: 2026-11-21
 

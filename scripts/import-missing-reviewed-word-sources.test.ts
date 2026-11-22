@@ -2,7 +2,10 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { buildMainCourseWordBatch } from "../packages/db/src/main-course-word-content";
+import {
+  buildMainCourseWordBatch,
+  mainCourseWordBatchChecksum,
+} from "../packages/db/src/main-course-word-content";
 import { parseJmDictXml } from "../packages/content-importers/src/jmdict";
 import { SOURCE_CONTRACTS } from "./local-source-manifest.mts";
 import {
@@ -11,8 +14,11 @@ import {
   parseSourceSupplementArgs,
   requireAbsentSupplementPairs,
   reviewedSourceCandidates,
+  reviewedSourcePairSeals,
   selectReviewedSourceBatches,
 } from "./import-missing-reviewed-word-sources.mts";
+import { inspectLocalWords } from "./local-word-evidence.mts";
+import { reviewedLexicalPairSeal } from "./reviewed-lexical-evidence.mts";
 
 vi.mock("@prisma/client", () => {
   throw new Error("Pure supplement checks must not connect to a database.");
@@ -149,6 +155,18 @@ describe("bounded missing-source supplements for reviewed words", () => {
     ]);
     expect(derived.checksumSha256).not.toBe(source.contentSha256);
     expect(await buildReviewedSourceSupplement(source, wanted)).toEqual(derived);
+    const [observed] = (await inspectLocalWords(source, wanted, { includeLexicalMetadata: true }))
+      .items;
+    const key = JSON.stringify([wanted[0]!.expression, wanted[0]!.reading]);
+    const seal = reviewedLexicalPairSeal(wanted[0]!, observed!);
+    expect(seal).toMatch(/^[a-f0-9]{64}$/);
+    expect(await buildReviewedSourceSupplement(source, wanted, new Map([[key, seal!]]))).toEqual(
+      derived,
+    );
+    for (const seals of [new Map(), new Map([[key, "0".repeat(64)]])])
+      await expect(buildReviewedSourceSupplement(source, wanted, seals)).rejects.toMatchObject({
+        mismatchedPairs: 1,
+      });
     await expect(
       buildReviewedSourceSupplement(source, [{ ...wanted[0]!, jmdictEntryId: "jmdict:999" }]),
     ).rejects.toThrow("exact");
@@ -159,6 +177,20 @@ describe("bounded missing-source supplements for reviewed words", () => {
         { expression: "一日", reading: "いちにち", jmdictEntryId: "jmdict:1000001" },
       ]),
     ).rejects.toThrow("bilingual");
+  });
+  it("binds exact pair seals to the checksum and pair order of the full approved manifest", () => {
+    const batch = buildMainCourseWordBatch();
+    const seals = {
+      [batch.id]: {
+        manifestSha256: mainCourseWordBatchChecksum(batch),
+        pairs: reviewedSourceCandidates([batch]).map(() => "a".repeat(64)),
+      },
+    };
+    expect(reviewedSourcePairSeals([batch], seals).size).toBe(batch.words.length);
+    expect(() => reviewedSourcePairSeals([{ ...batch, version: "changed" }], seals)).toThrow(
+      "exact sealed",
+    );
+    expect(() => reviewedSourcePairSeals([batch], {})).toThrow("exact sealed");
   });
   it("defaults to read-only planning and accepts only explicit bounded CLI arguments", () => {
     const path = resolve(".");
