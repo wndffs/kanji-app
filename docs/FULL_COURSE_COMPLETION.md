@@ -1157,8 +1157,8 @@ below for deployed counts.
 This block adds **200 independently reviewed kanji, 770 words and seven
 component cues**. Each word has an original JP/kana/RU/EN example. Reviewed
 totals: **1,914 kanji / 5,494 words / 239 components** across **50 populated
-levels**; remaining: **386 kanji / 2,506 words**. The last confirmed live
-count remains **714 / 1,300**.
+levels**; remaining: **386 kanji / 2,506 words** at the end of the block.
+See the live receipt below for deployed counts.
 
 - The pinned snapshot matched **774 exact bilingual JMdict pairs**, including
   four alternate readings, **200 KANJIDIC2 readings**, **200 primary KanjiVG
@@ -1180,6 +1180,29 @@ count remains **714 / 1,300**.
   targets / 15,055 core cards**. Scope any missing raw-source import to the
   exact manifest selection; confirm aggregate preservation and full quality
   before reporting a Neon release. Keep the main course DRAFT.
+
+### Extension server receipt: 2026-11-22
+
+- The [kanji plan](https://github.com/wndffs/kanji-app/actions/runs/45053383436)
+  and [apply](https://github.com/wndffs/kanji-app/actions/runs/45056616893)
+  completed all **200 kanji and seven component cues**. Neon reported
+  **1,914 kanji / 4,724 words / 239 components / 6,877 teaching targets /
+  13,515 core cards**, with no blockers or warnings and all 18 protected
+  groups unchanged. The public API returned 鍵 / かぎ with RU/EN meanings,
+  two review cards and 17 licensed strokes, and 氵 as a level-44 component.
+- The [word plan](https://github.com/wndffs/kanji-app/actions/runs/45056664564)
+  passed 770 words in 37 manifests. The [apply](https://github.com/wndffs/kanji-app/actions/runs/45058354260)
+  committed all 37 receipts and preserved all 18 protected groups. The
+  final audit initially mistook the secondary Russian meaning of 栓 / せん
+  for a placeholder. The corrected [read-only audit](https://github.com/wndffs/kanji-app/actions/runs/45062553288)
+  passed with no blockers or warnings, without reapplying any teaching data.
+  Public API sample 風呂 / ふろ returned both translations, two cards and an
+  attributed JP/kana/RU/EN example.
+- Final live totals: **1,914 kanji / 5,494 words / 239 components / 7,647
+  teaching targets / 15,055 core review cards**, 50/60 populated levels,
+  1,914 licensed stroke sequences and 5,494 eligible bilingual examples.
+  The main course remains `DRAFT`; **386 kanji and 2,506 words** are still
+  needed on the server.
 
 ## Course Finalization, First Block: 2026-11-21
 
