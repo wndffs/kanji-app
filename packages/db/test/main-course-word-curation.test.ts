@@ -218,6 +218,7 @@ describe("bounded vocabulary curation", () => {
       { batchId: batches[0]!.id, batchIds: [batches[1]!.id] },
       { batchIds: Array.from({ length: 41 }, (_, i) => `fixture-${i}`) },
       { stagePairs: true },
+      { batchId: batches[0]!.id, stageWidth: 4 as const },
     ]) {
       const fixture = harness(batches);
       await expect(
@@ -235,44 +236,55 @@ describe("bounded vocabulary curation", () => {
       batchId: batch!.id,
       stagePairs: true,
     });
+    expect(parseMainCourseWordCurationArgs([...args, "--stage-width", "4"], [batch!])).toEqual({
+      mode: "apply",
+      batchId: batch!.id,
+      stagePairs: true,
+      stageWidth: 4,
+    });
     for (const bad of [
       ["--stage-pairs"],
+      ["--batch", batch!.id, "--stage-width", "4"],
       [...args, "--preflight-only"],
       [...args, "--stage-pairs"],
+      [...args, "--stage-width", "5"],
     ])
       expect(() => parseMainCourseWordCurationArgs(bad, [batch!])).toThrow(
         "explicit apply selection",
       );
   });
-  it("stages at most two distinct new items at once and leaves existing words sequential", async () => {
-    const fixture = harness();
-    const transaction = fixture.transaction.getMockImplementation()!;
-    let active = 0;
-    let peak = 0;
-    let started = 0;
-    const inFlight: number[] = [];
-    fixture.transaction.mockImplementation(async (...args) => {
-      started++;
-      active++;
-      peak = Math.max(peak, active);
-      inFlight.push(active);
-      try {
-        return await transaction(...args);
-      } finally {
-        active--;
-      }
-    });
-    const result = await applyMainCourseWordBatch(fixture.db, fixture.batch, true);
-    expect(result.words).toBe(fixture.batch.words.length);
-    expect(inFlight.slice(0, 4)).toEqual([1, 1, 1, 2]);
-    expect(inFlight.at(-1)).toBe(1);
-    expect(peak).toBe(2);
-    expect(active).toBe(0);
-    expect(started).toBe(fixture.batch.words.length + 2);
-    expect([...fixture.state.examples.values()].every((row) => row.status === "PUBLISHED")).toBe(
-      true,
-    );
-  });
+  it.each([2, 4] as const)(
+    "stages up to %d distinct new items and leaves existing words sequential",
+    async (width) => {
+      const fixture = harness();
+      const transaction = fixture.transaction.getMockImplementation()!;
+      let active = 0;
+      let peak = 0;
+      let started = 0;
+      const inFlight: number[] = [];
+      fixture.transaction.mockImplementation(async (...args) => {
+        started++;
+        active++;
+        peak = Math.max(peak, active);
+        inFlight.push(active);
+        try {
+          return await transaction(...args);
+        } finally {
+          active--;
+        }
+      });
+      const result = await applyMainCourseWordBatch(fixture.db, fixture.batch, true, width);
+      expect(result.words).toBe(fixture.batch.words.length);
+      expect(inFlight.slice(0, 4)).toEqual([1, 1, 1, 2]);
+      expect(inFlight.at(-1)).toBe(1);
+      expect(peak).toBe(width);
+      expect(active).toBe(0);
+      expect(started).toBe(fixture.batch.words.length + 2);
+      expect([...fixture.state.examples.values()].every((row) => row.status === "PUBLISHED")).toBe(
+        true,
+      );
+    },
+  );
   it("drains a pending peer before a failed pair stops the manifest without publishing it", async () => {
     const fixture = harness();
     fixture.failWord("川");

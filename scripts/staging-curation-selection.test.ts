@@ -80,6 +80,8 @@ describe("explicit staging curation selection", () => {
     { CURATION_MODE: "receipts", KANJI_BATCH: KANJI, SKIP_WORDS: "true" },
     { CURATION_MODE: "receipts", WORD_BATCH: WORDS, SUPPLEMENT_WORD_SOURCES: "true" },
     { CURATION_MODE: "apply", WORD_BATCH: WORDS, STAGE_WORD_PAIRS: "3" },
+    { CURATION_MODE: "apply", WORD_BATCH: WORDS, STAGE_WORD_WIDTH: "4" },
+    { CURATION_MODE: "apply", WORD_BATCH: WORDS, STAGE_WORD_PAIRS: "true", STAGE_WORD_WIDTH: "5" },
     { CURATION_MODE: "plan", WORD_BATCH: WORDS, STAGE_WORD_PAIRS: "true" },
     { CURATION_MODE: "apply", KANJI_BATCH: KANJI, WORD_BATCH: WORDS, STAGE_WORD_PAIRS: "true" },
     {
@@ -126,20 +128,24 @@ describe("explicit staging curation selection", () => {
       sourceOnly: false,
     });
   });
-  it("allows paired staging only for an explicit word-only apply", () => {
-    expect(
-      selectStagingCuration({
-        CURATION_MODE: "apply",
-        WORD_BATCH: WORDS,
-        STAGE_WORD_PAIRS: "true",
-      }),
-    ).toEqual({
-      applyKanji: false,
-      applyWords: true,
-      supplementWordSources: false,
-      sourceOnly: false,
-    });
-  });
+  it.each(["2", "4"])(
+    "allows a staging width of %s only for an explicit word-only apply",
+    (width) => {
+      expect(
+        selectStagingCuration({
+          CURATION_MODE: "apply",
+          WORD_BATCH: WORDS,
+          STAGE_WORD_PAIRS: "true",
+          STAGE_WORD_WIDTH: width,
+        }),
+      ).toEqual({
+        applyKanji: false,
+        applyWords: true,
+        supplementWordSources: false,
+        sourceOnly: false,
+      });
+    },
+  );
   it("allows paired kanji staging only with words and source writes disabled", () => {
     expect(
       selectStagingCuration({
@@ -225,6 +231,9 @@ describe("explicit staging curation selection", () => {
     expect(applyWords).toContain(
       "if [ \"$STAGE_WORD_PAIRS\" = 'true' ]; then args+=(--stage-pairs); fi",
     );
+    expect(applyWords).toContain(
+      "if [ \"$STAGE_WORD_WIDTH\" = '4' ]; then args+=(--stage-width 4); fi",
+    );
     const sourceApply = workflow
       .split("- name: Apply missing reviewed word sources")[1]!
       .split("\n      - name:")[0]!;
@@ -272,6 +281,7 @@ describe("explicit staging curation selection", () => {
       SUPPLEMENT_WORD_SOURCES: "false",
       SOURCE_PAIR_LIMIT: "100",
       STAGE_WORD_PAIRS: "false",
+      STAGE_WORD_WIDTH: "2",
       STAGE_KANJI_PAIRS: "false",
       CURATION_MODE: "plan",
       DATABASE_URL: "synthetic-private-value",

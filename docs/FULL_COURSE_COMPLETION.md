@@ -1246,9 +1246,10 @@ updates. The manifest still publishes its examples and items atomically.
 
 The workflow's optional `stage_word_pairs` mode applies only explicitly
 selected word manifests with no kanji or raw-source writes. It stages up to
-two adjacent new items at a time, each in its own transaction, preserving
-manifest order and staging existing items sequentially. A failed pair
-drains before stopping; already committed draft items may be retained, but
+two adjacent new items at a time (four only with `stage_word_width: 4`),
+each in its own transaction. Existing items are staged sequentially and
+manifest order is preserved. A failed group drains before stopping;
+already committed draft items may be retained, but
 the manifest is not published. Successful exact receipts are rejected before
 staging, so a restart cannot withdraw their already-published examples.
 Rerun receipts and a plan before resuming.

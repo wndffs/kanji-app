@@ -4,6 +4,8 @@
   "include": [
     "scripts/local-*.mts",
     "scripts/inspect-local-draft-sources.mts",
+    "scripts/audit-reviewed-word-inventory.mts",
+    "scripts/compare-reviewed-source-snapshots.mts",
     "scripts/import-missing-reviewed-word-sources.mts"
   ]
 }

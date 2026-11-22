@@ -36,9 +36,13 @@ on:
         type: number
         default: 100
       stage_word_pairs:
-        description: For word-only apply with existing raw sources, stage two new word items at once
+        description: For word-only apply with existing raw sources, stage new word items concurrently
         type: boolean
         default: false
+      stage_word_width:
+        description: Parallel new items when stage_word_pairs is enabled (2 or 4)
+        type: number
+        default: 2
       stage_kanji_pairs:
         description: For kanji-only apply, stage two new kanji items at once
         type: boolean
@@ -67,6 +71,7 @@ jobs:
       SUPPLEMENT_WORD_SOURCES: ${{ inputs.supplement_word_sources }}
       SOURCE_PAIR_LIMIT: ${{ inputs.source_pair_limit }}
       STAGE_WORD_PAIRS: ${{ inputs.stage_word_pairs }}
+      STAGE_WORD_WIDTH: ${{ inputs.stage_word_width }}
       STAGE_KANJI_PAIRS: ${{ inputs.stage_kanji_pairs }}
 
     steps:
@@ -267,6 +272,7 @@ jobs:
             for id in "${ids[@]}"; do args+=(--batch "$id"); done
           fi
           if [ "$STAGE_WORD_PAIRS" = 'true' ]; then args+=(--stage-pairs); fi
+          if [ "$STAGE_WORD_WIDTH" = '4' ]; then args+=(--stage-width 4); fi
           npm run db:curate:words -- "${args[@]}"
 
       - name: Verify complete receipts for the selected teaching writes
