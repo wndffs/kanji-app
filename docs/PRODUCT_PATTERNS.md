@@ -86,6 +86,10 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
   breakdown without recomputing the schedule in the browser.
 - Show the current level threshold separately from per-type progress. Each
   type links directly to the corresponding material filter on that level.
+- Put study and library navigation above desktop content so it can use the
+  available reading width. Keep the phone's five study destinations docked
+  at the bottom and library commands in a keyboard-accessible menu. A study
+  session hides both menus without losing its route back to the course.
 - Use a common question layout in lesson quizzes and reviews: the question
   type is above the Japanese text or audio, with a subject color that stays
   consistent between teaching and recall. The answer surface follows the
