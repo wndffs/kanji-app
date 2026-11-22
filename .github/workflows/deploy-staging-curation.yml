@@ -82,7 +82,7 @@ jobs:
         run: npm ci --include=dev
 
       - name: Verify selection guardrails
-        run: npm exec -- vitest run scripts/staging-curation-selection.test.ts --no-cache --no-fsModuleCache --configLoader runner --maxWorkers=1
+        run: npm exec -- vitest run scripts/staging-curation-selection.test.ts scripts/reviewed-source-pins.test.ts --no-cache --no-fsModuleCache --configLoader runner --maxWorkers=1
 
       - name: Resolve explicit curation selection before database writes
         id: selection
@@ -149,35 +149,41 @@ jobs:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         run: npm exec -- tsx packages/db/prisma/check-curation-preservation.ts capture
 
+      - name: Resolve the verified source pin for the exact vocabulary selection
+        id: source-pin
+        if: ${{ steps.selection.outputs.supplement_word_sources == 'true' }}
+        run: node scripts/reviewed-source-pins.mjs >> "$GITHUB_OUTPUT"
+
       - name: Restore pinned source snapshot for explicit word supplement
         id: word-source-cache
         if: ${{ steps.selection.outputs.supplement_word_sources == 'true' }}
         uses: actions/cache/restore@v4
         with:
-          path: ${{ runner.temp }}/kanji-content-snapshots/2026-10-31
-          key: content-sources-v2-${{ runner.os }}-2026-10-31-${{ hashFiles('scripts/prepare-content-snapshot.mjs') }}
+          path: ${{ runner.temp }}/kanji-content-snapshots/${{ steps.source-pin.outputs.version }}
+          key: content-sources-v2-${{ runner.os }}-${{ steps.source-pin.outputs.version }}-${{ hashFiles('scripts/prepare-content-snapshot.mjs') }}
 
       - name: Verify pinned source snapshot for explicit word supplement
         if: ${{ steps.selection.outputs.supplement_word_sources == 'true' }}
         run: >-
           node scripts/prepare-content-snapshot.mjs
-          --snapshot-version 2026-10-31
+          --snapshot-version ${{ steps.source-pin.outputs.version }}
           --cache-root "$RUNNER_TEMP/kanji-content-snapshots"
-          --expected-jmdict-archive-sha256 c09c402a69dbe2eb02cb8e9e7510e51bd512e53cb26e162901323cfaf3ed5eff
-          --expected-kanjidic2-archive-sha256 8e70bfa3a7a7df640e3ba254a80438201904d95df0fb23c9323476c2676d3346
-          --expected-kanjivg-archive-sha256 b36579789775ea912d5e98356bf243f54fb953fa3b58a16c2d6995f252e2a3e2
+          --expected-jmdict-archive-sha256 ${{ steps.source-pin.outputs.jmdict }}
+          --expected-kanjidic2-archive-sha256 ${{ steps.source-pin.outputs.kanjidic2 }}
+          --expected-kanjivg-archive-sha256 ${{ steps.source-pin.outputs.kanjivg }}
 
       - name: Cache verified source snapshot for later supplements
         if: ${{ steps.selection.outputs.supplement_word_sources == 'true' && steps.word-source-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v4
         with:
-          path: ${{ runner.temp }}/kanji-content-snapshots/2026-10-31
+          path: ${{ runner.temp }}/kanji-content-snapshots/${{ steps.source-pin.outputs.version }}
           key: ${{ steps.word-source-cache.outputs.cache-primary-key }}
 
       - name: Plan missing reviewed word sources without mutations
         if: ${{ steps.selection.outputs.supplement_word_sources == 'true' && inputs.mode != 'apply_sources' }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          SOURCE_SNAPSHOT_VERSION: ${{ steps.source-pin.outputs.version }}
         shell: bash
         run: |
           args=()
@@ -185,12 +191,13 @@ jobs:
           for id in "${ids[@]}"; do args+=(--batch "$id"); done
           if [ "$CURATION_MODE" = 'plan_sources' ]; then args+=(--max-pairs "$SOURCE_PAIR_LIMIT"); fi
           npm exec -- tsx scripts/import-missing-reviewed-word-sources.mts \
-            --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/2026-10-31" "${args[@]}"
+            --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/$SOURCE_SNAPSHOT_VERSION" "${args[@]}"
 
       - name: Apply missing reviewed word sources
         if: ${{ (inputs.mode == 'apply' || inputs.mode == 'apply_sources') && steps.selection.outputs.supplement_word_sources == 'true' }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          SOURCE_SNAPSHOT_VERSION: ${{ steps.source-pin.outputs.version }}
         shell: bash
         run: |
           args=()
@@ -198,7 +205,7 @@ jobs:
           for id in "${ids[@]}"; do args+=(--batch "$id"); done
           if [ "$CURATION_MODE" = 'apply_sources' ]; then args+=(--max-pairs "$SOURCE_PAIR_LIMIT"); fi
           npm exec -- tsx scripts/import-missing-reviewed-word-sources.mts \
-            --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/2026-10-31" "${args[@]}" --apply
+            --snapshot-dir "$RUNNER_TEMP/kanji-content-snapshots/$SOURCE_SNAPSHOT_VERSION" "${args[@]}" --apply
 
       - name: Preflight selected kanji without mutations
         # Apply validates live sources and placements internally before any teaching write.

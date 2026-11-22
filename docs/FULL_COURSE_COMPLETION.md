@@ -903,6 +903,20 @@ are applied; the confirmed live Broadening baseline is **914 / 1,800**.
   RU/EN meanings, two review cards and stroke graphics. The 640 words require
   their separate live preflight and apply.
 
+### Deepening source-cache recovery: 2026-11-22
+
+The teaching plan found an unverified exact JMdict pair, and the runner's
+2026-10-31 source cache had expired. The original archives remained intact
+locally. A separate [read-only refresh audit](https://github.com/wndffs/kanji-app/actions/runs/45028767414)
+compared effective lexical evidence without accessing Neon or uploading raw
+source data. All **642** Deepening pairs retained their exact bilingual
+identities. **26 manifests for 431 words** also have unchanged bilingual
+lexical fingerprints. Those manifests may use the separately pinned official
+2026-11-22 archives for source-only windows. The other **3 manifests / 209
+words** (`-15`, `-21`, `-24`) still require an editorial drift check or their
+original source. The pin remains the original one for any other or mixed
+selection. This comparison is not a teaching publication.
+
 ## Course Followthrough: 2026-11-21
 
 This independently reviewed block adds **200 kanji / 746 primary words**,
