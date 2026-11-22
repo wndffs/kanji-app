@@ -1290,7 +1290,8 @@ registry is not a live publication receipt.
 
 Adds **700 original RU/EN words and JP/kana/RU/EN examples**, increasing
 the reviewed registry to **2,300 kanji / 6,580 words / 244 components**.
-The remaining goal is **1,420 words**. This is not a Neon publication.
+The remaining registry goal at this point is **1,420 words**. See the
+live receipt below for deployed counts.
 
 - Independent AI reviewers checked all 700 cards. **704 exact bilingual
   JMdict pairs** passed, including four alternate readings. New words
@@ -1304,6 +1305,20 @@ The remaining goal is **1,420 words**. This is not a Neon publication.
   Expected after all outstanding releases through this block:
   **9,124 teaching targets / 18,004 core cards**. Verify aggregate
   provenance and preservation before declaring this set live.
+
+### First supplemental server receipt: 2026-11-23
+
+- After all 2,300 prerequisite kanji were live, the [word plan](https://github.com/wndffs/kanji-app/actions/runs/45066440611)
+  passed all 700 words. The [apply](https://github.com/wndffs/kanji-app/actions/runs/45069241435)
+  verified all 35 complete receipts. No raw source supplement was needed.
+  Public API sample 盗む / ぬすむ returned both translations, two review
+  cards, and an attributed JP/kana/RU/EN example.
+- Live coverage: **2,300 kanji / 6,194 words / 244 components / 8,738
+  teaching targets / 17,232 core cards**, 58/60 populated levels, 2,300
+  licensed stroke sequences and 6,194 eligible bilingual examples. There
+  were zero blockers or warnings, and all 18 protected groups were
+  unchanged. The course remains `DRAFT`. **1,806 words** are still needed;
+  the Finalization and Closure reinforcement words are not counted here.
 
 ## Supplemental Vocabulary, Second Block: 2026-11-21
 
