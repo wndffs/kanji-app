@@ -885,6 +885,24 @@ are applied; the confirmed live Broadening baseline is **914 / 1,800**.
   compare only aggregate preservation evidence for existing progress and
   courses. Keep the main curriculum DRAFT; do not create V8 or switch users.
 
+### Deepening kanji server receipt: 2026-11-22
+
+- The [read-only preflight](https://github.com/wndffs/kanji-app/actions/runs/45022026374)
+  passed all 200 kanji. The first apply stopped in CI selection tests before
+  database access; it did not leave a partial import. The corrected
+  [paired apply](https://github.com/wndffs/kanji-app/actions/runs/45024912897)
+  reached 200/200 committed kanji and verified the exact receipt as complete.
+- The kanji command took **about 11 minutes**, including its mandatory live
+  preflight. Broadening's earlier sequential 200-kanji command took about
+  21 minutes. These are different blocks and revisions, not a same-data speed
+  comparison. All selected kanji kept individually atomic transactions.
+- The final corpus and quality checks passed: **1,114 kanji / 1,800 words /
+  232 components / 3,146 targets / 6,060 core review cards**, with 1,114
+  licensed stroke graphics and zero quality blockers or warnings. The course
+  remains DRAFT. Public API samples 仏 / ぶつ and 柱 / ちゅう both returned
+  RU/EN meanings, two review cards and stroke graphics. The 640 words require
+  their separate live preflight and apply.
+
 ## Course Followthrough: 2026-11-21
 
 This independently reviewed block adds **200 kanji / 746 primary words**,
