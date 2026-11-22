@@ -136,6 +136,9 @@ async function main(args: readonly string[]) {
       JSON.stringify(
         {
           snapshotVersion: snapshot.snapshotVersion,
+          archives: Object.fromEntries(
+            snapshot.sources.map(({ id, archiveSha256 }) => [id, archiveSha256]),
+          ),
           total,
           manifests,
           noteProofsRequired,
