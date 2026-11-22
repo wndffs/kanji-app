@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatReceiptDatabaseError,
   parseCurationReceiptSelection,
+  receiptGateFailure,
   resolveCurationReceiptManifests,
   summarizeCurationReceipts,
 } from "../prisma/report-curation-receipts";
@@ -53,6 +54,35 @@ describe("read-only curation receipts", () => {
     });
   });
 
+  it("prevents a whole apply selection when one exact receipt is already complete", () => {
+    const pending = { ...manifest, id: "next", checksumSha256: "b".repeat(64) };
+    const mixed = summarizeCurationReceipts([manifest, pending], [complete]);
+    expect(receiptGateFailure(mixed)).toBeNull();
+    expect(receiptGateFailure(mixed, "unfinished")).toMatch(/already complete/);
+    expect(receiptGateFailure(mixed, "complete")).toMatch(/every manifest/);
+    expect(
+      receiptGateFailure(summarizeCurationReceipts([manifest], [complete]), "complete"),
+    ).toBeNull();
+  });
+
+  it.each(["MISSING", "PENDING", "FAILED"] as const)(
+    "permits %s before writing but not as post-write evidence",
+    (status) => {
+      const report = summarizeCurationReceipts(
+        [manifest],
+        status === "MISSING" ? [] : [{ ...complete, status }],
+      );
+      expect(receiptGateFailure(report, "unfinished")).toBeNull();
+      expect(receiptGateFailure(report, "complete")).not.toBeNull();
+    },
+  );
+
+  it("fails either expectation for inconsistent records", () => {
+    const report = summarizeCurationReceipts([manifest], [{ ...complete, sourceVersion: "wrong" }]);
+    for (const expectation of [undefined, "unfinished", "complete"] as const)
+      expect(receiptGateFailure(report, expectation)).toMatch(/inconsistent/);
+  });
+
   it("does not count a different version checksum or curation source as evidence", () => {
     expect(
       summarizeCurationReceipts(
@@ -87,6 +117,12 @@ describe("read-only curation receipts", () => {
       parseCurationReceiptSelection(["--word-batch", "same", "--word-batch", "same"]),
     ).toThrow();
     expect(() => parseCurationReceiptSelection(["--kanji-batch", "../other"])).toThrow();
+    expect(
+      parseCurationReceiptSelection(["--expect", "complete", "--kanji-batch", "foo"]).expect,
+    ).toBe("complete");
+    expect(() =>
+      parseCurationReceiptSelection(["--expect", "all", "--kanji-batch", "foo"]),
+    ).toThrow();
     expect(() =>
       parseCurationReceiptSelection(["--kanji-batch", "one", "--kanji-batch", "two"]),
     ).toThrow();

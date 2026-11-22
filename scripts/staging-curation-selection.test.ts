@@ -198,7 +198,15 @@ describe("explicit staging curation selection", () => {
       .split("- name: Read selected manifest receipts without mutations")[1]!
       .split("\n      - name:")[0]!;
     expect(receiptStep).toContain("inputs.mode == 'receipts'");
+    expect(receiptStep).toContain("|| inputs.mode == 'apply'");
+    expect(receiptStep).toContain("args+=(--expect unfinished)");
     expect(receiptStep).toContain('npm run content:receipts -- "${args[@]}"');
+    const verifyComplete = workflow
+      .split("- name: Verify complete receipts for the selected teaching writes")[1]!
+      .split("\n      - name:")[0]!;
+    expect(verifyComplete).toContain("inputs.mode == 'apply'");
+    expect(verifyComplete).toContain("args=(--expect complete)");
+    expect(verifyComplete).toContain('npm run content:receipts -- "${args[@]}"');
   });
 
   it("emits only fixed boolean outputs, not batch inputs or unrelated credentials", () => {

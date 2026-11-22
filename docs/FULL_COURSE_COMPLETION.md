@@ -1146,6 +1146,11 @@ partial writes. Resume pending or failed work only after an explicit `plan`;
 do not include already completed manifests in the retry. A receipt is neither
 a current content quality check nor a learner-course publication result.
 
+Teaching `apply` now rejects a selection containing an exact completed or
+inconsistent receipt before database writes. After writing, it requires all
+selected receipts to be complete before the corpus and content-quality audit.
+Source-only and ordinary plan modes do not perform these write gates.
+
 Apply logs now report committed kanji transactions every 25 items and at
 the end of the manifest, plus each fully published word manifest. A kanji
 checkpoint does not attest the import receipt; use `receipts` after failure,

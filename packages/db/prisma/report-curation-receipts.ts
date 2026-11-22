@@ -25,27 +25,35 @@ const receiptSelect = {
 
 type Receipt = Prisma.ImportRunGetPayload<{ select: typeof receiptSelect }>;
 type ReceiptStatus = "COMPLETE" | "MISSING" | "INCONSISTENT" | Exclude<ImportRunStatus, "SUCCESS">;
+type ReceiptExpectation = "unfinished" | "complete";
 
-export function parseCurationReceiptSelection(args: readonly string[]) {
+export function parseCurationReceiptSelection(args: readonly string[]): {
+  kanji: readonly string[];
+  word: readonly string[];
+  expect?: ReceiptExpectation;
+} {
   const { values } = parseArgs({
     args: [...args],
     options: {
       "kanji-batch": { type: "string", multiple: true },
       "word-batch": { type: "string", multiple: true },
+      expect: { type: "string" },
     },
   });
   const kanji = values["kanji-batch"] ?? [];
   const word = values["word-batch"] ?? [];
   const ids = [...kanji, ...word];
+  const expect = values.expect;
   if (
     ids.length === 0 ||
     kanji.length > 1 ||
     word.length > 40 ||
     new Set(ids).size !== ids.length ||
-    ids.some((id) => !/^[a-z][a-z0-9-]{0,79}$/u.test(id))
+    ids.some((id) => !/^[a-z][a-z0-9-]{0,79}$/u.test(id)) ||
+    (expect !== undefined && expect !== "unfinished" && expect !== "complete")
   )
     throw new Error("Select one kanji manifest and/or up to 40 distinct word manifests.");
-  return { kanji, word };
+  return { kanji, word, ...(expect === undefined ? {} : { expect }) };
 }
 
 export function summarizeCurationReceipts(
@@ -82,6 +90,19 @@ export function summarizeCurationReceipts(
   return { counts, batches };
 }
 
+export function receiptGateFailure(
+  report: ReturnType<typeof summarizeCurationReceipts>,
+  expectation?: ReceiptExpectation,
+): string | null {
+  if (report.counts.INCONSISTENT > 0)
+    return "Selected manifests have inconsistent receipt metadata.";
+  if (expectation === "unfinished" && report.counts.COMPLETE > 0)
+    return "Remove already complete manifests before applying the selected release.";
+  if (expectation === "complete" && report.counts.COMPLETE !== report.batches.length)
+    return "The selected release does not have a complete receipt for every manifest.";
+  return null;
+}
+
 export function resolveCurationReceiptManifests(args: readonly string[]): readonly Manifest[] {
   const selection = parseCurationReceiptSelection(args);
   const inventory = buildEditorialRegistryInventory();
@@ -110,8 +131,11 @@ export function formatReceiptDatabaseError(error: unknown): string {
 
 async function main() {
   let manifests: readonly Manifest[];
+  let expectation: ReceiptExpectation | undefined;
   try {
-    manifests = resolveCurationReceiptManifests(process.argv.slice(2));
+    const args = process.argv.slice(2);
+    expectation = parseCurationReceiptSelection(args).expect;
+    manifests = resolveCurationReceiptManifests(args);
   } catch {
     console.error(
       "Curation receipt selection failed. Select explicit registered, reviewed manifests.",
@@ -135,7 +159,11 @@ async function main() {
     });
     const report = summarizeCurationReceipts(manifests, receipts);
     console.log(JSON.stringify(report, null, 2));
-    if (report.counts.INCONSISTENT > 0) process.exitCode = 1;
+    const failure = receiptGateFailure(report, expectation);
+    if (failure !== null) {
+      console.error(failure);
+      process.exitCode = 1;
+    }
   } catch (error: unknown) {
     console.error(formatReceiptDatabaseError(error));
     process.exitCode = 1;

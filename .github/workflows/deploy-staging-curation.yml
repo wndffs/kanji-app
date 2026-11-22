@@ -115,7 +115,7 @@ jobs:
           npm run db:curate -- --validate-only "${args[@]}"
 
       - name: Read selected manifest receipts without mutations
-        if: ${{ inputs.mode == 'receipts' }}
+        if: ${{ inputs.mode == 'receipts' || inputs.mode == 'apply' }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         shell: bash
@@ -126,6 +126,7 @@ jobs:
             IFS=',' read -ra ids <<< "$WORD_BATCH"
             for id in "${ids[@]}"; do args+=(--word-batch "$id"); done
           fi
+          if [ "$CURATION_MODE" = 'apply' ]; then args+=(--expect unfinished); fi
           npm run content:receipts -- "${args[@]}"
 
       - name: Check existing published content before new teaching writes
@@ -235,6 +236,20 @@ jobs:
           fi
           if [ "$STAGE_WORD_PAIRS" = 'true' ]; then args+=(--stage-pairs); fi
           npm run db:curate:words -- "${args[@]}"
+
+      - name: Verify complete receipts for the selected teaching writes
+        if: ${{ inputs.mode == 'apply' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        shell: bash
+        run: |
+          args=(--expect complete)
+          if [ -n "$KANJI_BATCH" ]; then args+=(--kanji-batch "$KANJI_BATCH"); fi
+          if [ -n "$WORD_BATCH" ]; then
+            IFS=',' read -ra ids <<< "$WORD_BATCH"
+            for id in "${ids[@]}"; do args+=(--word-batch "$id"); done
+          fi
+          npm run content:receipts -- "${args[@]}"
 
       - name: Write post-curation corpus report
         if: ${{ inputs.mode == 'apply' }}
