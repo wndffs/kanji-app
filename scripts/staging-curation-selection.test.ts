@@ -74,6 +74,16 @@ describe("explicit staging curation selection", () => {
     { CURATION_MODE: "receipts" },
     { CURATION_MODE: "receipts", KANJI_BATCH: KANJI, SKIP_WORDS: "true" },
     { CURATION_MODE: "receipts", WORD_BATCH: WORDS, SUPPLEMENT_WORD_SOURCES: "true" },
+    { CURATION_MODE: "apply", WORD_BATCH: WORDS, STAGE_WORD_PAIRS: "3" },
+    { CURATION_MODE: "plan", WORD_BATCH: WORDS, STAGE_WORD_PAIRS: "true" },
+    { CURATION_MODE: "apply", KANJI_BATCH: KANJI, WORD_BATCH: WORDS, STAGE_WORD_PAIRS: "true" },
+    {
+      CURATION_MODE: "apply",
+      WORD_BATCH: WORDS,
+      SUPPLEMENT_WORD_SOURCES: "true",
+      STAGE_WORD_PAIRS: "true",
+    },
+    { CURATION_MODE: "apply_sources", WORD_BATCH: WORDS, STAGE_WORD_PAIRS: "true" },
     { WORD_BATCH: Array.from({ length: 41 }, (_, i) => `word-${i}`).join(",") },
   ])("fails ambiguous or unsafe input before database work: %j", (env) => {
     expect(() => selectStagingCuration(env)).toThrow("Invalid staging curation selection.");
@@ -99,6 +109,20 @@ describe("explicit staging curation selection", () => {
     expect(
       selectStagingCuration({
         WORD_BATCH: Array.from({ length: count }, (_, i) => `word-${i}`).join(","),
+      }),
+    ).toEqual({
+      applyKanji: false,
+      applyWords: true,
+      supplementWordSources: false,
+      sourceOnly: false,
+    });
+  });
+  it("allows paired staging only for an explicit word-only apply", () => {
+    expect(
+      selectStagingCuration({
+        CURATION_MODE: "apply",
+        WORD_BATCH: WORDS,
+        STAGE_WORD_PAIRS: "true",
       }),
     ).toEqual({
       applyKanji: false,
@@ -155,6 +179,13 @@ describe("explicit staging curation selection", () => {
       .split("\n      - name:")[0]!;
     expect(readOnlyWords).toContain("inputs.mode == 'plan'");
     expect(readOnlyWords).toContain("npm run db:curate:words -- --preflight-only");
+    expect(readOnlyWords).not.toContain("--stage-pairs");
+    const applyWords = workflow
+      .split("- name: Apply reviewed vocabulary and original examples")[1]!
+      .split("\n      - name:")[0]!;
+    expect(applyWords).toContain(
+      "if [ \"$STAGE_WORD_PAIRS\" = 'true' ]; then args+=(--stage-pairs); fi",
+    );
     const sourceApply = workflow
       .split("- name: Apply missing reviewed word sources")[1]!
       .split("\n      - name:")[0]!;

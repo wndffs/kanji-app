@@ -34,6 +34,10 @@ on:
         description: Only for plan_sources/apply_sources, exact missing pairs per window (1–100)
         type: number
         default: 100
+      stage_word_pairs:
+        description: For word-only apply with existing raw sources, stage two new word items at once
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -57,6 +61,7 @@ jobs:
       SKIP_WORDS: ${{ inputs.skip_words }}
       SUPPLEMENT_WORD_SOURCES: ${{ inputs.supplement_word_sources }}
       SOURCE_PAIR_LIMIT: ${{ inputs.source_pair_limit }}
+      STAGE_WORD_PAIRS: ${{ inputs.stage_word_pairs }}
 
     steps:
       - name: Check out repository
@@ -228,6 +233,7 @@ jobs:
             IFS=',' read -ra ids <<< "$WORD_BATCH"
             for id in "${ids[@]}"; do args+=(--batch "$id"); done
           fi
+          if [ "$STAGE_WORD_PAIRS" = 'true' ]; then args+=(--stage-pairs); fi
           npm run db:curate:words -- "${args[@]}"
 
       - name: Write post-curation corpus report

@@ -217,6 +217,7 @@ describe("bounded vocabulary curation", () => {
       { batchIds: [batches[0]!.id, batches[0]!.id] },
       { batchId: batches[0]!.id, batchIds: [batches[1]!.id] },
       { batchIds: Array.from({ length: 41 }, (_, i) => `fixture-${i}`) },
+      { stagePairs: true },
     ]) {
       const fixture = harness(batches);
       await expect(
@@ -225,6 +226,145 @@ describe("bounded vocabulary curation", () => {
       expect(fixture.readCourse).not.toHaveBeenCalled();
       expect(fixture.mutations).toEqual([]);
     }
+  });
+  it("rejects paired staging unless explicitly applying named word manifests", () => {
+    const [batch] = registryFixtureBatches();
+    const args = ["--batch", batch!.id, "--stage-pairs"];
+    expect(parseMainCourseWordCurationArgs(args, [batch!])).toEqual({
+      mode: "apply",
+      batchId: batch!.id,
+      stagePairs: true,
+    });
+    for (const bad of [
+      ["--stage-pairs"],
+      [...args, "--preflight-only"],
+      [...args, "--stage-pairs"],
+    ])
+      expect(() => parseMainCourseWordCurationArgs(bad, [batch!])).toThrow(
+        "explicit apply selection",
+      );
+  });
+  it("stages at most two distinct new items at once and leaves existing words sequential", async () => {
+    const fixture = harness();
+    const transaction = fixture.transaction.getMockImplementation()!;
+    let active = 0;
+    let peak = 0;
+    let started = 0;
+    const inFlight: number[] = [];
+    fixture.transaction.mockImplementation(async (...args) => {
+      started++;
+      active++;
+      peak = Math.max(peak, active);
+      inFlight.push(active);
+      try {
+        return await transaction(...args);
+      } finally {
+        active--;
+      }
+    });
+    const result = await applyMainCourseWordBatch(fixture.db, fixture.batch, true);
+    expect(result.words).toBe(fixture.batch.words.length);
+    expect(inFlight.slice(0, 4)).toEqual([1, 1, 1, 2]);
+    expect(inFlight.at(-1)).toBe(1);
+    expect(peak).toBe(2);
+    expect(active).toBe(0);
+    expect(started).toBe(fixture.batch.words.length + 2);
+    expect([...fixture.state.examples.values()].every((row) => row.status === "PUBLISHED")).toBe(
+      true,
+    );
+  });
+  it("drains a pending peer before a failed pair stops the manifest without publishing it", async () => {
+    const fixture = harness();
+    fixture.failWord("川");
+    const transaction = fixture.transaction.getMockImplementation()!;
+    let releasePeer!: () => void;
+    const peer = new Promise<void>((resolve) => {
+      releasePeer = resolve;
+    });
+    let signalFailure!: () => void;
+    const failure = new Promise<void>((resolve) => {
+      signalFailure = resolve;
+    });
+    let started = 0;
+    fixture.transaction.mockImplementation(async (...args) => {
+      const index = ++started;
+      if (index === 4) await peer;
+      try {
+        return await transaction(...args);
+      } finally {
+        if (index === 3) signalFailure();
+      }
+    });
+    const result = expect(
+      applyMainCourseWordBatch(fixture.db, fixture.batch, true),
+    ).rejects.toThrow("test word interruption");
+    await failure;
+    expect(started).toBe(4);
+    expect([...fixture.state.runs.values()][0]?.status).toBe("PENDING");
+    releasePeer();
+    await result;
+    expect(started).toBe(4);
+    expect([...fixture.state.runs.values()][0]?.status).toBe("FAILED");
+    expect(fixture.state.items.has(key({ targetType: "WORD", targetId: "word-川" }))).toBe(false);
+    expect([...fixture.state.examples.values()].map((row) => row.status)).toEqual([
+      "DRAFT",
+      "DRAFT",
+    ]);
+    expect(fixture.db.learningItem.updateMany).not.toHaveBeenCalled();
+  });
+  it("retains a committed peer when its partner rolls back, then resumes without duplicates", async () => {
+    const fixture = harness();
+    fixture.failWord("川");
+    const transaction = fixture.transaction.getMockImplementation()!;
+    let peerCommitted!: () => void;
+    const peer = new Promise<void>((resolve) => {
+      peerCommitted = resolve;
+    });
+    let started = 0;
+    fixture.transaction.mockImplementation(async (...args) => {
+      const index = ++started;
+      if (index === 3) await peer;
+      try {
+        return await transaction(...args);
+      } finally {
+        if (index === 4) peerCommitted();
+      }
+    });
+    await expect(applyMainCourseWordBatch(fixture.db, fixture.batch, true)).rejects.toThrow(
+      "test word interruption",
+    );
+    expect([...fixture.state.runs.values()][0]?.status).toBe("FAILED");
+    const examples = [...fixture.state.examples.values()];
+    expect(examples.map(({ status }) => status)).toEqual(["DRAFT", "DRAFT"]);
+    const committedIds = examples.map(({ id }) => id);
+    fixture.failWord(null);
+    await applyMainCourseWordBatch(fixture.db, fixture.batch, true);
+    expect(fixture.state.examples.size).toBe(fixture.batch.words.length);
+    expect(
+      committedIds.every((id) =>
+        [...fixture.state.examples.values()].some(
+          (example) => example.id === id && example.status === "PUBLISHED",
+        ),
+      ),
+    ).toBe(true);
+  });
+  it("refuses a successful exact receipt in paired mode without touching live examples", async () => {
+    const fixture = harness();
+    await applyMainCourseWordBatch(fixture.db, fixture.batch);
+    const before = structuredClone(fixture.state);
+    fixture.mutations.length = 0;
+    await expect(
+      applyMainCourseWordBatches(fixture.db, {
+        batches: [fixture.batch],
+        batchId: fixture.batch.id,
+        stagePairs: true,
+      }),
+    ).rejects.toThrow("successful word receipt");
+    await expect(applyMainCourseWordBatch(fixture.db, fixture.batch, true)).rejects.toThrow(
+      "successful word receipt",
+    );
+    expect(fixture.mutations).toEqual([]);
+    expect(fixture.state).toEqual(before);
   });
   it("preflights and applies only explicitly selected additions in registry order", async () => {
     const batches = thirdPendingFixtureBatches().map((batch) => ({
@@ -1996,6 +2136,19 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
       upsert: upsert("record", state.records, "importRunId_recordType_sourceRecordId"),
     },
     importRun: {
+      findFirst: vi.fn(
+        async ({
+          where,
+        }: {
+          where: { dataSource: { name: string }; checksumSha256: { in: string[] }; status: string };
+        }) =>
+          [...state.runs.values()].find(
+            (row) =>
+              row.status === where.status &&
+              where.checksumSha256.in.includes(String(row.checksumSha256)) &&
+              byId(state.sources, row.dataSourceId)?.name === where.dataSource.name,
+          ) ?? null,
+      ),
       upsert: upsert("run", state.runs, "dataSourceId_checksumSha256"),
       update: vi.fn(
         async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {

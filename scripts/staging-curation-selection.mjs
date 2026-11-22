@@ -11,6 +11,7 @@ export function selectStagingCuration(env = process.env) {
   const mode = env.CURATION_MODE ?? "plan";
   const supplement = env.SUPPLEMENT_WORD_SOURCES ?? "false";
   const sourcePairLimit = env.SOURCE_PAIR_LIMIT ?? "100";
+  const stageWordPairs = env.STAGE_WORD_PAIRS ?? "false";
   const sourceOnly = mode === "plan_sources" || mode === "apply_sources";
   const receiptsOnly = mode === "receipts";
   if (
@@ -24,6 +25,9 @@ export function selectStagingCuration(env = process.env) {
     !["true", "false"].includes(skipWords) ||
     !["plan", "apply", "plan_sources", "apply_sources", "receipts"].includes(mode) ||
     !["true", "false"].includes(supplement) ||
+    !["true", "false"].includes(stageWordPairs) ||
+    (stageWordPairs === "true" &&
+      (mode !== "apply" || kanji !== "" || words === "" || supplement !== "false")) ||
     typeof sourcePairLimit !== "string" ||
     !/^(?:[1-9][0-9]?|100)$/u.test(sourcePairLimit) ||
     (!sourceOnly && sourcePairLimit !== "100") ||

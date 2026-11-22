@@ -274,6 +274,7 @@ async function planWordBatch(db: Reader, batch: MainCourseWordBatch, cache?: Pla
           wordId: word.id,
           sourceEvidence,
           acceptedReadingEvidence,
+          isNewItem: item === null,
           prerequisiteItemIds: wordHanCharacters(content.expression).map(
             (character) => kanjiItems.get(character)!,
           ),
@@ -318,16 +319,24 @@ export async function applyMainCourseWordBatches(
   options: WordBatchSelection & {
     readonly batches?: readonly MainCourseWordBatch[];
     readonly onProgress?: CurationProgressListener;
+    readonly stagePairs?: boolean;
   } = {},
 ) {
+  if (options.stagePairs && options.batchId === undefined && options.batchIds === undefined)
+    throw new Error("Paired word staging requires an explicit manifest selection.");
   const batches = options.batches ?? buildMainCourseWordBatches();
   const selected = reviewedSelection(batches, options);
   // Validate the entire registry, but require live evidence only for the explicit release scope.
   // Each selected batch must pass before even source/run metadata are created.
   const plans = await planMainCourseWordBatches(prisma, batches, options);
+  if (options.stagePairs)
+    await assertNoSuccessfulReceipts(
+      prisma,
+      plans.map(({ checksumSha256 }) => checksumSha256),
+    );
   const applied = [];
   for (const batch of selected) {
-    applied.push(await applyMainCourseWordBatch(prisma, batch));
+    applied.push(await applyMainCourseWordBatch(prisma, batch, options.stagePairs));
     options.onProgress?.({
       phase: "word-manifests-published",
       batchId: batch.id,
@@ -343,6 +352,22 @@ export async function applyMainCourseWordBatches(
       .map(({ id }) => id),
     batches: applied,
   };
+}
+
+async function assertNoSuccessfulReceipts(
+  db: Pick<Prisma.TransactionClient, "importRun">,
+  checksums: readonly string[],
+): Promise<void> {
+  const completed = await db.importRun.findFirst({
+    where: {
+      dataSource: { name: SOURCE_NAME },
+      checksumSha256: { in: [...checksums] },
+      status: "SUCCESS",
+    },
+    select: { id: true },
+  });
+  if (completed !== null)
+    throw new Error("Paired staging cannot reapply a successful word receipt.");
 }
 
 function wordItemSelect(courseId: string) {
@@ -451,11 +476,13 @@ function assertWordPlacement(
 export async function applyMainCourseWordBatch(
   prisma: PrismaClient,
   batch: MainCourseWordBatch = buildMainCourseWordBatch(),
+  stagePairs = false,
 ) {
   requireReview(batch);
   const plan = await planMainCourseWordBatch(prisma, batch);
   const checksumSha256 = mainCourseWordBatchChecksum(batch);
   const metadata = await prisma.$transaction(async (db) => {
+    if (stagePairs) await assertNoSuccessfulReceipts(db, [checksumSha256]);
     const license = await db.license.upsert({
       where: { name: LICENSE_NAME },
       update: {},
@@ -506,13 +533,26 @@ export async function applyMainCourseWordBatch(
 
   try {
     const staged: Awaited<ReturnType<typeof applyWord>>[] = [];
-    for (const entry of plan.words) {
-      staged.push(
-        await prisma.$transaction(
-          (db) => applyWord(db, batch, plan, entry, metadata),
-          TRANSACTION_OPTIONS,
-        ),
+    const stage = (entry: (typeof plan.words)[number], mustBeNew = false) =>
+      prisma.$transaction(
+        (db) => applyWord(db, batch, plan, entry, metadata, mustBeNew),
+        TRANSACTION_OPTIONS,
       );
+    for (let index = 0; index < plan.words.length; index++) {
+      const entry = plan.words[index]!;
+      const next = plan.words[index + 1];
+      if (!stagePairs || !entry.isNewItem || !next?.isNewItem) {
+        staged.push(await stage(entry));
+        continue;
+      }
+      // Manifest validation guarantees distinct targets and level slots. Wait for
+      // both transactions before marking the run failed or starting another pair.
+      const outcomes = await Promise.allSettled([stage(entry, true), stage(next, true)]);
+      for (const outcome of outcomes) {
+        if (outcome.status === "rejected") throw outcome.reason;
+        staged.push(outcome.value);
+      }
+      index++;
     }
     await prisma.$transaction(
       async (db) => {
@@ -615,6 +655,7 @@ async function applyWord(
   plan: Awaited<ReturnType<typeof planMainCourseWordBatch>>,
   entry: Awaited<ReturnType<typeof planMainCourseWordBatch>>["words"][number],
   metadata: { licenseId: string; dataSourceId: string; importRunId: string },
+  mustBeNew: boolean,
 ) {
   const { content } = entry;
   const word = await requireWordSource(db, content);
@@ -631,6 +672,8 @@ async function applyWord(
       `Alternative reading evidence changed after preflight for ${content.expression}.`,
     );
   const existing = await findItem(db, word.id, plan.courseId);
+  if (mustBeNew && existing !== null)
+    throw new Error(`Word ${content.expression} appeared after preflight; replan before staging.`);
   assertWritableItem(existing, content);
   const occupied = await db.courseLevelItem.findUnique({
     where: {
@@ -980,18 +1023,23 @@ export function parseMainCourseWordCurationArgs(
   mode: "apply" | "validate-only" | "preflight-only";
   batchId?: string;
   batchIds?: readonly string[];
+  stagePairs?: boolean;
 } {
   const invalid = () =>
     new Error(
-      `Use no arguments to apply reviewed batches, --validate-only, or --preflight-only; optionally select --batch <registered-id> once per distinct ID (maximum ${MAX_SELECTED_WORD_BATCHES}).`,
+      `Use no arguments to apply reviewed batches, --validate-only, or --preflight-only; optionally select --batch <registered-id> once per distinct ID (maximum ${MAX_SELECTED_WORD_BATCHES}). Use --stage-pairs only with explicit apply selection.`,
     );
   let mode: "apply" | "validate-only" | "preflight-only" = "apply";
   const batchIds: string[] = [];
+  let stagePairs = false;
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
     if (arg === "--validate-only" || arg === "--preflight-only") {
       if (mode !== "apply") throw invalid();
       mode = arg.slice(2) as "validate-only" | "preflight-only";
+    } else if (arg === "--stage-pairs") {
+      if (stagePairs) throw invalid();
+      stagePairs = true;
     } else if (arg === "--batch") {
       const value = args[++index];
       if (
@@ -1006,8 +1054,10 @@ export function parseMainCourseWordCurationArgs(
       batchIds.push(value);
     } else throw invalid();
   }
+  if (stagePairs && (mode !== "apply" || batchIds.length === 0)) throw invalid();
   return {
     mode,
+    ...(stagePairs ? { stagePairs } : {}),
     ...(batchIds.length === 1
       ? { batchId: batchIds[0]! }
       : batchIds.length > 1
@@ -1058,6 +1108,7 @@ async function main(): Promise<void> {
       : await applyMainCourseWordBatches(prisma, {
           batches,
           onProgress: logCurationCheckpoint,
+          ...(options.stagePairs ? { stagePairs: true } : {}),
           ...(options.batchId === undefined ? {} : { batchId: options.batchId }),
           ...(options.batchIds === undefined ? {} : { batchIds: options.batchIds }),
         });
