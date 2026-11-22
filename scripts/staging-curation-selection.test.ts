@@ -179,6 +179,22 @@ describe("explicit staging curation selection", () => {
       sourceOnly: true,
     });
   });
+  it("only permits a full remaining-registry selection in the read-only inventory", () => {
+    const large = Array.from({ length: 240 }, (_, i) => `group-${i}`).join(",");
+    expect(selectStagingCuration({ CURATION_MODE: "audit_sources", WORD_BATCH: large })).toEqual({
+      applyKanji: false,
+      applyWords: false,
+      supplementWordSources: false,
+      sourceOnly: true,
+    });
+    for (const mode of ["plan", "apply", "plan_sources", "apply_sources", "receipts"])
+      expect(() => selectStagingCuration({ CURATION_MODE: mode, WORD_BATCH: large })).toThrow(
+        "Invalid staging curation selection",
+      );
+    expect(() =>
+      selectStagingCuration({ CURATION_MODE: "audit_sources", WORD_BATCH: `${large},extra` }),
+    ).toThrow("Invalid staging curation selection");
+  });
   it("reads receipts for explicit reviewed selections without enabling other steps", () => {
     expect(
       selectStagingCuration({ CURATION_MODE: "receipts", KANJI_BATCH: KANJI, WORD_BATCH: WORDS }),

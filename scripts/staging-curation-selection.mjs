@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const MAX_WORD_BATCH_IDS = 40;
+const MAX_SOURCE_AUDIT_BATCH_IDS = 240;
 
 export function selectStagingCuration(env = process.env) {
   const kanji = env.KANJI_BATCH ?? "";
@@ -23,7 +24,7 @@ export function selectStagingCuration(env = process.env) {
       (id) => typeof id === "string" && (id === "" || /^[a-z][a-z0-9-]{0,79}$/u.test(id)),
     ) ||
     wordIds.some((id) => id === "") ||
-    wordIds.length > MAX_WORD_BATCH_IDS ||
+    wordIds.length > (mode === "audit_sources" ? MAX_SOURCE_AUDIT_BATCH_IDS : MAX_WORD_BATCH_IDS) ||
     new Set(wordIds).size !== wordIds.length ||
     !["true", "false"].includes(skipWords) ||
     !["plan", "apply", "plan_sources", "apply_sources", "audit_sources", "receipts"].includes(

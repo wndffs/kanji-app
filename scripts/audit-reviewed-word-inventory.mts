@@ -8,7 +8,7 @@ import {
 } from "../packages/db/src/main-course-word-content.ts";
 import {
   reviewedSourceCandidates,
-  selectReviewedSourceBatches,
+  selectReviewedSourceAuditBatches,
 } from "./import-missing-reviewed-word-sources.mts";
 
 type Reader = Pick<Prisma.TransactionClient, "word">;
@@ -75,12 +75,20 @@ async function main(args: readonly string[]) {
     args: [...args],
     options: { batch: { type: "string", multiple: true } },
   });
-  const batches = selectReviewedSourceBatches(buildMainCourseWordBatches(), values.batch ?? []);
+  const batches = selectReviewedSourceAuditBatches(
+    buildMainCourseWordBatches(),
+    values.batch ?? [],
+  );
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required.");
   const { PrismaClient } = await import("@prisma/client");
   const db = new PrismaClient();
   try {
-    console.log(JSON.stringify(await auditReviewedWordInventory(db, batches), null, 2));
+    const report = await db.$transaction((tx) => auditReviewedWordInventory(tx, batches), {
+      isolationLevel: "RepeatableRead",
+      maxWait: 5_000,
+      timeout: 90_000,
+    });
+    console.log(JSON.stringify(report, null, 2));
   } finally {
     await db.$disconnect();
   }

@@ -107,7 +107,8 @@ jobs:
           fi
 
       - name: Validate selected word manifests before any database writes
-        if: ${{ steps.selection.outputs.apply_words == 'true' || steps.selection.outputs.source_only == 'true' }}
+        # The wider read-only inventory validates each manifest in its own command.
+        if: ${{ inputs.mode != 'audit_sources' && (steps.selection.outputs.apply_words == 'true' || steps.selection.outputs.source_only == 'true') }}
         shell: bash
         run: |
           args=()

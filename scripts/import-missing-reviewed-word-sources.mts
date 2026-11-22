@@ -34,6 +34,7 @@ const pairKey = (item: { expression: string; reading: string }) =>
   JSON.stringify([item.expression, item.reading]);
 
 const MAX_BATCH_IDS = 40;
+const MAX_SOURCE_AUDIT_BATCH_IDS = 240;
 const MAX_SOURCE_PAIRS = 100;
 class IncompleteExistingSourceError extends Error {}
 class ChangedReviewedSourceError extends Error {
@@ -46,18 +47,33 @@ export function selectReviewedSourceBatches(
   batches: readonly MainCourseWordBatch[],
   ids: readonly string[],
 ): readonly MainCourseWordBatch[] {
+  return selectSourceBatches(batches, ids, MAX_BATCH_IDS);
+}
+
+export function selectReviewedSourceAuditBatches(
+  batches: readonly MainCourseWordBatch[],
+  ids: readonly string[],
+): readonly MainCourseWordBatch[] {
+  return selectSourceBatches(batches, ids, MAX_SOURCE_AUDIT_BATCH_IDS);
+}
+
+function selectSourceBatches(
+  batches: readonly MainCourseWordBatch[],
+  ids: readonly string[],
+  limit: number,
+): readonly MainCourseWordBatch[] {
   if (
     !ids.length ||
-    ids.length > MAX_BATCH_IDS ||
+    ids.length > limit ||
     ids.some((id) => !/^[a-z][a-z0-9-]{0,79}$/u.test(id)) ||
     new Set(ids).size !== ids.length
   )
-    throw new Error("Source supplementation requires 1-40 distinct registered word batch IDs.");
+    throw new Error(`Source selection requires 1-${limit} distinct registered word batch IDs.`);
 
   const selected = new Set(ids);
   const scoped = batches.filter((batch) => selected.has(batch.id));
   if (scoped.length !== ids.length || scoped.some((batch) => !batch.reviewedAt))
-    throw new Error("Source supplementation requires existing, editorially reviewed word batches.");
+    throw new Error("Source selection requires existing, editorially reviewed word batches.");
   return scoped;
 }
 
