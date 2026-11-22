@@ -1079,6 +1079,26 @@ remain **714 / 1,300**, not the reviewed registry totals.
   preservation evidence. Do not enroll users in the DRAFT main course or
   modify any sealed V1-V7 course or historical SRS data.
 
+### Coverage server receipt: 2026-11-22
+
+- The [kanji plan](https://github.com/wndffs/kanji-app/actions/runs/45045326832)
+  and [apply](https://github.com/wndffs/kanji-app/actions/runs/45045960153)
+  completed all 200 kanji. The opt-in four-item staging command took about
+  eight minutes including live preflight, with one atomic transaction per
+  kanji and a complete receipt. The public API returned 祈 / いの, RU/EN
+  meanings, two review cards, and licensed strokes.
+- The [vocabulary plan](https://github.com/wndffs/kanji-app/actions/runs/45046025234)
+  passed all 784 words. The [apply](https://github.com/wndffs/kanji-app/actions/runs/45047925219)
+  verified all 28 receipts after publishing the words and their original
+  bilingual examples. Public API sample 碁 / ご included two review cards
+  and its credited example.
+- Final live totals: **1,514 kanji / 3,970 words / 232 components / 5,716
+  targets / 11,200 core review cards**, 44/60 populated levels, 1,514 licensed
+  stroke sequences and 3,970 eligible bilingual examples. The audit had no
+  blockers or warnings. All 18 protected groups matched the pre-release
+  snapshot. The course remains `DRAFT`; **786 kanji and 4,030 words** are
+  still needed on the server for the full curriculum.
+
 ## Course Consolidation: 2026-11-21
 
 This block adds **200 independently reviewed kanji and 754 words**, with a
