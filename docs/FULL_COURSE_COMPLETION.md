@@ -796,7 +796,21 @@ in GitHub Actions, live corpus/quality checks and progress preservation.
 - Expected live totals after successful publication: **2,946 teaching targets
   and 5,660 core cards**. Confirm the 500 new examples, manifest seals,
   914 stroke graphics, final quality report and pre-existing course and
-  progress preservation. No server teaching writes or new live receipt yet.
+  progress preservation.
+
+### Broadening kanji server receipt: 2026-11-22
+
+- The explicit kanji plan and
+  [apply run](https://github.com/wndffs/kanji-app/actions/runs/45015982250)
+  succeeded for `full-course-kanji-broadening`: **200 kanji / 400 core cards**
+  added. The full corpus command passed. The final content audit scanned
+  **2,446 items with zero blockers and zero warnings**, consistent with
+  **914 kanji / 1,300 words / 232 components**. The public Render endpoint
+  returned both the established item 一 and the final new item 令.
+- This is a kanji-only receipt. The 500 reinforcing and additional words
+  require their separate teaching preflight and application. The main
+  curriculum remains DRAFT; the workflow does not change enrollment or
+  existing published versions.
 
 ## Course Deepening: 2026-11-21
 
@@ -1131,6 +1145,12 @@ Apply logs now report committed kanji transactions every 25 items and at
 the end of the manifest, plus each fully published word manifest. A kanji
 checkpoint does not attest the import receipt; use `receipts` after failure,
 timeout, or cancellation. Checkpoints contain counts and manifest IDs only.
+
+Vocabulary preflight reads the selected manifest's existing word items,
+exact level slots and authored example ownership in groups. Each word
+transaction still rechecks the same placement, ownership and source rules
+against fresh database reads. The release bound and word manifest order
+are unchanged.
 
 The final status change uses one full validation inside the serializable
 transaction and re-reads the persisted course status. Both response hashes

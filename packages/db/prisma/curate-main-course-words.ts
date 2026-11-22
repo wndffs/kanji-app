@@ -206,26 +206,61 @@ async function planWordBatch(db: Reader, batch: MainCourseWordBatch, cache?: Pla
   }
 
   const requirePrimaryWordSource = await readPrimaryWordSources(db, batch.words);
+  const candidates = batch.words.map((content) => ({
+    content,
+    word: requirePrimaryWordSource(content),
+  }));
+  const [items, positions, examples] = await Promise.all([
+    db.learningItem.findMany({
+      where: { targetType: "WORD", targetId: { in: candidates.map(({ word }) => word.id) } },
+      select: wordItemSelect(course.id),
+    }),
+    db.courseLevelItem.findMany({
+      where: {
+        courseLevelId: level.id,
+        sortOrder: { in: batch.words.map(({ sortOrder }) => sortOrder) },
+      },
+      select: { sortOrder: true, learningItemId: true },
+    }),
+    source === null
+      ? []
+      : db.sentence.findMany({
+          where: {
+            dataSourceId: source.id,
+            sourceId: { in: batch.words.map((content) => exampleSourceId(batch, content)) },
+          },
+          select: WORD_EXAMPLE_OWNERSHIP_SELECT,
+        }),
+  ]);
+  const itemByTarget = new Map(items.map((item) => [item.targetId, item]));
+  const positionByOrder = new Map(positions.map((position) => [position.sortOrder, position]));
+  const exampleBySource = new Map(examples.map((example) => [example.sourceId, example]));
   const words = [];
-  // Keep every guard, but bound independent read-only checks to four in flight.
-  for (let offset = 0; offset < batch.words.length; offset += 4) {
+  // Alternate readings may still require individual source or sense-evidence reads.
+  for (let offset = 0; offset < candidates.length; offset += 4) {
     const group = await Promise.allSettled(
-      batch.words.slice(offset, offset + 4).map(async (content) => {
-        const word = requirePrimaryWordSource(content);
+      candidates.slice(offset, offset + 4).map(async ({ content, word }) => {
         const sourceEvidence = wordEvidence(word);
         const acceptedReadingEvidence = await requireAlternativeReadingSources(
           db,
           content,
           sourceEvidence,
         );
-        const item = await findItem(db, "WORD", word.id, course.id);
-        await checkPlacement(db, level.id, content.sortOrder, item);
+        const item = itemByTarget.get(word.id) ?? null;
+        assertWordPlacement(
+          level.id,
+          content.sortOrder,
+          item,
+          positionByOrder.get(content.sortOrder) ?? null,
+        );
         assertWritableItem(item, content);
-        if (source !== null)
-          await checkExampleOwnership(db, batch, content, {
+        if (source !== null) {
+          const sourceId = exampleSourceId(batch, content);
+          assertExampleOwnership(exampleBySource.get(sourceId) ?? null, content, sourceId, {
             dataSourceId: source.id,
             licenseId: source.licenseId,
           });
+        }
         return {
           content,
           wordId: word.id,
@@ -302,25 +337,25 @@ export async function applyMainCourseWordBatches(
   };
 }
 
-async function findItem(
-  db: Pick<Reader, "learningItem">,
-  targetType: "WORD" | "KANJI",
-  targetId: string,
-  courseId: string,
-) {
-  return db.learningItem.findUnique({
-    where: { targetType_targetId: { targetType, targetId } },
-    select: {
-      id: true,
-      kind: true,
-      status: true,
-      courseLevelItems: {
-        where: { courseLevel: { courseId } },
-        select: { courseLevelId: true, sortOrder: true },
-      },
-      mnemonics: { select: { locale: true, version: true, sourceKind: true, mnemonicType: true } },
-      hints: { select: { locale: true, version: true, sourceKind: true, hintType: true } },
+function wordItemSelect(courseId: string) {
+  return {
+    id: true,
+    targetId: true,
+    kind: true,
+    status: true,
+    courseLevelItems: {
+      where: { courseLevel: { courseId } },
+      select: { courseLevelId: true, sortOrder: true },
     },
+    mnemonics: { select: { locale: true, version: true, sourceKind: true, mnemonicType: true } },
+    hints: { select: { locale: true, version: true, sourceKind: true, hintType: true } },
+  } satisfies Prisma.LearningItemSelect;
+}
+
+async function findItem(db: Pick<Reader, "learningItem">, targetId: string, courseId: string) {
+  return db.learningItem.findUnique({
+    where: { targetType_targetId: { targetType: "WORD", targetId } },
+    select: wordItemSelect(courseId),
   });
 }
 
@@ -347,27 +382,24 @@ function assertWritableItem(
     throw new Error(`Non-project teaching text would be overwritten for ${content.expression}.`);
 }
 
-async function checkExampleOwnership(
-  db: Pick<Reader, "sentence">,
-  batch: MainCourseWordBatch,
-  content: MainCourseWordContent,
-  source: { dataSourceId: string; licenseId: string },
-): Promise<void> {
-  const sourceId = exampleSourceId(batch, content);
-  const sentence = await db.sentence.findUnique({
-    where: { dataSourceId_sourceId: { dataSourceId: source.dataSourceId, sourceId } },
+const WORD_EXAMPLE_OWNERSHIP_SELECT = {
+  sourceId: true,
+  licenseId: true,
+  importedRecord: {
     select: {
-      id: true,
-      licenseId: true,
-      importedRecord: {
-        select: {
-          recordType: true,
-          sourceRecordId: true,
-          importRun: { select: { dataSourceId: true } },
-        },
-      },
+      recordType: true,
+      sourceRecordId: true,
+      importRun: { select: { dataSourceId: true } },
     },
-  });
+  },
+} satisfies Prisma.SentenceSelect;
+
+function assertExampleOwnership(
+  sentence: Prisma.SentenceGetPayload<{ select: typeof WORD_EXAMPLE_OWNERSHIP_SELECT }> | null,
+  content: MainCourseWordContent,
+  sourceId: string,
+  source: { dataSourceId: string; licenseId: string },
+): void {
   if (
     sentence !== null &&
     (sentence.licenseId !== source.licenseId ||
@@ -378,22 +410,32 @@ async function checkExampleOwnership(
     throw new Error(`Conflicting authored example for ${content.expression}.`);
 }
 
-async function checkPlacement(
-  db: Pick<Reader, "courseLevelItem">,
+async function checkExampleOwnership(
+  db: Pick<Reader, "sentence">,
+  batch: MainCourseWordBatch,
+  content: MainCourseWordContent,
+  source: { dataSourceId: string; licenseId: string },
+): Promise<void> {
+  const sourceId = exampleSourceId(batch, content);
+  const sentence = await db.sentence.findUnique({
+    where: { dataSourceId_sourceId: { dataSourceId: source.dataSourceId, sourceId } },
+    select: WORD_EXAMPLE_OWNERSHIP_SELECT,
+  });
+  assertExampleOwnership(sentence, content, sourceId, source);
+}
+
+function assertWordPlacement(
   courseLevelId: string,
   sortOrder: number,
   item: Awaited<ReturnType<typeof findItem>>,
-) {
+  occupied: { learningItemId: string } | null,
+): void {
   if (
     item?.courseLevelItems.some(
       (placement) => placement.courseLevelId !== courseLevelId || placement.sortOrder !== sortOrder,
     )
   )
     throw new Error(`Refusing to move existing main-course word placement ${item.id}.`);
-  const occupied = await db.courseLevelItem.findUnique({
-    where: { courseLevelId_sortOrder: { courseLevelId, sortOrder } },
-    select: { learningItemId: true },
-  });
   if (occupied !== null && occupied.learningItemId !== item?.id)
     throw new Error(`Word placement ${courseLevelId}:${sortOrder} is occupied.`);
 }
@@ -580,9 +622,15 @@ async function applyWord(
     throw new Error(
       `Alternative reading evidence changed after preflight for ${content.expression}.`,
     );
-  const existing = await findItem(db, "WORD", word.id, plan.courseId);
+  const existing = await findItem(db, word.id, plan.courseId);
   assertWritableItem(existing, content);
-  await checkPlacement(db, plan.courseLevelId, content.sortOrder, existing);
+  const occupied = await db.courseLevelItem.findUnique({
+    where: {
+      courseLevelId_sortOrder: { courseLevelId: plan.courseLevelId, sortOrder: content.sortOrder },
+    },
+    select: { learningItemId: true },
+  });
+  assertWordPlacement(plan.courseLevelId, content.sortOrder, existing, occupied);
   await checkExampleOwnership(db, batch, content, metadata);
   const prerequisites = await db.learningItem.findMany({
     where: {

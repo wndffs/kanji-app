@@ -395,6 +395,39 @@ describe("bounded vocabulary curation", () => {
     expect(fixture.mutations).toEqual([]);
   });
 
+  it("reads exact word, slot and example conflicts in groups while rechecking every write", async () => {
+    const fixture = harness();
+    const { batch, db } = fixture;
+    await applyMainCourseWordBatch(db, batch);
+    vi.clearAllMocks();
+    const plan = await planMainCourseWordBatch(db, batch);
+    expect(plan.words.map(({ content }) => content.expression)).toEqual(
+      batch.words.map(({ expression }) => expression),
+    );
+    expect(db.learningItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { targetType: "WORD", targetId: { in: plan.words.map(({ wordId }) => wordId) } },
+      }),
+    );
+    expect(db.courseLevelItem.findMany).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        where: {
+          courseLevelId: plan.courseLevelId,
+          sortOrder: { in: batch.words.map(({ sortOrder }) => sortOrder) },
+        },
+      }),
+    );
+    expect(db.sentence.findMany).toHaveBeenCalledTimes(1);
+    expect(db.learningItem.findUnique).not.toHaveBeenCalled();
+    expect(db.courseLevelItem.findUnique).not.toHaveBeenCalled();
+    expect(db.sentence.findUnique).not.toHaveBeenCalled();
+
+    await applyMainCourseWordBatch(db, batch);
+    expect(db.learningItem.findUnique).toHaveBeenCalledTimes(batch.words.length);
+    expect(db.courseLevelItem.findUnique).toHaveBeenCalledTimes(batch.words.length);
+    expect(db.sentence.findUnique).toHaveBeenCalledTimes(batch.words.length);
+  });
+
   it("bounds retained kanji entries to 512 and rereads overflow instead of dropping checks", async () => {
     const registry = buildMainCourseContentBatches();
     const existing = new Set(
@@ -1710,6 +1743,11 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
       (row) => row.learningItemId === item.id && row.courseId === "main",
     ),
   });
+  const withWordTeaching = (item: Row) => ({
+    ...withKanjiPlacements(item),
+    mnemonics: [...state.mnemonics.values()].filter((row) => row.learningItemId === item.id),
+    hints: [...state.hints.values()].filter((row) => row.learningItemId === item.id),
+  });
   const readKanjiItems = vi.fn(
     async ({ where }: { where: { targetType: string; targetId: { in: string[] } } }) =>
       [...state.items.values()]
@@ -1740,18 +1778,7 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
           where: { targetType_targetId: { targetType: string; targetId: string } };
         }) => {
           const item = state.items.get(key(where.targetType_targetId));
-          return item === undefined
-            ? null
-            : {
-                ...item,
-                courseLevelItems: [...state.placements.values()].filter(
-                  (row) => row.learningItemId === item.id && row.courseId === "main",
-                ),
-                mnemonics: [...state.mnemonics.values()].filter(
-                  (row) => row.learningItemId === item.id,
-                ),
-                hints: [...state.hints.values()].filter((row) => row.learningItemId === item.id),
-              };
+          return item === undefined ? null : withWordTeaching(item);
         },
       ),
       findMany: vi.fn(
@@ -1759,7 +1786,17 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
           where: { id: { in: string[] } } | { targetType: string; targetId: { in: string[] } };
         }) => {
           const { where } = args;
-          if ("targetId" in where) return readKanjiItems({ where });
+          if ("targetId" in where) {
+            if (where.targetType === "KANJI") return readKanjiItems({ where });
+            return [...state.items.values()]
+              .filter(
+                (item) =>
+                  item.targetType === where.targetType &&
+                  where.targetId.in.includes(String(item.targetId)),
+              )
+              .map(withWordTeaching)
+              .reverse();
+          }
           return [...state.items.values()]
             .filter(
               (item) =>
@@ -1774,6 +1811,9 @@ function harness(batches: readonly MainCourseWordBatch[] = [buildMainCourseWordB
       updateMany: updateMany("item.updateMany", state.items),
     },
     courseLevelItem: {
+      findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
+        [...state.placements.values()].filter((row) => matches(row, where)).reverse(),
+      ),
       findUnique: vi.fn(
         async ({
           where,
