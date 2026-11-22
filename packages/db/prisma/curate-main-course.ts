@@ -573,9 +573,15 @@ async function applyComponent(
     },
   });
 
-  await syncCard(db, learningItem.id, "MEANING", "MEANING", 1, [
-    answer("ru-RU", content.meaning.ru, "MEANING", true),
-    answer("en-US", content.meaning.en, "MEANING", true),
+  await syncCards(db, learningItem.id, [
+    {
+      answerType: "MEANING",
+      sortOrder: 1,
+      answers: [
+        answer("ru-RU", content.meaning.ru, "MEANING", true),
+        answer("en-US", content.meaning.en, "MEANING", true),
+      ],
+    },
   ]);
   await upsertMnemonic(db, learningItem.id, "ru-RU", "MEANING", content.mnemonic.ru);
   await upsertMnemonic(db, learningItem.id, "en-US", "MEANING", content.mnemonic.en);
@@ -727,8 +733,7 @@ async function applyKanji(
   }
   const orderedComponentItems = componentItems.filter((item) => item !== undefined);
 
-  await syncMeanings(db, kanji.id, "ru-RU", content.meanings.ru);
-  await syncMeanings(db, kanji.id, "en-US", content.meanings.en);
+  await syncMeanings(db, kanji.id, content.meanings);
 
   await db.kanjiComponent.deleteMany({
     where: { kanjiId: kanji.id, sourceKind: "PROJECT_AUTHORED" },
@@ -768,30 +773,28 @@ async function applyKanji(
     },
   });
 
-  await syncCard(
-    db,
-    learningItem.id,
-    "MEANING",
-    "MEANING",
-    1,
-    [
-      ...content.meanings.ru.accepted.map((text, index) =>
-        answer("ru-RU", text, "MEANING", index === 0),
+  await syncCards(db, learningItem.id, [
+    {
+      answerType: "MEANING",
+      sortOrder: 1,
+      answers: [
+        ...content.meanings.ru.accepted.map((text, index) =>
+          answer("ru-RU", text, "MEANING", index === 0),
+        ),
+        ...content.meanings.en.accepted.map((text, index) =>
+          answer("en-US", text, "MEANING", index === 0),
+        ),
+      ],
+      blocks: buildCuratedMeaningBlocks(content.meanings),
+    },
+    {
+      answerType: "READING",
+      sortOrder: 2,
+      answers: content.reading.accepted.map((text, index) =>
+        answer("ru-RU", text, "READING", index === 0),
       ),
-      ...content.meanings.en.accepted.map((text, index) =>
-        answer("en-US", text, "MEANING", index === 0),
-      ),
-    ],
-    buildCuratedMeaningBlocks(content.meanings),
-  );
-  await syncCard(
-    db,
-    learningItem.id,
-    "READING",
-    "READING",
-    2,
-    content.reading.accepted.map((text, index) => answer("ru-RU", text, "READING", index === 0)),
-  );
+    },
+  ]);
   await upsertMnemonic(db, learningItem.id, "ru-RU", "MEANING", content.meaningMnemonic.ru);
   await upsertMnemonic(db, learningItem.id, "en-US", "MEANING", content.meaningMnemonic.en);
   await upsertMnemonic(db, learningItem.id, "ru-RU", "READING", content.readingMnemonic.ru);
@@ -816,94 +819,83 @@ async function applyKanji(
 async function syncMeanings(
   db: Prisma.TransactionClient,
   kanjiId: string,
-  locale: "ru-RU" | "en-US",
-  meanings: MainCourseAcceptedMeanings,
+  meanings: { readonly ru: MainCourseAcceptedMeanings; readonly en: MainCourseAcceptedMeanings },
 ): Promise<void> {
+  const localized = [
+    ["ru-RU", meanings.ru],
+    ["en-US", meanings.en],
+  ] as const;
+  const authoredScope = { kanjiId, sourceKind: "PROJECT_AUTHORED" } as const;
   await db.kanjiMeaning.deleteMany({
     where: {
-      kanjiId,
-      locale,
-      sourceKind: "PROJECT_AUTHORED",
-      meaning: { notIn: [...meanings.accepted] },
+      ...authoredScope,
+      OR: localized.map(([locale, current]) => ({
+        locale,
+        meaning: { notIn: [...current.accepted] },
+      })),
     },
   });
   await db.kanjiMeaning.updateMany({
-    where: { kanjiId, locale, sourceKind: "PROJECT_AUTHORED" },
+    where: { ...authoredScope, locale: { in: localized.map(([locale]) => locale) } },
     data: { isPrimary: false },
   });
 
-  for (const meaning of meanings.accepted) {
-    await db.kanjiMeaning.upsert({
-      where: {
-        kanjiId_locale_meaning_sourceKind: {
+  for (const [locale, current] of localized) {
+    for (const meaning of current.accepted) {
+      await db.kanjiMeaning.upsert({
+        where: {
+          kanjiId_locale_meaning_sourceKind: { ...authoredScope, locale, meaning },
+        },
+        update: { isPrimary: meaning === current.primary },
+        create: {
           kanjiId,
           locale,
           meaning,
+          isPrimary: meaning === current.primary,
           sourceKind: "PROJECT_AUTHORED",
         },
-      },
-      update: { isPrimary: meaning === meanings.primary },
-      create: {
-        kanjiId,
-        locale,
-        meaning,
-        isPrimary: meaning === meanings.primary,
-        sourceKind: "PROJECT_AUTHORED",
-      },
-    });
+      });
+    }
   }
 }
 
-async function syncCard(
+type CardCurationInput = {
+  readonly answerType: "MEANING" | "READING";
+  readonly sortOrder: number;
+  readonly answers: readonly AnswerInput[];
+  readonly blocks?: ReturnType<typeof buildCuratedMeaningBlocks>;
+};
+
+async function syncCards(
   db: Prisma.TransactionClient,
   learningItemId: string,
-  promptType: "MEANING" | "READING",
-  answerType: "MEANING" | "READING",
-  sortOrder: number,
-  answers: readonly AnswerInput[],
-  blocks: ReturnType<typeof buildCuratedMeaningBlocks> = [],
+  cards: readonly CardCurationInput[],
 ): Promise<void> {
-  const card = await db.learningCard.upsert({
-    where: {
-      learningItemId_promptType_answerType_locale: {
-        learningItemId,
-        promptType,
-        answerType,
-        locale: "ru-RU",
-      },
-    },
-    update: { cardType: "REVIEW", sortOrder },
-    create: {
+  const cardIds: string[] = [];
+  const authoredAnswers: Prisma.LearningAnswerCreateManyInput[] = [];
+  const authoredBlocks: Prisma.BlockedAnswerCreateManyInput[] = [];
+  for (const { answerType, sortOrder, answers, blocks = [] } of cards) {
+    const identity = {
       learningItemId,
-      cardType: "REVIEW",
-      promptType,
+      promptType: answerType,
       answerType,
       locale: "ru-RU",
-      sortOrder,
-    },
-  });
-
-  await db.learningAnswer.deleteMany({
-    where: { learningCardId: card.id, sourceKind: "PROJECT_AUTHORED" },
-  });
-  await db.blockedAnswer.deleteMany({
-    where: { learningCardId: card.id, sourceKind: "PROJECT_AUTHORED" },
-  });
-  await db.learningAnswer.createMany({
-    data: answers.map((item) => ({
-      learningCardId: card.id,
-      ...item,
-      sourceKind: "PROJECT_AUTHORED" as const,
-    })),
-  });
-  if (blocks.length)
-    await db.blockedAnswer.createMany({
-      data: blocks.map((block) => ({
-        ...block,
-        learningCardId: card.id,
-        sourceKind: "PROJECT_AUTHORED" as const,
-      })),
+    } as const;
+    const card = await db.learningCard.upsert({
+      where: { learningItemId_promptType_answerType_locale: identity },
+      update: { cardType: "REVIEW", sortOrder },
+      create: { ...identity, cardType: "REVIEW", sortOrder },
     });
+    cardIds.push(card.id);
+    const scope = { learningCardId: card.id, sourceKind: "PROJECT_AUTHORED" } as const;
+    authoredAnswers.push(...answers.map((entry) => ({ ...entry, ...scope })));
+    authoredBlocks.push(...blocks.map((entry) => ({ ...entry, ...scope })));
+  }
+  const where = { learningCardId: { in: cardIds }, sourceKind: "PROJECT_AUTHORED" } as const;
+  await db.learningAnswer.deleteMany({ where });
+  await db.blockedAnswer.deleteMany({ where });
+  await db.learningAnswer.createMany({ data: authoredAnswers });
+  if (authoredBlocks.length > 0) await db.blockedAnswer.createMany({ data: authoredBlocks });
 }
 
 async function upsertMnemonic(

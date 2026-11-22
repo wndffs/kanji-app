@@ -73,6 +73,50 @@ describe("main-course curation preflight and application", () => {
     ).toBe("MEANING");
     expect(fixture.privateRows).toEqual(before);
   });
+
+  it("groups two-locale meanings and both cards' answers without touching imported meanings", async () => {
+    const fixture = curationFixture();
+    const first = fixture.batch.kanji[0]!;
+    const kanjiId = `kanji-${first.character}`;
+    const imported = {
+      kanjiId,
+      locale: "ru-RU",
+      meaning: "imported gloss",
+      sourceKind: "IMPORTED",
+      isPrimary: true,
+    };
+    const obsolete = { ...imported, locale: "en-US", sourceKind: "PROJECT_AUTHORED" };
+    fixture.state.meanings.push(imported, obsolete);
+    await applyMainCourseContentBatch(fixture.db, fixture.batch, fixture.registry);
+
+    const targetCount = fixture.batch.components.length + fixture.batch.kanji.length;
+    expect(fixture.db.kanjiMeaning.deleteMany).toHaveBeenCalledTimes(fixture.batch.kanji.length);
+    expect(fixture.db.kanjiMeaning.updateMany).toHaveBeenCalledTimes(fixture.batch.kanji.length);
+    expect(fixture.db.learningAnswer.deleteMany).toHaveBeenCalledTimes(targetCount);
+    expect(fixture.db.blockedAnswer.deleteMany).toHaveBeenCalledTimes(targetCount);
+    expect(fixture.db.learningAnswer.createMany).toHaveBeenCalledTimes(targetCount);
+    expect(fixture.state.meanings).toContainEqual(imported);
+    expect(fixture.state.meanings).not.toContainEqual(obsolete);
+    const item = fixture.state.items.get(`KANJI:${kanjiId}`)!;
+    const cards = [...fixture.state.cards.values()].filter(
+      (card) => card.learningItemId === item.id,
+    );
+    expect(fixture.db.learningAnswer.deleteMany).toHaveBeenCalledWith({
+      where: {
+        learningCardId: { in: cards.map(({ id }) => id) },
+        sourceKind: "PROJECT_AUTHORED",
+      },
+    });
+    expect(
+      fixture.state.meanings
+        .filter(
+          (row) =>
+            row.kanjiId === kanjiId && row.sourceKind === "PROJECT_AUTHORED" && row.isPrimary,
+        )
+        .map(({ meaning }) => meaning),
+    ).toEqual([first.meanings.ru.primary, first.meanings.en.primary]);
+    expect(fixture.privateMutation).not.toHaveBeenCalled();
+  });
   it.each([
     [6, 7, "N5"],
     [16, 17, "N4"],
@@ -1172,10 +1216,11 @@ function curationFixture(includeBridge = false) {
     learningAnswer: {
       deleteMany: write(
         "answer.deleteMany",
-        ({ where }: { where: { learningCardId: string; sourceKind: string } }) => {
+        ({ where }: { where: { learningCardId: { in: string[] }; sourceKind: string } }) => {
           state.answers = state.answers.filter(
             (row) =>
-              row.learningCardId !== where.learningCardId || row.sourceKind !== where.sourceKind,
+              !where.learningCardId.in.includes(row.learningCardId) ||
+              row.sourceKind !== where.sourceKind,
           );
         },
       ),
@@ -1190,23 +1235,36 @@ function curationFixture(includeBridge = false) {
     kanjiMeaning: {
       deleteMany: write(
         "meaning.deleteMany",
-        ({ where }: { where: Omit<Meaning, "meaning"> & { meaning: { notIn: string[] } } }) => {
+        ({
+          where,
+        }: {
+          where: Pick<Meaning, "kanjiId" | "sourceKind"> & {
+            OR: Array<{ locale: string; meaning: { notIn: string[] } }>;
+          };
+        }) => {
           state.meanings = state.meanings.filter(
             (row) =>
               row.kanjiId !== where.kanjiId ||
-              row.locale !== where.locale ||
               row.sourceKind !== where.sourceKind ||
-              where.meaning.notIn.includes(row.meaning),
+              !where.OR.some(
+                (rule) => row.locale === rule.locale && !rule.meaning.notIn.includes(row.meaning),
+              ),
           );
         },
       ),
       updateMany: write(
         "meaning.updateMany",
-        ({ where, data }: { where: Partial<Meaning>; data: Partial<Meaning> }) => {
+        ({
+          where,
+          data,
+        }: {
+          where: Pick<Meaning, "kanjiId" | "sourceKind"> & { locale: { in: string[] } };
+          data: Partial<Meaning>;
+        }) => {
           for (const row of state.meanings) {
             if (
               row.kanjiId === where.kanjiId &&
-              row.locale === where.locale &&
+              where.locale.in.includes(row.locale) &&
               row.sourceKind === where.sourceKind
             )
               Object.assign(row, data);

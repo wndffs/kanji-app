@@ -127,6 +127,9 @@ to the content deficit. Keep them within this single task:
   calls for authored senses, accepted answers and blocked answers per word;
   it retains fresh per-word provenance and placement checks and the same
   atomic publication. This reduces calls, not a claimed live speedup.
+  Kanji staging groups RU and EN cleanup and the two cards' authored answers
+  in each existing kanji transaction, avoiding five calls per kanji without
+  changing stable card identifiers, prerequisites, or imported meanings.
 
 These findings are from code inspection, not a fresh exhaustive live UX audit.
 Only entries explicitly marked implemented have been addressed.
