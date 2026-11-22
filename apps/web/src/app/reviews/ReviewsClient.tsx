@@ -48,6 +48,7 @@ import {
   RotateCcw,
   SpellCheck,
   RefreshCw,
+  Eye,
 } from "lucide-react";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
@@ -94,6 +95,7 @@ type ReviewProgress = {
   readonly accepted: number;
   readonly missed: number;
 };
+type ReviewSubmission = "answer" | "reveal";
 
 const INITIAL_PROGRESS: ReviewProgress = {
   answered: 0,
@@ -143,7 +145,8 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
-  const [unconfirmedAnswer, setUnconfirmedAnswer] = useState(false);
+  const [unconfirmedAnswer, setUnconfirmedAnswer] = useState<ReviewSubmission | null>(null);
+  const [confirmReveal, setConfirmReveal] = useState(false);
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
   const [isReconciling, setIsReconciling] = useState(false);
   const reconcilePending = useRef(false);
@@ -156,6 +159,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
     playCount: 0,
   });
   const answerInputRef = useRef<HTMLInputElement>(null);
+  const cancelRevealRef = useRef<HTMLButtonElement>(null);
   const composingAnswer = useRef(false);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
   const requestRevision = useRef(0);
@@ -203,7 +207,8 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       setScheduledOffset(0);
       setFormError(null);
       setSessionError(null);
-      setUnconfirmedAnswer(false);
+      setUnconfirmedAnswer(null);
+      setConfirmReveal(false);
       setRecoveryMessage(null);
       setAwaitingFinish(false);
     }
@@ -292,6 +297,8 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       : [];
   const currentItem = session === null ? null : (activeQueue[currentIndex] ?? null);
   const answerMode = resolveStudyAnswerMode(currentItem?.card ?? null);
+  const listeningReady =
+    currentItem?.card.promptType !== "listening" || listeningEvidence.completed;
   const totalCount = activeQueue.length;
   const progressLabel = useMemo(() => {
     if (currentItem === null) {
@@ -310,11 +317,26 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       currentItem !== null &&
       !isSubmitting &&
       !isReconciling &&
-      (currentItem.card.promptType !== "listening" || listeningEvidence.completed)
+      unconfirmedAnswer !== "reveal" &&
+      !confirmReveal &&
+      listeningReady
     ) {
       answerInputRef.current?.focus();
     }
-  }, [currentItem, feedback, isSubmitting, isReconciling, listeningEvidence.completed, session]);
+  }, [
+    currentItem,
+    feedback,
+    isSubmitting,
+    isReconciling,
+    listeningReady,
+    session,
+    confirmReveal,
+    unconfirmedAnswer,
+  ]);
+
+  useEffect(() => {
+    if (confirmReveal) cancelRevealRef.current?.focus();
+  }, [confirmReveal]);
 
   useEffect(() => {
     composingAnswer.current = false;
@@ -437,27 +459,32 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (composingAnswer.current) return;
+    if (!confirmReveal) await sendSubmission("answer");
+  }
 
+  async function sendSubmission(kind: ReviewSubmission): Promise<void> {
     if (
+      composingAnswer.current ||
       queueState.status !== "ready" ||
       session === null ||
       currentItem === null ||
       feedback !== null ||
       submitPending.current ||
-      reconcilePending.current
+      reconcilePending.current ||
+      (kind === "reveal" && isCorrecting) ||
+      (unconfirmedAnswer !== null && unconfirmedAnswer !== kind)
     ) {
       return;
     }
 
-    const trimmedAnswer = prepareStudyAnswer(answer, answerMode);
+    const trimmedAnswer = kind === "reveal" ? "" : prepareStudyAnswer(answer, answerMode);
 
-    if (currentItem.card.promptType === "listening" && !listeningEvidence.completed) {
+    if (!listeningReady) {
       setFormError("Сначала прослушайте запись полностью.");
       return;
     }
 
-    if (trimmedAnswer === "") {
+    if (kind === "answer" && trimmedAnswer === "") {
       setFormError("Введите ответ.");
       answerInputRef.current?.focus();
       return;
@@ -465,7 +492,8 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
 
     setFormError(null);
     setSessionError(null);
-    setUnconfirmedAnswer(false);
+    setUnconfirmedAnswer(null);
+    setConfirmReveal(false);
     setRecoveryMessage(null);
     submitPending.current = true;
     setIsSubmitting(true);
@@ -476,6 +504,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
         answer: trimmedAnswer,
         answerType: currentItem.card.answerType,
         answeredAt: new Date().toISOString(),
+        ...(kind === "reveal" ? { revealRequested: true } : {}),
         listeningEvidence:
           currentItem.card.promptType === "listening" ? listeningEvidence : undefined,
       };
@@ -488,7 +517,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       if (!response.retry) {
         playAnswerSound(response.accepted);
       }
-      if (currentItem.card.answerType === "reading") setAnswer(trimmedAnswer);
+      if (kind === "reveal" || currentItem.card.answerType === "reading") setAnswer(trimmedAnswer);
       setFeedback(response);
       if (!response.retry && !isCorrecting) {
         setProgress((previous) => ({
@@ -499,9 +528,14 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       }
     } catch (error: unknown) {
       if (!ownsWorkspace(queueState.token)) return;
-      setSessionError(error instanceof Error ? error.message : "Не удалось отправить ответ.");
-      setUnconfirmedAnswer(true);
-      answerInputRef.current?.focus();
+      setSessionError(
+        error instanceof Error
+          ? error.message
+          : kind === "reveal"
+            ? "Не удалось показать ответ."
+            : "Не удалось отправить ответ.",
+      );
+      setUnconfirmedAnswer(kind);
     } finally {
       submitPending.current = false;
       setIsSubmitting(false);
@@ -545,7 +579,8 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       setFeedback(null);
       setSessionError(null);
       setFormError(null);
-      setUnconfirmedAnswer(false);
+      setUnconfirmedAnswer(null);
+      setConfirmReveal(false);
       if (!sameCard) setAnswer("");
       setRecoveryMessage(
         sameCard ? "Текущая карточка ожидает ответа." : "Сохранённая позиция восстановлена.",
@@ -1043,7 +1078,9 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
               disabled={
                 isSubmitting ||
                 isReconciling ||
-                (currentItem.card.promptType === "listening" && !listeningEvidence.completed)
+                !listeningReady ||
+                confirmReveal ||
+                unconfirmedAnswer === "reveal"
               }
               id="review-answer"
               onValueChange={setAnswer}
@@ -1057,12 +1094,56 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
             disabled={
               isSubmitting ||
               isReconciling ||
-              (currentItem.card.promptType === "listening" && !listeningEvidence.completed)
+              !listeningReady ||
+              confirmReveal ||
+              unconfirmedAnswer === "reveal"
             }
             type="submit"
           >
-            {isSubmitting ? "Проверяю..." : unconfirmedAnswer ? "Повторить отправку" : "Ответить"}
+            {isSubmitting
+              ? "Проверяю..."
+              : unconfirmedAnswer === "answer"
+                ? "Повторить отправку"
+                : "Ответить"}
           </button>
+          {!isCorrecting && (unconfirmedAnswer === null || unconfirmedAnswer === "reveal") ? (
+            <div className="review-reveal-actions">
+              {confirmReveal ? (
+                <>
+                  <button
+                    className="secondary-action"
+                    disabled={isSubmitting}
+                    type="button"
+                    onClick={() => void sendSubmission("reveal")}
+                  >
+                    Показать и засчитать ошибку
+                  </button>
+                  <button
+                    className="text-action"
+                    ref={cancelRevealRef}
+                    type="button"
+                    onClick={() => setConfirmReveal(false)}
+                  >
+                    Отмена
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="text-action"
+                  disabled={isSubmitting || isReconciling || !listeningReady}
+                  type="button"
+                  onClick={() =>
+                    unconfirmedAnswer === "reveal"
+                      ? void sendSubmission("reveal")
+                      : setConfirmReveal(true)
+                  }
+                >
+                  <Eye size={16} aria-hidden="true" />
+                  {unconfirmedAnswer === "reveal" ? "Повторить показ" : "Не помню"}
+                </button>
+              )}
+            </div>
+          ) : null}
           {formError === null ? null : (
             <p className="form-error" id="review-answer-error" role="alert">
               {formError}
@@ -1216,10 +1297,12 @@ function FeedbackPanel({
       </div>
 
       <div className="feedback-grid">
-        <div>
-          <h3>Ваш ответ</h3>
-          <p>{answer}</p>
-        </div>
+        {feedback.result === "reveal" ? null : (
+          <div>
+            <h3>Ваш ответ</h3>
+            <p>{answer}</p>
+          </div>
+        )}
         <div>
           <h3>Правильные ответы</h3>
           <ExpectedAnswers
@@ -1269,46 +1352,48 @@ function FeedbackPanel({
         </section>
       ) : null}
 
-      <SectionDisclosure title="Добавить свой ответ">
-        <form
-          className="private-answer-form"
-          onSubmit={(event) => void handleSavePrivateAnswer(event)}
-        >
-          <label>
-            <span>Приватный правильный вариант</span>
-            <input
-              autoComplete="off"
-              disabled={isSaving}
-              onChange={(event) => setPrivateAnswer(event.currentTarget.value)}
-              value={privateAnswer}
-            />
-          </label>
-          {item.card.answerType === "reading" ? (
-            <p className="muted">Чтения сохраняются как японские варианты без метки RU/EN.</p>
-          ) : (
+      {feedback.result === "reveal" ? null : (
+        <SectionDisclosure title="Добавить свой ответ">
+          <form
+            className="private-answer-form"
+            onSubmit={(event) => void handleSavePrivateAnswer(event)}
+          >
             <label>
-              <span>Язык</span>
-              <select
+              <span>Приватный правильный вариант</span>
+              <input
+                autoComplete="off"
                 disabled={isSaving}
-                onChange={(event) => setPrivateLocale(event.currentTarget.value as ContentLocale)}
-                value={privateLocale}
-              >
-                <option value="ru-RU">Русский</option>
-                <option value="en-US">English</option>
-              </select>
+                onChange={(event) => setPrivateAnswer(event.currentTarget.value)}
+                value={privateAnswer}
+              />
             </label>
-          )}
-          <button className="secondary-action" disabled={isSaving} type="submit">
-            {isSaving ? "Сохраняю..." : "Сохранить вариант"}
-          </button>
-          {saveMessage === null ? null : <p className="success-text">{saveMessage}</p>}
-          {saveError === null ? null : (
-            <p className="form-error" role="alert">
-              {saveError}
-            </p>
-          )}
-        </form>
-      </SectionDisclosure>
+            {item.card.answerType === "reading" ? (
+              <p className="muted">Чтения сохраняются как японские варианты без метки RU/EN.</p>
+            ) : (
+              <label>
+                <span>Язык</span>
+                <select
+                  disabled={isSaving}
+                  onChange={(event) => setPrivateLocale(event.currentTarget.value as ContentLocale)}
+                  value={privateLocale}
+                >
+                  <option value="ru-RU">Русский</option>
+                  <option value="en-US">English</option>
+                </select>
+              </label>
+            )}
+            <button className="secondary-action" disabled={isSaving} type="submit">
+              {isSaving ? "Сохраняю..." : "Сохранить вариант"}
+            </button>
+            {saveMessage === null ? null : <p className="success-text">{saveMessage}</p>}
+            {saveError === null ? null : (
+              <p className="form-error" role="alert">
+                {saveError}
+              </p>
+            )}
+          </form>
+        </SectionDisclosure>
+      )}
     </section>
   );
 }

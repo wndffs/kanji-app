@@ -815,6 +815,36 @@ describe("resumable scheduled review corrections", () => {
     },
   );
 
+  it("records an explicit no-answer reveal as a miss and schedules correction once", async () => {
+    const { repository, service } = createHarness();
+    const started = await service.startSession(singleCardUser);
+    for (const action of [
+      {},
+      { manualIgnore: true },
+      { revealRequested: true, manualIgnore: true },
+    ]) {
+      await expect(
+        service.submitAnswer(started.session.id, user, { ...request, answer: "", ...action }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    }
+    expect(repository.recordedAnswers).toHaveLength(0);
+    const reveal = { ...request, answer: "", revealRequested: true };
+    const outcome = await service.submitAnswer(started.session.id, user, reveal);
+    expect(outcome).toMatchObject({ accepted: false, result: "reveal", normalizedAnswer: "" });
+    expect(outcome.feedback.expected).not.toHaveLength(0);
+    expect((await service.getActiveSession(user)).corrections.map(({ card }) => card.id)).toEqual([
+      request.cardId,
+    ]);
+    const afterReveal = structuredClone(repository.getState("state-due"));
+    expect(afterReveal.wrongCount).toBe(1);
+    await service.submitCorrection(started.session.id, user, {
+      ...request,
+      answer: "study answer",
+    });
+    expect(repository.getState("state-due")).toEqual(afterReveal);
+    expect(repository.recordedAnswers).toHaveLength(1);
+  });
+
   it("rejects foreign owners, cross-session originals, non-missed cards and wrong answer types", async () => {
     const { repository, service } = createHarness();
     const started = await service.startSession(user);

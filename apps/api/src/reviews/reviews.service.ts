@@ -688,13 +688,20 @@ function toReviewSrsTransition(action: SchedulingResult["details"]["action"]): R
 function parseReviewAnswerRequest(body: unknown): ParsedReviewAnswerRequest {
   const record = parseRecord(body);
   parseOptionalAnsweredAt(record.answeredAt);
+  const revealRequested = parseOptionalBoolean(record.revealRequested, "revealRequested");
+  const manualIgnore = parseOptionalBoolean(record.manualIgnore, "manualIgnore");
+  if (revealRequested && manualIgnore)
+    throw new BadRequestException("Cannot reveal and ignore the same review answer.");
 
   return {
     cardId: parseRequiredString(record.cardId, "cardId"),
-    answer: parseRequiredString(record.answer, "answer", MAX_REVIEW_ANSWER_LENGTH),
+    answer:
+      revealRequested && record.answer === ""
+        ? ""
+        : parseRequiredString(record.answer, "answer", MAX_REVIEW_ANSWER_LENGTH),
     answerType: parseAnswerType(record.answerType),
-    revealRequested: parseOptionalBoolean(record.revealRequested, "revealRequested"),
-    manualIgnore: parseOptionalBoolean(record.manualIgnore, "manualIgnore"),
+    revealRequested,
+    manualIgnore,
     listeningEvidence: parseListeningEvidence(record.listeningEvidence),
   };
 }

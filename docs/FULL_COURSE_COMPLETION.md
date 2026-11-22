@@ -98,9 +98,12 @@ to the content deficit. Keep them within this single task:
   Filters operate on loaded materials; eligibility changes invalidate the
   current page sequence. Daily admission and prerequisites still gate session
   start. Verified in local service and browser tests.
-- Learner-facing reveal/manual-ignore and reviewed-answer recovery are not
-  complete just because API flags exist. Define audited, explicit recovery;
-  never silently reverse a penalty on a synonym save.
+- **Implemented in code:** scheduled reviews offer a confirmed no-answer
+  reveal. It uses the audited missed-answer outcome, puts the same card in
+  the correction pass, and never schedules a second result for a correction.
+  Uncertain submissions can be reconciled with the saved review session.
+  Explicit manual-ignore and reviewed-answer recovery remain open; never
+  silently reverse a penalty on a synonym save.
 - **Implemented in code:** stalled private-deck lessons offer a bounded plan
   of currently startable external prerequisites, and can create a separate
   private follow-up deck. Below-stage prerequisites lead to reviews; original
@@ -1157,6 +1160,16 @@ cards, four mnemonics and four hints in groups inside the same word
 transaction. Returned card IDs are matched by prompt type, not insert
 order. Existing items retain their IDs, source ownership guards and scoped
 updates. The manifest still publishes its examples and items atomically.
+
+The workflow's optional `stage_word_pairs` mode applies only explicitly
+selected word manifests with no kanji or raw-source writes. It stages up to
+two adjacent new items at a time, each in its own transaction, preserving
+manifest order and staging existing items sequentially. A failed pair
+drains before stopping; already committed draft items may be retained, but
+the manifest is not published. Successful exact receipts are rejected before
+staging, so a restart cannot withdraw their already-published examples.
+Rerun receipts and a plan before resuming.
+The default is sequential. Measure a real release before broad use.
 
 The final status change uses one full validation inside the serializable
 transaction and re-reads the persisted course status. Both response hashes

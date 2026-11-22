@@ -21,6 +21,8 @@ const SESSION_ID = "review-session-1";
 
 type CapturedReviewAnswerRequest = {
   readonly cardId?: string;
+  readonly revealRequested?: boolean;
+  readonly answer?: string;
   readonly answerType?: string;
   readonly listeningEvidence?: {
     readonly completed: boolean;
@@ -29,6 +31,66 @@ type CapturedReviewAnswerRequest = {
 };
 
 test.describe("review session", () => {
+  test("confirms a reveal and uses correction without scheduling another answer", async ({
+    page,
+  }) => {
+    const answerRequests: CapturedReviewAnswerRequest[] = [];
+    const correctionRequests: string[] = [];
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signIn(page);
+    await mockReviewApi(page, { resumable: true, answerRequests, correctionRequests });
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение", exact: true }).click();
+    const input = page.getByLabel("Ответ значением");
+    await input.fill("черновик");
+    const reveal = page.getByRole("button", { name: "Не помню", exact: true });
+    await reveal.click();
+    await expect(page.getByRole("button", { name: "Отмена", exact: true })).toBeFocused();
+    await page.getByRole("button", { name: "Отмена", exact: true }).click();
+    await expect(input).toHaveValue("черновик");
+    await expect(input).toBeFocused();
+    expect(answerRequests).toHaveLength(0);
+
+    await reveal.click();
+    await page.getByRole("button", { name: "Показать и засчитать ошибку", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Показан ответ", exact: true })).toBeVisible();
+    await expect(page.getByRole("list", { name: "Правильные ответы", exact: true })).toContainText(
+      "солнце",
+    );
+    await expect(page.getByRole("heading", { name: "Ваш ответ", exact: true })).toHaveCount(0);
+    expect(answerRequests).toEqual([
+      expect.objectContaining({ revealRequested: true, answer: "" }),
+    ]);
+    await page.getByRole("button", { name: "Дальше", exact: true }).click();
+    await expect(reveal).toHaveCount(0);
+    await input.fill("солнце");
+    await input.press("Enter");
+    await expect(page.getByRole("heading", { name: "Верно", exact: true })).toBeVisible();
+    expect(correctionRequests).toEqual(["солнце"]);
+    expect(answerRequests).toHaveLength(1);
+  });
+
+  test("reconciles a lost reveal response without allowing an ordinary resubmission", async ({
+    page,
+  }) => {
+    const answerRequests: CapturedReviewAnswerRequest[] = [];
+    await signIn(page);
+    await mockReviewApi(page, { resumable: true, answerRequests, dropRevealResponse: true });
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение", exact: true }).click();
+    await page.getByRole("button", { name: "Не помню", exact: true }).click();
+    await page.getByRole("button", { name: "Показать и засчитать ошибку", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Повторить показ", exact: true })).toBeVisible();
+    await expect(page.getByLabel("Ответ значением")).toBeDisabled();
+    await page.getByRole("button", { name: "Сверить прогресс", exact: true }).click();
+    await expect(
+      page.getByText("Сохранённая позиция восстановлена.", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Не помню", exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("Ответ значением")).toBeEnabled();
+    expect(answerRequests).toHaveLength(1);
+  });
+
   test("retries an initial queue failure only after explicit action", async ({ page }) => {
     await signIn(page);
     await mockReviewApi(page);
@@ -1589,6 +1651,7 @@ async function mockReviewApi(
     readonly resumable?: boolean;
     readonly correctionRequests?: string[];
     readonly failCorrectionOnce?: boolean;
+    readonly dropRevealResponse?: boolean;
   } = {},
 ): Promise<() => { readonly queueRequests: number; readonly savedSettings: unknown }> {
   const privateAnswers = new Set<string>();
@@ -1738,6 +1801,7 @@ async function mockReviewApi(
       readonly answer?: string;
       readonly answerType?: string;
       readonly cardId?: string;
+      readonly revealRequested?: boolean;
       readonly listeningEvidence?: CapturedReviewAnswerRequest["listeningEvidence"];
     };
     const answer = body.answer ?? "";
@@ -1749,25 +1813,32 @@ async function mockReviewApi(
     const normalize =
       item.card.answerType === "reading" ? normalizeJapaneseReading : (value: string) => value;
     const accepted =
-      getExpectedAnswerTexts(item).map(normalize).includes(normalize(answer)) ||
-      privateAnswers.has(answer);
+      body.revealRequested !== true &&
+      (getExpectedAnswerTexts(item).map(normalize).includes(normalize(answer)) ||
+        privateAnswers.has(answer));
 
     options.answerRequests?.push({
       answerType: body.answerType,
       cardId: body.cardId,
       listeningEvidence: body.listeningEvidence,
+      ...(body.revealRequested ? { revealRequested: true, answer } : {}),
     });
 
     const response = createAnswerResponse({
       answer,
       accepted,
       item,
-      result: accepted ? "correct" : "wrong",
+      result: body.revealRequested ? "reveal" : accepted ? "correct" : "wrong",
     });
     const isRetry = answer === "ひと";
 
     if (!isRetry) {
       completedAnswers.push(response);
+    }
+
+    if (body.revealRequested && options.dropRevealResponse) {
+      await route.abort("failed");
+      return;
     }
 
     await route.fulfill({

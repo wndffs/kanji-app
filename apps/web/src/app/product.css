@@ -1306,6 +1306,19 @@ textarea::placeholder {
   align-self: end;
   min-height: 56px;
 }
+.review-reveal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  grid-column: 1 / -1;
+}
+.review-reveal-actions .text-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+}
 .review-queue-grid {
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 12px;
