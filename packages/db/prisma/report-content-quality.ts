@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { PrismaClient } from "@prisma/client";
 import {
-  collectContentQualityReport,
+  collectMainCourseQualityReport,
   contentQualityReportTimeoutMs,
 } from "../src/content-quality-report";
 import { buildMainCourseBlueprint } from "../src/main-course";
@@ -25,14 +25,11 @@ try {
       courseLevelItems: { some: { courseLevel: { course: { slug: courseSlug } } } },
     },
   });
-  const report = await prisma.$transaction(
-    (db) => collectContentQualityReport(db, { courseSlug }),
-    {
-      isolationLevel: "RepeatableRead",
-      maxWait: 10000,
-      timeout: contentQualityReportTimeoutMs(publishedItemCount),
-    },
-  );
+  const report = await prisma.$transaction(collectMainCourseQualityReport, {
+    isolationLevel: "RepeatableRead",
+    maxWait: 10000,
+    timeout: contentQualityReportTimeoutMs(publishedItemCount),
+  });
   const json = `${JSON.stringify(report, null, 2)}\n`;
   if (outputIndex >= 0) {
     const path = resolve(args[outputIndex + 1]);

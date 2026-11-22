@@ -12,6 +12,7 @@ type QualityAnswer = {
 };
 export type QualityCard = {
   readonly id: string;
+  readonly cardType?: string;
   readonly promptType: string;
   readonly answerType: string;
   readonly locale: string;

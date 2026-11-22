@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { normalizeJapaneseReading } from "@kanji-srs/japanese";
 import {
   CONTENT_QUALITY_POLICY_VERSION,
+  CURRICULUM_SCALE_TARGETS,
   type ContentQualityIssueCode,
   type ContentQualityPageDto,
   type ContentQualityReportDto,
@@ -16,6 +17,7 @@ import {
   type QualitySource,
 } from "./content-quality";
 import { loadWordExampleQuality } from "./word-examples";
+import { buildMainCourseBlueprint } from "./main-course";
 import { buildMainCourseWordBatches } from "./main-course-word-content";
 import { wordHanCharacters } from "./course-word-orthography";
 import {
@@ -492,6 +494,69 @@ export async function collectContentQualityReport(
   db: ContentQualityDatabase,
   options: { readonly courseSlug?: string; readonly maxIssues?: number } = {},
 ): Promise<ContentQualityReportDto> {
+  return scanContentQuality(db, options);
+}
+
+export async function collectMainCourseQualityReport(
+  db: ContentQualityDatabase & Pick<Prisma.TransactionClient, "course">,
+) {
+  const courseSlug = buildMainCourseBlueprint().course.slug;
+  const course = await db.course.findUnique({
+    where: { slug: courseSlug },
+    select: { status: true, _count: { select: { levels: true } } },
+  });
+  if (course === null) throw new Error("The main course is missing from the database.");
+  const placements = new Set<number>();
+  const publishedTargets = { components: 0, kanji: 0, words: 0, sentences: 0, invalid: 0 };
+  let coreCards = 0;
+  let kanjiWithStrokes = 0;
+  let wordsWithEligibleExamples = 0;
+  // Use the exact quality snapshot so counts don't include raw dictionary entries or draft items.
+  const report = await scanContentQuality(db, { courseSlug }, (item) => {
+    if (!item.targetExists || item.kind !== item.targetType) {
+      publishedTargets.invalid++;
+      return;
+    }
+    for (const placement of item.placements) placements.add(placement.levelNumber);
+    coreCards += item.cards.filter(
+      ({ cardType, promptType, answerType }) =>
+        cardType === "REVIEW" &&
+        promptType === answerType &&
+        (promptType === "MEANING" || promptType === "READING"),
+    ).length;
+    if (item.targetType === "COMPONENT") publishedTargets.components++;
+    else if (item.targetType === "KANJI") {
+      publishedTargets.kanji++;
+      if (item.hasStrokes) kanjiWithStrokes++;
+    } else if (item.targetType === "WORD") {
+      publishedTargets.words++;
+      if (item.hasExample) wordsWithEligibleExamples++;
+    } else if (item.targetType === "SENTENCE") publishedTargets.sentences++;
+    else publishedTargets.invalid++;
+  });
+  return {
+    ...report,
+    courseCoverage: {
+      courseStatus: course.status,
+      publishedTargets,
+      coreCards,
+      kanjiWithStrokes,
+      wordsWithEligibleExamples,
+      populatedLevels: placements.size,
+      configuredLevels: course._count.levels,
+      remainingToTarget: {
+        kanji: Math.max(0, CURRICULUM_SCALE_TARGETS.kanji - publishedTargets.kanji),
+        words: Math.max(0, CURRICULUM_SCALE_TARGETS.word - publishedTargets.words),
+      },
+    },
+  };
+}
+
+async function scanContentQuality(
+  db: ContentQualityDatabase,
+  options: { readonly courseSlug?: string; readonly maxIssues?: number },
+  collect?: (item: QualityItem) => void,
+): Promise<ContentQualityReportDto> {
   const maxIssues = options.maxIssues ?? 1000;
   const issues: ContentQualityReportDto["issues"][number][] = [];
   const hash = createHash("sha256").update(CONTENT_QUALITY_POLICY_VERSION);
@@ -506,6 +571,7 @@ export async function collectContentQualityReport(
       limit: 100,
     });
     for (const item of items) {
+      collect?.(item);
       hash.update(JSON.stringify(item));
       scannedItems += 1;
       for (const issue of validateQualityItem(item)) {

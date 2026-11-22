@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Prisma } from "@prisma/client";
 import {
   collectContentQualityReport,
+  collectMainCourseQualityReport,
   contentQualityReportTimeoutMs,
   getContentQualityPage,
   loadContentQualityItems,
@@ -36,6 +37,7 @@ function databaseFixture(count: number) {
     targetId: `component-${index}`,
     kind: "COMPONENT",
     targetType: "COMPONENT",
+    status: "PUBLISHED",
     curriculumBand: "FOUNDATION",
     cards: [],
     mnemonics: [],
@@ -50,6 +52,7 @@ function databaseFixture(count: number) {
       take: number;
       where: {
         id?: { gt?: string; in?: readonly string[] };
+        status: string;
         courseLevelItems: { some: { courseLevel: { course: { slug: string } } } };
       };
     }) =>
@@ -57,6 +60,7 @@ function databaseFixture(count: number) {
         .filter(
           (row) =>
             row.courseSlug === args.where.courseLevelItems.some.courseLevel.course.slug &&
+            row.status === args.where.status &&
             (args.where.id?.in === undefined || args.where.id.in.includes(row.id)) &&
             (args.where.id?.gt === undefined || row.id > args.where.id.gt),
         )
@@ -64,6 +68,7 @@ function databaseFixture(count: number) {
   );
   const db = {
     learningItem: { findMany },
+    course: { findUnique: vi.fn().mockResolvedValue({ status: "DRAFT", _count: { levels: 60 } }) },
     component: {
       findMany: vi.fn(async (args: { where: { id: { in: string[] } } }) =>
         args.where.id.in.map((id) => ({
@@ -81,11 +86,102 @@ function databaseFixture(count: number) {
     srsSystem: {
       findMany: vi.fn().mockResolvedValue([{ slug: "default-mvp", stages: [{ stageIndex: 1 }] }]),
     },
-  } as unknown as ContentQualityDatabase;
+  } as unknown as ContentQualityDatabase & Pick<Prisma.TransactionClient, "course">;
   return { db, rows, findMany };
 }
 
 describe("bounded content-quality reporting", () => {
+  it("reports live main-course coverage from the same audit without counting raw, draft or pilot items", async () => {
+    const { db, rows, findMany } = databaseFixture(6);
+    const cards = [
+      ["MEANING", "MEANING", "REVIEW"],
+      ["READING", "READING", "REVIEW"],
+      ["LISTENING", "READING", "REVIEW"],
+      ["READING", "READING", "LESSON"],
+    ].map(([promptType, answerType, cardType], index) => ({
+      promptType,
+      answerType,
+      cardType,
+      id: `card-${index}`,
+      locale: "ru-RU",
+      answers: [],
+      blockedAnswers: [],
+      audioAsset: null,
+    }));
+    Object.assign(rows[0]!, { cards: cards.slice(0, 1) });
+    Object.assign(rows[1]!, {
+      kind: "KANJI",
+      targetType: "KANJI",
+      targetId: "kanji-existing",
+      cards,
+    });
+    Object.assign(rows[2]!, { kind: "WORD", targetType: "WORD", targetId: "word-existing", cards });
+    Object.assign(rows[3]!, {
+      kind: "WORD",
+      targetType: "WORD",
+      targetId: "word-unresolved",
+      cards,
+    });
+    rows[2]!.courseLevelItems[0]!.courseLevel.levelNumber = 2;
+    rows[4]!.status = "DRAFT";
+    rows[5]!.courseSlug = "finite-pilot";
+    vi.mocked(db.kanji.findMany).mockResolvedValue([
+      {
+        id: "kanji-existing",
+        character: "日",
+        components: [],
+        readings: [],
+        meanings: [],
+        importedRecord: null,
+        strokeGraphic: null,
+      },
+    ] as never);
+    vi.mocked(db.word.findMany).mockResolvedValue([
+      {
+        id: "word-existing",
+        expression: "ほん",
+        reading: "ほん",
+        importedRecord: null,
+        senses: [],
+      },
+    ] as never);
+    Object.assign(db, {
+      $queryRaw: vi.fn(async (query: Prisma.Sql) =>
+        query.sql.includes("bool_or")
+          ? [
+              {
+                itemId: rows[2]!.id,
+                hasExample: true,
+                invalidExampleCount: 0,
+                fingerprint: "valid-example",
+              },
+            ]
+          : [],
+      ),
+    });
+    const report = await collectMainCourseQualityReport(db);
+    expect(report.scannedItems).toBe(4);
+    expect(report.courseCoverage).toEqual({
+      courseStatus: "DRAFT",
+      publishedTargets: { components: 1, kanji: 1, words: 1, sentences: 0, invalid: 1 },
+      coreCards: 5,
+      kanjiWithStrokes: 0,
+      wordsWithEligibleExamples: 1,
+      populatedLevels: 2,
+      configuredLevels: 60,
+      remainingToTarget: { kanji: 2299, words: 7999 },
+    });
+    expect(findMany).toHaveBeenCalledOnce();
+    expect(db.course.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { slug: "japanese-ru-n2" } }),
+    );
+  });
+  it("refuses to represent a missing main course as a successful empty audit", async () => {
+    const { db, findMany } = databaseFixture(0);
+    vi.mocked(db.course.findUnique).mockResolvedValue(null);
+    await expect(collectMainCourseQualityReport(db)).rejects.toThrow("main course is missing");
+    expect(findMany).not.toHaveBeenCalled();
+  });
   it("requires the written kanji but not its iteration mark for an exact word form", async () => {
     const { db, rows } = databaseFixture(1);
     Object.assign(rows[0], { kind: "WORD", targetType: "WORD", targetId: "word-1" });

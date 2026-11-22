@@ -1171,6 +1171,13 @@ staging, so a restart cannot withdraw their already-published examples.
 Rerun receipts and a plan before resuming.
 The default is sequential. Measure a real release before broad use.
 
+The full content-quality CLI prints `courseCoverage` from the same database
+snapshot as the quality audit. It reports only aggregate published main-course
+targets, core review cards, licensed strokes, eligible word examples, level
+counts and remaining volume. Drafts, raw dictionary inventory and items
+placed only in pilots do not count. `courseStatus` separately distinguishes
+an assembled DRAFT curriculum from a published course open to learners.
+
 The final status change uses one full validation inside the serializable
 transaction and re-reads the persisted course status. Both response hashes
 are regenerated for the published status. This removes a duplicate corpus
