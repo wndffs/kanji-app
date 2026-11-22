@@ -237,19 +237,22 @@ describe("explicit staging curation selection", () => {
 
   it("emits only fixed boolean outputs, not batch inputs or unrelated credentials", () => {
     const script = fileURLToPath(new URL("./staging-curation-selection.mjs", import.meta.url));
+    const env = {
+      ...process.env,
+      KANJI_BATCH: KANJI,
+      WORD_BATCH: "",
+      SKIP_WORDS: "true",
+      SUPPLEMENT_WORD_SOURCES: "false",
+      SOURCE_PAIR_LIMIT: "100",
+      STAGE_WORD_PAIRS: "false",
+      STAGE_KANJI_PAIRS: "false",
+      CURATION_MODE: "plan",
+      DATABASE_URL: "synthetic-private-value",
+    };
     const result = spawnSync(process.execPath, [script], {
       encoding: "utf8",
       timeout: 10000,
-      env: {
-        ...process.env,
-        KANJI_BATCH: KANJI,
-        WORD_BATCH: "",
-        SKIP_WORDS: "true",
-        SUPPLEMENT_WORD_SOURCES: "false",
-        SOURCE_PAIR_LIMIT: "100",
-        CURATION_MODE: "plan",
-        DATABASE_URL: "synthetic-private-value",
-      },
+      env,
     });
     expect(result.status).toBe(0);
     expect(result.stdout).toBe(
@@ -259,7 +262,7 @@ describe("explicit staging curation selection", () => {
     const failure = spawnSync(process.execPath, [script], {
       encoding: "utf8",
       timeout: 10000,
-      env: { ...process.env, KANJI_BATCH: "", WORD_BATCH: "", SKIP_WORDS: "true" },
+      env: { ...env, KANJI_BATCH: "" },
     });
     expect(failure.status).toBe(1);
     expect(failure.stdout).toBe("");
