@@ -1105,8 +1105,8 @@ This block adds **200 independently reviewed kanji and 754 words**, with a
 reinforcement word for each new character and **754 original
 JP/kana/RU/EN examples**. The reviewed registry now contains **1,714 kanji,
 4,724 words and 232 components** across **45 populated levels**. Remaining:
-**586 kanji and 3,276 words**. The last confirmed Neon count remains
-**714 kanji / 1,300 words**.
+**586 kanji and 3,276 words** at the end of this block. See the live receipt
+below for deployed counts.
 
 - Two AI reviewers checked all 200 reading links and cross-reviewed all 554
   supplementary entries. The pinned 2026-10-31 snapshot confirmed **754
@@ -1130,6 +1130,27 @@ JP/kana/RU/EN examples**. The reviewed registry now contains **1,714 kanji,
   after all outstanding reviewed batches: **6,670 targets / 13,108 core
   cards**. Verify aggregate source, quality and preservation evidence
   before recording the Neon release.
+
+### Consolidation server receipt: 2026-11-22
+
+- The [kanji plan](https://github.com/wndffs/kanji-app/actions/runs/45048001390)
+  and [apply](https://github.com/wndffs/kanji-app/actions/runs/45051256294)
+  completed all 200 kanji. Neon reported **1,714 kanji / 3,970 words /
+  232 components / 5,916 teaching targets / 11,600 core cards**, with no
+  blockers or warnings. All 18 protected groups remained unchanged.
+  The public API returned 扱 / あつか, both translations, two cards and
+  six licensed strokes.
+- The [vocabulary plan](https://github.com/wndffs/kanji-app/actions/runs/45051315028)
+  passed all **754 words across 32 manifests** with no blockers or warnings.
+  The [apply](https://github.com/wndffs/kanji-app/actions/runs/45053333546)
+  verified all 32 complete receipts. Public API sample 扱う / あつかう
+  returned both translations, two review cards and an attributed
+  JP/kana/RU/EN example.
+- Final live totals: **1,714 kanji / 4,724 words / 232 components / 6,670
+  teaching targets / 13,108 core cards**, 45/60 populated levels. The
+  audit found zero blockers or warnings, and all 18 protected groups were
+  unchanged. The main course remains `DRAFT`; **586 kanji and 3,276
+  words** are still needed on the server.
 
 ## Course Extension: 2026-11-21
 
