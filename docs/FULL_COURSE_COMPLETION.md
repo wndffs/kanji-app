@@ -1337,6 +1337,19 @@ reviewed registry. The final word block is **710 words**.
   this block: **9,834 teaching targets / 19,424 core cards**. Review and
   registry counts do not certify publication or enrollment.
 
+### Second supplemental server receipt: 2026-11-23
+
+- The [word plan](https://github.com/wndffs/kanji-app/actions/runs/45069281592)
+  passed all 358 words in the 27 source-ready manifests. The
+  [apply](https://github.com/wndffs/kanji-app/actions/runs/45073262630)
+  verified all 27 receipts without a raw source supplement. The six other
+  manifests were not applied and still need eight exact pairs. Public
+  API sample 解約 / かいやく returned both translations, two review
+  cards and an attributed bilingual example.
+- Neon confirmed **2,300 kanji / 6,552 words / 244 components / 9,096
+  teaching targets / 17,948 core cards**, with no blockers or warnings.
+  All 18 protected groups were unchanged; the main course stays `DRAFT`.
+
 ## Reviewed Registry Reaches Both Targets: 2026-11-21
 
 The final block adds **710 independently AI-reviewed words**, resulting in
@@ -1364,6 +1377,31 @@ supports separate taught spellings and meanings: 早い (early) and 速い
   safety bound. Verify the actual last applied batches, source readiness,
   public learner flows, all sixty levels, and retained progress before
   declaring completion. No automatic learner version switch or V8.
+
+### Current server coverage and last source gap: 2026-11-23
+
+- The [word plan](https://github.com/wndffs/kanji-app/actions/runs/45073302665)
+  and [apply](https://github.com/wndffs/kanji-app/actions/runs/45076330965)
+  completed **256 words across 27 manifests**: 251 Supplemental 3 words
+  and five Finalization reinforcement words. No raw source supplement or
+  earlier teaching replay was needed. The public API returned 陳腐 / ちんぷ
+  and 茂る / しげる with both translations, two cards and an attributed
+  bilingual example each.
+- Neon confirmed **2,300 kanji / 6,808 words / 244 components / 9,352
+  teaching targets / 18,460 core review cards**, 58/60 populated levels,
+  2,300 licensed stroke sequences and 6,808 eligible examples. The audit
+  found zero blockers and warnings, and all 18 protected groups remained
+  unchanged. The main course is still `DRAFT` and no users were switched.
+- The [read-only source inventory](https://github.com/wndffs/kanji-app/actions/runs/45076371445)
+  checked all **1,192 remaining words** across 28 manifests. It found **165
+  missing exact pairs** out of 1,200, with no conflicts or incomplete
+  provenance. Every remaining manifest has at least one missing pair.
+  The verified original archive is local; do not send new source seals
+  to GitHub or apply an unchecked refreshed archive. Use the scoped,
+  insert-only source import from a local process with authorized Neon
+  access and the original snapshot, plan before each window of at most
+  100 pairs, then rerun live teaching preflight before applying the
+  remaining manifests. This does not authorize an enrollment change.
 
 ### Oversized Source-Only Windows
 
