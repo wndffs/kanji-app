@@ -817,6 +817,27 @@ in GitHub Actions, live corpus/quality checks and progress preservation.
   curriculum remains DRAFT; the workflow does not change enrollment or
   existing published versions.
 
+### Broadening word server receipt: 2026-11-22
+
+- The [word preflight](https://github.com/wndffs/kanji-app/actions/runs/45016071235)
+  passed for all 21 selected manifests and all **500** words on existing
+  licensed sources. The separate
+  [apply run](https://github.com/wndffs/kanji-app/actions/runs/45019277649)
+  reported **500 words / 1,000 cards / 500 original examples** and reached
+  the 21/21 committed checkpoint. It did not rewrite raw sources or rerun
+  the broadening kanji manifest.
+- The full corpus report and quality audit passed: **2,946 scanned items,
+  zero blockers and zero warnings**, consistent with **914 kanji / 1,800 words
+  / 232 components / 5,660 core cards** in the main curriculum. The main course
+  remains DRAFT. No public enrollment switch was made. Render returned both
+  育てる / そだてる and 因子 / いんし with authored RU/EN meanings, two review
+  cards, and a Japanese/kana/RU/EN example with attribution.
+- The sequential, optimized apply command ran for about **45 minutes** from
+  the end of pre-write quality to the final word checkpoint; the overall
+  job also included dependencies, corpus verification and final quality.
+  This measures the broadening selection only, not the optional paired mode
+  or a direct same-data benchmark against a prior revision.
+
 ## Course Deepening: 2026-11-21
 
 This independent block adds **200 kanji, 640 distinct words and 640 original
@@ -826,7 +847,7 @@ items use existing course kanji, with an emphasis on useful ordinary words.
 The registered reviewed totals are **1,114 kanji / 2,440 words / 232
 components** across **40 populated levels**. This is not a live release
 receipt. **1,186 kanji / 5,560 words** remain to the target after these blocks
-are applied; the last confirmed live totals are still **714 / 1,300**.
+are applied; the confirmed live Broadening baseline is **914 / 1,800**.
 
 - Two independent AI review passes covered every item, with cross-review for
   authored vocabulary and parent resolution of findings. The pinned
