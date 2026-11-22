@@ -16,12 +16,21 @@ describe("verified source archive pin selection", () => {
       jmdict: "fedf3314736c94e474ab3ce872d6c172b05c6cc0983f5a65b76b4cef49cea194",
       kanjidic2: "c5517ceca1de1bc43f59bd2ac9ce1fa6e6a6de0c34170137db027be82a29ad56",
     });
-    for (const sealed of [id(21), id(24), "full-course-vocabulary-followthrough-07"]) {
+    for (const sealed of [
+      id(21),
+      id(24),
+      "full-course-vocabulary-followthrough-07",
+      "full-course-vocabulary-coverage-12",
+    ]) {
       const pin = selectReviewedSourcePin(`${id(1)},${sealed}`);
       expect(pin.version).toBe("2026-11-22");
       expect(reviewedRefreshManifests(pin.version, pin.jmdict)).toHaveProperty(sealed);
     }
-    for (const held of [id(15), "full-course-vocabulary-followthrough-01"]) {
+    for (const held of [
+      id(15),
+      "full-course-vocabulary-followthrough-01",
+      "full-course-vocabulary-coverage-01",
+    ]) {
       expect(selectReviewedSourcePin(held).version).toBe("2026-10-31");
       expect(selectReviewedSourcePin(`${id(1)},${held}`).version).toBe("2026-10-31");
     }

@@ -940,6 +940,25 @@ manifest fingerprint does not imply that the pairs missing in Neon changed.
   supplied as separate batch arguments). A missing seal or a changed exact
   pair blocks the entire import window before raw or teaching writes.
 
+The [sealed-source plan](https://github.com/wndffs/kanji-app/actions/runs/45037952687)
+and [source-only import](https://github.com/wndffs/kanji-app/actions/runs/45038136955)
+verified and inserted ten missing pairs across Deepening and Followthrough,
+leaving no missing pairs in the selection. The final
+[209-word plan](https://github.com/wndffs/kanji-app/actions/runs/45038206546)
+and [teaching apply](https://github.com/wndffs/kanji-app/actions/runs/45038907080)
+completed all three remaining Deepening manifests. With width four, the
+209-word curation step took about three minutes including its own live
+preflight. This is a single successful run, not a controlled benchmark.
+Final totals were **1,114 kanji / 2,440 words / 232 components / 7,340 core
+review cards**, 40/60 populated levels and zero blockers or warnings.
+All 18 protected groups matched again, and main remained `DRAFT`.
+
+The [Coverage inventory](https://github.com/wndffs/kanji-app/actions/runs/45039505004)
+checked 787 pairs for 784 authored words. It found 15 absent pairs across
+nine manifests, with no conflicting identities or incomplete import runs.
+The original-archive seals for those manifests are checked in; they are not
+a live import, and a refreshed archive must still satisfy all absent seals.
+
 ## Course Followthrough: 2026-11-21
 
 This independently reviewed block adds **200 kanji / 746 primary words**,
