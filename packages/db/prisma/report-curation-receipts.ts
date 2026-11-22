@@ -81,11 +81,11 @@ export function summarizeCurationReceipts(
   return { counts, batches };
 }
 
-async function main() {
-  const selection = parseCurationReceiptSelection(process.argv.slice(2));
+export function resolveCurationReceiptManifests(args: readonly string[]): readonly Manifest[] {
+  const selection = parseCurationReceiptSelection(args);
   const inventory = buildEditorialRegistryInventory();
   if (!inventory.validation.valid) throw new Error("The editorial registry must be valid.");
-  const manifests = (Object.keys(selection) as Array<keyof typeof selection>).flatMap((kind) =>
+  return (["kanji", "word"] as const).flatMap((kind) =>
     selection[kind].map((id) => {
       const manifest = inventory.batches.find((batch) => batch.kind === kind && batch.id === id);
       if (manifest?.reviewStatus !== "reviewed")
@@ -93,8 +93,35 @@ async function main() {
       return manifest;
     }),
   );
-  const prisma = new PrismaClient();
+}
+
+export function formatReceiptDatabaseError(error: unknown): string {
+  const codes =
+    typeof error === "object" && error !== null
+      ? ["code" in error ? error.code : null, "errorCode" in error ? error.errorCode : null]
+      : [];
+  // Prisma diagnostics can include connection material. Log only codes, never the error text.
+  const code = codes.find((value) => typeof value === "string" && /^P[0-9]{4}$/u.test(value));
+  return typeof code === "string"
+    ? `Unable to read curation receipts from the database (${code}).`
+    : "Unable to read curation receipts from the database (no Prisma error code).";
+}
+
+async function main() {
+  let manifests: readonly Manifest[];
   try {
+    manifests = resolveCurationReceiptManifests(process.argv.slice(2));
+  } catch {
+    console.error(
+      "Curation receipt selection failed. Select explicit registered, reviewed manifests.",
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  let prisma: PrismaClient | undefined;
+  try {
+    prisma = new PrismaClient();
     const receipts = await prisma.importRun.findMany({
       where: {
         OR: manifests.map((manifest) => ({
@@ -107,16 +134,17 @@ async function main() {
     const report = summarizeCurationReceipts(manifests, receipts);
     console.log(JSON.stringify(report, null, 2));
     if (report.counts.INCONSISTENT > 0) process.exitCode = 1;
+  } catch (error: unknown) {
+    console.error(formatReceiptDatabaseError(error));
+    process.exitCode = 1;
   } finally {
-    await prisma.$disconnect();
+    await prisma?.$disconnect();
   }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  main().catch(() => {
-    console.error(
-      "Receipt check failed. Verify the database connection and explicit reviewed manifest IDs.",
-    );
+  main().catch((error: unknown) => {
+    console.error(formatReceiptDatabaseError(error));
     process.exitCode = 1;
   });
 }
