@@ -13,7 +13,8 @@ export function selectStagingCuration(env = process.env) {
   const sourcePairLimit = env.SOURCE_PAIR_LIMIT ?? "100";
   const stageWordPairs = env.STAGE_WORD_PAIRS ?? "false";
   const stageKanjiPairs = env.STAGE_KANJI_PAIRS ?? "false";
-  const sourceOnly = mode === "plan_sources" || mode === "apply_sources";
+  const supplementOnly = mode === "plan_sources" || mode === "apply_sources";
+  const sourceOnly = supplementOnly || mode === "audit_sources";
   const receiptsOnly = mode === "receipts";
   if (
     typeof words !== "string" ||
@@ -24,7 +25,9 @@ export function selectStagingCuration(env = process.env) {
     wordIds.length > MAX_WORD_BATCH_IDS ||
     new Set(wordIds).size !== wordIds.length ||
     !["true", "false"].includes(skipWords) ||
-    !["plan", "apply", "plan_sources", "apply_sources", "receipts"].includes(mode) ||
+    !["plan", "apply", "plan_sources", "apply_sources", "audit_sources", "receipts"].includes(
+      mode,
+    ) ||
     !["true", "false"].includes(supplement) ||
     !["true", "false"].includes(stageWordPairs) ||
     !["true", "false"].includes(stageKanjiPairs) ||
@@ -38,7 +41,7 @@ export function selectStagingCuration(env = process.env) {
       (mode !== "apply" || kanji !== "" || words === "" || supplement !== "false")) ||
     typeof sourcePairLimit !== "string" ||
     !/^(?:[1-9][0-9]?|100)$/u.test(sourcePairLimit) ||
-    (!sourceOnly && sourcePairLimit !== "100") ||
+    (!supplementOnly && sourcePairLimit !== "100") ||
     (sourceOnly &&
       (kanji !== "" || words === "" || skipWords !== "false" || supplement !== "false")) ||
     (receiptsOnly &&
@@ -52,7 +55,7 @@ export function selectStagingCuration(env = process.env) {
   return {
     applyKanji: !sourceOnly && !receiptsOnly && (kanji !== "" || words === ""),
     applyWords: !sourceOnly && !receiptsOnly && skipWords !== "true",
-    supplementWordSources: sourceOnly || supplement === "true",
+    supplementWordSources: supplementOnly || supplement === "true",
     sourceOnly,
   };
 }

@@ -4,13 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Teaching preflight/application, source-only window, or completed receipt check
+        description: Teaching preflight/application, source inventory or supplement, or receipt check
         required: true
         default: plan
         type: choice
         options:
           - plan
           - apply
+          - audit_sources
           - plan_sources
           - apply_sources
           - receipts
@@ -153,6 +154,17 @@ jobs:
         id: source-pin
         if: ${{ steps.selection.outputs.supplement_word_sources == 'true' }}
         run: node scripts/reviewed-source-pins.mjs >> "$GITHUB_OUTPUT"
+
+      - name: Audit aggregate source inventory without archive downloads or mutations
+        if: ${{ inputs.mode == 'audit_sources' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        shell: bash
+        run: |
+          args=()
+          IFS=',' read -ra ids <<< "$WORD_BATCH"
+          for id in "${ids[@]}"; do args+=(--batch "$id"); done
+          npm exec -- tsx scripts/audit-reviewed-word-inventory.mts "${args[@]}"
 
       - name: Restore pinned source snapshot for explicit word supplement
         id: word-source-cache

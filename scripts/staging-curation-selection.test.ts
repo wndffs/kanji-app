@@ -70,6 +70,11 @@ describe("explicit staging curation selection", () => {
     { CURATION_MODE: "apply_sources", WORD_BATCH: WORDS, SOURCE_PAIR_LIMIT: "101" },
     { CURATION_MODE: "plan_sources", WORD_BATCH: WORDS, SOURCE_PAIR_LIMIT: "0" },
     { CURATION_MODE: "plan_sources", WORD_BATCH: WORDS, SOURCE_PAIR_LIMIT: "5.2" },
+    { CURATION_MODE: "audit_sources" },
+    { CURATION_MODE: "audit_sources", KANJI_BATCH: KANJI, WORD_BATCH: WORDS },
+    { CURATION_MODE: "audit_sources", WORD_BATCH: WORDS, SOURCE_PAIR_LIMIT: "20" },
+    { CURATION_MODE: "audit_sources", WORD_BATCH: WORDS, SUPPLEMENT_WORD_SOURCES: "true" },
+    { CURATION_MODE: "audit_sources", WORD_BATCH: WORDS, STAGE_WORD_PAIRS: "true" },
     { CURATION_MODE: "apply", WORD_BATCH: WORDS, SOURCE_PAIR_LIMIT: "50" },
     { CURATION_MODE: "receipts" },
     { CURATION_MODE: "receipts", KANJI_BATCH: KANJI, SKIP_WORDS: "true" },
@@ -157,6 +162,14 @@ describe("explicit staging curation selection", () => {
       applyKanji: false,
       applyWords: false,
       supplementWordSources: true,
+      sourceOnly: true,
+    });
+  });
+  it("audits only selected source inventory without enabling writes or archives", () => {
+    expect(selectStagingCuration({ CURATION_MODE: "audit_sources", WORD_BATCH: WORDS })).toEqual({
+      applyKanji: false,
+      applyWords: false,
+      supplementWordSources: false,
       sourceOnly: true,
     });
   });
