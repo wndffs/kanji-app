@@ -21,6 +21,7 @@
     "db:restore:verify": "npm run prisma:verify-database-restore --workspace @kanji-srs/db --",
     "content:quality": "npm run prisma:report-content-quality --workspace @kanji-srs/db --",
     "content:inventory": "npm run prisma:report-editorial-registry --workspace @kanji-srs/db --",
+    "content:receipts": "npm run prisma:report-curation-receipts --workspace @kanji-srs/db --",
     "content:drafts:evidence": "npm run prisma:report-editorial-draft-evidence --workspace @kanji-srs/db --",
     "content:drafts:local": "tsx scripts/inspect-local-draft-sources.mts",
     "content:drafts:preview": "npm run prisma:preview-editorial-drafts --workspace @kanji-srs/db --",

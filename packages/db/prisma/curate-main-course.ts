@@ -18,7 +18,9 @@ import {
   validateMainCourseContentBatches,
 } from "../src/main-course-content";
 
-const CURATION_SOURCE_NAME = "Kanji SRS main-course curation";
+import { CURATION_SOURCE_NAMES } from "../src/curation-source-names";
+
+const CURATION_SOURCE_NAME = CURATION_SOURCE_NAMES.kanji;
 const CURATION_LICENSE_NAME = "Project-authored main-course content";
 const TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 30_000 } as const;
 const KANJI_PREFLIGHT_CONCURRENCY = 4;

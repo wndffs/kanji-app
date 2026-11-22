@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Teaching preflight/application or a bounded raw-source-only window
+        description: Teaching preflight/application, source-only window, or completed receipt check
         required: true
         default: plan
         type: choice
@@ -13,6 +13,7 @@ on:
           - apply
           - plan_sources
           - apply_sources
+          - receipts
       kanji_batch:
         description: Optional registered kanji batch ID (empty with word_batch skips kanji)
         required: false
@@ -108,8 +109,22 @@ jobs:
           if [ -n "$KANJI_BATCH" ]; then args+=(--batch "$KANJI_BATCH"); fi
           npm run db:curate -- --validate-only "${args[@]}"
 
+      - name: Read selected manifest receipts without mutations
+        if: ${{ inputs.mode == 'receipts' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        shell: bash
+        run: |
+          args=()
+          if [ -n "$KANJI_BATCH" ]; then args+=(--kanji-batch "$KANJI_BATCH"); fi
+          if [ -n "$WORD_BATCH" ]; then
+            IFS=',' read -ra ids <<< "$WORD_BATCH"
+            for id in "${ids[@]}"; do args+=(--word-batch "$id"); done
+          fi
+          npm run content:receipts -- "${args[@]}"
+
       - name: Check existing published content before new teaching writes
-        if: ${{ steps.selection.outputs.source_only != 'true' }}
+        if: ${{ inputs.mode != 'receipts' && steps.selection.outputs.source_only != 'true' }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         run: >-

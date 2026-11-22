@@ -71,6 +71,9 @@ describe("explicit staging curation selection", () => {
     { CURATION_MODE: "plan_sources", WORD_BATCH: WORDS, SOURCE_PAIR_LIMIT: "0" },
     { CURATION_MODE: "plan_sources", WORD_BATCH: WORDS, SOURCE_PAIR_LIMIT: "5.2" },
     { CURATION_MODE: "apply", WORD_BATCH: WORDS, SOURCE_PAIR_LIMIT: "50" },
+    { CURATION_MODE: "receipts" },
+    { CURATION_MODE: "receipts", KANJI_BATCH: KANJI, SKIP_WORDS: "true" },
+    { CURATION_MODE: "receipts", WORD_BATCH: WORDS, SUPPLEMENT_WORD_SOURCES: "true" },
     { WORD_BATCH: Array.from({ length: 41 }, (_, i) => `word-${i}`).join(",") },
   ])("fails ambiguous or unsafe input before database work: %j", (env) => {
     expect(() => selectStagingCuration(env)).toThrow("Invalid staging curation selection.");
@@ -114,6 +117,16 @@ describe("explicit staging curation selection", () => {
       sourceOnly: true,
     });
   });
+  it("reads receipts for explicit reviewed selections without enabling other steps", () => {
+    expect(
+      selectStagingCuration({ CURATION_MODE: "receipts", KANJI_BATCH: KANJI, WORD_BATCH: WORDS }),
+    ).toEqual({
+      applyKanji: false,
+      applyWords: false,
+      supplementWordSources: false,
+      sourceOnly: false,
+    });
+  });
   it("defaults the workflow to read-only and scopes secrets away from installation", () => {
     const workflow = readFileSync(
       new URL("../.github/workflows/deploy-staging-curation.yml", import.meta.url),
@@ -143,6 +156,14 @@ describe("explicit staging curation selection", () => {
       .split("\n      - name:")[0]!;
     expect(sourceApply).toContain("inputs.mode == 'apply_sources'");
     expect(sourceApply).toContain('--max-pairs "$SOURCE_PAIR_LIMIT"');
+    expect(workflow).toContain(
+      "inputs.mode != 'receipts' && steps.selection.outputs.source_only != 'true'",
+    );
+    const receiptStep = workflow
+      .split("- name: Read selected manifest receipts without mutations")[1]!
+      .split("\n      - name:")[0]!;
+    expect(receiptStep).toContain("inputs.mode == 'receipts'");
+    expect(receiptStep).toContain('npm run content:receipts -- "${args[@]}"');
   });
 
   it("emits only fixed boolean outputs, not batch inputs or unrelated credentials", () => {

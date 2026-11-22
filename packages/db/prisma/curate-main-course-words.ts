@@ -35,7 +35,9 @@ import {
   requireAlternativeReadingSources,
 } from "../src/main-course-word-source";
 
-const SOURCE_NAME = "Kanji SRS main-course word curation";
+import { CURATION_SOURCE_NAMES } from "../src/curation-source-names";
+
+const SOURCE_NAME = CURATION_SOURCE_NAMES.word;
 const LICENSE_NAME = "Project-authored main-course word content";
 const SOURCE_URL =
   "https://github.com/wndffs/kanji-app/blob/main/packages/db/src/main-course-word-content.ts";

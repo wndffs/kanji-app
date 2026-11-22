@@ -1107,6 +1107,16 @@ Use small first releases to measure throughput, and keep V1–V7, enrollments
 and study progress intact. Final course publication is separate from raw
 sources and curation; recheck admin readiness and server learner flows first.
 
+Use `receipts` in **Deploy staging curation** with the exact kanji and/or
+comma-separated word manifest IDs and both checkboxes off. This read-only
+mode reports status counts and manifest IDs only. `COMPLETE` requires the
+exact authored checksum, its curation source, matching version/file metadata,
+and a finished successful run. `MISSING` means no receipt for this exact
+revision, not that no rows were ever staged. `PENDING` and `FAILED` may have
+partial writes. Resume pending or failed work only after an explicit `plan`;
+do not include already completed manifests in the retry. A receipt is neither
+a current content quality check nor a learner-course publication result.
+
 The final status change uses one full validation inside the serializable
 transaction and re-reads the persisted course status. Both response hashes
 are regenerated for the published status. This removes a duplicate corpus

@@ -12,6 +12,7 @@ export function selectStagingCuration(env = process.env) {
   const supplement = env.SUPPLEMENT_WORD_SOURCES ?? "false";
   const sourcePairLimit = env.SOURCE_PAIR_LIMIT ?? "100";
   const sourceOnly = mode === "plan_sources" || mode === "apply_sources";
+  const receiptsOnly = mode === "receipts";
   if (
     typeof words !== "string" ||
     ![kanji, ...wordIds].every(
@@ -21,13 +22,15 @@ export function selectStagingCuration(env = process.env) {
     wordIds.length > MAX_WORD_BATCH_IDS ||
     new Set(wordIds).size !== wordIds.length ||
     !["true", "false"].includes(skipWords) ||
-    !["plan", "apply", "plan_sources", "apply_sources"].includes(mode) ||
+    !["plan", "apply", "plan_sources", "apply_sources", "receipts"].includes(mode) ||
     !["true", "false"].includes(supplement) ||
     typeof sourcePairLimit !== "string" ||
     !/^(?:[1-9][0-9]?|100)$/u.test(sourcePairLimit) ||
     (!sourceOnly && sourcePairLimit !== "100") ||
     (sourceOnly &&
       (kanji !== "" || words === "" || skipWords !== "false" || supplement !== "false")) ||
+    (receiptsOnly &&
+      ((kanji === "" && words === "") || skipWords !== "false" || supplement !== "false")) ||
     (supplement === "true" && words === "") ||
     // An empty vocabulary selection means all manifests in plan mode only.
     (mode === "apply" && words === "" && skipWords !== "true") ||
@@ -35,8 +38,8 @@ export function selectStagingCuration(env = process.env) {
   )
     throw new Error("Invalid staging curation selection.");
   return {
-    applyKanji: !sourceOnly && (kanji !== "" || words === ""),
-    applyWords: !sourceOnly && skipWords !== "true",
+    applyKanji: !sourceOnly && !receiptsOnly && (kanji !== "" || words === ""),
+    applyWords: !sourceOnly && !receiptsOnly && skipWords !== "true",
     supplementWordSources: sourceOnly || supplement === "true",
     sourceOnly,
   };
