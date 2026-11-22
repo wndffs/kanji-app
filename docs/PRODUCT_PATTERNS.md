@@ -84,6 +84,12 @@ content, copy, visual styling, and proprietary curriculum order are excluded.
   24 hours. A non-actionable queue displays its state, not a start command.
   Forecast dates show their total load and reveal the original hourly
   breakdown without recomputing the schedule in the browser.
+- Show the current level threshold separately from per-type progress. Each
+  type links directly to the corresponding material filter on that level.
+- Use a common question layout in lesson quizzes and reviews: the question
+  type is above the Japanese text or audio, with a subject color that stays
+  consistent between teaching and recall. The answer surface follows the
+  question on phones and wide screens without changing keyboard flow.
 - In a review, show the question type before the answer and keep feedback and
   the next action in the same visual group. Enter should advance from the
   focused feedback action; details and private answers remain available

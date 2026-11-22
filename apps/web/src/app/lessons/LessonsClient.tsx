@@ -18,7 +18,6 @@ import {
 import {
   type LessonPronunciationMode,
   getContentLocalesForDisplayMode,
-  type CardAnswerType,
   type CompleteLessonItemResponse,
   type ContentLocale,
   type LearningCardDto,
@@ -40,6 +39,7 @@ import { DeckPrerequisiteRecovery } from "./DeckPrerequisiteRecovery";
 import { useStudyFocus } from "../../components/StudyFocus";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { StudyAnswerInput } from "../../components/StudyAnswerInput";
+import { StudyQuestion } from "../../components/StudyQuestion";
 import {
   prepareStudyAnswer,
   resolveStudyAnswerMode,
@@ -2067,23 +2067,27 @@ function LessonQuizView({
         max={Math.max(1, lesson.cards.length)}
         value={completedCardCount}
       />
-      <div className="lesson-quiz-prompt">
-        <span className="eyebrow">{formatAnswerType(answerType)}</span>
-        <strong className="lesson-quiz-count">
-          Пройдено {completedCardCount} из {lesson.cards.length}
-        </strong>
+      <StudyQuestion
+        kind={card?.promptType === "listening" ? "listening" : answerType}
+        subject={formatItemType(lesson.item.itemType)}
+        position={`Пройдено ${completedCardCount} из ${lesson.cards.length}`}
+      >
         {card?.promptType === "listening" ? (
           <ListeningPrompt audio={card.audio} onEvidenceChange={onListeningEvidenceChange} />
         ) : (
           <JapaneseText
             as="p"
             className="review-japanese"
-            variant={lesson.item.itemType === "sentence" ? "sentence" : "display"}
+            variant={
+              lesson.item.itemType === "sentence" || Array.from(lesson.item.japanese).length > 5
+                ? "sentence"
+                : "display"
+            }
           >
             {lesson.item.japanese}
           </JapaneseText>
         )}
-      </div>
+      </StudyQuestion>
 
       <form className="lesson-quiz-form" onSubmit={onSubmit}>
         <label htmlFor="lesson-quiz-answer" hidden={feedback !== null}>
@@ -2370,10 +2374,6 @@ function formatItemType(itemType: LessonQueueItem["item"]["itemType"]): string {
     case "sentence":
       return "Предложение";
   }
-}
-
-function formatAnswerType(answerType: CardAnswerType): string {
-  return answerType === "reading" ? "Чтение" : "Значение";
 }
 
 function formatLessonQuizResult(feedback: CompleteLessonItemResponse["answers"][number]): string {

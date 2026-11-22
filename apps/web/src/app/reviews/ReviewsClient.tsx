@@ -33,6 +33,7 @@ import { useStudyFocus } from "../../components/StudyFocus";
 import { SectionDisclosure } from "../../components/SectionDisclosure";
 import { ReviewQueueBrowser } from "../../components/ReviewQueueBrowser";
 import { StudyAnswerInput } from "../../components/StudyAnswerInput";
+import { StudyQuestion } from "../../components/StudyQuestion";
 import {
   prepareStudyAnswer,
   resolveStudyAnswerMode,
@@ -971,45 +972,27 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
         max={Math.max(1, isCorrecting ? totalCount : scheduledTotal)}
         value={isCorrecting ? currentIndex : progress.answered}
       />
-      <article className="review-card" data-answer-type={currentItem.card.answerType}>
-        <div className="review-card-meta">
-          <span>{formatItemType(currentItem.item.itemType)}</span>
-        </div>
-        <h2 className="review-question">
-          {reviewPromptKind(currentItem) === "listening" ? (
-            <>
-              <Volume2 size={20} aria-hidden="true" />
-              Аудирование
-            </>
-          ) : currentItem.card.answerType === "reading" ? (
-            <>
-              <Languages size={20} aria-hidden="true" />
-              Чтение
-            </>
-          ) : (
-            <>
-              <Type size={20} aria-hidden="true" />
-              Значение
-            </>
-          )}
-        </h2>
-        <div className="review-prompt">
-          {currentItem.card.promptType === "listening" ? (
-            <ListeningPrompt
-              audio={currentItem.card.audio}
-              onEvidenceChange={setListeningEvidence}
-            />
-          ) : (
-            <JapaneseText
-              as="p"
-              className="review-japanese"
-              variant={currentItem.item.itemType === "sentence" ? "sentence" : "display"}
-            >
-              {currentItem.card.prompt.japanese}
-            </JapaneseText>
-          )}
-        </div>
-      </article>
+      <StudyQuestion
+        kind={reviewPromptKind(currentItem)}
+        subject={formatItemType(currentItem.item.itemType)}
+      >
+        {currentItem.card.promptType === "listening" ? (
+          <ListeningPrompt audio={currentItem.card.audio} onEvidenceChange={setListeningEvidence} />
+        ) : (
+          <JapaneseText
+            as="p"
+            className="review-japanese"
+            variant={
+              currentItem.item.itemType === "sentence" ||
+              Array.from(currentItem.card.prompt.japanese).length > 5
+                ? "sentence"
+                : "display"
+            }
+          >
+            {currentItem.card.prompt.japanese}
+          </JapaneseText>
+        )}
+      </StudyQuestion>
 
       {feedback === null ? null : (
         <FeedbackPanel

@@ -592,12 +592,18 @@ test.describe("review session", () => {
     await page.getByRole("button", { name: "Начать повторение", exact: true }).click();
 
     const meaning = page.getByLabel("Ответ значением");
+    const prompt = page.locator(".study-question");
+    await expect(prompt.getByRole("heading", { name: "Значение", exact: true })).toBeVisible();
+    const kanjiSurface = await prompt.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    );
     await meaning.pressSequentially("sun");
     await expect(meaning).toHaveValue("sun");
     await meaning.press("Enter");
     await page.getByRole("button", { name: "Дальше", exact: true }).click();
 
     const reading = page.getByLabel("Ответ чтением");
+    await expect(prompt.getByRole("heading", { name: "Чтение", exact: true })).toBeVisible();
     await reading.fill("ほん");
     await reading.press("Home");
     await reading.pressSequentially("ni");
@@ -629,6 +635,9 @@ test.describe("review session", () => {
     await expect(page.getByRole("heading", { name: "Верно", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Дальше", exact: true }).click();
     await expect(page.locator(".review-prompt")).toHaveText("ラーメン");
+    await expect
+      .poll(() => prompt.evaluate((element) => getComputedStyle(element).backgroundColor))
+      .not.toBe(kanjiSurface);
     await reading.pressSequentially("ra-me");
     await expect(reading).toHaveValue("ラーメ");
     await reading.press("n");
@@ -1278,6 +1287,15 @@ test.describe("review session", () => {
     await mockReviewApi(page);
     await page.goto("/reviews");
     await page.getByRole("button", { name: "Начать повторение", exact: true }).click();
+    const question = page.locator(".study-question");
+    const kind = question.getByRole("heading", { name: "Значение", exact: true });
+    const glyph = question.locator(".review-japanese");
+    await expect(kind).toBeInViewport();
+    await expect(glyph).toBeInViewport();
+    const kindBounds = (await kind.boundingBox())!;
+    const glyphBounds = (await glyph.boundingBox())!;
+    expect(kindBounds.y + kindBounds.height).toBeLessThan(glyphBounds.y);
+    await expect(page.getByLabel("Ответ значением")).toBeInViewport();
     await page.getByLabel("Ответ значением").fill("солнце");
     await page.keyboard.press("Enter");
     const feedback = page.getByRole("region", { name: "Результат ответа" });

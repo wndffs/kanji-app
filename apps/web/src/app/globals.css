@@ -869,13 +869,6 @@ textarea:focus-visible {
   gap: 12px;
 }
 
-.course-progress > div:first-child {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-
 .course-progress span {
   color: var(--muted);
 }
@@ -2964,17 +2957,6 @@ textarea:focus-visible {
 
 .lesson-quiz {
   gap: 18px;
-}
-
-.lesson-quiz-prompt {
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-  text-align: center;
-}
-
-.lesson-quiz-prompt p {
-  margin: 0;
 }
 
 .lesson-quiz-form {

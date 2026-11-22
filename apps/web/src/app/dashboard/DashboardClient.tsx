@@ -1191,25 +1191,31 @@ function CourseProgressPanel({
   readonly onCoursesRequested: (retry?: boolean) => void;
   readonly timezone: string;
 }) {
+  const levelHref =
+    course === null
+      ? "/courses"
+      : `/courses/${encodeURIComponent(course.id)}?level=${course.currentLevel}`;
   return (
     <section className="panel current-level-panel">
-      <h2>{course === null ? "Курс" : `Уровень ${course.currentLevel}`}</h2>
+      <header className="current-level-header">
+        <div>
+          <h2>{course === null ? "Курс" : `Уровень ${course.currentLevel}`}</h2>
+          {course === null ? null : (
+            <p>
+              <strong>{course.title}</strong>
+            </p>
+          )}
+        </div>
+        {course === null ? null : (
+          <Link className="inline-link" href={levelHref}>
+            Материалы уровня <ArrowRight size={14} aria-hidden="true" />
+          </Link>
+        )}
+      </header>
       {course === null ? (
         <p className="muted">Активный курс не выбран.</p>
       ) : (
         <div className="course-progress">
-          <div>
-            <Link href={`/courses/${encodeURIComponent(course.id)}?level=${course.currentLevel}`}>
-              <strong>{course.title}</strong>
-            </Link>
-            <Link
-              className="inline-link"
-              href={`/courses/${encodeURIComponent(course.id)}?level=${course.currentLevel}`}
-            >
-              Материалы уровня <ArrowRight size={14} aria-hidden="true" />
-            </Link>
-          </div>
-          <CourseNextAction course={course} timezone={timezone} />
           <div className="course-pass-progress">
             <div className="course-progress-row">
               <span>Прогресс уровня</span>
@@ -1248,17 +1254,32 @@ function CourseProgressPanel({
           </div>
           {course.levelProgress.itemsByType.length === 0 ? null : (
             <dl className="level-subject-totals" aria-label="Материалы по типам">
-              {course.levelProgress.itemsByType.map((row) => (
-                <div data-item-type={row.itemType} key={row.itemType}>
-                  <dt>{formatItemType(row.itemType)}</dt>
-                  <dd>
-                    {row.passed + row.burned}
-                    <span> / {row.totalItems}</span>
-                  </dd>
-                </div>
-              ))}
+              {course.levelProgress.itemsByType
+                .filter((row) => row.totalItems > 0)
+                .map((row) => {
+                  const passed = row.passed + row.burned;
+                  const title = formatItemType(row.itemType);
+                  return (
+                    <div data-item-type={row.itemType} key={row.itemType}>
+                      <dt>
+                        <Link href={`${levelHref}&itemType=${row.itemType}`}>{title}</Link>
+                      </dt>
+                      <dd>
+                        <span>
+                          {passed} / {row.totalItems}
+                        </span>
+                        <progress
+                          aria-label={`${title}: пройдено ${passed} из ${row.totalItems}`}
+                          max={row.totalItems}
+                          value={passed}
+                        />
+                      </dd>
+                    </div>
+                  );
+                })}
             </dl>
           )}
+          <CourseNextAction course={course} timezone={timezone} />
           <SectionDisclosure title="Состояние материалов уровня">
             <div className="course-progress-row">
               <span>Материалы уровня</span>

@@ -321,6 +321,8 @@ test.describe("dashboard smoke", () => {
   });
 
   test("shows 24-hour workload and switches the forecast by day", async ({ page }) => {
+    if (test.info().project.name === "mobile")
+      await page.setViewportSize({ width: 320, height: 720 });
     await signIn(page);
 
     await page.route(`${API_BASE_URL}/courses`, async (route) => {
@@ -610,6 +612,22 @@ test.describe("dashboard smoke", () => {
     });
 
     await page.goto("/dashboard");
+
+    const level = page.locator(".current-level-panel");
+    await expect(level.getByRole("heading", { name: "Уровень 3", exact: true })).toBeVisible();
+    await expect(level.getByRole("link", { name: "Кандзи", exact: true })).toHaveAttribute(
+      "href",
+      "/courses/course-1?level=3&itemType=kanji",
+    );
+    await expect(
+      level.getByRole("progressbar", { name: "Компонент: пройдено 1 из 1" }),
+    ).toHaveAttribute("value", "1");
+    await expect(
+      level.getByRole("progressbar", { name: "Кандзи: пройдено 0 из 2" }),
+    ).toHaveAttribute("value", "0");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      await page.evaluate(() => innerWidth),
+    );
 
     await expandDashboardDetails(page);
     await expect(page.getByTestId("forecast-bucket").first()).toContainText("24.06.2026, 15:00");

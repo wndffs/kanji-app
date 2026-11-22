@@ -802,6 +802,10 @@ test.describe("lesson session", () => {
     await page.getByRole("button", { name: "Далее: Чтение", exact: true }).click();
     await page.getByRole("button", { name: "Далее: Контекст", exact: true }).click();
     await page.getByRole("button", { name: "Перейти к проверке", exact: true }).click();
+    const question = page.locator(".lesson-quiz .study-question");
+    await expect(question.getByRole("heading", { name: "Чтение", exact: true })).toBeVisible();
+    await expect(question.locator(".review-japanese")).toHaveText("一");
+    await expect(question.getByText("Пройдено 0 из 2", { exact: true })).toBeVisible();
     const reading = page.getByLabel("Ваше чтение");
     await reading.pressSequentially("ichi");
     await expect(reading).toHaveValue("いち");
