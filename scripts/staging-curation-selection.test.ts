@@ -233,6 +233,20 @@ describe("explicit staging curation selection", () => {
     expect(verifyComplete).toContain("inputs.mode == 'apply'");
     expect(verifyComplete).toContain("args=(--expect complete)");
     expect(verifyComplete).toContain('npm run content:receipts -- "${args[@]}"');
+    const capture = workflow
+      .split("- name: Capture private release preservation baseline")[1]!
+      .split("\n      - name:")[0]!;
+    expect(capture).toContain("inputs.mode == 'apply'");
+    expect(capture).toContain("check-curation-preservation.ts capture");
+    const compare = workflow
+      .split("- name: Check release preservation and remove private fingerprint baseline")[1]!
+      .split("\n      - name:")[0]!;
+    expect(compare).toContain(
+      "always() && inputs.mode == 'apply' && steps.preservation.outcome == 'success'",
+    );
+    expect(compare).toContain("check-curation-preservation.ts compare");
+    const upload = workflow.split("- name: Upload corpus report")[1]!;
+    expect(upload).not.toContain("preservation");
   });
 
   it("emits only fixed boolean outputs, not batch inputs or unrelated credentials", () => {

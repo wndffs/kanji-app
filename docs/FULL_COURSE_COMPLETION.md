@@ -1213,6 +1213,14 @@ counts and remaining volume. Drafts, raw dictionary inventory and items
 placed only in pilots do not count. `courseStatus` separately distinguishes
 an assembled DRAFT curriculum from a published course open to learners.
 
+Teaching releases also compare fixed learner-data and curriculum groups
+before and after apply. Private fingerprints remain on the ephemeral runner
+and are not uploaded or printed; output is aggregated into unchanged,
+changed and over-limit group counts. Concurrent study activity can change
+learner groups, so such a result is inconclusive rather than proof of loss.
+Drift in course definitions, level definitions or published memberships
+blocks the release verification. The comparison does not attempt rollback.
+
 The final status change uses one full validation inside the serializable
 transaction and re-reads the persisted course status. Both response hashes
 are regenerated for the published status. This removes a duplicate corpus

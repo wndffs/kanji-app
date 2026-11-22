@@ -142,6 +142,13 @@ jobs:
           npm run content:quality --
           --output "$RUNNER_TEMP/pre-curation-quality-report.json"
 
+      - name: Capture private release preservation baseline
+        id: preservation
+        if: ${{ inputs.mode == 'apply' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: npm exec -- tsx packages/db/prisma/check-curation-preservation.ts capture
+
       - name: Restore pinned source snapshot for explicit word supplement
         id: word-source-cache
         if: ${{ steps.selection.outputs.supplement_word_sources == 'true' }}
@@ -273,6 +280,12 @@ jobs:
         run: >-
           npm run content:quality --
           --output "$RUNNER_TEMP/task-119-quality-report.json"
+
+      - name: Check release preservation and remove private fingerprint baseline
+        if: ${{ always() && inputs.mode == 'apply' && steps.preservation.outcome == 'success' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: npm exec -- tsx packages/db/prisma/check-curation-preservation.ts compare
 
       - name: Upload corpus report
         if: ${{ always() && inputs.mode == 'apply' }}
