@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import type { Prisma } from "@prisma/client";
 import {
@@ -226,7 +227,24 @@ describe("bounded content-quality reporting", () => {
     findMany.mockClear();
     expect((await collectContentQualityReport(db)).scannedItems).toBe(201);
     expect(findMany.mock.calls[0]?.[0].where).not.toHaveProperty("id");
-    expect(findMany.mock.calls.map(([args]) => args.take)).toEqual([100, 100, 100]);
+    expect(findMany.mock.calls.map(([args]) => args.take)).toEqual([200, 200]);
+  });
+
+  it("preserves the exact ordered audit digest when reading more targets per batch", async () => {
+    const { db, findMany } = databaseFixture(401);
+    const report = await collectContentQualityReport(db);
+    expect(report.scannedItems).toBe(401);
+    expect(findMany.mock.calls.map(([args]) => args.take)).toEqual([200, 200, 200]);
+
+    const digest = createHash("sha256").update(report.policyVersion);
+    let cursor: string | undefined;
+    for (let page = 0; page < 5; page++) {
+      const items = await loadContentQualityItems(db, { cursor, limit: 100 });
+      for (const item of items) digest.update(JSON.stringify(item));
+      cursor = items.at(-1)?.id;
+    }
+    expect(report.contentVersion).toBe(digest.digest("hex"));
+    await expect(loadContentQualityItems(db, { limit: 200 })).rejects.toThrow("between 1 and 100");
   });
 
   it("never returns a requested ID from another course or at/before the cursor", async () => {
@@ -333,9 +351,8 @@ describe("bounded content-quality reporting", () => {
     expect(report.blockerCount).toBe(603);
     expect(report.issues).toHaveLength(2);
     expect(report.issuesTruncated).toBe(true);
-    expect(findMany).toHaveBeenCalledTimes(3);
-    expect(findMany.mock.calls.map(([args]) => args.take)).toEqual([100, 100, 100]);
-    expect(findMany.mock.calls[1]?.[0].where.id?.gt).toBe("00000000-0000-0000-0000-000000000100");
+    expect(findMany.mock.calls.map(([args]) => args.take)).toEqual([200, 200]);
+    expect(findMany.mock.calls[1]?.[0].where.id?.gt).toBe("00000000-0000-0000-0000-000000000200");
   });
   it("keeps the content checksum independent of generation time and retained issue count", async () => {
     const { db, rows } = databaseFixture(2);

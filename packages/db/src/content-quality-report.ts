@@ -46,6 +46,8 @@ export type ContentQualityPageOptions = {
   readonly itemIds?: readonly string[];
 };
 
+const QUALITY_PAGE_SIZE = 100;
+const QUALITY_SCAN_BATCH_SIZE = 200;
 const SOURCE_INCLUDE = {
   importRun: { include: { dataSource: { include: { license: true } } } },
 } as const;
@@ -53,8 +55,8 @@ const SOURCE_INCLUDE = {
 export function contentQualityReportTimeoutMs(publishedItemCount: number): number {
   if (!Number.isSafeInteger(publishedItemCount) || publishedItemCount < 0)
     throw new Error("Quality report item count must be a non-negative safe integer.");
-  // Full reports retain one RepeatableRead snapshot. Budget ten seconds per
-  // 100-item page without allowing an unbounded interactive transaction.
+  // Full reports retain one RepeatableRead snapshot. Keep a conservative
+  // per-item deadline without allowing an unbounded transaction.
   return Math.min(1_800_000, Math.max(120_000, Math.ceil(publishedItemCount / 100) * 10_000));
 }
 type SourceRecord = Prisma.ImportedRecordGetPayload<{ include: typeof SOURCE_INCLUDE }>;
@@ -64,14 +66,14 @@ export async function loadContentQualityItems(
   options: ContentQualityPageOptions = {},
 ): Promise<readonly QualityItem[]> {
   const limit = options.limit ?? 50;
-  if (!Number.isInteger(limit) || limit < 1 || limit > 100)
+  if (!Number.isInteger(limit) || limit < 1 || limit > QUALITY_PAGE_SIZE)
     throw new Error("Content quality page limit must be between 1 and 100.");
   const itemIds = options.itemIds;
   if (
     itemIds !== undefined &&
     (!Array.isArray(itemIds) ||
       itemIds.length < 1 ||
-      itemIds.length > 100 ||
+      itemIds.length > QUALITY_PAGE_SIZE ||
       Array.from(itemIds).some(
         (id) =>
           typeof id !== "string" ||
@@ -80,6 +82,15 @@ export async function loadContentQualityItems(
       new Set(itemIds.map((id) => id.toLowerCase())).size !== itemIds.length)
   )
     throw new Error("Content quality itemIds must contain 1 to 100 unique UUIDs.");
+  return loadContentQualityBatch(db, options, limit);
+}
+
+async function loadContentQualityBatch(
+  db: ContentQualityDatabase,
+  options: Omit<ContentQualityPageOptions, "limit">,
+  limit: number,
+): Promise<readonly QualityItem[]> {
+  const itemIds = options.itemIds;
   const courseSlug = options.courseSlug ?? "japanese-ru-n2";
   const placements = {
     where: { courseLevel: { course: { slug: courseSlug } } },
@@ -166,7 +177,16 @@ export async function loadContentQualityItems(
     (systems.find((system) => system.slug === "default-mvp") ?? systems[0])?.stages.map(
       (stage) => stage.stageIndex,
     ) ?? [];
-  const siblingReadings = await loadSiblingWordReadings(db, rows, words, courseSlug);
+  const siblingReadings = new Map<string, readonly string[]>();
+  for (let offset = 0; offset < rows.length; offset += QUALITY_PAGE_SIZE) {
+    const verified = await loadSiblingWordReadings(
+      db,
+      rows.slice(offset, offset + QUALITY_PAGE_SIZE),
+      words,
+      courseSlug,
+    );
+    for (const [id, readings] of verified) siblingReadings.set(id, readings);
+  }
   const wordCharacters = [...new Set(words.flatMap((word) => wordHanCharacters(word.expression)))];
   const spellingKanji = await db.kanji.findMany({
     where: { character: { in: wordCharacters } },
@@ -565,11 +585,11 @@ async function scanContentQuality(
   let warningCount = 0;
   let cursor: string | undefined;
   while (true) {
-    const items = await loadContentQualityItems(db, {
-      cursor,
-      courseSlug: options.courseSlug,
-      limit: 100,
-    });
+    const items = await loadContentQualityBatch(
+      db,
+      { cursor, courseSlug: options.courseSlug },
+      QUALITY_SCAN_BATCH_SIZE,
+    );
     for (const item of items) {
       collect?.(item);
       hash.update(JSON.stringify(item));
@@ -580,7 +600,7 @@ async function scanContentQuality(
         if (issues.length < maxIssues) issues.push(issue);
       }
     }
-    if (items.length < 100) break;
+    if (items.length < QUALITY_SCAN_BATCH_SIZE) break;
     cursor = items.at(-1)?.id;
   }
   return {
