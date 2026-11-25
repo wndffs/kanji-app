@@ -1476,6 +1476,12 @@ demo only, neither used as a main-course prerequisite. Allocation v2
 excludes demo-only content, but still checks unplaced candidates and missing
 dependencies. No material was moved or published to resolve this mismatch.
 
+The [repeat audit after allocation v2](https://github.com/wndffs/kanji-app/actions/runs/45628776291)
+passed **all nine checks** against Neon: **10,544 of 10,544** materials
+allocated, **60 of 60** levels populated, **110** initial lesson materials,
+and **zero** content blockers. This was a read-only `DRAFT` snapshot.
+Publication and opt-in validation are still separate from enrollment rollout.
+
 Use `receipts` in **Deploy staging curation** with the exact kanji and/or
 comma-separated word manifest IDs and both checkboxes off. This read-only
 mode reports status counts and manifest IDs only. `COMPLETE` requires the
