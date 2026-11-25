@@ -43,7 +43,7 @@ test.describe("lesson session", () => {
     await expect(page.getByRole("heading", { name: "Материалы изучены" })).toBeVisible();
     const finish = page.getByRole("button", { name: "Завершить урок", exact: true });
     await finish.click();
-    await expect(page.getByRole("alert")).toContainText("Сбой сохранения");
+    await expect(page.getByRole("main").getByRole("alert")).toContainText("Сбой сохранения");
     expect(finishes).toBe(1);
     await finish.click();
     await expect(page.getByText("Сессия завершена.", { exact: false })).toBeVisible();
