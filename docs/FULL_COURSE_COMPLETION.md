@@ -1436,6 +1436,9 @@ journey on Neon remains a separate check from the isolated database test.
 Daily-limit reads now use a bounded recent window across course and deck study;
 the exact local date still determines eligibility. Queue and resume requests
 read older progress only for the relevant prerequisites or saved lesson group.
+Dashboard progress and availability now share one current-course graph read.
+The shortest-path hint keeps the same course-order tie break and stops scanning
+once it finds the earliest directly reachable prerequisite path.
 
 ### Oversized Source-Only Windows
 

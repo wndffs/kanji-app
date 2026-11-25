@@ -35,40 +35,86 @@ describe("PrismaDashboardRepository", () => {
       startedAt: NOW,
       course: { slug: "japanese-ru-n2" },
     };
-    const findMany = vi
-      .fn()
-      .mockResolvedValueOnce([currentCourseEnrollment])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([currentCourseEnrollment]);
-    const findFirst = vi.fn().mockResolvedValue(null);
+    const findMany = vi.fn().mockResolvedValue([currentCourseEnrollment]);
+    const findFirst = vi.fn().mockResolvedValue({
+      course: {
+        id: "course-main",
+        titleRu: "Main",
+        levels: [
+          {
+            id: "level",
+            levelNumber: 4,
+            passPolicyJson: null,
+            completions: [{ completedAt: NOW }],
+            items: [
+              {
+                sortOrder: 2,
+                learningItem: {
+                  id: "item",
+                  kind: "KANJI",
+                  dependencies: [{ prerequisiteItemId: "prereq", requiredStage: null }],
+                  cards: [
+                    { id: "done", srsStates: [{ stageIndex: 9, burnedAt: NOW }] },
+                    { id: "new", srsStates: [] },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    });
     const repository = new PrismaDashboardRepository({
       db: {
         userSettings: { findUnique: vi.fn().mockResolvedValue({ currentCourseId: null }) },
         userEnrollment: { findMany, findFirst },
+        userUnlockEvent: { findFirst: vi.fn().mockResolvedValue(null) },
       },
     } as never);
 
-    await repository.listLessonAvailabilityItems("user-1");
-    await repository.findCurrentCourseProgress("user-1");
-
-    for (const query of [findMany.mock.calls[1]?.[0], findFirst.mock.calls[0]?.[0]]) {
-      expect(query).toMatchObject({
-        where: { courseId: "course-main" },
-        select: {
-          course: {
-            select: {
-              levels: {
-                select: {
-                  items: { where: { learningItem: { status: "PUBLISHED" } } },
-                },
-              },
-            },
-          },
+    await expect(repository.loadCourseData("user-1")).resolves.toMatchObject({
+      lessonItems: [
+        {
+          id: "item",
+          courseId: "course-main",
+          courseLevelNumber: 4,
+          sortOrder: 2,
+          cardIds: ["done", "new"],
+          dependencies: [{ prerequisiteItemId: "prereq", requiredStage: 1 }],
         },
-      });
-    }
+      ],
+      currentCourse: {
+        id: "course-main",
+        levels: [
+          {
+            completedAt: NOW,
+            items: [
+              {
+                id: "item",
+                cardIds: ["done", "new"],
+                startedCardIds: ["done"],
+                burnedCardIds: ["done"],
+                cardStages: [
+                  { cardId: "done", stageIndex: 9 },
+                  { cardId: "new", stageIndex: null },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      unlockEvents: [],
+    });
+    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(findFirst).toHaveBeenCalledTimes(1);
 
     expect(findFirst.mock.calls[0]?.[0]).toMatchObject({
+      where: {
+        userId: "user-1",
+        courseId: "course-main",
+        status: "ACTIVE",
+        course: { status: "PUBLISHED" },
+      },
       select: {
         course: {
           select: {
@@ -79,14 +125,17 @@ describe("PrismaDashboardRepository", () => {
                   select: { completedAt: true },
                 },
                 items: {
+                  where: { learningItem: { status: "PUBLISHED" } },
                   select: {
                     learningItem: {
                       select: {
                         kind: true,
+                        dependencies: { where: { dependencyType: "PREREQUISITE" } },
                         cards: {
                           select: {
                             srsStates: {
-                              select: { id: true, stageIndex: true, burnedAt: true },
+                              where: { userId: "user-1" },
+                              select: { stageIndex: true, burnedAt: true },
                             },
                           },
                         },
@@ -881,13 +930,32 @@ describe("DashboardService", () => {
       createLessonItem("component-a", 1),
       createLessonItem("kanji-b", 2),
       {
-        ...createLessonItem("word-locked", 3),
+        ...createLessonItem("chain-only", 3),
+        dependencies: [{ prerequisiteItemId: "off-course", requiredStage: 5 }],
+      },
+      {
+        ...createLessonItem("word-longer-path", 4),
+        dependencies: [{ prerequisiteItemId: "chain-only", requiredStage: 5 }],
+      },
+      {
+        ...createLessonItem("word-locked", 5),
         dependencies: [
           { prerequisiteItemId: "component-a", requiredStage: 5 },
           { prerequisiteItemId: "kanji-b", requiredStage: 4 },
         ],
       },
+      {
+        ...createLessonItem("word-tied-later", 6),
+        dependencies: [{ prerequisiteItemId: "kanji-b", requiredStage: 4 }],
+      },
     ]);
+    repository.addLessonProgress({
+      userId: "owner",
+      learningItemId: "chain-only",
+      learningCardId: "card-chain-only",
+      stageIndex: 2,
+      createdAt: NOW,
+    });
     repository.addLessonProgress({
       userId: "owner",
       learningItemId: "component-a",
@@ -1043,10 +1111,12 @@ class InMemoryDashboardRepository extends DashboardRepository {
   }[] = [];
   private course: DashboardCourseProgressRecord | null = null;
 
-  async listLessonAvailabilityItems(
-    _userId: string,
-  ): Promise<readonly DashboardLessonItemRecord[]> {
-    return this.lessonItems;
+  async loadCourseData(_userId: string) {
+    return {
+      lessonItems: this.lessonItems,
+      currentCourse: this.course,
+      unlockEvents: this.unlockEvents,
+    };
   }
 
   async listLessonProgress(userId: string): Promise<readonly DashboardLessonProgressRecord[]> {
@@ -1195,10 +1265,6 @@ class InMemoryDashboardRepository extends DashboardRepository {
         }),
       };
     });
-  }
-
-  async findCurrentCourseProgress(_userId: string): Promise<DashboardCourseProgressRecord | null> {
-    return this.course;
   }
 
   async countRecentReviewResults(

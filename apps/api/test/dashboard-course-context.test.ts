@@ -33,7 +33,7 @@ it("resolves the course once per dashboard request without sharing owners or ret
     });
   }
   expect(settings).toHaveBeenCalledTimes(3);
-  expect(enrollments).toHaveBeenCalledTimes(6);
+  expect(enrollments).toHaveBeenCalledTimes(3);
   expect(
     progress.mock.calls.map(
       (call) => (call[0] as unknown as { where: { courseId: string } }).where.courseId,
@@ -41,13 +41,21 @@ it("resolves the course once per dashboard request without sharing owners or ret
   ).toEqual(["course-a", "course-b", "course-a"]);
 });
 
-it("does not resolve an explicitly absent current course again", async () => {
-  const findUnique = vi.fn();
+it("does not hydrate an absent or inactive course", async () => {
+  const findUnique = vi.fn().mockResolvedValue({ currentCourseId: "stale" });
+  const findFirst = vi.fn();
   const repository = new PrismaDashboardRepository({
-    db: { userSettings: { findUnique } },
+    db: {
+      userSettings: { findUnique },
+      userEnrollment: { findMany: vi.fn().mockResolvedValue([]), findFirst },
+    },
   } as never);
-  expect(await repository.listLessonAvailabilityItems("a", null)).toEqual([]);
-  expect(await repository.findCurrentCourseProgress("a", null)).toBeNull();
+  expect(await repository.loadCourseData("a")).toEqual({
+    lessonItems: [],
+    currentCourse: null,
+    unlockEvents: [],
+  });
   expect(await repository.listLatestUnlockEvents("a", null)).toEqual([]);
-  expect(findUnique).not.toHaveBeenCalled();
+  expect(findUnique).toHaveBeenCalledTimes(1);
+  expect(findFirst).not.toHaveBeenCalled();
 });

@@ -111,7 +111,10 @@ export class DashboardService {
     const displayMode = user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE;
     const leechCandidates = toLeechCandidatesDto(leechSignals, displayMode);
     const availableLessonItems = findAvailableLessonItems(lessonItems, lessonProgress);
-    const availableLessonsToday = countAvailableLessons(user, lessonItems, lessonProgress, now);
+    const availableLessonsToday = Math.min(
+      availableLessonItems.length,
+      getRemainingDailyLessons(user, lessonProgress, now),
+    );
     const availableItemIds = new Set(availableLessonItems.map((item) => item.id));
     const journeyPlan = findNextLockedPath(lessonItems, lessonProgress);
     const journeyItemIds = collectJourneyItemIds(unlockEvents, journeyPlan);
@@ -574,21 +577,6 @@ function collectJourneyItemIds(
   ];
 }
 
-function countAvailableLessons(
-  user: CurrentUserDto,
-  lessonItems: readonly DashboardLessonItemRecord[],
-  progress: readonly DashboardLessonProgressRecord[],
-  now: Date,
-): number {
-  const remainingToday = getRemainingDailyLessons(user, progress, now);
-
-  if (remainingToday <= 0 || lessonItems.length === 0) {
-    return 0;
-  }
-
-  return findAvailableLessonItems(lessonItems, progress).slice(0, remainingToday).length;
-}
-
 function findAvailableLessonItems(
   lessonItems: readonly DashboardLessonItemRecord[],
   progress: readonly DashboardLessonProgressRecord[],
@@ -731,43 +719,31 @@ function findNextLockedPath(
   const orderedItems = [...lessonItems].sort(compareLessonItems);
   const itemById = new Map(orderedItems.map((item) => [item.id, item]));
   const progressByItem = groupLessonProgressByItem(progress);
-  const candidates = orderedItems.flatMap((item) => {
+  let best: DashboardJourneyPlan | null = null;
+  for (const item of orderedItems) {
     if (item.cardIds.length === 0 || isLessonItemStarted(item, progressByItem)) {
-      return [];
+      continue;
     }
 
     const unmetPrerequisites = listUnmetPrerequisites(item, progressByItem, itemById);
 
     if (unmetPrerequisites.length === 0) {
-      return [];
+      continue;
     }
 
-    return [
-      {
-        target: item,
-        unmetPrerequisites,
-        shortestPath: findShortestPrerequisitePath(
-          item,
-          progressByItem,
-          itemById,
-          new Set([item.id]),
-        ),
-      },
-    ];
-  });
-  const selected = candidates.sort(
-    (left, right) =>
-      left.shortestPath.length - right.shortestPath.length ||
-      compareLessonItems(left.target, right.target),
-  )[0];
-
-  return selected === undefined
-    ? null
-    : {
-        targetId: selected.target.id,
-        unmetPrerequisites: selected.unmetPrerequisites,
-        shortestPath: selected.shortestPath,
-      };
+    const shortestPath = findShortestPrerequisitePath(
+      item,
+      progressByItem,
+      itemById,
+      new Set([item.id]),
+    );
+    if (best === null || shortestPath.length < best.shortestPath.length) {
+      best = { targetId: item.id, unmetPrerequisites, shortestPath };
+      // A later item cannot beat a one-step path or its existing course-order tie break.
+      if (shortestPath.length === 1) break;
+    }
+  }
+  return best;
 }
 
 function listUnmetPrerequisites(

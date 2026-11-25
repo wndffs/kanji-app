@@ -35,18 +35,11 @@ import {
 } from "./dashboard.types";
 
 export abstract class DashboardRepository {
-  async loadCourseData(userId: string) {
-    const [lessonItems, currentCourse, unlockEvents] = await Promise.all([
-      this.listLessonAvailabilityItems(userId),
-      this.findCurrentCourseProgress(userId),
-      this.listLatestUnlockEvents(userId),
-    ]);
-    return { lessonItems, currentCourse, unlockEvents };
-  }
-  abstract listLessonAvailabilityItems(
-    userId: string,
-    currentCourseId?: string | null,
-  ): Promise<readonly DashboardLessonItemRecord[]>;
+  abstract loadCourseData(userId: string): Promise<{
+    readonly lessonItems: readonly DashboardLessonItemRecord[];
+    readonly currentCourse: DashboardCourseProgressRecord | null;
+    readonly unlockEvents: readonly DashboardUnlockEventRecord[];
+  }>;
   abstract listLessonProgress(userId: string): Promise<readonly DashboardLessonProgressRecord[]>;
   abstract listKanaProgress(userId: string): Promise<readonly DashboardKanaProgressRecord[]>;
   abstract hasCompletedReviewSession(userId: string): Promise<boolean>;
@@ -83,10 +76,6 @@ export abstract class DashboardRepository {
     horizonEnd: Date,
   ): Promise<readonly DashboardSrsStateRecord[]>;
   abstract listSrsStageSpread(userId: string): Promise<readonly DashboardSrsStageSpreadRecord[]>;
-  abstract findCurrentCourseProgress(
-    userId: string,
-    currentCourseId?: string | null,
-  ): Promise<DashboardCourseProgressRecord | null>;
   abstract countRecentReviewResults(
     userId: string,
     since: Date,
@@ -156,32 +145,6 @@ type SrsSpreadCountRow = {
   };
 };
 
-type LessonEnrollmentRow = {
-  readonly course: {
-    readonly id: string;
-    readonly levels: readonly LessonCourseLevelRow[];
-  };
-};
-
-type LessonCourseLevelRow = {
-  readonly levelNumber: number;
-  readonly items: readonly LessonCourseLevelItemRow[];
-};
-
-type LessonCourseLevelItemRow = {
-  readonly sortOrder: number;
-  readonly learningItem: {
-    readonly id: string;
-    readonly cards: readonly {
-      readonly id: string;
-    }[];
-    readonly dependencies: readonly {
-      readonly prerequisiteItemId: string;
-      readonly requiredStage: number | null;
-    }[];
-  };
-};
-
 type LessonProgressRow = {
   readonly stageIndex: number;
   readonly createdAt: Date;
@@ -189,41 +152,6 @@ type LessonProgressRow = {
   readonly learningCard: {
     readonly learningItemId: string;
   };
-};
-
-type EnrollmentRow = {
-  readonly course: {
-    readonly id: string;
-    readonly titleRu: string;
-    readonly levels: readonly CourseLevelRow[];
-  };
-};
-
-type CourseLevelRow = {
-  readonly id: string;
-  readonly levelNumber: number;
-  readonly passPolicyJson: unknown;
-  readonly completions: readonly {
-    readonly completedAt: Date;
-  }[];
-  readonly items: readonly CourseLevelItemRow[];
-};
-
-type CourseLevelItemRow = {
-  readonly learningItem: {
-    readonly id: string;
-    readonly kind: string;
-    readonly cards: readonly CourseCardRow[];
-  };
-};
-
-type CourseCardRow = {
-  readonly id: string;
-  readonly srsStates: readonly {
-    readonly id: string;
-    readonly stageIndex: number;
-    readonly burnedAt: Date | null;
-  }[];
 };
 
 type ComponentTargetRow = {
@@ -321,99 +249,15 @@ export class PrismaDashboardRepository extends DashboardRepository {
     super();
   }
 
-  override async loadCourseData(userId: string) {
+  async loadCourseData(userId: string) {
     const courseId = await resolveCurrentCourseId(this.prisma.db, userId);
-    const [lessonItems, currentCourse, unlockEvents] = await Promise.all([
-      this.listLessonAvailabilityItems(userId, courseId),
-      this.findCurrentCourseProgress(userId, courseId),
+    const empty = { lessonItems: [], currentCourse: null, unlockEvents: [] };
+    if (courseId === null) return empty;
+    const [data, unlockEvents] = await Promise.all([
+      this.loadCurrentCourse(userId, courseId),
       this.listLatestUnlockEvents(userId, courseId),
     ]);
-    return { lessonItems, currentCourse, unlockEvents };
-  }
-
-  async listLessonAvailabilityItems(
-    userId: string,
-    resolvedCourseId?: string | null,
-  ): Promise<readonly DashboardLessonItemRecord[]> {
-    const currentCourseId =
-      resolvedCourseId === undefined
-        ? await resolveCurrentCourseId(this.prisma.db, userId)
-        : resolvedCourseId;
-
-    if (currentCourseId === null) {
-      return [];
-    }
-
-    const enrollments = (await this.prisma.db.userEnrollment.findMany({
-      where: {
-        userId,
-        courseId: currentCourseId,
-        status: "ACTIVE",
-        course: {
-          status: "PUBLISHED",
-        },
-      },
-      select: {
-        course: {
-          select: {
-            id: true,
-            levels: {
-              orderBy: { levelNumber: "asc" },
-              select: {
-                levelNumber: true,
-                items: {
-                  where: { learningItem: { status: "PUBLISHED" } },
-                  orderBy: { sortOrder: "asc" },
-                  select: {
-                    sortOrder: true,
-                    learningItem: {
-                      select: {
-                        id: true,
-                        cards: {
-                          select: { id: true },
-                          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-                        },
-                        dependencies: {
-                          where: { dependencyType: "PREREQUISITE" },
-                          select: {
-                            prerequisiteItemId: true,
-                            requiredStage: true,
-                          },
-                          orderBy: { prerequisiteItemId: "asc" },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-      orderBy: [{ startedAt: "asc" }, { id: "asc" }],
-    })) as readonly LessonEnrollmentRow[];
-
-    const records: DashboardLessonItemRecord[] = [];
-
-    for (const enrollment of enrollments) {
-      for (const level of enrollment.course.levels) {
-        for (const item of level.items) {
-          records.push({
-            courseId: enrollment.course.id,
-            courseLevelNumber: level.levelNumber,
-            sortOrder: item.sortOrder,
-            id: item.learningItem.id,
-            cardIds: item.learningItem.cards.map((card) => card.id),
-            dependencies: item.learningItem.dependencies.map((dependency) => ({
-              prerequisiteItemId: dependency.prerequisiteItemId,
-              requiredStage: dependency.requiredStage ?? 1,
-            })),
-          });
-        }
-      }
-    }
-
-    return records;
+    return data === null ? empty : { ...data, unlockEvents };
   }
 
   async listLessonProgress(userId: string): Promise<readonly DashboardLessonProgressRecord[]> {
@@ -888,23 +732,11 @@ export class PrismaDashboardRepository extends DashboardRepository {
     }));
   }
 
-  async findCurrentCourseProgress(
-    userId: string,
-    resolvedCourseId?: string | null,
-  ): Promise<DashboardCourseProgressRecord | null> {
-    const currentCourseId =
-      resolvedCourseId === undefined
-        ? await resolveCurrentCourseId(this.prisma.db, userId)
-        : resolvedCourseId;
-
-    if (currentCourseId === null) {
-      return null;
-    }
-
-    const enrollment = (await this.prisma.db.userEnrollment.findFirst({
+  private async loadCurrentCourse(userId: string, courseId: string) {
+    const enrollment = await this.prisma.db.userEnrollment.findFirst({
       where: {
         userId,
-        courseId: currentCourseId,
+        courseId,
         status: "ACTIVE",
         course: {
           status: "PUBLISHED",
@@ -930,16 +762,22 @@ export class PrismaDashboardRepository extends DashboardRepository {
                   where: { learningItem: { status: "PUBLISHED" } },
                   orderBy: { sortOrder: "asc" },
                   select: {
+                    sortOrder: true,
                     learningItem: {
                       select: {
                         id: true,
                         kind: true,
+                        dependencies: {
+                          where: { dependencyType: "PREREQUISITE" },
+                          select: { prerequisiteItemId: true, requiredStage: true },
+                          orderBy: { prerequisiteItemId: "asc" },
+                        },
                         cards: {
                           select: {
                             id: true,
                             srsStates: {
                               where: { userId },
-                              select: { id: true, stageIndex: true, burnedAt: true },
+                              select: { stageIndex: true, burnedAt: true },
                             },
                           },
                           orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
@@ -954,13 +792,14 @@ export class PrismaDashboardRepository extends DashboardRepository {
         },
       },
       orderBy: [{ startedAt: "asc" }, { id: "asc" }],
-    })) as EnrollmentRow | null;
+    });
 
     if (enrollment === null) {
       return null;
     }
 
-    return {
+    const lessonItems: DashboardLessonItemRecord[] = [];
+    const currentCourse: DashboardCourseProgressRecord = {
       id: enrollment.course.id,
       title: enrollment.course.titleRu,
       levels: enrollment.course.levels.map((level) => ({
@@ -968,23 +807,37 @@ export class PrismaDashboardRepository extends DashboardRepository {
         levelNumber: level.levelNumber,
         passPolicy: parseCourseLevelPassPolicy(level.passPolicyJson),
         completedAt: level.completions[0]?.completedAt ?? null,
-        items: level.items.map((item) => ({
-          id: item.learningItem.id,
-          itemType: toDashboardItemKind(item.learningItem.kind),
-          cardIds: item.learningItem.cards.map((card) => card.id),
-          startedCardIds: item.learningItem.cards
-            .filter((card) => card.srsStates.length > 0)
-            .map((card) => card.id),
-          burnedCardIds: item.learningItem.cards
-            .filter((card) => card.srsStates.some((state) => state.burnedAt !== null))
-            .map((card) => card.id),
-          cardStages: item.learningItem.cards.map((card) => ({
-            cardId: card.id,
-            stageIndex: card.srsStates[0]?.stageIndex ?? null,
-          })),
-        })),
+        items: level.items.map(({ learningItem, sortOrder }) => {
+          const { id, kind, cards, dependencies } = learningItem;
+          const cardIds = cards.map((card) => card.id);
+          lessonItems.push({
+            id,
+            cardIds,
+            sortOrder,
+            courseId,
+            courseLevelNumber: level.levelNumber,
+            dependencies: dependencies.map(({ prerequisiteItemId, requiredStage }) => ({
+              prerequisiteItemId,
+              requiredStage: requiredStage ?? 1,
+            })),
+          });
+          return {
+            id,
+            itemType: toDashboardItemKind(kind),
+            cardIds,
+            startedCardIds: cards.filter((card) => card.srsStates.length > 0).map(({ id }) => id),
+            burnedCardIds: cards
+              .filter((card) => card.srsStates.some((state) => state.burnedAt !== null))
+              .map(({ id }) => id),
+            cardStages: cards.map(({ id: cardId, srsStates }) => ({
+              cardId,
+              stageIndex: srsStates[0]?.stageIndex ?? null,
+            })),
+          };
+        }),
       })),
     };
+    return { lessonItems, currentCourse };
   }
 
   async countRecentReviewResults(
