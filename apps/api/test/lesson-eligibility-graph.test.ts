@@ -7,9 +7,9 @@ const item = {
   kind: "KANJI",
   dependencies: [{ prerequisiteItemId: "base", requiredStage: null }],
   cards: [
-    { id: "meaning", promptType: "MEANING", audioAsset: null },
-    { id: "reading", promptType: "READING", audioAsset: null },
-    { id: "bad-audio", promptType: "LISTENING", audioAsset: null },
+    { id: "meaning", promptType: "MEANING", audioAsset: null, srsStates: [] },
+    { id: "reading", promptType: "READING", audioAsset: null, srsStates: [] },
+    { id: "bad-audio", promptType: "LISTENING", audioAsset: null, srsStates: [] },
   ],
 };
 
@@ -48,7 +48,7 @@ function harness() {
 describe("lightweight lesson eligibility", () => {
   it("loads the first possible current level and only its course prerequisite metadata", async () => {
     const { db, repository } = harness();
-    expect(await repository.listCourseEligibility("owner", [])).toEqual({
+    expect(await repository.listCourseEligibility("owner")).toEqual({
       items: [
         {
           courseId: "course",
@@ -71,6 +71,7 @@ describe("lightweight lesson eligibility", () => {
           dependencies: [],
         },
       ],
+      progress: [],
     });
     expect(db.courseLevel.findFirst).toHaveBeenCalledTimes(1);
     const query = db.courseLevel.findFirst.mock.calls[0]![0];
@@ -92,33 +93,53 @@ describe("lightweight lesson eligibility", () => {
     const select = query.select.items.select.learningItem.select;
     expect(Object.keys(select).sort()).toEqual(["cards", "dependencies", "id", "kind"]);
     expect(select.cards.select).not.toHaveProperty("answers");
+    expect(select.cards.select.srsStates).toEqual({
+      where: { userId: "owner" },
+      select: { stageIndex: true, createdAt: true },
+    });
     expect(db.learningItem.findMany).toHaveBeenCalledWith({
       where: {
         id: { in: ["base"] },
         status: "PUBLISHED",
         courseLevelItems: { some: { courseLevel: { courseId: "course" } } },
       },
-      select,
+      select: expect.objectContaining({ id: true, kind: true }),
     });
   });
   it("does not load a course when there is no selected enrollment", async () => {
     const { db, repository } = harness();
     db.userEnrollment.findMany.mockResolvedValue([]);
-    expect(await repository.listCourseEligibility("owner", [])).toEqual({
+    expect(await repository.listCourseEligibility("owner")).toEqual({
       items: [],
       prerequisiteItems: [],
+      progress: [],
     });
     expect(db.courseLevel.findFirst).not.toHaveBeenCalled();
   });
   it("seeks past a candidate where all eligible cards are started or audio is invalid", async () => {
     const { db, repository } = harness();
-    db.courseLevel.findFirst.mockResolvedValueOnce(level).mockResolvedValueOnce(null);
-    const progress = [
-      { learningItemId: "item", learningCardId: "reading", stageIndex: 1, createdAt: new Date() },
-    ];
-    expect(await repository.listCourseEligibility("owner", progress)).toEqual({
+    db.courseLevel.findFirst
+      .mockResolvedValueOnce({
+        ...level,
+        items: [
+          {
+            ...level.items[0],
+            learningItem: {
+              ...item,
+              cards: item.cards.map((card) =>
+                card.id === "reading"
+                  ? { ...card, srsStates: [{ stageIndex: 1, createdAt: new Date() }] }
+                  : card,
+              ),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce(null);
+    expect(await repository.listCourseEligibility("owner")).toEqual({
       items: [],
       prerequisiteItems: [],
+      progress: [],
     });
     expect(db.courseLevel.findFirst.mock.calls[1]![0].where.levelNumber).toEqual({ gt: 2 });
     expect(db.learningItem.findMany).not.toHaveBeenCalled();

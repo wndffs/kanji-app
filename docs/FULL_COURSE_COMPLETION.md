@@ -1433,6 +1433,9 @@ card eligibility before advancing and loads published in-course prerequisites
 only for that level. Earlier levels still gate later ones, and external deck
 prerequisites still require every eligible card. The full-course learner
 journey on Neon remains a separate check from the isolated database test.
+Daily-limit reads now use a bounded recent window across course and deck study;
+the exact local date still determines eligibility. Queue and resume requests
+read older progress only for the relevant prerequisites or saved lesson group.
 
 ### Oversized Source-Only Windows
 

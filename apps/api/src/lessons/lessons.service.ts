@@ -192,7 +192,7 @@ export class LessonsService {
       };
     }
 
-    const { availableItems, displayMode, progress, source } = await this.getAvailableMetadata(
+    const { availableItems, displayMode, source } = await this.getAvailableMetadata(
       user,
       new Date(),
       session.deckId,
@@ -227,12 +227,10 @@ export class LessonsService {
             phase: session.phase,
           })) ?? session);
 
-    const sessionProgress = progress.filter(
-      (record) =>
-        session.itemIds.includes(record.learningItemId) && record.createdAt >= session.startedAt,
-    );
-
-    const teachingEntries = await this.hydrateAvailableItems(user.id, remainingEntries);
+    const [sessionProgress, teachingEntries] = await Promise.all([
+      this.lessonsRepository.listUserProgress(user.id, session.itemIds, session.startedAt),
+      this.hydrateAvailableItems(user.id, remainingEntries),
+    ]);
     return {
       session: toLessonSessionDto(normalizedSession),
       items: teachingEntries.map((entry) =>
@@ -520,16 +518,19 @@ export class LessonsService {
   ): Promise<{
     readonly availableItems: readonly AvailableLessonMetadata[];
     readonly displayMode: TranslationDisplayMode;
-    readonly progress: readonly UserItemProgressRecord[];
     readonly remainingToday: number;
     readonly source: LessonQueueSourceDto;
   }> {
-    const progressPromise = this.lessonsRepository.listUserProgress(user.id);
+    // The local-day check below remains authoritative, including around DST.
+    const recent = await this.lessonsRepository.listUserProgress(
+      user.id,
+      undefined,
+      new Date(now.getTime() - 48 * 60 * 60 * 1_000),
+    );
+    const remainingToday = getRemainingDailyLessons(user, recent, now);
     const displayMode = user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE;
 
     if (deckId !== null) {
-      const progress = await progressPromise;
-      const remainingToday = getRemainingDailyLessons(user, progress, now);
       const deck = await this.lessonsRepository.findDeckEligibility(
         user.id,
         deckId,
@@ -547,48 +548,57 @@ export class LessonsService {
       const source: LessonQueueSourceDto = { kind: "deck", deckId: deck.id, title: deck.title };
 
       if (remainingToday <= 0 || deck.items.length === 0) {
-        return { availableItems: [], displayMode, progress, remainingToday, source };
+        return { availableItems: [], displayMode, remainingToday, source };
       }
 
-      const prerequisiteCardIds = await this.getExternalPrerequisiteCardIds(
-        deck.items.map((entry) => entry.item),
-      );
+      const items = deck.items.map((entry) => entry.item);
+      const [progress, prerequisiteCardIds] = await Promise.all([
+        this.lessonsRepository.listUserProgress(user.id, [
+          ...new Set([...items.map((item) => item.id), ...getPrerequisiteItemIds(items)]),
+        ]),
+        this.getExternalPrerequisiteCardIds(items),
+      ]);
 
       return {
         availableItems: findAvailableDeckItems(deck, progress, prerequisiteCardIds),
         displayMode,
-        progress,
         remainingToday,
         source,
       };
     }
 
-    const progress = await progressPromise;
-    const remainingToday = getRemainingDailyLessons(user, progress, now);
     const source: LessonQueueSourceDto = { kind: "course" };
 
     if (remainingToday <= 0) {
-      return { availableItems: [], displayMode, progress, remainingToday, source };
+      return { availableItems: [], displayMode, remainingToday, source };
     }
 
-    const { items: courseItems, prerequisiteItems } =
-      await this.lessonsRepository.listCourseEligibility(user.id, progress);
-    if (courseItems.length === 0) {
-      return { availableItems: [], displayMode, progress, remainingToday, source };
-    }
-
-    const prerequisiteCardIds = await this.getExternalPrerequisiteCardIds(
-      courseItems.map((entry) => entry.item),
+    const {
+      items: courseItems,
       prerequisiteItems,
-    );
+      progress,
+    } = await this.lessonsRepository.listCourseEligibility(user.id);
+    if (courseItems.length === 0) {
+      return { availableItems: [], displayMode, remainingToday, source };
+    }
+
+    const items = courseItems.map((entry) => entry.item);
+    const inLevel = new Set(items.map((item) => item.id));
+    const dependencyIds = getPrerequisiteItemIds(items).filter((id) => !inLevel.has(id));
+    const [prerequisiteProgress, prerequisiteCardIds] = await Promise.all([
+      dependencyIds.length === 0
+        ? []
+        : this.lessonsRepository.listUserProgress(user.id, dependencyIds),
+      this.getExternalPrerequisiteCardIds(items, prerequisiteItems),
+    ]);
     const availableItems = findAvailableCourseItems(
       courseItems,
-      progress,
+      [...progress, ...prerequisiteProgress],
       prerequisiteCardIds,
       prerequisiteItems,
     );
 
-    return { availableItems, displayMode, progress, remainingToday, source };
+    return { availableItems, displayMode, remainingToday, source };
   }
 
   private async getExternalPrerequisiteCardIds(
@@ -596,20 +606,18 @@ export class LessonsService {
     knownPrerequisites: readonly LessonEligibilityItemRecord[] = [],
   ): Promise<ReadonlyMap<string, readonly string[]>> {
     const sourceItemIds = new Set([...items, ...knownPrerequisites].map((item) => item.id));
-    const externalItemIds = [
-      ...new Set(
-        items.flatMap((item) =>
-          item.dependencies
-            .map((dependency) => dependency.prerequisiteItemId)
-            .filter((itemId) => !sourceItemIds.has(itemId)),
-        ),
-      ),
-    ];
+    const externalItemIds = getPrerequisiteItemIds(items).filter((id) => !sourceItemIds.has(id));
 
     return externalItemIds.length === 0
       ? new Map()
       : this.lessonsRepository.listPrerequisiteCardIds(externalItemIds);
   }
+}
+
+function getPrerequisiteItemIds(items: readonly LessonEligibilityItemRecord[]): readonly string[] {
+  return [
+    ...new Set(items.flatMap((item) => item.dependencies.map((dep) => dep.prerequisiteItemId))),
+  ];
 }
 
 type AvailableLessonItem = {

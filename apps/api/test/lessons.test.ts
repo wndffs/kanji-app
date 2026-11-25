@@ -467,7 +467,9 @@ describe("LessonsService", () => {
       const service = new LessonsService(repository, createOverridesService());
       const user = createUser("owner");
       const deckId = source === "deck" ? "deck-study" : undefined;
-      repository.addProgress("owner", "external-kanji", ["external-meaning"], 5);
+      const older = new Date("2026-05-01T09:00:00.000Z");
+      const progress = vi.spyOn(repository, "listUserProgress");
+      repository.addProgress("owner", "external-kanji", ["external-meaning"], 5, older);
       repository.addProgress("other", "external-kanji", ["external-reading"], 5);
 
       await expect(service.getQueue(user, deckId)).resolves.toMatchObject({ items: [] });
@@ -478,6 +480,15 @@ describe("LessonsService", () => {
       await expect(service.getQueue(user, deckId)).resolves.toMatchObject({
         items: [{ item: { id: dependent.id } }],
       });
+      expect(progress).toHaveBeenCalledWith(
+        "owner",
+        undefined,
+        new Date("2026-06-16T09:00:00.000Z"),
+      );
+      expect(progress).toHaveBeenCalledWith(
+        "owner",
+        source === "deck" ? [dependent.id, "external-kanji"] : ["external-kanji"],
+      );
       const session = await service.startSession(user, deckId === undefined ? {} : { deckId });
       const request = {
         itemId: dependent.id,
@@ -967,7 +978,7 @@ describe("LessonsService", () => {
         source: { kind: "course" },
       });
       expect(db.userSrsState.findMany).toHaveBeenCalledExactlyOnceWith({
-        where: { userId: "owner" },
+        where: { userId: "owner", createdAt: { gte: new Date("2026-06-16T09:00:00.000Z") } },
         select: {
           stageIndex: true,
           createdAt: true,
@@ -976,9 +987,7 @@ describe("LessonsService", () => {
         },
       });
       expect(db.userSettings.findUnique).toHaveBeenCalledTimes(scenario === "exhausted" ? 0 : 1);
-      expect(db.userEnrollment.findMany).toHaveBeenCalledTimes(
-        scenario === "exhausted" ? 0 : 1,
-      );
+      expect(db.userEnrollment.findMany).toHaveBeenCalledTimes(scenario === "exhausted" ? 0 : 1);
       expect(db.courseLevel.findFirst).toHaveBeenCalledTimes(scenario === "active-course" ? 1 : 0);
       if (scenario !== "exhausted") {
         expect(db.userEnrollment.findMany).toHaveBeenNthCalledWith(
@@ -1229,7 +1238,15 @@ class InMemoryLessonsRepository extends LessonsRepository {
   }
 
   async listCourseEligibility(userId: string) {
-    return { items: await this.listCourseLessonItems(userId), prerequisiteItems: [] };
+    const items = await this.listCourseLessonItems(userId);
+    return {
+      items,
+      prerequisiteItems: [],
+      progress: this.readUserProgress(
+        userId,
+        items.map(({ item }) => item.id),
+      ),
+    };
   }
 
   async findDeckEligibility(userId: string, deckId: string) {
@@ -1254,10 +1271,16 @@ class InMemoryLessonsRepository extends LessonsRepository {
   async listUserProgress(
     userId: string,
     itemIds?: readonly string[],
+    createdAtOrAfter?: Date,
   ): Promise<readonly UserItemProgressRecord[]> {
     this.readCounts.progress++;
+    return this.readUserProgress(userId, itemIds, createdAtOrAfter);
+  }
+
+  private readUserProgress(userId: string, itemIds?: readonly string[], createdAtOrAfter?: Date) {
     return this.progress
       .filter((record) => record.learningItemId.startsWith(`${userId}:`))
+      .filter((record) => createdAtOrAfter === undefined || record.createdAt >= createdAtOrAfter)
       .map((record) => ({
         ...record,
         learningItemId: record.learningItemId.slice(`${userId}:`.length),

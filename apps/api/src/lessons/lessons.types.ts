@@ -105,6 +105,7 @@ export type CourseLessonEligibilityRecord = Omit<CourseLessonItemRecord, "item">
 export type CourseLessonEligibilityGraph = {
   readonly items: readonly CourseLessonEligibilityRecord[];
   readonly prerequisiteItems: readonly LessonEligibilityItemRecord[];
+  readonly progress: readonly UserItemProgressRecord[];
 };
 
 export type DeckLessonEligibilityRecord = Omit<DeckLessonRecord, "items"> & {

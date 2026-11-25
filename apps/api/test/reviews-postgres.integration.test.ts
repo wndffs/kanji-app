@@ -705,22 +705,22 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
 
   it("opens only the first unstarted course level and retains earlier prerequisite cards", async () => {
     await withFixture(async (base) =>
-      withWordExamplesFixture(base, 3, async (fixture) => {
+      withWordExamplesFixture(base, 4, async (fixture) => {
         const repository = new PrismaLessonsRepository(control);
-        const [first, next, later] = fixture.items;
+        const [first, next, later, startedSibling] = fixture.items;
         const course = await control.db.course.findUniqueOrThrow({
           where: { slug: fixture.courseSlug },
         });
         await control.db.$transaction(async (tx) => {
-          for (const [levelNumber, item] of [
-            [2, next!],
-            [60, later!],
+          for (const [levelNumber, items] of [
+            [2, [next!.id, startedSibling!.id]],
+            [60, [later!.id]],
           ] as const) {
             const level = await tx.courseLevel.create({
               data: { courseId: course.id, levelNumber, titleRu: "Queue fixture" },
             });
             await tx.courseLevelItem.updateMany({
-              where: { learningItemId: item.id, courseLevel: { courseId: course.id } },
+              where: { learningItemId: { in: [...items] }, courseLevel: { courseId: course.id } },
               data: { courseLevelId: level.id },
             });
           }
@@ -736,29 +736,33 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
         const firstCard = await control.db.learningCard.findFirstOrThrow({
           where: { learningItemId: first!.id },
         });
-        const startFor = (userId: string) =>
+        const siblingCard = await control.db.learningCard.findFirstOrThrow({
+          where: { learningItemId: startedSibling!.id },
+        });
+        const startFor = (userId: string, learningCardId = firstCard.id) =>
           control.db.userSrsState.create({
             data: {
               userId,
-              learningCardId: firstCard.id,
+              learningCardId,
               srsSystemId: base.systemId,
               stageIndex: 5,
             },
           });
-        const readGraph = async () =>
-          repository.listCourseEligibility(
-            base.userId,
-            await repository.listUserProgress(base.userId),
-          );
+        const readGraph = () => repository.listCourseEligibility(base.userId);
 
         await startFor(base.otherUserId);
         const initial = await readGraph();
         expect(initial.items.map(({ item }) => item.id)).toEqual([first!.id]);
         expect(initial.prerequisiteItems).toEqual([]);
+        expect(initial.progress).toEqual([]);
 
         await startFor(base.userId);
+        await startFor(base.userId, siblingCard.id);
         const following = await readGraph();
-        expect(following.items.map(({ item }) => item.id)).toEqual([next!.id]);
+        expect(following.items.map(({ item }) => item.id)).toEqual([next!.id, startedSibling!.id]);
+        expect(following.progress).toMatchObject([
+          { learningItemId: startedSibling!.id, learningCardId: siblingCard.id, stageIndex: 5 },
+        ]);
         expect(following.items[0]?.item.dependencies).toEqual([
           { prerequisiteItemId: first!.id, requiredStage: 5 },
         ]);

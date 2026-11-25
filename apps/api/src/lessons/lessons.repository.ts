@@ -41,10 +41,7 @@ import {
 } from "./lessons.types";
 
 export abstract class LessonsRepository {
-  abstract listCourseEligibility(
-    userId: string,
-    progress: readonly UserItemProgressRecord[],
-  ): Promise<CourseLessonEligibilityGraph>;
+  abstract listCourseEligibility(userId: string): Promise<CourseLessonEligibilityGraph>;
   abstract findDeckEligibility(
     userId: string,
     deckId: string,
@@ -59,6 +56,7 @@ export abstract class LessonsRepository {
   abstract listUserProgress(
     userId: string,
     itemIds?: readonly string[],
+    createdAtOrAfter?: Date,
   ): Promise<readonly UserItemProgressRecord[]>;
   abstract loadLessonEligibilityItems(
     itemIds: readonly string[],
@@ -254,15 +252,11 @@ export class PrismaLessonsRepository extends LessonsRepository {
     super();
   }
 
-  async listCourseEligibility(
-    userId: string,
-    progress: readonly UserItemProgressRecord[],
-  ): Promise<CourseLessonEligibilityGraph> {
+  async listCourseEligibility(userId: string): Promise<CourseLessonEligibilityGraph> {
     const courseId = await resolveCurrentCourseId(this.prisma.db, userId);
-    const empty = { items: [], prerequisiteItems: [] };
+    const empty = { items: [], prerequisiteItems: [], progress: [] };
     if (courseId === null) return empty;
 
-    const startedCards = new Set(progress.map((record) => record.learningCardId));
     let afterLevel: number | undefined;
     for (;;) {
       // Only a non-listening state can rule out a candidate in SQL. Listening
@@ -293,15 +287,38 @@ export class PrismaLessonsRepository extends LessonsRepository {
             select: {
               sortOrder: true,
               unlockPolicyJson: true,
-              learningItem: { select: lessonEligibilitySelect },
+              learningItem: {
+                select: {
+                  ...lessonEligibilitySelect,
+                  cards: {
+                    ...lessonEligibilitySelect.cards,
+                    select: {
+                      ...lessonEligibilitySelect.cards.select,
+                      srsStates: {
+                        where: { userId },
+                        select: { stageIndex: true, createdAt: true },
+                      },
+                    },
+                  },
+                },
+              },
             },
           },
         },
       });
       if (level === null) return empty;
 
+      const progress: UserItemProgressRecord[] = [];
       const items = level.items.flatMap((entry) => {
         const item = toEligibilityItem(entry.learningItem);
+        const eligibleCards = new Set(item.cards.map(({ id }) => id));
+        for (const card of entry.learningItem.cards) {
+          if (!eligibleCards.has(card.id)) continue;
+          const state = card.srsStates[0];
+          if (state !== undefined) {
+            progress.push({ ...state, learningItemId: item.id, learningCardId: card.id });
+          }
+        }
         return item.cards.length === 0
           ? []
           : [
@@ -314,6 +331,7 @@ export class PrismaLessonsRepository extends LessonsRepository {
               },
             ];
       });
+      const startedCards = new Set(progress.map((record) => record.learningCardId));
       const unstarted = items.filter(
         ({ item }) => !item.cards.some(({ id }) => startedCards.has(id)),
       );
@@ -331,6 +349,7 @@ export class PrismaLessonsRepository extends LessonsRepository {
       return {
         items,
         prerequisiteItems: await this.loadCoursePrerequisiteItems(courseId, prerequisiteIds),
+        progress,
       };
     }
   }
@@ -623,11 +642,13 @@ export class PrismaLessonsRepository extends LessonsRepository {
   async listUserProgress(
     userId: string,
     itemIds?: readonly string[],
+    createdAtOrAfter?: Date,
   ): Promise<readonly UserItemProgressRecord[]> {
     if (itemIds?.length === 0) return [];
     const states = (await this.prisma.db.userSrsState.findMany({
       where: {
         userId,
+        ...(createdAtOrAfter === undefined ? {} : { createdAt: { gte: createdAtOrAfter } }),
         ...(itemIds === undefined
           ? {}
           : { learningCard: { learningItemId: { in: [...itemIds] } } }),
