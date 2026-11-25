@@ -9,6 +9,7 @@ import {
 import { normalizeJapaneseReading, normalizeMeaning } from "@kanji-srs/japanese";
 import {
   calculateNextReview,
+  resurrectCard as scheduleResurrection,
   type ReviewResult as SrsReviewResult,
   type SchedulingResult,
   type SrsStage,
@@ -29,6 +30,7 @@ import {
   type PracticeSessionDto,
   type PracticeSessionResponse,
   type PracticeSource,
+  type ResurrectReviewCardResponse,
   type ReviewAnswerResultType,
   type ReviewOrderMode,
   type ReviewQueueItem,
@@ -106,6 +108,42 @@ export class ReviewsService {
       orderMode,
       vacationStartedAt: null,
     };
+  }
+
+  async resurrectCard(
+    cardId: string,
+    user: CurrentUserDto,
+    body: unknown,
+  ): Promise<ResurrectReviewCardResponse> {
+    assertScheduledReviewsAvailable(user);
+    const burnedAt =
+      typeof body === "object" && body !== null && "burnedAt" in body ? body.burnedAt : null;
+    const timestamp = typeof burnedAt === "string" ? new Date(burnedAt) : null;
+    if (
+      timestamp === null ||
+      !Number.isFinite(timestamp.getTime()) ||
+      timestamp.toISOString() !== burnedAt
+    ) {
+      throw new BadRequestException("Укажите дату освоения карточки.");
+    }
+
+    const target = await this.reviewsRepository.findPracticeCard(user.id, cardId);
+    if (target === null) throw new NotFoundException("Карточка не найдена.");
+    if (
+      target.state.burnedAt?.toISOString() !== burnedAt ||
+      !target.stages.some((stage) => stage.stageIndex === target.state.stageIndex && stage.isBurned)
+    ) {
+      throw new ConflictException("Состояние карточки изменилось. Обновите подборку.");
+    }
+
+    const now = new Date();
+    const { nextState } = scheduleResurrection({
+      state: toSrsSnapshot(target.state),
+      now,
+      stageConfig: { stages: target.stages },
+    });
+    await this.reviewsRepository.recordCardResurrection({ state: target.state, nextState, now });
+    return { cardId, srs: toSrsSummary(nextState, target.stages) };
   }
 
   async startSession(user: CurrentUserDto): Promise<StartReviewSessionResponse> {

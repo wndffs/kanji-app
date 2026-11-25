@@ -194,6 +194,12 @@ export type FinishedReviewSessionRecord = {
   readonly summary: ReviewSessionSummaryDto;
 };
 
+export type RecordCardResurrectionInput = {
+  readonly state: ReviewSrsStateRecord;
+  readonly nextState: RecordReviewAnswerInput["nextState"];
+  readonly now: Date;
+};
+
 export type ReviewQueueResponse = {
   readonly items: readonly ReviewQueueItem[];
   readonly orderMode: ReviewOrderMode;

@@ -535,6 +535,7 @@ export class PrismaItemsRepository extends ItemsRepository {
         },
         reviewAnswers: {
           where: {
+            result: { not: "RESURRECT" },
             answeredAt: {
               gte: addDays(new Date(), -LEECH_RECENT_REVIEW_DAYS),
             },

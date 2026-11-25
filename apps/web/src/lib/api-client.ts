@@ -57,6 +57,8 @@ import {
   type ActiveReviewSessionResponse,
   type ReviewCorrectionRequest,
   type ReviewCorrectionResponse,
+  type ResurrectReviewCardRequest,
+  type ResurrectReviewCardResponse,
   type ReviewSessionProgressDto,
   type AppLocale,
   type CardAnswerType,
@@ -1097,6 +1099,18 @@ export function submitReviewCorrection(
       body: request,
     },
   );
+}
+
+export function resurrectReviewCard(
+  token: string,
+  cardId: string,
+  input: ResurrectReviewCardRequest,
+): Promise<ResurrectReviewCardResponse> {
+  return apiRequest(`/reviews/cards/${encodeURIComponent(cardId)}/resurrect`, {
+    method: "POST",
+    token,
+    body: input,
+  });
 }
 
 export function getPracticeQueue(

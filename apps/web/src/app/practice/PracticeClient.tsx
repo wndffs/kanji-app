@@ -31,6 +31,7 @@ import {
   getActivePracticeSession,
   getPracticeQueue,
   getPracticeHistory,
+  resurrectReviewCard,
   startPracticeSession,
   submitPracticeAnswer,
 } from "../../lib/api-client";
@@ -86,6 +87,9 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
   const [isStarting, setIsStarting] = useState(false);
   const [excludedCardIds, setExcludedCardIds] = useState<ReadonlySet<string>>(new Set());
   const [selectionOutdated, setSelectionOutdated] = useState(false);
+  const [confirmResurrection, setConfirmResurrection] = useState<string | null>(null);
+  const [recoveringCard, setRecoveringCard] = useState<string | null>(null);
+  const [resurrectionComplete, setResurrectionComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isContinuing, setIsContinuing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +102,7 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
   const continueButtonRef = useRef<HTMLButtonElement>(null);
   const requestRevision = useRef(0);
   const startPending = useRef(false);
+  const resurrectionPending = useRef(false);
   const isChoosingLeeches = source === "leeches" && practiceSession === null;
   const selectedCardIds =
     isChoosingLeeches && queueState.status === "ready"
@@ -118,6 +123,7 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
     setQueueState({ status: "loading" });
     setExcludedCardIds(new Set());
     setSelectionOutdated(false);
+    setConfirmResurrection(null);
     setPracticeSession(null);
     setIsPracticing(false);
     setCurrentIndex(0);
@@ -220,6 +226,7 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
       !ownsSession(queueState.token) ||
       queueState.items.length === 0 ||
       startPending.current ||
+      resurrectionPending.current ||
       selectionOutdated ||
       selectedCardIds?.length === 0
     ) {
@@ -256,6 +263,50 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
     } finally {
       startPending.current = false;
       setIsStarting(false);
+    }
+  }
+
+  async function handleResurrection(record: ReviewQueueItem): Promise<void> {
+    if (
+      source !== "burned" ||
+      queueState.status !== "ready" ||
+      !ownsSession(queueState.token) ||
+      practiceSession !== null ||
+      selectionOutdated ||
+      startPending.current ||
+      resurrectionPending.current ||
+      confirmResurrection !== record.card.id ||
+      record.srs.burnedAt === null
+    )
+      return;
+
+    const { token } = queueState;
+    resurrectionPending.current = true;
+    setRecoveringCard(record.card.id);
+    setError(null);
+    setResurrectionComplete(false);
+    try {
+      await resurrectReviewCard(token, record.card.id, { burnedAt: record.srs.burnedAt });
+      if (!ownsSession(token)) return;
+      await loadQueue();
+      if (ownsSession(token)) setResurrectionComplete(true);
+    } catch (requestError: unknown) {
+      if (!ownsSession(token)) return;
+      if (requestError instanceof ApiError && requestError.status === 401) {
+        clearStoredSession();
+        setQueueState({ status: "unauthenticated" });
+        return;
+      }
+      if (requestError instanceof ApiError && requestError.status === 409) {
+        setConfirmResurrection(null);
+        setSelectionOutdated(true);
+      }
+      setError(
+        requestError instanceof Error ? requestError.message : "Не удалось вернуть карточку.",
+      );
+    } finally {
+      resurrectionPending.current = false;
+      if (ownsSession(token)) setRecoveringCard(null);
     }
   }
 
@@ -415,6 +466,7 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
               queueState.items.length === 0 ||
               selectedCardIds?.length === 0 ||
               isStarting ||
+              recoveringCard !== null ||
               selectionOutdated
             }
             onClick={() => void handleStart()}
@@ -489,6 +541,11 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
             </button>
           </div>
         ) : null}
+        {resurrectionComplete ? (
+          <div className="notice-panel" role="status">
+            Карточка возвращена. <Link href="/reviews">К повторениям</Link>
+          </div>
+        ) : null}
 
         {finishedSummary === null ? null : (
           <section className="practice-summary panel" aria-label="Результат практики">
@@ -552,8 +609,21 @@ function PracticeScreen({ initialSource }: { readonly initialSource: PracticeSou
               </fieldset>
             </SectionDisclosure>
           ) : (
-            <SectionDisclosure title="Состав практики">
-              <PracticeQueuePreview items={queueState.items} />
+            <SectionDisclosure title="Состав практики" defaultOpen={source === "burned"}>
+              <PracticeQueuePreview
+                items={queueState.items}
+                recovery={
+                  source === "burned" && practiceSession === null
+                    ? {
+                        confirmedCardId: confirmResurrection,
+                        pendingCardId: recoveringCard,
+                        disabled: isStarting || selectionOutdated,
+                        setConfirmation: setConfirmResurrection,
+                        onReturn: (record) => void handleResurrection(record),
+                      }
+                    : undefined
+                }
+              />
             </SectionDisclosure>
           )}
         </div>
@@ -734,10 +804,28 @@ function PracticeSourceControl({
   );
 }
 
-function PracticeQueuePreview({ items }: { readonly items: readonly ReviewQueueItem[] }) {
+function PracticeQueuePreview({
+  items,
+  recovery,
+}: {
+  readonly items: readonly ReviewQueueItem[];
+  readonly recovery?:
+    | {
+        readonly confirmedCardId: string | null;
+        readonly pendingCardId: string | null;
+        readonly disabled: boolean;
+        readonly setConfirmation: (cardId: string | null) => void;
+        readonly onReturn: (record: ReviewQueueItem) => void;
+      }
+    | undefined;
+}) {
   return (
-    <div className="review-queue-grid">
-      {items.slice(0, 6).map((item) => (
+    <div
+      className={
+        recovery === undefined ? "review-queue-grid" : "review-queue-grid practice-recovery-grid"
+      }
+    >
+      {(recovery === undefined ? items.slice(0, 6) : items).map((item) => (
         <article className="review-queue-card" key={item.card.id}>
           <div>
             <span className="eyebrow">{formatItemType(item.item.itemType)}</span>
@@ -748,6 +836,41 @@ function PracticeQueuePreview({ items }: { readonly items: readonly ReviewQueueI
             )}
           </div>
           <span>{formatAnswerType(item.card.answerType)}</span>
+          {recovery === undefined || item.srs.burnedAt === null ? null : (
+            <div className="action-row">
+              {recovery.confirmedCardId === item.card.id ? (
+                <>
+                  <button
+                    type="button"
+                    className="primary-action"
+                    disabled={recovery.disabled || recovery.pendingCardId !== null}
+                    onClick={() => recovery.onReturn(item)}
+                  >
+                    {recovery.pendingCardId === item.card.id
+                      ? "Возвращаю..."
+                      : "Подтвердить возврат"}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-action"
+                    disabled={recovery.pendingCardId !== null}
+                    onClick={() => recovery.setConfirmation(null)}
+                  >
+                    Отмена
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="secondary-action"
+                  disabled={recovery.disabled || recovery.pendingCardId !== null}
+                  onClick={() => recovery.setConfirmation(item.card.id)}
+                >
+                  Вернуть в повторения
+                </button>
+              )}
+            </div>
+          )}
         </article>
       ))}
     </div>

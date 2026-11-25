@@ -598,6 +598,13 @@ export type ActiveReviewSessionResponse = {
 
 export type ReviewCorrectionRequest = PracticeAnswerRequest;
 
+export type ResurrectReviewCardRequest = { readonly burnedAt: string };
+
+export type ResurrectReviewCardResponse = {
+  readonly cardId: string;
+  readonly srs: SrsStateSummaryDto;
+};
+
 export type ReviewCorrectionResponse = PracticeAnswerResponse & {
   readonly corrected: boolean;
   readonly alreadyCorrected: boolean;

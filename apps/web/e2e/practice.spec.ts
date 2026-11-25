@@ -26,6 +26,50 @@ type CapturedPracticeAnswerRequest = {
 };
 
 test.describe("optional practice", () => {
+  test("confirms return of just one burned review card", async ({ page }) => {
+    await signIn(page);
+    const readingCard: ReviewQueueItem = {
+      ...practiceItem,
+      card: {
+        ...practiceItem.card,
+        id: "card-study-reading",
+        promptType: "reading",
+        answerType: "reading",
+      },
+    };
+    const requests: unknown[] = [];
+    let burned: readonly ReviewQueueItem[] = [practiceItem, readingCard];
+    await mockPracticeApi(page, burned);
+    await page.route(`${API_BASE_URL}/reviews/practice/queue?source=burned`, (route) =>
+      route.fulfill({ json: { source: "burned", items: burned } }),
+    );
+    await page.route(
+      `${API_BASE_URL}/reviews/cards/${readingCard.card.id}/resurrect`,
+      async (route) => {
+        requests.push(route.request().postDataJSON());
+        burned = [practiceItem];
+        await route.fulfill({
+          json: {
+            cardId: readingCard.card.id,
+            srs: { ...readingCard.srs, stageIndex: 5, burnedAt: null },
+          },
+        });
+      },
+    );
+
+    await page.goto("/practice?source=burned");
+    const reading = page.getByRole("article").filter({ hasText: "Чтение" });
+    await reading.getByRole("button", { name: "Вернуть в повторения" }).click();
+    await reading.getByRole("button", { name: "Отмена" }).click();
+    expect(requests).toEqual([]);
+    await reading.getByRole("button", { name: "Вернуть в повторения" }).click();
+    await reading.getByRole("button", { name: "Подтвердить возврат" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Карточка возвращена" })).toBeVisible();
+    await expect(reading).toHaveCount(0);
+    await expect(page.getByRole("article").filter({ hasText: "Значение" })).toBeVisible();
+    expect(requests).toEqual([{ burnedAt: readingCard.srs.burnedAt }]);
+  });
+
   for (const status of [200, 401])
     test(`drops old practice queue after account switch (${status})`, async ({ page }) => {
       await signIn(page);

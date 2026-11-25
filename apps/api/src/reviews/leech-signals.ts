@@ -12,13 +12,16 @@ export function leechStateWhere(userId: string, since: Date): Prisma.UserSrsStat
   return {
     userId,
     burnedAt: null,
-    OR: [{ wrongCount: { gt: 0 } }, { reviewAnswers: { some: { answeredAt: { gte: since } } } }],
+    OR: [
+      { wrongCount: { gt: 0 } },
+      { reviewAnswers: { some: { answeredAt: { gte: since }, result: { not: "RESURRECT" } } } },
+    ],
   };
 }
 
 export function leechRecentReviewSelect(since: Date) {
   return {
-    where: { answeredAt: { gte: since } },
+    where: { answeredAt: { gte: since }, result: { not: "RESURRECT" } },
     select: { result: true, previousStageIndex: true, nextStageIndex: true },
   } as const;
 }
@@ -28,6 +31,7 @@ export function summarizeLeechReviews(answers: readonly LeechReviewAnswerRow[]) 
   let stageDropCount = 0;
   let stageDropMagnitude = 0;
   for (const { result, previousStageIndex, nextStageIndex } of answers) {
+    if (result === "RESURRECT") continue;
     if (result === "WRONG" || result === "REVEAL") recentWrongCount += 1;
     if (
       previousStageIndex !== null &&

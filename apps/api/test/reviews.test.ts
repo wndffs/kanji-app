@@ -19,6 +19,7 @@ import {
   type CreatePracticeSessionInput,
   type FinishedReviewSessionRecord,
   type PracticeSessionRecord,
+  type RecordCardResurrectionInput,
   type RecordReviewAnswerInput,
   type RecordReviewCorrectionInput,
   type ReviewAnswerTargetRecord,
@@ -56,6 +57,60 @@ describe("ReviewsService", () => {
     expect(serializedQueue).not.toContain("study answer");
     expect(queue.orderMode).toBe("oldest-first");
     expect(queue.vacationStartedAt).toBeNull();
+  });
+
+  it("returns only the confirmed burned card to the scheduled queue", async () => {
+    const { repository, service } = createHarness();
+    const owner = createUser("owner");
+    const body = { burnedAt: NOW.toISOString() };
+    await expect(service.resurrectCard("card-burned", owner, body)).resolves.toMatchObject({
+      cardId: "card-burned",
+      srs: {
+        stageIndex: 5,
+        availableAt: NOW.toISOString(),
+        burnedAt: null,
+        wrongCount: 0,
+        correctStreak: 0,
+      },
+    });
+    const queue = await service.getQueue(owner);
+    expect(queue.items.map(({ card }) => card.id)).toEqual(
+      expect.arrayContaining(["card-meaning", "card-late", "card-burned"]),
+    );
+    expect(queue.items).toHaveLength(3);
+    expect((await service.getPracticeQueue(owner, "burned")).items).toEqual([]);
+    expect(repository.recordedResurrections).toHaveLength(1);
+    expect(repository.recordedAnswers).toHaveLength(0);
+    await expect(service.resurrectCard("card-burned", owner, body)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(repository.recordedResurrections).toHaveLength(1);
+  });
+
+  it("rejects malformed, stale and cross-account resurrection without writes", async () => {
+    const { repository, service } = createHarness();
+    const owner = createUser("owner");
+    const current = { burnedAt: NOW.toISOString() };
+    await expect(
+      service.resurrectCard("card-burned", owner, { burnedAt: "now" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.resurrectCard("card-burned", owner, { burnedAt: DUE_AT.toISOString() }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.resurrectCard("card-meaning", owner, current)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    await expect(
+      service.resurrectCard("card-burned", createUser("stranger"), current),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.resurrectCard(
+        "card-burned",
+        createUser("owner", { vacationStartedAt: DUE_AT.toISOString() }),
+        current,
+      ),
+    ).rejects.toThrow("Плановые повторения приостановлены");
+    expect(repository.recordedResurrections).toEqual([]);
   });
 
   it("pauses scheduled reviews without disabling practice or recording answers", async () => {
@@ -934,6 +989,69 @@ describe("resumable scheduled review corrections", () => {
 });
 
 describe("PrismaReviewsRepository course progress events", () => {
+  it.each([1, 0])(
+    "records resurrection only after a scoped compare-and-set (%i row)",
+    async (count) => {
+      const tx = {
+        userSrsState: { updateMany: vi.fn().mockResolvedValue({ count }) },
+        reviewSession: { create: vi.fn().mockResolvedValue({ id: "history-session" }) },
+        reviewAnswer: { create: vi.fn().mockResolvedValue({ id: "history-answer" }) },
+      };
+      const repo = new PrismaReviewsRepository({
+        db: { $transaction: (callback: (transaction: typeof tx) => Promise<void>) => callback(tx) },
+      } as never);
+      const existing = await new InMemoryReviewsRepository().findPracticeCard(
+        "owner",
+        "card-burned",
+      );
+      const state = existing!.state;
+      const nextState = {
+        stageIndex: 5,
+        availableAt: NOW,
+        burnedAt: null,
+        resurrectedAt: NOW,
+        wrongCount: 0,
+        correctStreak: 0,
+        lastReviewedAt: state.lastReviewedAt,
+      };
+      const operation = repo.recordCardResurrection({ state, nextState, now: NOW });
+      if (count === 0) await expect(operation).rejects.toBeInstanceOf(ConflictException);
+      else await expect(operation).resolves.toBeUndefined();
+      expect(tx.userSrsState.updateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          id: state.id,
+          userId: "owner",
+          learningCardId: "card-burned",
+          burnedAt: state.burnedAt,
+        }),
+        data: nextState,
+      });
+      if (count === 0) {
+        expect(tx.reviewSession.create).not.toHaveBeenCalled();
+        expect(tx.reviewAnswer.create).not.toHaveBeenCalled();
+        return;
+      }
+      expect(tx.reviewSession.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            userId: "owner",
+            finishedAt: NOW,
+            statsJson: { reviewAction: "resurrect" },
+          }),
+        }),
+      );
+      expect(tx.reviewAnswer.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            result: "RESURRECT",
+            previousStageIndex: 9,
+            nextStageIndex: 5,
+          }),
+        }),
+      );
+    },
+  );
+
   it("records every newly unlocked item and the completed level in the answer transaction", async () => {
     const userUnlockEvent = { createMany: vi.fn().mockResolvedValue({ count: 2 }) };
     const userCourseLevelCompletion = {
@@ -1087,6 +1205,7 @@ class InMemoryReviewsRepository extends ReviewsRepository {
       .reverse();
   }
   readonly recordedAnswers: RecordReviewAnswerInput[] = [];
+  readonly recordedResurrections: RecordCardResurrectionInput[] = [];
   private readonly cards = createCards();
   private readonly states = new Map<string, ReviewQueueRecord>(
     createQueueRecords(this.cards).map((record) => [record.state.id, record]),
@@ -1137,6 +1256,15 @@ class InMemoryReviewsRepository extends ReviewsRepository {
         (record) => record.state.userId === userId && record.card.id === cardId,
       ) ?? null
     );
+  }
+
+  async recordCardResurrection(input: RecordCardResurrectionInput): Promise<void> {
+    const record = this.states.get(input.state.id);
+    if (record === undefined || !isDeepStrictEqual(record.state, input.state)) {
+      throw new ConflictException("Review state changed");
+    }
+    this.states.set(input.state.id, { ...record, state: { ...record.state, ...input.nextState } });
+    this.recordedResurrections.push(input);
   }
 
   async findPublicPracticeCard(cardId: string) {

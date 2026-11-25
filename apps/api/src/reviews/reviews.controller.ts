@@ -4,6 +4,7 @@ import {
   Get,
   Inject,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -43,6 +44,16 @@ export class ReviewsController {
   @Post("start")
   startSession(@CurrentUser() currentUser: CurrentUserDto) {
     return this.reviewsService.startSession(currentUser);
+  }
+
+  @Post("cards/:cardId/resurrect")
+  resurrectCard(
+    @Param("cardId", new ParseUUIDPipe()) cardId: string,
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Body() body: unknown,
+  ) {
+    this.rateLimitService.assertAllowed("review-answer-user", currentUser.id);
+    return this.reviewsService.resurrectCard(cardId, currentUser, body);
   }
 
   @Get("active")

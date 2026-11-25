@@ -114,8 +114,11 @@ to the content deficit. Keep them within this single task:
   before selection. The automatic text plan prioritizes unstarted matches
   and their unstarted prerequisites under the cap without rejecting a
   learner's explicit choice of an already-started item.
-- Burned-item practice exists, but explicit card-scoped resurrection is not
-  connected to the learner workflow.
+- **Implemented in code:** the burned practice list can return one confirmed
+  meaning, reading, or listening card to scheduled SRS. The owner and exact
+  burned state are checked before an atomic update and history entry. The
+  action does not score a review, change a sibling card, or count as a leech
+  stage drop. Ordinary extra practice still leaves SRS untouched.
 - **Implemented in code:** the dashboard links to a ranked difficult-card
   queue. Learners can choose a subset of exact meaning/reading cards and
   resume that selection later. Extra practice writes neither scheduled

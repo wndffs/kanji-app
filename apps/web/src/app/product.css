@@ -1330,6 +1330,17 @@ textarea::placeholder {
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 12px;
 }
+.practice-recovery-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 208px), 1fr));
+}
+.practice-recovery-grid .review-queue-card {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.practice-recovery-grid button {
+  min-inline-size: 0;
+  white-space: normal;
+}
 .review-queue-card {
   border: 1px solid var(--surface-border);
   border-radius: 8px;

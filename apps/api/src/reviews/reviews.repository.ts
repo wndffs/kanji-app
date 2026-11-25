@@ -35,6 +35,7 @@ import {
   type CreatePracticeSessionInput,
   type FinishedReviewSessionRecord,
   type PracticeSessionRecord,
+  type RecordCardResurrectionInput,
   type RecordReviewAnswerInput,
   type RecordReviewCorrectionInput,
   type ReviewAnswerRecord,
@@ -78,6 +79,7 @@ export abstract class ReviewsRepository {
     cardIds: readonly string[],
   ): Promise<readonly ReviewQueueRecord[]>;
   abstract findPracticeCard(userId: string, cardId: string): Promise<ReviewQueueRecord | null>;
+  abstract recordCardResurrection(input: RecordCardResurrectionInput): Promise<void>;
   abstract findPublicPracticeCard(cardId: string): Promise<ReviewCardRecord | null>;
   abstract listPublicPracticeCardsByIds(
     cardIds: readonly string[],
@@ -433,6 +435,55 @@ export class PrismaReviewsRepository extends ReviewsRepository {
 
   async findPublicPracticeCard(cardId: string): Promise<ReviewCardRecord | null> {
     return (await this.listPublicPracticeCardsByIds([cardId]))[0] ?? null;
+  }
+
+  async recordCardResurrection({
+    state,
+    nextState,
+    now,
+  }: RecordCardResurrectionInput): Promise<void> {
+    await this.runReviewTransaction(async (tx) => {
+      const updated = await tx.userSrsState.updateMany({
+        where: { ...state, learningCard: listeningReviewCardEligibilityWhere },
+        data: {
+          stageIndex: nextState.stageIndex,
+          availableAt: nextState.availableAt,
+          burnedAt: nextState.burnedAt,
+          resurrectedAt: nextState.resurrectedAt,
+          wrongCount: nextState.wrongCount,
+          correctStreak: nextState.correctStreak,
+          lastReviewedAt: nextState.lastReviewedAt,
+        },
+      });
+      if (updated.count !== 1) {
+        throw new ConflictException("Состояние карточки изменилось. Обновите подборку.");
+      }
+
+      // A finished action record keeps item history without touching active study sessions.
+      const session = await tx.reviewSession.create({
+        data: {
+          userId: state.userId,
+          mode: "EXTRA_PRACTICE",
+          startedAt: now,
+          finishedAt: now,
+          statsJson: { reviewAction: "resurrect" },
+        },
+        select: { id: true },
+      });
+      await tx.reviewAnswer.create({
+        data: {
+          reviewSessionId: session.id,
+          userSrsStateId: state.id,
+          learningCardId: state.learningCardId,
+          answerText: "",
+          normalizedAnswer: "",
+          result: "RESURRECT",
+          previousStageIndex: state.stageIndex,
+          nextStageIndex: nextState.stageIndex,
+          answeredAt: now,
+        },
+      });
+    });
   }
 
   async listPublicPracticeCardsByIds(
