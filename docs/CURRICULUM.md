@@ -125,16 +125,15 @@ defaults require separate explicit decisions. Confirmed application is bound to
 the opaque rollout version and recalculates the full cohort in a serializable
 transaction. It creates only missing active main-course enrollment rows,
 leaving existing active, paused, and completed statuses, starter-course access,
-and all SRS progress unchanged. New registrations use both published defaults:
-the starter demo course and the `japanese-ru-n2` main course after it passes the
-publication gate. If the main course is missing or unpublished, registration
-continues with the starter course alone. Retried default enrollment is add-only
-and never reactivates an existing paused or completed enrollment.
+and all SRS progress unchanged. New registrations use only the published starter
+demo. The full `japanese-ru-n2` course is opt-in through the catalog after
+publication. Retried starter enrollment is add-only and never reactivates an
+existing paused or completed enrollment.
 
 Learners with multiple active published enrollments have one current course for
 course lessons and dashboard progress. An explicit selection is persisted;
-until then, the main course is preferred over the starter course, followed by
-the earliest remaining active enrollment. Switching changes only this focus;
+until then, the starter course is preferred, followed by the earliest active
+enrollment. Switching changes only this focus;
 it does not pause another course or modify SRS progress. An unfinished lesson
 must be finished or abandoned before switching.
 

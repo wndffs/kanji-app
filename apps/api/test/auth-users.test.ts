@@ -448,14 +448,11 @@ describe("PrismaUsersRepository", () => {
     });
   });
 
-  it("enrolls a new learner in the starter and published main course atomically", async () => {
-    const findMany = vi.fn().mockResolvedValue([
-      { id: "course-main", slug: "japanese-ru-n2" },
-      { id: "course-starter", slug: "starter-demo" },
-    ]);
-    const createMany = vi.fn().mockResolvedValue({ count: 2 });
+  it("enrolls a new learner in the published starter only", async () => {
+    const findUnique = vi.fn().mockResolvedValue({ id: "course-starter" });
+    const createMany = vi.fn().mockResolvedValue({ count: 1 });
     const transactionDatabase = {
-      course: { findMany },
+      course: { findUnique },
       userEnrollment: { createMany },
     };
     const transaction = vi.fn(
@@ -466,19 +463,12 @@ describe("PrismaUsersRepository", () => {
 
     await repository.enrollInDefaultCourses("user-1");
 
-    expect(findMany).toHaveBeenCalledWith({
-      where: {
-        slug: { in: ["starter-demo", "japanese-ru-n2"] },
-        status: "PUBLISHED",
-      },
-      select: { id: true, slug: true },
-      orderBy: { slug: "asc" },
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { slug: "starter-demo", status: "PUBLISHED" },
+      select: { id: true },
     });
     expect(createMany).toHaveBeenCalledWith({
-      data: [
-        { userId: "user-1", courseId: "course-main", status: "ACTIVE" },
-        { userId: "user-1", courseId: "course-starter", status: "ACTIVE" },
-      ],
+      data: [{ userId: "user-1", courseId: "course-starter", status: "ACTIVE" }],
       skipDuplicates: true,
     });
     expect(transaction).toHaveBeenCalledTimes(1);
@@ -551,33 +541,10 @@ describe("PrismaUsersRepository", () => {
     expect(sql).not.toContain("lastReviewedAt");
   });
 
-  it("keeps starter enrollment working when the main course is unavailable", async () => {
-    const createMany = vi.fn().mockResolvedValue({ count: 1 });
-    const transactionDatabase = {
-      course: {
-        findMany: vi.fn().mockResolvedValue([{ id: "course-starter", slug: "starter-demo" }]),
-      },
-      userEnrollment: { createMany },
-    };
-    const repository = new PrismaUsersRepository({
-      db: {
-        $transaction: async (callback: (database: typeof transactionDatabase) => Promise<void>) =>
-          callback(transactionDatabase),
-      },
-    } as never);
-
-    await repository.enrollInDefaultCourses("user-1");
-
-    expect(createMany).toHaveBeenCalledWith({
-      data: [{ userId: "user-1", courseId: "course-starter", status: "ACTIVE" }],
-      skipDuplicates: true,
-    });
-  });
-
-  it("leaves registration usable when no default course is published", async () => {
+  it("leaves registration usable when the starter has not been published", async () => {
     const createMany = vi.fn();
     const transactionDatabase = {
-      course: { findMany: vi.fn().mockResolvedValue([]) },
+      course: { findUnique: vi.fn().mockResolvedValue(null) },
       userEnrollment: { createMany },
     };
     const repository = new PrismaUsersRepository({

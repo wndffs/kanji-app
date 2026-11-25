@@ -11,6 +11,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { PrismaService } from "../database/prisma.service";
+import { STARTER_COURSE_SLUG } from "../courses/current-course";
 import { type CreateUserInput, type StoredUser, type UserSettingsDto } from "./auth.types";
 import { DEFAULT_USER_SETTINGS, mergeUserSettings } from "./user-settings.defaults";
 import { claimReviewReminder } from "../users/review-reminder-claim";
@@ -69,8 +70,6 @@ type PrismaUserWithSettings = {
   } | null;
 };
 
-const DEFAULT_COURSE_SLUGS = ["starter-demo", "japanese-ru-n2"] as const;
-
 @Injectable()
 export class PrismaUsersRepository extends UsersRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
@@ -114,25 +113,15 @@ export class PrismaUsersRepository extends UsersRepository {
 
   async enrollInDefaultCourses(userId: string): Promise<void> {
     await this.prisma.db.$transaction(async (db) => {
-      const courses = await db.course.findMany({
-        where: {
-          slug: { in: [...DEFAULT_COURSE_SLUGS] },
-          status: "PUBLISHED",
-        },
-        select: { id: true, slug: true },
-        orderBy: { slug: "asc" },
+      const starter = await db.course.findUnique({
+        where: { slug: STARTER_COURSE_SLUG, status: "PUBLISHED" },
+        select: { id: true },
       });
 
-      if (courses.length === 0) {
-        return;
-      }
+      if (starter === null) return;
 
       await db.userEnrollment.createMany({
-        data: courses.map((course) => ({
-          userId,
-          courseId: course.id,
-          status: "ACTIVE" as const,
-        })),
+        data: [{ userId, courseId: starter.id, status: "ACTIVE" }],
         skipDuplicates: true,
       });
     });

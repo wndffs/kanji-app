@@ -34,6 +34,7 @@ import { PrismaUsersRepository } from "../src/auth/users.repository";
 import { PrismaService } from "../src/database/prisma.service";
 import { PrismaItemsRepository } from "../src/items/items.repository";
 import { PrismaCoursesRepository } from "../src/courses/courses.repository";
+import { CoursesService } from "../src/courses/courses.service";
 import { PrismaLessonsRepository } from "../src/lessons/lessons.repository";
 import { PrismaReviewsRepository } from "../src/reviews/reviews.repository";
 import { createScheduledReviewState } from "../src/reviews/review-session-state";
@@ -851,6 +852,56 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
         }
       }),
     );
+  });
+
+  it("keeps the published main course opt-in and retains the starter until explicit selection", async () => {
+    await withFixture(async (base) => {
+      const [starterId, mainId] = [randomUUID(), randomUUID()];
+      const users = new PrismaUsersRepository(control);
+      const courses = new CoursesService(new PrismaCoursesRepository(control));
+      try {
+        await control.db.course.createMany({
+          data: [
+            {
+              id: starterId,
+              slug: "starter-demo",
+              titleRu: "Starter",
+              status: "PUBLISHED",
+              courseType: "DEMO",
+            },
+            {
+              id: mainId,
+              slug: "japanese-ru-n2",
+              titleRu: "Main",
+              status: "PUBLISHED",
+              courseType: "STRUCTURED",
+            },
+          ],
+        });
+        await control.db.userSettings.create({ data: { userId: base.userId } });
+        await users.enrollInDefaultCourses(base.userId);
+        await users.enrollInDefaultCourses(base.userId);
+        const before = await courses.listCourses(base.userId);
+        expect(before.currentCourseId).toBe(starterId);
+        expect(before.courses.map(({ id }) => id)).toEqual([starterId]);
+        expect((await courses.availableCourses(base.userId)).courses.map(({ id }) => id)).toContain(
+          mainId,
+        );
+        const joined = await courses.enroll(base.userId, { courseId: mainId });
+        expect(joined.currentCourseId).toBe(starterId);
+        expect(joined.courses).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: mainId, enrollmentStatus: "active", isCurrent: false }),
+          ]),
+        );
+        expect(
+          (await courses.selectCurrentCourse(base.userId, { courseId: mainId })).currentCourseId,
+        ).toBe(mainId);
+        expect(await readState(base)).toEqual(base.state);
+      } finally {
+        await control.db.course.deleteMany({ where: { id: { in: [starterId, mainId] } } });
+      }
+    });
   });
 
   it("reads direct authored examples without a sentence LearningItem and really upserts duplicate links without SRS writes", async () => {

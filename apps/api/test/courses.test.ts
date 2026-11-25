@@ -14,12 +14,19 @@ describe("current course selection", () => {
   ];
 
   it("keeps a valid saved selection ahead of default priorities", () => {
-    expect(chooseCurrentCourseId(candidates, "starter")).toBe("starter");
+    expect(chooseCurrentCourseId(candidates, "main")).toBe("main");
   });
 
-  it("prefers the main course and falls back to starter when no selection is saved", () => {
-    expect(chooseCurrentCourseId(candidates, null)).toBe("main");
+  it("retains the starter after optional main enrollment until the learner chooses otherwise", () => {
+    expect(chooseCurrentCourseId([...candidates].reverse(), null)).toBe("starter");
     expect(chooseCurrentCourseId(candidates.slice(0, 1), null)).toBe("starter");
+    expect(chooseCurrentCourseId(candidates.slice(1), null)).toBe("main");
+    expect(
+      chooseCurrentCourseId(
+        [{ id: "pilot", slug: "pilot", startedAt: new Date(0) }, candidates[1]!],
+        null,
+      ),
+    ).toBe("pilot");
     expect(chooseCurrentCourseId([], null)).toBeNull();
   });
 });
@@ -37,11 +44,11 @@ describe("CoursesService", () => {
     const service = new CoursesService(repository);
 
     await expect(service.listCourses("user-1")).resolves.toMatchObject({
-      currentCourseId: "main",
+      currentCourseId: "starter",
       courses: [
         { id: "paused-course", enrollmentStatus: "paused", isCurrent: false },
-        { id: "main", enrollmentStatus: "active", isCurrent: true },
-        { id: "starter", enrollmentStatus: "active", isCurrent: false },
+        { id: "main", enrollmentStatus: "active", isCurrent: false },
+        { id: "starter", enrollmentStatus: "active", isCurrent: true },
       ],
     });
   });

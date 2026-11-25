@@ -1,6 +1,5 @@
 import { type Prisma } from "@kanji-srs/db";
 
-export const MAIN_COURSE_SLUG = "japanese-ru-n2";
 export const STARTER_COURSE_SLUG = "starter-demo";
 
 export type CurrentCourseCandidate = {
@@ -20,10 +19,7 @@ export function chooseCurrentCourseId(
   }
 
   return (
-    candidates.find(({ slug }) => slug === MAIN_COURSE_SLUG)?.id ??
-    candidates.find(({ slug }) => slug === STARTER_COURSE_SLUG)?.id ??
-    candidates[0]?.id ??
-    null
+    candidates.find(({ slug }) => slug === STARTER_COURSE_SLUG)?.id ?? candidates[0]?.id ?? null
   );
 }
 

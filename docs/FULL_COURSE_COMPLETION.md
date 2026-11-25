@@ -1484,6 +1484,9 @@ passed **all nine checks** against Neon: **10,544 of 10,544** materials
 allocated, **60 of 60** levels populated, **110** initial lesson materials,
 and **zero** content blockers. This was a read-only `DRAFT` snapshot.
 Publication and opt-in validation are still separate from enrollment rollout.
+Registration leaves the main course opt-in even when its status changes to
+`PUBLISHED`. It still adds the starter by default; existing explicit course
+selection wins, and an unsaved starter selection is not replaced on joining.
 
 Use `receipts` in **Deploy staging curation** with the exact kanji and/or
 comma-separated word manifest IDs and both checkboxes off. This read-only

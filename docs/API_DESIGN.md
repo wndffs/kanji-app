@@ -40,12 +40,10 @@ User settings include `locale`, `translationDisplayMode` (`ru`, `en`, or
 `lessonOrderMode`, `reviewBudget`, `reviewOrderMode`, `strictMode`, and
 dashboard widget preferences.
 
-Registration enrolls a new learner in every available published default
-course. The defaults are the published `starter-demo` course and, once it has
-passed the separate publication gate, the published `japanese-ru-n2` course.
-An absent or unpublished main course does not block registration or starter
-access. Default enrollment is add-only and does not overwrite an existing
-enrollment status if the operation is retried.
+Registration adds only the published `starter-demo` course. Publication of
+`japanese-ru-n2` makes it available to join in the catalog, not an automatic
+enrollment or a change to the current course. Retried starter enrollment is
+add-only and does not overwrite an existing status.
 
 ### Courses
 
@@ -54,8 +52,8 @@ enrollment status if the operation is retried.
 
 `GET /courses` returns the authenticated learner's enrollments for published
 courses and identifies one current active course. A saved valid selection wins;
-otherwise the deterministic fallback is `japanese-ru-n2`, then `starter-demo`,
-then the earliest active published enrollment. Paused and completed enrollments
+otherwise the deterministic fallback is `starter-demo`, then the earliest
+active published enrollment. Paused and completed enrollments
 remain visible but cannot become current. `PATCH /courses/current` persists only
 an owned active published enrollment and does not alter enrollment or SRS state.
 Changing course is rejected while a lesson session is active; selecting the
