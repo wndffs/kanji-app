@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 
-import { buildMainCourseBlueprint } from "@kanji-srs/db";
+import {
+  buildMainCourseBlueprint,
+  contentQualityReportTimeoutMs,
+  type Prisma,
+} from "@kanji-srs/db";
 import {
   type AdminContentStatus,
   type AdminMainCoursePublicationReadinessResponse,
@@ -11,6 +15,20 @@ import {
 
 export const MAIN_COURSE_PUBLICATION_READINESS_POLICY_VERSION =
   "main-course-publication-readiness-v2" as const;
+
+export async function getMainCourseAuditTimeoutMs(
+  db: Pick<Prisma.TransactionClient, "learningItem">,
+) {
+  const courseSlug = buildMainCourseBlueprint().course.slug;
+  const count = await db.learningItem.count({
+    where: {
+      status: "PUBLISHED",
+      courseLevelItems: { some: { courseLevel: { course: { slug: courseSlug } } } },
+    },
+  });
+  // This estimate changes only the deadline, not any audited value.
+  return contentQualityReportTimeoutMs(count);
+}
 
 export type MainCoursePublicationReadinessInput = {
   readonly course: {

@@ -1460,6 +1460,10 @@ sources and curation; recheck admin readiness and server learner flows first.
 Use **Check main course launch** to run the exact admin readiness policy
 on the deployment database. The workflow is read-only; a passing report
 does not publish the course, enroll learners, or certify their journeys.
+Its first full-size run reached the old two-minute Prisma transaction limit.
+The workflow and admin operations now use the same count-scaled, capped audit
+deadline as the content quality tool. Enrollment still checks the fresh cohort
+after writing but reuses the same transaction's verified course snapshot.
 
 Use `receipts` in **Deploy staging curation** with the exact kanji and/or
 comma-separated word manifest IDs and both checkboxes off. This read-only

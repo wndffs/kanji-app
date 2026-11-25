@@ -1689,12 +1689,13 @@ describe("AdminService", () => {
           courseLevelItems: [{ courseLevel: { levelNumber: 1 } }],
         },
       ]),
-      count: vi.fn(async (query: { where: { kind?: string } }) => {
+      count: vi.fn(async (query: { where: { kind?: string; dependencies?: unknown } }) => {
         if (query.where.kind === "KANJI") {
           return 2_300;
         }
 
-        return query.where.kind === "WORD" ? 8_000 : 1;
+        if (query.where.kind === "WORD") return 8_000;
+        return query.where.dependencies === undefined ? 10_544 : 1;
       }),
     };
     const courseLevelItem = { count: vi.fn().mockResolvedValue(0) };
@@ -1782,7 +1783,7 @@ describe("AdminService", () => {
     expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: "Serializable",
       maxWait: 10000,
-      timeout: 120000,
+      timeout: 1_060_000,
     });
     expect(contentAudit).toHaveBeenCalledWith(transactionDatabase, { maxIssues: 0 });
     expect(userEnrollment.updateMany).not.toHaveBeenCalled();
@@ -1816,6 +1817,7 @@ describe("AdminService", () => {
     expect(userEnrollment.updateMany).not.toHaveBeenCalled();
 
     const rollout = await repository.getMainCourseEnrollmentRolloutPreview();
+    const auditedBeforeRollout = contentAudit.mock.calls.length;
 
     await expect(
       repository.applyMainCourseEnrollmentRollout(rollout!.rolloutVersion),
@@ -1833,12 +1835,20 @@ describe("AdminService", () => {
     expect(userEnrollment.createMany).toHaveBeenCalledWith({
       data: [{ userId: "learner-new", courseId: "course-main", status: "ACTIVE" }],
     });
+    expect(contentAudit).toHaveBeenCalledTimes(auditedBeforeRollout + 1);
+    expect(transaction).toHaveBeenLastCalledWith(expect.any(Function), {
+      isolationLevel: "Serializable",
+      maxWait: 10_000,
+      timeout: 1_060_000,
+    });
     expect(userEnrollment.updateMany).not.toHaveBeenCalled();
   });
 
   it("returns a stale-readiness conflict for concurrent course publication writes", async () => {
     const transaction = vi.fn().mockRejectedValue({ code: "P2034" });
-    const repository = new PrismaAdminRepository({ db: { $transaction: transaction } } as never);
+    const repository = new PrismaAdminRepository({
+      db: { $transaction: transaction, learningItem: { count: vi.fn().mockResolvedValue(0) } },
+    } as never);
 
     await expect(repository.publishMainCourse("main-course-readiness:test")).rejects.toBeInstanceOf(
       MainCourseReadinessChangedError,
@@ -1847,7 +1857,9 @@ describe("AdminService", () => {
 
   it("returns a stale-rollout conflict for concurrent enrollment writes", async () => {
     const transaction = vi.fn().mockRejectedValue({ code: "P2034" });
-    const repository = new PrismaAdminRepository({ db: { $transaction: transaction } } as never);
+    const repository = new PrismaAdminRepository({
+      db: { $transaction: transaction, learningItem: { count: vi.fn().mockResolvedValue(0) } },
+    } as never);
 
     await expect(
       repository.applyMainCourseEnrollmentRollout("main-course-enrollment-rollout:test"),

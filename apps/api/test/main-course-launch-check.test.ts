@@ -16,6 +16,7 @@ describe("server main-course launch check", () => {
     const db = {
       $transaction: vi.fn((run: (client: typeof tx) => Promise<unknown>) => run(tx)),
       course: { findUnique: vi.fn() },
+      learningItem: { count: vi.fn().mockResolvedValue(10_544) },
     };
 
     await expect(checkMainCourseLaunch(db as unknown as PrismaClient)).resolves.toEqual({
@@ -27,7 +28,13 @@ describe("server main-course launch check", () => {
     expect(db.$transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: "RepeatableRead",
       maxWait: 10_000,
-      timeout: 120_000,
+      timeout: 1_060_000,
+    });
+    expect(db.learningItem.count).toHaveBeenCalledWith({
+      where: {
+        status: "PUBLISHED",
+        courseLevelItems: { some: { courseLevel: { course: { slug: "japanese-ru-n2" } } } },
+      },
     });
     expect(db.course.findUnique).not.toHaveBeenCalled();
   });

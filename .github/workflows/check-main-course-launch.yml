@@ -15,7 +15,8 @@ jobs:
     name: Check main course without writes
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # The transaction budget is capped at 30 minutes, plus runner setup.
+    timeout-minutes: 40
 
     steps:
       - name: Check out repository

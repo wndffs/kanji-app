@@ -62,6 +62,7 @@ import {
 } from "./imported-candidate-ranking";
 import {
   buildMainCoursePublicationReadiness,
+  getMainCourseAuditTimeoutMs,
   type MainCoursePublicationReadinessInput,
 } from "./main-course-publication-readiness";
 import {
@@ -1039,6 +1040,7 @@ export class PrismaAdminRepository extends AdminRepository {
   async publishMainCourse(
     readinessVersion: string,
   ): Promise<AdminPublishMainCourseResponse | null> {
+    const timeout = await getMainCourseAuditTimeoutMs(this.prisma.db);
     return this.prisma.db
       .$transaction(
         async (db) => {
@@ -1097,7 +1099,7 @@ export class PrismaAdminRepository extends AdminRepository {
             readiness: publishedReadiness,
           };
         },
-        { isolationLevel: "Serializable", maxWait: 10_000, timeout: 120_000 },
+        { isolationLevel: "Serializable", maxWait: 10_000, timeout },
       )
       .catch((error: unknown) => {
         if (isConcurrentAdminCourseWrite(error)) {
@@ -1115,6 +1117,7 @@ export class PrismaAdminRepository extends AdminRepository {
   async applyMainCourseEnrollmentRollout(
     rolloutVersion: string,
   ): Promise<AdminApplyMainCourseEnrollmentRolloutResponse | null> {
+    const timeout = await getMainCourseAuditTimeoutMs(this.prisma.db);
     return this.prisma.db
       .$transaction(
         async (db) => {
@@ -1154,7 +1157,9 @@ export class PrismaAdminRepository extends AdminRepository {
             }
           }
 
-          const appliedPreview = await this.loadMainCourseEnrollmentRolloutPreview(db);
+          const appliedInput = await this.loadMainCourseEnrollmentRolloutInput(db, input.readiness);
+          const appliedPreview =
+            appliedInput === null ? null : buildMainCourseEnrollmentRolloutPreview(appliedInput);
 
           if (
             appliedPreview === null ||
@@ -1171,7 +1176,7 @@ export class PrismaAdminRepository extends AdminRepository {
             preview: appliedPreview,
           };
         },
-        { isolationLevel: "Serializable", maxWait: 10_000, timeout: 120_000 },
+        { isolationLevel: "Serializable", maxWait: 10_000, timeout },
       )
       .catch((error: unknown) => {
         if (isConcurrentAdminCourseWrite(error)) {
@@ -1192,8 +1197,9 @@ export class PrismaAdminRepository extends AdminRepository {
 
   private async loadMainCourseEnrollmentRolloutInput(
     db: MainCourseEnrollmentPreviewDatabase,
+    knownReadiness?: AdminMainCoursePublicationReadinessResponse,
   ): Promise<MainCourseEnrollmentRolloutInput | null> {
-    const readiness = await this.loadMainCoursePublicationReadiness(db);
+    const readiness = knownReadiness ?? (await this.loadMainCoursePublicationReadiness(db));
 
     if (readiness === null) {
       return null;
