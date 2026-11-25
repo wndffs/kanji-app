@@ -203,7 +203,9 @@ describe("bounded review target hydration", () => {
           learningCard: expect.objectContaining({ learningItem: { status: "PUBLISHED" } }),
         }),
         select: expect.objectContaining({
-          reviewAnswers: expect.objectContaining({ where: { answeredAt: { gte: since } } }),
+          reviewAnswers: expect.objectContaining({
+            where: { answeredAt: { gte: since }, result: { not: "RESURRECT" } },
+          }),
         }),
       }),
     );
