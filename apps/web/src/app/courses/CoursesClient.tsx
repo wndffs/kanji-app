@@ -7,10 +7,10 @@ import { type PublishedCourseDto } from "@kanji-srs/shared";
 
 import { ApiError, enrollInCourse, getAvailableCourses } from "../../lib/api-client";
 import { AUTH_CHANGED_EVENT, clearStoredSession, readStoredSession } from "../../lib/auth-storage";
-import { EnrolledCourses } from "./EnrolledCourses";
+import { EnrolledCourses, type CourseEnrollmentUpdate } from "./EnrolledCourses";
 
 export function CoursesClient() {
-  const [enrollmentRevision, setEnrollmentRevision] = useState(0);
+  const [enrollmentUpdate, setEnrollmentUpdate] = useState<CourseEnrollmentUpdate | null>(null);
   const [courses, setCourses] = useState<readonly PublishedCourseDto[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,6 +71,7 @@ export function CoursesClient() {
       setCursor(null);
       setSavingId(null);
       setMessage(null);
+      setEnrollmentUpdate(null);
       void load();
     };
     const storage = (event: StorageEvent) => {
@@ -94,11 +95,15 @@ export function CoursesClient() {
     setError(null);
     setMessage(null);
     try {
-      await enrollInCourse(session.token, course.id);
+      const selection = await enrollInCourse(session.token, course.id);
       if (expired(session.token, request)) return;
       setCourses((previous) => previous.filter((candidate) => candidate.id !== course.id));
-      setMessage(`Курс «${course.title}» добавлен. Текущий курс не изменён.`);
-      setEnrollmentRevision((value) => value + 1);
+      setMessage(
+        selection.currentCourseId === course.id
+          ? `Курс «${course.title}» выбран.`
+          : `Курс «${course.title}» добавлен. Текущий курс не изменён.`,
+      );
+      setEnrollmentUpdate({ token: session.token, selection });
     } catch (reason) {
       if (!expired(session.token, request)) handleError(reason, session.token);
     } finally {
@@ -114,7 +119,7 @@ export function CoursesClient() {
           На панель
         </Link>
       </div>
-      <EnrolledCourses refresh={enrollmentRevision} />
+      <EnrolledCourses update={enrollmentUpdate} />
       {needsLogin ? (
         <div className="notice-panel">
           <p>Нужен вход в аккаунт.</p>

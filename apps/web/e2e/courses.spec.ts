@@ -110,6 +110,23 @@ test.describe("published course catalog", () => {
     page,
   }) => {
     await signIn(page);
+    let courseReads = 0;
+    let releaseLibrary!: () => void;
+    const heldLibrary = new Promise<void>((resolve) => {
+      releaseLibrary = resolve;
+    });
+    const starter = {
+      ...pilot,
+      id: "starter",
+      title: "Вводный курс",
+      isCurrent: true,
+      enrollmentStatus: "active",
+    };
+    await page.route(`${API}/courses`, async (route) => {
+      courseReads++;
+      if (courseReads === 1) await heldLibrary;
+      await route.fulfill({ json: { currentCourseId: "starter", courses: [starter] } });
+    });
     await page.route(`${API}/courses/available`, async (route) => {
       await route.fulfill({ json: { courses: [pilot], nextCursor: null } });
     });
@@ -125,7 +142,12 @@ test.describe("published course catalog", () => {
       await route.fulfill(
         bodies.length === 1
           ? { status: 503, json: { message: "Курс временно недоступен." } }
-          : { json: { currentCourseId: "starter", courses: [] } },
+          : {
+              json: {
+                currentCourseId: "starter",
+                courses: [{ ...pilot, isCurrent: false, enrollmentStatus: "active" }, starter],
+              },
+            },
       );
     });
     await page.goto("/courses");
@@ -135,7 +157,20 @@ test.describe("published course catalog", () => {
     await expect(page.getByRole("heading", { name: pilot.title, exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Добавить курс", exact: true }).click();
     await expect(page.getByRole("status")).toContainText("Текущий курс не изменён.");
-    await expect(page.getByRole("heading", { name: pilot.title, exact: true })).toBeHidden();
+    const library = page.getByRole("region", { name: "Мои курсы", exact: true });
+    await expect(library.locator('li[data-current="true"]')).toContainText(starter.title);
+    await expect(library.locator("li").first()).toContainText(starter.title);
+    await expect(library.getByRole("heading", { name: pilot.title, exact: true })).toBeVisible();
+    await expect(
+      page
+        .getByRole("list", { name: "Доступные курсы", exact: true })
+        .getByRole("link", { name: pilot.title, exact: true }),
+    ).toHaveCount(0);
+    const stale = page.waitForResponse(`${API}/courses`);
+    releaseLibrary();
+    await (await stale).finished();
+    await expect(library.getByRole("heading", { name: pilot.title, exact: true })).toBeVisible();
+    expect(courseReads).toBe(1);
     expect(bodies).toEqual([{ courseId: ID }, { courseId: ID }]);
     expect(switches).toBe(0);
     await expect(page.getByRole("link", { name: "На панель", exact: true })).toBeVisible();

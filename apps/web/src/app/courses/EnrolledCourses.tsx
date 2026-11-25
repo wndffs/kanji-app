@@ -8,19 +8,30 @@ import { ApiError, getCourses, selectCurrentCourse } from "../../lib/api-client"
 import { clearStoredSession } from "../../lib/auth-storage";
 import { ownsSession, useStoredSession } from "../../lib/use-stored-session";
 
-export function EnrolledCourses({ refresh }: { readonly refresh: number }) {
+export type CourseEnrollmentUpdate = {
+  readonly token: string;
+  readonly selection: CourseListResponse;
+};
+
+export function EnrolledCourses({ update }: { readonly update: CourseEnrollmentUpdate | null }) {
   const session = useStoredSession();
   return session == null ? null : (
     <CourseLibrary
       key={`${session.user.id}:${session.token}`}
       token={session.token}
-      refresh={refresh}
+      update={update?.token === session.token ? update.selection : null}
     />
   );
 }
 
-function CourseLibrary({ token, refresh }: { readonly token: string; readonly refresh: number }) {
-  const [library, setLibrary] = useState<CourseListResponse | null>(null);
+function CourseLibrary({
+  token,
+  update,
+}: {
+  readonly token: string;
+  readonly update: CourseListResponse | null;
+}) {
+  const [library, setLibrary] = useState<CourseListResponse | null>(update);
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const [target, setTarget] = useState<EnrolledCourseDto | null>(null);
@@ -30,6 +41,10 @@ function CourseLibrary({ token, refresh }: { readonly token: string; readonly re
     let active = true;
     const request = ++loadRevision.current;
     setError(null);
+    if (update !== null) {
+      setLibrary(update);
+      return;
+    }
     void getCourses(token)
       .then((response) => {
         if (active && request === loadRevision.current && ownsSession(token)) setLibrary(response);
@@ -42,7 +57,14 @@ function CourseLibrary({ token, refresh }: { readonly token: string; readonly re
     return () => {
       active = false;
     };
-  }, [token, refresh, retry]);
+  }, [token, update, retry]);
+  const courses =
+    library === null
+      ? []
+      : [
+          ...library.courses.filter((course) => course.isCurrent),
+          ...library.courses.filter((course) => !course.isCurrent),
+        ];
   return (
     <section className="course-library" aria-label="Мои курсы">
       <h2>Мои курсы</h2>
@@ -63,7 +85,7 @@ function CourseLibrary({ token, refresh }: { readonly token: string; readonly re
         <p className="muted">Нет добавленных курсов.</p>
       ) : (
         <ul className="course-catalog-list">
-          {library.courses.map((course) => (
+          {courses.map((course) => (
             <li key={course.id} data-current={course.isCurrent}>
               <div className="course-catalog-heading">
                 <span className="course-catalog-symbol" aria-hidden="true">
