@@ -61,6 +61,9 @@ already-current course is idempotent.
 Course switching and lesson creation use the same per-user transaction lock.
 If the selected course has changed since the queue was checked, lesson creation
 returns `409` without saving a session from the old course.
+An active lesson can legitimately have an empty item list. Its saved group and
+completion counts remain visible so the learner can finish or leave it without
+replaying a graded answer.
 
 ### Dashboard
 

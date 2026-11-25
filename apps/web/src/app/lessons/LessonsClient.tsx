@@ -199,6 +199,7 @@ function LessonsScreen({
   const startPending = useRef(false);
   const orderPending = useRef(false);
   const progressPending = useRef(false);
+  const finishPending = useRef(false);
   function ownsWorkspace(token: string) {
     return mounted.current && ownsSession(token);
   }
@@ -870,6 +871,30 @@ function LessonsScreen({
         return;
       }
 
+      setSessionQueue([]);
+      setCompletionSummary(nextSummary);
+      if (nextSummary.learnedItems >= session.itemIds.length) {
+        await closeCompletedLesson(nextSummary);
+      }
+    } catch (error: unknown) {
+      setSessionError(error instanceof Error ? error.message : "Не удалось завершить материал.");
+    } finally {
+      setIsCompleting(false);
+    }
+  }
+
+  async function closeCompletedLesson(summary: CompletionSummary): Promise<void> {
+    if (
+      queueState.status !== "ready" ||
+      session === null ||
+      finishPending.current ||
+      summary.learnedItems < session.itemIds.length
+    )
+      return;
+    finishPending.current = true;
+    setIsCompleting(true);
+    setSessionError(null);
+    try {
       await finishLessonSession(queueState.token, session.id);
       if (!ownsWorkspace(queueState.token)) return;
       setSession(null);
@@ -882,10 +907,13 @@ function LessonsScreen({
       setQuizAnswers({});
       setQuizListeningEvidence({});
       setQuizFeedback(null);
-      setCompletionSummary(nextSummary);
+      setCompletionSummary(summary);
     } catch (error: unknown) {
-      setSessionError(error instanceof Error ? error.message : "Не удалось завершить материал.");
+      if (ownsWorkspace(queueState.token)) {
+        setSessionError(error instanceof Error ? error.message : "Не удалось завершить урок.");
+      }
     } finally {
+      finishPending.current = false;
       setIsCompleting(false);
     }
   }
@@ -1173,16 +1201,58 @@ function LessonsScreen({
     );
   }
 
+  const exitDialog = isExitDialogOpen ? (
+    <LessonExitDialog
+      busy={isAbandoning}
+      error={abandonError}
+      onCancel={() => setIsExitDialogOpen(false)}
+      onConfirm={() => void handleAbandonSession()}
+    />
+  ) : null;
+
   if (currentLesson === null) {
+    const canFinish =
+      completionSummary !== null && completionSummary.learnedItems >= session.itemIds.length;
     return (
       <section className="page-stack">
         <div className="page-heading">
-          <h1>Уроки</h1>
-          <p>Сессия потеряла текущий материал.</p>
+          <h1>{canFinish ? "Материалы изучены" : "Урок приостановлен"}</h1>
+          {canFinish ? null : <p>В этой группе нет доступных материалов.</p>}
         </div>
-        <button className="secondary-action" onClick={() => void loadQueue()} type="button">
-          Перезагрузить очередь
-        </button>
+        {sessionError === null ? null : (
+          <p className="form-error" role="alert">
+            {sessionError}
+          </p>
+        )}
+        <div className="action-row">
+          {canFinish ? (
+            <button
+              className="primary-action"
+              type="button"
+              disabled={isCompleting}
+              onClick={() => void closeCompletedLesson(completionSummary)}
+            >
+              {isCompleting ? "Завершаю..." : "Завершить урок"}
+            </button>
+          ) : (
+            <button
+              className="secondary-action"
+              type="button"
+              onClick={() => setIsExitDialogOpen(true)}
+            >
+              Покинуть урок
+            </button>
+          )}
+          <button
+            className="secondary-action"
+            disabled={isCompleting || isAbandoning}
+            onClick={() => void loadQueue()}
+            type="button"
+          >
+            Перезагрузить очередь
+          </button>
+        </div>
+        {exitDialog}
       </section>
     );
   }
@@ -1290,14 +1360,7 @@ function LessonsScreen({
         </p>
       )}
 
-      {isExitDialogOpen ? (
-        <LessonExitDialog
-          busy={isAbandoning}
-          error={abandonError}
-          onCancel={() => setIsExitDialogOpen(false)}
-          onConfirm={() => void handleAbandonSession()}
-        />
-      ) : null}
+      {exitDialog}
     </section>
   );
 }

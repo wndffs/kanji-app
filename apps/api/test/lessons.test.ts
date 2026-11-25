@@ -950,6 +950,25 @@ describe("LessonsService", () => {
     );
   });
 
+  it("returns the saved group for finalization after its last item exhausts today's limit", async () => {
+    const service = createService();
+    const user = createUser("owner", { dailyLessonLimit: 1 });
+    const started = await service.startSession(user, { itemIds: ["item-component-one"] });
+    await service.completeItem(started.session.id, user, {
+      itemId: "item-component-one",
+      answers: [{ cardId: "card-component-one", answerType: "meaning", answer: "study" }],
+    });
+    await expect(service.getActiveSession(user)).resolves.toMatchObject({
+      session: { id: started.session.id },
+      items: [],
+      source: { kind: "course" },
+      completedItemCount: 1,
+      createdSrsStateCount: 1,
+    });
+    await service.finishSession(started.session.id, user);
+    await expect(service.getActiveSession(user)).resolves.toMatchObject({ session: null });
+  });
+
   it.each(["exhausted", "stale-course", "active-course"])(
     "preserves course resolution semantics with a Prisma read budget: %s",
     async (scenario) => {

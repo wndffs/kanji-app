@@ -208,19 +208,9 @@ export class LessonsService {
       return entry === undefined ? [] : [entry];
     });
 
-    if (remainingEntries.length === 0) {
-      return {
-        session: null,
-        items: [],
-        source: null,
-        completedItemCount: 0,
-        createdSrsStateCount: 0,
-      };
-    }
-
     const currentItemId = remainingEntries.some((entry) => entry.item.id === session.currentItemId)
       ? session.currentItemId
-      : remainingEntries[0]!.item.id;
+      : (remainingEntries[0]?.item.id ?? session.currentItemId);
     const normalizedSession =
       currentItemId === session.currentItemId
         ? session

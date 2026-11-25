@@ -9,6 +9,48 @@ const ACCESS_TOKEN = "test-token";
 const SESSION_ID = "lesson-session-1";
 
 test.describe("lesson session", () => {
+  test("finishes already-learned materials after reload without resubmitting answers", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockLessonApi(page);
+    let finishes = 0;
+    let answerWrites = 0;
+    page.on("request", (request) => {
+      if (request.url().endsWith("/complete-item") || request.url().endsWith("/check-answer"))
+        answerWrites++;
+    });
+    await page.route(`${API_BASE_URL}/lessons/active`, (route) =>
+      route.fulfill({
+        json: {
+          session: lessonSession("quiz"),
+          items: [],
+          source: { kind: "course" },
+          completedItemCount: 1,
+          createdSrsStateCount: 2,
+        },
+      }),
+    );
+    await page.route(`${API_BASE_URL}/lessons/${SESSION_ID}/finish`, (route) => {
+      finishes++;
+      return finishes === 1
+        ? route.fulfill({ status: 503, json: { message: "Сбой сохранения" } })
+        : route.fulfill({
+            json: { session: { ...lessonSession("quiz"), finishedAt: "2026-06-22T08:04:00Z" } },
+          });
+    });
+    await page.goto("/lessons");
+    await expect(page.getByRole("heading", { name: "Материалы изучены" })).toBeVisible();
+    const finish = page.getByRole("button", { name: "Завершить урок", exact: true });
+    await finish.click();
+    await expect(page.getByRole("alert")).toContainText("Сбой сохранения");
+    expect(finishes).toBe(1);
+    await finish.click();
+    await expect(page.getByText("Сессия завершена.", { exact: false })).toBeVisible();
+    expect(finishes).toBe(2);
+    expect(answerWrites).toBe(0);
+  });
+
   test("retains validated course return through picker filters, focus and an empty queue", async ({
     page,
   }) => {
