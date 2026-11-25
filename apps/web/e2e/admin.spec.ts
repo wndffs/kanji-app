@@ -751,7 +751,7 @@ async function mockAdminApi(
     `${API_BASE_URL}/admin/curriculum/main-course/allocation-preview`,
     async (route) => {
       const response: AdminCourseAllocationPreviewResponse = {
-        policyVersion: "balanced-prerequisite-levels-v1",
+        policyVersion: "balanced-prerequisite-levels-v2",
         planVersion: allocationApplied
           ? "course-allocation:applied-plan"
           : "course-allocation:test-plan",
@@ -810,7 +810,7 @@ async function mockAdminApi(
 
     allocationApplied = true;
     const preview: AdminCourseAllocationPreviewResponse = {
-      policyVersion: "balanced-prerequisite-levels-v1",
+      policyVersion: "balanced-prerequisite-levels-v2",
       planVersion: "course-allocation:applied-plan",
       generatedAt: "2026-07-15T10:01:00.000Z",
       maxItemsPerLevel: 220,

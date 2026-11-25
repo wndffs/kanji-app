@@ -349,7 +349,7 @@ describe("AdminService", () => {
     const adminService = new AdminService(new InMemoryAdminRepository());
 
     await expect(adminService.getCourseAllocationPreview()).resolves.toMatchObject({
-      policyVersion: "balanced-prerequisite-levels-v1",
+      policyVersion: "balanced-prerequisite-levels-v2",
       course: { slug: "japanese-ru-n2", levelCount: 60 },
       summary: { publishedItems: 3, existingPlacements: 1, proposedPlacements: 2 },
     });
@@ -1493,7 +1493,21 @@ describe("AdminService", () => {
     );
     expect(learningItem.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { status: "PUBLISHED" },
+        where: {
+          status: "PUBLISHED",
+          OR: [
+            { courseLevelItems: { none: {} } },
+            {
+              courseLevelItems: {
+                some: {
+                  courseLevel: {
+                    OR: [{ courseId: "course-main" }, { course: { courseType: { not: "DEMO" } } }],
+                  },
+                },
+              },
+            },
+          ],
+        },
         select: expect.objectContaining({
           courseLevelItems: expect.objectContaining({
             where: { courseLevel: { courseId: "course-main" } },
@@ -2452,7 +2466,7 @@ class InMemoryAdminRepository extends AdminRepository implements OverridesReposi
 
   async getCourseAllocationPreview(): Promise<AdminCourseAllocationPreviewResponse> {
     return {
-      policyVersion: "balanced-prerequisite-levels-v1",
+      policyVersion: "balanced-prerequisite-levels-v2",
       planVersion: "course-allocation:test-plan",
       generatedAt: "2026-07-15T10:00:00.000Z",
       maxItemsPerLevel: 220,

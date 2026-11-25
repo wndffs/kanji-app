@@ -389,7 +389,9 @@ quality gates and receive an independent level and prerequisite path.
 
 `GET /admin/curriculum/main-course/allocation-preview` is a read-only,
 deterministic calculation for published learning items and the seeded
-`japanese-ru-n2` course. Policy `balanced-prerequisite-levels-v1` preserves
+`japanese-ru-n2` course. Policy `balanced-prerequisite-levels-v2` excludes
+items placed only in demo courses, not unplaced items or missing prerequisites
+of main-course items. It preserves
 existing placements, honours a valid `levelHint`, keeps every resolved
 prerequisite at or before its dependent item, and otherwise balances additions
 across levels in the same band with a 220-item level capacity. Missing bands,

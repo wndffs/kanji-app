@@ -1864,7 +1864,7 @@ export type AdminCourseAllocationBandSummaryDto = {
 };
 
 export type AdminCourseAllocationPreviewResponse = {
-  readonly policyVersion: "balanced-prerequisite-levels-v1";
+  readonly policyVersion: "balanced-prerequisite-levels-v2";
   readonly planVersion: string;
   readonly generatedAt: string;
   readonly maxItemsPerLevel: number;

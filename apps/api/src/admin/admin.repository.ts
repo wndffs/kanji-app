@@ -1374,7 +1374,21 @@ export class PrismaAdminRepository extends AdminRepository {
     }
 
     const items = await db.learningItem.findMany({
-      where: { status: "PUBLISHED" },
+      where: {
+        status: "PUBLISHED",
+        OR: [
+          { courseLevelItems: { none: {} } },
+          {
+            courseLevelItems: {
+              some: {
+                courseLevel: {
+                  OR: [{ courseId: course.id }, { course: { courseType: { not: "DEMO" } } }],
+                },
+              },
+            },
+          },
+        ],
+      },
       select: {
         id: true,
         title: true,

@@ -87,8 +87,11 @@ The declarative blueprint owns course and level metadata only. Re-running the
 seed updates those fields without deleting `CourseLevelItem` placements and
 without changing an existing course status, so editorial work survives deploys.
 
-The first allocation policy is `balanced-prerequisite-levels-v1`. It previews
-only published learning items, keeps editorial placements fixed, uses a valid
+The allocation policy is `balanced-prerequisite-levels-v2`. It previews
+published learning items that are either unplaced or placed outside demo-only
+courses. An existing main-course placement always stays in scope. A prerequisite
+of an in-scope item still blocks launch if it is unavailable in the main course.
+The policy keeps editorial placements fixed, uses a valid
 level hint when possible, and recursively resolves prerequisites before their
 dependants. New items without a usable hint go to the least occupied eligible
 level in their band, with a 220-item planning ceiling per level. The preview is

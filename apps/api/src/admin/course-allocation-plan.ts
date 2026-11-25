@@ -10,7 +10,7 @@ import {
   SUPPORTED_COURSE_BANDS,
 } from "@kanji-srs/shared";
 
-export const COURSE_ALLOCATION_POLICY_VERSION = "balanced-prerequisite-levels-v1" as const;
+export const COURSE_ALLOCATION_POLICY_VERSION = "balanced-prerequisite-levels-v2" as const;
 export const COURSE_ALLOCATION_MAX_ITEMS_PER_LEVEL = 220;
 export const COURSE_ALLOCATION_PREVIEW_LIMIT = 100;
 

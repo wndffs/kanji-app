@@ -1466,6 +1466,13 @@ The workflow and admin operations now use the same count-scaled, capped audit
 deadline as the content quality tool. Enrollment still checks the fresh cohort
 after writing but reuses the same transaction's verified course snapshot.
 
+The [full-size draft audit](https://github.com/wndffs/kanji-app/actions/runs/45624411158)
+passed eight checks with no teaching blockers. The allocation gate counted
+two additional published items: one word and one sentence from the starter
+demo only, neither used as a main-course prerequisite. Allocation v2
+excludes demo-only content, but still checks unplaced candidates and missing
+dependencies. No material was moved or published to resolve this mismatch.
+
 Use `receipts` in **Deploy staging curation** with the exact kanji and/or
 comma-separated word manifest IDs and both checkboxes off. This read-only
 mode reports status counts and manifest IDs only. `COMPLETE` requires the

@@ -109,7 +109,7 @@ export function buildMainCoursePublicationReadiness(
         input.allocation.blockedItems === 0 &&
         input.allocation.issueCount === 0 &&
         input.allocation.existingPlacements === input.allocation.publishedItems
-          ? "Все опубликованные материалы закреплены без конфликтов."
+          ? "Все материалы в области основного курса закреплены без конфликтов."
           : `Осталось предложений: ${input.allocation.proposedPlacements}; заблокировано: ${input.allocation.blockedItems}; конфликтов: ${input.allocation.issueCount}.`,
     }),
     check({

@@ -29,6 +29,7 @@ import {
 } from "../../../packages/db/src/main-course-word-content";
 
 import { AppConfigService } from "../src/config/app-config.service";
+import { PrismaAdminRepository } from "../src/admin/admin.repository";
 import { PrismaUsersRepository } from "../src/auth/users.repository";
 import { PrismaService } from "../src/database/prisma.service";
 import { PrismaItemsRepository } from "../src/items/items.repository";
@@ -764,6 +765,86 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
         expect(following.prerequisiteItems).toEqual([
           { id: first!.id, itemType: "word", dependencies: [], cards: [{ id: firstCard.id }] },
         ]);
+      }),
+    );
+  });
+
+  it("excludes demo-only materials from the main allocation without hiding their dependency edges", async () => {
+    await withFixture(async (base) =>
+      withWordExamplesFixture(base, 4, async (fixture) => {
+        const [shared, demoOnly, unplaced, pilotOnly] = fixture.items.map(({ id }) => id);
+        const otherIds = [randomUUID(), randomUUID()] as const;
+        const repository = new PrismaAdminRepository(control);
+        try {
+          await control.db.$transaction(async (tx) => {
+            const course = await tx.course.update({
+              where: { slug: fixture.courseSlug },
+              data: { slug: "japanese-ru-n2", status: "DRAFT" },
+            });
+            await tx.learningItem.update({ where: { id: base.itemId }, data: { status: "DRAFT" } });
+            await tx.courseLevelItem.deleteMany({
+              where: {
+                courseLevel: { courseId: course.id },
+                learningItemId: { in: [demoOnly!, unplaced!, pilotOnly!] },
+              },
+            });
+            for (const [id, kind, itemIds] of [
+              [otherIds[0], "DEMO", [shared!, demoOnly!]],
+              [otherIds[1], "STRUCTURED", [pilotOnly!]],
+            ] as const) {
+              await tx.course.create({
+                data: {
+                  id,
+                  slug: `allocation-fixture-${id}`,
+                  titleRu: "Allocation fixture",
+                  status: "PUBLISHED",
+                  courseType: kind,
+                  levels: {
+                    create: {
+                      levelNumber: 1,
+                      titleRu: "Allocation fixture",
+                      items: {
+                        create: itemIds.map((learningItemId, sortOrder) => ({
+                          learningItemId,
+                          sortOrder,
+                        })),
+                      },
+                    },
+                  },
+                },
+              });
+            }
+          });
+          const preview = await repository.getCourseAllocationPreview();
+          expect(preview?.summary).toMatchObject({
+            publishedItems: 3,
+            existingPlacements: 1,
+            proposedPlacements: 2,
+          });
+          expect(new Set(preview?.items.map(({ learningItemId }) => learningItemId))).toEqual(
+            new Set([shared, unplaced, pilotOnly]),
+          );
+          expect(preview?.issues).toEqual([]);
+
+          await control.db.dependency.create({
+            data: {
+              learningItemId: shared!,
+              prerequisiteItemId: demoOnly!,
+              dependencyType: "PREREQUISITE",
+            },
+          });
+          const withDependency = await repository.getCourseAllocationPreview();
+          expect(withDependency?.issues).toEqual([
+            expect.objectContaining({ learningItemId: shared, code: "missing-prerequisite" }),
+          ]);
+          expect(
+            await control.db.courseLevelItem.count({
+              where: { courseLevel: { courseId: otherIds[0] } },
+            }),
+          ).toBe(2);
+        } finally {
+          await control.db.course.deleteMany({ where: { id: { in: [...otherIds] } } });
+        }
       }),
     );
   });
