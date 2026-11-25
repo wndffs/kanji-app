@@ -426,7 +426,7 @@ const ADMIN_REVIEW_QUEUE_SCAN_LIMIT = 100;
 
 @Injectable()
 export class PrismaAdminRepository extends AdminRepository {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
+  constructor(@Inject(PrismaService) private readonly prisma: Pick<PrismaService, "db">) {
     super();
   }
 
@@ -1030,8 +1030,10 @@ export class PrismaAdminRepository extends AdminRepository {
     return { ...result, preview };
   }
 
-  async getMainCoursePublicationReadiness(): Promise<AdminMainCoursePublicationReadinessResponse | null> {
-    return this.loadMainCoursePublicationReadiness(this.prisma.db);
+  async getMainCoursePublicationReadiness(
+    db: MainCoursePublicationDatabase = this.prisma.db,
+  ): Promise<AdminMainCoursePublicationReadinessResponse | null> {
+    return this.loadMainCoursePublicationReadiness(db);
   }
 
   async publishMainCourse(

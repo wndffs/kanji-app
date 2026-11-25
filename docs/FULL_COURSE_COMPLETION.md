@@ -1457,6 +1457,9 @@ registry order. A timed-out job can have committed individual checkpoints.
 Use small first releases to measure throughput, and keep V1–V7, enrollments
 and study progress intact. Final course publication is separate from raw
 sources and curation; recheck admin readiness and server learner flows first.
+Use **Check main course launch** to run the exact admin readiness policy
+on the deployment database. The workflow is read-only; a passing report
+does not publish the course, enroll learners, or certify their journeys.
 
 Use `receipts` in **Deploy staging curation** with the exact kanji and/or
 comma-separated word manifest IDs and both checkboxes off. This read-only

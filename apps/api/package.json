@@ -7,6 +7,7 @@
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint . --max-warnings=0",
     "start": "node dist/apps/api/src/main.js",
+    "course:check-launch": "tsx src/admin/check-main-course-launch.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests"
   },

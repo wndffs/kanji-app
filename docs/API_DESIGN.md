@@ -403,15 +403,22 @@ created placements and includes a fresh read-only preview. Repeating an old
 confirmation cannot silently apply a newer calculation.
 
 `GET /admin/curriculum/main-course/publication-readiness` applies the read-only,
-versioned `main-course-publication-readiness-v1` policy. It verifies the
+versioned `main-course-publication-readiness-v2` policy. It verifies the
 project-owned 60-level blueprint, complete conflict-free allocation, absence of
 non-published placements, at least one published item in every level, and an
 initial level-one item with a card and no prerequisites. Scale checks count
 unique published placements in this course, not raw dictionary rows or global
 content: the full N2 course requires at least 2,300 kanji and 8,000 vocabulary
-items. The opaque `readinessVersion` excludes generation time but changes when
+items. Content quality must also pass without blockers. The opaque
+`readinessVersion` excludes generation time but changes when
 any audited input changes. This endpoint never changes course status or user
 enrollments.
+
+The manually dispatched **Check main course launch** workflow runs the same
+checks against the deployment database in a read-only repeatable snapshot.
+It shares the staging database concurrency group with release jobs, fails if
+any check blocks launch, and prints only aggregate results and check codes.
+It does not print the report's IDs or confirmation versions.
 
 `POST /admin/curriculum/main-course/publication` accepts only the opaque
 `readinessVersion` returned by that audit. A serializable transaction
