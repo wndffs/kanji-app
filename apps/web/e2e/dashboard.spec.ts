@@ -211,17 +211,24 @@ test.describe("dashboard smoke", () => {
     await expect(page.getByRole("heading", { name: "Баланс нагрузки", exact: true })).toBeVisible();
     await page.locator('[data-dashboard-widget="workload"] > details > summary').click();
     await expect(page.getByRole("heading", { name: "Баланс нагрузки", exact: true })).toBeHidden();
+    const isMobile = test.info().project.name === "mobile";
     const more = page.getByRole("button", { name: "Другие разделы", exact: true });
-    await more.click();
-    const navigation = page.getByRole("navigation", { name: "Другие разделы", exact: true });
+    if (isMobile) await more.click();
+    else await expect(more).toBeHidden();
+    const navigation = page.getByRole("navigation", {
+      name: isMobile ? "Другие разделы" : "Библиотека и настройки",
+      exact: true,
+    });
     await expect(navigation.getByRole("link", { name: "Практика", exact: true })).toHaveAttribute(
       "href",
       "/practice",
     );
     await expect(navigation.getByRole("link", { name: "Админ", exact: true })).toHaveCount(0);
-    await page.keyboard.press("Escape");
-    await expect(navigation).toBeHidden();
-    await expect(more).toBeFocused();
+    if (isMobile) {
+      await page.keyboard.press("Escape");
+      await expect(navigation).toBeHidden();
+      await expect(more).toBeFocused();
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -956,7 +963,11 @@ test.describe("dashboard smoke", () => {
     await selector.selectOption("main-course");
     await expect(selector).toHaveValue("main-course");
     await expect(page.getByText("Выбран курс «Основной курс».")).toBeVisible();
-    await expect(page.locator(".course-progress > div").first()).toContainText("Основной курс");
+    const activeLevel = page.getByRole("link", { name: "Материалы уровня", exact: true });
+    await expect(activeLevel).toHaveAttribute("href", /^\/courses\/main-course\?level=\d+$/);
+    await expect(
+      page.getByText("Основной курс", { exact: true }).and(page.locator("strong")),
+    ).toBeVisible();
 
     await selector.selectOption("starter-course");
     await expect(page.locator(".course-selector-error[role='alert']")).toContainText(

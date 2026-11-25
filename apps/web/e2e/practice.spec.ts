@@ -210,8 +210,13 @@ test.describe("optional practice", () => {
 
     await expect(page.getByRole("heading", { name: "Практика" })).toBeVisible();
     await expect(page.getByText("Карточек: 1. SRS и расписание не изменяются.")).toBeVisible();
-    await page.getByRole("button", { name: "Состав практики", exact: true }).click();
-    await expect(page.getByText("学")).toBeVisible();
+    const preview = page.getByText("学", { exact: true });
+    const composition = page.getByRole("button", { name: "Состав практики", exact: true });
+    await expect(preview).toBeVisible();
+    await composition.click();
+    await expect(preview).toBeHidden();
+    await composition.click();
+    await expect(preview).toBeVisible();
 
     await expect(page.getByRole("tab", { name: "Сожжённые" })).toHaveAttribute(
       "aria-selected",
