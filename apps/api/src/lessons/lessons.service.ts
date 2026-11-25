@@ -571,23 +571,31 @@ export class LessonsService {
       return { availableItems: [], displayMode, progress, remainingToday, source };
     }
 
-    const courseItems = await this.lessonsRepository.listCourseEligibility(user.id);
+    const { items: courseItems, prerequisiteItems } =
+      await this.lessonsRepository.listCourseEligibility(user.id, progress);
     if (courseItems.length === 0) {
       return { availableItems: [], displayMode, progress, remainingToday, source };
     }
 
     const prerequisiteCardIds = await this.getExternalPrerequisiteCardIds(
       courseItems.map((entry) => entry.item),
+      prerequisiteItems,
     );
-    const availableItems = findAvailableCourseItems(courseItems, progress, prerequisiteCardIds);
+    const availableItems = findAvailableCourseItems(
+      courseItems,
+      progress,
+      prerequisiteCardIds,
+      prerequisiteItems,
+    );
 
     return { availableItems, displayMode, progress, remainingToday, source };
   }
 
   private async getExternalPrerequisiteCardIds(
     items: readonly LessonEligibilityItemRecord[],
+    knownPrerequisites: readonly LessonEligibilityItemRecord[] = [],
   ): Promise<ReadonlyMap<string, readonly string[]>> {
-    const sourceItemIds = new Set(items.map((item) => item.id));
+    const sourceItemIds = new Set([...items, ...knownPrerequisites].map((item) => item.id));
     const externalItemIds = [
       ...new Set(
         items.flatMap((item) =>
@@ -660,9 +668,11 @@ function findAvailableCourseItems(
   courseItems: readonly CourseLessonEligibilityRecord[],
   progress: readonly UserItemProgressRecord[],
   prerequisiteCardIds: ReadonlyMap<string, readonly string[]>,
+  prerequisiteItems: readonly LessonEligibilityItemRecord[],
 ): readonly AvailableLessonMetadata[] {
   const progressByItem = groupProgressByItem(progress);
-  const itemById = new Map(courseItems.map((entry) => [entry.item.id, entry.item]));
+  const itemById = new Map(prerequisiteItems.map((item) => [item.id, item]));
+  for (const { item } of courseItems) itemById.set(item.id, item);
   const groupedByCourse = groupCourseItems(courseItems);
   const available: AvailableLessonMetadata[] = [];
 

@@ -940,11 +940,12 @@ describe("LessonsService", () => {
                   {
                     courseId: "current-course",
                     startedAt: NOW,
-                    course: { id: "current-course", slug: "published-pilot", levels: [] },
+                    course: { slug: "published-pilot" },
                   },
                 ],
           ),
         },
+        courseLevel: { findFirst: vi.fn().mockResolvedValue(null) },
         learningCard: { findMany: vi.fn() },
         deck: { findFirst: vi.fn() },
         $queryRaw: vi.fn(),
@@ -976,8 +977,9 @@ describe("LessonsService", () => {
       });
       expect(db.userSettings.findUnique).toHaveBeenCalledTimes(scenario === "exhausted" ? 0 : 1);
       expect(db.userEnrollment.findMany).toHaveBeenCalledTimes(
-        scenario === "exhausted" ? 0 : scenario === "stale-course" ? 1 : 2,
+        scenario === "exhausted" ? 0 : 1,
       );
+      expect(db.courseLevel.findFirst).toHaveBeenCalledTimes(scenario === "active-course" ? 1 : 0);
       if (scenario !== "exhausted") {
         expect(db.userEnrollment.findMany).toHaveBeenNthCalledWith(
           1,
@@ -1227,7 +1229,7 @@ class InMemoryLessonsRepository extends LessonsRepository {
   }
 
   async listCourseEligibility(userId: string) {
-    return this.listCourseLessonItems(userId);
+    return { items: await this.listCourseLessonItems(userId), prerequisiteItems: [] };
   }
 
   async findDeckEligibility(userId: string, deckId: string) {

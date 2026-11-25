@@ -23,7 +23,7 @@ import {
   type CompleteLessonItemInput,
   type CompletedLessonItemRecord,
   type CourseLessonItemRecord,
-  type CourseLessonEligibilityRecord,
+  type CourseLessonEligibilityGraph,
   type DeckLessonEligibilityRecord,
   type LessonEligibilityItemRecord,
   type CreateLessonSessionInput,
@@ -41,7 +41,10 @@ import {
 } from "./lessons.types";
 
 export abstract class LessonsRepository {
-  abstract listCourseEligibility(userId: string): Promise<readonly CourseLessonEligibilityRecord[]>;
+  abstract listCourseEligibility(
+    userId: string,
+    progress: readonly UserItemProgressRecord[],
+  ): Promise<CourseLessonEligibilityGraph>;
   abstract findDeckEligibility(
     userId: string,
     deckId: string,
@@ -251,52 +254,102 @@ export class PrismaLessonsRepository extends LessonsRepository {
     super();
   }
 
-  async listCourseEligibility(userId: string): Promise<readonly CourseLessonEligibilityRecord[]> {
+  async listCourseEligibility(
+    userId: string,
+    progress: readonly UserItemProgressRecord[],
+  ): Promise<CourseLessonEligibilityGraph> {
     const courseId = await resolveCurrentCourseId(this.prisma.db, userId);
-    if (courseId === null) return [];
-    const enrollments = await this.prisma.db.userEnrollment.findMany({
-      where: { userId, courseId, status: "ACTIVE", course: { status: "PUBLISHED" } },
-      select: {
-        course: {
-          select: {
-            id: true,
-            levels: {
-              orderBy: { levelNumber: "asc" },
-              select: {
-                levelNumber: true,
-                items: {
-                  where: { learningItem: { status: "PUBLISHED" } },
-                  orderBy: [{ sortOrder: "asc" }, { learningItemId: "asc" }],
-                  select: {
-                    sortOrder: true,
-                    unlockPolicyJson: true,
-                    learningItem: { select: lessonEligibilitySelect },
-                  },
+    const empty = { items: [], prerequisiteItems: [] };
+    if (courseId === null) return empty;
+
+    const startedCards = new Set(progress.map((record) => record.learningCardId));
+    let afterLevel: number | undefined;
+    for (;;) {
+      // Only a non-listening state can rule out a candidate in SQL. Listening
+      // eligibility also depends on exact asset ownership, license and URL checks.
+      const level = await this.prisma.db.courseLevel.findFirst({
+        where: {
+          courseId,
+          levelNumber: afterLevel === undefined ? undefined : { gt: afterLevel },
+          course: { status: "PUBLISHED", enrollments: { some: { userId, status: "ACTIVE" } } },
+          items: {
+            some: {
+              learningItem: {
+                status: "PUBLISHED",
+                cards: {
+                  some: listeningCardEligibilityWhere,
+                  none: { promptType: { not: "LISTENING" }, srsStates: { some: { userId } } },
                 },
               },
             },
           },
         },
-      },
-    });
-    return enrollments.flatMap(({ course }) =>
-      course.levels.flatMap((level) =>
-        level.items.flatMap((entry) => {
-          const item = toEligibilityItem(entry.learningItem);
-          return item.cards.length === 0
-            ? []
-            : [
-                {
-                  courseId: course.id,
-                  courseLevelNumber: level.levelNumber,
-                  sortOrder: entry.sortOrder,
-                  unlockPolicy: isRecord(entry.unlockPolicyJson) ? entry.unlockPolicyJson : null,
-                  item,
-                },
-              ];
-        }),
-      ),
-    );
+        orderBy: { levelNumber: "asc" },
+        select: {
+          levelNumber: true,
+          items: {
+            where: { learningItem: { status: "PUBLISHED" } },
+            orderBy: [{ sortOrder: "asc" }, { learningItemId: "asc" }],
+            select: {
+              sortOrder: true,
+              unlockPolicyJson: true,
+              learningItem: { select: lessonEligibilitySelect },
+            },
+          },
+        },
+      });
+      if (level === null) return empty;
+
+      const items = level.items.flatMap((entry) => {
+        const item = toEligibilityItem(entry.learningItem);
+        return item.cards.length === 0
+          ? []
+          : [
+              {
+                courseId,
+                courseLevelNumber: level.levelNumber,
+                sortOrder: entry.sortOrder,
+                unlockPolicy: isRecord(entry.unlockPolicyJson) ? entry.unlockPolicyJson : null,
+                item,
+              },
+            ];
+      });
+      const unstarted = items.filter(
+        ({ item }) => !item.cards.some(({ id }) => startedCards.has(id)),
+      );
+      if (unstarted.length === 0) {
+        afterLevel = level.levelNumber;
+        continue;
+      }
+
+      const inLevel = new Set(items.map(({ item }) => item.id));
+      const prerequisiteIds = unstarted.flatMap(({ item }) =>
+        item.dependencies
+          .map(({ prerequisiteItemId }) => prerequisiteItemId)
+          .filter((id) => !inLevel.has(id)),
+      );
+      return {
+        items,
+        prerequisiteItems: await this.loadCoursePrerequisiteItems(courseId, prerequisiteIds),
+      };
+    }
+  }
+
+  private async loadCoursePrerequisiteItems(courseId: string, itemIds: readonly string[]) {
+    const ids = [...new Set(itemIds)];
+    const items: LessonEligibilityItemRecord[] = [];
+    for (let offset = 0; offset < ids.length; offset += LESSON_TARGET_BATCH_SIZE) {
+      const rows = await this.prisma.db.learningItem.findMany({
+        where: {
+          id: { in: ids.slice(offset, offset + LESSON_TARGET_BATCH_SIZE) },
+          status: "PUBLISHED",
+          courseLevelItems: { some: { courseLevel: { courseId } } },
+        },
+        select: lessonEligibilitySelect,
+      });
+      items.push(...rows.map(toEligibilityItem).filter((item) => item.cards.length > 0));
+    }
+    return items;
   }
 
   async findDeckEligibility(

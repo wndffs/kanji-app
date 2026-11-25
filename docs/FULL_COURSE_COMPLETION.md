@@ -1426,6 +1426,13 @@ supports separate taught spellings and meanings: 早い (early) and 速い
   this was not a learner migration, course activation, or completion of the
   full product gate. The existing finite courses and enrollment stay intact.
 
+The course lesson queue now seeks the first possible unstarted level in
+PostgreSQL instead of loading eligibility for all 60 levels. It checks exact
+card eligibility before advancing and loads published in-course prerequisites
+only for that level. Earlier levels still gate later ones, and external deck
+prerequisites still require every eligible card. The full-course learner
+journey on Neon remains a separate check from the isolated database test.
+
 ### Oversized Source-Only Windows
 
 Use only if the normal preflight finds missing exact JMdict pairs. In

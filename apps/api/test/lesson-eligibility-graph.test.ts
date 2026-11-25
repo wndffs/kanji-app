@@ -13,6 +13,19 @@ const item = {
   ],
 };
 
+const base = { ...item, id: "base", kind: "COMPONENT", dependencies: [] };
+const level = {
+  levelNumber: 2,
+  items: [
+    { sortOrder: 3, unlockPolicyJson: null, learningItem: item },
+    {
+      sortOrder: 4,
+      unlockPolicyJson: null,
+      learningItem: { ...item, id: "empty", cards: [] },
+    },
+  ],
+};
+
 function harness() {
   const db = {
     userSettings: { findUnique: vi.fn().mockResolvedValue({ currentCourseId: "course" }) },
@@ -21,62 +34,94 @@ function harness() {
         {
           courseId: "course",
           startedAt: new Date(),
-          course: {
-            id: "course",
-            levels: [
-              {
-                levelNumber: 2,
-                items: [
-                  { sortOrder: 3, unlockPolicyJson: null, learningItem: item },
-                  {
-                    sortOrder: 4,
-                    unlockPolicyJson: null,
-                    learningItem: { ...item, id: "empty", cards: [] },
-                  },
-                ],
-              },
-            ],
-          },
+          course: { slug: "course" },
         },
       ]),
     },
+    courseLevel: { findFirst: vi.fn().mockResolvedValue(level) },
+    learningItem: { findMany: vi.fn().mockResolvedValue([base]) },
     deck: { findFirst: vi.fn() },
   };
   return { db, repository: new PrismaLessonsRepository({ db } as never) };
 }
 
 describe("lightweight lesson eligibility", () => {
-  it("loads only published current-course metadata and all eligible card IDs", async () => {
+  it("loads the first possible current level and only its course prerequisite metadata", async () => {
     const { db, repository } = harness();
-    expect(await repository.listCourseEligibility("owner")).toEqual([
-      {
-        courseId: "course",
-        courseLevelNumber: 2,
-        sortOrder: 3,
-        unlockPolicy: null,
-        item: {
-          id: "item",
-          itemType: "kanji",
+    expect(await repository.listCourseEligibility("owner", [])).toEqual({
+      items: [
+        {
+          courseId: "course",
+          courseLevelNumber: 2,
+          sortOrder: 3,
+          unlockPolicy: null,
+          item: {
+            id: "item",
+            itemType: "kanji",
+            cards: [{ id: "meaning" }, { id: "reading" }],
+            dependencies: [{ prerequisiteItemId: "base", requiredStage: 1 }],
+          },
+        },
+      ],
+      prerequisiteItems: [
+        {
+          id: "base",
+          itemType: "component",
           cards: [{ id: "meaning" }, { id: "reading" }],
-          dependencies: [{ prerequisiteItemId: "base", requiredStage: 1 }],
+          dependencies: [],
+        },
+      ],
+    });
+    expect(db.courseLevel.findFirst).toHaveBeenCalledTimes(1);
+    const query = db.courseLevel.findFirst.mock.calls[0]![0];
+    expect(query.orderBy).toEqual({ levelNumber: "asc" });
+    expect(query.where).toMatchObject({
+      courseId: "course",
+      course: { status: "PUBLISHED", enrollments: { some: { userId: "owner", status: "ACTIVE" } } },
+      items: {
+        some: {
+          learningItem: {
+            status: "PUBLISHED",
+            cards: {
+              none: { promptType: { not: "LISTENING" }, srsStates: { some: { userId: "owner" } } },
+            },
+          },
         },
       },
-    ]);
-    const query = db.userEnrollment.findMany.mock.calls.at(-1)![0];
-    expect(query.where).toEqual({
-      userId: "owner",
-      courseId: "course",
-      status: "ACTIVE",
-      course: { status: "PUBLISHED" },
     });
-    const select = query.select.course.select.levels.select.items.select.learningItem.select;
+    const select = query.select.items.select.learningItem.select;
     expect(Object.keys(select).sort()).toEqual(["cards", "dependencies", "id", "kind"]);
     expect(select.cards.select).not.toHaveProperty("answers");
+    expect(db.learningItem.findMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["base"] },
+        status: "PUBLISHED",
+        courseLevelItems: { some: { courseLevel: { courseId: "course" } } },
+      },
+      select,
+    });
   });
   it("does not load a course when there is no selected enrollment", async () => {
     const { db, repository } = harness();
     db.userEnrollment.findMany.mockResolvedValue([]);
-    expect(await repository.listCourseEligibility("owner")).toEqual([]);
+    expect(await repository.listCourseEligibility("owner", [])).toEqual({
+      items: [],
+      prerequisiteItems: [],
+    });
+    expect(db.courseLevel.findFirst).not.toHaveBeenCalled();
+  });
+  it("seeks past a candidate where all eligible cards are started or audio is invalid", async () => {
+    const { db, repository } = harness();
+    db.courseLevel.findFirst.mockResolvedValueOnce(level).mockResolvedValueOnce(null);
+    const progress = [
+      { learningItemId: "item", learningCardId: "reading", stageIndex: 1, createdAt: new Date() },
+    ];
+    expect(await repository.listCourseEligibility("owner", progress)).toEqual({
+      items: [],
+      prerequisiteItems: [],
+    });
+    expect(db.courseLevel.findFirst.mock.calls[1]![0].where.levelNumber).toEqual({ gt: 2 });
+    expect(db.learningItem.findMany).not.toHaveBeenCalled();
   });
   it("loads only the owner's published deck items, keeping archive metadata", async () => {
     const { db, repository } = harness();
