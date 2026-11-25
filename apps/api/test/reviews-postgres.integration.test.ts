@@ -894,6 +894,32 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
             expect.objectContaining({ id: mainId, enrollmentStatus: "active", isCurrent: false }),
           ]),
         );
+        const lessons = new PrismaLessonsRepository(control);
+        const [start, selection] = await Promise.allSettled([
+          lessons.createLessonSession({
+            userId: base.userId,
+            deckId: null,
+            courseId: starterId,
+            now: NOW,
+            itemIds: [base.itemId],
+          }),
+          courses.selectCurrentCourse(base.userId, { courseId: mainId }),
+        ]);
+        if (start.status === "fulfilled") {
+          expect(selection).toMatchObject({
+            status: "rejected",
+            reason: expect.any(ConflictException),
+          });
+          expect((await courses.listCourses(base.userId)).currentCourseId).toBe(starterId);
+          await lessons.abandonLessonSession(base.userId, start.value.id, NOW);
+        } else {
+          expect(start.reason).toBeInstanceOf(ConflictException);
+          expect(selection).toMatchObject({
+            status: "fulfilled",
+            value: { currentCourseId: mainId },
+          });
+          expect(await lessons.findLatestActiveLessonSession(base.userId)).toBeNull();
+        }
         expect(
           (await courses.selectCurrentCourse(base.userId, { courseId: mainId })).currentCourseId,
         ).toBe(mainId);

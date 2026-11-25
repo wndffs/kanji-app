@@ -157,8 +157,8 @@ export class LessonsService {
       throw new BadRequestException("itemIds exceed the current lesson batch limit.");
     }
 
-    const availableItemIds = new Set(availableItems.map((entry) => entry.item.id));
-    if (requestedItemIds.some((itemId) => !availableItemIds.has(itemId))) {
+    const availableById = new Map(availableItems.map((entry) => [entry.item.id, entry]));
+    if (requestedItemIds.some((itemId) => !availableById.has(itemId))) {
       throw new BadRequestException("itemIds contain an unavailable lesson item.");
     }
 
@@ -167,6 +167,10 @@ export class LessonsService {
       userId: user.id,
       now,
       deckId: request.deckId,
+      courseId:
+        request.deckId === null
+          ? (availableById.get(requestedItemIds[0]!)?.courseId ?? null)
+          : null,
       itemIds: requestedItemIds,
     });
 

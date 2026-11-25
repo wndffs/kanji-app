@@ -1,4 +1,4 @@
-import { type Prisma } from "@kanji-srs/db";
+import { Prisma } from "@kanji-srs/db";
 
 export const STARTER_COURSE_SLUG = "starter-demo";
 
@@ -9,6 +9,16 @@ export type CurrentCourseCandidate = {
 };
 
 type CurrentCourseDatabase = Pick<Prisma.TransactionClient, "userEnrollment" | "userSettings">;
+
+export async function lockCourseSelectionUser(
+  db: Pick<Prisma.TransactionClient, "$queryRaw">,
+  userId: string,
+): Promise<boolean> {
+  const users = await db.$queryRaw<{ id: string }[]>(
+    Prisma.sql`SELECT id FROM "User" WHERE id=${userId}::uuid FOR UPDATE`,
+  );
+  return users.length === 1;
+}
 
 export function chooseCurrentCourseId(
   candidates: readonly CurrentCourseCandidate[],

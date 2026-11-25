@@ -136,6 +136,8 @@ until then, the starter course is preferred, followed by the earliest active
 enrollment. Switching changes only this focus;
 it does not pause another course or modify SRS progress. An unfinished lesson
 must be finished or abandoned before switching.
+Starting a lesson from a different tab cannot bypass that rule: a course that
+changed after queue loading causes a conflict before a new session is written.
 
 The admin scale-readiness report keeps this distinction measurable. It reports
 the remaining publication gap, work already in curation, unassigned imported

@@ -27,6 +27,35 @@ import {
 const NOW = new Date("2026-06-18T09:00:00.000Z");
 
 describe("PrismaLessonsRepository", () => {
+  it("refuses to create a course lesson from an obsolete selection after the user is locked", async () => {
+    const db = {
+      $queryRaw: vi.fn().mockResolvedValue([{ id: "owner" }]),
+      userSettings: { findUnique: vi.fn().mockResolvedValue({ currentCourseId: "other-course" }) },
+      userEnrollment: {
+        findMany: vi
+          .fn()
+          .mockResolvedValue([
+            { courseId: "other-course", startedAt: NOW, course: { slug: "other" } },
+          ]),
+      },
+      reviewSession: { create: vi.fn() },
+    };
+    const repository = new PrismaLessonsRepository({
+      db: { $transaction: (run: (tx: typeof db) => Promise<unknown>) => run(db) },
+    } as never);
+    await expect(
+      repository.createLessonSession({
+        userId: "owner",
+        courseId: "old-course",
+        deckId: null,
+        now: NOW,
+        itemIds: ["item"],
+      }),
+    ).rejects.toThrow("Текущий курс изменился");
+    expect(db.$queryRaw).toHaveBeenCalledBefore(db.userSettings.findUnique);
+    expect(db.reviewSession.create).not.toHaveBeenCalled();
+  });
+
   it("loads canonical prerequisite cards independently of source and existing user progress", async () => {
     const findMany = vi.fn().mockResolvedValue([
       {

@@ -58,6 +58,9 @@ remain visible but cannot become current. `PATCH /courses/current` persists only
 an owned active published enrollment and does not alter enrollment or SRS state.
 Changing course is rejected while a lesson session is active; selecting the
 already-current course is idempotent.
+Course switching and lesson creation use the same per-user transaction lock.
+If the selected course has changed since the queue was checked, lesson creation
+returns `409` without saving a session from the old course.
 
 ### Dashboard
 

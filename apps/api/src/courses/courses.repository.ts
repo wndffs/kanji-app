@@ -3,6 +3,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { Prisma } from "@kanji-srs/db";
 
 import { PrismaService } from "../database/prisma.service";
+import { lockCourseSelectionUser } from "./current-course";
 import {
   type AvailableCoursesRecord,
   type CourseSelectionRecord,
@@ -78,10 +79,7 @@ export class PrismaCoursesRepository extends CoursesRepository {
     try {
       return await this.prisma.db.$transaction(
         async (db) => {
-          const users = await db.$queryRaw<{ id: string }[]>(
-            Prisma.sql`SELECT id FROM "User" WHERE id=${userId}::uuid FOR UPDATE`,
-          );
-          if (users.length !== 1) return "not-found";
+          if (!(await lockCourseSelectionUser(db, userId))) return "not-found";
           const courses = await db.$queryRaw<{ id: string }[]>(
             Prisma.sql`SELECT id FROM "Course" WHERE id=${courseId}::uuid AND status='PUBLISHED' AND "courseType"='STRUCTURED' FOR SHARE`,
           );
@@ -149,41 +147,45 @@ export class PrismaCoursesRepository extends CoursesRepository {
     userId: string,
     courseId: string,
   ): Promise<"updated" | "not-found" | "active-lesson"> {
-    return this.prisma.db.$transaction(async (db: Prisma.TransactionClient) => {
-      const enrollment = await db.userEnrollment.findFirst({
-        where: {
-          userId,
-          courseId,
-          status: "ACTIVE",
-          course: { status: "PUBLISHED" },
-        },
-        select: { id: true },
-      });
+    return this.prisma.db.$transaction(
+      async (db: Prisma.TransactionClient) => {
+        if (!(await lockCourseSelectionUser(db, userId))) return "not-found";
+        const enrollment = await db.userEnrollment.findFirst({
+          where: {
+            userId,
+            courseId,
+            status: "ACTIVE",
+            course: { status: "PUBLISHED" },
+          },
+          select: { id: true },
+        });
 
-      if (enrollment === null) {
-        return "not-found";
-      }
+        if (enrollment === null) {
+          return "not-found";
+        }
 
-      const activeLesson = await db.reviewSession.findFirst({
-        where: {
-          userId,
-          mode: "LESSON_QUIZ",
-          finishedAt: null,
-        },
-        select: { id: true },
-      });
+        const activeLesson = await db.reviewSession.findFirst({
+          where: {
+            userId,
+            mode: "LESSON_QUIZ",
+            finishedAt: null,
+          },
+          select: { id: true },
+        });
 
-      if (activeLesson !== null) {
-        return "active-lesson";
-      }
+        if (activeLesson !== null) {
+          return "active-lesson";
+        }
 
-      await db.userSettings.update({
-        where: { userId },
-        data: { currentCourseId: courseId },
-      });
+        await db.userSettings.update({
+          where: { userId },
+          data: { currentCourseId: courseId },
+        });
 
-      return "updated";
-    });
+        return "updated";
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
   }
 }
 

@@ -34,6 +34,7 @@ export type CreateLessonSessionInput = {
   readonly userId: string;
   readonly now: Date;
   readonly deckId: string | null;
+  readonly courseId: string | null;
   readonly itemIds: readonly string[];
 };
 

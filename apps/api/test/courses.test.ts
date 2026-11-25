@@ -101,6 +101,7 @@ describe("PrismaCoursesRepository", () => {
     const findActiveLesson = vi.fn().mockResolvedValue(null);
     const update = vi.fn().mockResolvedValue({});
     const transactionDatabase = {
+      $queryRaw: vi.fn().mockResolvedValue([{ id: "user-1" }]),
       userEnrollment: { findFirst },
       reviewSession: { findFirst: findActiveLesson },
       userSettings: { update },
@@ -117,6 +118,7 @@ describe("PrismaCoursesRepository", () => {
     } as never);
 
     await expect(repository.setCurrentCourse("user-1", "course-1")).resolves.toBe("updated");
+    expect(transactionDatabase.$queryRaw).toHaveBeenCalledBefore(findFirst);
     expect(findFirst).toHaveBeenCalledWith({
       where: {
         userId: "user-1",

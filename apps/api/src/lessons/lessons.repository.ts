@@ -1,6 +1,6 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 
-import { loadItemExampleSentences, resolvePrimaryTaughtReading, type Prisma } from "@kanji-srs/db";
+import { loadItemExampleSentences, resolvePrimaryTaughtReading, Prisma } from "@kanji-srs/db";
 import {
   formatKanjiJlptLevel,
   type ContentLocale,
@@ -12,7 +12,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { PrismaService } from "../database/prisma.service";
-import { resolveCurrentCourseId } from "../courses/current-course";
+import { lockCourseSelectionUser, resolveCurrentCourseId } from "../courses/current-course";
 import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
 import {
   isEligibleListeningAudio,
@@ -760,20 +760,35 @@ export class PrismaLessonsRepository extends LessonsRepository {
   }
 
   async createLessonSession(input: CreateLessonSessionInput): Promise<LessonSessionRecord> {
-    const session = (await this.prisma.db.reviewSession.create({
-      data: {
-        userId: input.userId,
-        startedAt: input.now,
-        mode: "LESSON_QUIZ",
-        statsJson: {
-          deckId: input.deckId,
-          itemIds: input.itemIds,
-          currentItemId: input.itemIds[0],
-          phase: "meaning",
-          outcome: "active",
-        },
+    const session = await this.prisma.db.$transaction(
+      async (db) => {
+        if (!(await lockCourseSelectionUser(db, input.userId))) {
+          throw new NotFoundException("Аккаунт не найден.");
+        }
+        if (
+          input.deckId === null &&
+          (input.courseId === null ||
+            (await resolveCurrentCourseId(db, input.userId)) !== input.courseId)
+        ) {
+          throw new ConflictException("Текущий курс изменился. Обновите очередь уроков.");
+        }
+        return db.reviewSession.create({
+          data: {
+            userId: input.userId,
+            startedAt: input.now,
+            mode: "LESSON_QUIZ",
+            statsJson: {
+              deckId: input.deckId,
+              itemIds: input.itemIds,
+              currentItemId: input.itemIds[0],
+              phase: "meaning",
+              outcome: "active",
+            },
+          },
+        });
       },
-    })) as SessionRow;
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
 
     return toSessionRecord(session);
   }
