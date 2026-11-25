@@ -1378,7 +1378,7 @@ supports separate taught spellings and meanings: 早い (early) and 速い
   public learner flows, all sixty levels, and retained progress before
   declaring completion. No automatic learner version switch or V8.
 
-### Current server coverage and last source gap: 2026-11-23
+### Server coverage before the final vocabulary release: 2026-11-23
 
 - The [word plan](https://github.com/wndffs/kanji-app/actions/runs/45073302665)
   and [apply](https://github.com/wndffs/kanji-app/actions/runs/45076330965)
@@ -1402,6 +1402,26 @@ supports separate taught spellings and meanings: 早い (early) and 速い
   access and the original snapshot, plan before each window of at most
   100 pairs, then rerun live teaching preflight before applying the
   remaining manifests. This does not authorize an enrollment change.
+
+### Full content volume verified on Neon
+
+- The 165 absent exact JMdict pairs were imported from the verified local
+  snapshot in two insert-only windows of 100 and 65 pairs. The local
+  read-only reconciliation found no remaining gaps in the 1,200 selected
+  pairs. The local snapshot and new source checksums were not sent to GitHub.
+- The [server preflight](https://github.com/wndffs/kanji-app/actions/runs/45086720071)
+  passed all **1,192 words**. The [apply](https://github.com/wndffs/kanji-app/actions/runs/45087861115)
+  verified all 28 receipts with no blockers or warnings. All 18 protected
+  learner-data and curriculum groups were unchanged.
+- Final live content: **2,300 kanji / 8,000 words / 244 components / 10,544
+  teaching targets / 20,844 core cards**, with materials on all 60 levels,
+  2,300 licensed stroke sequences and 8,000 eligible bilingual examples.
+  Public API samples 禁錮 / きんこ (level 59) and 手っ取り早い / てっとりばやい
+  (level 60) each returned both translations, two review cards and an
+  attributed bilingual example.
+- The numeric content goal is complete. The main course remains `DRAFT`;
+  this was not a learner migration, course activation, or completion of the
+  full product gate. The existing finite courses and enrollment stay intact.
 
 ### Oversized Source-Only Windows
 
