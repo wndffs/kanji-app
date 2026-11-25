@@ -74,7 +74,7 @@ export function getPracticeFeedbackMessage(
     case "reveal":
       return "Ответ раскрыт, карточка будет повторяться раньше.";
     case "manual-ignore":
-      return "Ответ проигнорирован без изменения SRS.";
+      return "Карточка осталась в очереди. Расписание не изменилось.";
     default:
       return "Ответ не принят.";
   }

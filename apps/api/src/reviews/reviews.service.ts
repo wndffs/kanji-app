@@ -535,7 +535,7 @@ export class ReviewsService {
       throw new BadRequestException(`answerType must be ${target.card.answerType} for this card.`);
     }
 
-    assertListeningPlayback(target.card, request.listeningEvidence);
+    if (!request.manualIgnore) assertListeningPlayback(target.card, request.listeningEvidence);
 
     const validation =
       request.revealRequested || request.manualIgnore
@@ -656,7 +656,7 @@ export class ReviewsService {
           request.answer,
           validation?.relatedAnswer,
         ),
-        expected: toExpectedAnswers(target),
+        expected: responseResult === "manual-ignore" ? [] : toExpectedAnswers(target),
         blockedReason: getPracticeBlockedReason(target.card, validation?.matchedAnswer ?? null),
         diagnostic: toPracticeAnswerDiagnostic(validation?.relatedAnswer),
       },
@@ -734,7 +734,7 @@ function parseReviewAnswerRequest(body: unknown): ParsedReviewAnswerRequest {
   return {
     cardId: parseRequiredString(record.cardId, "cardId"),
     answer:
-      revealRequested && record.answer === ""
+      (revealRequested || manualIgnore) && record.answer === ""
         ? ""
         : parseRequiredString(record.answer, "answer", MAX_REVIEW_ANSWER_LENGTH),
     answerType: parseAnswerType(record.answerType),

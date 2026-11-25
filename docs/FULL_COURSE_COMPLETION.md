@@ -104,8 +104,9 @@ to the content deficit. Keep them within this single task:
   Uncertain submissions can be reconciled with the saved review session.
   An optional post-answer breakdown shows the item's localized teaching
   notes and a licensed example without preloading them during recall.
-  Explicit manual-ignore and reviewed-answer recovery remain open; never
-  silently reverse a penalty on a synonym save.
+  Confirmed skip before grading leaves the card due, does not expose the answer,
+  and does not count as a mistake or require a correction. Undoing an already
+  graded answer remains open; never silently reverse a penalty on a synonym save.
 - **Implemented in code:** stalled private-deck lessons offer a bounded plan
   of currently startable external prerequisites, and can create a separate
   private follow-up deck. Below-stage prerequisites lead to reviews; original

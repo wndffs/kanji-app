@@ -1313,14 +1313,14 @@ textarea::placeholder {
 .review-answer-bar .review-submit svg {
   flex: 0 0 auto;
 }
-.review-reveal-actions {
+.review-card-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 16px;
   grid-column: 1 / -1;
 }
-.review-reveal-actions .text-action {
+.review-card-actions .text-action {
   display: inline-flex;
   align-items: center;
   gap: 6px;

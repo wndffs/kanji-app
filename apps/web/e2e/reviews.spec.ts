@@ -22,6 +22,7 @@ const SESSION_ID = "review-session-1";
 type CapturedReviewAnswerRequest = {
   readonly cardId?: string;
   readonly revealRequested?: boolean;
+  readonly manualIgnore?: boolean;
   readonly answer?: string;
   readonly answerType?: string;
   readonly listeningEvidence?: {
@@ -89,6 +90,47 @@ test.describe("review session", () => {
     await expect(page.getByRole("button", { name: "Не помню", exact: true })).toHaveCount(0);
     await expect(page.getByLabel("Ответ значением")).toBeEnabled();
     expect(answerRequests).toHaveLength(1);
+  });
+
+  test("skips broken listening without revealing an answer or recording a miss", async ({
+    page,
+  }) => {
+    const answerRequests: CapturedReviewAnswerRequest[] = [];
+    await signIn(page);
+    await mockReviewApi(page, {
+      resumable: true,
+      queue: [listeningReviewQueueItem],
+      failAudio: true,
+      answerRequests,
+    });
+    await page.goto("/reviews");
+    await page.getByRole("button", { name: "Начать повторение", exact: true }).click();
+    const skip = page.getByRole("button", { name: "Пропустить", exact: true });
+    await expect(page.getByLabel("Ответ чтением")).toBeDisabled();
+    await skip.click();
+    const cancel = page.getByRole("button", { name: "Отмена", exact: true });
+    await expect(cancel).toBeFocused();
+    await cancel.click();
+    await expect(skip).toBeFocused();
+    expect(answerRequests).toHaveLength(0);
+
+    await skip.click();
+    await page.getByRole("button", { name: "Пропустить без оценки", exact: true }).click();
+    const feedback = page.getByRole("region", { name: "Результат ответа" });
+    await expect(feedback.getByRole("heading", { name: "Карточка пропущена" })).toBeVisible();
+    await expect(feedback.getByRole("heading", { name: "Правильные ответы" })).toHaveCount(0);
+    await expect(page.getByText("Ошибок: 0", { exact: true })).toBeVisible();
+    expect(answerRequests).toEqual([
+      expect.objectContaining({
+        cardId: listeningReviewQueueItem.card.id,
+        answer: "",
+        manualIgnore: true,
+        listeningEvidence: undefined,
+      }),
+    ]);
+    await feedback.getByRole("button", { name: "Дальше", exact: true }).click();
+    await expect(page.getByText("Пропущено", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Исправление ошибок" })).toHaveCount(0);
   });
 
   test("loads a localized card breakdown only after feedback and explicit expansion", async ({
@@ -1760,7 +1802,9 @@ async function mockReviewApi(
   function activeResponse(): ActiveReviewSessionResponse {
     if (!active)
       return { session: null, items: [], currentIndex: 0, corrections: [], progress: null };
-    const missed = completedAnswers.filter((answer) => !answer.accepted);
+    const missed = completedAnswers.filter(
+      (answer) => !answer.accepted && answer.result !== "manual-ignore",
+    );
     return {
       session,
       items: queue.filter(
@@ -1891,6 +1935,7 @@ async function mockReviewApi(
       readonly answerType?: string;
       readonly cardId?: string;
       readonly revealRequested?: boolean;
+      readonly manualIgnore?: boolean;
       readonly listeningEvidence?: CapturedReviewAnswerRequest["listeningEvidence"];
     };
     const answer = body.answer ?? "";
@@ -1903,6 +1948,7 @@ async function mockReviewApi(
       item.card.answerType === "reading" ? normalizeJapaneseReading : (value: string) => value;
     const accepted =
       body.revealRequested !== true &&
+      body.manualIgnore !== true &&
       (getExpectedAnswerTexts(item).map(normalize).includes(normalize(answer)) ||
         privateAnswers.has(answer));
 
@@ -1911,13 +1957,20 @@ async function mockReviewApi(
       cardId: body.cardId,
       listeningEvidence: body.listeningEvidence,
       ...(body.revealRequested ? { revealRequested: true, answer } : {}),
+      ...(body.manualIgnore ? { manualIgnore: true, answer } : {}),
     });
 
     const response = createAnswerResponse({
       answer,
       accepted,
       item,
-      result: body.revealRequested ? "reveal" : accepted ? "correct" : "wrong",
+      result: body.manualIgnore
+        ? "manual-ignore"
+        : body.revealRequested
+          ? "reveal"
+          : accepted
+            ? "correct"
+            : "wrong",
     });
     const isRetry = answer === "ひと";
 
@@ -2173,34 +2226,43 @@ function createAnswerResponse({
     normalizedAnswer: answer,
     matchedAnswer: accepted ? answer : null,
     feedback: {
-      message: accepted ? "Ответ принят." : "Ответ не принят.",
-      expected: getExpectedAnswers(item),
+      message:
+        result === "manual-ignore"
+          ? "Карточка осталась в очереди."
+          : accepted
+            ? "Ответ принят."
+            : "Ответ не принят.",
+      expected: result === "manual-ignore" ? [] : getExpectedAnswers(item),
       blockedReason: null,
     },
     previousSrs: item.srs,
-    nextSrs: {
-      stageIndex: accepted ? 2 : 1,
-      stageName: accepted ? "Apprentice 2" : "Apprentice 1",
-      availableAt: accepted ? "2026-06-22T16:00:00.000Z" : "2026-06-22T12:00:00.000Z",
-      burnedAt: null,
-      wrongCount: accepted ? 0 : 1,
-      correctStreak: accepted ? 1 : 0,
-    },
+    nextSrs:
+      result === "manual-ignore"
+        ? item.srs
+        : {
+            stageIndex: accepted ? 2 : 1,
+            stageName: accepted ? "Apprentice 2" : "Apprentice 1",
+            availableAt: accepted ? "2026-06-22T16:00:00.000Z" : "2026-06-22T12:00:00.000Z",
+            burnedAt: null,
+            wrongCount: accepted ? 0 : 1,
+            correctStreak: accepted ? 1 : 0,
+          },
     srsTransition: accepted ? "advanced" : "unchanged",
   };
 }
 
 function createSessionSummary(answers: readonly ReviewAnswerResponse[]): ReviewSessionSummaryDto {
   const correctAnswers = answers.filter((answer) => answer.accepted).length;
-  const incorrectAnswers = answers.length - correctAnswers;
+  const ignoredAnswers = answers.filter((answer) => answer.result === "manual-ignore").length;
+  const graded = answers.length - ignoredAnswers;
+  const incorrectAnswers = graded - correctAnswers;
 
   return {
     totalAnswers: answers.length,
     correctAnswers,
     incorrectAnswers,
-    ignoredAnswers: 0,
-    accuracyPercent:
-      answers.length === 0 ? null : Math.round((correctAnswers / answers.length) * 100),
+    ignoredAnswers,
+    accuracyPercent: graded === 0 ? null : Math.round((correctAnswers / graded) * 100),
     advanced: answers.filter((answer) => answer.srsTransition === "advanced").length,
     unchanged: answers.filter((answer) => answer.srsTransition === "unchanged").length,
     demoted: answers.filter((answer) => answer.srsTransition === "demoted").length,

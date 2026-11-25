@@ -209,6 +209,12 @@ feedback with the result, correct answers, blocked-answer reason if relevant,
 and previous/next SRS summaries. Answers can be submitted only to the current
 user's active review session.
 
+An explicit `manualIgnore: true` with an empty `answer` skips the current
+card without disclosing accepted answers or changing its due time, stage,
+streak, or error count. This works without playback for an ungradable
+listening prompt. It needs no correction and is not a wrong answer. It cannot
+be combined with `revealRequested`, which instead counts as a miss.
+
 When a rejected reading matches another KANJIDIC2 reading of the same kanji,
 lesson, review, and practice feedback identify it as an alternative reading.
 The diagnostic requests another answer without recording a review attempt,

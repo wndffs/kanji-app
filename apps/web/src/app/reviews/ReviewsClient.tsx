@@ -52,6 +52,7 @@ import {
   SpellCheck,
   RefreshCw,
   Eye,
+  SkipForward,
 } from "lucide-react";
 import { ListeningAttribution, ListeningPrompt } from "../../components/ListeningPrompt";
 import {
@@ -98,7 +99,8 @@ type ReviewProgress = {
   readonly accepted: number;
   readonly missed: number;
 };
-type ReviewSubmission = "answer" | "reveal";
+type ReviewDecision = "reveal" | "skip";
+type ReviewSubmission = "answer" | ReviewDecision;
 
 const INITIAL_PROGRESS: ReviewProgress = {
   answered: 0,
@@ -149,7 +151,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [unconfirmedAnswer, setUnconfirmedAnswer] = useState<ReviewSubmission | null>(null);
-  const [confirmReveal, setConfirmReveal] = useState(false);
+  const [confirmDecision, setConfirmDecision] = useState<ReviewDecision | null>(null);
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
   const [isReconciling, setIsReconciling] = useState(false);
   const reconcilePending = useRef(false);
@@ -162,7 +164,9 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
     playCount: 0,
   });
   const answerInputRef = useRef<HTMLInputElement>(null);
-  const cancelRevealRef = useRef<HTMLButtonElement>(null);
+  const cancelDecisionRef = useRef<HTMLButtonElement>(null);
+  const skipButtonRef = useRef<HTMLButtonElement>(null);
+  const focusSkipAfterCancel = useRef(false);
   const composingAnswer = useRef(false);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
   const requestRevision = useRef(0);
@@ -211,7 +215,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       setFormError(null);
       setSessionError(null);
       setUnconfirmedAnswer(null);
-      setConfirmReveal(false);
+      setConfirmDecision(null);
       setRecoveryMessage(null);
       setAwaitingFinish(false);
     }
@@ -320,8 +324,8 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       currentItem !== null &&
       !isSubmitting &&
       !isReconciling &&
-      unconfirmedAnswer !== "reveal" &&
-      !confirmReveal &&
+      (unconfirmedAnswer === null || unconfirmedAnswer === "answer") &&
+      confirmDecision === null &&
       listeningReady
     ) {
       answerInputRef.current?.focus();
@@ -333,13 +337,18 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
     isReconciling,
     listeningReady,
     session,
-    confirmReveal,
+    confirmDecision,
     unconfirmedAnswer,
   ]);
 
   useEffect(() => {
-    if (confirmReveal) cancelRevealRef.current?.focus();
-  }, [confirmReveal]);
+    if (confirmDecision !== null) {
+      cancelDecisionRef.current?.focus();
+    } else if (focusSkipAfterCancel.current) {
+      focusSkipAfterCancel.current = false;
+      skipButtonRef.current?.focus();
+    }
+  }, [confirmDecision]);
 
   useEffect(() => {
     composingAnswer.current = false;
@@ -462,7 +471,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (!confirmReveal) await sendSubmission("answer");
+    if (confirmDecision === null) await sendSubmission("answer");
   }
 
   async function sendSubmission(kind: ReviewSubmission): Promise<void> {
@@ -474,15 +483,15 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       feedback !== null ||
       submitPending.current ||
       reconcilePending.current ||
-      (kind === "reveal" && isCorrecting) ||
+      (kind !== "answer" && isCorrecting) ||
       (unconfirmedAnswer !== null && unconfirmedAnswer !== kind)
     ) {
       return;
     }
 
-    const trimmedAnswer = kind === "reveal" ? "" : prepareStudyAnswer(answer, answerMode);
+    const trimmedAnswer = kind === "answer" ? prepareStudyAnswer(answer, answerMode) : "";
 
-    if (!listeningReady) {
+    if (!listeningReady && kind !== "skip") {
       setFormError("Сначала прослушайте запись полностью.");
       return;
     }
@@ -496,7 +505,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
     setFormError(null);
     setSessionError(null);
     setUnconfirmedAnswer(null);
-    setConfirmReveal(false);
+    setConfirmDecision(null);
     setRecoveryMessage(null);
     submitPending.current = true;
     setIsSubmitting(true);
@@ -508,8 +517,11 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
         answerType: currentItem.card.answerType,
         answeredAt: new Date().toISOString(),
         ...(kind === "reveal" ? { revealRequested: true } : {}),
+        ...(kind === "skip" ? { manualIgnore: true } : {}),
         listeningEvidence:
-          currentItem.card.promptType === "listening" ? listeningEvidence : undefined,
+          currentItem.card.promptType === "listening" && kind !== "skip"
+            ? listeningEvidence
+            : undefined,
       };
       const response = isCorrecting
         ? await submitReviewCorrection(queueState.token, session.id, request)
@@ -517,16 +529,17 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       if (!ownsWorkspace(queueState.token)) return;
 
       if ("progress" in response) setCorrectedCardIds(response.progress.correctedCardIds);
-      if (!response.retry) {
+      if (!response.retry && response.result !== "manual-ignore") {
         playAnswerSound(response.accepted);
       }
-      if (kind === "reveal" || currentItem.card.answerType === "reading") setAnswer(trimmedAnswer);
+      if (kind !== "answer" || currentItem.card.answerType === "reading") setAnswer(trimmedAnswer);
       setFeedback(response);
       if (!response.retry && !isCorrecting) {
         setProgress((previous) => ({
           answered: previous.answered + 1,
           accepted: previous.accepted + (response.accepted ? 1 : 0),
-          missed: previous.missed + (response.accepted ? 0 : 1),
+          missed:
+            previous.missed + (response.accepted || response.result === "manual-ignore" ? 0 : 1),
         }));
       }
     } catch (error: unknown) {
@@ -534,9 +547,11 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       setSessionError(
         error instanceof Error
           ? error.message
-          : kind === "reveal"
-            ? "Не удалось показать ответ."
-            : "Не удалось отправить ответ.",
+          : kind === "skip"
+            ? "Не удалось пропустить карточку."
+            : kind === "reveal"
+              ? "Не удалось показать ответ."
+              : "Не удалось отправить ответ.",
       );
       setUnconfirmedAnswer(kind);
     } finally {
@@ -583,7 +598,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
       setSessionError(null);
       setFormError(null);
       setUnconfirmedAnswer(null);
-      setConfirmReveal(false);
+      setConfirmDecision(null);
       if (!sameCard) setAnswer("");
       setRecoveryMessage(
         sameCard ? "Текущая карточка ожидает ответа." : "Сохранённая позиция восстановлена.",
@@ -989,6 +1004,12 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
     : unconfirmedAnswer === "answer"
       ? RotateCcw
       : ArrowRight;
+  const answerDisabled =
+    isSubmitting ||
+    isReconciling ||
+    !listeningReady ||
+    confirmDecision !== null ||
+    (unconfirmedAnswer !== null && unconfirmedAnswer !== "answer");
 
   return (
     <section
@@ -1089,13 +1110,7 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
               aria-describedby={formError === null ? undefined : "review-answer-error"}
               aria-invalid={formError !== null}
               composingRef={composingAnswer}
-              disabled={
-                isSubmitting ||
-                isReconciling ||
-                !listeningReady ||
-                confirmReveal ||
-                unconfirmedAnswer === "reveal"
-              }
+              disabled={answerDisabled}
               id="review-answer"
               onValueChange={setAnswer}
               placeholder={formatInputPlaceholder(answerMode)}
@@ -1106,54 +1121,73 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           <button
             aria-label={submitLabel}
             className="primary-action review-submit"
-            disabled={
-              isSubmitting ||
-              isReconciling ||
-              !listeningReady ||
-              confirmReveal ||
-              unconfirmedAnswer === "reveal"
-            }
+            disabled={answerDisabled}
             title={submitLabel}
             type="submit"
           >
             <span className="review-submit-label">{submitLabel}</span>
             <SubmitIcon aria-hidden="true" size={20} />
           </button>
-          {!isCorrecting && (unconfirmedAnswer === null || unconfirmedAnswer === "reveal") ? (
-            <div className="review-reveal-actions">
-              {confirmReveal ? (
+          {!isCorrecting && unconfirmedAnswer !== "answer" ? (
+            <div className="review-card-actions">
+              {confirmDecision !== null ? (
                 <>
                   <button
                     className="secondary-action"
                     disabled={isSubmitting}
                     type="button"
-                    onClick={() => void sendSubmission("reveal")}
+                    onClick={() => void sendSubmission(confirmDecision)}
                   >
-                    Показать и засчитать ошибку
+                    {confirmDecision === "reveal"
+                      ? "Показать и засчитать ошибку"
+                      : "Пропустить без оценки"}
                   </button>
                   <button
                     className="text-action"
-                    ref={cancelRevealRef}
+                    ref={cancelDecisionRef}
                     type="button"
-                    onClick={() => setConfirmReveal(false)}
+                    onClick={() => {
+                      focusSkipAfterCancel.current = !listeningReady;
+                      setConfirmDecision(null);
+                    }}
                   >
                     Отмена
                   </button>
                 </>
               ) : (
-                <button
-                  className="text-action"
-                  disabled={isSubmitting || isReconciling || !listeningReady}
-                  type="button"
-                  onClick={() =>
-                    unconfirmedAnswer === "reveal"
-                      ? void sendSubmission("reveal")
-                      : setConfirmReveal(true)
-                  }
-                >
-                  <Eye size={16} aria-hidden="true" />
-                  {unconfirmedAnswer === "reveal" ? "Повторить показ" : "Не помню"}
-                </button>
+                <>
+                  {unconfirmedAnswer === "skip" ? null : (
+                    <button
+                      className="text-action"
+                      disabled={isSubmitting || isReconciling || !listeningReady}
+                      type="button"
+                      onClick={() =>
+                        unconfirmedAnswer === "reveal"
+                          ? void sendSubmission("reveal")
+                          : setConfirmDecision("reveal")
+                      }
+                    >
+                      <Eye size={16} aria-hidden="true" />
+                      {unconfirmedAnswer === "reveal" ? "Повторить показ" : "Не помню"}
+                    </button>
+                  )}
+                  {unconfirmedAnswer === "reveal" ? null : (
+                    <button
+                      className="text-action"
+                      disabled={isSubmitting || isReconciling}
+                      ref={skipButtonRef}
+                      type="button"
+                      onClick={() =>
+                        unconfirmedAnswer === "skip"
+                          ? void sendSubmission("skip")
+                          : setConfirmDecision("skip")
+                      }
+                    >
+                      <SkipForward size={16} aria-hidden="true" />
+                      {unconfirmedAnswer === "skip" ? "Повторить пропуск" : "Пропустить"}
+                    </button>
+                  )}
+                </>
               )}
             </div>
           ) : null}
@@ -1234,13 +1268,16 @@ function FeedbackPanel({
     if (!isSaving && saveMessage !== null) continueButtonRef.current?.focus();
   }, [isSaving, saveMessage, continueButtonRef]);
   const isAccepted = feedback.accepted;
-  const ResultIcon = feedback.retry
-    ? RotateCcw
-    : feedback.result === "typo"
-      ? SpellCheck
-      : isAccepted
-        ? CircleCheck
-        : CircleX;
+  const skipped = feedback.result === "manual-ignore";
+  const ResultIcon = skipped
+    ? SkipForward
+    : feedback.retry
+      ? RotateCcw
+      : feedback.result === "typo"
+        ? SpellCheck
+        : isAccepted
+          ? CircleCheck
+          : CircleX;
 
   async function handleSavePrivateAnswer(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -1288,7 +1325,7 @@ function FeedbackPanel({
             {feedback.retry ? "Другое чтение" : formatResult(feedback.result)}
           </h2>
           <p>{feedback.feedback.message}</p>
-          {!feedback.retry && "nextSrs" in feedback ? (
+          {!skipped && !feedback.retry && "nextSrs" in feedback ? (
             <span className="feedback-stage">{formatSrsStageName(feedback.nextSrs.stageName)}</span>
           ) : null}
         </div>
@@ -1309,104 +1346,110 @@ function FeedbackPanel({
         </div>
       </div>
 
-      <div className="feedback-grid">
-        {feedback.result === "reveal" ? null : (
-          <div>
-            <h3>Ваш ответ</h3>
-            <p>{answer}</p>
-          </div>
-        )}
-        <div>
-          <h3>Правильные ответы</h3>
-          <ExpectedAnswers
-            answers={feedback.feedback.expected}
-            answerType={item.card.answerType}
-            displayMode={displayMode}
-          />
-        </div>
-      </div>
-      <ReviewItemBreakdown itemId={item.item.id} token={token} displayMode={displayMode} />
-      <SectionDisclosure title="Расписание повторений">
-        {"srsTransition" in feedback ? (
-          <div>
-            <h3>Изменение SRS</h3>
-            <p>
-              {formatSrsTransition(feedback.srsTransition)} ·{" "}
-              {formatSrsStageName(feedback.previousSrs.stageName)} →{" "}
-              {formatSrsStageName(feedback.nextSrs.stageName)}
-              {feedback.nextSrs.availableAt === null
-                ? ""
-                : ` · ${formatReviewDueAt(feedback.nextSrs.availableAt, timezone)}`}
-            </p>
-          </div>
-        ) : (
-          <div>
-            <h3>SRS</h3>
-            <p>Без изменений</p>
-          </div>
-        )}
-      </SectionDisclosure>
-
-      {item.card.promptType === "listening" && item.card.audio != null ? (
-        <section className="listening-feedback-details">
-          <div>
-            <h3>Прослушанный материал</h3>
-            <JapaneseText
-              as="p"
-              variant={item.item.itemType === "sentence" ? "sentence" : "display"}
-            >
-              {item.item.japanese}
-            </JapaneseText>
-            <p lang="ja">{item.item.reading ?? "Чтение не указано"}</p>
-            {item.item.translations === undefined ? null : (
-              <p>{formatReviewTranslations(item.item.translations, displayMode)}</p>
+      {skipped ? null : (
+        <>
+          <div className="feedback-grid">
+            {feedback.result === "reveal" ? null : (
+              <div>
+                <h3>Ваш ответ</h3>
+                <p>{answer}</p>
+              </div>
             )}
-          </div>
-          <ListeningAttribution audio={item.card.audio} />
-        </section>
-      ) : null}
-
-      {feedback.result === "reveal" ? null : (
-        <SectionDisclosure title="Добавить свой ответ">
-          <form
-            className="private-answer-form"
-            onSubmit={(event) => void handleSavePrivateAnswer(event)}
-          >
-            <label>
-              <span>Приватный правильный вариант</span>
-              <input
-                autoComplete="off"
-                disabled={isSaving}
-                onChange={(event) => setPrivateAnswer(event.currentTarget.value)}
-                value={privateAnswer}
+            <div>
+              <h3>Правильные ответы</h3>
+              <ExpectedAnswers
+                answers={feedback.feedback.expected}
+                answerType={item.card.answerType}
+                displayMode={displayMode}
               />
-            </label>
-            {item.card.answerType === "reading" ? (
-              <p className="muted">Чтения сохраняются как японские варианты без метки RU/EN.</p>
+            </div>
+          </div>
+          <ReviewItemBreakdown itemId={item.item.id} token={token} displayMode={displayMode} />
+          <SectionDisclosure title="Расписание повторений">
+            {"srsTransition" in feedback ? (
+              <div>
+                <h3>Изменение SRS</h3>
+                <p>
+                  {formatSrsTransition(feedback.srsTransition)} ·{" "}
+                  {formatSrsStageName(feedback.previousSrs.stageName)} →{" "}
+                  {formatSrsStageName(feedback.nextSrs.stageName)}
+                  {feedback.nextSrs.availableAt === null
+                    ? ""
+                    : ` · ${formatReviewDueAt(feedback.nextSrs.availableAt, timezone)}`}
+                </p>
+              </div>
             ) : (
-              <label>
-                <span>Язык</span>
-                <select
-                  disabled={isSaving}
-                  onChange={(event) => setPrivateLocale(event.currentTarget.value as ContentLocale)}
-                  value={privateLocale}
+              <div>
+                <h3>SRS</h3>
+                <p>Без изменений</p>
+              </div>
+            )}
+          </SectionDisclosure>
+
+          {item.card.promptType === "listening" && item.card.audio != null ? (
+            <section className="listening-feedback-details">
+              <div>
+                <h3>Прослушанный материал</h3>
+                <JapaneseText
+                  as="p"
+                  variant={item.item.itemType === "sentence" ? "sentence" : "display"}
                 >
-                  <option value="ru-RU">Русский</option>
-                  <option value="en-US">English</option>
-                </select>
-              </label>
-            )}
-            <button className="secondary-action" disabled={isSaving} type="submit">
-              {isSaving ? "Сохраняю..." : "Сохранить вариант"}
-            </button>
-            {saveMessage === null ? null : <p className="success-text">{saveMessage}</p>}
-            {saveError === null ? null : (
-              <p className="form-error" role="alert">
-                {saveError}
-              </p>
-            )}
-          </form>
-        </SectionDisclosure>
+                  {item.item.japanese}
+                </JapaneseText>
+                <p lang="ja">{item.item.reading ?? "Чтение не указано"}</p>
+                {item.item.translations === undefined ? null : (
+                  <p>{formatReviewTranslations(item.item.translations, displayMode)}</p>
+                )}
+              </div>
+              <ListeningAttribution audio={item.card.audio} />
+            </section>
+          ) : null}
+
+          {feedback.result === "reveal" ? null : (
+            <SectionDisclosure title="Добавить свой ответ">
+              <form
+                className="private-answer-form"
+                onSubmit={(event) => void handleSavePrivateAnswer(event)}
+              >
+                <label>
+                  <span>Приватный правильный вариант</span>
+                  <input
+                    autoComplete="off"
+                    disabled={isSaving}
+                    onChange={(event) => setPrivateAnswer(event.currentTarget.value)}
+                    value={privateAnswer}
+                  />
+                </label>
+                {item.card.answerType === "reading" ? (
+                  <p className="muted">Чтения сохраняются как японские варианты без метки RU/EN.</p>
+                ) : (
+                  <label>
+                    <span>Язык</span>
+                    <select
+                      disabled={isSaving}
+                      onChange={(event) =>
+                        setPrivateLocale(event.currentTarget.value as ContentLocale)
+                      }
+                      value={privateLocale}
+                    >
+                      <option value="ru-RU">Русский</option>
+                      <option value="en-US">English</option>
+                    </select>
+                  </label>
+                )}
+                <button className="secondary-action" disabled={isSaving} type="submit">
+                  {isSaving ? "Сохраняю..." : "Сохранить вариант"}
+                </button>
+                {saveMessage === null ? null : <p className="success-text">{saveMessage}</p>}
+                {saveError === null ? null : (
+                  <p className="form-error" role="alert">
+                    {saveError}
+                  </p>
+                )}
+              </form>
+            </SectionDisclosure>
+          )}
+        </>
       )}
     </section>
   );
@@ -1489,7 +1532,7 @@ function formatResult(result: ReviewAnswerResponse["result"]): string {
     case "reveal":
       return "Показан ответ";
     case "manual-ignore":
-      return "Игнорировано";
+      return "Карточка пропущена";
     case "wrong":
       return "Ошибка";
   }

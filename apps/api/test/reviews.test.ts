@@ -873,11 +873,7 @@ describe("resumable scheduled review corrections", () => {
   it("records an explicit no-answer reveal as a miss and schedules correction once", async () => {
     const { repository, service } = createHarness();
     const started = await service.startSession(singleCardUser);
-    for (const action of [
-      {},
-      { manualIgnore: true },
-      { revealRequested: true, manualIgnore: true },
-    ]) {
+    for (const action of [{}, { revealRequested: true, manualIgnore: true }]) {
       await expect(
         service.submitAnswer(started.session.id, user, { ...request, answer: "", ...action }),
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -898,6 +894,37 @@ describe("resumable scheduled review corrections", () => {
     });
     expect(repository.getState("state-due")).toEqual(afterReveal);
     expect(repository.recordedAnswers).toHaveLength(1);
+  });
+
+  it("skips unavailable listening without grading, exposing answers or changing the due state", async () => {
+    const { repository, service } = createHarness();
+    Object.assign(repository.getCard(request.cardId), { promptType: "listening" });
+    const started = await service.startSession(singleCardUser);
+    const before = structuredClone(repository.getState("state-due"));
+    await expect(service.submitAnswer(started.session.id, user, request)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    const skip = { ...request, answer: "", manualIgnore: true };
+    await expect(service.submitAnswer(started.session.id, user, skip)).resolves.toMatchObject({
+      accepted: false,
+      result: "manual-ignore",
+      normalizedAnswer: "",
+      feedback: { expected: [] },
+      srsTransition: "unchanged",
+    });
+    expect(repository.getState("state-due")).toEqual(before);
+    expect(repository.recordedAnswers).toHaveLength(1);
+    expect((await service.getActiveSession(user)).corrections).toEqual([]);
+    expect((await service.finishSession(started.session.id, user)).summary).toMatchObject({
+      totalAnswers: 1,
+      correctAnswers: 0,
+      incorrectAnswers: 0,
+      ignoredAnswers: 1,
+      accuracyPercent: null,
+    });
+    expect(
+      (await service.startSession(singleCardUser)).items?.map((item) => item.card.id),
+    ).toContain(request.cardId);
   });
 
   it("rejects foreign owners, cross-session originals, non-missed cards and wrong answer types", async () => {
