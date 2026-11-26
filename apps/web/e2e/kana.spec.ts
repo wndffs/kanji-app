@@ -647,6 +647,22 @@ test.describe("kana lessons", () => {
 
     await page.getByRole("button", { name: "きゃ: прогресс 0 из 3" }).click();
     await expect(practice.getByText("Сопоставление", { exact: true })).toBeVisible();
+    const board = practice.locator(".kana-match-board");
+    const readRows = () =>
+      board.locator(".kana-match-column").evaluateAll((columns) =>
+        columns.map((column) =>
+          [...column.querySelectorAll("button")].map((button) => {
+            const { top, height } = button.getBoundingClientRect();
+            return { top: top - column.getBoundingClientRect().top, height };
+          }),
+        ),
+      );
+    const rowsBeforeMatching = await readRows();
+    expect(rowsBeforeMatching[0]).toHaveLength(3);
+    expect(rowsBeforeMatching[0]).toEqual(rowsBeforeMatching[1]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
     for (const [character, romaji] of [
       ["きゃ", "kya"],
       ["う", "u"],
@@ -656,6 +672,7 @@ test.describe("kana lessons", () => {
       await practice.getByRole("button", { name: romaji, exact: true }).click();
     }
     await expect(practice.getByText("Все пары собраны", { exact: true })).toBeVisible();
+    expect(await readRows()).toEqual(rowsBeforeMatching);
 
     await page.getByRole("tab", { name: "Уроки" }).click();
     await page.getByRole("button", { name: "Катакана" }).click();

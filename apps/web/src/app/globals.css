@@ -4954,7 +4954,18 @@ textarea:focus-visible {
 .kana-match-column {
   display: grid;
   align-content: start;
+  grid-auto-rows: 68px;
   gap: 10px;
+  min-width: 0;
+}
+
+.kana-match-column button {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  padding: 4px 8px;
 }
 
 .kana-match-column button.is-matched {
