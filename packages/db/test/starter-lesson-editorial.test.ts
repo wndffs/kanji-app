@@ -15,6 +15,7 @@ import { FOUNDATION_KANJI_EDITORIAL } from "../src/foundation-kanji-editorial";
 import { FOUNDATION_BASICS_EDITORIAL } from "../src/foundation-basics-editorial";
 import { FOUNDATION_COMPONENTS_EDITORIAL } from "../src/foundation-components-editorial";
 import { FOUNDATION_COMPLETION_EDITORIAL } from "../src/foundation-level-two-editorial";
+import { FOUNDATION_LEVEL_THREE_EDITORIAL } from "../src/foundation-level-three-editorial";
 
 it("covers the exact starter syllabus with substantive RU/EN hints and kanji-only additions", () => {
   const starter = buildStarterCourseSeed();
@@ -177,6 +178,46 @@ it("completes the registered level-one components and level-two kanji without re
   expect(resolveEditorialBatch(`publish-lesson-editorial-${version}`)).toBe(
     "foundation-completion",
   );
+});
+
+it("covers every remaining level-three kanji with its taught reading and both languages", () => {
+  const { entries, version } = FOUNDATION_LEVEL_THREE_EDITORIAL;
+  const slots = registeredMainEditorialSlots(entries);
+  expect(slots.size).toBe(34);
+  const alreadyEdited = new Set([1, 2, 3, 4, 5, 13]);
+  const expected = Array.from({ length: 40 }, (_, index) => index + 1).filter(
+    (position) => !alreadyEdited.has(position),
+  );
+  expect(entries.map(({ itemKey }) => slots.get(itemKey)?.sortOrder)).toEqual(expected);
+  for (const entry of entries) {
+    expect(entry.kind).toBe("KANJI");
+    expect(slots.get(entry.itemKey)?.levelNumber).toBe(3);
+    expect(Object.keys(entry.hints).sort()).toEqual(["MEANING", "READING"]);
+    for (const pair of Object.values(entry.hints)) {
+      expect(pair.ru.trim().length).toBeGreaterThan(85);
+      expect(pair.en.trim().length).toBeGreaterThan(85);
+    }
+  }
+  expect(resolveEditorialBatch(`publish-lesson-editorial-${version}`)).toBe(
+    "foundation-level-three",
+  );
+});
+
+it("keeps Russian and English on their own sides of each new editorial pair", () => {
+  const releases = [
+    FOUNDATION_COMPONENTS_EDITORIAL,
+    FOUNDATION_COMPLETION_EDITORIAL,
+    FOUNDATION_LEVEL_THREE_EDITORIAL,
+  ];
+  for (const { entries } of releases) {
+    for (const entry of entries) {
+      for (const pair of [...Object.values(entry.hints), ...(entry.referenceMeanings ?? [])]) {
+        expect(pair.ru, entry.itemKey).toMatch(/\p{Script=Cyrillic}/u);
+        expect(pair.en, entry.itemKey).toMatch(/\p{Script=Latin}/u);
+        expect(pair.en, entry.itemKey).not.toMatch(/\p{Script=Cyrillic}/u);
+      }
+    }
+  }
 });
 
 it("selects only registered editorial names and exact immutable release tags", () => {

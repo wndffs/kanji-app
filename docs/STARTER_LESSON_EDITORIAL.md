@@ -84,3 +84,21 @@ Use the same exact version with `-attempt-2` through `-attempt-5` when a
 new attempt is required without moving the original tag. The resulting
 receipt still identifies the same editorial payload. The CLI retries only
 read-only connection failures (`P1001`), not writes or failed scope checks.
+
+## Completing the first two levels
+
+The next two reviewed main-course releases finish the 84 remaining
+level-one shapes and the 32 remaining level-two kanji:
+
+| Batch                   | Existing slots                            | Bilingual notes | Reference pairs | Apply receipt                                                                  |
+| ----------------------- | ----------------------------------------- | --------------: | --------------: | ------------------------------------------------------------------------------ |
+| `foundation-components` | Level 1 slots 27–63; level 2 slots 8–20   |              63 |               2 | [GitHub Actions](https://github.com/wndffs/kanji-app/actions/runs/45883505031) |
+| `foundation-completion` | Level 1 slots 64–110; level 2 slots 22–40 |              85 |              10 | [GitHub Actions](https://github.com/wndffs/kanji-app/actions/runs/45884225557) |
+
+Every component note points to an existing shape in a specific curriculum
+source batch. The shape examples were reviewed against KanjiVG and distinguish
+exact forms, positional variants and visual comparisons. The 32 kanji target
+readings and the examples were reviewed against the local pinned KANJIDIC2
+and JMdict data. Extra senses such as 金 “money” or 両 as a counter for
+railcars are references, not global accepted answers. 一 already has the
+bilingual starter explanation on its shared learning item.

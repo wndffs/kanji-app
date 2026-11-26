@@ -6,6 +6,7 @@ import { CURATION_SOURCE_NAMES } from "./curation-source-names";
 import { FOUNDATION_BASICS_EDITORIAL } from "./foundation-basics-editorial";
 import { FOUNDATION_COMPONENTS_EDITORIAL } from "./foundation-components-editorial";
 import { FOUNDATION_KANJI_EDITORIAL } from "./foundation-kanji-editorial";
+import { FOUNDATION_LEVEL_THREE_EDITORIAL } from "./foundation-level-three-editorial";
 import { FOUNDATION_COMPLETION_EDITORIAL } from "./foundation-level-two-editorial";
 import { buildMainCourseContentBatches, type MainCourseKanjiContent } from "./main-course-content";
 import type { MainCourseEditorialEntry } from "./main-course-editorial-entry";
@@ -51,6 +52,7 @@ const batchVersions = {
   "foundation-basics": FOUNDATION_BASICS_EDITORIAL.version,
   "foundation-components": FOUNDATION_COMPONENTS_EDITORIAL.version,
   "foundation-completion": FOUNDATION_COMPLETION_EDITORIAL.version,
+  "foundation-level-three": FOUNDATION_LEVEL_THREE_EDITORIAL.version,
 } as const;
 
 export type EditorialBatch = keyof typeof batchVersions;
@@ -213,6 +215,15 @@ export function applyFoundationCompletionEditorial(prisma: PrismaClient, mode: "
     mode,
     FOUNDATION_COMPLETION_EDITORIAL,
     "packages/db/src/foundation-level-two-editorial.ts",
+  );
+}
+
+export function applyFoundationLevelThreeEditorial(prisma: PrismaClient, mode: "plan" | "apply") {
+  return applyRegisteredMainEditorial(
+    prisma,
+    mode,
+    FOUNDATION_LEVEL_THREE_EDITORIAL,
+    "packages/db/src/foundation-level-three-editorial.ts",
   );
 }
 
