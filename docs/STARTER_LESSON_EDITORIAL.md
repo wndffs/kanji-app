@@ -119,3 +119,13 @@ teaching answer, course placement or SRS state.
 The [level-4 publication receipt](https://github.com/wndffs/kanji-app/actions/runs/45886952068)
 records 34 matched items, 136 language-specific hint rows and 16
 reference rows.
+
+## Levels 5 and 6
+
+The [level-5 release](https://github.com/wndffs/kanji-app/actions/runs/45888041973)
+covers all 40 kanji in curriculum order, with 80 bilingual notes and eight
+bilingual reference meanings. The new examples distinguish readings in
+words such as 治療 and 政治. The level-6 release continues with 40 kanji,
+including the existing standalone readings of 神, 命 and 松. Both releases
+skip vocabulary and other material in the same level; they do not replace
+existing cards or introduce new accepted answers.
