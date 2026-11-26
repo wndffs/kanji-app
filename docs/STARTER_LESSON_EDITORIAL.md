@@ -141,3 +141,5 @@ It distinguishes everyday readings from compounds such as 新聞, 列島 and
 including the variant readings illustrated by 省略 and 反省, 規模 and
 模型, or 生存 and 存在. The content applies only to the exact kanji
 placements in the existing course.
+The [level-8 publication receipt](https://github.com/wndffs/kanji-app/actions/runs/45890989501)
+records 40 matches, 160 language-specific hint rows and six reference rows.
