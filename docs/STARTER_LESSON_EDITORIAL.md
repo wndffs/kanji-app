@@ -25,6 +25,9 @@ dictionary and its license information stay in the source layer.
 
 ## Apply
 
+The starter release was [applied on 2026-11-26](https://github.com/wndffs/kanji-app/actions/runs/45823331608):
+seven materials, 18 language-specific hint rows and four reference rows.
+
 On an already seeded database, run
 `npm exec -- tsx packages/db/prisma/apply-starter-lesson-editorial.ts plan`.
 The plan only reads and prints aggregate counts. The same command with
@@ -52,3 +55,5 @@ The same transaction runs with `plan foundation` or `apply foundation`.
 It additionally verifies the existing level slot, the published item and
 the actual primary reading card. The `foundation_editorial` workflow option
 requires the published main course and cannot run alongside migration or seed.
+The first foundation batch [applied on 2026-11-26](https://github.com/wndffs/kanji-app/actions/runs/45825229127):
+nine materials, 36 language-specific hint rows and eight reference rows.

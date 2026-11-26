@@ -97,7 +97,12 @@ describe("other kanji meanings", () => {
       ],
       en: [en("paddy", "imported")],
     };
-    const learning = { ru: [ru("поле", "curated", true)], en: [] };
+    const learning = {
+      primaryRu: "поле",
+      primaryEn: null,
+      ru: [ru("поле", "curated", true), ru("рисовое поле", "curated")],
+      en: [],
+    };
     const accepted = [ru("пашня", "curated")];
     expect(getOtherKanjiMeanings(dictionary, learning, accepted, false)).toEqual({
       ru: [ru("рисовое поле", "curated")],

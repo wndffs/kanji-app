@@ -2,6 +2,14 @@
 
 Status: **OPEN. Not a completed WaniKani replacement.**
 
+Current learner availability (2026-11-26): the full main course is
+[published and opt-in](https://github.com/wndffs/kanji-app/actions/runs/45823331608).
+The current Neon audit passed all nine checks; the status change did not switch
+or enroll users. All 60 levels and 2,300 kanji / 8,000 words are available in
+the structured course, subject to ordinary lesson prerequisites. Editorial,
+audio and full learner-journey follow-up are still open. Older DRAFT receipts
+below describe their point in time, not the current course status.
+
 This is the single active delivery task requested on 2026-10-30. It supersedes
 the automatic fifteen-task release cadence and task-count-based progress reports.
 The remaining 490–499 checks are acceptance criteria inside this task, not ten

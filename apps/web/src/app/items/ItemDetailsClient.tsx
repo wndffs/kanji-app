@@ -617,17 +617,24 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
     item.exampleSentences.some((sentence) => sentence.readingText !== null) ||
     item.relationGroups.some((group) => group.items.some((related) => related.reading !== null)) ||
     item.relations.some(({ item: related }) => related.reading !== null);
-  const otherMeanings = getLocalizedTexts(item.translations, displayMode).filter(
-    ({ locale, text }) =>
-      text.trim() !==
-      (locale === "ru-RU" ? item.translations.primaryRu : item.translations.primaryEn)?.trim(),
-  );
   const extraKanjiMeanings =
     item.kanjiDetails?.otherMeanings === undefined
       ? []
       : getLocalizedTexts(item.kanjiDetails.otherMeanings, displayMode);
-  const authoredKanjiMeanings = extraKanjiMeanings.filter((text) => text.sourceKind === "curated");
   const dictionaryMeanings = extraKanjiMeanings.filter((text) => text.sourceKind === "imported");
+  const otherMeanings = getLocalizedTexts(item.translations, displayMode).filter(
+    ({ locale, text }) =>
+      text.trim() !==
+        (locale === "ru-RU" ? item.translations.primaryRu : item.translations.primaryEn)?.trim() &&
+      !dictionaryMeanings.some((meaning) => meaning.locale === locale && meaning.text === text),
+  );
+  const authoredKanjiMeanings = extraKanjiMeanings.filter(
+    (text) =>
+      text.sourceKind === "curated" &&
+      !otherMeanings.some(
+        (meaning) => meaning.locale === text.locale && meaning.text === text.text,
+      ),
+  );
   const mnemonics = getLocalizedTexts(item.mnemonics, displayMode).filter(
     (text) => text.sourceKind !== "user",
   );

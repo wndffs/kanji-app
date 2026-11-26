@@ -8,13 +8,15 @@ import type {
 
 export function getOtherKanjiMeanings(
   dictionary: BilingualTextDto,
-  learning: BilingualTextDto,
+  learning: Pick<TranslationBundleDto, "primaryRu" | "primaryEn">,
   accepted: readonly LocalizedTextDto[],
   includeImported: boolean,
 ): BilingualTextDto {
   const key = (text: LocalizedTextDto) =>
     `${text.locale}:${text.text.normalize("NFKC").trim().toLowerCase()}`;
-  const seen = new Set([...learning.ru, ...learning.en, ...accepted].map(key));
+  const seen = new Set(accepted.map(key));
+  if (learning.primaryRu !== null) seen.add(key({ locale: "ru-RU", text: learning.primaryRu }));
+  if (learning.primaryEn !== null) seen.add(key({ locale: "en-US", text: learning.primaryEn }));
   const collect = (texts: readonly LocalizedTextDto[], locale: ContentLocale) =>
     texts
       .filter(
