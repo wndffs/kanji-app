@@ -22,6 +22,8 @@ import { FOUNDATION_LEVEL_SIX_EDITORIAL } from "../src/foundation-level-six-edit
 import { FOUNDATION_LEVEL_SEVEN_EDITORIAL } from "../src/foundation-level-seven-editorial";
 import { FOUNDATION_LEVEL_EIGHT_EDITORIAL } from "../src/foundation-level-eight-editorial";
 import { FOUNDATION_LEVEL_NINE_EDITORIAL } from "../src/foundation-level-nine-editorial";
+import { FOUNDATION_LEVEL_THIRTEEN_EDITORIAL } from "../src/foundation-level-thirteen-editorial";
+import { buildMainCourseContentBatches } from "../src/main-course-content";
 import { FOUNDATION_LEVEL_TEN_EDITORIAL } from "../src/foundation-level-ten-editorial";
 import { FOUNDATION_LEVEL_ELEVEN_EDITORIAL } from "../src/foundation-level-eleven-editorial";
 import { FOUNDATION_LEVEL_TWELVE_EDITORIAL } from "../src/foundation-level-twelve-editorial";
@@ -270,6 +272,14 @@ it.each([
     level: 12,
     skipped: Array.from({ length: 9 }, (_, index) => 60 + index),
   },
+  {
+    batch: "foundation-level-thirteen",
+    release: FOUNDATION_LEVEL_THIRTEEN_EDITORIAL,
+    start: 6,
+    length: 40,
+    level: 13,
+    skipped: [],
+  },
 ])(
   "covers the remaining level-$level kanji",
   ({ batch, release, length, start, level, skipped }) => {
@@ -294,22 +304,46 @@ it.each([
   },
 );
 
-it("keeps Russian and English on their own sides of each new editorial pair", () => {
-  const releases = [
-    FOUNDATION_COMPONENTS_EDITORIAL,
-    FOUNDATION_COMPLETION_EDITORIAL,
-    FOUNDATION_LEVEL_THREE_EDITORIAL,
-    FOUNDATION_LEVEL_FOUR_EDITORIAL,
-    FOUNDATION_LEVEL_FIVE_EDITORIAL,
-    FOUNDATION_LEVEL_SIX_EDITORIAL,
-    FOUNDATION_LEVEL_SEVEN_EDITORIAL,
-    FOUNDATION_LEVEL_EIGHT_EDITORIAL,
-    FOUNDATION_LEVEL_NINE_EDITORIAL,
-    FOUNDATION_LEVEL_TEN_EDITORIAL,
-    FOUNDATION_LEVEL_ELEVEN_EDITORIAL,
-    FOUNDATION_LEVEL_TWELVE_EDITORIAL,
+const reviewedMainReleases = [
+  FOUNDATION_COMPONENTS_EDITORIAL,
+  FOUNDATION_COMPLETION_EDITORIAL,
+  FOUNDATION_LEVEL_THREE_EDITORIAL,
+  FOUNDATION_LEVEL_FOUR_EDITORIAL,
+  FOUNDATION_LEVEL_FIVE_EDITORIAL,
+  FOUNDATION_LEVEL_SIX_EDITORIAL,
+  FOUNDATION_LEVEL_SEVEN_EDITORIAL,
+  FOUNDATION_LEVEL_EIGHT_EDITORIAL,
+  FOUNDATION_LEVEL_NINE_EDITORIAL,
+  FOUNDATION_LEVEL_TEN_EDITORIAL,
+  FOUNDATION_LEVEL_ELEVEN_EDITORIAL,
+  FOUNDATION_LEVEL_TWELVE_EDITORIAL,
+  FOUNDATION_LEVEL_THIRTEEN_EDITORIAL,
+] as const;
+
+it("covers the existing kanji from the start of the main course without duplicate notes", () => {
+  const starterSlots = buildStarterCourseSeed().items;
+  const covered = [
+    ...STARTER_LESSON_EDITORIAL.entries.flatMap(({ itemKey }) => {
+      const target = starterSlots.find(({ key }) => key === itemKey)?.target;
+      return target?.kind === "KANJI" ? [target.character] : [];
+    }),
+    ...FOUNDATION_KANJI_EDITORIAL.entries.map(({ character }) => character),
+    ...FOUNDATION_BASICS_EDITORIAL.entries.flatMap((entry) =>
+      entry.kind === "KANJI" ? [entry.character] : [],
+    ),
+    ...reviewedMainReleases.flatMap(({ entries }) =>
+      entries.flatMap((entry) => (entry.kind === "KANJI" ? [entry.character] : [])),
+    ),
   ];
-  for (const { entries } of releases) {
+  const expected = buildMainCourseContentBatches()
+    .flatMap(({ kanji }) => kanji)
+    .filter(({ levelNumber }) => levelNumber <= 13)
+    .map(({ character }) => character);
+  expect(covered.sort()).toEqual(expected.sort());
+});
+
+it("keeps Russian and English on their own sides of each new editorial pair", () => {
+  for (const { entries } of reviewedMainReleases) {
     for (const entry of entries) {
       for (const pair of [...Object.values(entry.hints), ...(entry.referenceMeanings ?? [])]) {
         expect(pair.ru, entry.itemKey).toMatch(/\p{Script=Cyrillic}/u);

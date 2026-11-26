@@ -162,5 +162,16 @@ The [level-11 release](https://github.com/wndffs/kanji-app/actions/runs/45893923
 covers 40 kanji, including the overlap and difference
 between かく and えがく in 描く, and the distinction between the reading of
 同伴 and that of 伴奏. Contextual senses are not added to grading.
-The level-12 release adds the same bilingual coverage to its 40 kanji,
-including concrete reading examples for 甘, 詰, 津 and 甲.
+The [level-12 release](https://github.com/wndffs/kanji-app/actions/runs/45894561499)
+adds the same bilingual coverage to its 40 kanji, including concrete
+reading examples for 甘, 詰, 津 and 甲.
+
+## Level 13 and cumulative coverage
+
+The level-13 release adds notes for its 40 kanji, including separate senses
+for 御 in 制御 and 御飯, and context-specific readings of 旬. With the
+earlier starter and foundation notes, the editorial coverage is now complete
+for level 1 components and for all existing kanji at levels 2–13. New
+examples are project-authored and reviewed against the pinned sources.
+This is lesson text and reference coverage, not a change in course size,
+grading, or which levels a learner has unlocked.
