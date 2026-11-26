@@ -143,3 +143,13 @@ including the variant readings illustrated by 省略 and 反省, 規模 and
 placements in the existing course.
 The [level-8 publication receipt](https://github.com/wndffs/kanji-app/actions/runs/45890989501)
 records 40 matches, 160 language-specific hint rows and six reference rows.
+
+## Levels 9 and 10
+
+The [level-9 release](https://github.com/wndffs/kanji-app/actions/runs/45891917428)
+adds new meaning and reading notes to all 40 kanji. It distinguishes
+everyday family terms from compound readings such as 兄 in 実兄 and
+keeps 何 in 幾何学 apart from the kana particle in 何か.
+The level-10 release continues the same editorial scope for all 40
+kanji. Contextual senses, such as forgiveness in 許す and an idea
+coming to mind in 浮かぶ, remain reference-only.
