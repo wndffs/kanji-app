@@ -4,10 +4,48 @@ import type { PrismaClient } from "@kanji-srs/db";
 
 import {
   checkMainCourseLaunch,
+  publishFromMainCourseAudit,
   summarizeMainCourseLaunch,
 } from "../src/admin/main-course-launch-check";
 
 describe("server main-course launch check", () => {
+  const draft = {
+    policyVersion: "main-course-publication-readiness-v2",
+    readinessVersion: "internal checked version",
+    allocationPlanVersion: "internal allocation version",
+    readyToPublish: true,
+    generatedAt: "2026-11-26T00:00:00Z",
+    course: { id: "internal", slug: "japanese-ru-n2", status: "draft", title: "Course" },
+    summary: { passedChecks: 9, blockedChecks: 0 },
+    checks: [],
+  } as const;
+
+  it("does not write if missing, blocked, or already published", async () => {
+    const publishMainCourse = vi.fn();
+    const repository = { publishMainCourse };
+    for (const audit of [
+      null,
+      { ...draft, readyToPublish: false },
+      { ...draft, course: { ...draft.course, status: "published" as const } },
+    ]) {
+      await expect(publishFromMainCourseAudit(audit, repository)).resolves.toMatchObject({
+        statusChanged: false,
+      });
+    }
+    expect(publishMainCourse).not.toHaveBeenCalled();
+  });
+
+  it("passes the fresh audit version only to the guarded status change", async () => {
+    const publishMainCourse = vi.fn().mockResolvedValue({
+      statusChanged: true,
+      readiness: { ...draft, course: { ...draft.course, status: "published" } },
+    });
+    const result = await publishFromMainCourseAudit(draft, { publishMainCourse });
+    expect(publishMainCourse).toHaveBeenCalledExactlyOnceWith(draft.readinessVersion);
+    expect(result).toMatchObject({ courseStatus: "published", statusChanged: true });
+    expect(result).not.toHaveProperty("readinessVersion");
+  });
+
   it("runs the same publication audit in a read-only repeatable snapshot", async () => {
     const tx = {
       $executeRaw: vi.fn().mockResolvedValue(0),

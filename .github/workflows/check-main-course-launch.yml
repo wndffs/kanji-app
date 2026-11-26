@@ -2,6 +2,9 @@ name: Check main course launch
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - publish-main-course-2026-11-26
 
 permissions:
   contents: read
@@ -12,15 +15,21 @@ concurrency:
 
 jobs:
   readiness:
-    name: Check main course without writes
-    if: github.ref == 'refs/heads/main'
+    name: Check or explicitly publish the main course
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/tags/publish-main-course-2026-11-26'
     runs-on: ubuntu-latest
-    # The transaction budget is capped at 30 minutes, plus runner setup.
-    timeout-minutes: 40
+    # Publish rechecks the read-only audit in a separate serializable transaction.
+    timeout-minutes: 70
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Require the explicit release tag on the current main commit
+        if: github.event_name == 'push'
+        run: |
+          git fetch --no-tags --depth=1 origin refs/heads/main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -35,6 +44,26 @@ jobs:
         run: npm run db:generate
 
       - name: Run the publication checks in a read-only snapshot
+        if: github.event_name == 'workflow_dispatch'
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         run: npm run course:check-launch --workspace @kanji-srs/api
+
+      - name: Verify opt-in publication and editorial guardrails
+        if: github.event_name == 'push'
+        run: >-
+          npm exec -- vitest run apps/api/test/main-course-launch-check.test.ts
+          apps/api/test/main-course-publication-readiness.test.ts
+          packages/db/test/starter-lesson-editorial.test.ts --maxWorkers=1
+
+      - name: Publish the checked course without enrolling anyone
+        if: github.event_name == 'push'
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: npm run course:check-launch --workspace @kanji-srs/api -- --publish-opt-in
+
+      - name: Apply the reviewed starter texts
+        if: github.event_name == 'push'
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: npm exec -- tsx packages/db/prisma/apply-starter-lesson-editorial.ts apply

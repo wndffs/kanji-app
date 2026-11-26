@@ -6,15 +6,37 @@ import { getMainCourseAuditTimeoutMs } from "./main-course-publication-readiness
 
 export async function checkMainCourseLaunch(db: PrismaClient) {
   const repository = new PrismaAdminRepository({ db });
+  return summarizeMainCourseLaunch(await readMainCourseAudit(db, repository));
+}
+
+export async function publishCheckedMainCourse(db: PrismaClient) {
+  const repository = new PrismaAdminRepository({ db });
+  return publishFromMainCourseAudit(await readMainCourseAudit(db, repository), repository);
+}
+
+export async function publishFromMainCourseAudit(
+  audit: AdminMainCoursePublicationReadinessResponse | null,
+  repository: Pick<PrismaAdminRepository, "publishMainCourse">,
+) {
+  if (audit === null || !audit.readyToPublish || audit.course.status === "published") {
+    return { ...summarizeMainCourseLaunch(audit), statusChanged: false };
+  }
+  const result = await repository.publishMainCourse(audit.readinessVersion);
+  if (result?.readiness.course.status !== "published" || !result.readiness.readyToPublish) {
+    throw new Error("Main course was not published.");
+  }
+  return { ...summarizeMainCourseLaunch(result.readiness), statusChanged: result.statusChanged };
+}
+
+async function readMainCourseAudit(db: PrismaClient, repository: PrismaAdminRepository) {
   const timeout = await getMainCourseAuditTimeoutMs(db);
-  const audit = await db.$transaction(
+  return db.$transaction(
     async (tx) => {
       await tx.$executeRaw`SET TRANSACTION READ ONLY`;
       return repository.getMainCoursePublicationReadiness(tx);
     },
     { isolationLevel: "RepeatableRead", maxWait: 10_000, timeout },
   );
-  return summarizeMainCourseLaunch(audit);
 }
 
 export function summarizeMainCourseLaunch(

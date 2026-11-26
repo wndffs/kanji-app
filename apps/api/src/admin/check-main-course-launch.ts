@@ -2,17 +2,22 @@ import "reflect-metadata";
 
 import { PrismaClient } from "@kanji-srs/db";
 
-import { checkMainCourseLaunch } from "./main-course-launch-check";
+import { checkMainCourseLaunch, publishCheckedMainCourse } from "./main-course-launch-check";
 
 async function main() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required.");
+  const args = process.argv.slice(2);
+  const publish = args.length === 1 && args[0] === "--publish-opt-in";
+  if (args.length > 0 && !publish) throw new Error("Unsupported launch mode.");
 
   const db = new PrismaClient({ datasourceUrl: databaseUrl });
   try {
-    const summary = await checkMainCourseLaunch(db);
+    const summary = publish ? await publishCheckedMainCourse(db) : await checkMainCourseLaunch(db);
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
-    if (!summary.readyToPublish) process.exitCode = 1;
+    if (!summary.readyToPublish || (publish && summary.courseStatus !== "published")) {
+      process.exitCode = 1;
+    }
   } finally {
     await db.$disconnect();
   }
