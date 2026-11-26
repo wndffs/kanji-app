@@ -26,6 +26,7 @@ export function getLessonStudyPhases(lesson: LessonQueueItem): readonly LessonSt
     lesson.hints.some((group) => group.purpose === "reading");
   const hasContext =
     lesson.exampleSentences.length > 0 ||
+    (lesson.contextWords?.length ?? 0) > 0 ||
     lesson.mnemonics.some((group) => group.purpose === "story") ||
     lesson.hints.some((group) => group.purpose === "usage");
 

@@ -34,6 +34,7 @@ import {
 import { normalizeJapaneseReading, romanizeKana } from "@kanji-srs/japanese";
 
 import { JapaneseText } from "../../components/JapaneseText";
+import contextStyles from "./lesson-context.module.css";
 import { LessonPickerSearch } from "../../components/LessonPickerSearch";
 import { DeckPrerequisiteRecovery } from "./DeckPrerequisiteRecovery";
 import { useStudyFocus } from "../../components/StudyFocus";
@@ -1818,6 +1819,8 @@ function LessonStudyView({
 }) {
   const meaningCards = lesson.cards.filter((card) => card.answerType === "meaning");
   const readingCards = lesson.cards.filter((card) => card.answerType === "reading");
+  const otherMeanings =
+    lesson.otherMeanings === undefined ? [] : getLearningTexts(lesson.otherMeanings, displayMode);
   const mnemonicGroups = lesson.mnemonics.filter((group) =>
     phase === "context" ? group.purpose === "story" : group.purpose === phase,
   );
@@ -1949,6 +1952,12 @@ function LessonStudyView({
                   <TextList texts={collectCardAnswers(meaningCards, displayMode)} />
                 </section>
               </SectionDisclosure>
+              {otherMeanings.length === 0 ? null : (
+                <section>
+                  <h2>Другие значения</h2>
+                  <TextList texts={otherMeanings} />
+                </section>
+              )}
 
               {lesson.unlockedBy.length === 0 ? null : (
                 <SectionDisclosure title="Связи и компоненты" key={`${lesson.item.id}:relations`}>
@@ -2004,6 +2013,23 @@ function LessonStudyView({
                   </SectionDisclosure>
                 )}
               </div>
+            </section>
+          ) : null}
+
+          {phase === "context" && lesson.contextWords && lesson.contextWords.length > 0 ? (
+            <section>
+              <h2 id="lesson-context-words-heading">Слова с этим кандзи</h2>
+              <ul className={contextStyles.words} aria-labelledby="lesson-context-words-heading">
+                {lesson.contextWords.map((word) => (
+                  <li key={word.id}>
+                    <JapaneseText>{word.japanese}</JapaneseText>
+                    {word.reading === null ? null : (
+                      <JapaneseText className="muted">{word.reading}</JapaneseText>
+                    )}
+                    <span>{formatTranslationBundle(word.translations, displayMode)}</span>
+                  </li>
+                ))}
+              </ul>
             </section>
           ) : null}
 

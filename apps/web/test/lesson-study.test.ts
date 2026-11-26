@@ -55,6 +55,19 @@ describe("getLessonStudyPhases", () => {
 
     expect(getLessonStudyPhases(lesson)).toEqual(["meaning", "context"]);
   });
+
+  it("adds a context stage for linked vocabulary without adding quiz cards", () => {
+    const meaning = createLesson().item.translations;
+    expect(
+      getLessonStudyPhases(
+        createLesson({
+          contextWords: [
+            { id: "word", japanese: "一つ", reading: "ひとつ", translations: meaning },
+          ],
+        }),
+      ),
+    ).toEqual(["meaning", "context"]);
+  });
 });
 
 describe("getLessonPronunciationText", () => {

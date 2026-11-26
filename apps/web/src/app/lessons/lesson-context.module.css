@@ -1,0 +1,21 @@
+.words {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.words li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding-block: 10px;
+  border-block-end: 1px solid var(--surface-border);
+  overflow-wrap: anywhere;
+}
+
+.words li > :first-child {
+  font-size: 22px;
+  font-weight: 650;
+}

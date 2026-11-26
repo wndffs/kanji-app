@@ -622,6 +622,12 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
       text.trim() !==
       (locale === "ru-RU" ? item.translations.primaryRu : item.translations.primaryEn)?.trim(),
   );
+  const extraKanjiMeanings =
+    item.kanjiDetails?.otherMeanings === undefined
+      ? []
+      : getLocalizedTexts(item.kanjiDetails.otherMeanings, displayMode);
+  const authoredKanjiMeanings = extraKanjiMeanings.filter((text) => text.sourceKind === "curated");
+  const dictionaryMeanings = extraKanjiMeanings.filter((text) => text.sourceKind === "imported");
   const mnemonics = getLocalizedTexts(item.mnemonics, displayMode).filter(
     (text) => text.sourceKind !== "user",
   );
@@ -831,9 +837,17 @@ function ItemDetailsScreen({ lookup }: { readonly lookup: ItemLookup }) {
               </section>
             ) : null}
 
-            {otherMeanings.length > 0 ? (
+            {otherMeanings.length > 0 || authoredKanjiMeanings.length > 0 ? (
               <SectionDisclosure title="Другие значения">
-                <TextList texts={otherMeanings} />
+                <TextList texts={[...otherMeanings, ...authoredKanjiMeanings]} />
+              </SectionDisclosure>
+            ) : null}
+            {dictionaryMeanings.length > 0 ? (
+              <SectionDisclosure title="Словарные значения">
+                <TextList texts={dictionaryMeanings} />
+                <ImportedSourceLinks
+                  sources={item.attributions.filter((source) => source.sourceName === "KANJIDIC2")}
+                />
               </SectionDisclosure>
             ) : null}
 

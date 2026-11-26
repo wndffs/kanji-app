@@ -168,6 +168,36 @@ describe("selected teaching hydration", () => {
 });
 
 describe("lesson target batching", () => {
+  it("hydrates a bounded set of linked words and only uses words containing the kanji", async () => {
+    const kanji = item("KANJI", 4);
+    const matching = item("WORD", 1);
+    const unrelated = item("WORD", 2);
+    Object.assign(kanji, {
+      prerequisiteFor: [{ learningItem: matching }, { learningItem: unrelated }],
+    });
+    const h = harness([kanji, matching, unrelated]);
+    Object.assign(h.tables.word.rows.find((row) => row.id === matching.targetId)!, {
+      expression: "一つ",
+      reading: "ひとつ",
+    });
+    const items = await h.repository.loadLessonItems("owner", [kanji.id]);
+    expect([...items.keys()]).toEqual([kanji.id]);
+    expect(items.get(kanji.id)?.contextWords).toMatchObject([
+      { id: matching.id, target: { japanese: "一つ", reading: "ひとつ" } },
+    ]);
+    expect(h.db.learningItem.findMany).toHaveBeenCalledTimes(1);
+    expect(h.db.learningItem.findMany.mock.calls[0]?.[0].include).toMatchObject({
+      prerequisiteFor: {
+        where: {
+          dependencyType: "PREREQUISITE",
+          learningItem: { status: "PUBLISHED", kind: "WORD" },
+        },
+        take: 3,
+      },
+    });
+    expect(h.tables.word.findMany).toHaveBeenCalledTimes(1);
+  });
+
   it("uses the item's primary taught reading without changing shared dictionary targets or cards", async () => {
     const first = item("KANJI", 1);
     const second = item("KANJI", 2, first.targetId);

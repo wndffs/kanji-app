@@ -90,6 +90,7 @@ export type LessonItemRecord = {
   readonly mnemonics: readonly LessonMnemonicGroupDto[];
   readonly hints: readonly LessonHintGroupDto[];
   readonly exampleSentences: readonly SentenceDto[];
+  readonly contextWords?: readonly { readonly id: string; readonly target: LessonTargetRecord }[];
 };
 
 export type LessonEligibilityItemRecord = Pick<

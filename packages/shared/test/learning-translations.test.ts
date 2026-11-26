@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildLearningTranslationBundle,
+  getOtherKanjiMeanings,
   type BilingualTextDto,
   type LocalizedTextDto,
 } from "../src/index";
@@ -80,6 +81,31 @@ describe("learning translation selection", () => {
       en: [],
       primaryRu: null,
       primaryEn: null,
+    });
+  });
+});
+
+describe("other kanji meanings", () => {
+  it("keeps extra source meanings separate from answers, preserving languages and source status", () => {
+    const dictionary = {
+      ru: [
+        ru("Поле", "imported"),
+        ru("рисовое поле", "curated"),
+        ru("Рисовое поле", "imported"),
+        ru("пашня", "curated"),
+        ru("приватное", "user"),
+      ],
+      en: [en("paddy", "imported")],
+    };
+    const learning = { ru: [ru("поле", "curated", true)], en: [] };
+    const accepted = [ru("пашня", "curated")];
+    expect(getOtherKanjiMeanings(dictionary, learning, accepted, false)).toEqual({
+      ru: [ru("рисовое поле", "curated")],
+      en: [],
+    });
+    expect(getOtherKanjiMeanings(dictionary, learning, accepted, true)).toEqual({
+      ru: [ru("рисовое поле", "curated")],
+      en: [en("paddy", "imported")],
     });
   });
 });

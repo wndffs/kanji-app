@@ -6,6 +6,32 @@ import type {
   TranslationDisplayMode,
 } from "./index";
 
+export function getOtherKanjiMeanings(
+  dictionary: BilingualTextDto,
+  learning: BilingualTextDto,
+  accepted: readonly LocalizedTextDto[],
+  includeImported: boolean,
+): BilingualTextDto {
+  const key = (text: LocalizedTextDto) =>
+    `${text.locale}:${text.text.normalize("NFKC").trim().toLowerCase()}`;
+  const seen = new Set([...learning.ru, ...learning.en, ...accepted].map(key));
+  const collect = (texts: readonly LocalizedTextDto[], locale: ContentLocale) =>
+    texts
+      .filter(
+        (text) =>
+          text.locale === locale &&
+          (text.sourceKind === "curated" || (includeImported && text.sourceKind === "imported")),
+      )
+      .sort((a, b) => Number(b.sourceKind === "curated") - Number(a.sourceKind === "curated"))
+      .filter((text) => {
+        if (text.text.trim() === "" || seen.has(key(text))) return false;
+        seen.add(key(text));
+        return true;
+      });
+
+  return { ru: collect(dictionary.ru, "ru-RU"), en: collect(dictionary.en, "en-US") };
+}
+
 export function buildLearningTranslationBundle(
   translations: BilingualTextDto,
   displayMode: TranslationDisplayMode,

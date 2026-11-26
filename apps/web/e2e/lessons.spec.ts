@@ -861,6 +861,47 @@ test.describe("lesson session", () => {
     await expect(page.getByRole("heading", { name: "Верно", exact: true })).toBeVisible();
   });
 
+  test("shows additional meanings separately from answers and gives the kanji word context", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await mockLessonApi(page);
+    const entry: LessonQueueItem = {
+      ...lessonQueueItem,
+      otherMeanings: {
+        ru: [{ locale: "ru-RU", text: "единое целое", sourceKind: "curated" }],
+        en: [{ locale: "en-US", text: "a single whole", sourceKind: "curated" }],
+      },
+      contextWords: [
+        {
+          id: "word-one",
+          japanese: "一つ",
+          reading: "ひとつ",
+          translations: lessonQueueItem.item.translations,
+        },
+      ],
+    };
+    await page.route(`${API_BASE_URL}/lessons/queue?offset=0**`, (route) =>
+      route.fulfill({ json: queueResponse([entry]) }),
+    );
+    await page.goto("/lessons");
+    await page.getByRole("button", { name: "Начать урок", exact: true }).click();
+    await expect(page.getByText("единое целое", { exact: true })).toBeVisible();
+    await expect(page.getByText("a single whole", { exact: true })).toBeVisible();
+    await page.getByText("Допустимые значения", { exact: true }).click();
+    await expect(
+      page.locator("details").filter({ hasText: "Допустимые значения" }).getByText("единое целое"),
+    ).toHaveCount(0);
+    await page.getByRole("tab", { name: "Контекст", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Слова с этим кандзи" })).toBeVisible();
+    await expect(
+      page.getByRole("list", { name: "Слова с этим кандзи" }).getByText("一つ", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("list", { name: "Слова с этим кандзи" }).getByText("ひとつ", { exact: true }),
+    ).toBeVisible();
+  });
+
   test("applies saved pronunciation aids only to study stages", async ({ page }) => {
     await signIn(page, {
       lessonPronunciationMode: "furigana",

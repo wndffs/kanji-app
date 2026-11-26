@@ -21,6 +21,7 @@ import {
   type ReviewForecastBucketDto,
   type TranslationDisplayMode,
   normalizeDashboardWidgetPreferences,
+  satisfiesCardPrerequisite,
 } from "@kanji-srs/shared";
 
 import { type CurrentUserDto } from "../auth/auth.types";
@@ -70,7 +71,7 @@ export class DashboardService {
     const forecastHorizonEnd = addDays(now, FORECAST_HORIZON_DAYS);
     const activityTimezone = resolveTimezone(user.settings.timezone);
     const [
-      { lessonItems, currentCourse, unlockEvents },
+      { lessonItems, currentCourse, unlockEvents, externalPrerequisiteCardIds },
       lessonProgress,
       kanaProgress,
       firstReviewCompleted,
@@ -110,14 +111,19 @@ export class DashboardService {
     const hydrateStartedAt = performance.now();
     const displayMode = user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE;
     const leechCandidates = toLeechCandidatesDto(leechSignals, displayMode);
-    const availableLessonItems = findAvailableLessonItems(lessonItems, lessonProgress);
+    const availability: LessonAvailability = {
+      itemById: new Map(lessonItems.map((item) => [item.id, item])),
+      progressByItem: groupLessonProgressByItem(lessonProgress),
+      externalPrerequisiteCardIds,
+    };
+    const availableLessonItems = findAvailableLessonItems(lessonItems, availability);
     const lessonBudget = getLessonBudget(user.settings, lessonProgress, now);
     const availableLessonsToday = Math.min(
       availableLessonItems.length,
       lessonBudget.remainingToday,
     );
     const availableItemIds = new Set(availableLessonItems.map((item) => item.id));
-    const journeyPlan = findNextLockedPath(lessonItems, lessonProgress);
+    const journeyPlan = findNextLockedPath(lessonItems, availability);
     const journeyItemIds = collectJourneyItemIds(unlockEvents, journeyPlan);
     const recentAvailableIds = availableLessonItems
       .slice(0, MAX_RECENT_ACTIVITY_ITEMS)
@@ -578,12 +584,17 @@ function collectJourneyItemIds(
   ];
 }
 
+type LessonAvailability = {
+  readonly itemById: ReadonlyMap<string, DashboardLessonItemRecord>;
+  readonly progressByItem: ReadonlyMap<string, ReadonlyMap<string, number>>;
+  readonly externalPrerequisiteCardIds: ReadonlyMap<string, readonly string[]>;
+};
+
 function findAvailableLessonItems(
   lessonItems: readonly DashboardLessonItemRecord[],
-  progress: readonly DashboardLessonProgressRecord[],
+  availability: LessonAvailability,
 ): readonly DashboardLessonItemRecord[] {
-  const progressByItem = groupLessonProgressByItem(progress);
-  const itemById = new Map(lessonItems.map((item) => [item.id, item]));
+  const { progressByItem } = availability;
   const groupedByCourse = groupLessonItemsByCourse(lessonItems);
   const available: DashboardLessonItemRecord[] = [];
 
@@ -598,7 +609,7 @@ function findAvailableLessonItems(
       if (
         entry.cardIds.length === 0 ||
         isLessonItemStarted(entry, progressByItem) ||
-        !hasSatisfiedPrerequisites(entry, progressByItem, itemById)
+        !entry.dependencies.every((dependency) => isPrerequisiteSatisfied(dependency, availability))
       ) {
         continue;
       }
@@ -642,7 +653,7 @@ function groupLessonItemsByCourse(
 
 function findFirstOpenLessonLevel(
   lessonItems: readonly DashboardLessonItemRecord[],
-  progressByItem: Map<string, readonly DashboardLessonProgressRecord[]>,
+  progressByItem: LessonAvailability["progressByItem"],
 ): readonly DashboardLessonItemRecord[] | null {
   const levels = new Map<number, DashboardLessonItemRecord[]>();
 
@@ -665,12 +676,12 @@ function findFirstOpenLessonLevel(
 
 function groupLessonProgressByItem(
   progress: readonly DashboardLessonProgressRecord[],
-): Map<string, readonly DashboardLessonProgressRecord[]> {
-  const grouped = new Map<string, DashboardLessonProgressRecord[]>();
+): LessonAvailability["progressByItem"] {
+  const grouped = new Map<string, Map<string, number>>();
 
   for (const record of progress) {
-    const existing = grouped.get(record.learningItemId) ?? [];
-    existing.push(record);
+    const existing = grouped.get(record.learningItemId) ?? new Map<string, number>();
+    existing.set(record.learningCardId, record.stageIndex);
     grouped.set(record.learningItemId, existing);
   }
 
@@ -679,65 +690,50 @@ function groupLessonProgressByItem(
 
 function isLessonItemStarted(
   item: DashboardLessonItemRecord,
-  progressByItem: Map<string, readonly DashboardLessonProgressRecord[]>,
+  progressByItem: LessonAvailability["progressByItem"],
 ): boolean {
-  const progress = progressByItem.get(item.id) ?? [];
-
-  return item.cardIds.some((cardId) => progress.some((record) => record.learningCardId === cardId));
+  const progress = progressByItem.get(item.id);
+  return item.cardIds.some((cardId) => progress?.has(cardId));
 }
 
-function hasSatisfiedPrerequisites(
-  item: DashboardLessonItemRecord,
-  progressByItem: Map<string, readonly DashboardLessonProgressRecord[]>,
-  itemById: Map<string, DashboardLessonItemRecord>,
+function prerequisiteCardIds(itemId: string, availability: LessonAvailability): readonly string[] {
+  return (
+    availability.itemById.get(itemId)?.cardIds ??
+    availability.externalPrerequisiteCardIds.get(itemId) ??
+    []
+  );
+}
+
+function isPrerequisiteSatisfied(
+  { prerequisiteItemId, requiredStage }: DashboardLessonItemRecord["dependencies"][number],
+  availability: LessonAvailability,
 ): boolean {
-  for (const dependency of item.dependencies) {
-    const prerequisite = itemById.get(dependency.prerequisiteItemId);
-    const progress = progressByItem.get(dependency.prerequisiteItemId) ?? [];
-    const satisfied =
-      prerequisite === undefined
-        ? progress.some((record) => record.stageIndex >= dependency.requiredStage)
-        : prerequisite.cardIds.length > 0 &&
-          prerequisite.cardIds.every((cardId) =>
-            progress.some(
-              (record) =>
-                record.learningCardId === cardId && record.stageIndex >= dependency.requiredStage,
-            ),
-          );
-
-    if (!satisfied) {
-      return false;
-    }
-  }
-
-  return true;
+  return satisfiesCardPrerequisite(
+    prerequisiteCardIds(prerequisiteItemId, availability),
+    availability.progressByItem.get(prerequisiteItemId),
+    requiredStage,
+  );
 }
 
 function findNextLockedPath(
   lessonItems: readonly DashboardLessonItemRecord[],
-  progress: readonly DashboardLessonProgressRecord[],
+  availability: LessonAvailability,
 ): DashboardJourneyPlan | null {
   const orderedItems = [...lessonItems].sort(compareLessonItems);
-  const itemById = new Map(orderedItems.map((item) => [item.id, item]));
-  const progressByItem = groupLessonProgressByItem(progress);
+  const { progressByItem } = availability;
   let best: DashboardJourneyPlan | null = null;
   for (const item of orderedItems) {
     if (item.cardIds.length === 0 || isLessonItemStarted(item, progressByItem)) {
       continue;
     }
 
-    const unmetPrerequisites = listUnmetPrerequisites(item, progressByItem, itemById);
+    const unmetPrerequisites = listUnmetPrerequisites(item, availability);
 
     if (unmetPrerequisites.length === 0) {
       continue;
     }
 
-    const shortestPath = findShortestPrerequisitePath(
-      item,
-      progressByItem,
-      itemById,
-      new Set([item.id]),
-    );
+    const shortestPath = findShortestPrerequisitePath(item, availability, new Set([item.id]));
     if (best === null || shortestPath.length < best.shortestPath.length) {
       best = { targetId: item.id, unmetPrerequisites, shortestPath };
       // A later item cannot beat a one-step path or its existing course-order tie break.
@@ -749,35 +745,31 @@ function findNextLockedPath(
 
 function listUnmetPrerequisites(
   item: DashboardLessonItemRecord,
-  progressByItem: Map<string, readonly DashboardLessonProgressRecord[]>,
-  itemById: Map<string, DashboardLessonItemRecord>,
+  availability: LessonAvailability,
 ): readonly DashboardJourneyPrerequisitePlan[] {
   return item.dependencies.flatMap((dependency) => {
-    const currentStage = getCurrentItemStage(
-      dependency.prerequisiteItemId,
-      progressByItem,
-      itemById,
-    );
-
-    return currentStage >= dependency.requiredStage
-      ? []
-      : [
-          {
-            itemId: dependency.prerequisiteItemId,
-            currentStage,
-            requiredStage: dependency.requiredStage,
-          },
-        ];
+    if (isPrerequisiteSatisfied(dependency, availability)) return [];
+    const itemId = dependency.prerequisiteItemId;
+    const stages = availability.progressByItem.get(itemId);
+    const cardIds = prerequisiteCardIds(itemId, availability);
+    return [
+      {
+        itemId,
+        currentStage:
+          cardIds.length > 0 ? Math.min(...cardIds.map((id) => stages?.get(id) ?? 0)) : 0,
+        requiredStage: dependency.requiredStage,
+      },
+    ];
   });
 }
 
 function findShortestPrerequisitePath(
   item: DashboardLessonItemRecord,
-  progressByItem: Map<string, readonly DashboardLessonProgressRecord[]>,
-  itemById: Map<string, DashboardLessonItemRecord>,
+  availability: LessonAvailability,
   visited: ReadonlySet<string>,
 ): readonly DashboardJourneyPrerequisitePlan[] {
-  const paths = listUnmetPrerequisites(item, progressByItem, itemById).map((prerequisite) => {
+  const { itemById } = availability;
+  const paths = listUnmetPrerequisites(item, availability).map((prerequisite) => {
     const prerequisiteItem = itemById.get(prerequisite.itemId);
 
     if (prerequisiteItem === undefined || visited.has(prerequisite.itemId)) {
@@ -786,8 +778,7 @@ function findShortestPrerequisitePath(
 
     const nestedPath = findShortestPrerequisitePath(
       prerequisiteItem,
-      progressByItem,
-      itemById,
+      availability,
       new Set([...visited, prerequisite.itemId]),
     );
 
@@ -804,7 +795,7 @@ function findShortestPrerequisitePath(
 function compareJourneyPaths(
   left: readonly DashboardJourneyPrerequisitePlan[],
   right: readonly DashboardJourneyPrerequisitePlan[],
-  itemById: Map<string, DashboardLessonItemRecord>,
+  itemById: LessonAvailability["itemById"],
 ): number {
   const leftItem = left[0] === undefined ? undefined : itemById.get(left[0].itemId);
   const rightItem = right[0] === undefined ? undefined : itemById.get(right[0].itemId);
@@ -814,29 +805,6 @@ function compareJourneyPaths(
   }
 
   return (left[0]?.itemId ?? "").localeCompare(right[0]?.itemId ?? "");
-}
-
-function getCurrentItemStage(
-  itemId: string,
-  progressByItem: Map<string, readonly DashboardLessonProgressRecord[]>,
-  itemById: Map<string, DashboardLessonItemRecord>,
-): number {
-  const records = progressByItem.get(itemId) ?? [];
-  const item = itemById.get(itemId);
-
-  if (item === undefined) {
-    return records.length === 0 ? 0 : Math.min(...records.map((record) => record.stageIndex));
-  }
-
-  if (item.cardIds.length === 0) {
-    return 0;
-  }
-
-  return Math.min(
-    ...item.cardIds.map(
-      (cardId) => records.find((record) => record.learningCardId === cardId)?.stageIndex ?? 0,
-    ),
-  );
 }
 
 function compareLessonItems(

@@ -36,6 +36,19 @@ describe("PrismaDashboardRepository", () => {
       course: { slug: "japanese-ru-n2" },
     };
     const findMany = vi.fn().mockResolvedValue([currentCourseEnrollment]);
+    const loadCards = vi.fn().mockResolvedValue([
+      { id: "prereq-meaning", learningItemId: "prereq", promptType: "MEANING" },
+      { id: "prereq-reading", learningItemId: "prereq", promptType: "READING" },
+      { id: "done", learningItemId: "item", promptType: "MEANING" },
+      {
+        id: "unavailable-audio",
+        learningItemId: "item",
+        promptType: "LISTENING",
+        learningItem: { kind: "KANJI" },
+        audioAsset: null,
+      },
+      { id: "new", learningItemId: "item", promptType: "READING" },
+    ]);
     const findFirst = vi.fn().mockResolvedValue({
       course: {
         id: "course-main",
@@ -56,6 +69,7 @@ describe("PrismaDashboardRepository", () => {
                   cards: [
                     { id: "done", srsStates: [{ stageIndex: 9, burnedAt: NOW }] },
                     { id: "new", srsStates: [] },
+                    { id: "unavailable-audio", promptType: "LISTENING", srsStates: [] },
                   ],
                 },
               },
@@ -69,10 +83,12 @@ describe("PrismaDashboardRepository", () => {
         userSettings: { findUnique: vi.fn().mockResolvedValue({ currentCourseId: null }) },
         userEnrollment: { findMany, findFirst },
         userUnlockEvent: { findFirst: vi.fn().mockResolvedValue(null) },
+        learningCard: { findMany: loadCards },
       },
     } as never);
 
     await expect(repository.loadCourseData("user-1")).resolves.toMatchObject({
+      externalPrerequisiteCardIds: new Map([["prereq", ["prereq-meaning", "prereq-reading"]]]),
       lessonItems: [
         {
           id: "item",
@@ -91,12 +107,13 @@ describe("PrismaDashboardRepository", () => {
             items: [
               {
                 id: "item",
-                cardIds: ["done", "new"],
+                cardIds: ["done", "new", "unavailable-audio"],
                 startedCardIds: ["done"],
                 burnedCardIds: ["done"],
                 cardStages: [
                   { cardId: "done", stageIndex: 9 },
                   { cardId: "new", stageIndex: null },
+                  { cardId: "unavailable-audio", stageIndex: null },
                 ],
               },
             ],
@@ -383,8 +400,38 @@ describe("DashboardService", () => {
     const pending = service.getDashboard(createUser("owner"));
     expect(mistakes).toHaveBeenCalledWith("owner", expect.any(Date), 5);
     expect(burned).toHaveBeenCalledWith("owner", 5);
-    release({ lessonItems: [], currentCourse: null, unlockEvents: [] });
+    release({
+      lessonItems: [],
+      currentCourse: null,
+      unlockEvents: [],
+      externalPrerequisiteCardIds: new Map(),
+    });
     await pending;
+  });
+
+  it("keeps an external prerequisite locked until all eligible cards reach the required stage", async () => {
+    const { service, repository } = createHarness();
+    const lesson = {
+      ...createLessonItem("word", 1),
+      dependencies: [{ prerequisiteItemId: "external-kanji", requiredStage: 5 }],
+    };
+    vi.spyOn(repository, "loadCourseData").mockResolvedValue({
+      lessonItems: [lesson],
+      currentCourse: null,
+      unlockEvents: [],
+      externalPrerequisiteCardIds: new Map([["external-kanji", ["meaning", "reading"]]]),
+    });
+    const progress = { userId: "owner", learningItemId: "external-kanji", createdAt: NOW };
+    repository.addLessonProgress({ ...progress, learningCardId: "meaning", stageIndex: 5 });
+    await expect(service.getDashboard(createUser("owner"))).resolves.toMatchObject({
+      counts: { availableLessons: 0 },
+    });
+    repository.addLessonProgress({ ...progress, learningCardId: "reading", stageIndex: 5 });
+    // History from an ineligible audio card cannot block the two eligible cards.
+    repository.addLessonProgress({ ...progress, learningCardId: "old-audio", stageIndex: 1 });
+    await expect(service.getDashboard(createUser("owner"))).resolves.toMatchObject({
+      counts: { availableLessons: 1 },
+    });
   });
 
   it("hydrates a stable capped union once and reconstructs original order after missing records", async () => {
@@ -1111,11 +1158,12 @@ class InMemoryDashboardRepository extends DashboardRepository {
   }[] = [];
   private course: DashboardCourseProgressRecord | null = null;
 
-  async loadCourseData(_userId: string) {
+  async loadCourseData(_userId: string): ReturnType<DashboardRepository["loadCourseData"]> {
     return {
       lessonItems: this.lessonItems,
       currentCourse: this.course,
       unlockEvents: this.unlockEvents,
+      externalPrerequisiteCardIds: new Map<string, readonly string[]>(),
     };
   }
 

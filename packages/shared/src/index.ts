@@ -279,6 +279,7 @@ export type KanjiStudyDetailsDto = {
   readonly primaryTaughtReading: LocalizedTextDto | null;
   readonly additionalAcceptedReadings: readonly LocalizedTextDto[];
   readonly readingEvidence: readonly KanjiReadingEvidenceDto[];
+  readonly otherMeanings?: BilingualTextDto;
 };
 
 export type WordSenseEvidenceDto = {
@@ -754,6 +755,11 @@ export type LessonQueueItem = {
   readonly mnemonics: readonly LessonMnemonicGroupDto[];
   readonly hints: readonly LessonHintGroupDto[];
   readonly exampleSentences: readonly SentenceDto[];
+  readonly otherMeanings?: BilingualTextDto;
+  readonly contextWords?: readonly Pick<
+    ItemSummary,
+    "id" | "japanese" | "reading" | "translations"
+  >[];
 };
 
 export type LessonQueueSourceDto =

@@ -429,12 +429,16 @@ describe("LessonsService", () => {
       itemId: "item-component-one",
       ...answer,
     });
-    expect(hydrate).toHaveBeenLastCalledWith("owner", ["item-component-one"]);
+    expect(hydrate).toHaveBeenLastCalledWith("owner", ["item-component-one"], {
+      includeContextWords: false,
+    });
     await service.completeItem(session.id, createUser("owner"), {
       itemId: "item-component-one",
       answers: [answer],
     });
-    expect(hydrate).toHaveBeenLastCalledWith("owner", ["item-component-one"]);
+    expect(hydrate).toHaveBeenLastCalledWith("owner", ["item-component-one"], {
+      includeContextWords: false,
+    });
   });
 
   it.each(["course", "deck"])(

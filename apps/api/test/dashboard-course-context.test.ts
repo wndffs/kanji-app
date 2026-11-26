@@ -30,6 +30,7 @@ it("resolves the course once per dashboard request without sharing owners or ret
       lessonItems: [],
       currentCourse: null,
       unlockEvents: [],
+      externalPrerequisiteCardIds: new Map(),
     });
   }
   expect(settings).toHaveBeenCalledTimes(3);
@@ -54,6 +55,7 @@ it("does not hydrate an absent or inactive course", async () => {
     lessonItems: [],
     currentCourse: null,
     unlockEvents: [],
+    externalPrerequisiteCardIds: new Map(),
   });
   expect(await repository.listLatestUnlockEvents("a", null)).toEqual([]);
   expect(findUnique).toHaveBeenCalledTimes(1);

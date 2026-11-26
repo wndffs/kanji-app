@@ -11,6 +11,7 @@ import {
 import {
   DEFAULT_TRANSLATION_DISPLAY_MODE,
   buildLearningTranslationBundle as toTranslationBundle,
+  getOtherKanjiMeanings,
   type ActiveLessonSessionResponse,
   type CheckLessonAnswerRequestDto,
   type CheckLessonAnswerResponse,
@@ -476,7 +477,9 @@ export class LessonsService {
       entry.item.id,
       ...(includePrerequisites ? entry.unlockedBy.map((item) => item.id) : []),
     ]);
-    const items = await this.lessonsRepository.loadLessonItems(userId, ids);
+    const items = includePrerequisites
+      ? await this.lessonsRepository.loadLessonItems(userId, ids)
+      : await this.lessonsRepository.loadLessonItems(userId, ids, { includeContextWords: false });
     const requireItem = (metadata: LessonEligibilityItemRecord): LessonItemRecord => {
       const item = items.get(metadata.id);
       if (
@@ -1184,13 +1187,31 @@ function toLessonQueueItem(
   unlockedBy: readonly LessonItemRecord[],
   displayMode: TranslationDisplayMode,
 ): LessonQueueItem {
+  const summary = toItemSummary(item, displayMode);
   return {
-    item: toItemSummary(item, displayMode),
+    item: summary,
     cards: item.cards.map((card) => toLearningCard(item, card, displayMode)),
     unlockedBy: unlockedBy.map((prerequisite) => toItemSummary(prerequisite, displayMode)),
     mnemonics: item.mnemonics,
     hints: item.hints,
     exampleSentences: item.exampleSentences,
+    ...(item.itemType === "kanji" && {
+      otherMeanings: getOtherKanjiMeanings(
+        item.target.translations,
+        summary.translations,
+        item.cards.filter((card) => card.answerType === "meaning").flatMap((card) => card.answers),
+        false,
+      ),
+      contextWords: item.contextWords?.flatMap(({ id, target }) => {
+        const translations = toTranslationBundle(target.translations, displayMode);
+        if (
+          !translations.ru.some((meaning) => meaning.sourceKind === "curated") ||
+          !translations.en.some((meaning) => meaning.sourceKind === "curated")
+        )
+          return [];
+        return [{ id, japanese: target.japanese, reading: target.reading, translations }];
+      }),
+    }),
   };
 }
 

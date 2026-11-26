@@ -5,6 +5,7 @@ import {
   ITEM_KINDS,
   type ItemKind,
   buildLearningTranslationBundle as toTranslationBundle,
+  getOtherKanjiMeanings,
   type BilingualTextDto,
   type ItemDetails,
   type ItemRelationDto,
@@ -220,6 +221,7 @@ function toItemDetails(
   displayMode: TranslationDisplayMode,
   reviewHistory: ItemReviewHistoryPageDto,
 ): ItemDetails {
+  const summary = toItemSummary(item, displayMode);
   const readingAnswers = uniqueLocalizedTexts(
     item.cards.filter((card) => card.answerType === "reading").flatMap((card) => card.answers),
   );
@@ -227,7 +229,7 @@ function toItemDetails(
     readingAnswers.find((answer) => answer.isPrimary) ?? readingAnswers[0] ?? null;
 
   return {
-    ...toItemSummary(item, displayMode),
+    ...summary,
     pronunciationAudio: item.pronunciationAudio ?? null,
     componentDetails:
       item.target.componentDetails === null
@@ -247,6 +249,14 @@ function toItemDetails(
               (answer) => answer !== primaryTaughtReading,
             ),
             readingEvidence: item.target.kanjiReadingEvidence,
+            otherMeanings: getOtherKanjiMeanings(
+              item.target.translations,
+              summary.translations,
+              item.cards
+                .filter((card) => card.answerType === "meaning")
+                .flatMap((card) => card.answers),
+              item.attributions.some((source) => source.sourceName === "KANJIDIC2"),
+            ),
           }
         : null,
     wordDetails: item.target.wordDetails,

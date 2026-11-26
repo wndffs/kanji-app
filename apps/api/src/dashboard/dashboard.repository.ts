@@ -12,6 +12,7 @@ import { formatKanjiJlptLevel } from "@kanji-srs/shared";
 import { resolveCurrentCourseId } from "../courses/current-course";
 import { kanjiReadingOrderBy } from "../database/kanji-reading-order";
 import { PrismaService } from "../database/prisma.service";
+import { loadPublishedLessonCardIds } from "../lessons/lessons.repository";
 import {
   leechRecentReviewSelect,
   leechStateWhere,
@@ -37,6 +38,7 @@ import {
 export abstract class DashboardRepository {
   abstract loadCourseData(userId: string): Promise<{
     readonly lessonItems: readonly DashboardLessonItemRecord[];
+    readonly externalPrerequisiteCardIds: ReadonlyMap<string, readonly string[]>;
     readonly currentCourse: DashboardCourseProgressRecord | null;
     readonly unlockEvents: readonly DashboardUnlockEventRecord[];
   }>;
@@ -251,7 +253,12 @@ export class PrismaDashboardRepository extends DashboardRepository {
 
   async loadCourseData(userId: string) {
     const courseId = await resolveCurrentCourseId(this.prisma.db, userId);
-    const empty = { lessonItems: [], currentCourse: null, unlockEvents: [] };
+    const empty = {
+      lessonItems: [],
+      currentCourse: null,
+      unlockEvents: [],
+      externalPrerequisiteCardIds: new Map<string, readonly string[]>(),
+    };
     if (courseId === null) return empty;
     const [data, unlockEvents] = await Promise.all([
       this.loadCurrentCourse(userId, courseId),
@@ -775,6 +782,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
                         cards: {
                           select: {
                             id: true,
+                            promptType: true,
                             srsStates: {
                               where: { userId },
                               select: { stageIndex: true, burnedAt: true },
@@ -799,6 +807,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
     }
 
     const lessonItems: DashboardLessonItemRecord[] = [];
+    const listeningItemIds = new Set<string>();
     const currentCourse: DashboardCourseProgressRecord = {
       id: enrollment.course.id,
       title: enrollment.course.titleRu,
@@ -810,6 +819,7 @@ export class PrismaDashboardRepository extends DashboardRepository {
         items: level.items.map(({ learningItem, sortOrder }) => {
           const { id, kind, cards, dependencies } = learningItem;
           const cardIds = cards.map((card) => card.id);
+          if (cards.some((card) => card.promptType === "LISTENING")) listeningItemIds.add(id);
           lessonItems.push({
             id,
             cardIds,
@@ -837,7 +847,29 @@ export class PrismaDashboardRepository extends DashboardRepository {
         }),
       })),
     };
-    return { lessonItems, currentCourse };
+    const courseItemIds = new Set(lessonItems.map(({ id }) => id));
+    const externalIds = new Set<string>();
+    for (const { dependencies } of lessonItems) {
+      for (const { prerequisiteItemId } of dependencies) {
+        if (!courseItemIds.has(prerequisiteItemId)) externalIds.add(prerequisiteItemId);
+      }
+    }
+    const eligibleCardIds = await loadPublishedLessonCardIds(this.prisma.db, [
+      ...externalIds,
+      ...listeningItemIds,
+    ]);
+    const externalPrerequisiteCardIds = new Map(
+      [...externalIds].map((id) => [id, eligibleCardIds.get(id) ?? []]),
+    );
+    return {
+      lessonItems: lessonItems.map((item) =>
+        listeningItemIds.has(item.id)
+          ? { ...item, cardIds: eligibleCardIds.get(item.id) ?? [] }
+          : item,
+      ),
+      currentCourse,
+      externalPrerequisiteCardIds,
+    };
   }
 
   async countRecentReviewResults(

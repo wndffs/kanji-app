@@ -846,12 +846,14 @@ export class PrismaItemsRepository extends ItemsRepository {
       reading: kanji.readings[0]?.reading ?? null,
       jlptLevel: formatKanjiJlptLevel(kanji.jlptLevel, kanji.legacyJlptLevel),
       translations: groupLocalizedTexts(
-        kanji.meanings.map((meaning) =>
-          localizedText(toContentLocale(meaning.locale), meaning.meaning, {
-            isPrimary: meaning.isPrimary,
-            sourceKind: toSourceKind(meaning.sourceKind),
-          }),
-        ),
+        kanji.meanings
+          .filter(({ locale }) => locale === "ru-RU" || locale === "en-US")
+          .map((meaning) =>
+            localizedText(toContentLocale(meaning.locale), meaning.meaning, {
+              isPrimary: meaning.isPrimary,
+              sourceKind: toSourceKind(meaning.sourceKind),
+            }),
+          ),
       ),
       componentDetails: null,
       kanjiReadingEvidence: kanji.readings.map((reading) => ({

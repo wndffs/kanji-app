@@ -48,6 +48,7 @@ export abstract class LessonsRepository {
   abstract loadLessonItems(
     userId: string,
     itemIds: readonly string[],
+    options?: { readonly includeContextWords?: boolean },
   ): Promise<ReadonlyMap<string, LessonItemRecord>>;
   abstract listUserProgress(
     userId: string,
@@ -92,6 +93,9 @@ type LearningItemRow = {
   readonly levelHint: number | null;
   readonly cards: readonly LearningCardRow[];
   readonly dependencies: readonly DependencyRow[];
+  readonly prerequisiteFor?: readonly {
+    readonly learningItem: Pick<LearningItemRow, "id" | "targetType" | "targetId">;
+  }[];
   readonly mnemonics: readonly LessonTextRow[];
   readonly hints: readonly LessonTextRow[];
   readonly userMnemonics: readonly UserLessonTextRow[];
@@ -379,39 +383,63 @@ export class PrismaLessonsRepository extends LessonsRepository {
   async loadLessonItems(
     userId: string,
     itemIds: readonly string[],
+    { includeContextWords = true }: { readonly includeContextWords?: boolean } = {},
   ): Promise<ReadonlyMap<string, LessonItemRecord>> {
     const ids = [...new Set(itemIds)];
     const result = new Map<string, LessonItemRecord>();
-    for (let offset = 0; offset < ids.length; offset += LESSON_TARGET_BATCH_SIZE) {
-      const rows = await this.prisma.db.learningItem.findMany({
-        where: {
-          id: { in: ids.slice(offset, offset + LESSON_TARGET_BATCH_SIZE) },
-          status: "PUBLISHED",
-        },
+    const include = {
+      cards: {
+        where: listeningCardEligibilityWhere,
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
         include: {
-          cards: {
-            where: listeningCardEligibilityWhere,
-            orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-            include: {
-              answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] },
-              blockedAnswers: { orderBy: { text: "asc" } },
-              audioAsset: { include: { dataSource: true, license: true } },
-            },
-          },
-          dependencies: {
-            where: { dependencyType: "PREREQUISITE" },
-            orderBy: { prerequisiteItemId: "asc" },
-          },
-          mnemonics: { orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }, { version: "desc" }] },
-          hints: { orderBy: [{ locale: "asc" }, { hintType: "asc" }, { version: "desc" }] },
-          userMnemonics: {
-            where: { userId },
-            orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }],
-          },
+          answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] },
+          blockedAnswers: { orderBy: { text: "asc" } },
+          audioAsset: { include: { dataSource: true, license: true } },
         },
-      });
+      },
+      dependencies: {
+        where: { dependencyType: "PREREQUISITE" },
+        orderBy: { prerequisiteItemId: "asc" },
+      },
+      mnemonics: { orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }, { version: "desc" }] },
+      hints: { orderBy: [{ locale: "asc" }, { hintType: "asc" }, { version: "desc" }] },
+      userMnemonics: {
+        where: { userId },
+        orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }],
+      },
+    } satisfies Prisma.LearningItemInclude;
+    for (let offset = 0; offset < ids.length; offset += LESSON_TARGET_BATCH_SIZE) {
+      const where = {
+        id: { in: ids.slice(offset, offset + LESSON_TARGET_BATCH_SIZE) },
+        status: "PUBLISHED",
+      } satisfies Prisma.LearningItemWhereInput;
+      const rows: readonly LearningItemRow[] = includeContextWords
+        ? await this.prisma.db.learningItem.findMany({
+            where,
+            include: {
+              ...include,
+              prerequisiteFor: {
+                where: {
+                  dependencyType: "PREREQUISITE",
+                  prerequisiteItem: { kind: "KANJI" },
+                  learningItem: { kind: "WORD", targetType: "WORD", status: "PUBLISHED" },
+                },
+                take: 3,
+                orderBy: [{ learningItem: { levelHint: "asc" } }, { learningItemId: "asc" }],
+                select: {
+                  learningItem: { select: { id: true, targetId: true, targetType: true } },
+                },
+              },
+            },
+          })
+        : await this.prisma.db.learningItem.findMany({ where, include });
       const examples = await loadItemExampleSentences(this.prisma.db, rows, 3);
-      const targets = await this.loadTargets(rows);
+      const targets = await this.loadTargets([
+        ...rows,
+        ...rows.flatMap((row) =>
+          (row.prerequisiteFor ?? []).map(({ learningItem }) => learningItem),
+        ),
+      ]);
       for (const row of rows)
         result.set(row.id, this.toLessonItemRecord(row, examples.get(row.id) ?? [], targets));
     }
@@ -470,51 +498,10 @@ export class PrismaLessonsRepository extends LessonsRepository {
     return items;
   }
 
-  async listPrerequisiteCardIds(
+  listPrerequisiteCardIds(
     itemIds: readonly string[],
   ): Promise<ReadonlyMap<string, readonly string[]>> {
-    if (itemIds.length === 0) {
-      return new Map();
-    }
-
-    const uniqueItemIds = [...new Set(itemIds)];
-    const cardIdsByItem = new Map<string, string[]>();
-
-    for (let offset = 0; offset < uniqueItemIds.length; offset += LESSON_TARGET_BATCH_SIZE) {
-      const cards = await this.prisma.db.learningCard.findMany({
-        where: {
-          learningItemId: { in: uniqueItemIds.slice(offset, offset + LESSON_TARGET_BATCH_SIZE) },
-          learningItem: { status: "PUBLISHED" },
-          ...listeningCardEligibilityWhere,
-        },
-        select: {
-          id: true,
-          learningItemId: true,
-          promptType: true,
-          learningItem: { select: { kind: true } },
-          audioAsset: { include: { dataSource: true, license: true } },
-        },
-      });
-
-      for (const card of cards) {
-        if (
-          card.promptType === "LISTENING" &&
-          !isEligibleListeningAudio(
-            card.audioAsset,
-            card.learningItemId,
-            toItemKind(card.learningItem.kind),
-          )
-        ) {
-          continue;
-        }
-
-        const cardIds = cardIdsByItem.get(card.learningItemId) ?? [];
-        cardIds.push(card.id);
-        cardIdsByItem.set(card.learningItemId, cardIds);
-      }
-    }
-
-    return cardIdsByItem;
+    return loadPublishedLessonCardIds(this.prisma.db, itemIds);
   }
 
   async getDefaultSrsSystem(): Promise<SrsSystemRecord | null> {
@@ -745,11 +732,19 @@ export class PrismaLessonsRepository extends LessonsRepository {
       mnemonics: groupLessonMnemonics(item.mnemonics, item.userMnemonics),
       hints: groupLessonHints(item.hints),
       exampleSentences,
+      ...(itemType === "kanji" && {
+        contextWords: (item.prerequisiteFor ?? []).flatMap(({ learningItem }) => {
+          const word = requireLoadedTarget(learningItem, targets);
+          return word.japanese.includes(target.japanese)
+            ? [{ id: learningItem.id, target: word }]
+            : [];
+        }),
+      }),
     };
   }
 
   private async loadTargets(
-    items: readonly LearningItemRow[],
+    items: readonly Pick<LearningItemRow, "targetType" | "targetId">[],
   ): Promise<ReadonlyMap<string, LessonTargetRecord>> {
     const idsByType = new Map<string, Set<string>>(
       LESSON_TARGET_TYPES.map((type) => [type, new Set<string>()]),
@@ -811,7 +806,7 @@ function targetKey(type: string, id: string): string {
 }
 
 function requireLoadedTarget(
-  item: LearningItemRow,
+  item: Pick<LearningItemRow, "targetType" | "targetId">,
   targets: ReadonlyMap<string, LessonTargetRecord>,
 ): LessonTargetRecord {
   const target = targets.get(targetKey(item.targetType, item.targetId));
@@ -848,12 +843,14 @@ function toKanjiTarget(kanji: KanjiTargetRow): LessonTargetRecord {
     reading: kanji.readings[0]?.reading ?? null,
     jlptLevel: formatKanjiJlptLevel(kanji.jlptLevel, kanji.legacyJlptLevel),
     translations: groupLocalizedTexts(
-      kanji.meanings.map((meaning) =>
-        localizedText(toContentLocale(meaning.locale), meaning.meaning, {
-          isPrimary: meaning.isPrimary,
-          sourceKind: toSourceKind(meaning.sourceKind),
-        }),
-      ),
+      kanji.meanings
+        .filter(({ locale }) => locale === "ru-RU" || locale === "en-US")
+        .map((meaning) =>
+          localizedText(toContentLocale(meaning.locale), meaning.meaning, {
+            isPrimary: meaning.isPrimary,
+            sourceKind: toSourceKind(meaning.sourceKind),
+          }),
+        ),
     ),
   };
 }
@@ -1042,6 +1039,54 @@ export const listeningCardEligibilityWhere = {
     },
   ],
 };
+
+export async function loadPublishedLessonCardIds(
+  db: Pick<Prisma.TransactionClient, "learningCard">,
+  itemIds: readonly string[],
+): Promise<ReadonlyMap<string, readonly string[]>> {
+  if (itemIds.length === 0) {
+    return new Map();
+  }
+
+  const uniqueItemIds = [...new Set(itemIds)];
+  const cardIdsByItem = new Map<string, string[]>();
+
+  for (let offset = 0; offset < uniqueItemIds.length; offset += LESSON_TARGET_BATCH_SIZE) {
+    const cards = await db.learningCard.findMany({
+      where: {
+        learningItemId: { in: uniqueItemIds.slice(offset, offset + LESSON_TARGET_BATCH_SIZE) },
+        learningItem: { status: "PUBLISHED" },
+        ...listeningCardEligibilityWhere,
+      },
+      select: {
+        id: true,
+        learningItemId: true,
+        promptType: true,
+        learningItem: { select: { kind: true } },
+        audioAsset: { include: { dataSource: true, license: true } },
+      },
+    });
+
+    for (const card of cards) {
+      if (
+        card.promptType === "LISTENING" &&
+        !isEligibleListeningAudio(
+          card.audioAsset,
+          card.learningItemId,
+          toItemKind(card.learningItem.kind),
+        )
+      ) {
+        continue;
+      }
+
+      const cardIds = cardIdsByItem.get(card.learningItemId) ?? [];
+      cardIds.push(card.id);
+      cardIdsByItem.set(card.learningItemId, cardIds);
+    }
+  }
+
+  return cardIdsByItem;
+}
 
 const lessonEligibilitySelect = {
   id: true,

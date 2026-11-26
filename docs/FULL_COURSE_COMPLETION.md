@@ -1574,3 +1574,17 @@ historical links have neither kind of direct evidence. Those 75 remain for
 editorial review; no old cues, gates, V1–V7 seals, or stored progress were
 automatically rewritten. The 226-kanji Closure passed all 321 strict
 component checks. This is local source evidence, not a publication receipt.
+
+### Improve meanings and lesson context
+
+Kanji lessons surface curated additional meanings separately from the meaning
+answers and show up to three existing published linked words with kana and
+curated RU/EN translations when available. Item details keep attributed
+dictionary meanings separate as reference. Neither changes accepted answers,
+publishes an item or activates the full course.
+
+Editorial work is still needed for thin lessons: expand the explanation where
+it adds a contrast, usage context or mnemonic, and add only distinct senses
+supported by actual words. Keep the teaching meaning and scored synonyms
+explicit. A dictionary gloss is not automatically a scored synonym; check
+both languages, example usage and false-positive near answers before publishing.
