@@ -1,9 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 
-import { applyStarterLessonEditorial } from "../src/apply-starter-lesson-editorial";
+import {
+  applyStarterLessonEditorial,
+  foundationEditorialSlots,
+} from "../src/apply-starter-lesson-editorial";
 import { buildStarterCourseSeed } from "../src/course-seed";
 import { STARTER_LESSON_EDITORIAL } from "../src/starter-lesson-editorial";
+import { FOUNDATION_KANJI_EDITORIAL } from "../src/foundation-kanji-editorial";
 
 it("covers the exact starter syllabus with substantive RU/EN hints and kanji-only additions", () => {
   const starter = buildStarterCourseSeed();
@@ -28,6 +32,19 @@ it("covers the exact starter syllabus with substantive RU/EN hints and kanji-onl
   }
   expect(pairs).toBe(9);
   expect(referencePairs).toBe(2);
+});
+
+it("matches all early kanji enhancements to their existing course placement and taught reading", () => {
+  const slots = foundationEditorialSlots();
+  expect(slots.size).toBe(9);
+  for (const { character, reading, itemKey, hints } of FOUNDATION_KANJI_EDITORIAL.entries) {
+    expect(slots.get(itemKey)).toMatchObject({ target: { character, kind: "KANJI" }, reading });
+    expect(Object.keys(hints).sort()).toEqual(["MEANING", "READING"]);
+    for (const text of Object.values(hints)) {
+      expect(text.ru.length).toBeGreaterThan(100);
+      expect(text.en.length).toBeGreaterThan(100);
+    }
+  }
 });
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL;

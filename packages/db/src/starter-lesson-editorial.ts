@@ -2,7 +2,7 @@ import type { SeedHintType } from "./course-seed";
 
 type BilingualText = { readonly ru: string; readonly en: string };
 
-type StarterEditorialEntry = {
+export type CourseEditorialEntry = {
   readonly itemKey: string;
   readonly hints: Partial<Record<SeedHintType, BilingualText>>;
   readonly referenceMeanings?: readonly BilingualText[];
@@ -11,7 +11,7 @@ type StarterEditorialEntry = {
 export const STARTER_LESSON_EDITORIAL: {
   readonly version: string;
   readonly sourceSnapshotVersion: string;
-  readonly entries: readonly StarterEditorialEntry[];
+  readonly entries: readonly CourseEditorialEntry[];
 } = {
   version: "starter-lesson-editorial-2026-11-26",
   sourceSnapshotVersion: "2026-10-31",

@@ -36,3 +36,19 @@ For Neon, use **Deploy staging database** on `main` with only
 This mode does not migrate or reseed the database. After a successful run,
 check the two open starter lessons and both kanji detail pages without
 starting a session or changing progress.
+
+## Early main-course kanji
+
+The follow-up covers 日, 人, 大, 十, 二, 三, 月, 本 and 田. It adds nine
+bilingual meaning explanations and nine bilingual reading explanations plus
+four bilingual reference pairs. The material explains differences between a
+kanji's taught reading and the readings of particular words, including
+calendar dates, counters and compound readings. No assessed answer is changed.
+Independent reviews matched all nine taught readings and 33 scoped word-pair
+checks against the pinned source and existing course. Compositional phrases
+were checked as phrases, not counted as dictionary headword matches.
+
+The same transaction runs with `plan foundation` or `apply foundation`.
+It additionally verifies the existing level slot, the published item and
+the actual primary reading card. The `foundation_editorial` workflow option
+requires the published main course and cannot run alongside migration or seed.
