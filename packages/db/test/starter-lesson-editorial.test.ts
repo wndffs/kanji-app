@@ -5,6 +5,7 @@ import {
   applyStarterLessonEditorial,
   foundationBasicsEditorialSlots,
   foundationEditorialSlots,
+  registeredMainEditorialSlots,
   resolveEditorialBatch,
   shouldRetryEditorialPlan,
 } from "../src/apply-starter-lesson-editorial";
@@ -12,6 +13,7 @@ import { buildStarterCourseSeed } from "../src/course-seed";
 import { STARTER_LESSON_EDITORIAL } from "../src/starter-lesson-editorial";
 import { FOUNDATION_KANJI_EDITORIAL } from "../src/foundation-kanji-editorial";
 import { FOUNDATION_BASICS_EDITORIAL } from "../src/foundation-basics-editorial";
+import { FOUNDATION_COMPONENTS_EDITORIAL } from "../src/foundation-components-editorial";
 
 it("covers the exact starter syllabus with substantive RU/EN hints and kanji-only additions", () => {
   const starter = buildStarterCourseSeed();
@@ -81,6 +83,46 @@ it("binds the complete first component block and the ten kanji to registered cou
   }
   expect(explanations).toBe(46);
   expect(referencePairs).toBe(5);
+});
+
+it("binds the next 37 components and 13 kanji to exact curriculum slots", () => {
+  const { entries, version } = FOUNDATION_COMPONENTS_EDITORIAL;
+  const slots = registeredMainEditorialSlots(entries);
+  expect(slots.size).toBe(50);
+  const components = entries.filter((entry) => entry.kind === "COMPONENT");
+  expect(components).toHaveLength(37);
+  components.forEach((entry, index) => {
+    expect(slots.get(entry.itemKey)).toEqual({
+      levelNumber: 1,
+      sortOrder: 27 + index,
+      target: { kind: "COMPONENT", symbol: entry.symbol },
+    });
+    expect(entry.referenceMeanings).toBeUndefined();
+  });
+  const kanji = entries.filter((entry) => entry.kind === "KANJI");
+  expect(kanji).toHaveLength(13);
+  kanji.forEach((entry, index) => {
+    expect(slots.get(entry.itemKey)).toEqual({
+      levelNumber: 2,
+      sortOrder: 8 + index,
+      target: { kind: "KANJI", character: entry.character },
+      reading: entry.reading,
+    });
+    expect(Object.keys(entry.hints).sort()).toEqual(["MEANING", "READING"]);
+  });
+  for (const entry of entries) {
+    for (const text of Object.values(entry.hints)) {
+      expect(text.ru.trim().length).toBeGreaterThan(85);
+      expect(text.en.trim().length).toBeGreaterThan(85);
+    }
+  }
+  const [head] = components;
+  expect(() =>
+    registeredMainEditorialSlots([{ ...head!, sourceBatchId: "task-118-foundation-kanji-01" }]),
+  ).toThrow(/does not match its source batch/u);
+  expect(resolveEditorialBatch(`publish-lesson-editorial-${version}`)).toBe(
+    "foundation-components",
+  );
 });
 
 it("selects only registered editorial names and exact immutable release tags", () => {

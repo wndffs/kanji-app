@@ -4,8 +4,10 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { buildStarterCourseSeed, type StarterCourseSeedTarget } from "./course-seed";
 import { CURATION_SOURCE_NAMES } from "./curation-source-names";
 import { FOUNDATION_BASICS_EDITORIAL } from "./foundation-basics-editorial";
+import { FOUNDATION_COMPONENTS_EDITORIAL } from "./foundation-components-editorial";
 import { FOUNDATION_KANJI_EDITORIAL } from "./foundation-kanji-editorial";
 import { buildMainCourseContentBatches, type MainCourseKanjiContent } from "./main-course-content";
+import type { MainCourseEditorialEntry } from "./main-course-editorial-entry";
 import { STARTER_LESSON_EDITORIAL, type CourseEditorialEntry } from "./starter-lesson-editorial";
 
 const STARTER_SOURCE = "Kanji SRS bootstrap seed";
@@ -46,6 +48,7 @@ const batchVersions = {
   starter: STARTER_LESSON_EDITORIAL.version,
   foundation: FOUNDATION_KANJI_EDITORIAL.version,
   "foundation-basics": FOUNDATION_BASICS_EDITORIAL.version,
+  "foundation-components": FOUNDATION_COMPONENTS_EDITORIAL.version,
 } as const;
 
 export type EditorialBatch = keyof typeof batchVersions;
@@ -163,6 +166,43 @@ export function applyFoundationBasicsEditorial(prisma: PrismaClient, mode: "plan
     sourceFileName: "packages/db/src/foundation-basics-editorial.ts",
     content: FOUNDATION_BASICS_EDITORIAL,
     slots: foundationBasicsEditorialSlots(),
+  });
+}
+
+export function registeredMainEditorialSlots(
+  entries: readonly MainCourseEditorialEntry[],
+): ReadonlyMap<string, EditorialSlot> {
+  const curriculum = buildMainCourseContentBatches();
+  const batches = new Map(curriculum.map((batch) => [batch.id, batch]));
+  const slots = new Map(
+    mainKanjiSlots(
+      entries.filter((entry) => entry.kind === "KANJI"),
+      curriculum.flatMap(({ kanji }) => kanji),
+    ),
+  );
+  for (const entry of entries) {
+    if (entry.kind !== "COMPONENT") continue;
+    const batch = batches.get(entry.sourceBatchId);
+    const index = batch?.components.findIndex(({ key }) => key === entry.componentKey) ?? -1;
+    if (!batch || index < 0 || batch.components[index]?.symbol !== entry.symbol) {
+      throw new Error(`Editorial component does not match its source batch: ${entry.itemKey}.`);
+    }
+    slots.set(entry.itemKey, {
+      levelNumber: batch.componentLevelNumber,
+      sortOrder: (batch.componentSortOrderStart ?? 1) + index,
+      target: { kind: "COMPONENT", symbol: entry.symbol },
+    });
+  }
+  return slots;
+}
+
+export function applyFoundationComponentsEditorial(prisma: PrismaClient, mode: "plan" | "apply") {
+  return applyEditorial(prisma, mode, {
+    courseSlug: "japanese-ru-n2",
+    sourceName: CURATION_SOURCE_NAMES.kanji,
+    sourceFileName: "packages/db/src/foundation-components-editorial.ts",
+    content: FOUNDATION_COMPONENTS_EDITORIAL,
+    slots: registeredMainEditorialSlots(FOUNDATION_COMPONENTS_EDITORIAL.entries),
   });
 }
 
