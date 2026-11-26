@@ -116,3 +116,6 @@ already edited materials intact. It keeps the exact curriculum readings,
 including 夕・せき and 糸・し, with attested examples and more common
 standalone readings clearly separated. None of these releases changes any
 teaching answer, course placement or SRS state.
+The [level-4 publication receipt](https://github.com/wndffs/kanji-app/actions/runs/45886952068)
+records 34 matched items, 136 language-specific hint rows and 16
+reference rows.

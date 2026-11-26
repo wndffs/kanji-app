@@ -17,6 +17,7 @@ import { FOUNDATION_COMPONENTS_EDITORIAL } from "../src/foundation-components-ed
 import { FOUNDATION_COMPLETION_EDITORIAL } from "../src/foundation-level-two-editorial";
 import { FOUNDATION_LEVEL_THREE_EDITORIAL } from "../src/foundation-level-three-editorial";
 import { FOUNDATION_LEVEL_FOUR_EDITORIAL } from "../src/foundation-level-four-editorial";
+import { FOUNDATION_LEVEL_FIVE_EDITORIAL } from "../src/foundation-level-five-editorial";
 
 it("covers the exact starter syllabus with substantive RU/EN hints and kanji-only additions", () => {
   const starter = buildStarterCourseSeed();
@@ -186,23 +187,33 @@ it.each([
     batch: "foundation-level-three",
     release: FOUNDATION_LEVEL_THREE_EDITORIAL,
     length: 40,
+    start: 1,
     level: 3,
-    alreadyEdited: [1, 2, 3, 4, 5, 13],
+    skipped: [1, 2, 3, 4, 5, 13],
   },
   {
     batch: "foundation-level-four",
     release: FOUNDATION_LEVEL_FOUR_EDITORIAL,
     length: 41,
+    start: 1,
     level: 4,
-    alreadyEdited: [1, 2, 3, 4, 5, 6, 13],
+    skipped: [1, 2, 3, 4, 5, 6, 13],
+  },
+  {
+    batch: "foundation-level-five",
+    release: FOUNDATION_LEVEL_FIVE_EDITORIAL,
+    length: 42,
+    start: 81,
+    level: 5,
+    skipped: [96, 97],
   },
 ])(
   "covers the remaining level-$level kanji",
-  ({ batch, release, length, level, alreadyEdited }) => {
+  ({ batch, release, length, start, level, skipped }) => {
     const { entries, version } = release;
     const slots = registeredMainEditorialSlots(entries);
-    const expected = Array.from({ length }, (_, index) => index + 1).filter(
-      (position) => !alreadyEdited.includes(position),
+    const expected = Array.from({ length }, (_, index) => start + index).filter(
+      (position) => !skipped.includes(position),
     );
     expect(slots.size).toBe(expected.length);
     expect(entries.map(({ itemKey }) => slots.get(itemKey)?.sortOrder)).toEqual(expected);
@@ -225,6 +236,7 @@ it("keeps Russian and English on their own sides of each new editorial pair", ()
     FOUNDATION_COMPLETION_EDITORIAL,
     FOUNDATION_LEVEL_THREE_EDITORIAL,
     FOUNDATION_LEVEL_FOUR_EDITORIAL,
+    FOUNDATION_LEVEL_FIVE_EDITORIAL,
   ];
   for (const { entries } of releases) {
     for (const entry of entries) {
