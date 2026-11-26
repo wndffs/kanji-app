@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 import { PrismaClient } from "@prisma/client";
 
 import {
@@ -5,6 +6,7 @@ import {
   applyFoundationKanjiEditorial,
   applyStarterLessonEditorial,
   resolveEditorialBatch,
+  shouldRetryEditorialPlan,
 } from "../src/apply-starter-lesson-editorial";
 
 const mode = process.argv[2];
@@ -15,14 +17,21 @@ if ((mode !== "plan" && mode !== "apply") || batch === undefined || process.argv
   );
 }
 
-const prisma = new PrismaClient();
-try {
-  const run = {
-    starter: applyStarterLessonEditorial,
-    foundation: applyFoundationKanjiEditorial,
-    "foundation-basics": applyFoundationBasicsEditorial,
-  }[batch];
-  console.log(JSON.stringify(await run(prisma, mode)));
-} finally {
-  await prisma.$disconnect();
+const run = {
+  starter: applyStarterLessonEditorial,
+  foundation: applyFoundationKanjiEditorial,
+  "foundation-basics": applyFoundationBasicsEditorial,
+}[batch];
+for (let attempt = 1; ; attempt++) {
+  const prisma = new PrismaClient();
+  try {
+    console.log(JSON.stringify(await run(prisma, mode)));
+    break;
+  } catch (error) {
+    if (!shouldRetryEditorialPlan(mode, attempt, error)) throw error;
+    console.warn("Neon was unreachable during the read-only plan; retrying.");
+  } finally {
+    await prisma.$disconnect();
+  }
+  await delay(attempt * 2_500);
 }

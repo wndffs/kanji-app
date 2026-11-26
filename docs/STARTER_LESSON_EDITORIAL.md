@@ -80,3 +80,7 @@ tag on the current `main` commit. The editor rejects unknown versions,
 validates the existing published slots and taught readings in a read-only
 plan, then applies only that package in a serializable transaction. Editorial
 and migration/seed modes are mutually exclusive.
+Use the same exact version with `-attempt-2` through `-attempt-5` when a
+new attempt is required without moving the original tag. The resulting
+receipt still identifies the same editorial payload. The CLI retries only
+read-only connection failures (`P1001`), not writes or failed scope checks.

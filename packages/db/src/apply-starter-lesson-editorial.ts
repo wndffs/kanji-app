@@ -52,9 +52,25 @@ export type EditorialBatch = keyof typeof batchVersions;
 
 export function resolveEditorialBatch(selector: string): EditorialBatch | undefined {
   const batches = Object.keys(batchVersions) as EditorialBatch[];
-  return batches.find(
-    (batch) =>
-      selector === batch || selector === `publish-lesson-editorial-${batchVersions[batch]}`,
+  return batches.find((batch) => {
+    const tag = `publish-lesson-editorial-${batchVersions[batch]}`;
+    const retryPrefix = `${tag}-attempt-`;
+    return (
+      selector === batch ||
+      selector === tag ||
+      (selector.startsWith(retryPrefix) && /^[2-5]$/u.test(selector.slice(retryPrefix.length)))
+    );
+  });
+}
+
+export function shouldRetryEditorialPlan(mode: "plan" | "apply", attempt: number, error: unknown) {
+  return (
+    mode === "plan" &&
+    attempt < 3 &&
+    typeof error === "object" &&
+    error !== null &&
+    (("errorCode" in error && error.errorCode === "P1001") ||
+      ("code" in error && error.code === "P1001"))
   );
 }
 

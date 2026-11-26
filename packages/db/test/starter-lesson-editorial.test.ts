@@ -6,6 +6,7 @@ import {
   foundationBasicsEditorialSlots,
   foundationEditorialSlots,
   resolveEditorialBatch,
+  shouldRetryEditorialPlan,
 } from "../src/apply-starter-lesson-editorial";
 import { buildStarterCourseSeed } from "../src/course-seed";
 import { STARTER_LESSON_EDITORIAL } from "../src/starter-lesson-editorial";
@@ -92,6 +93,17 @@ it("selects only registered editorial names and exact immutable release tags", (
   expect(
     resolveEditorialBatch("publish-lesson-editorial-foundation-basics-editorial-02"),
   ).toBeUndefined();
+  const tag = `publish-lesson-editorial-${FOUNDATION_BASICS_EDITORIAL.version}`;
+  expect(resolveEditorialBatch(`${tag}-attempt-2`)).toBe("foundation-basics");
+  expect(resolveEditorialBatch(`${tag}-attempt-20`)).toBeUndefined();
+});
+
+it("retries only a bounded read-only connection failure, never apply or a validation error", () => {
+  expect(shouldRetryEditorialPlan("plan", 1, { errorCode: "P1001" })).toBe(true);
+  expect(shouldRetryEditorialPlan("plan", 2, { code: "P1001" })).toBe(true);
+  expect(shouldRetryEditorialPlan("plan", 3, { code: "P1001" })).toBe(false);
+  expect(shouldRetryEditorialPlan("apply", 1, { code: "P1001" })).toBe(false);
+  expect(shouldRetryEditorialPlan("plan", 1, new Error("Course slot mismatch"))).toBe(false);
 });
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL;
