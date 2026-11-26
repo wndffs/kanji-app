@@ -3,8 +3,9 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { buildStarterCourseSeed, type StarterCourseSeedTarget } from "./course-seed";
 import { CURATION_SOURCE_NAMES } from "./curation-source-names";
+import { FOUNDATION_BASICS_EDITORIAL } from "./foundation-basics-editorial";
 import { FOUNDATION_KANJI_EDITORIAL } from "./foundation-kanji-editorial";
-import { buildMainCourseContentBatches } from "./main-course-content";
+import { buildMainCourseContentBatches, type MainCourseKanjiContent } from "./main-course-content";
 import { STARTER_LESSON_EDITORIAL, type CourseEditorialEntry } from "./starter-lesson-editorial";
 
 const STARTER_SOURCE = "Kanji SRS bootstrap seed";
@@ -41,6 +42,22 @@ type EditorialRelease = {
   readonly slots: ReadonlyMap<string, EditorialSlot>;
 };
 
+const batchVersions = {
+  starter: STARTER_LESSON_EDITORIAL.version,
+  foundation: FOUNDATION_KANJI_EDITORIAL.version,
+  "foundation-basics": FOUNDATION_BASICS_EDITORIAL.version,
+} as const;
+
+export type EditorialBatch = keyof typeof batchVersions;
+
+export function resolveEditorialBatch(selector: string): EditorialBatch | undefined {
+  const batches = Object.keys(batchVersions) as EditorialBatch[];
+  return batches.find(
+    (batch) =>
+      selector === batch || selector === `publish-lesson-editorial-${batchVersions[batch]}`,
+  );
+}
+
 export function applyStarterLessonEditorial(prisma: PrismaClient, mode: "plan" | "apply") {
   const seed = buildStarterCourseSeed();
   return applyEditorial(prisma, mode, {
@@ -52,10 +69,14 @@ export function applyStarterLessonEditorial(prisma: PrismaClient, mode: "plan" |
   });
 }
 
-export function foundationEditorialSlots(): ReadonlyMap<string, EditorialSlot> {
-  const curriculum = buildMainCourseContentBatches().flatMap(({ kanji }) => kanji);
+function mainKanjiSlots(
+  entries: readonly { itemKey: string; character: string; reading: string }[],
+  curriculum: readonly MainCourseKanjiContent[] = buildMainCourseContentBatches().flatMap(
+    ({ kanji }) => kanji,
+  ),
+): ReadonlyMap<string, EditorialSlot> {
   return new Map(
-    FOUNDATION_KANJI_EDITORIAL.entries.map((entry) => {
+    entries.map((entry) => {
       const matches = curriculum.filter(({ character }) => character === entry.character);
       const expected = matches[0];
       if (matches.length !== 1 || expected?.reading.primary !== entry.reading) {
@@ -76,6 +97,10 @@ export function foundationEditorialSlots(): ReadonlyMap<string, EditorialSlot> {
   );
 }
 
+export function foundationEditorialSlots(): ReadonlyMap<string, EditorialSlot> {
+  return mainKanjiSlots(FOUNDATION_KANJI_EDITORIAL.entries);
+}
+
 export function applyFoundationKanjiEditorial(prisma: PrismaClient, mode: "plan" | "apply") {
   return applyEditorial(prisma, mode, {
     courseSlug: "japanese-ru-n2",
@@ -86,10 +111,52 @@ export function applyFoundationKanjiEditorial(prisma: PrismaClient, mode: "plan"
   });
 }
 
+export function foundationBasicsEditorialSlots(): ReadonlyMap<string, EditorialSlot> {
+  const entries = FOUNDATION_BASICS_EDITORIAL.entries;
+  const base = buildMainCourseContentBatches().find(
+    ({ id }) => id === "task-118-foundation-kanji-01",
+  );
+  if (base === undefined) throw new Error("The original foundation batch is required.");
+  const slots = new Map(
+    mainKanjiSlots(
+      entries.filter((entry) => entry.kind === "KANJI"),
+      base.kanji,
+    ),
+  );
+  for (const entry of entries) {
+    if (entry.kind !== "COMPONENT") continue;
+    const index = base.components.findIndex(({ key }) => key === entry.componentKey);
+    if (index < 0 || base.components[index]?.symbol !== entry.symbol) {
+      throw new Error(
+        `Foundation component does not match the registered shape: ${entry.itemKey}.`,
+      );
+    }
+    slots.set(entry.itemKey, {
+      levelNumber: base.componentLevelNumber,
+      sortOrder: (base.componentSortOrderStart ?? 1) + index,
+      target: { kind: "COMPONENT", symbol: entry.symbol },
+    });
+  }
+  return slots;
+}
+
+export function applyFoundationBasicsEditorial(prisma: PrismaClient, mode: "plan" | "apply") {
+  return applyEditorial(prisma, mode, {
+    courseSlug: "japanese-ru-n2",
+    sourceName: CURATION_SOURCE_NAMES.kanji,
+    sourceFileName: "packages/db/src/foundation-basics-editorial.ts",
+    content: FOUNDATION_BASICS_EDITORIAL,
+    slots: foundationBasicsEditorialSlots(),
+  });
+}
+
 function applyEditorial(prisma: PrismaClient, mode: "plan" | "apply", release: EditorialRelease) {
   const { content, slots: expectedSlots } = release;
   return prisma.$transaction(
     async (db) => {
+      if (content.entries.length !== expectedSlots.size) {
+        throw new Error("Editorial release must bind one exact course slot to every entry.");
+      }
       if (mode === "plan") await db.$executeRaw`SET TRANSACTION READ ONLY`;
       const source = await db.dataSource.findUnique({
         where: { name: release.sourceName },
@@ -140,6 +207,7 @@ function applyEditorial(prisma: PrismaClient, mode: "plan" | "apply", release: E
       const hintRows: Prisma.HintCreateManyInput[] = [];
       const meaningRows: Prisma.KanjiMeaningCreateManyInput[] = [];
       const seen = new Set<string>();
+      const resolved = [];
       for (const entry of content.entries) {
         const expected = expectedSlots.get(entry.itemKey);
         const levels = course.levels.find(
@@ -178,19 +246,32 @@ function applyEditorial(prisma: PrismaClient, mode: "plan" | "apply", release: E
           );
         }
         seen.add(entry.itemKey);
+        resolved.push({ item, entry });
+      }
 
-        const current = await db.hint.findMany({
-          where: { learningItemId: item.id },
-          select: { locale: true, hintType: true, body: true, sourceKind: true, version: true },
-        });
+      const currentHints = await db.hint.findMany({
+        where: { learningItemId: { in: resolved.map(({ item }) => item.id) } },
+        select: {
+          learningItemId: true,
+          locale: true,
+          hintType: true,
+          body: true,
+          sourceKind: true,
+          version: true,
+        },
+      });
+      for (const { item, entry } of resolved) {
         for (const hintType of ["MEANING", "READING", "USAGE"] as const) {
           const pair = entry.hints[hintType];
           if (pair === undefined) continue;
           for (const [key, locale] of LOCALES) {
             const body = pair[key].trim();
             if (body.length === 0) throw new Error("Both editorial languages are required.");
-            const versions = current.filter(
-              (row) => row.locale === locale && row.hintType === hintType,
+            const versions = currentHints.filter(
+              (row) =>
+                row.learningItemId === item.id &&
+                row.locale === locale &&
+                row.hintType === hintType,
             );
             if (
               versions.some((row) => row.sourceKind === "PROJECT_AUTHORED" && row.body === body)
@@ -269,7 +350,7 @@ function applyEditorial(prisma: PrismaClient, mode: "plan" | "apply", release: E
       });
       return summary;
     },
-    { isolationLevel: "Serializable", timeout: 30_000 },
+    { isolationLevel: "Serializable", maxWait: 5_000, timeout: 60_000 },
   );
 }
 

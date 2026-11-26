@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - publish-foundation-editorial-2026-11-26
+      - publish-lesson-editorial-*
   workflow_dispatch:
     inputs:
       rolled_back_migration:
@@ -25,6 +26,11 @@ on:
         required: true
         default: false
         type: boolean
+      editorial_batch:
+        description: Optional registered editorial batch, e.g. foundation-basics (no migration or seed)
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -43,11 +49,53 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Require the explicit foundation tag on the current main commit
+      - name: Require the explicit editorial tag on the current main commit
         if: github.event_name == 'push'
         run: |
           git fetch --no-tags --depth=1 origin refs/heads/main
           test "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)"
+
+      - name: Select an editorial release without migrations
+        id: editorial
+        env:
+          SEED_REQUESTED: ${{ inputs.seed_starter }}
+          MIGRATION_RESOLUTION: ${{ inputs.rolled_back_migration }}
+          STARTER_REQUESTED: ${{ inputs.starter_editorial }}
+          FOUNDATION_REQUESTED: ${{ inputs.foundation_editorial }}
+          NAMED_BATCH: ${{ inputs.editorial_batch }}
+        run: |
+          batch=""
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            batch="$GITHUB_REF_NAME"
+            if [ "$batch" = publish-foundation-editorial-2026-11-26 ]; then
+              batch=foundation
+            fi
+          else
+            selections=()
+            if [ "$STARTER_REQUESTED" = true ]; then selections+=(starter); fi
+            if [ "$FOUNDATION_REQUESTED" = true ]; then selections+=(foundation); fi
+            if [ -n "$NAMED_BATCH" ]; then
+              if ! [[ "$NAMED_BATCH" =~ ^[a-z][a-z0-9-]{0,79}$ ]]; then
+                echo "Invalid editorial batch name."
+                exit 1
+              fi
+              selections+=("$NAMED_BATCH")
+            fi
+            if [ "${#selections[@]}" -gt 1 ]; then
+              echo "Select only one editorial batch."
+              exit 1
+            fi
+            batch="${selections[0]:-}"
+            if [ -n "$batch" ] && [ "$GITHUB_REF" != refs/heads/main ]; then
+              echo "Run editorial releases on main."
+              exit 1
+            fi
+          fi
+          if [ -n "$batch" ] && { [ "$SEED_REQUESTED" = true ] || [ -n "$MIGRATION_RESOLUTION" ]; }; then
+            echo "Editorial release cannot be combined with seed or migration resolution."
+            exit 1
+          fi
+          printf 'batch=%s\n' "$batch" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -62,7 +110,7 @@ jobs:
         run: npm run db:generate
 
       - name: Verify the reviewed editorial selection
-        if: github.event_name == 'push'
+        if: steps.editorial.outputs.batch != ''
         run: npm exec -- vitest run packages/db/test/starter-lesson-editorial.test.ts --maxWorkers=1
 
       - name: Verify staging database secret
@@ -75,7 +123,7 @@ jobs:
           fi
 
       - name: Resolve failed migration
-        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.starter_editorial && !inputs.foundation_editorial && inputs.rolled_back_migration != '' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.editorial.outputs.batch == '' && inputs.rolled_back_migration != '' }}
         working-directory: packages/db
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
@@ -83,40 +131,25 @@ jobs:
         run: npm exec -- prisma migrate resolve --rolled-back "$FAILED_MIGRATION"
 
       - name: Apply Prisma migrations
-        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.starter_editorial && !inputs.foundation_editorial }}
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.editorial.outputs.batch == '' }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           NODE_ENV: production
         run: npm run db:migrate:deploy
 
       - name: Seed starter course
-        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.starter_editorial && !inputs.foundation_editorial && inputs.seed_starter }}
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.editorial.outputs.batch == '' && inputs.seed_starter }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           NODE_ENV: production
         run: npm run db:seed
 
       - name: Apply the selected reviewed texts
-        if: ${{ github.event_name == 'push' || inputs.starter_editorial || inputs.foundation_editorial }}
+        if: ${{ steps.editorial.outputs.batch != '' }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           NODE_ENV: production
-          SEED_REQUESTED: ${{ inputs.seed_starter }}
-          MIGRATION_RESOLUTION: ${{ inputs.rolled_back_migration }}
-          STARTER_REQUESTED: ${{ inputs.starter_editorial }}
-          FOUNDATION_REQUESTED: ${{ github.event_name == 'push' || inputs.foundation_editorial }}
+          EDITORIAL_BATCH: ${{ steps.editorial.outputs.batch }}
         run: |
-          if [ "$SEED_REQUESTED" = true ] || [ -n "$MIGRATION_RESOLUTION" ]; then
-            echo "Editorial release cannot be combined with seed or migration resolution."
-            exit 1
-          fi
-          batch=starter
-          if [ "$FOUNDATION_REQUESTED" = true ]; then
-            if [ "$STARTER_REQUESTED" = true ]; then
-              echo "Select only one editorial batch."
-              exit 1
-            fi
-            batch=foundation
-          fi
-          npm exec -- tsx packages/db/prisma/apply-starter-lesson-editorial.ts plan "$batch"
-          npm exec -- tsx packages/db/prisma/apply-starter-lesson-editorial.ts apply "$batch"
+          npm exec -- tsx packages/db/prisma/apply-starter-lesson-editorial.ts plan "$EDITORIAL_BATCH"
+          npm exec -- tsx packages/db/prisma/apply-starter-lesson-editorial.ts apply "$EDITORIAL_BATCH"

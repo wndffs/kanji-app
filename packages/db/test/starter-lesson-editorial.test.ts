@@ -3,11 +3,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyStarterLessonEditorial,
+  foundationBasicsEditorialSlots,
   foundationEditorialSlots,
+  resolveEditorialBatch,
 } from "../src/apply-starter-lesson-editorial";
 import { buildStarterCourseSeed } from "../src/course-seed";
 import { STARTER_LESSON_EDITORIAL } from "../src/starter-lesson-editorial";
 import { FOUNDATION_KANJI_EDITORIAL } from "../src/foundation-kanji-editorial";
+import { FOUNDATION_BASICS_EDITORIAL } from "../src/foundation-basics-editorial";
 
 it("covers the exact starter syllabus with substantive RU/EN hints and kanji-only additions", () => {
   const starter = buildStarterCourseSeed();
@@ -45,6 +48,50 @@ it("matches all early kanji enhancements to their existing course placement and 
       expect(text.en.length).toBeGreaterThan(100);
     }
   }
+});
+
+it("binds the complete first component block and the ten kanji to registered course slots", () => {
+  const slots = foundationBasicsEditorialSlots();
+  expect(slots.size).toBe(36);
+  const components = [...slots.values()].filter(({ target }) => target.kind === "COMPONENT");
+  expect(components.map(({ levelNumber }) => levelNumber)).toEqual(Array(26).fill(1));
+  expect(components.map(({ sortOrder }) => sortOrder)).toEqual(
+    Array.from({ length: 26 }, (_, index) => index + 1),
+  );
+  let explanations = 0;
+  let referencePairs = 0;
+  for (const entry of FOUNDATION_BASICS_EDITORIAL.entries) {
+    const slot = slots.get(entry.itemKey);
+    if (entry.kind === "KANJI") {
+      expect(slot).toMatchObject({
+        target: { character: entry.character },
+        reading: entry.reading,
+      });
+      referencePairs += entry.referenceMeanings?.length ?? 0;
+    } else {
+      expect(slot).toMatchObject({ target: { symbol: entry.symbol } });
+      expect(entry.referenceMeanings).toBeUndefined();
+    }
+    for (const text of Object.values(entry.hints)) {
+      expect(text.ru.trim().length).toBeGreaterThan(100);
+      expect(text.en.trim().length).toBeGreaterThan(100);
+      explanations++;
+    }
+  }
+  expect(explanations).toBe(46);
+  expect(referencePairs).toBe(5);
+});
+
+it("selects only registered editorial names and exact immutable release tags", () => {
+  expect(resolveEditorialBatch("starter")).toBe("starter");
+  expect(resolveEditorialBatch("foundation-basics")).toBe("foundation-basics");
+  expect(
+    resolveEditorialBatch(`publish-lesson-editorial-${FOUNDATION_BASICS_EDITORIAL.version}`),
+  ).toBe("foundation-basics");
+  expect(resolveEditorialBatch("publish-lesson-editorial-latest")).toBeUndefined();
+  expect(
+    resolveEditorialBatch("publish-lesson-editorial-foundation-basics-editorial-02"),
+  ).toBeUndefined();
 });
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL;
