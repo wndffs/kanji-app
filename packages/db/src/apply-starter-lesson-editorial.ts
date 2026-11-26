@@ -6,6 +6,7 @@ import { CURATION_SOURCE_NAMES } from "./curation-source-names";
 import { FOUNDATION_BASICS_EDITORIAL } from "./foundation-basics-editorial";
 import { FOUNDATION_COMPONENTS_EDITORIAL } from "./foundation-components-editorial";
 import { FOUNDATION_KANJI_EDITORIAL } from "./foundation-kanji-editorial";
+import { FOUNDATION_COMPLETION_EDITORIAL } from "./foundation-level-two-editorial";
 import { buildMainCourseContentBatches, type MainCourseKanjiContent } from "./main-course-content";
 import type { MainCourseEditorialEntry } from "./main-course-editorial-entry";
 import { STARTER_LESSON_EDITORIAL, type CourseEditorialEntry } from "./starter-lesson-editorial";
@@ -49,6 +50,7 @@ const batchVersions = {
   foundation: FOUNDATION_KANJI_EDITORIAL.version,
   "foundation-basics": FOUNDATION_BASICS_EDITORIAL.version,
   "foundation-components": FOUNDATION_COMPONENTS_EDITORIAL.version,
+  "foundation-completion": FOUNDATION_COMPLETION_EDITORIAL.version,
 } as const;
 
 export type EditorialBatch = keyof typeof batchVersions;
@@ -197,12 +199,35 @@ export function registeredMainEditorialSlots(
 }
 
 export function applyFoundationComponentsEditorial(prisma: PrismaClient, mode: "plan" | "apply") {
+  return applyRegisteredMainEditorial(
+    prisma,
+    mode,
+    FOUNDATION_COMPONENTS_EDITORIAL,
+    "packages/db/src/foundation-components-editorial.ts",
+  );
+}
+
+export function applyFoundationCompletionEditorial(prisma: PrismaClient, mode: "plan" | "apply") {
+  return applyRegisteredMainEditorial(
+    prisma,
+    mode,
+    FOUNDATION_COMPLETION_EDITORIAL,
+    "packages/db/src/foundation-level-two-editorial.ts",
+  );
+}
+
+function applyRegisteredMainEditorial(
+  prisma: PrismaClient,
+  mode: "plan" | "apply",
+  content: EditorialRelease["content"] & { readonly entries: readonly MainCourseEditorialEntry[] },
+  sourceFileName: string,
+) {
   return applyEditorial(prisma, mode, {
     courseSlug: "japanese-ru-n2",
     sourceName: CURATION_SOURCE_NAMES.kanji,
-    sourceFileName: "packages/db/src/foundation-components-editorial.ts",
-    content: FOUNDATION_COMPONENTS_EDITORIAL,
-    slots: registeredMainEditorialSlots(FOUNDATION_COMPONENTS_EDITORIAL.entries),
+    sourceFileName,
+    content,
+    slots: registeredMainEditorialSlots(content.entries),
   });
 }
 

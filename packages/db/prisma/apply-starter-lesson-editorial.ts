@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 
 import {
   applyFoundationBasicsEditorial,
+  applyFoundationCompletionEditorial,
   applyFoundationComponentsEditorial,
   applyFoundationKanjiEditorial,
   applyStarterLessonEditorial,
@@ -23,6 +24,7 @@ const run = {
   foundation: applyFoundationKanjiEditorial,
   "foundation-basics": applyFoundationBasicsEditorial,
   "foundation-components": applyFoundationComponentsEditorial,
+  "foundation-completion": applyFoundationCompletionEditorial,
 }[batch];
 for (let attempt = 1; ; attempt++) {
   const prisma = new PrismaClient();

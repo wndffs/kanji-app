@@ -14,6 +14,7 @@ import { STARTER_LESSON_EDITORIAL } from "../src/starter-lesson-editorial";
 import { FOUNDATION_KANJI_EDITORIAL } from "../src/foundation-kanji-editorial";
 import { FOUNDATION_BASICS_EDITORIAL } from "../src/foundation-basics-editorial";
 import { FOUNDATION_COMPONENTS_EDITORIAL } from "../src/foundation-components-editorial";
+import { FOUNDATION_COMPLETION_EDITORIAL } from "../src/foundation-level-two-editorial";
 
 it("covers the exact starter syllabus with substantive RU/EN hints and kanji-only additions", () => {
   const starter = buildStarterCourseSeed();
@@ -122,6 +123,59 @@ it("binds the next 37 components and 13 kanji to exact curriculum slots", () => 
   ).toThrow(/does not match its source batch/u);
   expect(resolveEditorialBatch(`publish-lesson-editorial-${version}`)).toBe(
     "foundation-components",
+  );
+});
+
+it("completes the registered level-one components and level-two kanji without repeating slots", () => {
+  const { entries, version } = FOUNDATION_COMPLETION_EDITORIAL;
+  const slots = registeredMainEditorialSlots(entries);
+  const components = entries.filter((entry) => entry.kind === "COMPONENT");
+  const kanji = entries.filter((entry) => entry.kind === "KANJI");
+  expect(slots.size).toBe(66);
+  expect(components).toHaveLength(47);
+  expect(kanji).toHaveLength(19);
+  for (const [index, entry] of components.entries()) {
+    expect(slots.get(entry.itemKey)).toEqual({
+      levelNumber: 1,
+      sortOrder: 64 + index,
+      target: { kind: "COMPONENT", symbol: entry.symbol },
+    });
+  }
+  for (const [index, entry] of kanji.entries()) {
+    expect(slots.get(entry.itemKey)).toEqual({
+      levelNumber: 2,
+      sortOrder: 22 + index,
+      reading: entry.reading,
+      target: { kind: "KANJI", character: entry.character },
+    });
+    expect(Object.keys(entry.hints).sort()).toEqual(["MEANING", "READING"]);
+  }
+  for (const entry of entries) {
+    for (const text of Object.values(entry.hints)) {
+      expect(text.ru.trim().length).toBeGreaterThan(85);
+      expect(text.en.trim().length).toBeGreaterThan(85);
+    }
+  }
+  const previous = [
+    ...foundationBasicsEditorialSlots().values(),
+    ...foundationEditorialSlots().values(),
+    ...registeredMainEditorialSlots(FOUNDATION_COMPONENTS_EDITORIAL.entries).values(),
+  ];
+  const all = [...previous, ...slots.values()];
+  expect(
+    all.filter(({ levelNumber }) => levelNumber === 1).map(({ sortOrder }) => sortOrder),
+  ).toEqual(Array.from({ length: 110 }, (_, index) => index + 1));
+  const levelTwo = all
+    .filter(({ levelNumber }) => levelNumber === 2)
+    .map(({ sortOrder }) => sortOrder);
+  expect([...levelTwo, 21].sort((a, b) => a - b)).toEqual(
+    Array.from({ length: 40 }, (_, index) => index + 1),
+  );
+  expect(STARTER_LESSON_EDITORIAL.entries.some(({ itemKey }) => itemKey === "kanji-one")).toBe(
+    true,
+  );
+  expect(resolveEditorialBatch(`publish-lesson-editorial-${version}`)).toBe(
+    "foundation-completion",
   );
 });
 
