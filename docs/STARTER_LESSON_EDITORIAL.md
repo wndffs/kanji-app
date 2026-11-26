@@ -168,10 +168,17 @@ reading examples for 甘, 詰, 津 and 甲.
 
 ## Level 13 and cumulative coverage
 
-The level-13 release adds notes for its 40 kanji, including separate senses
-for 御 in 制御 and 御飯, and context-specific readings of 旬. With the
-earlier starter and foundation notes, the editorial coverage is now complete
-for level 1 components and for all existing kanji at levels 2–13. New
+The [level-13 release](https://github.com/wndffs/kanji-app/actions/runs/45895092413)
+adds notes for its 40 kanji, including the different uses of 御 in 制御
+and 御飯 and context-specific readings of 旬.
+
+Across the 13 follow-up releases, 84 components and 460 existing kanji
+received 1,004 bilingual notes and 75 bilingual reference meanings. The
+public item API matched every published text in both languages. Checks
+also confirmed that the 47 earlier materials still return their texts.
+Together these cover all 110 level-1 components and all 481 kanji at
+levels 2–13, without duplicates or gaps against the course registry.
+
+The next kanji block starts at level 14. This is lesson text and reference
+coverage, not a change in course size, grading, or unlocked levels. New
 examples are project-authored and reviewed against the pinned sources.
-This is lesson text and reference coverage, not a change in course size,
-grading, or which levels a learner has unlocked.
