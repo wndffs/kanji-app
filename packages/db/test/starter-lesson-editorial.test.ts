@@ -19,6 +19,7 @@ import { FOUNDATION_LEVEL_THREE_EDITORIAL } from "../src/foundation-level-three-
 import { FOUNDATION_LEVEL_FOUR_EDITORIAL } from "../src/foundation-level-four-editorial";
 import { FOUNDATION_LEVEL_FIVE_EDITORIAL } from "../src/foundation-level-five-editorial";
 import { FOUNDATION_LEVEL_SIX_EDITORIAL } from "../src/foundation-level-six-editorial";
+import { FOUNDATION_LEVEL_SEVEN_EDITORIAL } from "../src/foundation-level-seven-editorial";
 
 it("covers the exact starter syllabus with substantive RU/EN hints and kanji-only additions", () => {
   const starter = buildStarterCourseSeed();
@@ -216,13 +217,22 @@ it.each([
     level: 6,
     skipped: Array.from({ length: 14 }, (_, index) => 98 + index),
   },
+  {
+    batch: "foundation-level-seven",
+    release: FOUNDATION_LEVEL_SEVEN_EDITORIAL,
+    start: 1,
+    length: 40,
+    level: 7,
+    skipped: [],
+  },
 ])(
   "covers the remaining level-$level kanji",
   ({ batch, release, length, start, level, skipped }) => {
     const { entries, version } = release;
     const slots = registeredMainEditorialSlots(entries);
+    const excluded = new Set<number>(skipped);
     const expected = Array.from({ length }, (_, index) => start + index).filter(
-      (position) => !skipped.includes(position),
+      (position) => !excluded.has(position),
     );
     expect(slots.size).toBe(expected.length);
     expect(entries.map(({ itemKey }) => slots.get(itemKey)?.sortOrder)).toEqual(expected);
@@ -247,6 +257,7 @@ it("keeps Russian and English on their own sides of each new editorial pair", ()
     FOUNDATION_LEVEL_FOUR_EDITORIAL,
     FOUNDATION_LEVEL_FIVE_EDITORIAL,
     FOUNDATION_LEVEL_SIX_EDITORIAL,
+    FOUNDATION_LEVEL_SEVEN_EDITORIAL,
   ];
   for (const { entries } of releases) {
     for (const entry of entries) {

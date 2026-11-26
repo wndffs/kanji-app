@@ -129,3 +129,5 @@ words such as 治療 and 政治. The level-6 release continues with 40 kanji,
 including the existing standalone readings of 神, 命 and 松. Both releases
 skip vocabulary and other material in the same level; they do not replace
 existing cards or introduce new accepted answers.
+The [level-6 publication receipt](https://github.com/wndffs/kanji-app/actions/runs/45889020237)
+records 40 matches, 160 language-specific hint rows and 14 reference rows.
