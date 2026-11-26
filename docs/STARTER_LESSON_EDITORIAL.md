@@ -131,3 +131,13 @@ skip vocabulary and other material in the same level; they do not replace
 existing cards or introduce new accepted answers.
 The [level-6 publication receipt](https://github.com/wndffs/kanji-app/actions/runs/45889020237)
 records 40 matches, 160 language-specific hint rows and 14 reference rows.
+
+## Levels 7 and 8
+
+The [level-7 release](https://github.com/wndffs/kanji-app/actions/runs/45890033458)
+adds 80 bilingual notes and nine reference pairs to all 40 existing kanji.
+It distinguishes everyday readings from compounds such as 新聞, 列島 and
+奥義. The next release applies the same review to all 40 level-8 kanji,
+including the variant readings illustrated by 省略 and 反省, 規模 and
+模型, or 生存 and 存在. The content applies only to the exact kanji
+placements in the existing course.
