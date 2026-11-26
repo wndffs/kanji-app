@@ -38,6 +38,7 @@ import {
 import { type CurrentUserDto } from "../auth/auth.types";
 import { hasCompletedListeningPlayback } from "../audio/listening-playback";
 import { OverridesService } from "../overrides/overrides.service";
+import { getLessonBudget } from "./lesson-budget";
 import { LessonsRepository } from "./lessons.repository";
 import {
   type CourseLessonEligibilityRecord,
@@ -50,7 +51,6 @@ import {
   type UserItemProgressRecord,
 } from "./lessons.types";
 
-const DEFAULT_DAILY_LESSON_LIMIT = 10;
 const DEFAULT_LESSON_BATCH_LIMIT = 5;
 const DEFAULT_LESSON_CATALOGUE_LIMIT = 24;
 const MAX_LESSON_CATALOGUE_LIMIT = 48;
@@ -521,7 +521,7 @@ export class LessonsService {
       undefined,
       new Date(now.getTime() - 48 * 60 * 60 * 1_000),
     );
-    const remainingToday = getRemainingDailyLessons(user, recent, now);
+    const { remainingToday } = getLessonBudget(user.settings, recent, now);
     const displayMode = user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE;
 
     if (deckId !== null) {
@@ -825,25 +825,6 @@ function getSatisfiedPrerequisites(
   return unlockedBy;
 }
 
-function getRemainingDailyLessons(
-  user: CurrentUserDto,
-  progress: readonly UserItemProgressRecord[],
-  now: Date,
-): number {
-  const dailyLimit =
-    Number.isInteger(user.settings.dailyLessonLimit) && user.settings.dailyLessonLimit > 0
-      ? user.settings.dailyLessonLimit
-      : DEFAULT_DAILY_LESSON_LIMIT;
-  const today = getLocalDateKey(now, user.settings.timezone);
-  const completedItemIds = new Set(
-    progress
-      .filter((record) => getLocalDateKey(record.createdAt, user.settings.timezone) === today)
-      .map((record) => record.learningItemId),
-  );
-
-  return Math.max(0, dailyLimit - completedItemIds.size);
-}
-
 function getLessonBatchSize(user: CurrentUserDto): number {
   const batchSize = user.settings.lessonBatchSize;
 
@@ -895,28 +876,6 @@ function orderLessonItems<T>(
   }
 
   return orderedItems;
-}
-
-function getLocalDateKey(date: Date, timezone: string): string {
-  try {
-    const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: timezone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).formatToParts(date);
-
-    return `${readDatePart(parts, "year")}-${readDatePart(parts, "month")}-${readDatePart(parts, "day")}`;
-  } catch {
-    return date.toISOString().slice(0, 10);
-  }
-}
-
-function readDatePart(
-  parts: Intl.DateTimeFormatPart[],
-  type: Intl.DateTimeFormatPartTypes,
-): string {
-  return parts.find((part) => part.type === type)?.value ?? "00";
 }
 
 function parseStartLessonRequest(body: unknown): {

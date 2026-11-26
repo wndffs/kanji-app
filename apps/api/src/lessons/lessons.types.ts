@@ -99,8 +99,12 @@ export type LessonEligibilityItemRecord = Pick<
   readonly cards: readonly Pick<LessonCardRecord, "id">[];
 };
 
-export type CourseLessonEligibilityRecord = Omit<CourseLessonItemRecord, "item"> & {
+export type CourseLessonEligibilityRecord = {
+  readonly courseId: string;
+  readonly courseLevelNumber: number;
+  readonly sortOrder: number;
   readonly item: LessonEligibilityItemRecord;
+  readonly unlockPolicy: Record<string, unknown> | null;
 };
 
 export type CourseLessonEligibilityGraph = {
@@ -109,28 +113,13 @@ export type CourseLessonEligibilityGraph = {
   readonly progress: readonly UserItemProgressRecord[];
 };
 
-export type DeckLessonEligibilityRecord = Omit<DeckLessonRecord, "items"> & {
-  readonly items: readonly {
-    readonly sortOrder: number;
-    readonly item: LessonEligibilityItemRecord;
-  }[];
-};
-
-export type CourseLessonItemRecord = {
-  readonly courseId: string;
-  readonly courseLevelNumber: number;
-  readonly sortOrder: number;
-  readonly item: LessonItemRecord;
-  readonly unlockPolicy: Record<string, unknown> | null;
-};
-
-export type DeckLessonRecord = {
+export type DeckLessonEligibilityRecord = {
   readonly id: string;
   readonly title: string;
   readonly status: "draft" | "active" | "archived";
   readonly items: readonly {
     readonly sortOrder: number;
-    readonly item: LessonItemRecord;
+    readonly item: LessonEligibilityItemRecord;
   }[];
 };
 

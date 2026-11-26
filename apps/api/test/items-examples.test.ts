@@ -84,6 +84,9 @@ function harness(count = 1) {
         async ({ where }: { where: { id: string } }) =>
           items.find((item) => item.id === where.id) ?? null,
       ),
+      findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) =>
+        items.filter((item) => where.id.in.includes(item.id)),
+      ),
     },
     learningCard: { ...writes },
     dependency: { ...writes, findMany: vi.fn().mockResolvedValue([]) },
@@ -95,37 +98,6 @@ function harness(count = 1) {
       ),
     },
     sentence: { findMany },
-    deck: {
-      findFirst: vi.fn().mockResolvedValue({
-        id: id(5000),
-        title: "Words",
-        status: "READY",
-        items: items.map((learningItem, i) => ({ sortOrder: i, learningItem })),
-      }),
-    },
-    userSettings: { findUnique: vi.fn().mockResolvedValue({ currentCourseId: id(6000) }) },
-    userEnrollment: {
-      findMany: vi.fn().mockResolvedValue([
-        {
-          courseId: id(6000),
-          startedAt: new Date("2026-10-22T00:00:00Z"),
-          course: {
-            id: id(6000),
-            slug: "japanese-ru-n2",
-            levels: [
-              {
-                levelNumber: 1,
-                items: items.map((learningItem, i) => ({
-                  sortOrder: i,
-                  unlockPolicyJson: null,
-                  learningItem,
-                })),
-              },
-            ],
-          },
-        },
-      ]),
-    },
   };
   return {
     db,
@@ -167,34 +139,30 @@ describe("direct word examples in Prisma item/lesson repositories", () => {
     expect(h.$queryRaw).not.toHaveBeenCalled();
   });
 
-  it.each(["deck", "course"] as const)(
-    "shows three direct examples per exact word in %s lessons, with 100-item SQL batches",
-    async (source) => {
-      const h = harness(101);
-      const records =
-        source === "deck"
-          ? (await h.lessonRepository.findDeckLesson(id(4000), id(5000)))!.items.map(
-              (row) => row.item,
-            )
-          : (await h.lessonRepository.listCourseLessonItems(id(4000))).map((row) => row.item);
-      expect(records).toHaveLength(101);
-      expect(records.every((item) => item.exampleSentences.length === 3)).toBe(true);
-      expect(records[0]!.target.reading).toBe("ほん");
-      expect(records[1]!.target.reading).toBe("もと");
-      expect(h.$queryRaw).toHaveBeenCalledTimes(2);
-      expect(h.findMany).toHaveBeenCalledTimes(2);
-      expect(h.db.learningItem.findUnique).not.toHaveBeenCalled();
-      expect(h.db.word.findUnique).not.toHaveBeenCalled();
-      expect(h.db.word.findMany).toHaveBeenCalledTimes(2);
-      for (const write of Object.values(h.writes)) expect(write).not.toHaveBeenCalled();
-      for (const [query] of h.$queryRaw.mock.calls) {
-        expect(h.items.filter((item) => query.values.includes(item.targetId))).toHaveLength(
-          query === h.$queryRaw.mock.calls[0]![0] ? 100 : 1,
-        );
-        expect(query.values.at(-1)).toBe(3);
-      }
-    },
-  );
+  it("shows three direct examples per selected word, with 100-item SQL batches", async () => {
+    const h = harness(101);
+    const loaded = await h.lessonRepository.loadLessonItems(
+      id(4000),
+      h.items.map((item) => item.id),
+    );
+    const records = h.items.map((item) => loaded.get(item.id)!);
+    expect(records).toHaveLength(101);
+    expect(records.every((item) => item.exampleSentences.length === 3)).toBe(true);
+    expect(records[0]!.target.reading).toBe("ほん");
+    expect(records[1]!.target.reading).toBe("もと");
+    expect(h.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(h.findMany).toHaveBeenCalledTimes(2);
+    expect(h.db.learningItem.findUnique).not.toHaveBeenCalled();
+    expect(h.db.word.findUnique).not.toHaveBeenCalled();
+    expect(h.db.word.findMany).toHaveBeenCalledTimes(2);
+    for (const write of Object.values(h.writes)) expect(write).not.toHaveBeenCalled();
+    for (const [query] of h.$queryRaw.mock.calls) {
+      expect(h.items.filter((item) => query.values.includes(item.targetId))).toHaveLength(
+        query === h.$queryRaw.mock.calls[0]![0] ? 100 : 1,
+      );
+      expect(query.values.at(-1)).toBe(3);
+    }
+  });
 
   it("hides examples whose attribution is removed after bounded selection", async () => {
     const h = harness();
@@ -202,8 +170,8 @@ describe("direct word examples in Prisma item/lesson repositories", () => {
       Object.assign(sentence.dataSource!, { attributionText: "" });
     expect((await h.itemRepository.findItemById(h.items[0]!.id, {}))?.exampleSentences).toEqual([]);
     expect(
-      (await h.lessonRepository.findDeckLesson(id(4000), id(5000)))?.items[0]?.item
-        .exampleSentences,
+      (await h.lessonRepository.loadLessonItems(id(4000), [h.items[0]!.id])).get(h.items[0]!.id)
+        ?.exampleSentences,
     ).toEqual([]);
     for (const write of Object.values(h.writes)) expect(write).not.toHaveBeenCalled();
   });

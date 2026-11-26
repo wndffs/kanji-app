@@ -968,12 +968,13 @@ describe.skipIf(databaseUrl === null)("PrismaReviewsRepository on PostgreSQL 18"
           attributionText: "Independent integration fixture authors.",
           sourceName: expect.stringContaining("авторский пример проекта"),
         });
-        const lessons = await new PrismaLessonsRepository(control).listCourseLessonItems(
+        const lessons = await new PrismaLessonsRepository(control).loadLessonItems(
           base.userId,
+          fixture.items.map((item) => item.id),
         );
-        expect(lessons[0]?.item.exampleSentences).toHaveLength(1);
-        expect(lessons[1]?.item.target.reading).toBe("もと");
-        expect(lessons[1]?.item.exampleSentences).toEqual([]);
+        expect(lessons.get(fixture.items[0]!.id)?.exampleSentences).toHaveLength(1);
+        expect(lessons.get(fixture.items[1]!.id)?.target.reading).toBe("もと");
+        expect(lessons.get(fixture.items[1]!.id)?.exampleSentences).toEqual([]);
         expect(
           await control.db.learningItem.count({
             where: { targetType: "SENTENCE", targetId: { in: fixture.sentenceIds } },

@@ -14,9 +14,9 @@ import type { OverridesService } from "../src/overrides/overrides.service";
 import {
   type CompleteLessonItemInput,
   type CompletedLessonItemRecord,
-  type CourseLessonItemRecord,
+  type CourseLessonEligibilityRecord,
   type CreateLessonSessionInput,
-  type DeckLessonRecord,
+  type DeckLessonEligibilityRecord,
   type LessonItemRecord,
   type LessonSessionRecord,
   type SrsSystemRecord,
@@ -25,6 +25,14 @@ import {
 } from "../src/lessons/lessons.types";
 
 const NOW = new Date("2026-06-18T09:00:00.000Z");
+
+type CourseLessonItemRecord = Omit<CourseLessonEligibilityRecord, "item"> & {
+  readonly item: LessonItemRecord;
+};
+
+type DeckLessonRecord = Omit<DeckLessonEligibilityRecord, "items"> & {
+  readonly items: readonly { readonly sortOrder: number; readonly item: LessonItemRecord }[];
+};
 
 describe("PrismaLessonsRepository", () => {
   it("refuses to create a course lesson from an obsolete selection after the user is locked", async () => {
@@ -105,47 +113,6 @@ describe("PrismaLessonsRepository", () => {
 
     await expect(repository.listPrerequisiteCardIds([])).resolves.toEqual(new Map());
     expect(findMany).not.toHaveBeenCalled();
-  });
-
-  it("loads published lesson items only from the resolved current course", async () => {
-    const findMany = vi
-      .fn()
-      .mockResolvedValueOnce([
-        {
-          courseId: "course-main",
-          startedAt: NOW,
-          course: { slug: "japanese-ru-n2" },
-        },
-      ])
-      .mockResolvedValueOnce([]);
-    const repository = new PrismaLessonsRepository({
-      db: {
-        userSettings: { findUnique: vi.fn().mockResolvedValue({ currentCourseId: null }) },
-        userEnrollment: { findMany },
-      },
-    } as never);
-
-    await repository.listCourseLessonItems("user-1");
-
-    expect(findMany).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        where: expect.objectContaining({ courseId: "course-main" }),
-        include: {
-          course: {
-            include: {
-              levels: expect.objectContaining({
-                include: {
-                  items: expect.objectContaining({
-                    where: { learningItem: { status: "PUBLISHED" } },
-                  }),
-                },
-              }),
-            },
-          },
-        },
-      }),
-    );
   });
 });
 
@@ -486,7 +453,7 @@ describe("LessonsService", () => {
         .spyOn(repository, "listPrerequisiteCardIds")
         .mockResolvedValue(new Map([["external-kanji", ["external-meaning", "external-reading"]]]));
       if (source === "deck") {
-        vi.spyOn(repository, "findDeckLesson").mockResolvedValue({
+        vi.spyOn(repository, "findDeckEligibility").mockResolvedValue({
           id: "deck-study",
           title: "Study text",
           status: "active",
@@ -1280,13 +1247,9 @@ class InMemoryLessonsRepository extends LessonsRepository {
     this.progress = [];
   }
 
-  async listCourseLessonItems(_userId: string): Promise<readonly CourseLessonItemRecord[]> {
-    this.readCounts.course++;
-    return this.courseItems;
-  }
-
   async listCourseEligibility(userId: string) {
-    const items = await this.listCourseLessonItems(userId);
+    this.readCounts.course++;
+    const items = this.courseItems;
     return {
       items,
       prerequisiteItems: [],
@@ -1297,8 +1260,15 @@ class InMemoryLessonsRepository extends LessonsRepository {
     };
   }
 
-  async findDeckEligibility(userId: string, deckId: string) {
-    return this.findDeckLesson(userId, deckId);
+  async findDeckEligibility(
+    userId: string,
+    deckId: string,
+    includeItems = true,
+  ): Promise<DeckLessonEligibilityRecord | null> {
+    this.readCounts.deck++;
+    if (userId !== "owner" || deckId !== "deck-study") return null;
+    const deck = createDeckLesson(this.deckStatus);
+    return includeItems ? deck : { ...deck, items: [] };
   }
 
   async loadLessonItems(_userId: string, itemIds: readonly string[]) {
@@ -1309,11 +1279,6 @@ class InMemoryLessonsRepository extends LessonsRepository {
     return new Map(
       items.filter((item) => itemIds.includes(item.id)).map((item) => [item.id, item]),
     );
-  }
-
-  async findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null> {
-    this.readCounts.deck++;
-    return userId === "owner" && deckId === "deck-study" ? createDeckLesson(this.deckStatus) : null;
   }
 
   async listUserProgress(

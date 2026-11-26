@@ -22,12 +22,10 @@ import {
 import {
   type CompleteLessonItemInput,
   type CompletedLessonItemRecord,
-  type CourseLessonItemRecord,
   type CourseLessonEligibilityGraph,
   type DeckLessonEligibilityRecord,
   type LessonEligibilityItemRecord,
   type CreateLessonSessionInput,
-  type DeckLessonRecord,
   type LessonAnswerRecord,
   type LessonBlockedAnswerRecord,
   type LessonCardRecord,
@@ -51,8 +49,6 @@ export abstract class LessonsRepository {
     userId: string,
     itemIds: readonly string[],
   ): Promise<ReadonlyMap<string, LessonItemRecord>>;
-  abstract listCourseLessonItems(userId: string): Promise<readonly CourseLessonItemRecord[]>;
-  abstract findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null>;
   abstract listUserProgress(
     userId: string,
     itemIds?: readonly string[],
@@ -86,34 +82,6 @@ export abstract class LessonsRepository {
     now: Date,
   ): Promise<LessonSessionRecord | null>;
 }
-
-type EnrollmentRow = {
-  readonly course: {
-    readonly id: string;
-    readonly levels: readonly CourseLevelRow[];
-  };
-};
-
-type CourseLevelRow = {
-  readonly levelNumber: number;
-  readonly items: readonly CourseLevelItemRow[];
-};
-
-type CourseLevelItemRow = {
-  readonly sortOrder: number;
-  readonly unlockPolicyJson: unknown;
-  readonly learningItem: LearningItemRow;
-};
-
-type DeckRow = {
-  readonly id: string;
-  readonly title: string;
-  readonly status: string;
-  readonly items: readonly {
-    readonly sortOrder: number;
-    readonly learningItem: LearningItemRow;
-  }[];
-};
 
 type LearningItemRow = {
   readonly id: string;
@@ -448,195 +416,6 @@ export class PrismaLessonsRepository extends LessonsRepository {
         result.set(row.id, this.toLessonItemRecord(row, examples.get(row.id) ?? [], targets));
     }
     return result;
-  }
-
-  async listCourseLessonItems(userId: string): Promise<readonly CourseLessonItemRecord[]> {
-    const currentCourseId = await resolveCurrentCourseId(this.prisma.db, userId);
-
-    if (currentCourseId === null) {
-      return [];
-    }
-
-    const enrollments = (await this.prisma.db.userEnrollment.findMany({
-      where: {
-        userId,
-        courseId: currentCourseId,
-        status: "ACTIVE",
-        course: {
-          status: "PUBLISHED",
-        },
-      },
-      include: {
-        course: {
-          include: {
-            levels: {
-              orderBy: { levelNumber: "asc" },
-              include: {
-                items: {
-                  where: { learningItem: { status: "PUBLISHED" } },
-                  orderBy: { sortOrder: "asc" },
-                  include: {
-                    learningItem: {
-                      include: {
-                        cards: {
-                          where: listeningCardEligibilityWhere,
-                          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-                          include: {
-                            answers: {
-                              orderBy: [{ isPrimary: "desc" }, { text: "asc" }],
-                            },
-                            blockedAnswers: {
-                              orderBy: { text: "asc" },
-                            },
-                            audioAsset: {
-                              include: {
-                                dataSource: true,
-                                license: true,
-                              },
-                            },
-                          },
-                        },
-                        dependencies: {
-                          where: { dependencyType: "PREREQUISITE" },
-                          orderBy: { prerequisiteItemId: "asc" },
-                        },
-                        mnemonics: {
-                          orderBy: [
-                            { locale: "asc" },
-                            { mnemonicType: "asc" },
-                            { version: "desc" },
-                          ],
-                        },
-                        hints: {
-                          orderBy: [{ locale: "asc" }, { hintType: "asc" }, { version: "desc" }],
-                        },
-                        userMnemonics: {
-                          where: { userId },
-                          orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }],
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-      orderBy: [{ startedAt: "asc" }, { id: "asc" }],
-    })) as readonly EnrollmentRow[];
-
-    const records: CourseLessonItemRecord[] = [];
-    const lessonItems = enrollments.flatMap((enrollment) =>
-      enrollment.course.levels.flatMap((level) => level.items.map((entry) => entry.learningItem)),
-    );
-    const examplesByItem = await loadItemExampleSentences(this.prisma.db, lessonItems, 3);
-    const targets = await this.loadTargets(lessonItems);
-
-    for (const enrollment of enrollments) {
-      for (const level of enrollment.course.levels) {
-        for (const item of level.items) {
-          const lessonItem = this.toLessonItemRecord(
-            item.learningItem,
-            examplesByItem.get(item.learningItem.id) ?? [],
-            targets,
-          );
-
-          if (lessonItem.cards.length === 0) {
-            continue;
-          }
-
-          records.push({
-            courseId: enrollment.course.id,
-            courseLevelNumber: level.levelNumber,
-            sortOrder: item.sortOrder,
-            item: lessonItem,
-            unlockPolicy: isRecord(item.unlockPolicyJson) ? item.unlockPolicyJson : null,
-          });
-        }
-      }
-    }
-
-    return records;
-  }
-
-  async findDeckLesson(userId: string, deckId: string): Promise<DeckLessonRecord | null> {
-    const deck = (await this.prisma.db.deck.findFirst({
-      where: {
-        id: deckId,
-        ownerUserId: userId,
-      },
-      include: {
-        items: {
-          orderBy: { sortOrder: "asc" },
-          include: {
-            learningItem: {
-              include: {
-                cards: {
-                  where: listeningCardEligibilityWhere,
-                  orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-                  include: {
-                    answers: {
-                      orderBy: [{ isPrimary: "desc" }, { text: "asc" }],
-                    },
-                    blockedAnswers: {
-                      orderBy: { text: "asc" },
-                    },
-                    audioAsset: {
-                      include: {
-                        dataSource: true,
-                        license: true,
-                      },
-                    },
-                  },
-                },
-                dependencies: {
-                  where: { dependencyType: "PREREQUISITE" },
-                  orderBy: { prerequisiteItemId: "asc" },
-                },
-                mnemonics: {
-                  orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }, { version: "desc" }],
-                },
-                hints: {
-                  orderBy: [{ locale: "asc" }, { hintType: "asc" }, { version: "desc" }],
-                },
-                userMnemonics: {
-                  where: { userId },
-                  orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }],
-                },
-              },
-            },
-          },
-        },
-      },
-    })) as DeckRow | null;
-
-    if (deck === null) {
-      return null;
-    }
-
-    const examplesByItem = await loadItemExampleSentences(
-      this.prisma.db,
-      deck.items.map((entry) => entry.learningItem),
-      3,
-    );
-    const targets = await this.loadTargets(deck.items.map((entry) => entry.learningItem));
-
-    const items = deck.items.map((entry) => ({
-      sortOrder: entry.sortOrder,
-      item: this.toLessonItemRecord(
-        entry.learningItem,
-        examplesByItem.get(entry.learningItem.id) ?? [],
-        targets,
-      ),
-    }));
-
-    return {
-      id: deck.id,
-      title: deck.title,
-      status: toDeckLessonStatus(deck.status),
-      items: items.filter((entry) => entry.item.cards.length > 0),
-    };
   }
 
   async listUserProgress(
@@ -1149,7 +928,7 @@ function toLessonSessionPhase(value: unknown): LessonSessionRecord["phase"] {
   }
 }
 
-function toDeckLessonStatus(status: string): DeckLessonRecord["status"] {
+function toDeckLessonStatus(status: string): DeckLessonEligibilityRecord["status"] {
   switch (status) {
     case "ACTIVE":
       return "active";

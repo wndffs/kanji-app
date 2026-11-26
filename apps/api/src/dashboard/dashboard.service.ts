@@ -24,6 +24,7 @@ import {
 } from "@kanji-srs/shared";
 
 import { type CurrentUserDto } from "../auth/auth.types";
+import { createLocalDateKey, getLessonBudget } from "../lessons/lesson-budget";
 import { LEECH_RECENT_REVIEW_DAYS } from "../reviews/leech-signals";
 import { DashboardRepository } from "./dashboard.repository";
 import {
@@ -50,7 +51,6 @@ const STUDY_ACTIVITY_QUERY_BUFFER_DAYS = 1;
 const MAX_DASHBOARD_LEECH_CANDIDATES = 5;
 const MAX_RECENT_ACTIVITY_ITEMS = 5;
 const RECENT_MISTAKE_DAYS = 30;
-const DEFAULT_DAILY_LESSON_LIMIT = 10;
 const DEFAULT_REVIEW_BUDGET = 100;
 
 @Injectable()
@@ -111,9 +111,10 @@ export class DashboardService {
     const displayMode = user.settings.translationDisplayMode ?? DEFAULT_TRANSLATION_DISPLAY_MODE;
     const leechCandidates = toLeechCandidatesDto(leechSignals, displayMode);
     const availableLessonItems = findAvailableLessonItems(lessonItems, lessonProgress);
+    const lessonBudget = getLessonBudget(user.settings, lessonProgress, now);
     const availableLessonsToday = Math.min(
       availableLessonItems.length,
-      getRemainingDailyLessons(user, lessonProgress, now),
+      lessonBudget.remainingToday,
     );
     const availableItemIds = new Set(availableLessonItems.map((item) => item.id));
     const journeyPlan = findNextLockedPath(lessonItems, lessonProgress);
@@ -175,7 +176,7 @@ export class DashboardService {
               srsStageSpread,
               now,
             }),
-      workload: toWorkloadDto(user, lessonProgress, forecastStates, dueReviews, now),
+      workload: toWorkloadDto(user, lessonBudget, forecastStates, dueReviews, now),
       reviewForecast: toReviewForecastDto(forecastStates, now, user.settings.timezone),
       srsStageSpread: toSrsStageSpreadDto(srsStageSpread),
       leechCandidates: leechCandidates.slice(0, MAX_DASHBOARD_LEECH_CANDIDATES),
@@ -195,7 +196,7 @@ function toStudyActivityDto(
   now: Date,
   timezone: string,
 ): DashboardDto["studyActivity"] {
-  const rangeEnd = getLocalDateKey(now, timezone);
+  const rangeEnd = createLocalDateKey(timezone)(now);
   const rangeStart = addLocalDateDays(rangeEnd, -(STUDY_ACTIVITY_DAYS - 1));
   const countsByDate = new Map<
     string,
@@ -850,60 +851,6 @@ function compareLessonItems(
   );
 }
 
-function getRemainingDailyLessons(
-  user: CurrentUserDto,
-  progress: readonly DashboardLessonProgressRecord[],
-  now: Date,
-): number {
-  const dailyLimit = getDailyLessonLimit(user);
-  const completedToday = countCompletedLessonsToday(user, progress, now);
-
-  return Math.max(0, dailyLimit - completedToday);
-}
-
-function getDailyLessonLimit(user: CurrentUserDto): number {
-  return Number.isInteger(user.settings.dailyLessonLimit) && user.settings.dailyLessonLimit > 0
-    ? user.settings.dailyLessonLimit
-    : DEFAULT_DAILY_LESSON_LIMIT;
-}
-
-function countCompletedLessonsToday(
-  user: CurrentUserDto,
-  progress: readonly DashboardLessonProgressRecord[],
-  now: Date,
-): number {
-  const today = getLocalDateKey(now, user.settings.timezone);
-  const completedItemIds = new Set(
-    progress
-      .filter((record) => getLocalDateKey(record.createdAt, user.settings.timezone) === today)
-      .map((record) => record.learningItemId),
-  );
-
-  return completedItemIds.size;
-}
-
-function getLocalDateKey(date: Date, timezone: string): string {
-  try {
-    const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: timezone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).formatToParts(date);
-
-    return `${readDatePart(parts, "year")}-${readDatePart(parts, "month")}-${readDatePart(parts, "day")}`;
-  } catch {
-    return date.toISOString().slice(0, 10);
-  }
-}
-
-function readDatePart(
-  parts: Intl.DateTimeFormatPart[],
-  type: Intl.DateTimeFormatPartTypes,
-): string {
-  return parts.find((part) => part.type === type)?.value ?? "00";
-}
-
 function findCurrentLevelProgress(
   levels: readonly DashboardCourseLevelProgressRecord[],
   availableItemIds: ReadonlySet<string>,
@@ -1106,7 +1053,7 @@ function findSrsStageName(
 
 function toWorkloadDto(
   user: CurrentUserDto,
-  lessonProgress: readonly DashboardLessonProgressRecord[],
+  lessonBudget: ReturnType<typeof getLessonBudget>,
   forecastStates: readonly DashboardSrsStateRecord[],
   dueNow: number,
   now: Date,
@@ -1119,8 +1066,7 @@ function toWorkloadDto(
     Number.isInteger(user.settings.reviewBudget) && user.settings.reviewBudget > 0
       ? user.settings.reviewBudget
       : DEFAULT_REVIEW_BUDGET;
-  const dailyLimit = getDailyLessonLimit(user);
-  const completedToday = countCompletedLessonsToday(user, lessonProgress, now);
+  const { dailyLimit, completedToday } = lessonBudget;
 
   return {
     reviews: {
@@ -1131,9 +1077,7 @@ function toWorkloadDto(
       pressurePercent: Math.min(100, Math.round(((dueNow + next24Hours) / reviewBudget) * 100)),
     },
     lessons: {
-      completedToday,
-      remainingToday: Math.max(0, dailyLimit - completedToday),
-      dailyLimit,
+      ...lessonBudget,
       percent: Math.min(100, Math.round((completedToday / dailyLimit) * 100)),
     },
   };

@@ -1,5 +1,8 @@
 # Architecture
 
+See [the maintainability review](MAINTAINABILITY_REVIEW.md) for implementation
+priorities and regression checks.
+
 ## High-level layers
 
 1. Data/source layer: raw imports, licenses, attribution, checksums, import runs.

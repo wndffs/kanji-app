@@ -122,20 +122,6 @@ function harness(items: ReturnType<typeof item>[]) {
       activity,
     ),
   };
-  const course = {
-    id: id(8000),
-    slug: "japanese-ru-n2",
-    levels: [
-      {
-        levelNumber: 1,
-        items: items.map((learningItem, index) => ({
-          sortOrder: index + 1,
-          unlockPolicyJson: { policy: "level-order", fixtureLocked: true },
-          learningItem,
-        })),
-      },
-    ],
-  };
   const db = {
     ...tables,
     learningItem: {
@@ -144,31 +130,15 @@ function harness(items: ReturnType<typeof item>[]) {
       ),
     },
     $queryRaw: vi.fn().mockResolvedValue([]),
-    userSettings: { findUnique: vi.fn().mockResolvedValue({ currentCourseId: course.id }) },
-    userEnrollment: {
-      findMany: vi
-        .fn()
-        .mockResolvedValue([
-          { courseId: course.id, startedAt: new Date("2026-10-22T00:00:00Z"), course },
-        ]),
-    },
-    deck: {
-      findFirst: vi.fn().mockResolvedValue({
-        id: id(8001),
-        title: "Deck",
-        status: "ACTIVE",
-        items: items.map((learningItem, index) => ({ sortOrder: index + 1, learningItem })),
-      }),
-    },
   };
   const repository = new PrismaLessonsRepository({ db } as never);
-  return { repository, db, tables, activity, course };
+  return { repository, db, tables, activity, items };
 }
 
-async function load(h: ReturnType<typeof harness>, source: "course" | "deck") {
-  return source === "course"
-    ? (await h.repository.listCourseLessonItems("owner")).map((row) => row.item)
-    : (await h.repository.findDeckLesson("owner", id(8001)))!.items.map((row) => row.item);
+async function loadInRequestedOrder(h: ReturnType<typeof harness>) {
+  const ids = h.items.map((item) => item.id);
+  const loaded = await h.repository.loadLessonItems("owner", ids);
+  return ids.map((id) => loaded.get(id)!);
 }
 
 describe("selected teaching hydration", () => {
@@ -197,7 +167,7 @@ describe("selected teaching hydration", () => {
   });
 });
 
-describe.each(["course", "deck"] as const)("%s lesson target batching", (source) => {
+describe("lesson target batching", () => {
   it("uses the item's primary taught reading without changing shared dictionary targets or cards", async () => {
     const first = item("KANJI", 1);
     const second = item("KANJI", 2, first.targetId);
@@ -218,7 +188,7 @@ describe.each(["course", "deck"] as const)("%s lesson target batching", (source)
     }
     const h = harness([first, second]);
     const before = structuredClone(h.tables.kanji.rows);
-    const records = await load(h, source);
+    const records = await loadInRequestedOrder(h);
     expect(records.map((row) => row.target.reading)).toEqual(["ひと", "いち"]);
     expect(records.map((row) => row.cards.length)).toEqual([2, 2]);
     expect(h.tables.kanji.findMany).toHaveBeenCalledTimes(1);
@@ -229,14 +199,14 @@ describe.each(["course", "deck"] as const)("%s lesson target batching", (source)
   it("labels the source edition instead of showing legacy level 4 as N4", async () => {
     const h = harness([item("KANJI", 1)]);
     Object.assign(h.tables.kanji.rows[0]!, { jlptLevel: null, legacyJlptLevel: 4 });
-    const records = await load(h, source);
+    const records = await loadInRequestedOrder(h);
     expect(records[0]!.target.jlptLevel).toBe("до 2010: 4");
   });
 
-  it("hydrates 101 words in two bounded calls, without per-item queries or dropping locked source items", async () => {
+  it("hydrates 101 words in two bounded calls, without per-item queries or dropping prerequisite metadata", async () => {
     const items = Array.from({ length: 101 }, (_, index) => item("WORD", index + 1)).reverse();
     const h = harness(items);
-    const records = await load(h, source);
+    const records = await loadInRequestedOrder(h);
     expect(records.map((row) => row.id)).toEqual(items.map((row) => row.id));
     expect(records.map((row) => row.target.japanese)).toEqual(
       items.map((row) => `語-${row.targetId}`),
@@ -248,7 +218,9 @@ describe.each(["course", "deck"] as const)("%s lesson target batching", (source)
     expect(h.tables.word.findMany).toHaveBeenCalledTimes(2);
     const queries = h.tables.word.findMany.mock.calls.map(([query]) => query);
     expect(queries.map((query) => query.where.id.in.length)).toEqual([100, 1]);
-    expect(queries.flatMap((query) => query.where.id.in)).toEqual(items.map((row) => row.targetId));
+    expect(new Set(queries.flatMap((query) => query.where.id.in))).toEqual(
+      new Set(items.map((row) => row.targetId)),
+    );
     expect(h.activity.maximum).toBe(1);
     for (const target of Object.values(h.tables)) expect(target.findUnique).not.toHaveBeenCalled();
     expect(h.tables.component.findMany).not.toHaveBeenCalled();
@@ -261,13 +233,14 @@ describe.each(["course", "deck"] as const)("%s lesson target batching", (source)
       });
   });
 
-  it("deduplicates exact type/ID pairs, not source records or IDs shared across target tables", async () => {
+  it("deduplicates exact type/ID pairs, not IDs shared across target tables", async () => {
     const sameId = id(9001);
     const word = item("WORD", 1, sameId);
     const kanji = item("KANJI", 2, sameId);
-    const h = harness([word, kanji, word]);
-    const records = await load(h, source);
-    expect(records.map((record) => record.id)).toEqual([word.id, kanji.id, word.id]);
+    const secondWord = item("WORD", 3, sameId);
+    const h = harness([word, kanji, secondWord]);
+    const records = await loadInRequestedOrder(h);
+    expect(records.map((record) => record.id)).toEqual([word.id, kanji.id, secondWord.id]);
     expect(records.map((record) => record.target.japanese)).toEqual([
       `語-${sameId}`,
       "一",
@@ -283,7 +256,7 @@ describe.each(["course", "deck"] as const)("%s lesson target batching", (source)
     const items = [item("SENTENCE", 1), item("WORD", 2), item("COMPONENT", 3), item("KANJI", 4)];
     const h = harness(items);
     const before = structuredClone(Object.values(h.tables).map((target) => target.rows));
-    const records = await load(h, source);
+    const records = await loadInRequestedOrder(h);
     expect(records.map((record) => record.id)).toEqual(items.map((item) => item.id));
     expect(records[0]?.target).toEqual({
       japanese: "一です。",
@@ -357,7 +330,7 @@ describe.each(["course", "deck"] as const)("%s lesson target batching", (source)
       const entry = item(type, 1);
       const h = harness([entry]);
       h.tables[type.toLowerCase() as keyof typeof h.tables].rows.splice(0);
-      await expect(load(h, source)).rejects.toThrow(
+      await expect(loadInRequestedOrder(h)).rejects.toThrow(
         `Missing ${type.toLowerCase()} target ${entry.targetId}.`,
       );
       for (const target of Object.values(h.tables))
@@ -367,59 +340,35 @@ describe.each(["course", "deck"] as const)("%s lesson target batching", (source)
 
   it("does not issue target/example queries for an empty source", async () => {
     const h = harness([]);
-    expect(await load(h, source)).toEqual([]);
+    expect(await loadInRequestedOrder(h)).toEqual([]);
     expect(h.db.$queryRaw).not.toHaveBeenCalled();
     for (const target of Object.values(h.tables)) expect(target.findMany).not.toHaveBeenCalled();
   });
 
-  it("keeps ownership filters and existing nested lesson includes", async () => {
+  it("includes ordered lesson answers, prerequisites, attribution and private text", async () => {
     const h = harness([item("WORD", 1)]);
-    await load(h, source);
-    let includes: unknown;
-    if (source === "course") {
-      const query = h.db.userEnrollment.findMany.mock.calls[1]?.[0] as unknown as {
-        include: {
-          course: {
-            include: {
-              levels: { include: { items: { include: { learningItem: { include: object } } } } };
-            };
-          };
-        };
-      };
-      expect(query).toMatchObject({
-        where: {
-          userId: "owner",
-          courseId: h.course.id,
-          status: "ACTIVE",
-          course: { status: "PUBLISHED" },
+    await loadInRequestedOrder(h);
+    expect(h.db.learningItem.findMany.mock.calls[0]?.[0]).toMatchObject({
+      where: { status: "PUBLISHED", id: { in: [h.items[0]!.id] } },
+      include: {
+        cards: {
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+          include: {
+            answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] },
+            blockedAnswers: { orderBy: { text: "asc" } },
+            audioAsset: { include: { dataSource: true, license: true } },
+          },
         },
-      });
-      includes = query.include.course.include.levels.include.items.include.learningItem.include;
-    } else {
-      const query = h.db.deck.findFirst.mock.calls[0]?.[0] as unknown as {
-        include: { items: { include: { learningItem: { include: object } } } };
-      };
-      expect(query).toMatchObject({ where: { id: id(8001), ownerUserId: "owner" } });
-      includes = query.include.items.include.learningItem.include;
-    }
-    expect(includes).toMatchObject({
-      cards: {
-        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-        include: {
-          answers: { orderBy: [{ isPrimary: "desc" }, { text: "asc" }] },
-          blockedAnswers: { orderBy: { text: "asc" } },
-          audioAsset: { include: { dataSource: true, license: true } },
+        dependencies: {
+          where: { dependencyType: "PREREQUISITE" },
+          orderBy: { prerequisiteItemId: "asc" },
         },
-      },
-      dependencies: {
-        where: { dependencyType: "PREREQUISITE" },
-        orderBy: { prerequisiteItemId: "asc" },
-      },
-      mnemonics: { orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }, { version: "desc" }] },
-      hints: { orderBy: [{ locale: "asc" }, { hintType: "asc" }, { version: "desc" }] },
-      userMnemonics: {
-        where: { userId: "owner" },
-        orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }],
+        mnemonics: { orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }, { version: "desc" }] },
+        hints: { orderBy: [{ locale: "asc" }, { hintType: "asc" }, { version: "desc" }] },
+        userMnemonics: {
+          where: { userId: "owner" },
+          orderBy: [{ locale: "asc" }, { mnemonicType: "asc" }],
+        },
       },
     });
   });
