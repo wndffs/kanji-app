@@ -56,3 +56,10 @@ jobs:
 
       - name: Run PostgreSQL concurrency regressions
         run: npm exec -- vitest run apps/api/test/reviews-postgres.integration.test.ts --maxWorkers=1
+
+      - name: Verify the starter editorial release on isolated PostgreSQL
+        env:
+          NODE_ENV: production
+        run: |
+          npm run db:seed
+          npm exec -- vitest run packages/db/test/starter-lesson-editorial.test.ts --maxWorkers=1

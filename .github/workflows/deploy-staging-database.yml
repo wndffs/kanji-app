@@ -12,6 +12,11 @@ on:
         required: true
         default: false
         type: boolean
+      starter_editorial:
+        description: Apply only the reviewed starter lesson texts and reference meanings (no migration or seed)
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -52,7 +57,7 @@ jobs:
           fi
 
       - name: Resolve failed migration
-        if: ${{ inputs.rolled_back_migration != '' }}
+        if: ${{ !inputs.starter_editorial && inputs.rolled_back_migration != '' }}
         working-directory: packages/db
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
@@ -60,14 +65,30 @@ jobs:
         run: npm exec -- prisma migrate resolve --rolled-back "$FAILED_MIGRATION"
 
       - name: Apply Prisma migrations
+        if: ${{ !inputs.starter_editorial }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           NODE_ENV: production
         run: npm run db:migrate:deploy
 
       - name: Seed starter course
-        if: ${{ inputs.seed_starter == true }}
+        if: ${{ !inputs.starter_editorial && inputs.seed_starter }}
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           NODE_ENV: production
         run: npm run db:seed
+
+      - name: Apply reviewed starter texts
+        if: ${{ inputs.starter_editorial }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          NODE_ENV: production
+          SEED_REQUESTED: ${{ inputs.seed_starter }}
+          MIGRATION_RESOLUTION: ${{ inputs.rolled_back_migration }}
+        run: |
+          if [ "$SEED_REQUESTED" = true ] || [ -n "$MIGRATION_RESOLUTION" ]; then
+            echo "Starter editorial cannot be combined with seed or migration resolution."
+            exit 1
+          fi
+          npm exec -- tsx packages/db/prisma/apply-starter-lesson-editorial.ts plan
+          npm exec -- tsx packages/db/prisma/apply-starter-lesson-editorial.ts apply
