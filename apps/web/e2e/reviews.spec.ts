@@ -1488,7 +1488,7 @@ test.describe("review session", () => {
     const kindBounds = (await kind.boundingBox())!;
     const glyphBounds = (await glyph.boundingBox())!;
     expect(kindBounds.y + kindBounds.height).toBeLessThan(glyphBounds.y);
-    await expect(page.getByLabel("Ответ значением")).toBeInViewport();
+    await expect(page.locator(".study-stage").getByLabel("Ответ значением")).toBeInViewport();
     await page.getByLabel("Ответ значением").fill("солнце");
     await page.keyboard.press("Enter");
     const feedback = page.getByRole("region", { name: "Результат ответа" });

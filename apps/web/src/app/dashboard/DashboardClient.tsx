@@ -1265,14 +1265,14 @@ function CourseProgressPanel({
                         <Link href={`${levelHref}&itemType=${row.itemType}`}>{title}</Link>
                       </dt>
                       <dd>
-                        <span>
-                          {passed} / {row.totalItems}
-                        </span>
                         <progress
                           aria-label={`${title}: пройдено ${passed} из ${row.totalItems}`}
                           max={row.totalItems}
                           value={passed}
                         />
+                        <span>
+                          {passed} / {row.totalItems}
+                        </span>
                       </dd>
                     </div>
                   );

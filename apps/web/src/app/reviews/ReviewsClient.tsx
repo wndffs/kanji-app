@@ -1042,27 +1042,130 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
         max={Math.max(1, isCorrecting ? totalCount : scheduledTotal)}
         value={isCorrecting ? currentIndex : progress.answered}
       />
-      <StudyQuestion
-        kind={reviewPromptKind(currentItem)}
-        subject={formatItemType(currentItem.item.itemType)}
-      >
-        {currentItem.card.promptType === "listening" ? (
-          <ListeningPrompt audio={currentItem.card.audio} onEvidenceChange={setListeningEvidence} />
-        ) : (
-          <JapaneseText
-            as="p"
-            className="review-japanese"
-            variant={
-              currentItem.item.itemType === "sentence" ||
-              Array.from(currentItem.card.prompt.japanese).length > 5
-                ? "sentence"
-                : "display"
-            }
-          >
-            {currentItem.card.prompt.japanese}
-          </JapaneseText>
+      <div className="study-stage">
+        <StudyQuestion
+          kind={reviewPromptKind(currentItem)}
+          subject={formatItemType(currentItem.item.itemType)}
+        >
+          {currentItem.card.promptType === "listening" ? (
+            <ListeningPrompt
+              audio={currentItem.card.audio}
+              onEvidenceChange={setListeningEvidence}
+            />
+          ) : (
+            <JapaneseText
+              as="p"
+              className="review-japanese"
+              variant={
+                currentItem.item.itemType === "sentence" ||
+                Array.from(currentItem.card.prompt.japanese).length > 5
+                  ? "sentence"
+                  : "display"
+              }
+            >
+              {currentItem.card.prompt.japanese}
+            </JapaneseText>
+          )}
+        </StudyQuestion>
+
+        {feedback !== null ? null : (
+          <form className="review-answer-bar" onSubmit={(event) => void handleSubmit(event)}>
+            <label htmlFor="review-answer">
+              <span>{formatInputLabel(currentItem.card.answerType)}</span>
+              <StudyAnswerInput
+                mode={answerMode}
+                aria-describedby={formError === null ? undefined : "review-answer-error"}
+                aria-invalid={formError !== null}
+                composingRef={composingAnswer}
+                disabled={answerDisabled}
+                id="review-answer"
+                onValueChange={setAnswer}
+                placeholder={formatInputPlaceholder(answerMode)}
+                ref={answerInputRef}
+                value={answer}
+              />
+            </label>
+            <button
+              aria-label={submitLabel}
+              className="primary-action review-submit"
+              disabled={answerDisabled}
+              title={submitLabel}
+              type="submit"
+            >
+              <span className="review-submit-label">{submitLabel}</span>
+              <SubmitIcon aria-hidden="true" size={20} />
+            </button>
+            {!isCorrecting && unconfirmedAnswer !== "answer" ? (
+              <div className="review-card-actions">
+                {confirmDecision !== null ? (
+                  <>
+                    <button
+                      className="secondary-action"
+                      disabled={isSubmitting}
+                      type="button"
+                      onClick={() => void sendSubmission(confirmDecision)}
+                    >
+                      {confirmDecision === "reveal"
+                        ? "Показать и засчитать ошибку"
+                        : "Пропустить без оценки"}
+                    </button>
+                    <button
+                      className="text-action"
+                      ref={cancelDecisionRef}
+                      type="button"
+                      onClick={() => {
+                        focusSkipAfterCancel.current = !listeningReady;
+                        setConfirmDecision(null);
+                      }}
+                    >
+                      Отмена
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {unconfirmedAnswer === "skip" ? null : (
+                      <button
+                        className="text-action"
+                        disabled={isSubmitting || isReconciling || !listeningReady}
+                        type="button"
+                        onClick={() =>
+                          unconfirmedAnswer === "reveal"
+                            ? void sendSubmission("reveal")
+                            : setConfirmDecision("reveal")
+                        }
+                      >
+                        <Eye size={16} aria-hidden="true" />
+                        {unconfirmedAnswer === "reveal" ? "Повторить показ" : "Не помню"}
+                      </button>
+                    )}
+                    {unconfirmedAnswer === "reveal" ? null : (
+                      <button
+                        className="text-action"
+                        disabled={isSubmitting || isReconciling}
+                        ref={skipButtonRef}
+                        type="button"
+                        onClick={() =>
+                          unconfirmedAnswer === "skip"
+                            ? void sendSubmission("skip")
+                            : setConfirmDecision("skip")
+                        }
+                      >
+                        <SkipForward size={16} aria-hidden="true" />
+                        {unconfirmedAnswer === "skip" ? "Повторить пропуск" : "Пропустить"}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : null}
+            {formError === null ? null : (
+              <p className="form-error" id="review-answer-error" role="alert">
+                {formError}
+              </p>
+            )}
+          </form>
         )}
-      </StudyQuestion>
+      </div>
 
       {feedback === null ? null : (
         <FeedbackPanel
@@ -1079,7 +1182,6 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           timezone={timezone}
         />
       )}
-
       {sessionError === null ? null : (
         <p className="form-error" role="alert">
           {sessionError}
@@ -1100,104 +1202,6 @@ function ReviewsScreen({ timezone }: { readonly timezone: string }) {
           {isReconciling ? "Сверяю…" : "Сверить прогресс"}
         </button>
       ) : null}
-
-      {feedback !== null ? null : (
-        <form className="review-answer-bar" onSubmit={(event) => void handleSubmit(event)}>
-          <label htmlFor="review-answer">
-            <span>{formatInputLabel(currentItem.card.answerType)}</span>
-            <StudyAnswerInput
-              mode={answerMode}
-              aria-describedby={formError === null ? undefined : "review-answer-error"}
-              aria-invalid={formError !== null}
-              composingRef={composingAnswer}
-              disabled={answerDisabled}
-              id="review-answer"
-              onValueChange={setAnswer}
-              placeholder={formatInputPlaceholder(answerMode)}
-              ref={answerInputRef}
-              value={answer}
-            />
-          </label>
-          <button
-            aria-label={submitLabel}
-            className="primary-action review-submit"
-            disabled={answerDisabled}
-            title={submitLabel}
-            type="submit"
-          >
-            <span className="review-submit-label">{submitLabel}</span>
-            <SubmitIcon aria-hidden="true" size={20} />
-          </button>
-          {!isCorrecting && unconfirmedAnswer !== "answer" ? (
-            <div className="review-card-actions">
-              {confirmDecision !== null ? (
-                <>
-                  <button
-                    className="secondary-action"
-                    disabled={isSubmitting}
-                    type="button"
-                    onClick={() => void sendSubmission(confirmDecision)}
-                  >
-                    {confirmDecision === "reveal"
-                      ? "Показать и засчитать ошибку"
-                      : "Пропустить без оценки"}
-                  </button>
-                  <button
-                    className="text-action"
-                    ref={cancelDecisionRef}
-                    type="button"
-                    onClick={() => {
-                      focusSkipAfterCancel.current = !listeningReady;
-                      setConfirmDecision(null);
-                    }}
-                  >
-                    Отмена
-                  </button>
-                </>
-              ) : (
-                <>
-                  {unconfirmedAnswer === "skip" ? null : (
-                    <button
-                      className="text-action"
-                      disabled={isSubmitting || isReconciling || !listeningReady}
-                      type="button"
-                      onClick={() =>
-                        unconfirmedAnswer === "reveal"
-                          ? void sendSubmission("reveal")
-                          : setConfirmDecision("reveal")
-                      }
-                    >
-                      <Eye size={16} aria-hidden="true" />
-                      {unconfirmedAnswer === "reveal" ? "Повторить показ" : "Не помню"}
-                    </button>
-                  )}
-                  {unconfirmedAnswer === "reveal" ? null : (
-                    <button
-                      className="text-action"
-                      disabled={isSubmitting || isReconciling}
-                      ref={skipButtonRef}
-                      type="button"
-                      onClick={() =>
-                        unconfirmedAnswer === "skip"
-                          ? void sendSubmission("skip")
-                          : setConfirmDecision("skip")
-                      }
-                    >
-                      <SkipForward size={16} aria-hidden="true" />
-                      {unconfirmedAnswer === "skip" ? "Повторить пропуск" : "Пропустить"}
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          ) : null}
-          {formError === null ? null : (
-            <p className="form-error" id="review-answer-error" role="alert">
-              {formError}
-            </p>
-          )}
-        </form>
-      )}
     </section>
   );
 }

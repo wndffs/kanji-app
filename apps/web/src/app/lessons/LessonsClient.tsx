@@ -1259,7 +1259,7 @@ function LessonsScreen({
 
   return (
     <section
-      className="lesson-session"
+      className="lesson-session course-study-session"
       aria-label="Сессия урока"
       data-item-type={currentLesson.item.itemType}
     >
@@ -1952,21 +1952,15 @@ function LessonStudyView({
 
               {lesson.unlockedBy.length === 0 ? null : (
                 <SectionDisclosure title="Связи и компоненты" key={`${lesson.item.id}:relations`}>
-                  <section>
-                    <h2>Связи</h2>
-                    {lesson.unlockedBy.length === 0 ? (
-                      <p className="muted">Материал доступен без предварительных компонентов.</p>
-                    ) : (
-                      <ul className="lesson-relation-list">
-                        {lesson.unlockedBy.map((item) => (
-                          <li key={item.id}>
-                            <JapaneseText>{item.japanese}</JapaneseText>
-                            <small>{formatTranslationBundle(item.translations, displayMode)}</small>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </section>
+                  <h2>Связи</h2>
+                  <ul className="lesson-relation-list">
+                    {lesson.unlockedBy.map((item) => (
+                      <li key={item.id}>
+                        <JapaneseText>{item.japanese}</JapaneseText>
+                        <small>{formatTranslationBundle(item.translations, displayMode)}</small>
+                      </li>
+                    ))}
+                  </ul>
                 </SectionDisclosure>
               )}
             </>
@@ -2130,58 +2124,62 @@ function LessonQuizView({
         max={Math.max(1, lesson.cards.length)}
         value={completedCardCount}
       />
-      <StudyQuestion
-        kind={card?.promptType === "listening" ? "listening" : answerType}
-        subject={formatItemType(lesson.item.itemType)}
-        position={`Пройдено ${completedCardCount} из ${lesson.cards.length}`}
-      >
-        {card?.promptType === "listening" ? (
-          <ListeningPrompt audio={card.audio} onEvidenceChange={onListeningEvidenceChange} />
-        ) : (
-          <JapaneseText
-            as="p"
-            className="review-japanese"
-            variant={
-              lesson.item.itemType === "sentence" || Array.from(lesson.item.japanese).length > 5
-                ? "sentence"
-                : "display"
-            }
-          >
-            {lesson.item.japanese}
-          </JapaneseText>
-        )}
-      </StudyQuestion>
-
-      <form className="lesson-quiz-form" onSubmit={onSubmit}>
-        <label htmlFor="lesson-quiz-answer" hidden={feedback !== null}>
-          <span>{answerType === "reading" ? "Ваше чтение" : "Ваше значение"}</span>
-          <StudyAnswerInput
-            mode={answerMode}
-            disabled={isCompleting || feedback !== null || !listeningReady}
-            id="lesson-quiz-answer"
-            onValueChange={onAnswerChange}
-            placeholder={
-              answerMode === "meaning" ? "Значение" : answerMode === "katakana" ? "カナ" : "かな"
-            }
-            ref={inputRef}
-            value={answer}
-          />
-        </label>
-        <button
-          className="primary-action"
-          disabled={isCompleting || !listeningReady || (feedback === null && answer.trim() === "")}
-          ref={actionRef}
-          type="submit"
+      <div className="study-stage">
+        <StudyQuestion
+          kind={card?.promptType === "listening" ? "listening" : answerType}
+          subject={formatItemType(lesson.item.itemType)}
+          position={`Пройдено ${completedCardCount} из ${lesson.cards.length}`}
         >
-          {isCompleting
-            ? "Проверяю..."
-            : feedback === null
-              ? "Проверить"
-              : feedback.diagnostic?.kind === "alternative-reading"
-                ? "Ответить снова"
-                : "Продолжить"}
-        </button>
-      </form>
+          {card?.promptType === "listening" ? (
+            <ListeningPrompt audio={card.audio} onEvidenceChange={onListeningEvidenceChange} />
+          ) : (
+            <JapaneseText
+              as="p"
+              className="review-japanese"
+              variant={
+                lesson.item.itemType === "sentence" || Array.from(lesson.item.japanese).length > 5
+                  ? "sentence"
+                  : "display"
+              }
+            >
+              {lesson.item.japanese}
+            </JapaneseText>
+          )}
+        </StudyQuestion>
+
+        <form className="lesson-quiz-form" onSubmit={onSubmit}>
+          <label htmlFor="lesson-quiz-answer" hidden={feedback !== null}>
+            <span>{answerType === "reading" ? "Ваше чтение" : "Ваше значение"}</span>
+            <StudyAnswerInput
+              mode={answerMode}
+              disabled={isCompleting || feedback !== null || !listeningReady}
+              id="lesson-quiz-answer"
+              onValueChange={onAnswerChange}
+              placeholder={
+                answerMode === "meaning" ? "Значение" : answerMode === "katakana" ? "カナ" : "かな"
+              }
+              ref={inputRef}
+              value={answer}
+            />
+          </label>
+          <button
+            className="primary-action"
+            disabled={
+              isCompleting || !listeningReady || (feedback === null && answer.trim() === "")
+            }
+            ref={actionRef}
+            type="submit"
+          >
+            {isCompleting
+              ? "Проверяю..."
+              : feedback === null
+                ? "Проверить"
+                : feedback.diagnostic?.kind === "alternative-reading"
+                  ? "Ответить снова"
+                  : "Продолжить"}
+          </button>
+        </form>
+      </div>
 
       {feedback === null ? null : (
         <section

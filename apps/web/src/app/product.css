@@ -446,15 +446,22 @@ textarea::placeholder {
 }
 .level-subject-totals {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 112px), 1fr));
-  gap: 16px;
+  gap: 0;
   margin: 0;
+}
+.level-subject-totals > div {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.45fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px 16px;
+  border-top: 1px solid var(--surface-border);
 }
 .level-subject-totals dt a {
   display: flex;
   align-items: center;
   min-height: 44px;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 650;
   color: var(--subject-ink, var(--muted));
 }
 .level-subject-totals dt a:hover {
@@ -462,16 +469,18 @@ textarea::placeholder {
 }
 .level-subject-totals dd {
   display: grid;
-  gap: 5px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
   margin: 0;
-  font-size: 17px;
+  font-size: 13px;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
 .level-subject-totals progress {
   display: block;
   width: 100%;
-  height: 5px;
+  height: 7px;
   appearance: none;
   overflow: hidden;
   border: 0;
@@ -848,6 +857,10 @@ textarea::placeholder {
 .lesson-session {
   gap: 20px;
 }
+.course-study-session {
+  width: min(100%, 760px);
+  margin-inline: auto;
+}
 .lesson-session-header {
   padding-bottom: 8px;
   align-items: center;
@@ -902,30 +915,49 @@ textarea::placeholder {
 }
 .lesson-teaching-layout {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr);
-  align-items: start;
-  gap: 40px;
-  padding-block: 24px;
-  min-height: 340px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
 }
 .lesson-teaching-layout > .lesson-teaching-hero {
   display: block;
   background: var(--subject-soft, var(--surface));
   border: 0;
-  border-inline-start: 3px solid var(--subject-ink, var(--primary));
-  border-radius: 4px;
-  padding: 18px 20px;
-  min-height: 228px;
+  border-block-start: 3px solid var(--subject-ink, var(--primary));
+  border-radius: 6px;
+  padding: 16px 24px;
+  min-height: 0;
+}
+.lesson-teaching-hero[data-subject-layout="glyph"] .lesson-hero-main {
+  grid-template-columns: minmax(104px, 0.4fr) minmax(0, 1fr);
+  grid-template-rows: repeat(4, auto);
+  justify-items: start;
+  align-items: center;
+  gap: 4px 24px;
+  text-align: start;
+}
+.lesson-teaching-hero[data-subject-layout="glyph"] .lesson-hero-main > .review-japanese {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  justify-self: center;
+  margin: 0;
+}
+.lesson-teaching-hero[data-subject-layout="glyph"] .lesson-hero-main > :not(.review-japanese) {
+  grid-column: 2;
+  margin: 0;
 }
 .lesson-item-meta {
   color: var(--subject-ink, var(--muted));
   font-size: 12px;
+  gap: 4px 12px;
+  justify-content: start;
 }
 .lesson-teaching-hero .review-japanese {
   color: var(--subject-ink, var(--foreground));
-  margin-block: 8px;
-  line-height: 1.45;
-  font-size: calc(var(--study-display-size) + 24px);
+  margin-block: 4px;
+  line-height: 1.35;
+}
+.lesson-teaching-hero .japanese-text-display.review-japanese {
+  font-size: calc(var(--study-display-size) + 12px);
 }
 .lesson-teaching-hero .japanese-text-sentence {
   font-size: var(--study-sentence-size);
@@ -934,6 +966,7 @@ textarea::placeholder {
   gap: 6px;
   text-align: center;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 .lesson-hero-main > .lesson-primary-meaning {
   color: var(--foreground);
@@ -980,44 +1013,17 @@ textarea::placeholder {
 }
 @media (max-width: 700px) {
   .lesson-teaching-layout {
-    grid-template-columns: minmax(0, 1fr);
     gap: 20px;
-    min-height: 0;
-    padding-block: 8px;
   }
   .lesson-teaching-layout > .lesson-teaching-hero {
-    min-height: 0;
     padding: 12px;
   }
   .lesson-teaching-hero[data-subject-layout="glyph"] .lesson-hero-main {
-    display: grid;
-    grid-template-columns: 104px minmax(0, 1fr);
-    grid-template-rows: auto auto auto auto;
-    gap: 4px 16px;
-    align-items: center;
-    text-align: left;
-  }
-  .lesson-teaching-hero[data-subject-layout="glyph"] .lesson-hero-main > .review-japanese {
-    grid-column: 1;
-    grid-row: 1 / 5;
-    font-size: calc(var(--study-display-size) + 12px);
-    text-align: center;
-    margin: 0;
-  }
-  .lesson-teaching-hero[data-subject-layout="glyph"] .lesson-hero-main > :not(.review-japanese) {
-    grid-column: 2;
-    margin: 0;
-  }
-  .lesson-teaching-hero[data-subject-layout="text"] .lesson-hero-main {
-    justify-items: center;
-    text-align: center;
+    gap: 4px 12px;
   }
   .lesson-teaching-hero[data-subject-layout="text"] .review-japanese {
     width: 100%;
     margin-block: 0;
-  }
-  .lesson-teaching-layout .lesson-item-meta {
-    flex-wrap: wrap;
   }
   .lesson-teaching-layout .lesson-study-grid {
     gap: 16px;
@@ -1029,15 +1035,19 @@ textarea::placeholder {
   margin-inline: auto;
   gap: 20px;
 }
+.study-stage {
+  min-width: 0;
+  border: 1px solid
+    color-mix(in srgb, var(--subject-ink, var(--primary)) 22%, var(--surface-border));
+  border-block-start: 3px solid var(--subject-ink, var(--primary));
+  border-radius: 6px;
+  background: var(--surface);
+}
 .study-question {
   min-width: 0;
   display: grid;
-  align-content: start;
-  overflow: hidden;
   background: var(--subject-soft, var(--surface));
-  border: 1px solid
-    color-mix(in srgb, var(--subject-ink, var(--primary)) 22%, var(--surface-border));
-  border-radius: 6px;
+  border-radius: 3px 3px 0 0;
 }
 .study-question-meta {
   display: flex;
@@ -1046,7 +1056,6 @@ textarea::placeholder {
   justify-content: space-between;
   gap: 6px 14px;
   padding: 10px 18px;
-  background: color-mix(in srgb, var(--subject-ink, var(--primary)) 8%, transparent);
   color: var(--subject-ink, var(--foreground));
 }
 .study-question-meta h2 {
@@ -1064,9 +1073,13 @@ textarea::placeholder {
 }
 .study-question .study-question-content {
   place-content: center stretch;
-  min-height: 148px;
+  min-height: 174px;
   min-width: 0;
   padding: 14px 18px;
+  overflow-wrap: anywhere;
+}
+.study-question .study-question-content .review-japanese {
+  line-height: 1.25;
 }
 .study-question-position {
   margin: 0;
@@ -1079,13 +1092,28 @@ textarea::placeholder {
     padding-inline: 12px;
   }
   .study-question .study-question-content {
-    min-height: 126px;
+    min-height: 120px;
     padding-inline: 12px;
   }
 }
-.lesson-quiz-form {
-  padding-block: 0;
-  gap: 12px;
+.study-stage > :is(.review-answer-bar, .lesson-quiz-form) {
+  padding: 12px 18px;
+  background: var(--surface);
+  border-block-start: 1px solid var(--surface-border);
+}
+@media (max-width: 600px) {
+  .study-stage > :is(.review-answer-bar, .lesson-quiz-form) {
+    padding: 8px 12px;
+  }
+}
+@media (max-height: 600px) {
+  .study-stage .study-question .study-question-content {
+    min-height: 96px;
+    padding-block: 8px;
+  }
+}
+:root[data-study-information-density="compact"] .study-question .study-question-content {
+  min-height: 100px;
 }
 .lesson-quiz-form input {
   font-size: 20px;
@@ -1270,10 +1298,6 @@ textarea::placeholder {
 .review-card-meta > span:last-child {
   color: var(--subject-ink, var(--foreground));
   font-weight: 650;
-}
-.review-session > .review-answer-bar {
-  width: 100%;
-  margin-inline: auto;
 }
 .review-card-meta > span {
   background: transparent;
@@ -3206,21 +3230,15 @@ textarea::placeholder {
 :root[data-interface-density="compact"] .auth-layout .form-panel {
   padding: 22px;
 }
-:root[data-study-information-density="compact"] .lesson-teaching-hero,
 :root[data-study-information-density="compact"] .review-card {
   padding: 16px;
   min-height: 200px;
 }
 :root[data-study-information-density="compact"] .lesson-teaching-layout {
-  gap: 24px;
-  min-height: 0;
-  padding-block: 8px;
+  gap: 16px;
 }
-@media (max-width: 700px) {
-  :root[data-study-information-density="compact"] .lesson-teaching-layout > .lesson-teaching-hero {
-    padding: 0;
-    min-height: 0;
-  }
+:root[data-study-information-density="compact"] .lesson-teaching-layout > .lesson-teaching-hero {
+  padding-block: 8px;
 }
 .course-level-progress .text-action {
   min-height: 32px;
@@ -3309,10 +3327,6 @@ textarea::placeholder {
   .lesson-session-tools .secondary-action {
     font-size: 12px;
     padding: 8px 10px;
-  }
-  .lesson-teaching-hero {
-    padding: 20px 16px;
-    min-height: 190px;
   }
   .lesson-hero-main > p:not(.review-japanese) {
     font-size: 17px;

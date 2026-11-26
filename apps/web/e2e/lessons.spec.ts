@@ -849,6 +849,7 @@ test.describe("lesson session", () => {
     await expect(question.locator(".review-japanese")).toHaveText("一");
     await expect(question.getByText("Пройдено 0 из 2", { exact: true })).toBeVisible();
     const reading = page.getByLabel("Ваше чтение");
+    await expect(page.locator(".study-stage").getByLabel("Ваше чтение")).toBeVisible();
     await reading.pressSequentially("ichi");
     await expect(reading).toHaveValue("いち");
     const submission = page.waitForRequest((request) => request.url().endsWith("/check-answer"));
@@ -951,6 +952,11 @@ test.describe("lesson session", () => {
     await expect(prompt).toHaveText(japanese);
     await expect(subject).toHaveAttribute("data-subject-layout", "text");
     expect((await prompt.boundingBox())!.width).toBeGreaterThan(220);
+    const material = page.getByRole("tabpanel");
+    const subjectBounds = (await subject.boundingBox())!;
+    expect((await material.boundingBox())!.y).toBeGreaterThanOrEqual(
+      subjectBounds.y + subjectBounds.height,
+    );
     await page.getByRole("button", { name: "Далее: Чтение" }).click();
     await expect(prompt.locator("rt")).toHaveText(reading);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
