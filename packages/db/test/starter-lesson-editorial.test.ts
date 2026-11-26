@@ -16,6 +16,7 @@ import { FOUNDATION_BASICS_EDITORIAL } from "../src/foundation-basics-editorial"
 import { FOUNDATION_COMPONENTS_EDITORIAL } from "../src/foundation-components-editorial";
 import { FOUNDATION_COMPLETION_EDITORIAL } from "../src/foundation-level-two-editorial";
 import { FOUNDATION_LEVEL_THREE_EDITORIAL } from "../src/foundation-level-three-editorial";
+import { FOUNDATION_LEVEL_FOUR_EDITORIAL } from "../src/foundation-level-four-editorial";
 
 it("covers the exact starter syllabus with substantive RU/EN hints and kanji-only additions", () => {
   const starter = buildStarterCourseSeed();
@@ -180,34 +181,50 @@ it("completes the registered level-one components and level-two kanji without re
   );
 });
 
-it("covers every remaining level-three kanji with its taught reading and both languages", () => {
-  const { entries, version } = FOUNDATION_LEVEL_THREE_EDITORIAL;
-  const slots = registeredMainEditorialSlots(entries);
-  expect(slots.size).toBe(34);
-  const alreadyEdited = new Set([1, 2, 3, 4, 5, 13]);
-  const expected = Array.from({ length: 40 }, (_, index) => index + 1).filter(
-    (position) => !alreadyEdited.has(position),
-  );
-  expect(entries.map(({ itemKey }) => slots.get(itemKey)?.sortOrder)).toEqual(expected);
-  for (const entry of entries) {
-    expect(entry.kind).toBe("KANJI");
-    expect(slots.get(entry.itemKey)?.levelNumber).toBe(3);
-    expect(Object.keys(entry.hints).sort()).toEqual(["MEANING", "READING"]);
-    for (const pair of Object.values(entry.hints)) {
-      expect(pair.ru.trim().length).toBeGreaterThan(85);
-      expect(pair.en.trim().length).toBeGreaterThan(85);
+it.each([
+  {
+    batch: "foundation-level-three",
+    release: FOUNDATION_LEVEL_THREE_EDITORIAL,
+    length: 40,
+    level: 3,
+    alreadyEdited: [1, 2, 3, 4, 5, 13],
+  },
+  {
+    batch: "foundation-level-four",
+    release: FOUNDATION_LEVEL_FOUR_EDITORIAL,
+    length: 41,
+    level: 4,
+    alreadyEdited: [1, 2, 3, 4, 5, 6, 13],
+  },
+])(
+  "covers the remaining level-$level kanji",
+  ({ batch, release, length, level, alreadyEdited }) => {
+    const { entries, version } = release;
+    const slots = registeredMainEditorialSlots(entries);
+    const expected = Array.from({ length }, (_, index) => index + 1).filter(
+      (position) => !alreadyEdited.includes(position),
+    );
+    expect(slots.size).toBe(expected.length);
+    expect(entries.map(({ itemKey }) => slots.get(itemKey)?.sortOrder)).toEqual(expected);
+    for (const entry of entries) {
+      expect(entry.kind).toBe("KANJI");
+      expect(slots.get(entry.itemKey)?.levelNumber).toBe(level);
+      expect(Object.keys(entry.hints).sort()).toEqual(["MEANING", "READING"]);
+      for (const pair of Object.values(entry.hints)) {
+        expect(pair.ru.trim().length).toBeGreaterThan(85);
+        expect(pair.en.trim().length).toBeGreaterThan(85);
+      }
     }
-  }
-  expect(resolveEditorialBatch(`publish-lesson-editorial-${version}`)).toBe(
-    "foundation-level-three",
-  );
-});
+    expect(resolveEditorialBatch(`publish-lesson-editorial-${version}`)).toBe(batch);
+  },
+);
 
 it("keeps Russian and English on their own sides of each new editorial pair", () => {
   const releases = [
     FOUNDATION_COMPONENTS_EDITORIAL,
     FOUNDATION_COMPLETION_EDITORIAL,
     FOUNDATION_LEVEL_THREE_EDITORIAL,
+    FOUNDATION_LEVEL_FOUR_EDITORIAL,
   ];
   for (const { entries } of releases) {
     for (const entry of entries) {

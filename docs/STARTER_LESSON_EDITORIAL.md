@@ -102,3 +102,17 @@ readings and the examples were reviewed against the local pinned KANJIDIC2
 and JMdict data. Extra senses such as 金 “money” or 両 as a counter for
 railcars are references, not global accepted answers. 一 already has the
 bilingual starter explanation on its shared learning item.
+
+## Continuing through levels 3 and 4
+
+The follow-up at level 3 covers all 34 previously unedited kanji; six
+kanji already have bilingual editorial notes from the starter and first
+foundation releases. It adds 68 original bilingual notes and nine
+bilingual reference pairs. The [publication receipt](https://github.com/wndffs/kanji-app/actions/runs/45885727338)
+contains aggregate counts only.
+
+The next level-4 block covers 34 kanji, leaving the notes on the seven
+already edited materials intact. It keeps the exact curriculum readings,
+including 夕・せき and 糸・し, with attested examples and more common
+standalone readings clearly separated. None of these releases changes any
+teaching answer, course placement or SRS state.
