@@ -24,6 +24,7 @@ import { FOUNDATION_LEVEL_EIGHT_EDITORIAL } from "../src/foundation-level-eight-
 import { FOUNDATION_LEVEL_NINE_EDITORIAL } from "../src/foundation-level-nine-editorial";
 import { FOUNDATION_LEVEL_TEN_EDITORIAL } from "../src/foundation-level-ten-editorial";
 import { FOUNDATION_LEVEL_ELEVEN_EDITORIAL } from "../src/foundation-level-eleven-editorial";
+import { FOUNDATION_LEVEL_TWELVE_EDITORIAL } from "../src/foundation-level-twelve-editorial";
 
 it("covers the exact starter syllabus with substantive RU/EN hints and kanji-only additions", () => {
   const starter = buildStarterCourseSeed();
@@ -261,6 +262,14 @@ it.each([
     level: 11,
     skipped: [4],
   },
+  {
+    batch: "foundation-level-twelve",
+    release: FOUNDATION_LEVEL_TWELVE_EDITORIAL,
+    start: 24,
+    length: 49,
+    level: 12,
+    skipped: Array.from({ length: 9 }, (_, index) => 60 + index),
+  },
 ])(
   "covers the remaining level-$level kanji",
   ({ batch, release, length, start, level, skipped }) => {
@@ -298,6 +307,7 @@ it("keeps Russian and English on their own sides of each new editorial pair", ()
     FOUNDATION_LEVEL_NINE_EDITORIAL,
     FOUNDATION_LEVEL_TEN_EDITORIAL,
     FOUNDATION_LEVEL_ELEVEN_EDITORIAL,
+    FOUNDATION_LEVEL_TWELVE_EDITORIAL,
   ];
   for (const { entries } of releases) {
     for (const entry of entries) {

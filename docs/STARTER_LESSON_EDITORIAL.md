@@ -158,6 +158,9 @@ records 40 matches, 160 language-specific hints and eight reference rows.
 
 ## Levels 11 and 12
 
-The level-11 release covers 40 kanji, including the overlap and difference
+The [level-11 release](https://github.com/wndffs/kanji-app/actions/runs/45893923297)
+covers 40 kanji, including the overlap and difference
 between かく and えがく in 描く, and the distinction between the reading of
 同伴 and that of 伴奏. Contextual senses are not added to grading.
+The level-12 release adds the same bilingual coverage to its 40 kanji,
+including concrete reading examples for 甘, 詰, 津 and 甲.
