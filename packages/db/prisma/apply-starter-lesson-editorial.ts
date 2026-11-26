@@ -5,6 +5,7 @@ import {
   applyFoundationBasicsEditorial,
   applyFoundationCompletionEditorial,
   applyFoundationLevelEightEditorial,
+  applyFoundationLevelElevenEditorial,
   applyFoundationComponentsEditorial,
   applyFoundationKanjiEditorial,
   applyFoundationLevelFiveEditorial,
@@ -41,6 +42,7 @@ const run = {
   "foundation-level-eight": applyFoundationLevelEightEditorial,
   "foundation-level-nine": applyFoundationLevelNineEditorial,
   "foundation-level-ten": applyFoundationLevelTenEditorial,
+  "foundation-level-eleven": applyFoundationLevelElevenEditorial,
 }[batch];
 for (let attempt = 1; ; attempt++) {
   const prisma = new PrismaClient();

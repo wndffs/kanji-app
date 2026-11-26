@@ -153,3 +153,11 @@ keeps 何 in 幾何学 apart from the kana particle in 何か.
 The level-10 release continues the same editorial scope for all 40
 kanji. Contextual senses, such as forgiveness in 許す and an idea
 coming to mind in 浮かぶ, remain reference-only.
+The [level-10 publication receipt](https://github.com/wndffs/kanji-app/actions/runs/45892778880)
+records 40 matches, 160 language-specific hints and eight reference rows.
+
+## Levels 11 and 12
+
+The level-11 release covers 40 kanji, including the overlap and difference
+between かく and えがく in 描く, and the distinction between the reading of
+同伴 and that of 伴奏. Contextual senses are not added to grading.

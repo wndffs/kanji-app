@@ -7,6 +7,7 @@ import { FOUNDATION_BASICS_EDITORIAL } from "./foundation-basics-editorial";
 import { FOUNDATION_COMPONENTS_EDITORIAL } from "./foundation-components-editorial";
 import { FOUNDATION_KANJI_EDITORIAL } from "./foundation-kanji-editorial";
 import { FOUNDATION_LEVEL_EIGHT_EDITORIAL } from "./foundation-level-eight-editorial";
+import { FOUNDATION_LEVEL_ELEVEN_EDITORIAL } from "./foundation-level-eleven-editorial";
 import { FOUNDATION_LEVEL_FIVE_EDITORIAL } from "./foundation-level-five-editorial";
 import { FOUNDATION_LEVEL_FOUR_EDITORIAL } from "./foundation-level-four-editorial";
 import { FOUNDATION_LEVEL_NINE_EDITORIAL } from "./foundation-level-nine-editorial";
@@ -67,6 +68,7 @@ const batchVersions = {
   "foundation-level-eight": FOUNDATION_LEVEL_EIGHT_EDITORIAL.version,
   "foundation-level-nine": FOUNDATION_LEVEL_NINE_EDITORIAL.version,
   "foundation-level-ten": FOUNDATION_LEVEL_TEN_EDITORIAL.version,
+  "foundation-level-eleven": FOUNDATION_LEVEL_ELEVEN_EDITORIAL.version,
 } as const;
 
 export type EditorialBatch = keyof typeof batchVersions;
@@ -301,6 +303,15 @@ export function applyFoundationLevelTenEditorial(prisma: PrismaClient, mode: "pl
     mode,
     FOUNDATION_LEVEL_TEN_EDITORIAL,
     "packages/db/src/foundation-level-ten-editorial.ts",
+  );
+}
+
+export function applyFoundationLevelElevenEditorial(prisma: PrismaClient, mode: "plan" | "apply") {
+  return applyRegisteredMainEditorial(
+    prisma,
+    mode,
+    FOUNDATION_LEVEL_ELEVEN_EDITORIAL,
+    "packages/db/src/foundation-level-eleven-editorial.ts",
   );
 }
 
